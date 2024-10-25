@@ -16,6 +16,7 @@ namespace Core.Window;
 
 internal static class UwpTools
 {
+    private static HashSet<string> errorUWPs = new();
     private static readonly ILog Log = LogManager.GetLogger(nameof(UwpTools));
 
     private static XmlNode? GetApplicationNode(XmlNode node)
@@ -46,7 +47,13 @@ internal static class UwpTools
             MaxDegreeOfParallelism = 5
         };
         Parallel.ForEach(ppinternalAppCs.ToIEnum<FirewallApi.INET_FIREWALL_APP_CONTAINER>(
-            (int)pdwNuminternalAppCs), options, file => { AppContainerAnalyse(file, items); });
+            (int)pdwNuminternalAppCs), options, file =>
+        {
+            if (!errorUWPs.Contains(file.displayName))
+            {
+                AppContainerAnalyse(file, items);
+            }
+        });
         
     }
 
@@ -75,6 +82,7 @@ internal static class UwpTools
         catch (Exception e)
         {
             Log.Error($"错误的UWP应用{appContainer.displayName}:{e.Message}");
+            errorUWPs.Add(appContainer.displayName);
         }
 
         if (string.IsNullOrWhiteSpace(fileName))
