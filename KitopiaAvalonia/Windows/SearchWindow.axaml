@@ -49,34 +49,33 @@
             <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.65" />
         </Panel.Background>
 
-        <StackPanel Margin="10" MinHeight="150" VerticalAlignment="Stretch">
+        <DockPanel Margin="10" VerticalAlignment="Stretch" >
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,5">
+                <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" IsTabStop="False"
+                         Watermark="搜索..." AcceptsReturn="False" KeyDown="tx_KeyDown"
+                         Name="tx"
+                         AcceptsTab="False" FontSize="32"
+                         Text="{Binding Search}">
 
-            <StackPanel.Resources>
-                <converter:ReverseBool x:Key="ReverseBool" />
-            </StackPanel.Resources>
-            <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" IsTabStop="False"
-                     Watermark="搜索..." AcceptsReturn="False" KeyDown="tx_KeyDown"
-                     Name="tx"
-                     AcceptsTab="False" FontSize="32"
-                     Text="{Binding Search}">
-
-                <TextBox.InnerLeftContent>
-                    <controls1:FontIcon Margin="10,0,0,0" HorizontalAlignment="Center"
-                                        FontFamily="{StaticResource FluentFont}"
-                                        Glyph="&#xf691;" />
-                </TextBox.InnerLeftContent>
-            </TextBox>
+                    <TextBox.InnerLeftContent>
+                        <controls1:FontIcon Margin="10,0,0,0" HorizontalAlignment="Center"
+                                            FontFamily="{StaticResource FluentFont}"
+                                            Glyph="&#xf691;" />
+                    </TextBox.InnerLeftContent>
+                </TextBox>
 
 
-            <u:Banner Focusable="False" Type="Warning" Content="Everything服务未运行,无法搜索文档,请检查"
+                <u:Banner Focusable="False" Type="Warning" Content="Everything服务未运行,无法搜索文档,请检查"
 
-                      IsVisible="{Binding !EverythingIsOk}"
-                      CanClose="True" />
-            <ListBox Name="dataGrid" MaxHeight="427" VerticalAlignment="Stretch"
+                          IsVisible="{Binding !EverythingIsOk}"
+                          CanClose="True" />
+            </StackPanel>
+            
+
+            <ListBox Name="dataGrid"
                      ItemsSource="{Binding Items,Mode=OneWay }"
                      KeyDown="DataGrid_OnKeyDown"
                      PointerMoved="DataGrid_OnPointerMoved"
-
                      Margin="0,0,0,0">
                 <ListBox.Resources>
                     <SolidColorBrush x:Key="Brush" Color="LightGray" Opacity="0.15" />
@@ -102,13 +101,6 @@
                                         BorderBrush="{DynamicResource SemiColorBorder}"
                                         BorderThickness="1"
                                         Background="{DynamicResource SemiColorFill0}">
-                                    <Button.Styles>
-                                        <Style
-                                            Selector="Button#Item:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                            <Setter Property="Background" Value="{StaticResource Brush}" />
-
-                                        </Style>
-                                    </Button.Styles>
                                     <Button.ContextFlyout>
                                         <MenuFlyout>
                                             <!-- ReSharper disable once Xaml.RedundantResource -->
@@ -176,36 +168,39 @@
                                         </StackPanel>
                                         <StackPanel Grid.Column="3" Orientation="Horizontal" Focusable="False"
                                                     HorizontalAlignment="Right">
-                                            <Button KeyboardNavigation.TabNavigation="None" FontSize="26"
+                                            <Button KeyboardNavigation.TabNavigation="None"
+                                                    Theme="{DynamicResource OutlineButton}"
                                                     ToolTip.Tip="以管理员身份运行" Background="{x:Null}"
                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='RunAsAdmin'}"
                                                     Command="{Binding $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
                                                     CommandParameter="{Binding  }">
                                                 <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
-                                                                    FontWeight="Normal"
+                                                                    FontWeight="Normal" FontSize="26"
                                                                     Glyph="&#xF0B2;" />
-
-
                                             </Button>
-                                            <Button KeyboardNavigation.TabNavigation="None" FontSize="26"
+                                            <Button KeyboardNavigation.TabNavigation="None"
+                                                    Theme="{DynamicResource OutlineButton}"
                                                     ToolTip.Tip="打开文件所在文件夹" Background="{x:Null}"
                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Folder'}"
                                                     Command="{Binding $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).OpenFolderCommand}"
                                                     CommandParameter="{Binding}">
                                                 <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
-                                                                    FontWeight="Normal"
+                                                                    FontWeight="Normal" FontSize="26"
                                                                     Glyph="&#xF419;" />
                                             </Button>
-                                            <Button KeyboardNavigation.TabNavigation="None" FontSize="26"
+                                            <Button KeyboardNavigation.TabNavigation="None"
+                                                    Theme="{DynamicResource OutlineButton}"
                                                     ToolTip.Tip="在终端中打开文件夹/文件所在文件夹" Background="{x:Null}"
                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Console'}"
                                                     Command="{Binding $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
                                                     CommandParameter="{Binding}">
                                                 <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                                    FontSize="26"
                                                                     FontWeight="Normal"
                                                                     Glyph="&#xEE6F;" />
                                             </Button>
-                                            <Button KeyboardNavigation.TabNavigation="None" FontSize="26"
+                                            <Button KeyboardNavigation.TabNavigation="None"
+                                                    Theme="{DynamicResource OutlineButton}"
                                                     ToolTip.Tip="{Binding IsStared,Converter={StaticResource StarBoolToText},ConverterParameter='Star'}"
                                                     Background="{x:Null}"
                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Star'}"
@@ -214,7 +209,7 @@
                                                 <Button.Resources>
                                                     <searchWindow:StarIconCtr x:Key="StarIconCtr" />
                                                 </Button.Resources>
-                                                <controls1:FontIcon x:Name="Source" FontWeight="Normal"
+                                                <controls1:FontIcon x:Name="Source" FontWeight="Normal" FontSize="26"
                                                                     FontFamily="{Binding IsStared,Converter={StaticResource StarIconCtr},ConverterParameter='FM'}"
                                                                     Glyph="{Binding IsStared,Converter={StaticResource StarIconCtr},ConverterParameter='F'}" />
 
@@ -231,6 +226,8 @@
 
                 </ListBox.Styles>
             </ListBox>
-        </StackPanel>
+
+
+        </DockPanel>
     </Panel>
 </Window>

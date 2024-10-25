@@ -4,8 +4,8 @@
 
         xmlns:searchWindow="clr-namespace:Kitopia.Converter.SearchWindow"
         xmlns:converter="clr-namespace:Kitopia.Converter"
-        x:DataType="pluginCore:SearchViewItem"
         xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore">
+  
     <Design.PreviewWith>
         <controls:SearchItemShow />
     </Design.PreviewWith>
