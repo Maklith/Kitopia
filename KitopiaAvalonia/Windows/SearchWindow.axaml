@@ -154,7 +154,7 @@
                                                     HorizontalAlignment="Stretch">
                                             <TextBlock VerticalAlignment="Center" Margin="0" Focusable="False"
                                                        FontFamily="HarmonyOS Sans"
-                                                       Inlines="{Binding Path=., 
+                                                       Inlines="{Binding Path=PinyinItem, 
                                                                     Converter={StaticResource ItemNameMatchCtr},
                                                                     ConverterParameter={ReflectionBinding #Item}}"
                                                        Background="{x:Null}"

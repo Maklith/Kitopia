@@ -20,10 +20,10 @@ public class ItemNameMatchCtr : IValueConverter
             return new InlineCollection();
         }
 
-        InlineCollection list = new();
-        if (str.PinyinItem == null || str.PinyinItem.CharMatchResults == null || str.PinyinItem.SplitWords == null ||
-            str.PinyinItem.CharMatchResults.Length - str.PinyinItem.ZhongWenCount != str.PinyinItem.SplitWords.Length ||
-            str.PinyinItem.CharMatchResults.Length == 0)
+        InlineCollection list = new(); if (str.PinyinItem == null || str.PinyinItem.CharMatchResults == null || str.PinyinItem.SplitWords == null ||
+                                           str.PinyinItem.CharMatchResults.Length == 0||
+                                           str.PinyinItem.CharMatchResults.Length /2 != str.PinyinItem.SplitWords.Length 
+                                          )
         {
             list.Add(new Run(str.ItemDisplayName));
             return list;
@@ -33,7 +33,7 @@ public class ItemNameMatchCtr : IValueConverter
         for (int i = 0; i < str.PinyinItem.SplitWords.Length; i++)
         {
             var inline = new Run(str.PinyinItem.SplitWords[i]);
-            if (str.PinyinItem.CharMatchResults[i + str.PinyinItem.ZhongWenCount])
+            if (str.PinyinItem.CharMatchResults[i + str.PinyinItem.SplitWords.Length])
             {
                 inline.Foreground = Brushes.OrangeRed;
             }

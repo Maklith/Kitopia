@@ -513,6 +513,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     }
 
                     Items.Add(searchViewItem); // 添加元素
+                    searchViewItem.Notify();
                     count++; // 计数器加一
                 }
             }

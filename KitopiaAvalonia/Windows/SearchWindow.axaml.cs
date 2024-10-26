@@ -25,6 +25,9 @@ public partial class SearchWindow : Window
         InitializeComponent();
         WeakReferenceMessenger.Default.Register<string, string>(this, "SearchWindowClose",
             (_, _) => { Dispatcher.UIThread.InvokeAsync(() => { IsVisible = false; }); });
+        #if DEBUG
+        this.Topmost = false;
+        #endif
     }
 
     public override void Show()
