@@ -7,6 +7,7 @@ using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Windows.Graphics.Capture;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
