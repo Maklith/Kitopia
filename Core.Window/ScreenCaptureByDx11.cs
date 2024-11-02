@@ -218,6 +218,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                         IDXGIResource* desktopResource = null;
                         ID3D11Texture2D* stagingTexture = null;
                         ComPtr<IDXGIOutput5> output5 = null;
+                        ComPtr<IDXGIOutput6> output6 = null;
                         ComPtr<ID3D11Resource> desktopTexture = null;
                         ComPtr<ID3D11Resource> stagingResource = null;
                         try
@@ -230,6 +231,16 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             if (output->QueryInterface<IDXGIOutput5>(out output5) != 0)
                             {
                                 throw new Exception("Failed to get IDXGIOutput5");
+                            }
+                            if (output->QueryInterface<IDXGIOutput6>(out output6) != 0)
+                            {
+                                throw new Exception("Failed to get IDXGIOutput6");
+                            }
+
+                            OutputDesc1 outputDesc=new OutputDesc1() ;
+                            if (output6.GetDesc1(ref outputDesc)!=0)
+                            {
+                                throw new Exception("Failed to get Desc1");
                             }
                             uint whiteSDRLevel = 0;
                             var firstOrDefault = whiteSdrLevel.FirstOrDefault(e=>e?.Item1==i-1);
@@ -307,14 +318,20 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             immediateContext->Unmap(stagingResource, 0);
                             outputDuplication->ReleaseFrame();
                             
-                           
-                            
-                            
                             
                             //R10G10B10A2
                             //Rgba8888
                             Span<byte> re = new byte[span.Length*4];
                             int index = 0;
+                            float[,] matrix = {
+                                { 1.660491f, -0.587641f, -0.072850f },
+                                { -0.124550f, 1.132900f, -0.008349f },
+                                { -0.018151f, -0.100579f, 1.118730f }, 
+                            };
+                            float Linear(float value) {
+                                return value <= 0.04045f ? value / 12.92f : (float)Math.Pow((value + 0.055f) / 1.055f, 2.4f);
+                            }
+
                             foreach (var value in span)
                             {
                                 if (whiteSDRLevel==0)
@@ -326,13 +343,22 @@ public class ScreenCaptureByDx11 : IScreenCapture
                                 }
                                 else
                                 {
-                                    int r = (int)((value >> 0) & 0x3FF);      // 获取前10位
-                                    var d = 1000.0;
-                                    re[index*4] = (byte)Math.Round(r* (d / whiteSDRLevel));
-                                    int g = (int)((value >> 10) & 0x3FF);     // 获取接下来的10位
-                                    re[index*4+1] = (byte)Math.Round(g* (d / whiteSDRLevel));
-                                    int b = (int)((value >> 20) & 0x3FF);     // 获取再接下来的10位
-                                    re[index*4+2] = (byte)Math.Round(b* (d / whiteSDRLevel));
+                                    int r = (int)((value >> 0) & 0x3FF);   
+                                    int g = (int)((value >> 10) & 0x3FF);   
+                                    int b = (int)((value >> 20) & 0x3FF);  
+                                    float linearR = Linear(r /1023f);
+                                    float linearG = Linear(g / 1023f);
+                                    float linearB = Linear(b / 1023f);
+                                    float bt2020R = matrix[0, 0] * linearR + matrix[0, 1] * linearG + matrix[0, 2] * linearB;
+                                    float bt2020G = matrix[1, 0] * linearR + matrix[1, 1] * linearG + matrix[1, 2] * linearB;
+                                    float bt2020B = matrix[2, 0] * linearR + matrix[2, 1] * linearG + matrix[2, 2] * linearB;
+                                    bt2020R =(float) Math.Clamp(bt2020R*254, 0, 255);
+                                    bt2020G =(float) Math.Clamp(bt2020G*254, 0, 255);
+                                    bt2020B =(float) Math.Clamp(bt2020B*254, 0, 255);
+                                    var d = outputDesc.MaxLuminance;
+                                    re[index*4]= (byte)Math.Round(bt2020R );
+                                    re[index*4+1]= (byte)Math.Round(bt2020G);
+                                    re[index*4+2] = (byte)Math.Round(bt2020B );
                                     int a = (int)((value >> 30) & 0x3);       // 获取最后的2位
                                     re[index*4+3] = (byte)(a);
                                 }
@@ -359,7 +385,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                                 desc.DesktopCoordinates.Size.Y, 4);
                             var writeableBitmap2 = new WriteableBitmap(
                                 new PixelSize(desc.DesktopCoordinates.Size.X, desc.DesktopCoordinates.Size.Y),
-                                new Vector(96, 96), PixelFormat.Bgra8888);
+                                new Vector(96, 96), PixelFormat.Rgba8888 );
                             using (var l = writeableBitmap2.Lock())
                             {
                                 for (var r = 0; r < desc.DesktopCoordinates.Size.Y; r++)
@@ -398,6 +424,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             desktopResource->Release();
                             stagingTexture->Release();
                             output5.Release();
+                            output6.Dispose();
                             desktopTexture.Release();
                             stagingResource.Release();
                             output = null;
@@ -407,6 +434,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             output5 = null;
                             desktopTexture = null;
                             stagingResource = null;
+                            
                         }
                     }
                 }
