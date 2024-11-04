@@ -250,7 +250,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             }
                             Format[] dFormats =
                             [
-                                Format.FormatR10G10B10A2Unorm
+                                Format.FormatR16G16B16A16Float
                             ];
                             if (whiteSDRLevel==0)
                             {
@@ -313,8 +313,8 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             {
                                 throw new Exception("Failed to map staging texture");
                             }
-                            var span = new ReadOnlySpan<UInt32>(mappedSubresource.PData,
-                                (int)mappedSubresource.DepthPitch/4);
+                            var span = new ReadOnlySpan<UInt64>(mappedSubresource.PData,
+                                (int)mappedSubresource.DepthPitch/8);
                             immediateContext->Unmap(stagingResource, 0);
                             outputDuplication->ReleaseFrame();
                             
@@ -328,9 +328,12 @@ public class ScreenCaptureByDx11 : IScreenCapture
                                 { -0.124550f, 1.132900f, -0.008349f },
                                 { -0.018151f, -0.100579f, 1.118730f }, 
                             };
-                            float Linear(float value) {
-                                return value <= 0.04045f ? value / 12.92f : (float)Math.Pow((value + 0.055f) / 1.055f, 2.4f);
+
+                            float Linear(float value)
+                            {
+                                return value <= 0.081f ? value / 4.5f : (float)Math.Pow((value + 0.0993f) / 1.0993f, 2.222f);
                             }
+
 
                             foreach (var value in span)
                             {
@@ -343,28 +346,30 @@ public class ScreenCaptureByDx11 : IScreenCapture
                                 }
                                 else
                                 {
-                                    int r = (int)((value >> 0) & 0x3FF);   
-                                    int g = (int)((value >> 10) & 0x3FF);   
-                                    int b = (int)((value >> 20) & 0x3FF);  
-                                    float linearR = Linear(r /1023f);
-                                    float linearG = Linear(g / 1023f);
-                                    float linearB = Linear(b / 1023f);
+                                   
+                                    int r = (int)((value >> 0) & 0xFFFF); // 获取最低的16位
+                                    int g = (int)((value >> 16) & 0xFFFF); // 获取次低的16位
+                                    int b = (int)((value >> 32) & 0xFFFF); // 获取次高的16位
+                                    int a = (int)((value >> 48) & 0xFFFF); // 获取最高的16位
+                                    float linearR = Linear(r /65534f);
+                                    float linearG = Linear(g / 65534f);
+                                    float linearB = Linear(b / 65534f);
                                     float bt2020R = matrix[0, 0] * linearR + matrix[0, 1] * linearG + matrix[0, 2] * linearB;
                                     float bt2020G = matrix[1, 0] * linearR + matrix[1, 1] * linearG + matrix[1, 2] * linearB;
                                     float bt2020B = matrix[2, 0] * linearR + matrix[2, 1] * linearG + matrix[2, 2] * linearB;
-                                    bt2020R =(float) Math.Clamp(bt2020R*254, 0, 255);
-                                    bt2020G =(float) Math.Clamp(bt2020G*254, 0, 255);
-                                    bt2020B =(float) Math.Clamp(bt2020B*254, 0, 255);
+                                    bt2020R =(float) Math.Clamp(bt2020R*255*whiteSDRLevel/outputDesc.MaxLuminance, 0, 255);
+                                    bt2020G =(float) Math.Clamp(bt2020G*255*whiteSDRLevel/outputDesc.MaxLuminance, 0, 255);
+                                    bt2020B =(float) Math.Clamp(bt2020B*255*whiteSDRLevel/outputDesc.MaxLuminance, 0, 255);
                                     var d = outputDesc.MaxLuminance;
                                     re[index*4]= (byte)Math.Round(bt2020R );
                                     re[index*4+1]= (byte)Math.Round(bt2020G);
-                                    re[index*4+2] = (byte)Math.Round(bt2020B );
-                                    int a = (int)((value >> 30) & 0x3);       // 获取最后的2位
-                                    re[index*4+3] = (byte)(a);
+                                    re[index*4+2] = (byte)Math.Round(bt2020B);
+                                    
+                                    re[index*4+3] = (byte)(a*whiteSDRLevel/outputDesc.MaxLuminance);
                                 }
                                 
                                 index++;
-                            }
+                            } 
                             var source = re.ToArray();
                             var writeableBitmap = new WriteableBitmap(
                                 new PixelSize(desc.DesktopCoordinates.Size.X, desc.DesktopCoordinates.Size.Y),
