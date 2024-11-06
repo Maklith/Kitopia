@@ -328,47 +328,53 @@ public class ScreenCaptureByDx11 : IScreenCapture
                                 { -0.124550f, 1.132900f, -0.008349f },
                                 { -0.018151f, -0.100579f, 1.118730f }, 
                             };
-
-                            float Linear(float value)
+                            if (whiteSDRLevel==0)
                             {
-                                return value <= 0.081f ? value / 4.5f : (float)Math.Pow((value + 0.0993f) / 1.0993f, 2.222f);
-                            }
-
-
-                            foreach (var value in span)
-                            {
-                                if (whiteSDRLevel==0)
+                                foreach (var value in span)
                                 {
                                     re[index*4] = (byte)((value) & 0xFF); 
                                     re[index * 4 + 1] = (byte)((value >> 8) & 0xFF);
                                     re[index * 4 + 2] = (byte)((value >> 16) & 0xFF);
                                     re[index*4+3] = (byte)((value  >> 24) & 0xFF);
+                                    index++;
                                 }
-                                else
+                            }
+                            else
+                            {
+                                double Linear(double value)
                                 {
-                                   
+                                    return value ;
+                                }
+                                
+                                var outputDescMaxLuminance = (whiteSDRLevel) / outputDesc.MaxLuminance;
+                                //var outputDescMaxLuminance = 1190/100.0;
+                                ulong max = 0;
+                                foreach (var value in span)
+                                {
+                                    if (value>max)
+                                    {
+                                        max = value;
+                                    }
                                     int r = (int)((value >> 0) & 0xFFFF); // 获取最低的16位
                                     int g = (int)((value >> 16) & 0xFFFF); // 获取次低的16位
                                     int b = (int)((value >> 32) & 0xFFFF); // 获取次高的16位
                                     int a = (int)((value >> 48) & 0xFFFF); // 获取最高的16位
-                                    float linearR = Linear(r /65534f);
-                                    float linearG = Linear(g / 65534f);
-                                    float linearB = Linear(b / 65534f);
-                                    float bt2020R = matrix[0, 0] * linearR + matrix[0, 1] * linearG + matrix[0, 2] * linearB;
-                                    float bt2020G = matrix[1, 0] * linearR + matrix[1, 1] * linearG + matrix[1, 2] * linearB;
-                                    float bt2020B = matrix[2, 0] * linearR + matrix[2, 1] * linearG + matrix[2, 2] * linearB;
-                                    bt2020R =(float) Math.Clamp(bt2020R*255*whiteSDRLevel/outputDesc.MaxLuminance, 0, 255);
-                                    bt2020G =(float) Math.Clamp(bt2020G*255*whiteSDRLevel/outputDesc.MaxLuminance, 0, 255);
-                                    bt2020B =(float) Math.Clamp(bt2020B*255*whiteSDRLevel/outputDesc.MaxLuminance, 0, 255);
-                                    var d = outputDesc.MaxLuminance;
+                                    double linearR = Linear(r /65536f);
+                                    double linearG = Linear(g / 65536f);
+                                    double linearB = Linear(b / 65536f);
+                                    double bt2020R = matrix[0, 0] * linearR + matrix[0, 1] * linearG + matrix[0, 2] * linearB;
+                                    double bt2020G = matrix[1, 0] * linearR + matrix[1, 1] * linearG + matrix[1, 2] * linearB;
+                                    double bt2020B = matrix[2, 0] * linearR + matrix[2, 1] * linearG + matrix[2, 2] * linearB;
+                                    
+                                    bt2020R =(float) Math.Clamp(bt2020R*255, 0, 255);
+                                    bt2020G =(float) Math.Clamp(bt2020G*255, 0, 255);
+                                    bt2020B =(float) Math.Clamp(bt2020B*255, 0, 255);
                                     re[index*4]= (byte)Math.Round(bt2020R );
                                     re[index*4+1]= (byte)Math.Round(bt2020G);
                                     re[index*4+2] = (byte)Math.Round(bt2020B);
-                                    
-                                    re[index*4+3] = (byte)(a*whiteSDRLevel/outputDesc.MaxLuminance);
+                                    re[index*4+3] = (byte)(a);
+                                    index++;
                                 }
-                                
-                                index++;
                             } 
                             var source = re.ToArray();
                             var writeableBitmap = new WriteableBitmap(
@@ -413,7 +419,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                                     Y = desc.DesktopCoordinates.Min.Y
                                 }
                             });
-                           // array = null;
+                            // array = null;
                             process = null;
 
                            
