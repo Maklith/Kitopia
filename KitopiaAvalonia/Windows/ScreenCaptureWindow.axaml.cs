@@ -859,9 +859,28 @@ public partial class ScreenCaptureWindow : Window
             Marshal.FreeHGlobal(ptr);
             var image = SixLabors.ImageSharp.Image.LoadPixelData<Bgra32>(ys, bitmap.PixelSize.Width,
                 bitmap.PixelSize.Height);
-            var clone = image.Clone(e => e.Crop(new Rectangle((int)SelectBox._dragTransform.X,
-                (int)SelectBox._dragTransform.Y,
-                ((int)(SelectBox.Width)), ((int)(SelectBox.Height)))));
+            int cropW = 0;
+            if ((SelectBox.Width + SelectBox._dragTransform.X)>image.Width)
+            {
+                cropW = image.Width;
+            }else if (SelectBox._dragTransform.X > 0)
+            {
+                cropW = (int)SelectBox.Width;
+            }
+            else cropW = (int)SelectBox.Width + (int)SelectBox._dragTransform.X;
+            int cropH = 0;
+            if ((SelectBox.Height + SelectBox._dragTransform.Y)>image.Height)
+            {
+                cropH = image.Height;
+            }else if (SelectBox._dragTransform.Y > 0)
+            {
+                cropH = (int)SelectBox.Height;
+            }
+            else cropH = (int)SelectBox.Height + (int)SelectBox._dragTransform.Y;
+            var clone = image.Clone(e => e.Crop(new Rectangle(
+                Math.Max((int)SelectBox._dragTransform.X,0), Math.Max((int)SelectBox._dragTransform.Y,0),
+                
+                cropW, cropH)));
             image.Dispose();
             ServiceManager.Services.GetService<IClipboardService>()
                 .SetImageAsync(clone)
