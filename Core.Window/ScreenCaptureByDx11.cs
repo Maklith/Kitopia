@@ -313,23 +313,20 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             {
                                 throw new Exception("Failed to map staging texture");
                             }
-                            var span = new ReadOnlySpan<UInt64>(mappedSubresource.PData,
-                                (int)mappedSubresource.DepthPitch/8);
-                            immediateContext->Unmap(stagingResource, 0);
-                            outputDuplication->ReleaseFrame();
                             
-                            
-                            //R10G10B10A2
-                            //Rgba8888
-                            Span<byte> re = new byte[span.Length*4];
-                            int index = 0;
+                            Span<byte> re = new byte[(int)mappedSubresource.DepthPitch*4];
                             float[,] matrix = {
-                                { 1.660491f, -0.587641f, -0.072850f },
-                                { -0.124550f, 1.132900f, -0.008349f },
-                                { -0.018151f, -0.100579f, 1.118730f }, 
+                                { 1.660491f, (-0.587641f), (-0.072850f) },
+                                { (-0.124550f), 1.132900f, (-0.008349f) },
+                                { (-0.018151f), (-0.100579f), 1.118730f }, 
                             };
                             if (whiteSDRLevel==0)
                             {
+                                var span = new ReadOnlySpan<UInt32>(mappedSubresource.PData,
+                                    (int)mappedSubresource.DepthPitch/4);
+                                immediateContext->Unmap(stagingResource, 0);
+                                outputDuplication->ReleaseFrame();
+                                var index = 0;
                                 foreach (var value in span)
                                 {
                                     re[index*4] = (byte)((value) & 0xFF); 
@@ -341,38 +338,33 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             }
                             else
                             {
-                                double Linear(double value)
-                                {
-                                    return value ;
-                                }
-                                
-                                var outputDescMaxLuminance = (whiteSDRLevel) / outputDesc.MaxLuminance;
+                                Half max = (Half)0;
+                                var span = new ReadOnlySpan<Half>(mappedSubresource.PData,
+                                    (int)mappedSubresource.DepthPitch/2);
+                                immediateContext->Unmap(stagingResource, 0);
+                                outputDuplication->ReleaseFrame();
+                                var outputDescMaxLuminance = whiteSDRLevel/outputDesc.MaxLuminance ;
                                 //var outputDescMaxLuminance = 1190/100.0;
-                                ulong max = 0;
-                                foreach (var value in span)
+                                for (var index = 0; index < span.Length/4-1; )
                                 {
-                                    if (value>max)
-                                    {
-                                        max = value;
-                                    }
-                                    int r = (int)((value >> 0) & 0xFFFF); // 获取最低的16位
-                                    int g = (int)((value >> 16) & 0xFFFF); // 获取次低的16位
-                                    int b = (int)((value >> 32) & 0xFFFF); // 获取次高的16位
-                                    int a = (int)((value >> 48) & 0xFFFF); // 获取最高的16位
-                                    double linearR = Linear(r /65536f);
-                                    double linearG = Linear(g / 65536f);
-                                    double linearB = Linear(b / 65536f);
-                                    double bt2020R = matrix[0, 0] * linearR + matrix[0, 1] * linearG + matrix[0, 2] * linearB;
-                                    double bt2020G = matrix[1, 0] * linearR + matrix[1, 1] * linearG + matrix[1, 2] * linearB;
-                                    double bt2020B = matrix[2, 0] * linearR + matrix[2, 1] * linearG + matrix[2, 2] * linearB;
-                                    
+                                    float r =(float)(span[index*4])/4.75f; // 获取最低的16位
+                                    float g =(float)(span[index*4+1])/ 4.75f; 
+                                    float b =(float)(span[index*4+2])/ 4.75f; 
+                                    float a =(float)(span[index*4+3])/ 4.75f; 
+                                    float bt2020R = matrix[0, 0] * r + matrix[0, 1] * g +
+                                                    matrix[0, 2] * b;
+                                    float bt2020G = matrix[1, 0] * r + matrix[1, 1] * g +
+                                                    matrix[1, 2] * b;
+                                    float bt2020B = matrix[2, 0] * r + matrix[2, 1] * g +
+                                                    matrix[2, 2] * b;
+
                                     bt2020R =(float) Math.Clamp(bt2020R*255, 0, 255);
                                     bt2020G =(float) Math.Clamp(bt2020G*255, 0, 255);
                                     bt2020B =(float) Math.Clamp(bt2020B*255, 0, 255);
-                                    re[index*4]= (byte)Math.Round(bt2020R );
-                                    re[index*4+1]= (byte)Math.Round(bt2020G);
-                                    re[index*4+2] = (byte)Math.Round(bt2020B);
-                                    re[index*4+3] = (byte)(a);
+                                    re[index * 4] = (byte)bt2020R;
+                                    re[index * 4 + 1] = (byte)(bt2020G);
+                                    re[index * 4 + 2] = (byte)(bt2020B);
+                                    re[index * 4 + 3] = (byte)(a*255);
                                     index++;
                                 }
                             } 
