@@ -372,7 +372,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             {
                 try
                 {
-                    var e = SDKs.Tools.Math.Evaluate(value);
+                    var e = SDKs.Tools.Math.Evaluate(value.Remove(0,1));
                     Items.Add(new SearchViewItem()
                     {
                         ItemDisplayName = "=" + e,
