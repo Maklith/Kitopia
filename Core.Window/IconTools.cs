@@ -100,7 +100,7 @@ internal class IconTools
             //对应的图标id
             var ids = new int[iconTotalCount];
             //成功获取到的图标个数
-            var successCount = PrivateExtractIcons((string)path, 0, 48, 48, hIcons, ids, iconTotalCount, 0);
+            var successCount = PrivateExtractIcons((string)path, 0, 64, 64, hIcons, ids, iconTotalCount, 0);
 
             //遍历并保存图标
             Icon? icon =null;

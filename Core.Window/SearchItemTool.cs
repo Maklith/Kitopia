@@ -89,10 +89,12 @@ public class SearchItemTool : ISearchItemTool
                     }
                     case FileType.数学运算:
                     {
-                        var tcs = new TaskCompletionSource<bool>();
+                        //var tcs = new TaskCompletionSource<bool>();
                         var thread = new Thread(() =>
                         {
-                            Clipboard.SetText(searchViewItem.ItemDisplayName.Remove(0, 1));
+                            var remove = searchViewItem.ItemDisplayName.Remove(0, 1);
+                            Clipboard.SetText(remove);
+                            ServiceManager.Services.GetService<IToastService>()!.Show("Kitopia",$"计算结果{remove}已经复制到剪贴板");
                         });
                         thread.SetApartmentState(ApartmentState.STA);
                         thread.Start();
