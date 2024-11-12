@@ -84,7 +84,8 @@
                 <ListBox.Styles>
                     <Style
                         Selector="ListBoxItem:selected > Button#Item /template/ ContentPresenter#PART_ContentPresenter">
-                        <Setter Property="Background" Value="{StaticResource Brush}" />
+                        <Setter Property="Background" Value="{DynamicResource SemiColorTertiaryLightPointerover}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorText2 }"></Setter>
                     </Style>
 
                     <Style Selector="ListBoxItem">
