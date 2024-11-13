@@ -7,7 +7,3 @@
 [submodule "PinyinM.NET"]
 	path = PinyinM.NET
 	url = https://github.com/MakesYT/Pinyin.NET
-[submodule "Semi.Avalonia"]
-	path = Semi.Avalonia
-	url = https://github.com/MakesYT/Semi.Avalonia.git
-	branch = expander
