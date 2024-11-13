@@ -69,6 +69,10 @@
 
                           IsVisible="{Binding !EverythingIsOk}"
                           CanClose="True" />
+                <u:Banner Focusable="False" Type="Information" Content="当前处于选择模式"
+
+                          IsVisible="{Binding NowInSelectMode}"
+                          CanClose="False" />
             </StackPanel>
             
 

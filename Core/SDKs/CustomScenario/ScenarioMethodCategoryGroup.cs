@@ -19,6 +19,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
         scenarioMethodCategoryGroup.Name = "Kitopia";
         //基本数值类型
         var valueScenarioMethodCategoryGroup = new ScenarioMethodCategoryGroup();
+        valueScenarioMethodCategoryGroup.Name = "基本数据类型";
         scenarioMethodCategoryGroup.Childrens.Add("基本数据类型", valueScenarioMethodCategoryGroup);
         foreach (var (key, value) in ScenarioMethodI18nTool._baseType)
         {
@@ -63,6 +64,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
         //节点控制
         var controlScenarioMethodCategoryGroup = new ScenarioMethodCategoryGroup();
         scenarioMethodCategoryGroup.Childrens.Add("节点控制", controlScenarioMethodCategoryGroup);
+        controlScenarioMethodCategoryGroup.Name = "节点控制";
 
         var scenarioMethodNode1 = new ScenarioMethod(ScenarioMethodType.判断).GenerateNode();
         controlScenarioMethodCategoryGroup.Methods.Add("判断", scenarioMethodNode1);

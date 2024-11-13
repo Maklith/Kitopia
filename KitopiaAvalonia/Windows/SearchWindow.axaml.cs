@@ -110,7 +110,7 @@ public partial class SearchWindow : Window
         if (e.Key == Key.Enter)
         {
             var item = (SearchViewItem?)dataGrid.SelectedItem;
-            ((ISearchItemTool)ServiceManager.Services.GetService(typeof(ISearchItemTool))!).OpenFile(item);
+            ((SearchWindowViewModel)DataContext).OpenFile(item);
             return;
         }
 

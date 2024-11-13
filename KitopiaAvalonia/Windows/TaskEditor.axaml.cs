@@ -13,6 +13,7 @@ using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
 using Core.ViewModel;
 using Core.ViewModel.TaskEditor;
+using Core.Window;
 using KitopiaAvalonia.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Ursa.Controls;
@@ -143,9 +144,8 @@ public partial class TaskEditor : UrsaWindow
             (item => { Dispatcher.UIThread.Post(() => { ((SearchItemShow)sender).OnlyKey = item.OnlyKey; }); }));
         ServiceManager.Services.GetService<SearchWindow>()!.Show();
 
-        User32.SetForegroundWindow(
-            ServiceManager.Services.GetService<SearchWindow>()!.TryGetPlatformHandle()
-                .Handle);
+        ServiceManager.Services.GetService<WindowToolServiceWindow>().SetForegroundWindow(ServiceManager.Services.GetService<SearchWindow>()!.TryGetPlatformHandle()
+            .Handle);
         ServiceManager.Services.GetService<SearchWindow>()!.tx.Focus();
     }
 }

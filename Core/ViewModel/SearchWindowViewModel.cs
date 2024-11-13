@@ -51,7 +51,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         "docker-compose", "kubectl", "helm", "minikube"
     ];
 
-
+    [ObservableProperty]
     private bool nowInSelectMode = false;
     private Action<SearchViewItem?>? selectAction;
 
@@ -671,7 +671,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
     public void SetSelectMode(bool flag, Action<SearchViewItem> action)
     {
-        nowInSelectMode = flag;
+        NowInSelectMode = flag;
         selectAction = action;
     }
 
@@ -680,10 +680,10 @@ public partial class SearchWindowViewModel : ObservableRecipient
     {
         Task.Run(() =>
         {
-            if (nowInSelectMode)
+            if (NowInSelectMode)
             {
                 selectAction.Invoke(item);
-                nowInSelectMode = false;
+                NowInSelectMode = false;
                 WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
                 return;
             }
