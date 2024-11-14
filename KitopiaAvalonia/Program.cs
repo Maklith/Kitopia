@@ -192,11 +192,17 @@ class Program
         
         MqttManager.Init().Wait();
         log.Info("MQTT初始化完成");
-        ServiceManager.Services.GetService<IToastService>().Init();
         HotKeyManager.Init();
         log.Debug("注册热键管理器完成");
         ConfigManger.Init();
         log.Info("配置文件初始化完成");
+        if (ConfigManger.Config.mouseCapture)
+        {
+            HotKeyManager.HotKetImpl.StartHook();
+        }
+        ServiceManager.Services.GetService<IToastService>().Init();
+        
+        
         
         switch (ConfigManger.Config.themeChoice)
         {

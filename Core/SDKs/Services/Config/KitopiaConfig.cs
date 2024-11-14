@@ -25,6 +25,7 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("自动启动", "可能被杀毒软件阻止", 0xE61C, ConfigFieldType.布尔)]
     public bool autoStart = true;
 
+    
     [ConfigField("允许程序读取剪贴板", "自动读取剪贴板路径和剪贴板图像保存依赖于此权限", 0xF2D7, ConfigFieldType.布尔)]
     public bool canReadClipboard = true;
 
@@ -72,7 +73,10 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("最大历史记录", "最大历史记录数", 0xF2D7, ConfigFieldType.整数列表, null, 10, 1, 1)]
     public int maxHistory = 6;
 
-    [ConfigFieldCategory("鼠标快捷操作")] [ConfigField("鼠标快捷键", "激活鼠标快捷菜单快捷键", 0xF4B8, ConfigFieldType.快捷键)]
+    [ConfigFieldCategory("鼠标快捷操作")] 
+    [ConfigField("允许对鼠标进行捕获","允许对鼠标进行捕获(禁用后鼠标快捷键无效)", 0xE61C, ConfigFieldType.布尔)]
+    public bool mouseCapture = true;
+    [ConfigField("鼠标快捷键", "激活鼠标快捷菜单快捷键", 0xF4B8, ConfigFieldType.快捷键)]
     public HotKeyModel mouseHotkey = new()
     {
         MainName = "Kitopia", Name = "激活鼠标快捷菜单", IsSelectCtrl = false, IsSelectAlt = true,

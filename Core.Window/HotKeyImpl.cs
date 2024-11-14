@@ -30,9 +30,8 @@ public class HotKeyImpl : IHotKetImpl
 
     public void Init()
     {
-        hook.MousePressed.Subscribe(OnMousePressed);
-        hook.MouseReleased.Subscribe(OnMouseReleased);
-        hook.RunAsync();
+       
+      
         Dispatcher.UIThread.Invoke(() =>
         {
             globalHotKeyWindow = new Avalonia.Controls.Window()
@@ -45,6 +44,13 @@ public class HotKeyImpl : IHotKetImpl
             globalHotKeyWindow.Hide();
             Win32Properties.AddWndProcHookCallback(globalHotKeyWindow, OnWndProc);
         });
+    }
+
+    public void StartHook()
+    {
+        hook.MousePressed.Subscribe(OnMousePressed);
+        hook.MouseReleased.Subscribe(OnMouseReleased);
+        hook.RunAsync();
     }
 
     private static void OnMousePressed(MouseHookEventArgs e)
