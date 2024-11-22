@@ -245,7 +245,7 @@ class Build : NukeBuild
                     .SetOutput(RootDirectory / "Publish_SelfContained" / "plugins" /
                                "KitopiaEx")
                     .SetRuntime("win-x64")
-                    .SetFramework("net8.0")
+                    .SetFramework("net9.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(true)
                 );
