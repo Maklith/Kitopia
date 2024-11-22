@@ -254,7 +254,7 @@ class Build : NukeBuild
                     .SetOutput(RootDirectory / "Publish_SelfContained")
                     .SetPublishSingleFile(true)
                     .SetRuntime("win-x64")
-                    .SetFramework("net8.0-windows10.0.17763.0")
+                    .SetFramework("net9.0-windows10.0.17763.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(true)
                 );
