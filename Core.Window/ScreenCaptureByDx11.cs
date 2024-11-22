@@ -56,131 +56,6 @@ public class ScreenCaptureByDx11 : IScreenCapture
             PreferContiguousImageBuffers = true
         };
     }
-
-    public class DisposableTool(Action busySetter) : IDisposable
-    {
-        public void Dispose() => busySetter.Invoke();
-    }
-    [PInvokeData("wingdi.h", MSDNShortId = "2DACA175-19BC-4192-A2FF-CB8AC7220B98")]
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-    public struct DISPLAYCONFIG_DESKTOP_IMAGE_INFO
-    {
-        public Gdi32.DISPLAYCONFIG_DEVICE_INFO_HEADER header;
-        /// <summary>A POINTL structure that specifies the size of the VidPn source surface that is being displayed on the monitor.</summary>
-        public POINT PathSourceSize;
-        /// <summary>
-        /// A RECTL structure that defines where the desktop image will be positioned within path source. Region must be completely inside
-        /// the bounds of the path source size.
-        /// </summary>
-        public RECT DesktopImageRegion;
-        /// <summary>
-        /// A RECTL structure that defines which part of the desktop image for this clone group will be displayed on this path. This
-        /// currently must be set to the desktop size.
-        /// </summary>
-        public RECT DesktopImageClip;
-    }
-    private IEnumerable<(uint, uint)?> GetWhiteSDRLevel()
-    {
-        var err = User32.GetDisplayConfigBufferSizes(User32.QDC.QDC_ONLY_ACTIVE_PATHS, out var pathCount, out var modeCount);
-        if (err != 0)
-        {
-            yield return (0, 0);
-            yield break;
-        }
-            
-
-        var paths = new Gdi32.DISPLAYCONFIG_PATH_INFO[pathCount];
-        var modes = new Gdi32.DISPLAYCONFIG_MODE_INFO[modeCount];
-        err = User32.QueryDisplayConfig(User32.QDC.QDC_ONLY_ACTIVE_PATHS, ref pathCount, paths, ref modeCount, modes, IntPtr.Zero);
-        if (err != 0)
-        {
-            yield return (0, 0);
-            yield break;
-        }
-
-        for (uint index = 0; index < paths.Length; index++)
-        {
-            var path = paths[index];
-            StructPointer<DISPLAYCONFIG_DESKTOP_IMAGE_INFO > targetName2 = new();
-            var colorInfo2 = new DISPLAYCONFIG_DESKTOP_IMAGE_INFO ();
-            
-            colorInfo2.header.type =
-                Gdi32.DISPLAYCONFIG_DEVICE_INFO_TYPE.DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO;
-            colorInfo2.header.size = (uint)Marshal.SizeOf<Gdi32.DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO>();
-            colorInfo2.header.adapterId = path.targetInfo.adapterId;
-            colorInfo2.header.id = path.targetInfo.id;
-            err = User32.DisplayConfigGetDeviceInfo(targetName2.DestructiveAssign(colorInfo2));
-            if (err != 0)
-            {
-                yield return (0, 0);
-                continue;
-            }
-            StructPointer<Gdi32.DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO> targetName = new();
-            var colorInfo = new Gdi32.DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO();
-            colorInfo.header.type =
-                Gdi32.DISPLAYCONFIG_DEVICE_INFO_TYPE.DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO;
-            colorInfo.header.size = (uint)Marshal.SizeOf<Gdi32.DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO>();
-            colorInfo.header.adapterId = path.targetInfo.adapterId;
-            colorInfo.header.id = path.targetInfo.id;
-            err = User32.DisplayConfigGetDeviceInfo(targetName.DestructiveAssign(colorInfo));
-            if (err != 0)
-            {
-                yield return (0, 0);
-                continue;
-            }
-
-            if (!targetName.Value.Value.value.HasFlag(Gdi32.DISPLAYCONFIG_GET_ADVANCED_COLOR_INFO_VALUE
-                    .advancedColorEnabled))
-            {
-                yield return (0, 0);
-                continue;
-            }
-
-            StructPointer<DISPLAYCONFIG_SDR_WHITE_LEVEL> targetName1 = new();
-            var colorInfo1 = new DISPLAYCONFIG_SDR_WHITE_LEVEL();
-            colorInfo1.header.type = Gdi32.DISPLAYCONFIG_DEVICE_INFO_TYPE.DISPLAYCONFIG_DEVICE_INFO_GET_SDR_WHITE_LEVEL;
-            colorInfo1.header.size = (uint)Marshal.SizeOf<DISPLAYCONFIG_SDR_WHITE_LEVEL>();
-            colorInfo1.header.adapterId = path.targetInfo.adapterId;
-            colorInfo1.header.id = path.targetInfo.id;
-            err = User32.DisplayConfigGetDeviceInfo(targetName1.DestructiveAssign(colorInfo1));
-            if (err != 0)
-            {
-                yield return (0, 0);
-                continue;
-            }
-
-            yield return (index, targetName1.Value.Value.SDRWhiteLevel);
-        }
-    }
-    [PInvokeData("wingdi.h")]
-    public struct DISPLAYCONFIG_SDR_WHITE_LEVEL : Gdi32.IDisplayConfig
-    {
-        /// <summary>Undocumented.</summary>
-        public Gdi32.DISPLAYCONFIG_DEVICE_INFO_HEADER header;
-        /// <summary>
-        /// SDRWhiteLevel represents a multiplier for standard SDR white peak value i.e. 80 nits represented as fixed point. To get value in
-        /// nits use the following conversion SDRWhiteLevel in nits = (SDRWhiteLevel / 1000 ) * 80
-        /// </summary>
-        public uint SDRWhiteLevel;
-    }
-   private struct ColorGamut {
-       public float red_x;
-       public float red_y;
-       public float green_x;
-       public float green_y;
-       public float blue_x;
-       public float blue_y;
-
-       public ColorGamut(float redX, float redY, float greenX, float greenY, float blueX, float blueY)
-       {
-           red_x = redX;
-           red_y = redY;
-           green_x = greenX;
-           green_y = greenY;
-           blue_x = blueX;
-           blue_y = blueY;
-       }
-   };
     public Stack<ScreenCaptureResult> CaptureAllScreen()
     {
         var screenCaptureResults = new Stack<ScreenCaptureResult>();
@@ -284,15 +159,19 @@ public class ScreenCaptureByDx11 : IScreenCapture
 
                             OutduplFrameInfo outduplFrameInfo = new OutduplFrameInfo();
                             
-                            Thread.Sleep(50);
+                            
                             OutduplDesc desc2 = new OutduplDesc();
                             outputDuplication->GetDesc(ref desc2);
-                            if (outputDuplication->AcquireNextFrame(3000, &outduplFrameInfo, &desktopResource) != 0 ||
-                                outduplFrameInfo.LastPresentTime == 0)
+                            
+                            while (true)
                             {
-                                throw new Exception("Failed to acquire next frame");
+                                Thread.Sleep(50);
+                                if (outputDuplication->AcquireNextFrame(3000, &outduplFrameInfo, &desktopResource) != 0 ||
+                                    outduplFrameInfo.LastPresentTime== 0)
+                                {
+                                    break;
+                                }
                             }
-
                             if (desktopResource->QueryInterface<ID3D11Resource>(out desktopTexture) != 0)
                             {
                                 throw new Exception("Failed to get desktop texture");
@@ -390,9 +269,9 @@ public class ScreenCaptureByDx11 : IScreenCapture
                                                     matrix[1, 2] * b;
                                     float bt2020B = matrix[2, 0] * r + matrix[2, 1] * g +
                                                     matrix[2, 2] * b;
-                                    bt2020R =(float) Math.Clamp(bt2020R*255, 0, 255);
-                                    bt2020G =(float) Math.Clamp(bt2020G*255, 0, 255);
-                                    bt2020B =(float) Math.Clamp(bt2020B*255, 0, 255);
+                                    bt2020R =Math.Clamp(bt2020R*255, 0, 255);
+                                    bt2020G =Math.Clamp(bt2020G*255, 0, 255);
+                                    bt2020B =Math.Clamp(bt2020B*255, 0, 255);
                                     re[index * 4] = (byte)(bt2020R );
                                     re[index * 4 + 1] = (byte)(bt2020G);
                                     re[index * 4 + 2] = (byte)(bt2020B);
