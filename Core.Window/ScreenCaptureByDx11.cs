@@ -243,26 +243,19 @@ public class ScreenCaptureByDx11 : IScreenCapture
                                     (int)mappedSubresource.DepthPitch/2);
                                 immediateContext->Unmap(stagingResource, 0);
                                 outputDuplication->ReleaseFrame();
-                                Half maxHDR = Half.Parse("0.0");
-                                foreach (var half in span)
-                                {
-                                    if (half > maxHDR) maxHDR = half;
-                                }
                                 float LogNormalize(float value, float maxHDR, float k=1)
                                 {
-                                    // 确保避免负数或零的输入
                                     if (value < 0) value = 0;
-                                    if (maxHDR <= 0) throw new ArgumentException("maxHDR must be greater than zero.");
-
-                                    // 归一化公式
                                     return (float)(Math.Log(1 + k * value) / Math.Log(1 + k * maxHDR));
                                 }
+                                var maxHdr = 4.75f;
                                 for (var index = 0; index < span.Length/4-1; )
                                 {
-                                    float r =LogNormalize((float)span[index*4],(float)maxHDR); // 获取最低的16位
-                                    float g =LogNormalize((float)span[index*4+1],(float)maxHDR);
-                                    float b =LogNormalize((float)span[index*4+2],(float)maxHDR);
-                                    float a =LogNormalize((float)span[index*4+3],(float)maxHDR);
+                                    
+                                    float r =LogNormalize((float)span[index*4],maxHdr); // 获取最低的16位
+                                    float g =LogNormalize((float)span[index*4+1],maxHdr);
+                                    float b =LogNormalize((float)span[index*4+2],maxHdr);
+                                    float a =LogNormalize((float)span[index*4+3],maxHdr);
                                     float bt2020R = matrix[0, 0] * r + matrix[0, 1] * g +
                                                     matrix[0, 2] * b;
                                     float bt2020G = matrix[1, 0] * r + matrix[1, 1] * g +
@@ -275,7 +268,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                                     re[index * 4] = (byte)(bt2020R );
                                     re[index * 4 + 1] = (byte)(bt2020G);
                                     re[index * 4 + 2] = (byte)(bt2020B);
-                                    re[index * 4 + 3] = (byte)(a*255);
+                                    re[index * 4 + 3] =255;
                                     index++;
                                 }
                             } 
@@ -293,27 +286,9 @@ public class ScreenCaptureByDx11 : IScreenCapture
                                         desc.DesktopCoordinates.Size.X * 4);
                                 }
                             }
-                            
-                        
-                            var process = GaussianBlur1.GaussianBlur(source, desc.DesktopCoordinates.Size.X,
-                                desc.DesktopCoordinates.Size.Y, 4);
-                            var writeableBitmap2 = new WriteableBitmap(
-                                new PixelSize(desc.DesktopCoordinates.Size.X, desc.DesktopCoordinates.Size.Y),
-                                new Vector(96, 96), PixelFormat.Rgba8888 );
-                            using (var l = writeableBitmap2.Lock())
-                            {
-                                for (var r = 0; r < desc.DesktopCoordinates.Size.Y; r++)
-                                {
-                                    Marshal.Copy(process, r * desc.DesktopCoordinates.Size.X * 4,
-                                        new IntPtr(l.Address.ToInt64() + r * l.RowBytes),
-                                        desc.DesktopCoordinates.Size.X * 4);
-                                }
-                            }
-                        
                             screenCaptureResults.Push(new ScreenCaptureResult()
                             {
                                 Source = writeableBitmap,
-                                Mosaic = writeableBitmap2,
                                 Info = new ScreenCaptureInfo()
                                 {
                                     Height = desc.DesktopCoordinates.Size.Y,
@@ -322,10 +297,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                                     Y = desc.DesktopCoordinates.Min.Y
                                 }
                             });
-                            // array = null;
-                            process = null;
-
-                           
+                            source = null;
                         }
                         catch (Exception e)
                         {
@@ -391,7 +363,6 @@ public class ScreenCaptureByDx11 : IScreenCapture
 
     public ScreenCaptureInfo GetScreenCaptureInfoByUserManual()
     {
-        return ServiceManager.Services.GetService<IScreenCaptureWindow>()!.GetScreenCaptureInfo()
-            .Result;
+        return new ScreenCaptureInfo();
     }
 }
