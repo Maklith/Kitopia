@@ -163,10 +163,26 @@ public class ScreenCaptureByDx11 : IScreenCapture
         /// </summary>
         public uint SDRWhiteLevel;
     }
+   private struct ColorGamut {
+       public float red_x;
+       public float red_y;
+       public float green_x;
+       public float green_y;
+       public float blue_x;
+       public float blue_y;
+
+       public ColorGamut(float redX, float redY, float greenX, float greenY, float blueX, float blueY)
+       {
+           red_x = redX;
+           red_y = redY;
+           green_x = greenX;
+           green_y = greenY;
+           blue_x = blueX;
+           blue_y = blueY;
+       }
+   };
     public Stack<ScreenCaptureResult> CaptureAllScreen()
     {
-        var whiteSdrLevel = GetWhiteSDRLevel();
-        
         var screenCaptureResults = new Stack<ScreenCaptureResult>();
         {
             unsafe
@@ -242,17 +258,14 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             {
                                 throw new Exception("Failed to get Desc1");
                             }
-                            uint whiteSDRLevel = 0;
-                            var firstOrDefault = whiteSdrLevel.FirstOrDefault(e=>e?.Item1==i-1);
-                            if (firstOrDefault!= null)
-                            {
-                                whiteSDRLevel = firstOrDefault.Value.Item2;
-                            }
+                            //uint whiteSDRLevel = 0;
+                            //var firstOrDefault = whiteSdrLevel.FirstOrDefault(e=>e?.Item1==i-1);
+                            
                             Format[] dFormats =
                             [
                                 Format.FormatR16G16B16A16Float
                             ];
-                            if (whiteSDRLevel==0)
+                            if (!outputDesc.ColorSpace.ToString().EndsWith("2020"))
                             {
                                 dFormats =
                                 [
@@ -271,7 +284,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
 
                             OutduplFrameInfo outduplFrameInfo = new OutduplFrameInfo();
                             
-                            Thread.Sleep(20);
+                            Thread.Sleep(50);
                             OutduplDesc desc2 = new OutduplDesc();
                             outputDuplication->GetDesc(ref desc2);
                             if (outputDuplication->AcquireNextFrame(3000, &outduplFrameInfo, &desktopResource) != 0 ||
@@ -315,12 +328,8 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             }
                             
                             Span<byte> re = new byte[(int)mappedSubresource.DepthPitch*4];
-                            float[,] matrix = {
-                                { 1.660491f, (-0.587641f), (-0.072850f) },
-                                { (-0.124550f), 1.132900f, (-0.008349f) },
-                                { (-0.018151f), (-0.100579f), 1.118730f }, 
-                            };
-                            if (whiteSDRLevel==0)
+                            
+                            if (!outputDesc.ColorSpace.ToString().EndsWith("2020"))
                             {
                                 var span = new ReadOnlySpan<UInt32>(mappedSubresource.PData,
                                     (int)mappedSubresource.DepthPitch/4);
@@ -338,30 +347,53 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             }
                             else
                             {
-                                Half max = (Half)0;
+                                float[,] matrix = ColorSpaceCtr.CtrColorSpace([
+                                        outputDesc.RedPrimary[0],
+                                        outputDesc.RedPrimary[1],
+                                        outputDesc.GreenPrimary[0],
+                                        outputDesc.GreenPrimary[1],
+                                        outputDesc.BluePrimary[0],
+                                        outputDesc.BluePrimary[1],
+                                        outputDesc.WhitePoint[0],
+                                        outputDesc.WhitePoint[1]
+                                    ],
+                                    [.640f, .330f, .300f, .600f, .150f, .060f,outputDesc.WhitePoint[0],
+                                        outputDesc.WhitePoint[1]]
+                                );
                                 var span = new ReadOnlySpan<Half>(mappedSubresource.PData,
                                     (int)mappedSubresource.DepthPitch/2);
                                 immediateContext->Unmap(stagingResource, 0);
                                 outputDuplication->ReleaseFrame();
-                                var outputDescMaxLuminance = whiteSDRLevel/outputDesc.MaxLuminance ;
-                                //var outputDescMaxLuminance = 1190/100.0;
+                                Half maxHDR = Half.Parse("0.0");
+                                foreach (var half in span)
+                                {
+                                    if (half > maxHDR) maxHDR = half;
+                                }
+                                float LogNormalize(float value, float maxHDR, float k=1)
+                                {
+                                    // 确保避免负数或零的输入
+                                    if (value < 0) value = 0;
+                                    if (maxHDR <= 0) throw new ArgumentException("maxHDR must be greater than zero.");
+
+                                    // 归一化公式
+                                    return (float)(Math.Log(1 + k * value) / Math.Log(1 + k * maxHDR));
+                                }
                                 for (var index = 0; index < span.Length/4-1; )
                                 {
-                                    float r =(float)(span[index*4])/4.75f; // 获取最低的16位
-                                    float g =(float)(span[index*4+1])/ 4.75f; 
-                                    float b =(float)(span[index*4+2])/ 4.75f; 
-                                    float a =(float)(span[index*4+3])/ 4.75f; 
+                                    float r =LogNormalize((float)span[index*4],(float)maxHDR); // 获取最低的16位
+                                    float g =LogNormalize((float)span[index*4+1],(float)maxHDR);
+                                    float b =LogNormalize((float)span[index*4+2],(float)maxHDR);
+                                    float a =LogNormalize((float)span[index*4+3],(float)maxHDR);
                                     float bt2020R = matrix[0, 0] * r + matrix[0, 1] * g +
                                                     matrix[0, 2] * b;
                                     float bt2020G = matrix[1, 0] * r + matrix[1, 1] * g +
                                                     matrix[1, 2] * b;
                                     float bt2020B = matrix[2, 0] * r + matrix[2, 1] * g +
                                                     matrix[2, 2] * b;
-
                                     bt2020R =(float) Math.Clamp(bt2020R*255, 0, 255);
                                     bt2020G =(float) Math.Clamp(bt2020G*255, 0, 255);
                                     bt2020B =(float) Math.Clamp(bt2020B*255, 0, 255);
-                                    re[index * 4] = (byte)bt2020R;
+                                    re[index * 4] = (byte)(bt2020R );
                                     re[index * 4 + 1] = (byte)(bt2020G);
                                     re[index * 4 + 2] = (byte)(bt2020B);
                                     re[index * 4 + 3] = (byte)(a*255);
