@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
@@ -39,12 +40,25 @@ public partial class ScreenCaptureWindow : Window
     private List<CaptureToolBase> tools = new();
     private bool selectMode = false;
     private Action<ScreenCaptureInfo> selectModeAction;
-    private int Index = 0;
+    private ScreenCaptureInfo _screenCaptureInfo;
 
-    public ScreenCaptureWindow(int index)
+    public ScreenCaptureWindow(ScreenCaptureInfo screenCaptureInfo)
     {
         InitializeComponent();
-        Index = index;
+        this._screenCaptureInfo = screenCaptureInfo;
+        this.Position= new PixelPoint(screenCaptureInfo.X, screenCaptureInfo.Y);
+        WindowState = WindowState.FullScreen;
+        SystemDecorations = SystemDecorations.None;
+        Background = new SolidColorBrush(Colors.Black);
+        ShowInTaskbar = false;
+        if (!Debugger.IsAttached)
+        {
+            Topmost = true;
+        }
+        
+        
+        CanResize = false;
+        IsVisible = true;
         WeakReferenceMessenger.Default.Register<string, string>(this, "ScreenCapture", (sender, message) =>
         {
             switch (message)
@@ -201,7 +215,7 @@ public partial class ScreenCaptureWindow : Window
             {
                 selectModeAction?.Invoke(new ScreenCaptureInfo()
                 {
-                    Index = Index,
+                    
                     X = (int)SelectBox._dragTransform.X,
                     Y = (int)SelectBox._dragTransform.Y,
                     Width = (int)SelectBox.Width,

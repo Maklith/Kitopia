@@ -15,20 +15,10 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
 {
     public void CaptureScreen()
     {
-        var captureAllScreen = ServiceManager.Services.GetService<IScreenCapture>()!.CaptureAllScreen();
+        var captureAllScreen = ServiceManager.Services.GetService<IScreenCapture>()!.CaptureAllScreenBitmap();
         while (captureAllScreen.TryPop(out var result))
         {
-            var window = new Windows.ScreenCaptureWindow(0)
-            {
-                Position = new PixelPoint(result.Info.X, result.Info.Y),
-                WindowState = WindowState.FullScreen,
-                SystemDecorations = SystemDecorations.None,
-                Background = new SolidColorBrush(Colors.Black),
-                ShowInTaskbar = false,
-                Topmost = false,
-                CanResize = false,
-                IsVisible = true,
-            };
+            var window = new Windows.ScreenCaptureWindow(result.Info);
             window.Image.Source = result.Source;
             window.Show();
         }
