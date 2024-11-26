@@ -13,6 +13,7 @@
               PointerPressed="InputElement_OnPointerPressed"
               TransparencyLevelHint="AcrylicBlur"
               Title="HotKeyEditorWindow">
+    
     <u:UrsaWindow.Background>
         <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.65" />
 
@@ -36,11 +37,8 @@
                 <Grid
                     Grid.Row="0"
                     Margin="24,10"
-                    Focusable="False">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+                    ColumnDefinitions="Auto,*"
+                    Focusable="False" >
                     <StackPanel Orientation="Vertical">
                         <TextBlock
                             Margin="0,10,0,0"
@@ -63,7 +61,7 @@
                                      Click="KeyBoard_OnClick">
                         </RadioButton>
                         <RadioButton GroupName="1" Content="鼠标快捷键" Name="Mouse" Click="Mouse_OnClick" Focusable="False"></RadioButton>
-                        <StackPanel Width="100" IsVisible="{Binding #Mouse.IsChecked}" HorizontalAlignment="Left">
+                        <StackPanel  IsVisible="{Binding #Mouse.IsChecked}" HorizontalAlignment="Left">
                             <TextBlock
                                 Margin="0,10,0,0"
                                 TextWrapping="WrapWithOverflow"
@@ -88,7 +86,7 @@
 
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" Grid.Row="1" HorizontalAlignment="Center"
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center"
                                 VerticalAlignment="Center">
 
 
@@ -122,7 +120,7 @@
                     VerticalAlignment="Bottom"
                     Focusable="False">
                     <Border.Background>
-                        <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" />
+                        <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.6" />
                     </Border.Background>
                     <StackPanel>
                         <Grid Margin="20" ColumnDefinitions="*,*,*" ColumnSpan="8">
