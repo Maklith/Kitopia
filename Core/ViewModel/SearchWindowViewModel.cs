@@ -185,7 +185,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         }
 
 
-        if (((IClipboardService)ServiceManager.Services!.GetService(typeof(IClipboardService))!).HasImage())
+        if (ServiceManager.Services!.GetService<IClipboardService>()!.HasImage())
         {
             Log.Debug("剪贴板有图像信息");
 

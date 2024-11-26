@@ -32,15 +32,16 @@ public class SearchItemTool : ISearchItemTool
             {
                 try
                 {
-                    var bitmap = ((IClipboardService)ServiceManager.Services!.GetService(typeof(IClipboardService))!)
+                    var bitmap = ServiceManager.Services!.GetService<IClipboardService>()!
                         .GetImage();
                     var ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0);
                     var timeStamp = Convert.ToInt64(ts.TotalMilliseconds);
                     var f = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Downloads\\Kitopia" +
                             timeStamp + ".png";
+                    
                     bitmap.Save(f);
-
-
+                    
+                    bitmap.Dispose();
                     Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + f, "",
                         ShowWindowCommand.SW_NORMAL);
                 }
