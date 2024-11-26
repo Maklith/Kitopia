@@ -23,7 +23,8 @@
               WindowStartupLocation="CenterScreen"
               TransparencyLevelHint="AcrylicBlur"
               Name="TaskEditorWindow"
-              x:DataType="taskEditor1:TaskEditorViewModel" Height="450" Width="1800">
+              WindowState="Maximized"
+              x:DataType="taskEditor1:TaskEditorViewModel" Height="720" Width="1280">
     <u:UrsaWindow.Background>
         <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.65" />
 
@@ -829,7 +830,6 @@
                                                                         <controls1:SearchItemShow
                                                                             Margin="10,5,10,5"
                                                                             ToolTip.Tip="{Binding RelativeSource={RelativeSource Self},Path=OnlyKey}"
-                                                                            Click="SearchItemShow_OnClick"
                                                                             OnlyKey="{Binding InputObject, Mode=TwoWay}" />
                                                                     </StackPanel>
 
@@ -1252,7 +1252,7 @@
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <controls1:SearchItemShow Margin="10,5,10,5"
                                                                 ToolTip.Tip="{Binding RelativeSource={RelativeSource Self},Path=OnlyKey}"
-                                                                Click="SearchItemShow_OnClick"
+                                                               
                                                                 OnlyKey="{Binding InputObject, Mode=TwoWay}" />
                                                         </StackPanel>
 

@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KitopiaBenchmark", "Kitopia
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pinyin.NET", "PinyinM.NET\Pinyin.NET\Pinyin.NET.csproj", "{540A78AF-B178-4E8D-914B-4C67D9B92DEC}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Plugins", "Plugins", "{5F2D85BA-2357-44E1-89E1-93D131B4FC0D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -251,5 +253,9 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C1AD2B23-E1E5-4764-9502-A6C2BBD90633}
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{FAC70F92-586D-49DD-A8B9-25EE2BF5AF79} = {5F2D85BA-2357-44E1-89E1-93D131B4FC0D}
+		{B27A1A07-DFEF-4802-99C6-A11AB41719CF} = {5F2D85BA-2357-44E1-89E1-93D131B4FC0D}
 	EndGlobalSection
 EndGlobal

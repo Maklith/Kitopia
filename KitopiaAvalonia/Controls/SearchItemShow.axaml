@@ -45,10 +45,11 @@
                         <StackPanel Margin="5" VerticalAlignment="Top">
                             <TextBlock VerticalAlignment="Center" Margin="0" Focusable="False"
                                        Text="{Binding Path=SearchViewItem.ItemDisplayName,RelativeSource={RelativeSource TemplatedParent}}"
-
+                                       Foreground="{DynamicResource SemiColorText0}"
                                        Background="{x:Null}"
                                        FontWeight="Normal" FontSize="18" />
                             <TextBlock VerticalAlignment="Top" Margin="0"
+                                       Foreground="{DynamicResource SemiColorText0}"
                                        Text="{Binding Path=SearchViewItem.FileType,RelativeSource={RelativeSource TemplatedParent}}" />
                         </StackPanel>
                         <controls:FontIcon Glyph="&#xf3de;" Name="ControlChevronIcon" />

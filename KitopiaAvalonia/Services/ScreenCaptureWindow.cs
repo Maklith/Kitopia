@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -13,10 +14,9 @@ namespace KitopiaAvalonia.Services;
 
 public class ScreenCaptureWindow : IScreenCaptureWindow
 {
-    public void CaptureScreen()
+    public void CaptureScreen(Stack<ScreenCaptureResult> results)
     {
-        var captureAllScreen = ServiceManager.Services.GetService<IScreenCapture>()!.CaptureAllScreenBitmap();
-        while (captureAllScreen.TryPop(out var result))
+        while (results.TryPop(out var result))
         {
             var window = new Windows.ScreenCaptureWindow(result.Info);
             window.Image.Source = result.Source;

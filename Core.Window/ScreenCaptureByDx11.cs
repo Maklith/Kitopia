@@ -491,7 +491,6 @@ public class ScreenCaptureByDx11 : IScreenCapture
             {
                 for (var r = 0; r <captureAllScreenInfo.Info.Height; r++)
                 {
-                                    
                     Marshal.Copy(captureAllScreenInfo.Bytes, r * captureAllScreenInfo.Info.Width * 4,
                         new IntPtr(l.Address.ToInt64() + r * l.RowBytes),
                         captureAllScreenInfo.Info.Width * 4);

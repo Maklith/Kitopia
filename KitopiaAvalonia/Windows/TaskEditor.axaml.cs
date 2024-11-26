@@ -34,13 +34,6 @@ public partial class TaskEditor : UrsaWindow
     public TaskEditor()
     {
         InitializeComponent();
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            var size = desktop.MainWindow.Screens.Primary.Bounds.Size;
-            Width = size.Width * 2 / 3;
-            Height = size.Height * 2 / 3;
-        }
-
         Editor.AddHandler(DragDrop.DropEvent, NodifyEditor_Drop);
     }
 
@@ -136,16 +129,5 @@ public partial class TaskEditor : UrsaWindow
     {
         //throw new System.NotImplementedException();
     }
-
-
-    private void SearchItemShow_OnClick(object? sender, RoutedEventArgs routedEventArgs)
-    {
-        ServiceManager.Services.GetService<SearchWindowViewModel>()!.SetSelectMode(true,
-            (item => { Dispatcher.UIThread.Post(() => { ((SearchItemShow)sender).OnlyKey = item.OnlyKey; }); }));
-        ServiceManager.Services.GetService<SearchWindow>()!.Show();
-
-        ServiceManager.Services.GetService<WindowToolServiceWindow>().SetForegroundWindow(ServiceManager.Services.GetService<SearchWindow>()!.TryGetPlatformHandle()
-            .Handle);
-        ServiceManager.Services.GetService<SearchWindow>()!.tx.Focus();
-    }
+    
 }

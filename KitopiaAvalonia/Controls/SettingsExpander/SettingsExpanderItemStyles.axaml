@@ -32,7 +32,7 @@
     <x:Double x:Key="SettingsExpanderItemAdaptiveWidthTrigger">100</x:Double>
 
     <ControlTheme x:Key="{x:Type ui:SettingsExpanderItem}" TargetType="ui:SettingsExpanderItem">
-        <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+        
         <Setter Property="Padding" Value="{DynamicResource SettingsExpanderItemPadding}" />
         <Setter Property="MinHeight" Value="{DynamicResource SettingsExpanderItemMinHeight}" />
         <Setter Property="BackgroundSizing" Value="InnerBorderEdge" />
@@ -55,30 +55,33 @@
 
                     <Grid ColumnDefinitions="*,Auto,Auto"
                           RowDefinitions="*,Auto">
-                        <Viewbox Width="{DynamicResource SettingsExpanderItemIconSize}"
-                                 Height="{DynamicResource SettingsExpanderItemIconSize}"
-                                 HorizontalAlignment="Left"
-                                 VerticalAlignment="Center"
-                                 IsVisible="False"
-                                 Name="IconHost">
-                            <ContentPresenter Name="IconPresenter"
-                                              Content="{Binding TemplateSettings.Icon, RelativeSource={RelativeSource TemplatedParent}}" />
-                        </Viewbox>
+                        <DockPanel >
+                            <Viewbox DockPanel.Dock="Left" Width="{DynamicResource SettingsExpanderItemIconSize}" Margin="0,0,5,0"
+                                     Height="{DynamicResource SettingsExpanderItemIconSize}"
+                                     HorizontalAlignment="Left"
+                                     VerticalAlignment="Center"
+                                     IsVisible="False"
+                                     Name="IconHost">
+                                <ContentPresenter Name="IconPresenter"
+                                                  Content="{Binding TemplateSettings.Icon, RelativeSource={RelativeSource TemplatedParent}}" />
+                            </Viewbox>
 
-                        <StackPanel HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                    VerticalAlignment="Center"
-                                    Name="HeaderRegion">
-                            <ContentPresenter Content="{TemplateBinding Content}"
-                                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                                              Name="ContentPresenter"
-                                              IsVisible="False" />
+                            <StackPanel HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                        VerticalAlignment="Center"
+                                        Name="HeaderRegion">
+                                <ContentPresenter Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  Name="ContentPresenter"
+                                                  IsVisible="False" />
 
-                            <TextBlock Text="{TemplateBinding Description}"
-                                       TextWrapping="Wrap"
-                                       Foreground="{DynamicResource SemiColorText0}"
-                                       Name="DescriptionText"
-                                       IsVisible="False" />
-                        </StackPanel>
+                                <TextBlock Text="{TemplateBinding Description}"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource SemiColorText0}"
+                                           Name="DescriptionText"
+                                           IsVisible="False" />
+                            </StackPanel>
+                        </DockPanel>
+                        
 
                         <ContentPresenter Content="{TemplateBinding Footer}"
                                           ContentTemplate="{TemplateBinding FooterTemplate}"
@@ -136,15 +139,9 @@
             <Style Selector="^ /template/ Viewbox#IconHost">
                 <Setter Property="IsVisible" Value="True" />
             </Style>
-            <Style Selector="^ /template/ StackPanel#HeaderRegion">
-                <Setter Property="Margin" Value="{DynamicResource SettingsExpanderItemContentMargin}" />
-            </Style>
+            
         </Style>
-        <Style Selector="^:iconPlaceholder">
-            <Style Selector="^ /template/ StackPanel#HeaderRegion">
-                <Setter Property="Margin" Value="{DynamicResource SettingsExpanderItemContentMargin}" />
-            </Style>
-        </Style>
+        
 
         <Style Selector="^:allowClick">
             <Style Selector="^:pointerover /template/ Border#Root">

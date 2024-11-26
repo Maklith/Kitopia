@@ -39,7 +39,7 @@
 
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Button Width="{Binding $parent.Bounds.Width, Mode=OneWay}"
+                                <Button Width="{Binding $parent.Bounds.Width, Mode=OneWay}" Margin="0,2,0,2"
                                         HorizontalContentAlignment="Stretch">
                                     <DockPanel Margin="15,0,0,0">
                                         <TextBlock VerticalAlignment="Center" Text="{ReflectionBinding}"

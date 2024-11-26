@@ -4,20 +4,21 @@
                     xmlns:controls="clr-namespace:KitopiaAvalonia.Controls">
     <Design.PreviewWith>
         <Border Padding="20" Width="700" Height="250">
-            <settingsExpander:SettingsExpander IconSource="Globe" Header="Test Header"
-                                 Description="This is a description for the SettingsExpander"
-                                 ActionIconSource="Save" IsClickEnabled="True">
-                <settingsExpander:SettingsExpander.Footer>
-                    <Button Content="FooterButton" />
-                </settingsExpander:SettingsExpander.Footer>
-
-                <!--<ui:SettingsExpanderItem Content="Content Here" ActionIconSource="Pin" IsClickEnabled="True"  />
-                <ui:SettingsExpanderItem Content="Content Here">
-                    <ui:SettingsExpanderItem.Footer>
-                        <Button Content="FooterButton" />
-                    </ui:SettingsExpanderItem.Footer>
-                </ui:SettingsExpanderItem>-->
-            </settingsExpander:SettingsExpander>
+            <StackPanel>
+                <settingsExpander:SettingsExpander IconSource="Globe" Header="Test Header"
+                                                   Description="This is a description for the SettingsExpander"
+                                                   ActionIconSource="Save" IsClickEnabled="True">
+                    <settingsExpander:SettingsExpanderItem Content="Content Here" ActionIconSource="Pin" IsClickEnabled="True" />
+                    <settingsExpander:SettingsExpanderItem Content="Content Here">
+                        <settingsExpander:SettingsExpanderItem.Footer>
+                            <Button Content="FooterButton" />
+                        </settingsExpander:SettingsExpanderItem.Footer>
+                    </settingsExpander:SettingsExpanderItem>
+                    <settingsExpander:SettingsExpanderItem Content="Right Content Here"
+                                                           HorizontalContentAlignment="Right" />
+                    
+                </settingsExpander:SettingsExpander>
+            </StackPanel>
         </Border>
     </Design.PreviewWith>
 
@@ -27,8 +28,10 @@
 
     <!-- ToggleButton for the Expander -->
     <ControlTheme x:Key="SettingsExpanderToggleButtonStyle" TargetType="ToggleButton">
-        <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+        <!-- <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" /> -->
+        <Setter Property="Margin"> 3</Setter>
         <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+        <Setter Property="CornerRadius"> 5</Setter>
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -86,9 +89,12 @@
         </Style>
 
         <Style Selector="^:checked">
+            <Setter Property="CornerRadius">5,5,0,0</Setter>
+            <Setter Property="Margin">3,3,3,0</Setter>
             <Style Selector="^ /template/ controls|FontIcon#ExpandCollapseChevron">
                 <Setter Property="RenderTransform" Value="rotate(180deg)" />
             </Style>
+            
 
         </Style>
 
@@ -115,6 +121,7 @@
                                   Theme="{StaticResource SettingsExpanderToggleButtonStyle}" />
 
                     <Border Name="ExpanderContent"
+                            Margin="3,0,3,0"
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
@@ -141,8 +148,10 @@
         <Setter Property="Background" Value="{DynamicResource SemiBackground4Color}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SemiBackground0Color}" />
         <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Margin" Value="3,0,3,0"></Setter>
         <Setter Property="Padding" Value="{DynamicResource SettingsExpanderPadding}" />
         <Setter Property="MinHeight" Value="{DynamicResource SettingsExpanderMinHeight}" />
+        <Setter Property="CornerRadius"> 6</Setter>
         <Setter Property="ItemsPanel">
             <ItemsPanelTemplate>
                 <StackPanel Spacing="1" />
@@ -150,7 +159,7 @@
         </Setter>
         <Setter Property="Template">
             <ControlTemplate>
-                <Expander Name="Expander"
+                <Expander Name="Expander" 
                           Theme="{StaticResource SettingsExpanderExpanderStyle}"
                           IsExpanded="{TemplateBinding IsExpanded, Mode=TwoWay}">
                     <Expander.Header>
@@ -164,6 +173,7 @@
                                                  FooterTemplate="{TemplateBinding FooterTemplate}"
                                                  Padding="{DynamicResource SettingsExpanderPadding}"
                                                  Background="Transparent"
+                                                 CornerRadius="{TemplateBinding CornerRadius}"
                                                  Name="ContentHost" />
                     </Expander.Header>
 
