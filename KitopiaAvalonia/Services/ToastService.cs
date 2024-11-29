@@ -2,9 +2,9 @@
 
 using System.Threading.Tasks;
 using System.Windows.Threading;
+using Windows.Data.Xml.Dom;
+using Windows.UI.Notifications;
 using log4net;
-using Microsoft.Windows.AppNotifications;
-using Microsoft.Windows.AppNotifications.Builder;
 using PluginCore;
 
 #endregion
@@ -14,34 +14,32 @@ namespace KitopiaAvalonia.Services;
 public class ToastService : IToastService
 {
     private static readonly ILog log = LogManager.GetLogger(nameof(ToastService));
-
+    private ToastNotifier _toastNotifier;
     public void Init()
     {
-        AppNotificationManager notificationManager = AppNotificationManager.Default;
-
-        notificationManager.NotificationInvoked += OnNotificationInvoked;
-
-        notificationManager.Register();
+        global::WinRT.ComWrappersSupport.InitializeComWrappers();
+        var toastNotificationManagerForUser = ToastNotificationManager.GetDefault();
+        _toastNotifier = toastNotificationManagerForUser.CreateToastNotifier(applicationId: "Kitopia");
     }
-
-    private void OnNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
-    {
-        
-    }
+    
 
 
     public void Show(string header, string text)
     {
         log.Debug($"{nameof(ToastService)}的接口{nameof(Show)}被调用,header：{header},text：{text}");
-        var appNotification = new AppNotificationBuilder()
-            .AddText(header)
-            .AddText(text)
-            .BuildNotification();
-        AppNotificationManager.Default.Show(appNotification);
+        var xmlDocument = new XmlDocument();
+        // lang=xml
+        xmlDocument = ToastNotificationManager.GetTemplateContent(ToastTemplateType.ToastText01);
+        XmlNodeList stringElements = xmlDocument.GetElementsByTagName("text");
+        stringElements[0].AppendChild(xmlDocument.CreateTextNode(header));
+        stringElements[0].AppendChild(xmlDocument.CreateTextNode(text));
+        var toastNotification = new ToastNotification(xmlDocument);
+        
+        _toastNotifier.Show(toastNotification);
     }
 
     public void Unregister()
     {
-        AppNotificationManager.Default.Unregister();
+        
     }
 }

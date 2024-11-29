@@ -171,7 +171,7 @@ public class ClipboardWindow : IClipboardService
         {
             var data2 = new DataObject();
             var memoryStream = new MemoryStream();
-            image.Save(memoryStream);
+            image.Save(memoryStream,100);
             var bitmap = new System.Drawing.Bitmap(memoryStream);
 
             var bitmapData = bitmap.LockBits(
@@ -206,6 +206,7 @@ public class ClipboardWindow : IClipboardService
         var tcs = new TaskCompletionSource<bool>();
         var thread = new Thread(() => {
             var memoryStream = new MemoryStream();
+            
             image.SaveAsBmp(memoryStream);
             var bitmap = new System.Drawing.Bitmap(memoryStream);
 

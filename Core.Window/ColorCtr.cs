@@ -146,11 +146,11 @@ public class ColorSpaceCtr
     }
   
 
-    public static float[] tristimulus(float[] xy,float Y=1) {
+    private static float[] tristimulus(float[] xy,float Y=1) {
         var z = 1 - xy[0] - xy[1];
         return [Y * xy[0] / xy[1], Y, Y * z / xy[1]];
     }
-    public static float[,] Npm(float[,] Mp, float[] ctr)
+    private static float[,] Npm(float[,] Mp, float[] ctr)
     {
         // 提取 x、y 和 z
         float[] x = { Mp[0, 0], Mp[1, 0], Mp[2, 0] };
