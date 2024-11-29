@@ -10,7 +10,7 @@
         x:Class="KitopiaAvalonia.Windows.ScreenCaptureWindow"
         Title="ScreenCaptureWindow">
 
-    <Canvas>
+    <Canvas RenderTransformOrigin="0%,0%">
 
         <Image Name="Image" Width="{Binding $parent[Canvas].Bounds.Width}"
                Height="{Binding $parent[Canvas].Bounds.Height}"/>

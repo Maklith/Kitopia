@@ -876,9 +876,25 @@ public partial class ScreenCaptureWindow : Window
             var renderTargetBitmap =
                 new RenderTargetBitmap(new PixelSize(bitmap.PixelSize.Width, bitmap.PixelSize.Height),
                     new Vector(96, 96));
-
-            renderTargetBitmap.Render(this);
-
+            
+           
+            
+            var content = (Control)this.Content;
+            var transformGroup = new TransformGroup();
+            var scaleTransform = new ScaleTransform(bitmap.PixelSize.Width / this.Bounds.Width,
+                bitmap.PixelSize.Height / this.Bounds.Height);
+            
+            transformGroup.Children.Add(scaleTransform);
+            transformGroup.Children.Add(new TranslateTransform(0,0));
+            content.RenderTransform =transformGroup ;
+            content.Width = bitmap.PixelSize.Width;
+            content.Height = bitmap.PixelSize.Height;
+            
+            
+           
+            
+            
+            renderTargetBitmap.Render(content);
             var boundsHeight = (int)(bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4);
             IntPtr ptr = Marshal.AllocHGlobal(boundsHeight);
 
@@ -895,25 +911,29 @@ public partial class ScreenCaptureWindow : Window
                 bitmap.PixelSize.Height);
             //image.SaveAsPng("1.png");
             int cropW = 0;
-            if ((SelectBox.Width + SelectBox._dragTransform.X)>image.Width)
+            var dragTransformX = SelectBox._dragTransform.X* (bitmap.PixelSize.Width / this.Bounds.Width);
+            var selectBoxWidth = SelectBox.Width* (bitmap.PixelSize.Width / this.Bounds.Width);
+            if ((selectBoxWidth + dragTransformX)>image.Width)
             {
                 cropW = image.Width;
-            }else if (SelectBox._dragTransform.X > 0)
+            }else if (dragTransformX > 0)
             {
-                cropW = (int)SelectBox.Width;
+                cropW = (int)selectBoxWidth;
             }
-            else cropW = (int)SelectBox.Width + (int)SelectBox._dragTransform.X;
+            else cropW = (int)selectBoxWidth + (int)dragTransformX;
             int cropH = 0;
-            if ((SelectBox.Height + SelectBox._dragTransform.Y)>image.Height)
+            var dragTransformY = SelectBox._dragTransform.Y* (bitmap.PixelSize.Height / this.Bounds.Height);
+            var selectBoxHeight = SelectBox.Height* (bitmap.PixelSize.Height / this.Bounds.Height);
+            if ((selectBoxHeight + dragTransformY)>image.Height)
             {
                 cropH = image.Height;
-            }else if (SelectBox._dragTransform.Y > 0)
+            }else if (dragTransformY > 0)
             {
-                cropH = (int)SelectBox.Height;
+                cropH = (int)selectBoxHeight;
             }
-            else cropH = (int)SelectBox.Height + (int)SelectBox._dragTransform.Y;
+            else cropH = (int)selectBoxHeight + (int)dragTransformY;
             var clone = image.Clone(e => e.Crop(new Rectangle(
-                Math.Max((int)SelectBox._dragTransform.X,0), Math.Max((int)SelectBox._dragTransform.Y,0),
+                Math.Max((int)dragTransformX,0), Math.Max((int)dragTransformY,0),
                 
                 cropW, cropH)));
             image.Dispose();
