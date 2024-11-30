@@ -648,7 +648,7 @@
                                                     <SolidColorBrush Opacity="0.5"
                                                                      Color="{DynamicResource SemiBlue5Color}" />
                                                 </Border.Background>
-                                                <TextBlock HorizontalAlignment="Center"
+                                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Text="{Binding Title}"
                                                            Foreground="White" />
                                             </Border>

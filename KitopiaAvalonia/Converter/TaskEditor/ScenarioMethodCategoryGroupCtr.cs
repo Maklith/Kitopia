@@ -25,9 +25,8 @@ public class ScenarioMethodCategoryGroupCtr : IValueConverter
 
         Expander expander = new Expander();
 
-        ItemsControl itemsControl = new ItemsControl();
-
-        itemsControl.DataTemplates.Add(DataTemplate);
+        StackPanel itemsControl = new StackPanel();
+        itemsControl.Spacing = 5;
 
         //itemsControl.ItemTemplate=itemsControl.GetR
         if (value is ScenarioMethodCategoryGroup group)
@@ -42,22 +41,30 @@ public class ScenarioMethodCategoryGroupCtr : IValueConverter
         return expander;
     }
 
-    private void Prase(ScenarioMethodCategoryGroup group, ItemsControl itemsControl)
+    private void Prase(ScenarioMethodCategoryGroup group, StackPanel itemsControl)
     {
         foreach (var (key, scenarioMethodCategoryGroup) in group.Childrens)
         {
             var expander = new Expander();
-            itemsControl.Items.Add(expander);
-            itemsControl.DataTemplates.Add(DataTemplate);
+            itemsControl.Children.Add(expander);
+            
             expander.Header = scenarioMethodCategoryGroup.Name;
-            var control = new ItemsControl();
+            var control = new StackPanel();
+            control.Spacing = 5;
             expander.Content = control;
             Prase(scenarioMethodCategoryGroup, control);
         }
-
+        
         foreach (var (key, value) in group.Methods)
         {
-            itemsControl.Items.Add(value);
+            if (DataTemplate.Match(value))
+            {
+                var control = DataTemplate.Build(value);
+                control.DataContext = value;
+                itemsControl.Children.Add(control);
+            }
+
+            
         }
     }
 

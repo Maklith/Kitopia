@@ -19,8 +19,6 @@ public class HotKeyEditorService : IHotKeyEditor
         }
 
         var hotKeyEditor = new HotKeyEditorWindow(hotKeyModel.Value);
-        hotKeyEditor.Height = ServiceManager.Services.GetService<MainWindow>().Height / 2;
-        hotKeyEditor.Width = ServiceManager.Services.GetService<MainWindow>().Width / 2;
 
         hotKeyEditor.WindowStartupLocation = WindowStartupLocation.CenterOwner;
         hotKeyEditor.Title = "修改快捷键";

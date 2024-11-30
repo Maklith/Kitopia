@@ -76,20 +76,10 @@
                     Margin="5"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Bottom">
-                <Grid Name="CommandSpace">
-                    <!--
-                                            B/C we can't target Row/Column defs in Styles like WinUI
-                                            this still uses the old Col defs, but it works the same
-                                            way in the end...
-                                            -->
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="0.5*" />
-                        <ColumnDefinition Width="0.5*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <Grid Name="CommandSpace" ColumnDefinitions="*,0.5*,0.5*,*">
                     <Button Name="PrimaryButton"
                             IsDefault="True"
+                            Theme="{DynamicResource SolidButton}"
                             Classes="Primary"
                             HorizontalAlignment="Stretch"
                             VerticalAlignment="Stretch"

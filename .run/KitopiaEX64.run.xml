@@ -1,11 +1,8 @@
 ﻿<component name="ProjectRunConfigurationManager">
   <configuration default="false" name="KitopiaEX64" type="DotNetFolderPublish" factoryName="Publish to folder">
-    <riderPublish configuration="Release" delete_existing_files="true" platform="x64" runtime="win-x64"
-                  self_contained="true" target_folder="$PROJECT_DIR$/发布/x64/plugins/KitopiaEX"
-                  target_framework="net8.0" uuid_high="-376314922638947875" uuid_low="-6288953699776221319"/>
+    <riderPublish configuration="Release" delete_existing_files="true" platform="x64" runtime="win-x64" self_contained="true" target_folder="$PROJECT_DIR$/发布/x64/plugins/KitopiaEX" target_framework="net9.0" uuid_high="-376314922638947875" uuid_low="-6288953699776221319" />
     <method v="2">
-      <option name="RunConfigurationTask" enabled="true" run_configuration_name="64"
-              run_configuration_type="DotNetFolderPublish"/>
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="64" run_configuration_type="DotNetFolderPublish" />
     </method>
   </configuration>
 </component>

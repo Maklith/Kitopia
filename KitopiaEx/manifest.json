@@ -1,7 +1,7 @@
 {
   "Id": 7,
   "AuthorName": "Kitopia",
-  "AuthorId" : 7,
+  "AuthorId" : 1,
   "Name": "Kitopia拓展",
   "NameSign" : "kitopiaex",
   "IsPublic": true,
@@ -13,7 +13,7 @@
     "Windows"
   ],
   "Dependencies": {
-    "Kitopia": "^1.0.0",
-    "KitopiaEx": "^1.0.0"
+    "Kitopia": "^0.0.0",
+    "KitopiaEx": "^0.0.0"
   }
 }

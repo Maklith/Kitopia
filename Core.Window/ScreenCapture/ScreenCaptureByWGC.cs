@@ -246,7 +246,7 @@ public class ScreenCaptureByWGC : IScreenCapture
                 }
                
                
-                var bytesSpan = CaptureTool.GetBytesSpan(mappedSubresource,outputDesc,true);
+                var bytesSpan = CaptureTool.GetBytesSpan(mappedSubresource,outputDesc);
                 screenCaptureResults.Push(new ScreenCaptureResult()
                 {
                     Info = screenCaptureInfo,

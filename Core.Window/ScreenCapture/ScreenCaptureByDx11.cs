@@ -304,8 +304,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                     [
                         Format.FormatR16G16B16A16Float
                     ];
-                    var useSDR = !outputDesc.ColorSpace.ToString().EndsWith("2020");
-                    if (useSDR)
+                    if (!outputDesc.ColorSpace.ToString().EndsWith("2020"))
                     {
                         dFormats =
                         [
@@ -317,7 +316,6 @@ public class ScreenCaptureByDx11 : IScreenCapture
                                 
                         if (output5.DuplicateOutput1 ((IUnknown*)intPtr.device,0,(uint)dFormats.Length,pFeatureLevels, ref outputDuplication) != 0)
                         {
-                            useSDR = true;
                             if (output1.DuplicateOutput((IUnknown*)intPtr.device, ref outputDuplication )!=0)
                             {
                                 throw new Exception("Failed to get output duplication");
@@ -377,7 +375,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                         throw new Exception("Failed to map staging texture");
                     }
                             
-                    var re = CaptureTool.GetBytesSpan(mappedSubresource, outputDesc,!useSDR);
+                    var re = CaptureTool.GetBytesSpan(mappedSubresource, outputDesc);
                     intPtr.immediateContext->Unmap(stagingResource, 0);
                     outputDuplication->ReleaseFrame();
                     

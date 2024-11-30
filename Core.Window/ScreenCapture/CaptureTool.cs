@@ -5,11 +5,11 @@ namespace Core.Window;
 
 public static class CaptureTool
 {
-    public static unsafe byte[] GetBytesSpan(MappedSubresource mappedSubresource, OutputDesc1 outputDesc, bool useHDR = true)
+    public static unsafe byte[] GetBytesSpan(MappedSubresource mappedSubresource, OutputDesc1 outputDesc)
     {
         byte[] re = new byte[(int)mappedSubresource.DepthPitch*4];
 
-        if (!useHDR&&!outputDesc.ColorSpace.ToString().EndsWith("2020"))
+        if (!outputDesc.ColorSpace.ToString().EndsWith("2020"))
         {
             var span = new ReadOnlySpan<UInt32>(mappedSubresource.PData,
                 (int)mappedSubresource.DepthPitch/4);
