@@ -9,7 +9,7 @@ public static class CaptureTool
     {
         byte[] re = new byte[(int)mappedSubresource.DepthPitch*4];
 
-        if (useHDR&&!outputDesc.ColorSpace.ToString().EndsWith("2020"))
+        if (!useHDR&&!outputDesc.ColorSpace.ToString().EndsWith("2020"))
         {
             var span = new ReadOnlySpan<UInt32>(mappedSubresource.PData,
                 (int)mappedSubresource.DepthPitch/4);
