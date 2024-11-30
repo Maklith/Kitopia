@@ -18,6 +18,7 @@ using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Config;
 using Ursa.Controls;
+using Vanara.Extensions.Reflection;
 using FontIcon = KitopiaAvalonia.Controls.FontIcon;
 using SettingsExpander = KitopiaAvalonia.Controls.SettingsExpander.SettingsExpander;
 
@@ -270,27 +271,62 @@ public partial class SettingPage : UserControl
                         case ConfigFieldType.自定义选项:
                         {
                             if (configField.GetType()
-                                .IsGenericType)
+                                .IsGenericType) //判断是不是ConfigField<Enum>
                             {
                                 Type[] typeArguments = configField.GetType()
                                     .GetGenericArguments();
-
-                                var comboBox = new ComboBox()
+                                if (typeArguments[0].IsEnum)
                                 {
-                                    ItemsSource = typeArguments[0]
-                                        .GetEnumValues(),
-                                    SelectedValue = selectedValue
-                                };
-                                disposables.Add(
-                                    comboBox.GetObservable(ComboBox.SelectedValueProperty)
-                                        .Subscribe((d) =>
-                                        {
-                                            _configBase.OnConfigChanged(this, fieldInfo.Name, d);
-                                            fieldInfo.SetValue(_configBase, d);
-                                            ConfigManger.Save(_configBase.Name);
-                                        }));
-                                SettingsExpander.Footer = comboBox;
+                                    var comboBox = new ComboBox()
+                                    {
+                                        ItemsSource = typeArguments[0]
+                                            .GetEnumValues(),
+                                        SelectedValue = selectedValue
+                                    };
+                                    disposables.Add(
+                                        comboBox.GetObservable(ComboBox.SelectedValueProperty)
+                                            .Subscribe((d) =>
+                                            {
+                                                _configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                                fieldInfo.SetValue(_configBase, d);
+                                                ConfigManger.Save(_configBase.Name);
+                                            }));
+                                    SettingsExpander.Footer = comboBox;
+                                }
                             }
+
+                            if (configField.ActionName ==null)
+                            {
+                                break;
+                            }    
+                            if (_configBase.invokes.TryGetValue(configField.ActionName, out var value))
+                            {
+                                if (value is Delegate func)
+                                {
+                                    // 使用 DynamicInvoke 来执行这个委托
+                                    var result = func.DynamicInvoke();
+
+                                    // 确保 result 转换为 IEnumerable<T>
+
+                                    var comboBox = new ComboBox()
+                                    {
+                                        ItemsSource = result as IEnumerable,
+                                        SelectedValue = selectedValue
+                                    };
+
+                                    disposables.Add(
+                                        comboBox.GetObservable(ComboBox.SelectedValueProperty)
+                                            .Subscribe((d) =>
+                                            {
+                                                _configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                                fieldInfo.SetValue(_configBase, d);
+                                                ConfigManger.Save(_configBase.Name);
+                                            }));
+                                    SettingsExpander.Footer = comboBox;
+                                }
+                            }
+                                
+                            
 
                             break;
                         }

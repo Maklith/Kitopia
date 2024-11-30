@@ -52,20 +52,22 @@ public static class ConfigManger
             var j = JsonSerializer.Serialize(Config, ConfigManger.DefaultOptions);
             File.WriteAllText(configF.FullName, j);
         }
-
-        var json = File.ReadAllText(configF.FullName);
-        try
+        else
         {
-            Configs["KitopiaConfig"] =
-                JsonSerializer.Deserialize(json, Config.GetType(), ConfigManger.DefaultOptions)! as ConfigBase ??
-                Config;
+            var json = File.ReadAllText(configF.FullName);
+            try
+            {
+                Configs["KitopiaConfig"] =
+                    JsonSerializer.Deserialize(json, Config.GetType(), ConfigManger.DefaultOptions)! as ConfigBase ??
+                    Config;
+            }
+            catch (Exception e)
+            {
+                log.Error(e);
+                log.Error("配置文件加载失败");
+            }
         }
-        catch (Exception e)
-        {
-            log.Error(e);
-            log.Error("配置文件加载失败");
-        }
-
+        Config!.BeforeLoad();
         Config.GetType()
             .GetFields(BindingFlags.Instance | BindingFlags.Public)
             .ToList()
@@ -77,18 +79,19 @@ public static class ConfigManger
                     {
                         var hotKeyModel = (HotKeyModel)x.GetValue(Config);
                         hotkeysMappings.Add(hotKeyModel, (Config, x));
-
-                        if (!HotKeyManager.HotKetImpl.Add(hotKeyModel,
-                                (Action<HotKeyModel>)Config.GetType().GetProperty($"{x.Name}Action")
-                                    .GetValue(Config, null)))
+                        if (Config.invokes.TryGetValue(configField.ActionName,out var value))
                         {
-                            ServiceManager.Services.GetService<IContentDialog>().ShowDialog(null, new DialogContent()
+                            if (!HotKeyManager.HotKetImpl.Add(hotKeyModel,value as Action<HotKeyModel>))
                             {
-                                Title = $"快捷键{hotKeyModel.SignName}设置失败",
-                                Content = "请重新设置快捷键，按键与系统其他程序冲突",
-                                CloseButtonText = "关闭"
-                            });
+                                ServiceManager.Services.GetService<IContentDialog>().ShowDialog(null, new DialogContent()
+                                {
+                                    Title = $"快捷键{hotKeyModel.SignName}设置失败",
+                                    Content = "请重新设置快捷键，按键与系统其他程序冲突",
+                                    CloseButtonText = "关闭"
+                                });
+                            }
                         }
+                        
                     }
                 }
             });

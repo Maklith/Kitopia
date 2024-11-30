@@ -105,8 +105,10 @@ class Program
         services.AddTransient<INavigationPageService, NavigationPageService>();
         #if WINDOWS
         services.AddTransient<IHotKetImpl, HotKeyImpl>();
-        //services.AddTransient<IScreenCapture, ScreenCaptureByDx11>();
+        services.AddTransient<IScreenCaptureManager, ScreenCaptureManager>();
         services.AddTransient<IScreenCapture, ScreenCaptureByWGC>();
+        services.AddTransient<IScreenCapture, ScreenCaptureByDx11>();
+        
         services.AddTransient<IEverythingService, EverythingService>();
         services.AddTransient<IAppToolService, AppToolService>();
         services.AddSingleton<ISearchItemTool, SearchItemTool>();
