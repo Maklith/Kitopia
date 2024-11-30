@@ -193,9 +193,21 @@ public class ScreenCaptureByWGC : IScreenCapture
                     return device;
                 }
                 var direct3DDeviceFromSharpDxDevice = CreateDirect3DDeviceFromSharpDXDevice(d3dDevice);
+                
+                
+                adapter1->EnumOutputs(screenCaptureInfo.Index, ref output);
+                if (output->QueryInterface<IDXGIOutput6>(out output6) != 0)
+                {
+                    throw new Exception("Failed to get IDXGIOutput6");
+                }
+                OutputDesc1 outputDesc=new OutputDesc1() ;
+                if (output6.GetDesc1(ref outputDesc)!=0)
+                {
+                    throw new Exception("Failed to get Desc1");
+                }
                 framePool = Direct3D11CaptureFramePool.Create(
                     direct3DDeviceFromSharpDxDevice,
-                    DirectXPixelFormat.R8G8B8A8UIntNormalized,
+                    outputDesc.ColorSpace.ToString().EndsWith("2020")? DirectXPixelFormat.R16G16B16A16Float:DirectXPixelFormat.R8G8B8A8UIntNormalized,
                     2,
                     item.Size);
                 session = framePool.CreateCaptureSession(item);
@@ -211,7 +223,7 @@ public class ScreenCaptureByWGC : IScreenCapture
                 {
                     CPUAccessFlags = (uint)CpuAccessFlag.Read,
                     BindFlags = (uint)(BindFlag.None),
-                    Format =Format.FormatR8G8B8A8Unorm,
+                    Format =outputDesc.ColorSpace.ToString().EndsWith("2020")? Format.FormatR16G16B16A16Float :Format.FormatR8G8B8A8Unorm,
                     Width =(uint)direct3D11CaptureFrame.ContentSize.Width,
                     Height = (uint)direct3D11CaptureFrame.ContentSize.Height,
                     MiscFlags = (uint)ResourceMiscFlag.None,
@@ -232,16 +244,8 @@ public class ScreenCaptureByWGC : IScreenCapture
                 {
                     throw new Exception("Failed to map staging texture");
                 }
-                adapter1->EnumOutputs(screenCaptureInfo.Index, ref output);
-                if (output->QueryInterface<IDXGIOutput6>(out output6) != 0)
-                {
-                    throw new Exception("Failed to get IDXGIOutput6");
-                }
-                OutputDesc1 outputDesc=new OutputDesc1() ;
-                if (output6.GetDesc1(ref outputDesc)!=0)
-                {
-                    throw new Exception("Failed to get Desc1");
-                }
+               
+               
                 var bytesSpan = CaptureTool.GetBytesSpan(mappedSubresource,outputDesc,true);
                 screenCaptureResults.Push(new ScreenCaptureResult()
                 {
