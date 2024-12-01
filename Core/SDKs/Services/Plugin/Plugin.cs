@@ -131,17 +131,16 @@ public class Plugin
                 CustomScenarioGloble.Triggers.Add($"{PluginInfo.ToPlgString()}_{type.Name}",
                     customScenarioTriggerInfo);
             }
-
+            ScenarioMethodCategoryGroup scenarioMethodCategoryGroup = pluginMainScenarioMethodCategoryGroup;
+            if (type.GetCustomAttribute<ScenarioMethodCategoryAttribute>() is { } scenarioMethodCategoryAttribute)
+            {
+                scenarioMethodCategoryGroup =
+                    ScenarioMethodCategoryGroup.GetScenarioMethodCategoryGroupByAttribute(
+                        scenarioMethodCategoryAttribute, pluginMainScenarioMethodCategoryGroup);
+            }
             foreach (var methodInfo in type.GetMethods())
             {
-                ScenarioMethodCategoryGroup scenarioMethodCategoryGroup = pluginMainScenarioMethodCategoryGroup;
-                if (type.GetCustomAttribute<ScenarioMethodCategoryAttribute>() is { } scenarioMethodCategoryAttribute)
-                {
-                    scenarioMethodCategoryGroup =
-                        ScenarioMethodCategoryGroup.GetScenarioMethodCategoryGroupByAttribute(
-                            scenarioMethodCategoryAttribute, pluginMainScenarioMethodCategoryGroup);
-                }
-
+                
                 if (methodInfo.GetCustomAttribute<ScenarioMethodAttribute>() is { } scenarioMethodAttribute) //情景的可用节点
                 {
                     if (methodInfo.GetParameters()[^1].ParameterType.FullName != "System.Threading.CancellationToken")

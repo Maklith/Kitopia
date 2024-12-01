@@ -106,13 +106,14 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                     Name = se,
                     Parent = nowScenarioMethodCategoryGroup
                 };
+                nowScenarioMethodCategoryGroup.Childrens.Add(se, newScenarioMethodCategoryGroup);
                 nowScenarioMethodCategoryGroup = newScenarioMethodCategoryGroup;
                 if (index == strings.Length - 1)
                 {
                     nowScenarioMethodCategoryGroup.DisplayName = attribute.Name;
                 }
 
-                nowScenarioMethodCategoryGroup.Childrens.Add(se, nowScenarioMethodCategoryGroup);
+               
             }
         }
 

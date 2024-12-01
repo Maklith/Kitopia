@@ -25,12 +25,14 @@ public class KitopiaEx : IPlugin
     {
         var services = new ServiceCollection();
         services.AddSingleton<KitopiaEx>();
+        services.AddSingleton<ImageTools>();
         services.AddSingleton<SearchItemEx>();
         services.AddSingleton<ClipboardEx>();
         services.AddSingleton<ImageTools>();
         services.AddSingleton<Test1>();
         services.AddSingleton<NodeInputConnector1>();
         services.AddSingleton<KeyboardSimulation>();
+        services.AddSingleton<ScreenCaptureNode>();
         return services.BuildServiceProvider();
     }
 }

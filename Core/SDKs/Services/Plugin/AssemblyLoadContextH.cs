@@ -28,12 +28,12 @@ public class AssemblyLoadContextH : AssemblyLoadContext
 
         Unloading += (sender) =>
         {
-            AppDomain.CurrentDomain.GetAssemblies()
-                .FirstOrDefault(x => x.GetName()
-                    .Name == "System.Text.Json")
-                ?.GetType("System.Text.Json.Serialization.Metadata.ReflectionEmitCachingMemberAccessor")
-                ?.GetMethod("Clear")
-                ?.Invoke(null, null);
+            // AppDomain.CurrentDomain.GetAssemblies()
+            //     .FirstOrDefault(x => x.GetName()
+            //         .Name == "System.Text.Json")
+            //     ?.GetType("System.Text.Json.Serialization.Metadata.ReflectionEmitCachingMemberAccessor")
+            //     ?.GetMethod("Clear")
+            //     ?.Invoke(null, null);
             // var fieldInfo = ConfigManger.DefaultOptions.GetType().GetField("_cachingContext", BindingFlags.NonPublic | BindingFlags.Instance);
             // fieldInfo.FieldType.GetMethod("Clear")?.Invoke(fieldInfo.GetValue(ConfigManger.DefaultOptions), null);
             ConfigManger.DefaultOptions = new JsonSerializerOptions

@@ -187,7 +187,7 @@ public class ScenarioMethod
             if (Method.ReturnParameter.ParameterType != typeof(void))
             {
                 ObservableCollection<ConnectorItem> outItems = new();
-                inpItems.Add(new ConnectorItem()
+                outItems.Add(new ConnectorItem()
                 {
                     Source = pointItem,
                     IsOut = true,
