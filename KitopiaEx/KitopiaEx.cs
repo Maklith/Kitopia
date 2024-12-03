@@ -15,6 +15,11 @@ public class KitopiaEx : IPlugin
         //MessageBox.Show("OnEnabled");
         Kitopia._i18n.TryAdd("System.Windows.Media.Imaging.BitmapSource", "图像BitmapSource");
         ServiceProvider = serviceProvider;
+        Kitopia.ToolTipConverters.Add(typeof(ScreenCaptureInfo), info =>
+        {
+            var screenCaptureInfo = (ScreenCaptureInfo)info;
+            return $"显示器:{screenCaptureInfo.hdcMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
+        });
     }
 
     public void OnDisabled()

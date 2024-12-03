@@ -19,7 +19,7 @@ public partial class ConnectorItem : ObservableRecipient, IConnectorItem
     private Point _anchor;
 
     #pragma warning disable CS0657 // Not a valid attribute location for this declaration
-    [property: JsonConverter(typeof(ObjectJsonConverter))]
+    [property: JsonIgnore]
     [JsonIgnore]
     #pragma warning restore CS0657 // Not a valid attribute location for this declaration
     [ObservableProperty]

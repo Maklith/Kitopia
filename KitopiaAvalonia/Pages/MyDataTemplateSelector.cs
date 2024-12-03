@@ -32,7 +32,7 @@ public class MyDataTemplateSelector : IDataTemplate
         if (item is ConnectorItem pointItem)
         {
             // Check the type of the item and return the corresponding data template from the resources
-            if (!pointItem.IsSelf)
+            if (!pointItem.IsSelf||pointItem.RealType ==null||pointItem.RealType.BaseType ==null)
             {
                 return Templates["InputTemplate"]
                     .Build(item);

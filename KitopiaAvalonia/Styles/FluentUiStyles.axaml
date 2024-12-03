@@ -1,11 +1,12 @@
 ﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:system="clr-namespace:System;assembly=System.Runtime">
     <!-- Add Resources Here -->
     <FontWeight x:Key="TextBlockFontWeight">Bold</FontWeight>
     <FontWeight x:Key="ButtonDefaultFontWeight">Bold</FontWeight>
     <FontWeight x:Key="ExpanderHeaderFontWeight">Bold</FontWeight>
     <FontWeight x:Key="TextBlockTitleFontWeight">600</FontWeight>
-    <ControlTheme x:Key="{x:Type ToolTip}" TargetType="ToolTip">
+<ControlTheme x:Key="{x:Type ToolTip}" TargetType="ToolTip">
         <Setter Property="Foreground" Value="{DynamicResource ToolTipForeground}" />
         <Setter Property="Background" Value="{DynamicResource ToolTipBackground}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ToolTipBorderBrush}" />
@@ -28,9 +29,18 @@
                     BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="{TemplateBinding BorderThickness}"
                     CornerRadius="{TemplateBinding CornerRadius}">
-
-                    <TextBlock TextWrapping="Wrap" Text="{TemplateBinding Content}"></TextBlock>
-
+                    <ContentPresenter
+                        Name="PART_ContentPresenter"
+                        MaxWidth="{TemplateBinding MaxWidth}"
+                        Content="{TemplateBinding Content}"
+                        ContentTemplate="{TemplateBinding ContentTemplate}"
+                        TextBlock.TextWrapping="Wrap">
+                        <ContentPresenter.DataTemplates>
+                            <DataTemplate DataType="{x:Type system:String}">
+                                <TextBlock Text="{Binding .}"></TextBlock>
+                            </DataTemplate>
+                        </ContentPresenter.DataTemplates>
+                    </ContentPresenter>
                 </Border>
             </ControlTemplate>
         </Setter>

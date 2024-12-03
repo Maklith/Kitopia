@@ -37,6 +37,7 @@
 
         <converter:ReverseBool x:Key="ReverseBool" />
         <taskEditor:ScenarioMethodCategoryGroupCtr x:Key="ScenarioMethodCategoryGroupCtr" />
+        <taskEditor:ToolTipConverter x:Key="ToolTipConverter" />
     </u:UrsaWindow.Resources>
     <u:UrsaWindow.Styles>
 
@@ -267,6 +268,8 @@
                                             <Grid>
                                                 <Border BorderBrush="LightGray" BorderThickness="1"
                                                         CornerRadius="3"
+                                                        ToolTip.Tip="{Binding Value,Converter={StaticResource ToolTipConverter}}"
+                                                        ToolTip.ShowDelay="0"
                                                         Background="{DynamicResource SemiBackground4Color}">
                                                     <Border.ContextFlyout>
                                                         <MenuFlyout>
@@ -1069,10 +1072,14 @@
                                             <ContentPresenter.ContextFlyout>
                                                 <MenuFlyout>
                                                     <!-- ReSharper disable once Xaml.RedundantResource -->
-                                                    <MenuItem Header="切换自输入/连接器"
-                                                              Foreground="{DynamicResource SemiColorText0}"
+                                                    <MenuItem
+                                                        Foreground="{DynamicResource SemiColorText0}"
                                                               Command="{Binding $parent[controls2:NodifyEditor].((taskEditor1:TaskEditorViewModel)DataContext).SwitchConnectorCommand}"
-                                                              CommandParameter="{Binding #ContentPresenter1  }" />
+                                                              CommandParameter="{Binding #ContentPresenter1  }">
+                                                        <MenuItem.Header>
+                                                            <TextBlock Text="切换自输入/连接器"></TextBlock>
+                                                        </MenuItem.Header>
+                                                    </MenuItem>
                                                 </MenuFlyout>
                                             </ContentPresenter.ContextFlyout>
                                             <ContentPresenter.DataTemplates>
@@ -1080,7 +1087,7 @@
                                                     <DataTemplate x:Key="InputTemplate"
                                                                   DataType="{x:Type customScenario:ConnectorItem}">
                                                         <controls2:NodeInput
-                                                            ToolTip.Tip="{Binding InputObject}"
+                                                            ToolTip.Tip="{Binding InputObject,Converter={StaticResource ToolTipConverter}}"
                                                             ToolTip.ShowDelay="0"
                                                             IsConnected="{Binding IsConnected}"
                                                             Anchor="{Binding Anchor, Mode=TwoWay}">
@@ -1273,7 +1280,7 @@
                                     <DataTemplate DataType="{x:Type customScenario:ConnectorItem}">
                                         <controls2:NodeOutput
                                             x:Name="NodeOutput"
-                                            ToolTip.Tip="{Binding InputObject}"
+                                            ToolTip.Tip="{Binding InputObject,Converter={StaticResource ToolTipConverter}}"
                                             ToolTip.ShowDelay="0"
                                             VerticalAlignment="Center"
                                             IsConnected="{Binding IsConnected}"

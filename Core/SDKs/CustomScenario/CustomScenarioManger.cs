@@ -322,25 +322,6 @@ public static class CustomScenarioManger
         var configF = new FileInfo(AppDomain.CurrentDomain.BaseDirectory +
                                    $"customScenarios{Path.DirectorySeparatorChar}{scenario.UUID}.json");
 
-        //清空所有非自输入的数据
-        foreach (var scenarioMethodNode in scenario.nodes)
-        {
-            foreach (var connectorItem in scenarioMethodNode.Input)
-            {
-                if (!connectorItem.IsSelf)
-                {
-                    connectorItem.InputObject = null;
-                }
-            }
-            foreach (var connectorItem in scenarioMethodNode.Output)
-            {
-                if (!connectorItem.IsSelf)
-                {
-                    connectorItem.InputObject = null;
-                }
-            }
-            
-        }
         var j = JsonSerializer.Serialize(scenario, ConfigManger.DefaultOptions);
         File.WriteAllText(configF.FullName, j);
     }

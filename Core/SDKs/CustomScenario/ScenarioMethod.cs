@@ -426,7 +426,7 @@ public class ScenarioMethod
                 }
                 case ScenarioMethodType.变量设置:
                 {
-                    pointItem.Title = $"变量{TypeDate}";
+                    pointItem.Title = $"{TypeDate}";
                     ObservableCollection<ConnectorItem> inpItems = new();
                     inpItems.Add(new ConnectorItem()
                     {
@@ -456,7 +456,7 @@ public class ScenarioMethod
                 }
                 case ScenarioMethodType.变量获取:
                 {
-                    pointItem.Title = $"变量{TypeDate}";
+                    pointItem.Title = $"{TypeDate}";
                     ObservableCollection<ConnectorItem> inpItems = new();
                     inpItems.Add(new ConnectorItem()
                     {

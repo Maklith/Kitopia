@@ -23,4 +23,6 @@ public class CustomScenarioGloble
             new CustomScenarioTriggerInfo() { Name = "Kitopia程序关闭时", Description = "注意该触发器不会进入Tick" }
         },
     };
+    
+    public static Dictionary<Type,Func<object,string>> ToolTipConverters = new();
 }
