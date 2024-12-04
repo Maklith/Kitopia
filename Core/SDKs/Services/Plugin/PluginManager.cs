@@ -34,6 +34,7 @@ public class PluginManager
         PluginCore.Kitopia.IToastService = (IToastService)ServiceManager.Services.GetService(typeof(IToastService))!;
         PluginCore.Kitopia._i18n = CustomScenarioGloble._i18n;
         PluginCore.Kitopia.ToolTipConverters = CustomScenarioGloble.ToolTipConverters;
+        PluginCore.Kitopia.JsonConverters = CustomScenarioGloble.JsonConverters;
         Load(true);
     }
 

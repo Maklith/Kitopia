@@ -39,7 +39,8 @@ public class ScenarioMethod
     public ScenarioMethodType Type { get; set; }
 
     //某些特殊的类型需要存储一定的数据，例如（变量读取/设置 需要对应的变量名）
-    public object TypeDate { get; set; }
+     public string ValueName { get; set; }
+    [JsonIgnore] public Type ValueDataType { get; set; }
     [JsonIgnore] public MethodInfo Method { get; set; }
     public PluginInfo? PluginInfo { get; set; }
 
@@ -147,7 +148,7 @@ public class ScenarioMethod
                             AutoUnboxIndex = autoUnboxIndex,
                             Interfaces = interfaces,
                             Title = Attribute.GetParameterName(memberInfo.Name),
-                            TypeName = ScenarioMethodI18nTool.GetI18N(memberInfo.PropertyType.FullName),
+                            TypeName = CustomScenarioGloble.GetI18N(memberInfo.PropertyType.FullName),
                         });
                     }
                 }
@@ -159,7 +160,7 @@ public class ScenarioMethod
                         Type = parameterInfo.ParameterType,
                         IsSelf = IsSelf,
                         Title = Attribute.GetParameterName(parameterInfo.Name),
-                        TypeName = ScenarioMethodI18nTool.GetI18N(parameterInfo.ParameterType.FullName)
+                        TypeName = CustomScenarioGloble.GetI18N(parameterInfo.ParameterType.FullName)
                     };
                     if (parameterInfo.ParameterType.GetCustomAttribute<CustomNodeInputType>() is not null
                         and var customNodeInputType)
@@ -218,7 +219,7 @@ public class ScenarioMethod
                             AutoUnboxIndex = autoUnboxIndex,
                             Interfaces = interfaces,
                             Title = Attribute.GetParameterName(memberInfo.Name),
-                            TypeName = ScenarioMethodI18nTool.GetI18N(memberInfo.PropertyType.FullName),
+                            TypeName = CustomScenarioGloble.GetI18N(memberInfo.PropertyType.FullName),
                             IsOut = true
                         });
                     }
@@ -239,7 +240,7 @@ public class ScenarioMethod
                         Title = Attribute.GetParameterName("return"),
                         Interfaces = interfaces,
                         TypeName =
-                            ScenarioMethodI18nTool.GetI18N(Method.ReturnParameter.ParameterType.FullName),
+                            CustomScenarioGloble.GetI18N(Method.ReturnParameter.ParameterType.FullName),
                         IsOut = true
                     });
                 }
@@ -267,7 +268,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             Type = typeof(NodeConnectorClass),
                             Title = "真",
-                            TypeName = ScenarioMethodI18nTool.GetI18N(typeof(NodeConnectorClass).FullName),
+                            TypeName = CustomScenarioGloble.GetI18N(typeof(NodeConnectorClass).FullName),
                             IsOut = true
                         },
                         new ConnectorItem()
@@ -275,7 +276,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             Type = typeof(NodeConnectorClass),
                             Title = "假",
-                            TypeName = ScenarioMethodI18nTool.GetI18N(typeof(NodeConnectorClass).FullName),
+                            TypeName = CustomScenarioGloble.GetI18N(typeof(NodeConnectorClass).FullName),
                             IsOut = true
                         }
                     };
@@ -293,8 +294,8 @@ public class ScenarioMethod
                         {
                             Source = pointItem,
                             Type = typeof(bool),
-                            Title = ScenarioMethodI18nTool.GetI18N(typeof(bool).FullName),
-                            TypeName = ScenarioMethodI18nTool.GetI18N(typeof(bool).FullName)
+                            Title = CustomScenarioGloble.GetI18N(typeof(bool).FullName),
+                            TypeName = CustomScenarioGloble.GetI18N(typeof(bool).FullName)
                         }
                     };
                     pointItem.Input = StringinItems;
@@ -391,8 +392,8 @@ public class ScenarioMethod
                         {
                             Source = pointItem,
                             Type = typeof(bool),
-                            Title = ScenarioMethodI18nTool.GetI18N(typeof(bool).FullName),
-                            TypeName = ScenarioMethodI18nTool.GetI18N(typeof(bool).FullName),
+                            Title = CustomScenarioGloble.GetI18N(typeof(bool).FullName),
+                            TypeName = CustomScenarioGloble.GetI18N(typeof(bool).FullName),
                             IsOut = true
                         }
                     };
@@ -410,15 +411,15 @@ public class ScenarioMethod
                         {
                             Source = pointItem,
                             Type = typeof(object),
-                            Title = ScenarioMethodI18nTool.GetI18N(typeof(object).FullName),
-                            TypeName = ScenarioMethodI18nTool.GetI18N(typeof(object).FullName)
+                            Title = CustomScenarioGloble.GetI18N(typeof(object).FullName),
+                            TypeName = CustomScenarioGloble.GetI18N(typeof(object).FullName)
                         },
                         new ConnectorItem()
                         {
                             Source = pointItem,
                             Type = typeof(object),
-                            Title = ScenarioMethodI18nTool.GetI18N(typeof(object).FullName),
-                            TypeName = ScenarioMethodI18nTool.GetI18N(typeof(object).FullName)
+                            Title = CustomScenarioGloble.GetI18N(typeof(object).FullName),
+                            TypeName = CustomScenarioGloble.GetI18N(typeof(object).FullName)
                         }
                     };
                     pointItem.Input = StringinItems;
@@ -426,7 +427,7 @@ public class ScenarioMethod
                 }
                 case ScenarioMethodType.变量设置:
                 {
-                    pointItem.Title = $"{TypeDate}";
+                    pointItem.Title = $"{ValueName}";
                     ObservableCollection<ConnectorItem> inpItems = new();
                     inpItems.Add(new ConnectorItem()
                     {
@@ -438,15 +439,16 @@ public class ScenarioMethod
                     inpItems.Add(new ConnectorItem()
                     {
                         Source = pointItem,
-                        Type = typeof(object),
+                        Type = ValueDataType,
                         Title = "设置",
-                        TypeName = "变量"
+                        TypeName = CustomScenarioGloble.GetI18N(ValueDataType.FullName)
                     });
                     pointItem.Input = inpItems;
                     ObservableCollection<ConnectorItem> outItems = new();
                     outItems.Add(new ConnectorItem()
                     {
                         Source = pointItem,
+                        IsOut = true,
                         Type = typeof(NodeConnectorClass),
                         Title = "流输出",
                         TypeName = "节点"
@@ -456,7 +458,7 @@ public class ScenarioMethod
                 }
                 case ScenarioMethodType.变量获取:
                 {
-                    pointItem.Title = $"{TypeDate}";
+                    pointItem.Title = $"{ValueName}";
                     ObservableCollection<ConnectorItem> inpItems = new();
                     inpItems.Add(new ConnectorItem()
                     {
@@ -471,15 +473,17 @@ public class ScenarioMethod
                     {
                         Source = pointItem,
                         Type = typeof(NodeConnectorClass),
+                        IsOut = true,
                         Title = "流输出",
                         TypeName = "节点"
                     });
                     outItems.Add(new ConnectorItem()
                     {
                         Source = pointItem,
-                        Type = typeof(object),
+                        Type = ValueDataType,
                         Title = "获取",
-                        TypeName = "变量"
+                        IsOut = true,
+                        TypeName = CustomScenarioGloble.GetI18N(ValueDataType.FullName)
                     });
                     pointItem.Output = outItems;
                     break;

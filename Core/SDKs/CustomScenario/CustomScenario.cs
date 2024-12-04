@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using Core.JsonConverter;
 using Core.SDKs.CustomType;
 using Core.SDKs.HotKey;
 using Core.SDKs.Services;
@@ -18,6 +19,19 @@ using PluginCore;
 
 namespace Core.SDKs.CustomScenario;
 
+public class CustomScenarioInputValue
+{
+    public CustomScenarioInputValue(Type type, object o)
+    {
+        Type = type;
+        Value = o;
+    }
+
+    public object? Value { get; set; }
+    
+    [JsonConverter(typeof(TypeJsonConverter))]
+    public Type Type { get; set; }
+}
 public partial class CustomScenario : ObservableRecipient
 {
     private static readonly ILog Log = LogManager.GetLogger(nameof(CustomScenario));
@@ -44,7 +58,7 @@ public partial class CustomScenario : ObservableRecipient
 
     [JsonIgnore] [ObservableProperty] private bool hasInit = true;
     [JsonIgnore] [ObservableProperty] private string? initError;
-    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, object?> inputValue = new();
+    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioInputValue> inputValue = new();
 
     private bool InTick;
 
@@ -55,7 +69,7 @@ public partial class CustomScenario : ObservableRecipient
 
     [JsonIgnore] [ObservableProperty] private double? tickIntervalSecond = 5;
 
-    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, object> values = new();
+    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioInputValue> values = new();
 
     //ActiveHotKey
     [JsonIgnore] [ObservableProperty] public HotKeyModel runHotKey;
@@ -127,7 +141,7 @@ public partial class CustomScenario : ObservableRecipient
                     IsOut = true,
                     Source = nodes.First(),
                     Type = value.GetType(),
-                    TypeName = ScenarioMethodI18nTool.GetI18N(value.GetType()
+                    TypeName = CustomScenarioGloble.GetI18N(value.GetType()
                         .FullName),
                     Title = key
                 });

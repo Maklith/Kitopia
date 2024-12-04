@@ -39,7 +39,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
     public ScenarioMethod ScenarioMethod { get; set; }
 
     public bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
-        ObservableDictionary<string, object> values)
+        ObservableDictionary<string, CustomScenarioInputValue> values)
     {
         //生成本节点所有数据
         switch (ScenarioMethod.Type)
@@ -175,18 +175,19 @@ public partial class ScenarioMethodNode : ObservableRecipient
             }
             case ScenarioMethodType.变量设置:
             {
-                if (values.ContainsKey((string)ScenarioMethod.TypeDate))
+                if (values.ContainsKey(ScenarioMethod.ValueName))
                 {
-                    values.SetValueWithoutNotify((string)ScenarioMethod.TypeDate!, Input[1].InputObject!);
+                    values[ScenarioMethod.ValueName].Value = Input[1].InputObject!;
+                    
                 }
 
                 break;
             }
             case ScenarioMethodType.变量获取:
             {
-                if (values.ContainsKey((string)ScenarioMethod.TypeDate))
+                if (values.ContainsKey(ScenarioMethod.ValueName))
                 {
-                    Output[0].InputObject = values[(string)ScenarioMethod.TypeDate];
+                    Output[1].InputObject = values[ScenarioMethod.ValueName].Value;
                 }
 
                 break;

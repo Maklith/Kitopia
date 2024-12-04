@@ -21,7 +21,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
         var valueScenarioMethodCategoryGroup = new ScenarioMethodCategoryGroup();
         valueScenarioMethodCategoryGroup.Name = "基本数据类型";
         scenarioMethodCategoryGroup.Childrens.Add("基本数据类型", valueScenarioMethodCategoryGroup);
-        foreach (var (key, value) in ScenarioMethodI18nTool._baseType)
+        foreach (var (key, value) in CustomScenarioGloble._baseType)
         {
             var String = new ScenarioMethodNode()
             {
@@ -34,8 +34,8 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                 {
                     Source = String,
                     Type = value,
-                    Title = ScenarioMethodI18nTool.GetI18N(value.FullName),
-                    TypeName = ScenarioMethodI18nTool.GetI18N(value.FullName),
+                    Title = CustomScenarioGloble.GetI18N(value.FullName),
+                    TypeName = CustomScenarioGloble.GetI18N(value.FullName),
                     IsOut = true
                 }
             };
@@ -47,8 +47,8 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                     Source = String,
                     Type = value,
                     InputObject = value.IsValueType ? Activator.CreateInstance(value) : null,
-                    Title = ScenarioMethodI18nTool.GetI18N(value.FullName),
-                    TypeName = ScenarioMethodI18nTool.GetI18N(value.FullName),
+                    Title = CustomScenarioGloble.GetI18N(value.FullName),
+                    TypeName = CustomScenarioGloble.GetI18N(value.FullName),
                     IsSelf = true
                 }
             };

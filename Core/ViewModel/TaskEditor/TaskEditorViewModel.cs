@@ -64,7 +64,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 IsOut = true,
                 Source = nodify2,
                 Type = typeof(NodeConnectorClass),
-                TypeName = ScenarioMethodI18nTool.GetI18N(typeof(NodeConnectorClass).FullName),
+                TypeName = CustomScenarioGloble.GetI18N(typeof(NodeConnectorClass).FullName),
                 Title = "开始"
             }
         };
@@ -82,7 +82,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 IsOut = true,
                 Source = nodify3,
                 Type = typeof(NodeConnectorClass),
-                TypeName = ScenarioMethodI18nTool.GetI18N(typeof(NodeConnectorClass).FullName),
+                TypeName = CustomScenarioGloble.GetI18N(typeof(NodeConnectorClass).FullName),
                 Title = "开始"
             }
         };
@@ -209,7 +209,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                             IsOut = false,
                                             Source = e.ScenarioMethodNode,
                                             Type = value.GetType(),
-                                            TypeName = ScenarioMethodI18nTool.GetI18N(value.GetType()
+                                            TypeName = CustomScenarioGloble.GetI18N(value.GetType()
                                                 .FullName),
                                             Title = key
                                         });
@@ -219,7 +219,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                     {
                                         e.ScenarioMethodNode.Input[index + 2].Title = key;
                                         e.ScenarioMethodNode.Input[index + 2].Type = value.GetType();
-                                        e.ScenarioMethodNode.Input[index + 2].TypeName = ScenarioMethodI18nTool.GetI18N(
+                                        e.ScenarioMethodNode.Input[index + 2].TypeName = CustomScenarioGloble.GetI18N(
                                             value
                                                 .GetType()
                                                 .FullName);
@@ -647,20 +647,25 @@ public partial class TaskEditorViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AddValueCommand))]
     [ObservableProperty]
     private string? _valueValue = String.Empty;
-
-    private bool valueCanAdd => !string.IsNullOrEmpty(ValueValue);
+    [NotifyPropertyChangedFor(nameof(inputValueCanAdd))]
+    [NotifyCanExecuteChangedFor(nameof(AddValueCommand))]
+    [ObservableProperty]
+    private CustomScenarioValueTuple _valueType ;
+    private bool valueCanAdd => !string.IsNullOrEmpty(_valueValue)&&_valueType!=null;
 
     [RelayCommand(CanExecute = nameof(valueCanAdd))]
-    private void AddValue(string key)
+    private void AddValue()
     {
-        if (Scenario.Values.ContainsKey(key))
+        if (Scenario.Values.ContainsKey(ValueValue))
         {
             return;
         }
-
+        
+        
+        Scenario.Values.Add(ValueValue, new CustomScenarioInputValue(ValueType.Type,null));
+        OnPropertyChanged(CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs
+            .InputValue);
         ValueValue = null;
-        Scenario.Values.Add(key, new object());
-        OnPropertyChanged(CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.Values);
         IsModified = true;
     }
 
@@ -683,21 +688,25 @@ public partial class TaskEditorViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(AddInputValueCommand))]
     [ObservableProperty]
     private string? _inputValueValue = String.Empty;
-
-    private bool inputValueCanAdd => !string.IsNullOrEmpty(_inputValueValue);
+    [NotifyPropertyChangedFor(nameof(inputValueCanAdd))]
+    [NotifyCanExecuteChangedFor(nameof(AddInputValueCommand))]
+    [ObservableProperty]
+    private CustomScenarioValueTuple _inputValueType ;
+    private bool inputValueCanAdd => !string.IsNullOrEmpty(_inputValueValue)&&_inputValueType!=null;
 
     [RelayCommand(CanExecute = nameof(inputValueCanAdd))]
-    private void AddInputValue(string key)
+    private void AddInputValue()
     {
-        if (Scenario.InputValue.ContainsKey(key))
+        if (Scenario.InputValue.ContainsKey(InputValueValue))
         {
             return;
         }
-
-        InputValueValue = null;
-        Scenario.InputValue.Add(key, new object());
+        
+       
+        Scenario.InputValue.Add(InputValueValue, new CustomScenarioInputValue(InputValueType.Type,null));
         OnPropertyChanged(CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs
             .InputValue);
+        InputValueValue = null;
         IsModified = true;
     }
 
@@ -713,4 +722,10 @@ public partial class TaskEditorViewModel : ObservableRecipient
     }
 
     #endregion
+}
+public class CustomScenarioValueTuple
+{
+    public Type Type { get; set; }
+    public object Value { get; set; }
+    
 }

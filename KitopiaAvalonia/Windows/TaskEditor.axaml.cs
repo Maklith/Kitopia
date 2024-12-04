@@ -67,15 +67,15 @@ public partial class TaskEditor : UrsaWindow
                         }
                         case "Set":
                         {
-                            var keyValuePair = (KeyValuePair<string, object>)borderDataContext;
-                            pointItem = new ScenarioMethod(ScenarioMethodType.变量设置) { TypeDate = keyValuePair.Key }
+                            var keyValuePair = (KeyValuePair<string, CustomScenarioInputValue>)borderDataContext;
+                            pointItem = new ScenarioMethod(ScenarioMethodType.变量设置) { ValueName = keyValuePair.Key,ValueDataType = keyValuePair.Value.Type}
                                 .GenerateNode();
                             break;
                         }
                         case "Get":
                         {
-                            var keyValuePair = (KeyValuePair<string, object>)borderDataContext;
-                            pointItem = new ScenarioMethod(ScenarioMethodType.变量获取) { TypeDate = keyValuePair.Key }
+                            var keyValuePair = (KeyValuePair<string, CustomScenarioInputValue>)borderDataContext;
+                            pointItem = new ScenarioMethod(ScenarioMethodType.变量获取) { ValueName = keyValuePair.Key,ValueDataType = keyValuePair.Value.Type }
                                 .GenerateNode();
                             break;
                         }
