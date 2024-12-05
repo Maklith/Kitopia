@@ -19,18 +19,24 @@ using PluginCore;
 
 namespace Core.SDKs.CustomScenario;
 
-public class CustomScenarioInputValue
+public partial class CustomScenarioInputValue : ObservableObject
 {
+    public CustomScenarioInputValue()
+    {
+    }
+
     public CustomScenarioInputValue(Type type, object o)
     {
         Type = type;
         Value = o;
     }
-
-    public object? Value { get; set; }
-    
     [JsonConverter(typeof(TypeJsonConverter))]
     public Type Type { get; set; }
+
+    [ObservableProperty]
+    public object? value;
+
+
 }
 public partial class CustomScenario : ObservableRecipient
 {

@@ -38,6 +38,7 @@
         <converter:ReverseBool x:Key="ReverseBool" />
         <taskEditor:ScenarioMethodCategoryGroupCtr x:Key="ScenarioMethodCategoryGroupCtr" />
         <taskEditor:ToolTipConverter x:Key="ToolTipConverter" />
+        <taskEditor:NodeTypeNameI18NCtr x:Key="NodeTypeNameI18NCtr" />
     </u:UrsaWindow.Resources>
     <u:UrsaWindow.Styles>
 
@@ -119,7 +120,7 @@
                     </Expander>
 
                     <settingsExpander:SettingsExpander Margin="0" Header="含有入参"
-                                               BorderThickness="0">
+                                                       BorderThickness="0">
 
                         <settingsExpander:SettingsExpander.Footer>
                             <ToggleSwitch
@@ -197,11 +198,12 @@
 
                                 </ListBox.ItemTemplate>
                             </ListBox>
-                            <Grid ColumnDefinitions="*,5,Auto,Auto" VerticalAlignment="Center" HorizontalAlignment="Stretch">
-                                <TextBox  Watermark="变量名称" HorizontalAlignment="Stretch"
+                            <Grid ColumnDefinitions="*,5,Auto,Auto" VerticalAlignment="Center"
+                                  HorizontalAlignment="Stretch">
+                                <TextBox Watermark="变量名称" HorizontalAlignment="Stretch"
                                          Text="{Binding InputValueValue,Mode=TwoWay}">
                                 </TextBox>
-                                <ComboBox Grid.Column="2" VerticalAlignment="Center" 
+                                <ComboBox Grid.Column="2" VerticalAlignment="Center"
                                           SelectedItem="{Binding InputValueType}"
                                           ItemsSource="{Binding Source={x:Static customScenario:CustomScenarioGloble.GetAllCouldUseTypeInValue}}">
                                     <ComboBox.ItemTemplate>
@@ -212,15 +214,14 @@
                                 </ComboBox>
                                 <Button Command="{Binding AddInputValueCommand}" Grid.Column="3"
                                         CommandParameter="{Binding $self.Parent}" Padding="2,3,0,0"
-                                        Margin="3"
-                                        >
+                                        Margin="3">
 
                                     <controls1:FontIcon FontSize="24" HorizontalAlignment="Center"
                                                         VerticalAlignment="Center" Foreground="GreenYellow"
                                                         Glyph="&#xf107;" />
                                 </Button>
                             </Grid>
-                           
+
                         </StackPanel>
 
 
@@ -278,7 +279,7 @@
                                             <Grid>
                                                 <Border BorderBrush="LightGray" BorderThickness="1"
                                                         CornerRadius="3"
-                                                        ToolTip.Tip="{Binding Value,Converter={StaticResource ToolTipConverter}}"
+                                                        ToolTip.Tip="{Binding Value.Value,Converter={StaticResource ToolTipConverter}}"
                                                         ToolTip.ShowDelay="0"
                                                         Background="{DynamicResource SemiBackground4Color}">
                                                     <Border.ContextFlyout>
@@ -353,7 +354,7 @@
 
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
-                                                                                        x:Name="textBlock"
+                                                                                       
                                                                                         FontSize="12"
                                                                                         Background="{DynamicResource SemiColorText0}"
                                                                                         Foreground="{DynamicResource SemiBackground4Color}"
@@ -366,7 +367,7 @@
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
                                                                                         Foreground="{DynamicResource SemiColorText0}"
-                                                                                        Text="流节点">
+                                                                                        Text="流输入">
                                                                                     </TextBlock>
                                                                                 </StackPanel>
                                                                                 <StackPanel Orientation="Horizontal"
@@ -394,7 +395,7 @@
                                                                                         FontSize="12"
                                                                                         Background="{DynamicResource SemiColorText0}"
                                                                                         Foreground="{DynamicResource SemiBackground4Color}"
-                                                                                        Text="变量">
+                                                                                        Text="{Binding Value,Converter={StaticResource NodeTypeNameI18NCtr}}">
 
                                                                                     </TextBlock>
 
@@ -406,7 +407,48 @@
                                                                                     </TextBlock>
                                                                                 </StackPanel>
                                                                             </StackPanel>
+                                                                            <StackPanel Orientation="Vertical"
+                                                                                DockPanel.Dock="Right"
+                                                                                HorizontalAlignment="Right"
+                                                                                VerticalAlignment="Center">
+                                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
 
+                                                                                    <TextBlock
+                                                                                        VerticalAlignment="Center"
+                                                                                        Foreground="{DynamicResource SemiColorText0}"
+                                                                                        Text="流输出">
+
+                                                                                    </TextBlock>
+                                                                                    <TextBlock
+                                                                                        VerticalAlignment="Center"
+                                                                                        FontSize="12"
+                                                                                        Background="{DynamicResource SemiColorText0}"
+                                                                                        Foreground="{DynamicResource SemiBackground4Color}"
+                                                                                        Text="节点">
+
+                                                                                    </TextBlock>
+
+                                                                                    <Border Background="Transparent">
+                                                                                        <!-- Set the border color to red -->
+                                                                                        <Border.BorderBrush>
+                                                                                            <SolidColorBrush
+                                                                                                Color="{DynamicResource SemiBlue5Color}"
+                                                                                                Opacity="0.5" />
+                                                                                        </Border.BorderBrush>
+                                                                                        <!-- Set the border thickness to 2 -->
+                                                                                        <Border.BorderThickness>2</Border.BorderThickness>
+                                                                                        <!-- Set the border corner radius to 10 -->
+                                                                                        <Border.CornerRadius>10</Border.CornerRadius>
+                                                                                        <!-- Set the padding to 10 -->
+                                                                                        <Border.Padding>5</Border.Padding>
+                                                                                        <!-- Set the margin to 20 -->
+                                                                                        <Border.Margin>5</Border.Margin>
+                                                                                    </Border>
+                                                                                    <!-- Declare a TextBlock element and give it a name -->
+
+                                                                                </StackPanel>
+                                                                                
+                                                                            </StackPanel>
 
                                                                         </DockPanel>
                                                                     </Grid>
@@ -437,6 +479,7 @@
 
                                                                 </Border>
                                                                 <Border CornerRadius="0 0 3 3">
+
                                                                     <Grid>
                                                                         <Rectangle>
                                                                             <Rectangle.Fill>
@@ -445,44 +488,128 @@
                                                                                     Opacity="0.5" />
                                                                             </Rectangle.Fill>
                                                                         </Rectangle>
-                                                                        <StackPanel Orientation="Horizontal"
-                                                                            VerticalAlignment="Center"
-                                                                            HorizontalAlignment="Right">
+                                                                        <DockPanel>
+                                                                            <StackPanel Orientation="Vertical"
+                                                                                DockPanel.Dock="Left"
+                                                                                VerticalAlignment="Center">
 
-                                                                            <TextBlock
-                                                                                VerticalAlignment="Center"
-                                                                                Foreground="{DynamicResource SemiColorText0}"
-                                                                                Text="读取">
+                                                                                <StackPanel Orientation="Horizontal"
+                                                                                    VerticalAlignment="Center">
+                                                                                    <Border Background="Transparent">
+                                                                                        <!-- Set the border color to red -->
+                                                                                        <Border.BorderBrush>
+                                                                                            <SolidColorBrush
+                                                                                                Color="{DynamicResource SemiBlue5Color}"
+                                                                                                Opacity="0.5" />
+                                                                                        </Border.BorderBrush>
+                                                                                        <!-- Set the border thickness to 2 -->
+                                                                                        <Border.BorderThickness>2</Border.BorderThickness>
+                                                                                        <!-- Set the border corner radius to 10 -->
+                                                                                        <Border.CornerRadius>10</Border.CornerRadius>
+                                                                                        <!-- Set the padding to 10 -->
+                                                                                        <Border.Padding>5</Border.Padding>
+                                                                                        <!-- Set the margin to 20 -->
+                                                                                        <Border.Margin>5</Border.Margin>
+                                                                                    </Border>
+                                                                                    <!-- Declare a TextBlock element and give it a name -->
 
-                                                                            </TextBlock>
-                                                                            <TextBlock
-                                                                                VerticalAlignment="Center"
-                                                                                FontSize="12"
-                                                                                Background="{DynamicResource SemiColorText0}"
-                                                                                Foreground="{DynamicResource SemiBackground4Color}"
-                                                                                Text="变量">
+                                                                                    <TextBlock
+                                                                                        VerticalAlignment="Center"
+                                                                                       
+                                                                                        FontSize="12"
+                                                                                        Background="{DynamicResource SemiColorText0}"
+                                                                                        Foreground="{DynamicResource SemiBackground4Color}"
+                                                                                        Text="节点">
 
-                                                                            </TextBlock>
 
-                                                                            <Border Background="Transparent">
-                                                                                <!-- Set the border color to red -->
-                                                                                <Border.BorderBrush>
-                                                                                    <SolidColorBrush
-                                                                                        Color="{DynamicResource SemiBlue5Color}"
-                                                                                        Opacity="0.5" />
-                                                                                </Border.BorderBrush>
-                                                                                <!-- Set the border thickness to 2 -->
-                                                                                <Border.BorderThickness>2</Border.BorderThickness>
-                                                                                <!-- Set the border corner radius to 10 -->
-                                                                                <Border.CornerRadius>10</Border.CornerRadius>
-                                                                                <!-- Set the padding to 10 -->
-                                                                                <Border.Padding>5</Border.Padding>
-                                                                                <!-- Set the margin to 20 -->
-                                                                                <Border.Margin>5</Border.Margin>
-                                                                            </Border>
-                                                                            <!-- Declare a TextBlock element and give it a name -->
+                                                                                    </TextBlock>
 
-                                                                        </StackPanel>
+
+                                                                                    <TextBlock
+                                                                                        VerticalAlignment="Center"
+                                                                                        Foreground="{DynamicResource SemiColorText0}"
+                                                                                        Text="流输入">
+                                                                                    </TextBlock>
+                                                                                </StackPanel>
+                                                                            </StackPanel>
+                                                                            <StackPanel Orientation="Vertical"
+                                                                                DockPanel.Dock="Right"
+                                                                                HorizontalAlignment="Right"
+                                                                                VerticalAlignment="Center">
+                                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+
+                                                                                    <TextBlock
+                                                                                        VerticalAlignment="Center"
+                                                                                        Foreground="{DynamicResource SemiColorText0}"
+                                                                                        Text="流输出">
+
+                                                                                    </TextBlock>
+                                                                                    <TextBlock
+                                                                                        VerticalAlignment="Center"
+                                                                                        FontSize="12"
+                                                                                        Background="{DynamicResource SemiColorText0}"
+                                                                                        Foreground="{DynamicResource SemiBackground4Color}"
+                                                                                        Text="节点">
+
+                                                                                    </TextBlock>
+
+                                                                                    <Border Background="Transparent">
+                                                                                        <!-- Set the border color to red -->
+                                                                                        <Border.BorderBrush>
+                                                                                            <SolidColorBrush
+                                                                                                Color="{DynamicResource SemiBlue5Color}"
+                                                                                                Opacity="0.5" />
+                                                                                        </Border.BorderBrush>
+                                                                                        <!-- Set the border thickness to 2 -->
+                                                                                        <Border.BorderThickness>2</Border.BorderThickness>
+                                                                                        <!-- Set the border corner radius to 10 -->
+                                                                                        <Border.CornerRadius>10</Border.CornerRadius>
+                                                                                        <!-- Set the padding to 10 -->
+                                                                                        <Border.Padding>5</Border.Padding>
+                                                                                        <!-- Set the margin to 20 -->
+                                                                                        <Border.Margin>5</Border.Margin>
+                                                                                    </Border>
+                                                                                    <!-- Declare a TextBlock element and give it a name -->
+
+                                                                                </StackPanel>
+                                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+
+                                                                                    <TextBlock
+                                                                                        VerticalAlignment="Center"
+                                                                                        Foreground="{DynamicResource SemiColorText0}"
+                                                                                        Text="读取">
+
+                                                                                    </TextBlock>
+                                                                                    <TextBlock
+                                                                                        VerticalAlignment="Center"
+                                                                                        FontSize="12"
+                                                                                        Background="{DynamicResource SemiColorText0}"
+                                                                                        Foreground="{DynamicResource SemiBackground4Color}"
+                                                                                        Text="{Binding Value,Converter={StaticResource NodeTypeNameI18NCtr}}">
+
+                                                                                    </TextBlock>
+
+                                                                                    <Border Background="Transparent">
+                                                                                        <!-- Set the border color to red -->
+                                                                                        <Border.BorderBrush>
+                                                                                            <SolidColorBrush
+                                                                                                Color="{DynamicResource SemiBlue5Color}"
+                                                                                                Opacity="0.5" />
+                                                                                        </Border.BorderBrush>
+                                                                                        <!-- Set the border thickness to 2 -->
+                                                                                        <Border.BorderThickness>2</Border.BorderThickness>
+                                                                                        <!-- Set the border corner radius to 10 -->
+                                                                                        <Border.CornerRadius>10</Border.CornerRadius>
+                                                                                        <!-- Set the padding to 10 -->
+                                                                                        <Border.Padding>5</Border.Padding>
+                                                                                        <!-- Set the margin to 20 -->
+                                                                                        <Border.Margin>5</Border.Margin>
+                                                                                    </Border>
+                                                                                    <!-- Declare a TextBlock element and give it a name -->
+
+                                                                                </StackPanel>
+                                                                            </StackPanel>
+                                                                        </DockPanel>
 
 
                                                                     </Grid>
@@ -499,11 +626,12 @@
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
-                                <Grid ColumnDefinitions="*,5,Auto,Auto" VerticalAlignment="Center" HorizontalAlignment="Stretch">
-                                    <TextBox  Watermark="变量名称" HorizontalAlignment="Stretch"
-                                              Text="{Binding ValueValue,Mode=TwoWay}">
+                                <Grid ColumnDefinitions="*,5,Auto,Auto" VerticalAlignment="Center"
+                                      HorizontalAlignment="Stretch">
+                                    <TextBox Watermark="变量名称" HorizontalAlignment="Stretch"
+                                             Text="{Binding ValueValue,Mode=TwoWay}">
                                     </TextBox>
-                                    <ComboBox Grid.Column="2" VerticalAlignment="Center" 
+                                    <ComboBox Grid.Column="2" VerticalAlignment="Center"
                                               SelectedItem="{Binding ValueType}"
                                               ItemsSource="{Binding Source={x:Static customScenario:CustomScenarioGloble.GetAllCouldUseTypeInValue}}">
                                         <ComboBox.ItemTemplate>
@@ -514,8 +642,7 @@
                                     </ComboBox>
                                     <Button Command="{Binding AddValueCommand}" Grid.Column="3"
                                             CommandParameter="{Binding $self.Parent}" Padding="2,3,0,0"
-                                            Margin="3"
-                                    >
+                                            Margin="3">
 
                                         <controls1:FontIcon FontSize="24" HorizontalAlignment="Center"
                                                             VerticalAlignment="Center" Foreground="GreenYellow"
@@ -534,7 +661,7 @@
                             <StackPanel>
 
                                 <settingsExpander:SettingsExpander Margin="0" Header="手动触发"
-                                                           BorderThickness="0">
+                                                                   BorderThickness="0">
                                     <settingsExpander:SettingsExpander.Footer>
                                         <ToggleSwitch
                                             IsChecked="{Binding Scenario.ExecutionManual,Mode=TwoWay}" />
@@ -547,7 +674,7 @@
                                     </settingsExpander:SettingsExpander.IconSource>
                                     <StackPanel>
                                         <settingsExpander:SettingsExpander Margin="0" Header="关键词"
-                                                                   BorderThickness="0">
+                                                                           BorderThickness="0">
                                             <settingsExpander:SettingsExpander.IconSource>
                                                 <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
                                                                     Glyph="&#xf4b6;" />
@@ -565,7 +692,7 @@
 
                                 </settingsExpander:SettingsExpander>
                                 <settingsExpander:SettingsExpander Margin="0" Header="自动触发"
-                                                           BorderThickness="0">
+                                                                   BorderThickness="0">
 
                                     <settingsExpander:SettingsExpander.IconSource>
                                         <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
@@ -604,7 +731,7 @@
 
                                 </settingsExpander:SettingsExpander>
                                 <settingsExpander:SettingsExpander Margin="0" Header="快捷键触发"
-                                                           BorderThickness="0">
+                                                                   BorderThickness="0">
                                     <settingsExpander:SettingsExpander.IconSource>
                                         <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
                                                             Glyph="&#xf4b8;" />
@@ -725,7 +852,7 @@
 
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            x:Name="textBlock"
+                                                                         
                                                                             FontSize="12"
                                                                             Background="{DynamicResource SemiColorText0}"
                                                                             Foreground="{DynamicResource SemiBackground4Color}"
@@ -751,7 +878,7 @@
                                                                         HorizontalAlignment="Right">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            x:Name="textBlock"
+                                                                            
                                                                             Text="{Binding Title}"
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <TextBox Margin="10,5,10,5"
@@ -769,7 +896,7 @@
                                                                         HorizontalAlignment="Right">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            x:Name="textBlock"
+                                                                            
                                                                             Text="{Binding Title}"
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <ComboBox Margin="10,5,10,5"
@@ -787,7 +914,7 @@
                                                                         HorizontalAlignment="Right">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            x:Name="textBlock"
+                                                                            
                                                                             Text="{Binding Title}"
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <u:NumericIntUpDown
@@ -808,7 +935,7 @@
                                                                         HorizontalAlignment="Right">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            x:Name="textBlock"
+                                                                            
                                                                             Text="{Binding Title}"
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <u:NumericDoubleUpDown
@@ -827,7 +954,7 @@
                                                                         HorizontalAlignment="Right">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            x:Name="textBlock"
+                                                                            
                                                                             Text="{Binding Title}"
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <ToggleSwitch
@@ -846,7 +973,7 @@
                                                                         HorizontalAlignment="Right">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            x:Name="textBlock"
+                                                                            
                                                                             Text="{Binding Title}"
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <controls1:SearchItemShow
@@ -881,7 +1008,7 @@
 
                                                                     <TextBlock
                                                                         VerticalAlignment="Center"
-                                                                        x:Name="textBlock"
+                                                                        
                                                                         Foreground="{DynamicResource SemiColorText0}"
                                                                         Text="{Binding Title}">
                                                                     </TextBlock>
@@ -1093,8 +1220,8 @@
                                                     <!-- ReSharper disable once Xaml.RedundantResource -->
                                                     <MenuItem
                                                         Foreground="{DynamicResource SemiColorText0}"
-                                                              Command="{Binding $parent[controls2:NodifyEditor].((taskEditor1:TaskEditorViewModel)DataContext).SwitchConnectorCommand}"
-                                                              CommandParameter="{Binding #ContentPresenter1  }">
+                                                        Command="{Binding $parent[controls2:NodifyEditor].((taskEditor1:TaskEditorViewModel)DataContext).SwitchConnectorCommand}"
+                                                        CommandParameter="{Binding #ContentPresenter1  }">
                                                         <MenuItem.Header>
                                                             <TextBlock Text="切换自输入/连接器"></TextBlock>
                                                         </MenuItem.Header>
@@ -1151,7 +1278,7 @@
                                                                                Classes.IsNotUsed="{Binding IsNotUsed}"
                                                                                Text="{Binding TypeName}" />
                                                                     <TextBlock VerticalAlignment="Center"
-                                                                               x:Name="textBlock"
+                                                                               
                                                                                Classes.IsNotUsed="{Binding IsNotUsed}"
                                                                                Text="{Binding Title}" />
                                                                 </StackPanel>
@@ -1171,7 +1298,7 @@
 
                                                                     HorizontalAlignment="Right">
                                                             <TextBlock VerticalAlignment="Center"
-                                                                       x:Name="textBlock"
+                                                                       
                                                                        Text="{Binding Title}"
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <TextBox Margin="10,5,10,5" MinWidth="40"
@@ -1187,7 +1314,7 @@
                                                                     HorizontalAlignment="Right">
                                                             <TextBlock
                                                                 VerticalAlignment="Center"
-                                                                x:Name="textBlock"
+                                                                
                                                                 Text="{Binding Title}"
                                                                 Foreground="{DynamicResource SemiColorText0}" />
                                                             <ComboBox Margin="10,5,10,5" x:Name="ComboBox"
@@ -1225,7 +1352,7 @@
                                                                     VerticalAlignment="Center"
                                                                     HorizontalAlignment="Right">
                                                             <TextBlock VerticalAlignment="Center"
-                                                                       x:Name="textBlock"
+                                                                       
                                                                        Text="{Binding Title}"
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <u:NumericIntUpDown Margin="10,5,10,5" MinWidth="40"
@@ -1243,7 +1370,7 @@
                                                                     VerticalAlignment="Center"
                                                                     HorizontalAlignment="Right">
                                                             <TextBlock VerticalAlignment="Center"
-                                                                       x:Name="textBlock"
+                                                                       
                                                                        Text="{Binding Title}"
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <u:NumericDoubleUpDown Margin="10,5,10,5" MinWidth="40"
@@ -1259,7 +1386,7 @@
                                                                     VerticalAlignment="Center"
                                                                     HorizontalAlignment="Right">
                                                             <TextBlock VerticalAlignment="Center"
-                                                                       x:Name="textBlock"
+                                                                       
                                                                        Text="{Binding Title}"
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <ToggleSwitch Margin="10,5,10,5" MinWidth="40"
@@ -1273,12 +1400,12 @@
                                                                     VerticalAlignment="Center"
                                                                     HorizontalAlignment="Right">
                                                             <TextBlock VerticalAlignment="Center"
-                                                                       x:Name="textBlock"
+                                                                     
                                                                        Text="{Binding Title}"
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <controls1:SearchItemShow Margin="10,5,10,5"
                                                                 ToolTip.Tip="{Binding RelativeSource={RelativeSource Self},Path=OnlyKey}"
-                                                               
+
                                                                 OnlyKey="{Binding InputObject, Mode=TwoWay}" />
                                                         </StackPanel>
 
@@ -1308,7 +1435,7 @@
                                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
                                                             HorizontalAlignment="Right">
 
-                                                    <TextBlock VerticalAlignment="Center" x:Name="textBlock"
+                                                    <TextBlock VerticalAlignment="Center" 
                                                                Text="{Binding Title}" />
                                                     <TextBlock VerticalAlignment="Center" FontSize="12"
                                                                Background="{DynamicResource SemiColorText0}"

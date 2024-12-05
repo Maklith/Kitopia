@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
 using CommunityToolkit.Mvvm.Messaging;
+using Core.JsonConverter;
 using Core.SDKs.HotKey;
 using Core.ViewModel;
 using log4net;
@@ -33,6 +34,7 @@ public static class ConfigManger
         WriteIndented = true,
         ReferenceHandler = ReferenceHandler.Preserve,
         Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+        Converters = { new CustomScenarioInputValueJsonConverter() },
         // DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 

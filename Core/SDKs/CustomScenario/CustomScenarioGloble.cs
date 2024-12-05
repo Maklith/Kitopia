@@ -1,4 +1,5 @@
-﻿using Core.SDKs.CustomType;
+﻿
+using Core.SDKs.CustomType;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Tools;
 using Core.ViewModel.TaskEditor;
@@ -29,9 +30,9 @@ public class CustomScenarioGloble
 
     public static Dictionary<Type, Func<object, string>> ToolTipConverters = new();
 
-    public static Dictionary<Type, System.Text.Json.Serialization.JsonConverter> JsonConverters = new()
+    public static Dictionary<Type, ICustomScenarioValueSerializer> JsonConverters = new()
     {
-        { typeof(string), new ConnectorItemJsonCtr() }
+        { typeof(string), new StringCustomScenarioValueSerializer() }
 
     };
 

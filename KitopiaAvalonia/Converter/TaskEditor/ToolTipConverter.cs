@@ -9,6 +9,10 @@ public class ToolTipConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
+        if (value == null)
+        {
+            return null;
+        }
         if (value is CustomScenarioInputValue valueTuple)
         {
             if (CustomScenarioGloble.ToolTipConverters.ContainsKey(valueTuple.Type))
