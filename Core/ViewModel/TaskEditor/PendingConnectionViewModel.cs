@@ -40,21 +40,21 @@ public partial class PendingConnectionViewModel : ObservableRecipient
                     break;
                 }
 
-                if (Source.Type.FullName != con.Type.FullName)
+                if (Source.InputObject.Type.FullName != con.InputObject.Type.FullName)
                 {
-                    if (con.Type.FullName == "System.Object")
+                    if (con.InputObject.Type.FullName == "System.Object")
                     {
                         PreviewText = "连接";
                         break;
                     }
 
-                    if (Source.Type.FullName == "System.Object")
+                    if (Source.InputObject.Type.FullName == "System.Object")
                     {
                         PreviewText = "连接";
                         break;
                     }
 
-                    if (con.Type.IsAssignableFrom(Source.Type))
+                    if (con.InputObject.Type.IsAssignableFrom(Source.InputObject.Type))
                     {
                         PreviewText = "连接";
                         break;
@@ -90,9 +90,9 @@ public partial class PendingConnectionViewModel : ObservableRecipient
             return;
         }
 
-        if (Source.Type.FullName != target.Type.FullName && !(target.Type.IsAssignableFrom(Source.Type) ||
-                                                              Source.Type.FullName == "System.Object" ||
-                                                              target.Type.FullName == "System.Object"))
+        if (Source.InputObject.Type.FullName != target.InputObject.Type.FullName && !(target.InputObject.Type.IsAssignableFrom(Source.InputObject.Type) ||
+                                                                          Source.InputObject.Type.FullName == "System.Object" ||
+                                                                          target.InputObject.Type.FullName == "System.Object"))
         {
             return;
         }

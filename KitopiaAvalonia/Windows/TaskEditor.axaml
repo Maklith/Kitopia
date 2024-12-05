@@ -883,7 +883,7 @@
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <TextBox Margin="10,5,10,5"
                                                                             MinWidth="40"
-                                                                            Text="{Binding InputObject}"
+                                                                            Text="{Binding InputObject.Value}"
                                                                             Watermark="字符串" />
                                                                     </StackPanel>
 
@@ -902,7 +902,7 @@
                                                                         <ComboBox Margin="10,5,10,5"
                                                                             x:Name="ComboBox"
                                                                             MinWidth="40"
-                                                                            SelectedValue="{Binding InputObject,Mode=TwoWay}" />
+                                                                            SelectedValue="{Binding InputObject.Value,Mode=TwoWay}" />
                                                                     </StackPanel>
 
                                                                 </DataTemplate>
@@ -922,7 +922,7 @@
                                                                             MinWidth="40"
                                                                             Maximum="2147483647"
                                                                             Minimum="-2147483648"
-                                                                            Value="{Binding InputObject, Mode=TwoWay}"
+                                                                            Value="{Binding InputObject.Value, Mode=TwoWay}"
                                                                             Watermark="整型" />
                                                                     </StackPanel>
 
@@ -941,7 +941,7 @@
                                                                         <u:NumericDoubleUpDown
                                                                             Margin="10,5,10,5"
                                                                             MinWidth="40"
-                                                                            Value="{Binding InputObject, Mode=TwoWay}"
+                                                                            Value="{Binding InputObject.Value, Mode=TwoWay}"
                                                                             Watermark="浮点" />
                                                                     </StackPanel>
 
@@ -960,7 +960,7 @@
                                                                         <ToggleSwitch
                                                                             Margin="10,5,10,5"
                                                                             MinWidth="40"
-                                                                            IsChecked="{Binding InputObject, Mode=TwoWay}" />
+                                                                            IsChecked="{Binding InputObject.Value, Mode=TwoWay}" />
                                                                     </StackPanel>
 
                                                                 </DataTemplate>
@@ -979,7 +979,7 @@
                                                                         <controls1:SearchItemShow
                                                                             Margin="10,5,10,5"
                                                                             ToolTip.Tip="{Binding RelativeSource={RelativeSource Self},Path=OnlyKey}"
-                                                                            OnlyKey="{Binding InputObject, Mode=TwoWay}" />
+                                                                            OnlyKey="{Binding InputObject.Value, Mode=TwoWay}" />
                                                                     </StackPanel>
 
                                                                 </DataTemplate>
@@ -1233,7 +1233,7 @@
                                                     <DataTemplate x:Key="InputTemplate"
                                                                   DataType="{x:Type customScenario:ConnectorItem}">
                                                         <controls2:NodeInput
-                                                            ToolTip.Tip="{Binding InputObject,Converter={StaticResource ToolTipConverter}}"
+                                                            ToolTip.Tip="{Binding InputObject.Value,Converter={StaticResource ToolTipConverter}}"
                                                             ToolTip.ShowDelay="0"
                                                             IsConnected="{Binding IsConnected}"
                                                             Anchor="{Binding Anchor, Mode=TwoWay}">
@@ -1303,7 +1303,7 @@
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <TextBox Margin="10,5,10,5" MinWidth="40"
                                                                      Foreground="{DynamicResource SemiColorText0}"
-                                                                     Text="{Binding InputObject}" Watermark="字符串" />
+                                                                     Text="{Binding InputObject.Value}" Watermark="字符串" />
                                                         </StackPanel>
                                                     </DataTemplate>
                                                     <DataTemplate x:Key="EnumTemplate"
@@ -1319,7 +1319,7 @@
                                                                 Foreground="{DynamicResource SemiColorText0}" />
                                                             <ComboBox Margin="10,5,10,5" x:Name="ComboBox"
                                                                       MinWidth="40"
-                                                                      SelectedValue="{Binding InputObject,Mode=TwoWay}">
+                                                                      SelectedValue="{Binding InputObject.Value,Mode=TwoWay}">
                                                                 <ComboBox.DataTemplates>
                                                                     <DataTemplate DataType="system:Object">
                                                                         <TextBlock Text="{Binding}"
@@ -1359,7 +1359,7 @@
 
                                                                 Maximum="2147483647" Minimum="-2147483648"
                                                                 Foreground="{DynamicResource SemiColorText0}"
-                                                                Value="{Binding InputObject, Mode=TwoWay }"
+                                                                Value="{Binding InputObject.Value, Mode=TwoWay }"
                                                                 Watermark="整型" />
                                                         </StackPanel>
 
@@ -1375,7 +1375,7 @@
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <u:NumericDoubleUpDown Margin="10,5,10,5" MinWidth="40"
                                                                 Foreground="{DynamicResource SemiColorText0}"
-                                                                Value="{Binding InputObject, Mode=TwoWay}"
+                                                                Value="{Binding InputObject.Value, Mode=TwoWay}"
                                                                 Watermark="浮点" />
                                                         </StackPanel>
 
@@ -1390,7 +1390,7 @@
                                                                        Text="{Binding Title}"
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <ToggleSwitch Margin="10,5,10,5" MinWidth="40"
-                                                                          IsChecked="{Binding InputObject, Mode=TwoWay}" />
+                                                                          IsChecked="{Binding InputObject.Value, Mode=TwoWay}" />
                                                         </StackPanel>
 
                                                     </DataTemplate>
@@ -1406,7 +1406,7 @@
                                                             <controls1:SearchItemShow Margin="10,5,10,5"
                                                                 ToolTip.Tip="{Binding RelativeSource={RelativeSource Self},Path=OnlyKey}"
 
-                                                                OnlyKey="{Binding InputObject, Mode=TwoWay}" />
+                                                                OnlyKey="{Binding InputObject.Value, Mode=TwoWay}" />
                                                         </StackPanel>
 
                                                     </DataTemplate>
@@ -1426,7 +1426,7 @@
                                     <DataTemplate DataType="{x:Type customScenario:ConnectorItem}">
                                         <controls2:NodeOutput
                                             x:Name="NodeOutput"
-                                            ToolTip.Tip="{Binding InputObject,Converter={StaticResource ToolTipConverter}}"
+                                            ToolTip.Tip="{Binding InputObject.Value,Converter={StaticResource ToolTipConverter}}"
                                             ToolTip.ShowDelay="0"
                                             VerticalAlignment="Center"
                                             IsConnected="{Binding IsConnected}"

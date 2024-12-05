@@ -105,7 +105,11 @@ public class ScenarioMethod
             inpItems.Add(new ConnectorItem()
             {
                 Source = pointItem,
-                Type = typeof(NodeConnectorClass),
+                InputObject = new CustomScenarioValue()
+                {
+                    Type = typeof(NodeConnectorClass),
+                },
+                
                 Title = "流输入",
                 TypeName = "节点"
             });
@@ -143,7 +147,10 @@ public class ScenarioMethod
                         inpItems.Add(new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = memberInfo.PropertyType,
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = memberInfo.PropertyType,
+                            },
                             IsSelf = IsSelf,
                             AutoUnboxIndex = autoUnboxIndex,
                             Interfaces = interfaces,
@@ -157,7 +164,11 @@ public class ScenarioMethod
                     var connectorItem = new ConnectorItem()
                     {
                         Source = pointItem,
-                        Type = parameterInfo.ParameterType,
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = parameterInfo.ParameterType,
+                        },
+                        
                         IsSelf = IsSelf,
                         Title = Attribute.GetParameterName(parameterInfo.Name),
                         TypeName = CustomScenarioGloble.GetI18N(parameterInfo.ParameterType.FullName)
@@ -192,7 +203,11 @@ public class ScenarioMethod
                 {
                     Source = pointItem,
                     IsOut = true,
-                    Type = typeof(NodeConnectorClass),
+                    InputObject = new CustomScenarioValue()
+                    {
+                        Type = typeof(NodeConnectorClass),
+                    },
+                   
                     Title = "流输出",
                     TypeName = "节点"
                 });
@@ -215,7 +230,11 @@ public class ScenarioMethod
                         outItems.Add(new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = memberInfo.PropertyType,
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = memberInfo.PropertyType,
+                            },
+                            
                             AutoUnboxIndex = autoUnboxIndex,
                             Interfaces = interfaces,
                             Title = Attribute.GetParameterName(memberInfo.Name),
@@ -236,7 +255,11 @@ public class ScenarioMethod
                     outItems.Add(new ConnectorItem()
                     {
                         Source = pointItem,
-                        Type = Method.ReturnParameter.ParameterType,
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = Method.ReturnParameter.ParameterType,
+                        },
+                        
                         Title = Attribute.GetParameterName("return"),
                         Interfaces = interfaces,
                         TypeName =
@@ -266,7 +289,11 @@ public class ScenarioMethod
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(NodeConnectorClass),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(NodeConnectorClass),
+                            },
+                            
                             Title = "真",
                             TypeName = CustomScenarioGloble.GetI18N(typeof(NodeConnectorClass).FullName),
                             IsOut = true
@@ -274,7 +301,10 @@ public class ScenarioMethod
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(NodeConnectorClass),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(NodeConnectorClass),
+                            },
                             Title = "假",
                             TypeName = CustomScenarioGloble.GetI18N(typeof(NodeConnectorClass).FullName),
                             IsOut = true
@@ -286,14 +316,20 @@ public class ScenarioMethod
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(NodeConnectorClass),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(NodeConnectorClass),
+                            },
                             Title = "流输入",
                             TypeName = "节点"
                         },
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(bool),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(bool),
+                            },
                             Title = CustomScenarioGloble.GetI18N(typeof(bool).FullName),
                             TypeName = CustomScenarioGloble.GetI18N(typeof(bool).FullName)
                         }
@@ -309,7 +345,11 @@ public class ScenarioMethod
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(NodeConnectorClass),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(NodeConnectorClass),
+                            },
+                           
                             Title = "流输出",
                             IsOut = true,
                             TypeName = "节点"
@@ -317,7 +357,10 @@ public class ScenarioMethod
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(NodeConnectorClass),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(NodeConnectorClass),
+                            },
                             IsOut = true,
                             Title = "流输出",
                             TypeName = "节点"
@@ -329,7 +372,10 @@ public class ScenarioMethod
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(NodeConnectorClass),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(NodeConnectorClass),
+                            },
                             Title = "流输入",
                             TypeName = "节点"
                         }
@@ -345,7 +391,10 @@ public class ScenarioMethod
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(NodeConnectorClass),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(NodeConnectorClass),
+                            },
                             Title = "流输出",
                             IsOut = true,
                             TypeName = "节点"
@@ -353,7 +402,10 @@ public class ScenarioMethod
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(NodeConnectorClass),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(NodeConnectorClass),
+                            },
                             IsOut = true,
                             Title = "流输出",
                             TypeName = "节点"
@@ -365,15 +417,22 @@ public class ScenarioMethod
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(NodeConnectorClass),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(NodeConnectorClass),
+                            },
                             Title = "流输入",
                             TypeName = "节点"
                         },
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(int),
-                            InputObject = (double)2,
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(int),
+                                Value =  (double)2
+                            },
+                          
                             IsSelf = true,
                             SelfInputAble = false,
                             Title = "输出数量",
@@ -391,7 +450,10 @@ public class ScenarioMethod
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(bool),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(bool),
+                            },
                             Title = CustomScenarioGloble.GetI18N(typeof(bool).FullName),
                             TypeName = CustomScenarioGloble.GetI18N(typeof(bool).FullName),
                             IsOut = true
@@ -403,21 +465,30 @@ public class ScenarioMethod
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(NodeConnectorClass),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(NodeConnectorClass),
+                            },
                             Title = "流输入",
                             TypeName = "节点"
                         },
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(object),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(object),
+                            },
                             Title = CustomScenarioGloble.GetI18N(typeof(object).FullName),
                             TypeName = CustomScenarioGloble.GetI18N(typeof(object).FullName)
                         },
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(object),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(object),
+                            },
                             Title = CustomScenarioGloble.GetI18N(typeof(object).FullName),
                             TypeName = CustomScenarioGloble.GetI18N(typeof(object).FullName)
                         }
@@ -432,14 +503,22 @@ public class ScenarioMethod
                     inpItems.Add(new ConnectorItem()
                     {
                         Source = pointItem,
-                        Type = typeof(NodeConnectorClass),
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = typeof(NodeConnectorClass),
+                        },
+                        
                         Title = "流输入",
                         TypeName = "节点"
                     });
                     inpItems.Add(new ConnectorItem()
                     {
                         Source = pointItem,
-                        Type = ValueDataType,
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type =ValueDataType,
+                        },
+                       
                         Title = "设置",
                         TypeName = CustomScenarioGloble.GetI18N(ValueDataType.FullName)
                     });
@@ -449,7 +528,10 @@ public class ScenarioMethod
                     {
                         Source = pointItem,
                         IsOut = true,
-                        Type = typeof(NodeConnectorClass),
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = typeof(NodeConnectorClass),
+                        },
                         Title = "流输出",
                         TypeName = "节点"
                     });
@@ -463,7 +545,10 @@ public class ScenarioMethod
                     inpItems.Add(new ConnectorItem()
                     {
                         Source = pointItem,
-                        Type = typeof(NodeConnectorClass),
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = typeof(NodeConnectorClass),
+                        },
                         Title = "流输入",
                         TypeName = "节点"
                     });
@@ -472,7 +557,10 @@ public class ScenarioMethod
                     outItems.Add(new ConnectorItem()
                     {
                         Source = pointItem,
-                        Type = typeof(NodeConnectorClass),
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = typeof(NodeConnectorClass),
+                        },
                         IsOut = true,
                         Title = "流输出",
                         TypeName = "节点"
@@ -480,7 +568,11 @@ public class ScenarioMethod
                     outItems.Add(new ConnectorItem()
                     {
                         Source = pointItem,
-                        Type = ValueDataType,
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = ValueDataType,
+                        },
+                       
                         Title = "获取",
                         IsOut = true,
                         TypeName = CustomScenarioGloble.GetI18N(ValueDataType.FullName)
@@ -495,7 +587,10 @@ public class ScenarioMethod
                     outItems.Add(new ConnectorItem()
                     {
                         Source = pointItem,
-                        Type = typeof(NodeConnectorClass),
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = typeof(NodeConnectorClass),
+                        },
                         Title = "流输出",
                         TypeName = "节点"
                     });
@@ -505,16 +600,24 @@ public class ScenarioMethod
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(NodeConnectorClass),
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(NodeConnectorClass),
+                            },
                             Title = "流输入",
                             TypeName = "节点"
                         },
                         new ConnectorItem()
                         {
                             Source = pointItem,
-                            Type = typeof(string),
-                            RealType = typeof(SearchViewItem),
-                            InputObject = "",
+                            InputObject = new CustomScenarioValue()
+                            {
+                                Type = typeof(string),
+                                RealType = typeof(SearchViewItem),
+                                Value = ""
+                            },
+                            
+                          
                             Title = "本地项目",
                             TypeName = "字符串",
                             IsSelf = true

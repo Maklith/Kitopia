@@ -63,7 +63,11 @@ public partial class TaskEditorViewModel : ObservableRecipient
             {
                 IsOut = true,
                 Source = nodify2,
-                Type = typeof(NodeConnectorClass),
+                InputObject = new CustomScenarioValue()
+                {
+                    Type = typeof(NodeConnectorClass),
+                },
+                
                 TypeName = CustomScenarioGloble.GetI18N(typeof(NodeConnectorClass).FullName),
                 Title = "开始"
             }
@@ -81,7 +85,10 @@ public partial class TaskEditorViewModel : ObservableRecipient
             {
                 IsOut = true,
                 Source = nodify3,
-                Type = typeof(NodeConnectorClass),
+                InputObject = new CustomScenarioValue()
+                {
+                    Type = typeof(NodeConnectorClass),
+                },
                 TypeName = CustomScenarioGloble.GetI18N(typeof(NodeConnectorClass).FullName),
                 Title = "开始"
             }
@@ -129,19 +136,19 @@ public partial class TaskEditorViewModel : ObservableRecipient
                     e.ConnectorItem.Title == "输出数量")
                 {
                     int? value = null;
-                    if (e.ConnectorItem.InputObject is int inputObject)
+                    if (e.ConnectorItem.InputObject.Value is int inputObject)
                     {
                         value = inputObject;
                     }
                     else
                     {
-                        value = Convert.ToInt32((double)e.ConnectorItem.InputObject);
+                        value = Convert.ToInt32((double)e.ConnectorItem.InputObject.Value);
                     }
 
                     if (value > 10)
                     {
                         value = 10;
-                        e.ConnectorItem.InputObject = (double)10;
+                        e.ConnectorItem.InputObject.Value = (double)10;
                     }
 
                     if (e.ScenarioMethodNode.Output.Count == value)
@@ -179,7 +186,10 @@ public partial class TaskEditorViewModel : ObservableRecipient
                             e.ScenarioMethodNode.Output.Add(new ConnectorItem
                             {
                                 Source = e.ScenarioMethodNode,
-                                Type = typeof(NodeConnectorClass),
+                                InputObject = new CustomScenarioValue()
+                                {
+                                    Type = typeof(NodeConnectorClass),
+                                },
                                 Title = "流输出",
                                 IsOut = true,
                                 TypeName = "节点"
@@ -190,7 +200,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
                 if (e.ScenarioMethodNode.ScenarioMethod.Type == ScenarioMethodType.打开运行本地项目)
                 {
-                    var o = e.ScenarioMethodNode.Input[1].InputObject;
+                    var o = e.ScenarioMethodNode.Input[1].InputObject.Value;
                     if (o is string inputObject)
                     {
                         if (inputObject.StartsWith("CustomScenario:"))
@@ -208,7 +218,10 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                         {
                                             IsOut = false,
                                             Source = e.ScenarioMethodNode,
-                                            Type = value.GetType(),
+                                            InputObject = new CustomScenarioValue()
+                                            {
+                                                Type = value.GetType(),
+                                            },
                                             TypeName = CustomScenarioGloble.GetI18N(value.GetType()
                                                 .FullName),
                                             Title = key
@@ -218,7 +231,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                     if (e.ScenarioMethodNode.Input[index + 2].Title != key)
                                     {
                                         e.ScenarioMethodNode.Input[index + 2].Title = key;
-                                        e.ScenarioMethodNode.Input[index + 2].Type = value.GetType();
+                                        e.ScenarioMethodNode.Input[index + 2].InputObject.Value = value.GetType();
                                         e.ScenarioMethodNode.Input[index + 2].TypeName = CustomScenarioGloble.GetI18N(
                                             value
                                                 .GetType()
@@ -368,7 +381,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
         foreach (var connectorItem in scenarioMethodNode.Input)
         {
-            var plugin = PluginManager.EnablePlugin.FirstOrDefault((e) => e.Value._dll == connectorItem.Type.Assembly)
+            var plugin = PluginManager.EnablePlugin.FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.Type.Assembly)
                 .Value;
             if (plugin is not null)
             {
@@ -376,7 +389,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
             }
 
             var plugin2 = PluginManager.EnablePlugin
-                .FirstOrDefault((e) => e.Value._dll == connectorItem.RealType.Assembly)
+                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.RealType.Assembly)
                 .Value;
             if (plugin2 is not null)
             {
@@ -386,7 +399,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
         foreach (var connectorItem in scenarioMethodNode.Output)
         {
-            var plugin = PluginManager.EnablePlugin.FirstOrDefault((e) => e.Value._dll == connectorItem.Type.Assembly)
+            var plugin = PluginManager.EnablePlugin.FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.Type.Assembly)
                 .Value;
             if (plugin is not null)
             {
@@ -394,7 +407,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
             }
 
             var plugin2 = PluginManager.EnablePlugin
-                .FirstOrDefault((e) => e.Value._dll == connectorItem.RealType.Assembly)
+                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.RealType.Assembly)
                 .Value;
             if (plugin2 is not null)
             {
@@ -589,7 +602,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
             }
         }
 
-        if (source.Type.FullName == "PluginCore.NodeConnectorClass")
+        if (source.InputObject.Type.FullName == "PluginCore.NodeConnectorClass")
         {
             if (source.IsConnected)
             {

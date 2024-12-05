@@ -32,12 +32,23 @@ public partial class CustomScenarioValue : ObservableObject
     }
     [JsonConverter(typeof(TypeJsonConverter))]
     public Type Type { get; set; }
-    
+    [JsonIgnore] private Type? _realType;
     [JsonConverter(typeof(TypeJsonConverter))]
-    public Type RealType{ get; set; }
+    public Type RealType
+    {
+        get => _realType ?? Type;
+        set => _realType = value;
+    }
+
+    partial void OnValueChanged(object? value)
+    {
+        // WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg()
+        //     { ScenarioMethodNode = Source, ConnectorItem = this });
+    }
+
 
     [ObservableProperty]
-    public object? value;
+    private object? value;
 
 
 }
@@ -149,7 +160,7 @@ public partial class CustomScenario : ObservableRecipient
                 {
                     IsOut = true,
                     Source = nodes.First(),
-                    Type = value.GetType(),
+                    InputObject = new CustomScenarioValue(){Type = value.GetType()},
                     TypeName = CustomScenarioGloble.GetI18N(value.GetType()
                         .FullName),
                     Title = key
@@ -248,14 +259,14 @@ public partial class CustomScenario : ObservableRecipient
             {
                 foreach (var connectorItem in pointItem.Output)
                 {
-                    connectorItem.InputObject = null;
+                    connectorItem.InputObject.Value = null;
                 }
 
                 foreach (var connectorItem in pointItem.Input)
                 {
                     if (!connectorItem.IsSelf)
                     {
-                        connectorItem.InputObject = null;
+                        connectorItem.InputObject.Value = null;
                     }
                 }
             }
@@ -263,7 +274,7 @@ public partial class CustomScenario : ObservableRecipient
             for (var i = 0; i < inputValues.Length; i++)
             {
                 nodes[0]
-                    .Output[i + 1].InputObject = inputValues[i];
+                    .Output[i + 1].InputObject.Value= inputValues[i];
             }
         }
 
@@ -491,7 +502,7 @@ public partial class CustomScenario : ObservableRecipient
         {
             if (!connectorItem.IsConnected)
             {
-                if (connectorItem.Type.FullName != "PluginCore.NodeConnectorClass")
+                if (connectorItem.InputObject.Type.FullName != "PluginCore.NodeConnectorClass")
                 {
                     //当前节点有一个输入参数不存在,验证失败
                     if (!connectorItem.IsSelf)
@@ -505,7 +516,7 @@ public partial class CustomScenario : ObservableRecipient
                     connectorItem.IsNotUsed = true;
                 }
             }
-            else if (connectorItem.Type.FullName == "PluginCore.NodeConnectorClass")
+            else if (connectorItem.InputObject.Type.FullName == "PluginCore.NodeConnectorClass")
             {
                 connectorItem.IsNotUsed = false;
             }

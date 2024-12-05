@@ -33,7 +33,10 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                 new ConnectorItem()
                 {
                     Source = String,
-                    Type = value,
+                    InputObject = new CustomScenarioValue()
+                    {
+                        Type = value,
+                    },
                     Title = CustomScenarioGloble.GetI18N(value.FullName),
                     TypeName = CustomScenarioGloble.GetI18N(value.FullName),
                     IsOut = true
@@ -45,8 +48,11 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                 new ConnectorItem()
                 {
                     Source = String,
-                    Type = value,
-                    InputObject = value.IsValueType ? Activator.CreateInstance(value) : null,
+                    InputObject = new CustomScenarioValue()
+                    {
+                        Type = value,
+                        Value = value.IsValueType ? Activator.CreateInstance(value) : null
+                    },
                     Title = CustomScenarioGloble.GetI18N(value.FullName),
                     TypeName = CustomScenarioGloble.GetI18N(value.FullName),
                     IsSelf = true
@@ -54,7 +60,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
             };
             if (value.FullName == "System.Int32")
             {
-                StringinItems[0].InputObject = (double)0;
+                StringinItems[0].InputObject.Value = (double)0;
             }
 
             String.Input = StringinItems;

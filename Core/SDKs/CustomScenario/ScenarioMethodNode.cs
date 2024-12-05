@@ -117,7 +117,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                     {
                         foreach (var connectorItem in Output)
                         {
-                            if (connectorItem.Type == memberInfo.PropertyType)
+                            if (connectorItem.InputObject.Type == memberInfo.PropertyType)
                             {
                                 var value = invoke.GetType()
                                     .InvokeMember(memberInfo.Name,
@@ -125,7 +125,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                                         BindingFlags.Public | BindingFlags.NonPublic |
                                         BindingFlags.GetProperty, null, invoke, null);
 
-                                connectorItem.InputObject = value;
+                                connectorItem.InputObject.Value = value;
                                 break;
                             }
                         }
@@ -135,7 +135,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 {
                     if (Output.Any())
                     {
-                        Output[1].InputObject = invoke;
+                        Output[1].InputObject.Value = invoke;
                     }
                 }
 
@@ -143,15 +143,15 @@ public partial class ScenarioMethodNode : ObservableRecipient
             }
             case ScenarioMethodType.一对二:
             {
-                Output[0].InputObject = "流1";
-                Output[1].InputObject = "流2";
+                Output[0].InputObject.Value = "流1";
+                Output[1].InputObject.Value = "流2";
                 break;
             }
             case ScenarioMethodType.一对多:
             {
                 for (var i = 0; i < Output.Count; i++)
                 {
-                    Output[i].InputObject = $"流{i + 1}";
+                    Output[i].InputObject.Value = $"流{i + 1}";
                 }
 
                 break;
@@ -160,15 +160,15 @@ public partial class ScenarioMethodNode : ObservableRecipient
             {
                 if (Input[1].InputObject is null)
                 {
-                    Output[0].InputObject = false;
+                    Output[0].InputObject.Value = false;
                 }
                 else if (Input[2].InputObject is null)
                 {
-                    Output[0].InputObject = false;
+                    Output[0].InputObject.Value = false;
                 }
                 else
                 {
-                    Output[0].InputObject = Input[1].InputObject!.Equals(Input[2].InputObject);
+                    Output[0].InputObject.Value = Input[1].InputObject!.Equals(Input[2].InputObject);
                 }
 
                 break;
@@ -177,7 +177,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
             {
                 if (values.ContainsKey(ScenarioMethod.ValueName))
                 {
-                    values[ScenarioMethod.ValueName].Value = Input[1].InputObject!;
+                    values[ScenarioMethod.ValueName].Value = Input[1].InputObject.Value!;
                     
                 }
 
@@ -187,28 +187,28 @@ public partial class ScenarioMethodNode : ObservableRecipient
             {
                 if (values.ContainsKey(ScenarioMethod.ValueName))
                 {
-                    Output[1].InputObject = values[ScenarioMethod.ValueName].Value;
+                    Output[1].InputObject.Value = values[ScenarioMethod.ValueName].Value;
                 }
 
                 break;
             }
             case ScenarioMethodType.判断:
             {
-                if (Input[1].InputObject is bool b1)
+                if (Input[1].InputObject.Value is bool b1)
                 {
                     if (b1)
                     {
                         Output[0].IsNotUsed = false;
-                        Output[0].InputObject = "当前流";
+                        Output[0].InputObject.Value = "当前流";
                         Output[1].IsNotUsed = true;
-                        Output[1].InputObject = "未使用的流";
+                        Output[1].InputObject.Value = "未使用的流";
                     }
                     else
                     {
                         Output[0].IsNotUsed = true;
-                        Output[0].InputObject = "未使用的流";
+                        Output[0].InputObject.Value = "未使用的流";
                         Output[1].IsNotUsed = false;
-                        Output[1].InputObject = "当前流";
+                        Output[1].InputObject.Value = "当前流";
                     }
                 }
 
@@ -225,13 +225,13 @@ public partial class ScenarioMethodNode : ObservableRecipient
                     }
 
                     ServiceManager.Services.GetService<ISearchItemTool>()
-                        .OpenSearchItemByOnlyKey((string)Input[1].InputObject,
+                        .OpenSearchItemByOnlyKey((string)Input[1].InputObject.Value,
                             parameterList.ToArray());
                 }
                 else
                 {
                     ServiceManager.Services.GetService<ISearchItemTool>()
-                        .OpenSearchItemByOnlyKey((string)Input[1].InputObject);
+                        .OpenSearchItemByOnlyKey((string)Input[1].InputObject.Value);
                 }
 
                 break;
@@ -243,7 +243,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                     break;
                 }
 
-                var connectorItem = Input.First(e => e.RealType != typeof(NodeConnectorClass));
+                var connectorItem = Input.First(e => e.InputObject.RealType != typeof(NodeConnectorClass));
                 if (connectorItem == null)
                 {
                     break;
@@ -251,7 +251,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
 
                 foreach (var item in Output)
                 {
-                    item.InputObject = connectorItem.InputObject;
+                    item.InputObject.Value = connectorItem.InputObject.Value;
                 }
 
                 break;
@@ -261,14 +261,14 @@ public partial class ScenarioMethodNode : ObservableRecipient
         //将节点数据赋值给下一个节点
         foreach (var connectorItem in Output)
         {
-            if (connectorItem.RealType == typeof(NodeConnectorClass))
+            if (connectorItem.InputObject.RealType == typeof(NodeConnectorClass))
             {
                 continue;
             }
 
             foreach (var sourceOrNextConnectorItem in connectorItem.GetSourceOrNextConnectorItems(connections))
             {
-                sourceOrNextConnectorItem.InputObject = connectorItem.InputObject;
+                sourceOrNextConnectorItem.InputObject.Value = connectorItem.InputObject.Value;
             }
         }
 
@@ -297,8 +297,6 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 Source = item,
                 TypeName = connectorItem.TypeName,
                 Title = connectorItem.Title,
-                Type = connectorItem.Type,
-                RealType = connectorItem.RealType,
                 InputObject = connectorItem.InputObject,
                 AutoUnboxIndex = connectorItem.AutoUnboxIndex,
                 IsSelf = connectorItem.IsSelf,
@@ -307,7 +305,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 isPluginInputConnector = connectorItem.isPluginInputConnector,
                 PluginInputConnector = connectorItem.PluginInputConnector
             });
-            var plugin = PluginManager.EnablePlugin.FirstOrDefault((e) => e.Value._dll == connectorItem.Type.Assembly)
+            var plugin = PluginManager.EnablePlugin.FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.Type.Assembly)
                 .Value;
             if (plugin is not null)
             {
@@ -315,7 +313,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
             }
 
             var plugin2 = PluginManager.EnablePlugin
-                .FirstOrDefault((e) => e.Value._dll == connectorItem.RealType.Assembly)
+                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.RealType.Assembly)
                 .Value;
             if (plugin2 is not null)
             {
@@ -332,9 +330,10 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 Source = item,
                 Title = connectorItem.Title,
                 TypeName = connectorItem.TypeName,
-                RealType = connectorItem.RealType,
+                InputObject = connectorItem.InputObject,
+                
                 AutoUnboxIndex = connectorItem.AutoUnboxIndex,
-                Type = connectorItem.Type,
+                
                 IsConnected = connectorItem.IsConnected,
                 IsOut = connectorItem.IsOut
             };
@@ -349,7 +348,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 connectorItem1.Interfaces = interfaces;
             }
 
-            var plugin = PluginManager.EnablePlugin.FirstOrDefault((e) => e.Value._dll == connectorItem.Type.Assembly)
+            var plugin = PluginManager.EnablePlugin.FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.Type.Assembly)
                 .Value;
             if (plugin is not null)
             {
@@ -357,7 +356,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
             }
 
             var plugin2 = PluginManager.EnablePlugin
-                .FirstOrDefault((e) => e.Value._dll == connectorItem.RealType.Assembly)
+                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.RealType.Assembly)
                 .Value;
             if (plugin2 is not null)
             {

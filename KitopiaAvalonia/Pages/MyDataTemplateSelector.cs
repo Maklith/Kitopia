@@ -32,7 +32,7 @@ public class MyDataTemplateSelector : IDataTemplate
         if (item is ConnectorItem pointItem)
         {
             // Check the type of the item and return the corresponding data template from the resources
-            if (!pointItem.IsSelf||pointItem.RealType ==null||pointItem.RealType.BaseType ==null)
+            if (!pointItem.IsSelf||pointItem.InputObject.RealType ==null||pointItem.InputObject.RealType.BaseType ==null)
             {
                 return Templates["InputTemplate"]
                     .Build(item);
@@ -41,21 +41,21 @@ public class MyDataTemplateSelector : IDataTemplate
             if (pointItem.isPluginInputConnector)
             {
                 var control = pointItem.PluginInputConnector.IDataTemplate.Build(item);
-                pointItem.PluginInputConnector.Value.Subscribe(x => { pointItem.InputObject = x; });
+                pointItem.PluginInputConnector.Value.Subscribe(x => { pointItem.InputObject.Value= x; });
                 control!.Styles.Add(pointItem.PluginInputConnector.Style);
                 return control;
             }
 
 
-            if (pointItem.RealType.BaseType.FullName == "System.Enum")
+            if (pointItem.InputObject.RealType.BaseType.FullName == "System.Enum")
             {
                 var control = Templates["EnumTemplate"].Build(item);
                 var childOfType = control.GetChildOfType<ComboBox>("ComboBox");
-                childOfType.ItemsSource = pointItem.RealType.GetEnumValues();
+                childOfType.ItemsSource = pointItem.InputObject.RealType.GetEnumValues();
                 return control;
             }
 
-            switch (pointItem.RealType.FullName!)
+            switch (pointItem.InputObject.RealType.FullName!)
             {
                 case "System.String":
                     return Templates["StringTemplate"].Build(item);

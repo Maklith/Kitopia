@@ -11,17 +11,25 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
     {
         object value;
         System.Type type=null;
+        Type realType = null;
         while (reader.Read())
         {
             if (reader.TokenType == JsonTokenType.PropertyName)
             {
-                if (reader.GetString() == "Type")
+                var s = reader.GetString();
+                if (s == "Type")
                 {
                     reader.Read();
                     
                   type= new TypeJsonConverter().Read(ref reader, typeToConvert, options);
                 }
-                if (reader.GetString() == "Value")
+                if (s == "RealType")
+                {
+                    reader.Read();
+                    
+                    realType= new TypeJsonConverter().Read(ref reader, typeToConvert, options);
+                }
+                if (s == "Value")
                 {
                     reader.Read();
                     if (reader.TokenType==JsonTokenType.Null)
@@ -32,6 +40,11 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                             Type = type
                         };
                     }
+
+                    // if (reader.TokenType==JsonTokenType.StartObject|| reader.TokenType==JsonTokenType.StartArray)
+                    // {
+                    //     JsonSerializer.
+                    // }
                     if (CustomScenarioGloble.JsonConverters.ContainsKey(type))
                     {
                         var jsonConverter = CustomScenarioGloble.JsonConverters[type];
@@ -42,6 +55,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                         return new CustomScenarioValue
                         {
                             Type = type,
+                            RealType = realType,
                             Value = deserialize
                         };
                     }

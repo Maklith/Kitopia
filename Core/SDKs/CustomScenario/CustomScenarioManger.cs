@@ -107,7 +107,7 @@ public static class CustomScenarioManger
 
             void ConnectorInit(ConnectorItem connectorItem)
             {
-                if (connectorItem.RealType == typeof(NodeConnectorClass))
+                if (connectorItem.InputObject.RealType == typeof(NodeConnectorClass))
                 {
                     return;
                 }
@@ -119,15 +119,15 @@ public static class CustomScenarioManger
 
                 foreach (var keyValuePair in PluginManager.EnablePlugin)
                 {
-                    if (keyValuePair.Value.GetType(connectorItem.RealType) is { } a)
+                    if (keyValuePair.Value.GetType(connectorItem.InputObject.RealType) is { } a)
                     {
                         if (a.BaseType.FullName == "System.Enum")
                         {
-                            connectorItem.InputObject = Enum.Parse(a, connectorItem.InputObject.ToString());
+                            connectorItem.InputObject.Value = Enum.Parse(a, connectorItem.InputObject.ToString());
                             break;
                         }
 
-                        connectorItem.InputObject = Convert.ChangeType(connectorItem.InputObject, a);
+                        connectorItem.InputObject.Value = Convert.ChangeType(connectorItem.InputObject, a);
                         break;
                     }
                 }
