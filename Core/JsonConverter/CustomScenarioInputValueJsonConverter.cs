@@ -9,6 +9,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
 {
     public override CustomScenarioValue? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
+        
         object value;
         System.Type type=null;
         Type realType = null;
@@ -17,47 +18,53 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
             if (reader.TokenType == JsonTokenType.PropertyName)
             {
                 var s = reader.GetString();
-                if (s == "Type")
+                switch (s)
                 {
-                    reader.Read();
-                    
-                  type= new TypeJsonConverter().Read(ref reader, typeToConvert, options);
-                }
-                if (s == "RealType")
-                {
-                    reader.Read();
-                    
-                    realType= new TypeJsonConverter().Read(ref reader, typeToConvert, options);
-                }
-                if (s == "Value")
-                {
-                    reader.Read();
-                    if (reader.TokenType==JsonTokenType.Null)
+                    case "Type":
                     {
                         reader.Read();
-                        return new CustomScenarioValue
-                        {
-                            Type = type
-                        };
+                        type= new TypeJsonConverter().Read(ref reader, typeToConvert, options);
+                        break;
                     }
-
-                    // if (reader.TokenType==JsonTokenType.StartObject|| reader.TokenType==JsonTokenType.StartArray)
-                    // {
-                    //     JsonSerializer.
-                    // }
-                    if (CustomScenarioGloble.JsonConverters.ContainsKey(type))
+                    case "RealType":
                     {
-                        var jsonConverter = CustomScenarioGloble.JsonConverters[type];
-                        // 获取 Read 方法
-                        var readerValueSpan = reader.ValueSpan;
                         reader.Read();
-                        var deserialize = jsonConverter.Deserialize(readerValueSpan);
-                        return new CustomScenarioValue
+                    
+                        realType= new TypeJsonConverter().Read(ref reader, typeToConvert, options);
+                        break;
+                    }
+                    case "Value":
+                    {
+                        reader.Read();
+                        if (reader.TokenType==JsonTokenType.Null)
                         {
-                            Type = type,
-                            RealType = realType,
-                            Value = deserialize
-                        };
+                            reader.Read();
+                            return new CustomScenarioValue
+                            {
+                                Type = type
+                            };
+                        }
+
+                        // if (reader.TokenType==JsonTokenType.StartObject|| reader.TokenType==JsonTokenType.StartArray)
+                        // {
+                        //     JsonSerializer.
+                        // }
+                        if (CustomScenarioGloble.JsonConverters.ContainsKey(type))
+                        {
+                            var jsonConverter = CustomScenarioGloble.JsonConverters[type];
+                            // 获取 Read 方法
+                            var readerValueSpan = reader.ValueSpan;
+                            reader.Read();
+                            var deserialize = jsonConverter.Deserialize(readerValueSpan);
+                            return new CustomScenarioValue
+                            {
+                                Type = type,
+                                RealType = realType,
+                                Value = deserialize
+                            };
+                        }
+
+                        break;
                     }
                 }
             }

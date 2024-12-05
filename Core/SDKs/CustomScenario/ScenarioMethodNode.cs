@@ -297,7 +297,12 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 Source = item,
                 TypeName = connectorItem.TypeName,
                 Title = connectorItem.Title,
-                InputObject = connectorItem.InputObject,
+                InputObject =new CustomScenarioValue()
+                {
+                    RealType = connectorItem.InputObject.RealType,
+                    Type = connectorItem.InputObject.Type,
+                    Value = connectorItem.InputObject.Value
+                },
                 AutoUnboxIndex = connectorItem.AutoUnboxIndex,
                 IsSelf = connectorItem.IsSelf,
                 SelfInputAble = connectorItem.SelfInputAble,
@@ -330,7 +335,12 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 Source = item,
                 Title = connectorItem.Title,
                 TypeName = connectorItem.TypeName,
-                InputObject = connectorItem.InputObject,
+                InputObject =new CustomScenarioValue()
+                {
+                    RealType = connectorItem.InputObject.RealType,
+                    Type = connectorItem.InputObject.Type,
+                    Value = connectorItem.InputObject.Value
+                },
                 
                 AutoUnboxIndex = connectorItem.AutoUnboxIndex,
                 

@@ -18,7 +18,7 @@ public partial class ConnectorItem : ObservableRecipient
     [ObservableProperty]
     private Point _anchor;
     
-    
+    [JsonConverter(typeof(CustomScenarioInputValueJsonConverter))]
     public CustomScenarioValue? InputObject { get; init; } //数据
 
     [ObservableProperty] private bool _isConnected;

@@ -1,6 +1,6 @@
-﻿
-using System.Text;
-using Core.SDKs.CustomScenario;
+﻿using System.Text;
+
+namespace Core.SDKs.CustomScenario.CustomScenarioValueSerializer;
 
 public class StringCustomScenarioValueSerializer : ICustomScenarioValueSerializer
 {
