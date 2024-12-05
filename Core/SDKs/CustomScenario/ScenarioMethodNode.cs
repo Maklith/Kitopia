@@ -168,7 +168,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 }
                 else
                 {
-                    Output[0].InputObject.Value = Input[1].InputObject!.Equals(Input[2].InputObject);
+                    Output[0].InputObject.Value = Input[1].InputObject.Value!.Equals(Input[2].InputObject.Value);
                 }
 
                 break;

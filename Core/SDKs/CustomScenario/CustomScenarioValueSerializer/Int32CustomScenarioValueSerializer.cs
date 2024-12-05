@@ -2,20 +2,19 @@
 
 namespace Core.SDKs.CustomScenario.CustomScenarioValueSerializer;
 
-public class StringCustomScenarioValueSerializer : ICustomScenarioValueSerializer
+public class Int32CustomScenarioValueSerializer : ICustomScenarioValueSerializer
 {
     public string Serialize<T>(T value)
     {
         if (value is null)
         {
-            return "";
+            return 0.ToString();
         }
         return value.ToString();
     }
 
     public object Deserialize(ReadOnlySpan<byte> value)
     {
-        return Encoding.UTF8.GetString(value);    
-        
+        return Int32.Parse(Encoding.UTF8.GetString(value));
     }
 }

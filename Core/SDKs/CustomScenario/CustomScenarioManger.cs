@@ -150,7 +150,6 @@ public static class CustomScenarioManger
         }
         catch (CustomScenarioLoadFromJsonException e1)
         {
-            // Log.Error(e1);
             var Name = string.Empty;
             Log.Error($"情景文件\"{fileInfo.FullName}\"加载失败,内部异常");
             var utf8JsonReader = new Utf8JsonReader(File.ReadAllBytes(fileInfo.FullName));
@@ -238,6 +237,21 @@ public static class CustomScenarioManger
                 {
                     break;
                 }
+                case CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到:
+                {
+                    var content = $"对应文件\n{fileInfo.FullName}\n情景所需{e1.PluginName}类的序列化转换器未找到\n它可能来自某个插件";
+                   
+                    var dialog = new DialogContent()
+                    {
+                        Title = $"自定义情景\"{Name}\"加载失败",
+                        Content = content,
+                        CloseButtonText = "我知道了",
+                        
+                    };
+                    ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
+                        dialog);
+                    break;
+                }
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -322,8 +336,33 @@ public static class CustomScenarioManger
         var configF = new FileInfo(AppDomain.CurrentDomain.BaseDirectory +
                                    $"customScenarios{Path.DirectorySeparatorChar}{scenario.UUID}.json");
 
-        var j = JsonSerializer.Serialize(scenario, ConfigManger.DefaultOptions);
-        File.WriteAllText(configF.FullName, j);
+        try
+        {
+            var j = JsonSerializer.Serialize(scenario, ConfigManger.DefaultOptions);
+            File.WriteAllText(configF.FullName, j);
+        }
+        catch (CustomScenarioLoadFromJsonException e)
+        {
+            switch (e.FailedType)
+            {
+                case CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到:
+                {
+                    var content = $"情景'{scenario.Name}'保存失败所需{e.PluginName}类的序列化转换器未找到\n它可能来自某个插件";
+                   
+                    var dialog = new DialogContent()
+                    {
+                        Title = $"自定义情景\"{scenario.Name}\"保存失败",
+                        Content = content,
+                        CloseButtonText = "我知道了",
+                        
+                    };
+                    ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
+                        dialog);
+                    break;
+                }
+            }
+            throw;
+        }
     }
 
     public static void Remove(CustomScenario scenario, bool deleteFile = true)

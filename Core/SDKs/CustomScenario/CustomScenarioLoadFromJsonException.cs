@@ -8,6 +8,7 @@ public enum CustomScenarioLoadFromJsonFailedType
     插件未启用,
     插件正在被卸载需要重启,
     方法未找到,
+    类的序列化转换器未找到,
     类未找到
 }
 public class CustomScenarioLoadFromJsonException : Exception
