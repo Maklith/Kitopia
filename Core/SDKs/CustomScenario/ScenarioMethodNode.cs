@@ -39,7 +39,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
     public ScenarioMethod ScenarioMethod { get; set; }
 
     public bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
-        ObservableDictionary<string, CustomScenarioInputValue> values)
+        ObservableDictionary<string, CustomScenarioValue> values)
     {
         //生成本节点所有数据
         switch (ScenarioMethod.Type)

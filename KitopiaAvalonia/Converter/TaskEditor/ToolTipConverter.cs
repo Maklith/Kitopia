@@ -13,7 +13,7 @@ public class ToolTipConverter : IValueConverter
         {
             return null;
         }
-        if (value is CustomScenarioInputValue valueTuple)
+        if (value is CustomScenarioValue valueTuple)
         {
             if (CustomScenarioGloble.ToolTipConverters.ContainsKey(valueTuple.Type))
             {

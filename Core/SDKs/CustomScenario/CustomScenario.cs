@@ -19,19 +19,22 @@ using PluginCore;
 
 namespace Core.SDKs.CustomScenario;
 
-public partial class CustomScenarioInputValue : ObservableObject
+public partial class CustomScenarioValue : ObservableObject
 {
-    public CustomScenarioInputValue()
+    public CustomScenarioValue()
     {
     }
 
-    public CustomScenarioInputValue(Type type, object o)
+    public CustomScenarioValue(Type type, object o)
     {
         Type = type;
         Value = o;
     }
     [JsonConverter(typeof(TypeJsonConverter))]
     public Type Type { get; set; }
+    
+    [JsonConverter(typeof(TypeJsonConverter))]
+    public Type RealType{ get; set; }
 
     [ObservableProperty]
     public object? value;
@@ -64,7 +67,7 @@ public partial class CustomScenario : ObservableRecipient
 
     [JsonIgnore] [ObservableProperty] private bool hasInit = true;
     [JsonIgnore] [ObservableProperty] private string? initError;
-    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioInputValue> inputValue = new();
+    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> inputValue = new();
 
     private bool InTick;
 
@@ -75,7 +78,7 @@ public partial class CustomScenario : ObservableRecipient
 
     [JsonIgnore] [ObservableProperty] private double? tickIntervalSecond = 5;
 
-    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioInputValue> values = new();
+    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> values = new();
 
     //ActiveHotKey
     [JsonIgnore] [ObservableProperty] public HotKeyModel runHotKey;

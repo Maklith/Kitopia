@@ -5,9 +5,9 @@ using Core.SDKs.CustomScenario;
 
 namespace Core.JsonConverter;
 
-public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenarioInputValue>
+public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenarioValue>
 {
-    public override CustomScenarioInputValue? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override CustomScenarioValue? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         object value;
         System.Type type=null;
@@ -27,7 +27,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                     if (reader.TokenType==JsonTokenType.Null)
                     {
                         reader.Read();
-                        return new CustomScenarioInputValue
+                        return new CustomScenarioValue
                         {
                             Type = type
                         };
@@ -38,10 +38,11 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                         // 获取 Read 方法
                         var readerValueSpan = reader.ValueSpan;
                         reader.Read();
-                        return new CustomScenarioInputValue
+                        var deserialize = jsonConverter.Deserialize(readerValueSpan);
+                        return new CustomScenarioValue
                         {
                             Type = type,
-                            Value = jsonConverter.Deserialize(readerValueSpan)
+                            Value = deserialize
                         };
                     }
                 }
@@ -52,7 +53,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
         return null;
     }
 
-    public override void Write(Utf8JsonWriter writer, CustomScenarioInputValue value, JsonSerializerOptions options)
+    public override void Write(Utf8JsonWriter writer, CustomScenarioValue value, JsonSerializerOptions options)
     {
         JsonSerializer.Serialize(writer,value); 
     }

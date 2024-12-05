@@ -662,7 +662,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         }
         
         
-        Scenario.Values.Add(ValueValue, new CustomScenarioInputValue(ValueType.Type,null));
+        Scenario.Values.Add(ValueValue, new CustomScenarioValue(ValueType.Type,null));
         OnPropertyChanged(CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs
             .InputValue);
         ValueValue = null;
@@ -703,7 +703,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         }
         
        
-        Scenario.InputValue.Add(InputValueValue, new CustomScenarioInputValue(InputValueType.Type,null));
+        Scenario.InputValue.Add(InputValueValue, new CustomScenarioValue(InputValueType.Type,null));
         OnPropertyChanged(CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs
             .InputValue);
         InputValueValue = null;
