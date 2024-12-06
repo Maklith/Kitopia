@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Core.SDKs.CustomScenario;
+using PluginCore;
 
 namespace Core.JsonConverter;
 
@@ -58,7 +59,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                                 RealType = realType,
                                 Value = null
                             };
-                        }else if (CustomScenarioGloble.JsonConverters.ContainsKey(type))
+                        }else if (CustomScenarioGloble.JsonConverters.ContainsKey(realType))
                         {
                             var jsonConverter = CustomScenarioGloble.JsonConverters[type];
                             // 获取 Read 方法
@@ -70,6 +71,18 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                                 Type = type,
                                 RealType = realType,
                                 Value = deserialize
+                            };
+                        }else if (realType.GetInterface(typeof(INodeInputConnector).FullName) !=null)
+                        {
+                            var jsonConverter = CustomScenarioGloble.JsonConverters[typeof(INodeInputConnector)];
+                            var readerValueSpan = reader.ValueSpan;
+                            reader.Read();
+                            var serialize = jsonConverter.Deserialize(readerValueSpan);
+                            return new CustomScenarioValue
+                            {
+                                Type = type,
+                                RealType = realType,
+                                Value = serialize
                             };
                         }
                         else
@@ -106,7 +119,12 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
             var serialize = jsonConverter.Serialize(value.Value);
             writer.WriteStringValue(serialize);
         }
-        else
+        else if (value.RealType.GetInterface(typeof(INodeInputConnector).FullName) !=null)
+        {
+            var jsonConverter = CustomScenarioGloble.JsonConverters[typeof(INodeInputConnector)];
+            var serialize = jsonConverter.Serialize(value);
+            writer.WriteStringValue(serialize);
+        }else
         {
             throw new CustomScenarioLoadFromJsonException(
                 CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, value.RealType.FullName, null);

@@ -1,5 +1,6 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
+using KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Attribute.Scenario;
@@ -10,9 +11,10 @@ namespace KitopiaEx;
 public class ScreenCaptureNode
 {
     
-    [ScenarioMethod("选定截图区域", "return=截图区域信息")]
-    public ScreenCaptureInfo SelectTheScreenshotArea(CancellationToken ct)
+    [ScenarioMethod("选定截图区域", "screenCaptureInfoSelf=截图信息","return=截图区域信息")]
+    public ScreenCaptureInfo SelectTheScreenshotArea([SelfInput][CustomNodeInputType(typeof(ScreenCaptureInfoSelfConnector))]ScreenCaptureInfo screenCaptureInfoSelf, CancellationToken ct)
     {
-        return new ScreenCaptureInfo();
+        
+        return screenCaptureInfoSelf;
     }
 }

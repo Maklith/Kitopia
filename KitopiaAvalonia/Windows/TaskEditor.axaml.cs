@@ -16,6 +16,7 @@ using Core.ViewModel.TaskEditor;
 using Core.Window;
 using KitopiaAvalonia.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 using Ursa.Controls;
 using Vanara.PInvoke;
 using DataObject = Avalonia.Input.DataObject;

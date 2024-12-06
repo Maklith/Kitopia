@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
 using Core.SDKs.CustomScenario;
+using PluginCore;
 
 namespace Core.SDKs.Services.Config;
 
@@ -18,7 +19,7 @@ public class ConnectorItemJsonCtr : JsonConverter<ConnectorItem>
             Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
             //DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
-
+        
         return connectorItem;
     }
 

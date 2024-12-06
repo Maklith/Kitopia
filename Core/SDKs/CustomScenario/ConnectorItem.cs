@@ -72,5 +72,6 @@ public partial class ConnectorItem : ObservableRecipient
     
     //插件自定义输入连接器
     public bool isPluginInputConnector { get; set; }
+    [JsonIgnore]
     public INodeInputConnector PluginInputConnector { get; set; }
 }

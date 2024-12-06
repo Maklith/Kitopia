@@ -9,6 +9,7 @@ using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Plugin;
 using Core.SDKs.Tools.Ex;
+using KitopiaEx;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Attribute;
@@ -91,15 +92,24 @@ public partial class ScenarioMethodNode : ObservableRecipient
                         break;
                     }
 
-                    var inputObject = Input[index].InputObject;
-                    if (inputObject != null)
+                    if (Input[index].isPluginInputConnector)
                     {
-                        list.Add(inputObject);
+                        var inputObjectValue = Input[index].InputObject.Value as ObservableValue;
+                        list.Add(inputObjectValue.GetValue().Value);
                     }
                     else
                     {
-                        return false;
+                        var inputObject = Input[index].InputObject;
+                        if (inputObject != null)
+                        {
+                            list.Add(inputObject);
+                        }
+                        else
+                        {
+                            return false;
+                        }
                     }
+                    
 
                     index++;
                 }

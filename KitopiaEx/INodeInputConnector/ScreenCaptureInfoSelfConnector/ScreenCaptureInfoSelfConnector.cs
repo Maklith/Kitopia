@@ -1,0 +1,39 @@
+﻿using System;
+using System.Threading;
+using Avalonia.Controls.Templates;
+using Avalonia.Markup.Xaml.Styling;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using PluginCore;
+using PluginCore.Attribute.Scenario;
+
+namespace KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
+
+public partial class ScreenCaptureInfoSelfConnector : ObservableObject,PluginCore.INodeInputConnector
+{
+    public StyleInclude Style =>
+        new(new Uri("avares://KitopiaEx"))
+            { Source = new Uri("INodeInputConnector/ScreenCaptureInfoSelfConnector/ScreenCaptureInfoSelfConnectorStyle.axaml", UriKind.Relative) };
+
+    public IDataTemplate IDataTemplate =>
+        new ResourceInclude(new Uri("avares://KitopiaEx"))
+                { Source = new Uri("INodeInputConnector/ScreenCaptureInfoSelfConnector/ScreenCaptureInfoSelfConnectorDataTemplate.axaml", UriKind.Relative) }
+            .TryGetResource("Template", null, out var variant)
+            ? (IDataTemplate)variant
+            : null;
+    
+    public ObservableValue Value { get; set; }= new ObservableValue()
+    {
+        Value = new CustomScenarioValue()
+        {
+            RealType = typeof(ScreenCaptureInfoSelfConnector),
+            Type = typeof(ScreenCaptureInfoSelfConnector)
+        }
+    };
+
+    [RelayCommand]
+    private void GetScreenCaptureInfo()
+    {
+       Value.SetValue(new ScreenCaptureInfo());
+    }
+}

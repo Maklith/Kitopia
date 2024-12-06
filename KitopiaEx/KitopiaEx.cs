@@ -1,4 +1,6 @@
 ﻿using System;
+using KitopiaEx.CustomScenarioValueSerializer;
+using KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
@@ -14,16 +16,20 @@ public class KitopiaEx : IPlugin
     {
         //MessageBox.Show("OnEnabled");
         Kitopia._i18n.TryAdd("System.Windows.Media.Imaging.BitmapSource", "图像BitmapSource");
+        Kitopia._i18n.TryAdd(typeof(ScreenCaptureInfoSelfConnector).FullName, "屏幕截图信息");
+        Kitopia._i18n.TryAdd(typeof(ScreenCaptureInfo).FullName, "屏幕截图信息");
         ServiceProvider = serviceProvider;
-        Kitopia.ToolTipConverters.Add(typeof(ScreenCaptureInfo), info =>
+        Kitopia.ToolTipConverters.TryAdd(typeof(ScreenCaptureInfo), info =>
         {
             var screenCaptureInfo = (ScreenCaptureInfo)info;
             return $"显示器:{screenCaptureInfo.hdcMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
         });
+        Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureInfo),new ScreenCaptureInfoCustomScenarioValueSerializer());
     }
 
     public void OnDisabled()
     {
+        Kitopia.JsonConverters.Remove(typeof(ScreenCaptureInfo));
     }
 
     public static IServiceProvider GetServiceProvider()
@@ -36,6 +42,7 @@ public class KitopiaEx : IPlugin
         services.AddSingleton<ImageTools>();
         services.AddSingleton<Test1>();
         services.AddSingleton<NodeInputConnector1>();
+        services.AddTransient<ScreenCaptureInfoSelfConnector>();
         services.AddSingleton<KeyboardSimulation>();
         services.AddSingleton<ScreenCaptureNode>();
         return services.BuildServiceProvider();

@@ -116,7 +116,11 @@ public static class CustomScenarioManger
                 {
                     return;
                 }
-
+                if (connectorItem.isPluginInputConnector)
+                {
+                    connectorItem.PluginInputConnector=connectorItem.InputObject.Value as INodeInputConnector;
+                    return;
+                }
                 foreach (var keyValuePair in PluginManager.EnablePlugin)
                 {
                     if (keyValuePair.Value.GetType(connectorItem.InputObject.RealType) is { } a)
@@ -127,7 +131,7 @@ public static class CustomScenarioManger
                             break;
                         }
 
-                        connectorItem.InputObject.Value = Convert.ChangeType(connectorItem.InputObject, a);
+                        connectorItem.InputObject.Value = Convert.ChangeType(connectorItem.InputObject.Value, a);
                         break;
                     }
                 }

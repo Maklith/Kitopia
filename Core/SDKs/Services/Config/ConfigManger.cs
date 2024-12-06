@@ -34,7 +34,8 @@ public static class ConfigManger
         WriteIndented = true,
         ReferenceHandler = ReferenceHandler.Preserve,
         Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
-        Converters = { new CustomScenarioInputValueJsonConverter() },
+        Converters = { new CustomScenarioInputValueJsonConverter(),new INodeInputJsonConverter()},
+        
         // DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 

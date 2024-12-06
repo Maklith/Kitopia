@@ -37,7 +37,9 @@ public class CustomScenarioGloble
         { typeof(bool), new BoolCustomScenarioValueSerializer() },
         {typeof(NodeConnectorClass),new NodeConnectorClassCustomScenarioValueSerializer()},
         {typeof(Int32),new Int32CustomScenarioValueSerializer()},
-        {typeof(double),new DoubleCustomScenarioValueSerializer()}
+        {typeof(double),new DoubleCustomScenarioValueSerializer()},
+        {typeof(INodeInputConnector),new INodeInputConnectorCustomScenarioValueSerializer()},
+      
     };
 
     public static IEnumerable<CustomScenarioValueTuple> GetAllCouldUseTypeInValue

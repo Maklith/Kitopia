@@ -5,18 +5,18 @@ using PluginCore;
 
 namespace KitopiaEx;
 
-public class NodeInputConnector1 : INodeInputConnector
+public class NodeInputConnector1 : PluginCore.INodeInputConnector
 {
     public StyleInclude Style =>
         new(new Uri("avares://KitopiaEx"))
-            { Source = new Uri("NodeInputConnector1Style.axaml", UriKind.Relative) };
+            { Source = new Uri("INodeInputConnector/NodeInputConnector1/NodeInputConnector1Style.axaml", UriKind.Relative) };
 
     public IDataTemplate IDataTemplate =>
         new ResourceInclude(new Uri("avares://KitopiaEx"))
-                { Source = new Uri("NodeInputConnector1DataTemple.axaml", UriKind.Relative) }
+                { Source = new Uri("INodeInputConnector/NodeInputConnector1/NodeInputConnector1DataTemple.axaml", UriKind.Relative) }
            .TryGetResource("Template", null, out var variant)
             ? (IDataTemplate)variant
             : null;
 
-    public ObservableValue Value { get; } = new ObservableValue();
+    public ObservableValue Value { get; set; } = new ObservableValue();
 }

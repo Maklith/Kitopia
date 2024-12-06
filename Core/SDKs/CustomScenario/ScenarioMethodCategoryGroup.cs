@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Core.SDKs.Tools;
+using PluginCore;
 using PluginCore.Attribute.Scenario;
 
 namespace Core.SDKs.CustomScenario;

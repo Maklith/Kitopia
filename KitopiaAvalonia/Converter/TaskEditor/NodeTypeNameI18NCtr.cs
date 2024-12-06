@@ -3,6 +3,7 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.Tools;
+using PluginCore;
 
 namespace Kitopia.Converter.TaskEditor;
 

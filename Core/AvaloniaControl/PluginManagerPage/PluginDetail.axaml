@@ -6,8 +6,9 @@
              xmlns:pluginManagerPage="clr-namespace:KitopiaAvalonia.Converter.PluginManagerPage"
              xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia.Tight"
              xmlns:pluginManagerPage1="clr-namespace:Core.AvaloniaControl.PluginManagerPage"
+             xmlns:pluginCore1="clr-namespace:PluginCore;assembly=PluginCore"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:DataType="pluginCore:PluginInfo"
+             x:DataType="pluginCore1:PluginInfo"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch"
              HorizontalContentAlignment="Stretch"
@@ -19,10 +20,10 @@
     <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
             CornerRadius="{DynamicResource RadiusCardCornerRadius}"
             HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch" x:DataType="pluginCore:PluginInfo">
+            VerticalAlignment="Stretch" x:DataType="pluginCore1:PluginInfo">
         <Panel>
             <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
-                  ColumnDefinitions="80,*" x:DataType="pluginCore:PluginInfo"
+                  ColumnDefinitions="80,*" x:DataType="pluginCore1:PluginInfo"
                   IsEnabled="{Binding !UnloadFailed}"
                   RowDefinitions="*,48">
                 <Image Grid.Column="0" HorizontalAlignment="Center" Margin="0,15,0,0"
@@ -31,30 +32,30 @@
                        Height="64" />
                 <StackPanel Grid.Column="1" Margin="0,15,0,5" VerticalAlignment="Top" Spacing="5"
                             HorizontalAlignment="Stretch">
-                    <StackPanel Orientation="Horizontal" x:DataType="pluginCore:PluginInfo" Spacing="5">
+                    <StackPanel Orientation="Horizontal" x:DataType="pluginCore1:PluginInfo" Spacing="5">
                         <TextBlock VerticalAlignment="Center"
                                    HorizontalAlignment="Left"
-                                   x:DataType="pluginCore:PluginInfo"
+                                   x:DataType="pluginCore1:PluginInfo"
                                    Text="{Binding Name}"
                                    FontWeight="Normal" FontSize="18"
                                    Foreground="{DynamicResource DefaultForeground}">
                         </TextBlock>
                         <TextBlock VerticalAlignment="Center"
                                    HorizontalAlignment="Left"
-                                   x:DataType="pluginCore:PluginInfo"
+                                   x:DataType="pluginCore1:PluginInfo"
                                    Text="{Binding Version}"
                                    FontWeight="Normal" FontSize="18"
                                    Foreground="{DynamicResource DefaultForeground}">
                         </TextBlock>
                         <TextBlock Text=">" FontSize="18"
-                                   x:DataType="pluginCore:PluginInfo"
+                                   x:DataType="pluginCore1:PluginInfo"
                                    IsVisible="{Binding CanUpdata}">
                             <TextBlock.Foreground>
                                 <SolidColorBrush Color="{DynamicResource SemiOrange4Color}" />
                             </TextBlock.Foreground>
                         </TextBlock>
                         <TextBlock Text="{Binding CanUpdateVersion }"
-                                   x:DataType="pluginCore:PluginInfo" FontSize="18"
+                                   x:DataType="pluginCore1:PluginInfo" FontSize="18"
                                    IsVisible="{Binding CanUpdata}">
                             <TextBlock.Foreground>
                                 <SolidColorBrush Color="{DynamicResource SemiOrange4Color}" />
@@ -65,7 +66,7 @@
                     <TextBlock VerticalAlignment="Center"
                                MaxWidth="{Binding $parent.Bounds.Width}"
                                TextWrapping="Wrap"
-                               x:DataType="pluginCore:PluginInfo"
+                               x:DataType="pluginCore1:PluginInfo"
                                Text="{Binding Description}" />
                     <Label Theme="{DynamicResource TitleLabel}" Classes="H3" Content="详细"></Label>
                     <Line EndPoint="5000,0" HorizontalAlignment="Stretch" Stroke="{DynamicResource SemiColorBorder}"/>
@@ -74,7 +75,7 @@
                                   HorizontalAlignment="Stretch"
                                   HorizontalScrollBarVisibility="Hidden">
                         
-                        <mdxaml:MarkdownScrollViewer x:DataType="pluginCore:PluginInfo" Markdown="{Binding $parent[pluginManagerPage1:PluginDetail].Markdown}"  ></mdxaml:MarkdownScrollViewer>
+                        <mdxaml:MarkdownScrollViewer x:DataType="pluginCore1:PluginInfo" Markdown="{Binding $parent[pluginManagerPage1:PluginDetail].Markdown}"  ></mdxaml:MarkdownScrollViewer>
                     </ScrollViewer>
                     <ContentPresenter HorizontalAlignment="Stretch"
                                       VerticalAlignment="Stretch"

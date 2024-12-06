@@ -41,7 +41,9 @@ public class MyDataTemplateSelector : IDataTemplate
             if (pointItem.isPluginInputConnector)
             {
                 var control = pointItem.PluginInputConnector.IDataTemplate.Build(item);
+                control.DataContext = pointItem.PluginInputConnector;
                 pointItem.PluginInputConnector.Value.Subscribe(x => { pointItem.InputObject.Value= x; });
+                pointItem.InputObject.Value = pointItem.PluginInputConnector.Value;
                 control!.Styles.Add(pointItem.PluginInputConnector.Style);
                 return control;
             }

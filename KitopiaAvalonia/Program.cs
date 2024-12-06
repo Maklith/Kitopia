@@ -91,7 +91,7 @@ class Program
         services.AddTransient<IContentDialog, ContentDialogService>();
         services.AddTransient<IHotKeyEditor, HotKeyEditorService>();
         services.AddSingleton<ITaskEditorOpenService, TaskEditorOpenService>();
-
+        services.AddSingleton<IPluginManger, PluginMangerService>();
         services.AddTransient<IThemeChange, ThemeChange>();
 
         services.AddSingleton<ISearchItemChooseService, SearchItemChooseService>();
