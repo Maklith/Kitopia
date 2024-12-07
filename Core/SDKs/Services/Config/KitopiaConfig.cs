@@ -104,11 +104,10 @@ public class KitopiaConfig : ConfigBase
         invokes.Add("screenShotHotKeyAction", new Action<HotKeyModel>(e =>
         {
             log.Debug("截图热键被触发");
-            var captureAllScreen =
-                ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBitmap();
+            
             Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    ServiceManager.Services.GetService<IScreenCaptureWindow>()!.CaptureScreen(captureAllScreen);
+                    ServiceManager.Services.GetService<IScreenCaptureWindow>()!.CaptureScreen();
                 })
                 .GetTask()
                 .ContinueWith((e) =>

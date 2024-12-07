@@ -35,7 +35,7 @@
 
 
         <taskEditor:ScenarioMethodCategoryGroupCtr x:Key="ScenarioMethodCategoryGroupCtr" />
-        <taskEditor:ToolTipConverter x:Key="ToolTipConverter" />
+        <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
         <taskEditor:NodeTypeNameI18NCtr x:Key="NodeTypeNameI18NCtr" />
     </u:UrsaWindow.Resources>
     <Interaction.Behaviors>

@@ -791,71 +791,76 @@ public partial class ScreenCaptureWindow : Window
     {
         if (Image.Source is Bitmap bitmap)
         {
-            foreach (var canvasChild in Canvas.Children)
-                if (canvasChild is CaptureToolBase draggableResizeableControl)
-                    draggableResizeableControl.IsSelected = false;
-
-            SelectBox.IsSelected = false;
-            ToolBar.IsVisible = false;
-            var renderTargetBitmap =
-                new RenderTargetBitmap(new PixelSize(bitmap.PixelSize.Width, bitmap.PixelSize.Height),
-                    new Vector(96, 96));
-
-
-            var content = (Control)Content;
-            var transformGroup = new TransformGroup();
-            var scaleTransform = new ScaleTransform(bitmap.PixelSize.Width / Bounds.Width,
-                bitmap.PixelSize.Height / Bounds.Height);
-
-            transformGroup.Children.Add(scaleTransform);
-            transformGroup.Children.Add(new TranslateTransform(0, 0));
-            content.RenderTransform = transformGroup;
-            content.Width = bitmap.PixelSize.Width;
-            content.Height = bitmap.PixelSize.Height;
-
-
-            renderTargetBitmap.Render(content);
-            var boundsHeight = (int)(bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4);
-            var ptr = Marshal.AllocHGlobal(boundsHeight);
-
-            renderTargetBitmap.CopyPixels(new PixelRect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height),
-                ptr,
-                boundsHeight,
-                (((int)bitmap.PixelSize.Width * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3
-            );
-
-            var ys = new byte[boundsHeight];
-            Marshal.Copy(ptr, ys, 0, boundsHeight);
-            Marshal.FreeHGlobal(ptr);
-            var image = SixLabors.ImageSharp.Image.LoadPixelData<Bgra32>(ys, bitmap.PixelSize.Width,
-                bitmap.PixelSize.Height);
-            //image.SaveAsPng("1.png");
             var cropW = 0;
             var dragTransformX = SelectBox._dragTransform.X * (bitmap.PixelSize.Width / Bounds.Width);
             var selectBoxWidth = SelectBox.Width * (bitmap.PixelSize.Width / Bounds.Width);
-            if (selectBoxWidth + dragTransformX > image.Width)
-                cropW = image.Width;
+            if (selectBoxWidth + dragTransformX > bitmap.PixelSize.Width)
+                cropW = bitmap.PixelSize.Width;
             else if (dragTransformX > 0)
                 cropW = (int)selectBoxWidth;
             else cropW = (int)selectBoxWidth + (int)dragTransformX;
             var cropH = 0;
             var dragTransformY = SelectBox._dragTransform.Y * (bitmap.PixelSize.Height / Bounds.Height);
             var selectBoxHeight = SelectBox.Height * (bitmap.PixelSize.Height / Bounds.Height);
-            if (selectBoxHeight + dragTransformY > image.Height)
-                cropH = image.Height;
+            if (selectBoxHeight + dragTransformY >bitmap.PixelSize.Height)
+                cropH = bitmap.PixelSize.Height;
             else if (dragTransformY > 0)
                 cropH = (int)selectBoxHeight;
             else cropH = (int)selectBoxHeight + (int)dragTransformY;
-            var clone = image.Clone(e => e.Crop(new Rectangle(
-                Math.Max((int)dragTransformX, 0), Math.Max((int)dragTransformY, 0),
-                cropW, cropH)));
-            image.Dispose();
-            ServiceManager.Services.GetService<IClipboardService>()
-                .SetImageAsync(clone)
-                .ContinueWith((e) => clone.Dispose());
-
-            bitmap.Dispose();
-            renderTargetBitmap.Dispose();
+            if (selectMode)
+            {
+                selectModeAction.Invoke(new ScreenCaptureInfo()
+                {
+                    Index = _screenCaptureInfo.Index,
+                    hdcMonitor = _screenCaptureInfo.hdcMonitor,
+                    hMonitor = _screenCaptureInfo.hMonitor,
+                    X =   Math.Max((int)dragTransformX, 0),
+                    Y =   Math.Max((int)dragTransformY, 0),
+                    Width = cropW,
+                    Height = cropH
+                });
+            } else{
+                foreach (var canvasChild in Canvas.Children)
+                    if (canvasChild is CaptureToolBase draggableResizeableControl)
+                        draggableResizeableControl.IsSelected = false;
+                SelectBox.IsSelected = false;
+                ToolBar.IsVisible = false;
+                var renderTargetBitmap =
+                    new RenderTargetBitmap(new PixelSize(bitmap.PixelSize.Width, bitmap.PixelSize.Height),
+                        new Vector(96, 96));
+                var content = (Control)Content;
+                var transformGroup = new TransformGroup();
+                var scaleTransform = new ScaleTransform(bitmap.PixelSize.Width / Bounds.Width,
+                    bitmap.PixelSize.Height / Bounds.Height);
+                transformGroup.Children.Add(scaleTransform);
+                transformGroup.Children.Add(new TranslateTransform(0, 0));
+                content.RenderTransform = transformGroup;
+                content.Width = bitmap.PixelSize.Width;
+                content.Height = bitmap.PixelSize.Height;
+                renderTargetBitmap.Render(content);
+                var boundsHeight = (int)(bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4);
+                var ptr = Marshal.AllocHGlobal(boundsHeight);
+                renderTargetBitmap.CopyPixels(new PixelRect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height),
+                    ptr,
+                    boundsHeight,
+                    (((int)bitmap.PixelSize.Width * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3
+                );
+                var ys = new byte[boundsHeight];
+                Marshal.Copy(ptr, ys, 0, boundsHeight);
+                Marshal.FreeHGlobal(ptr);
+                var image = SixLabors.ImageSharp.Image.LoadPixelData<Bgra32>(ys, bitmap.PixelSize.Width,
+                    bitmap.PixelSize.Height);
+                //image.SaveAsPng("1.png");
+                var clone = image.Clone(e => e.Crop(new Rectangle(
+                    Math.Max((int)dragTransformX, 0), Math.Max((int)dragTransformY, 0),
+                    cropW, cropH)));
+                image.Dispose();
+                ServiceManager.Services.GetService<IClipboardService>()
+                    .SetImageAsync(clone)
+                    .ContinueWith((e) => clone.Dispose());
+                bitmap.Dispose();
+                renderTargetBitmap.Dispose();
+            }
         }
 
         Image.Source = null;

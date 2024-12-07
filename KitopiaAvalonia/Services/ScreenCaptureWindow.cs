@@ -14,8 +14,9 @@ namespace KitopiaAvalonia.Services;
 
 public class ScreenCaptureWindow : IScreenCaptureWindow
 {
-    public void CaptureScreen(Stack<ScreenCaptureResult> results)
+    public void CaptureScreen()
     {
+        var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBitmap();
         while (results.TryPop(out var result))
         {
             var window = new Windows.ScreenCaptureWindow(result.Info);
@@ -24,6 +25,18 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
         }
 
         GC.Collect(2, GCCollectionMode.Aggressive);
+    }
+
+    public void RequestUserSelectScreenInfo(Action<ScreenCaptureInfo> action)
+    {
+        var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBitmap();
+        while (results.TryPop(out var result))
+        {
+            var window = new Windows.ScreenCaptureWindow(result.Info);
+            window.Image.Source = result.Source;
+            window.SetToSelectMode(action.Invoke);
+            window.Show();
+        }
     }
 
     public async Task<ScreenCaptureInfo> GetScreenCaptureInfo()

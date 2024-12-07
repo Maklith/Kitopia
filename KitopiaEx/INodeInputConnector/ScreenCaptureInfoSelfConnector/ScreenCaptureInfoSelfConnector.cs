@@ -4,6 +4,8 @@ using Avalonia.Controls.Templates;
 using Avalonia.Markup.Xaml.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Core.SDKs.Services;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Attribute.Scenario;
 
@@ -42,6 +44,10 @@ public partial class ScreenCaptureInfoSelfConnector : ObservableObject, PluginCo
     [RelayCommand]
     private void GetScreenCaptureInfo()
     {
-        Value.SetValue(new ScreenCaptureInfo());
+        ServiceManager.Services.GetService<IScreenCaptureWindow>()!.RequestUserSelectScreenInfo(e =>
+        {
+            Value.SetValue(e);
+        });
+       
     }
 }

@@ -1,11 +1,16 @@
 ﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:customScenario="clr-namespace:Core.SDKs.CustomScenario;assembly=PluginCore"
-                    xmlns:screenCaptureInfoSelfConnector="clr-namespace:KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector">
+                    xmlns:screenCaptureInfoSelfConnector="clr-namespace:KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector"
+                    xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore">
     <DataTemplate x:Key="Template" DataType="customScenario:IConnectorItem">
-        <Button x:DataType="screenCaptureInfoSelfConnector:ScreenCaptureInfoSelfConnector" Height="30" Width="30"
+        <Button x:DataType="screenCaptureInfoSelfConnector:ScreenCaptureInfoSelfConnector" Height="60" Width="200"
                 Command="{Binding GetScreenCaptureInfoCommand }">
-            <Ellipse Width="30" Height="30" Fill="Red" />
+            <Button.Resources>
+                <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
+            </Button.Resources>
+            <TextBlock x:DataType="screenCaptureInfoSelfConnector:ScreenCaptureInfoSelfConnector" 
+                       Text="{Binding Value.Value,Converter={StaticResource ToolTipConverter} }"></TextBlock>
         </Button>
     </DataTemplate>
 </ResourceDictionary>
