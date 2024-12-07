@@ -73,18 +73,6 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                                 RealType = realType,
                                 Value = deserialize
                             };
-                        }else if (realType.GetInterface(typeof(INodeInputConnector).FullName) !=null)
-                        {
-                            var jsonConverter = CustomScenarioGloble.JsonConverters[typeof(INodeInputConnector)];
-                            var readerValueSpan = reader.ValueSpan;
-                            reader.Read();
-                            var serialize = jsonConverter.Deserialize(readerValueSpan);
-                            return new CustomScenarioValue
-                            {
-                                Type = type,
-                                RealType = realType,
-                                Value = serialize
-                            };
                         }
                         else
                         {
@@ -120,13 +108,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
             var serialize = jsonConverter.Serialize(value.Value);
             writer.WriteStringValue(serialize);
         }
-        else if (value.RealType.GetInterface(typeof(INodeInputConnector).FullName) !=null)
-        {
-            var jsonConverter = CustomScenarioGloble.JsonConverters[typeof(INodeInputConnector)];
-            var serialize = jsonConverter.Serialize(value);
-            writer.WriteStringValue(serialize);
-        }else
-        {
+        else {
             throw new CustomScenarioLoadFromJsonException(
                 CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, value.RealType.FullName, null);
         }

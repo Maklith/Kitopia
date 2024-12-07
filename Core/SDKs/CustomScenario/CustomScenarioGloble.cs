@@ -38,7 +38,6 @@ public class CustomScenarioGloble
         {typeof(NodeConnectorClass),new NodeConnectorClassCustomScenarioValueSerializer()},
         {typeof(Int32),new Int32CustomScenarioValueSerializer()},
         {typeof(double),new DoubleCustomScenarioValueSerializer()},
-        {typeof(INodeInputConnector),new INodeInputConnectorCustomScenarioValueSerializer()},
       
     };
 
