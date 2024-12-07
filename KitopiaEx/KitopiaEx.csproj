@@ -39,13 +39,4 @@
       </None>
     </ItemGroup>
 
-
-    <ItemGroup>
-      <Compile Update="INodeInputConnector\NodeInputConnector1\NodeInputConnector1Style.axaml.cs">
-        <DependentUpon>NodeInputConnector1Style.axaml</DependentUpon>
-        <SubType>Code</SubType>
-      </Compile>
-     
-    </ItemGroup>
-
 </Project>

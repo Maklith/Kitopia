@@ -94,8 +94,8 @@ public partial class ScenarioMethodNode : ObservableRecipient
 
                     if (Input[index].isPluginInputConnector)
                     {
-                        var inputObjectValue = Input[index].InputObject.Value as ObservableValue;
-                        list.Add(inputObjectValue.GetValue().Value);
+                        var inputObjectValue = Input[index].InputObject.Value as CustomScenarioValue;
+                        list.Add(inputObjectValue.Value);
                     }
                     else
                     {

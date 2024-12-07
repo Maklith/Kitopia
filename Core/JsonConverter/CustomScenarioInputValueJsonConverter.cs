@@ -42,6 +42,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                             reader.Read();
                             return new CustomScenarioValue
                             {
+                                RealType = realType,
                                 Type = type
                             };
                         }

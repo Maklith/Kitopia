@@ -26,7 +26,7 @@ public partial class ScreenCaptureInfoSelfConnector : ObservableObject,PluginCor
     {
         Value = new CustomScenarioValue()
         {
-            RealType = typeof(ScreenCaptureInfoSelfConnector),
+            RealType = typeof(ScreenCaptureInfo),
             Type = typeof(ScreenCaptureInfoSelfConnector)
         }
     };

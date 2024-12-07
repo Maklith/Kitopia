@@ -40,8 +40,6 @@ public class KitopiaEx : IPlugin
         services.AddSingleton<SearchItemEx>();
         services.AddSingleton<ClipboardEx>();
         services.AddSingleton<ImageTools>();
-        services.AddSingleton<Test1>();
-        services.AddSingleton<NodeInputConnector1>();
         services.AddTransient<ScreenCaptureInfoSelfConnector>();
         services.AddSingleton<KeyboardSimulation>();
         services.AddSingleton<ScreenCaptureNode>();

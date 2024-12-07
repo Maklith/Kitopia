@@ -10,6 +10,7 @@ using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Plugin;
 using Core.ViewModel;
+using KitopiaEx;
 using log4net;
 using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;
@@ -118,7 +119,17 @@ public static class CustomScenarioManger
                 }
                 if (connectorItem.isPluginInputConnector)
                 {
-                    connectorItem.PluginInputConnector=connectorItem.InputObject.Value as INodeInputConnector;
+                    var instance = Activator.CreateInstance(connectorItem.InputObject.Type);
+                    instance.GetType().GetProperty("Value").SetValue(instance,new ObservableValue()
+                    {
+                        Value = new CustomScenarioValue()
+                        {
+                            Type = connectorItem.InputObject.Type,
+                            RealType = connectorItem.InputObject.RealType,
+                            Value = connectorItem.InputObject.Value
+                        }
+                    });
+                    connectorItem.PluginInputConnector=instance as INodeInputConnector;
                     return;
                 }
                 foreach (var keyValuePair in PluginManager.EnablePlugin)

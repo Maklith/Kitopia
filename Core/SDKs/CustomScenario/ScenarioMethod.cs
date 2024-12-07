@@ -173,11 +173,13 @@ public class ScenarioMethod
                         Title = Attribute.GetParameterName(parameterInfo.Name),
                         TypeName = CustomScenarioGloble.GetI18N(parameterInfo.ParameterType.FullName)
                     };
-                    if (parameterInfo.ParameterType.GetCustomAttribute<CustomNodeInputType>() is not null
+                    if (parameterInfo.GetCustomAttribute<CustomNodeInputType>() is not null
                         and var customNodeInputType)
                     {
                         connectorItem.isPluginInputConnector = true;
                         connectorItem.IsSelf = true;
+                        connectorItem.InputObject.RealType= connectorItem.InputObject.Type;
+                        connectorItem.InputObject.Type= customNodeInputType.Type;
                         try
                         {
                             var service = ServiceProvider.GetService(customNodeInputType.Type);
