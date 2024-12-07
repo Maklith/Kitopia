@@ -8,14 +8,13 @@ namespace Core.JsonConverter;
 
 public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenarioValue>
 {
-    public override CustomScenarioValue? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override CustomScenarioValue? Read(ref Utf8JsonReader reader, Type typeToConvert,
+        JsonSerializerOptions options)
     {
-        
         object value;
-        System.Type type=null;
+        Type type = null;
         Type realType = null;
         while (reader.Read())
-        {
             if (reader.TokenType == JsonTokenType.PropertyName)
             {
                 var s = reader.GetString();
@@ -24,20 +23,20 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                     case "Type":
                     {
                         reader.Read();
-                        type= new TypeJsonConverter().Read(ref reader, typeToConvert, options);
+                        type = new TypeJsonConverter().Read(ref reader, typeToConvert, options);
                         break;
                     }
                     case "RealType":
                     {
                         reader.Read();
-                    
-                        realType= new TypeJsonConverter().Read(ref reader, typeToConvert, options);
+
+                        realType = new TypeJsonConverter().Read(ref reader, typeToConvert, options);
                         break;
                     }
                     case "Value":
                     {
                         reader.Read();
-                        if (reader.TokenType==JsonTokenType.Null)
+                        if (reader.TokenType == JsonTokenType.Null)
                         {
                             reader.Read();
                             return new CustomScenarioValue
@@ -51,7 +50,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                         // {
                         //     JsonSerializer.
                         // }
-                        if (type.FullName==typeof(object).FullName)
+                        if (type.FullName == typeof(object).FullName)
                         {
                             reader.Read();
                             return new CustomScenarioValue
@@ -60,7 +59,8 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                                 RealType = realType,
                                 Value = null
                             };
-                        }else if (CustomScenarioGloble.JsonConverters.ContainsKey(realType))
+                        }
+                        else if (CustomScenarioGloble.JsonConverters.ContainsKey(realType))
                         {
                             var jsonConverter = CustomScenarioGloble.JsonConverters[type];
                             // 获取 Read 方法
@@ -84,8 +84,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                     }
                 }
             }
-        }
-      
+
 
         return null;
     }
@@ -95,23 +94,26 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
         writer.WriteStartObject();
         writer.WritePropertyName("Type");
         var typeJsonConverter = new TypeJsonConverter();
-        typeJsonConverter.Write(writer,value.Type,options);
+        typeJsonConverter.Write(writer, value.Type, options);
         writer.WritePropertyName("RealType");
-        typeJsonConverter.Write(writer,value.RealType,options);
+        typeJsonConverter.Write(writer, value.RealType, options);
         writer.WritePropertyName("Value");
-        if (value.RealType.FullName==typeof(object).FullName)
+        if (value.RealType.FullName == typeof(object).FullName)
         {
             writer.WriteStringValue("");
-        }else if (CustomScenarioGloble.JsonConverters.ContainsKey(value.RealType))
+        }
+        else if (CustomScenarioGloble.JsonConverters.ContainsKey(value.RealType))
         {
             var jsonConverter = CustomScenarioGloble.JsonConverters[value.RealType];
             var serialize = jsonConverter.Serialize(value.Value);
             writer.WriteStringValue(serialize);
         }
-        else {
+        else
+        {
             throw new CustomScenarioLoadFromJsonException(
                 CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, value.RealType.FullName, null);
         }
+
         writer.WriteEndObject();
     }
 }

@@ -15,13 +15,13 @@
               Width="600"
               Height="370"
               Title="HotKeyEditorWindow">
-    
+
     <u:UrsaWindow.Background>
         <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.65" />
 
     </u:UrsaWindow.Background>
 
-    <Grid Focusable="False"  Margin="10">
+    <Grid Focusable="False" Margin="10">
         <Border
             Focusable="False"
             Opacity="1">
@@ -38,9 +38,9 @@
             <Grid Focusable="False" RowDefinitions="*,Auto">
                 <Grid
                     Grid.Row="0"
-                    
+
                     ColumnDefinitions="Auto,*"
-                    Focusable="False" >
+                    Focusable="False">
                     <StackPanel Orientation="Vertical">
                         <TextBlock
                             Margin="0,10,0,0"
@@ -60,10 +60,9 @@
                             Text="按下按键以修改"
                             FontSize="15" />
                         <RadioButton GroupName="1" Content="键盘快捷键" Name="KeyBoard" IsChecked="True" Focusable="False"
-                                     Click="KeyBoard_OnClick">
-                        </RadioButton>
-                        <RadioButton GroupName="1" Content="鼠标快捷键" Name="Mouse" Click="Mouse_OnClick" Focusable="False"></RadioButton>
-                        <StackPanel  IsVisible="{Binding #Mouse.IsChecked}" HorizontalAlignment="Left">
+                                     Click="KeyBoard_OnClick" />
+                        <RadioButton GroupName="1" Content="鼠标快捷键" Name="Mouse" Click="Mouse_OnClick" Focusable="False" />
+                        <StackPanel IsVisible="{Binding #Mouse.IsChecked}" HorizontalAlignment="Left">
                             <TextBlock
                                 Margin="0,10,0,0"
                                 TextWrapping="WrapWithOverflow"
@@ -75,15 +74,15 @@
                                     <Style Selector="Slider /template/ Thumb">
                                         <Setter Property="ToolTip.Tip"
                                                 Value="{Binding $parent[Slider].Value, Mode=OneWay, StringFormat='\{0:d\}'}" />
-                                        <Setter Property="IsVisible" Value="True"></Setter>
+                                        <Setter Property="IsVisible" Value="True" />
                                         <Setter Property="ToolTip.Placement" Value="Top" />
-                                        <Setter Property="ToolTip.ShowDelay" Value="0"></Setter>
+                                        <Setter Property="ToolTip.ShowDelay" Value="0" />
                                         <Setter Property="ToolTip.VerticalOffset" Value="-10" />
                                         <Setter Property="ToolTip.HorizontalOffset" Value="-15" />
                                     </Style>
                                 </Slider.Styles>
                             </Slider>
-                            <TextBlock HorizontalAlignment="Center" Text="{Binding #Slider.Value}"></TextBlock>
+                            <TextBlock HorizontalAlignment="Center" Text="{Binding #Slider.Value}" />
                         </StackPanel>
 
                     </StackPanel>
@@ -120,7 +119,7 @@
                     Grid.Row="1"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Bottom"
-                    
+
                     Focusable="False">
                     <StackPanel>
                         <Grid ColumnDefinitions="*,*,*" ColumnSpan="8">

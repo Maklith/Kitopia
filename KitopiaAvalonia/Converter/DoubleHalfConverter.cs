@@ -17,6 +17,8 @@ public class DoubleHalfConverter : IMultiValueConverter
         return doubleValue / 2;
     }
 
-    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) =>
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+    {
         throw new NotImplementedException();
+    }
 }

@@ -14,10 +14,7 @@ public class ViewLocator : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is not string args)
-        {
-            return ServiceManager.Services.GetKeyedService<UserControl>("HomePage");
-        }
+        if (value is not string args) return ServiceManager.Services.GetKeyedService<UserControl>("HomePage");
 
         switch (args)
         {
@@ -50,9 +47,7 @@ public class ViewLocator : IValueConverter
                 {
                     var settingPage = ServiceManager.Services.GetService<SettingPage>();
                     if (ConfigManger.Configs.TryGetValue(args.Split("_", 2)[1], out var config))
-                    {
                         settingPage.ChangeConfig(config);
-                    }
 
                     return settingPage;
                 }

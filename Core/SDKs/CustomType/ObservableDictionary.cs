@@ -20,44 +20,49 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
         set => SetValue(key, value);
     }
 
-    public bool IsFixedSize
-    {
-        get;
-    }
+    public bool IsFixedSize { get; }
 
     object? IList.this[int index]
     {
-        get => this.GetByIndex(index);
+        get => GetByIndex(index);
         set => SetIndexValue(index, value);
     }
 
 
     public int IndexOf(object? value)
     {
-        if (value is KeyValuePair<TKey, TValue> keyValuePair)
-        {
-            return IndexOf(keyValuePair.Key);
-        }
+        if (value is KeyValuePair<TKey, TValue> keyValuePair) return IndexOf(keyValuePair.Key);
 
         return -1;
     }
 
-    public bool Contains(object? value) => throw new NotImplementedException();
-    public void Insert(int index, object? value) => throw new NotImplementedException();
-
-    public void Remove(object? value) => throw new NotImplementedException();
-    public int Add(object? value) => throw new NotImplementedException();
-
-    public bool IsReadOnly
+    public bool Contains(object? value)
     {
-        get;
+        throw new NotImplementedException();
     }
+
+    public void Insert(int index, object? value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Remove(object? value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public int Add(object? value)
+    {
+        throw new NotImplementedException();
+    }
+
+    public bool IsReadOnly { get; }
 
     public new int Count => base.Count;
 
     public KeyValuePair<TKey, TValue> this[int index]
     {
-        get => this.GetByIndex(index);
+        get => GetByIndex(index);
         set => SetIndexValue(index, value);
     }
 
@@ -66,9 +71,15 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
         return IndexOf(item.Key);
     }
 
-    public void Insert(int index, KeyValuePair<TKey, TValue> item) => throw new NotImplementedException();
+    public void Insert(int index, KeyValuePair<TKey, TValue> item)
+    {
+        throw new NotImplementedException();
+    }
 
-    public void RemoveAt(int index) => throw new NotImplementedException();
+    public void RemoveAt(int index)
+    {
+        throw new NotImplementedException();
+    }
 
 
     public new void Clear()
@@ -87,19 +98,14 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
     public KeyValuePair<TKey, TValue> GetByIndex(int index)
     {
         if (index >= 0)
-        {
             foreach (KeyValuePair<TKey, TValue> source1 in this)
             {
-                if (index == 0)
-                {
-                    return source1;
-                }
+                if (index == 0) return source1;
 
                 --index;
             }
-        }
 
-        return default(KeyValuePair<TKey, TValue>);
+        return default;
     }
 
     public new void Add(TKey key, TValue value)
@@ -131,18 +137,12 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
 
     protected void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
-        if (CollectionChanged != null)
-        {
-            CollectionChanged(this, e);
-        }
+        if (CollectionChanged != null) CollectionChanged(this, e);
     }
 
     protected void OnPropertyChanged(string propertyName)
     {
-        if (PropertyChanged != null)
-        {
-            PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-        }
+        if (PropertyChanged != null) PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
     }
 
     #region private方法
@@ -151,7 +151,7 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
     {
         try
         {
-            var pair = this.GetByIndex(index);
+            var pair = GetByIndex(index);
             SetValue(pair.Key, value);
         }
         catch (Exception)
@@ -165,7 +165,7 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
             return;
         try
         {
-            var pair = this.GetByIndex(index);
+            var pair = GetByIndex(index);
             SetValue(pair.Key, keyValuePair.Value);
         }
         catch (Exception)
@@ -177,7 +177,7 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
     {
         try
         {
-            var pair = this.GetByIndex(index);
+            var pair = GetByIndex(index);
             SetValue(pair.Key, value.Value);
         }
         catch (Exception)
@@ -188,25 +188,17 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
     private TValue GetValue(TKey key)
     {
         if (ContainsKey(key))
-        {
             return base[key];
-        }
         else
-        {
-            return default(TValue);
-        }
+            return default;
     }
 
     public void SetValueWithoutNotify(TKey key, TValue value)
     {
         if (ContainsKey(key))
-        {
             base[key] = value;
-        }
         else
-        {
             Add(key, value);
-        }
     }
 
     private void SetValue(TKey key, TValue value)
@@ -214,7 +206,7 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
         if (ContainsKey(key))
         {
             var pair = FindPair(key);
-            int index = _index;
+            var index = _index;
             base[key] = value;
             var newpair = FindPair(key);
             OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, newpair,
@@ -233,26 +225,20 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
         _index = 0;
         foreach (var item in this)
         {
-            if (item.Key.Equals(key))
-            {
-                return item;
-            }
+            if (item.Key.Equals(key)) return item;
 
             _index++;
         }
 
-        return default(KeyValuePair<TKey, TValue>);
+        return default;
     }
 
     private int IndexOf(TKey key)
     {
-        int index = 0;
+        var index = 0;
         foreach (var item in this)
         {
-            if (item.Key.Equals(key))
-            {
-                return index;
-            }
+            if (item.Key.Equals(key)) return index;
 
             index++;
         }

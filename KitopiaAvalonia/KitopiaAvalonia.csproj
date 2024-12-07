@@ -8,7 +8,7 @@
         <WindowsPackageType>None</WindowsPackageType>
         <EnableMsixTooling>true</EnableMsixTooling>
     </PropertyGroup>
-    
+
     <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
         <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
     </PropertyGroup>
@@ -18,7 +18,7 @@
     <PropertyGroup Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))'">
         <DefineConstants>$(DefineConstants);OSX</DefineConstants>
     </PropertyGroup>
-    
+
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
         <Nullable>enable</Nullable>
@@ -45,7 +45,7 @@
         <AvaloniaResource Include="Assets\icon.png"/>
     </ItemGroup>
     <ItemGroup>
-        <ProjectReference Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' " Include="..\Core.Linux\Core.Linux.csproj" />
+        <ProjectReference Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' " Include="..\Core.Linux\Core.Linux.csproj"/>
         <ProjectReference Condition=" '$(OS)' == 'Windows_NT' " Include="..\Core.Window\Core.Window.csproj"/>
         <ProjectReference Include="..\NodifyM.Avalonia\NodifyM.Avalonia\NodifyM.Avalonia.csproj"/>
         <ProjectReference Include="..\Core\Core.csproj"/>
@@ -55,7 +55,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Condition="$(DefineConstants.Contains(ENABLE_XAML_HOT_RELOAD))" Include="Avalonia.Markup.Xaml.Loader" Version="$(AvaloniaVersion)" />
+        <PackageReference Condition="$(DefineConstants.Contains(ENABLE_XAML_HOT_RELOAD))" Include="Avalonia.Markup.Xaml.Loader" Version="$(AvaloniaVersion)"/>
         <PackageReference Include="Avalonia.ReactiveUI" Version="$(AvaloniaVersion)"/>
         <PackageReference Condition="$(DefineConstants.Contains(ENABLE_XAML_HOT_RELOAD))" Include="HotAvalonia" Version="1.1.1"/>
         <PackageReference Include="HotAvalonia.Extensions" Version="1.1.1" PrivateAssets="All"/>
@@ -65,16 +65,16 @@
         <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)"/>
         <PackageReference Include="Avalonia.Controls.ColorPicker" Version="$(AvaloniaVersion)"/>
         <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="$(AvaloniaVersion)"/>
-        <PackageReference Include="Avalonia.Xaml.Behaviors" Version="11.1.0.4" />
-        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
-        <PackageReference Include="Irihi.Ursa" Version="1.4.0" />
-        <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="1.4.0" />
+        <PackageReference Include="Avalonia.Xaml.Behaviors" Version="11.1.0.4"/>
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2"/>
+        <PackageReference Include="Irihi.Ursa" Version="1.4.0"/>
+        <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="1.4.0"/>
         <PackageReference Include="log4net" Version="2.0.17"/>
-        <PackageReference Include="Markdown.Avalonia" Version="11.0.3-a1" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0-rc.2.24473.5" />
-        <PackageReference Include="Semi.Avalonia" Version="11.2.0-beta1" />
-        <PackageReference Include="Semi.Avalonia.ColorPicker" Version="11.1.0.5-beta1" />
-        <PackageReference Include="System.Drawing.Common" Version="9.0.0-rc.2.24474.1" />
+        <PackageReference Include="Markdown.Avalonia" Version="11.0.3-a1"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0-rc.2.24473.5"/>
+        <PackageReference Include="Semi.Avalonia" Version="11.2.0-beta1"/>
+        <PackageReference Include="Semi.Avalonia.ColorPicker" Version="11.1.0.5-beta1"/>
+        <PackageReference Include="System.Drawing.Common" Version="9.0.0-rc.2.24474.1"/>
     </ItemGroup>
     <ItemGroup>
         <EmbeddedResource Include="log4net.config">
@@ -95,25 +95,25 @@
             <DependentUpon>HotKeyManagerPage.xaml</DependentUpon>
         </Compile>
         <Compile Update="Controls\Capture\DraggableResizeableControl.axaml.cs">
-          <DependentUpon>DraggableResizeableControl.axaml</DependentUpon>
-          <SubType>Code</SubType>
+            <DependentUpon>DraggableResizeableControl.axaml</DependentUpon>
+            <SubType>Code</SubType>
         </Compile>
         <Compile Update="Controls\Capture\DraggableArrowControl.axaml.cs">
-          <DependentUpon>DraggableArrowControl.axaml</DependentUpon>
-          <SubType>Code</SubType>
+            <DependentUpon>DraggableArrowControl.axaml</DependentUpon>
+            <SubType>Code</SubType>
         </Compile>
         <Compile Update="Controls\Capture\CaptureToolBase.cs">
-          <DependentUpon>CaptureToolBase.axaml</DependentUpon>
+            <DependentUpon>CaptureToolBase.axaml</DependentUpon>
         </Compile>
         <Compile Update="Controls\DialogOvercover.axaml.cs">
-          <DependentUpon>DialogWindow.axaml</DependentUpon>
-          <SubType>Code</SubType>
+            <DependentUpon>DialogWindow.axaml</DependentUpon>
+            <SubType>Code</SubType>
         </Compile>
     </ItemGroup>
     <ItemGroup>
-      <Folder Include="Converter\MarketPage\" />
-      <Folder Include="Converter\PluginManagerPage\" />
-      <Folder Include="Tools\" />
+        <Folder Include="Converter\MarketPage\"/>
+        <Folder Include="Converter\PluginManagerPage\"/>
+        <Folder Include="Tools\"/>
     </ItemGroup>
 
 </Project>

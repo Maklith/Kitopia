@@ -49,7 +49,7 @@
             <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.65" />
         </Panel.Background>
 
-        <DockPanel Margin="10" VerticalAlignment="Stretch" >
+        <DockPanel Margin="10" VerticalAlignment="Stretch">
             <StackPanel DockPanel.Dock="Top" Margin="0,0,0,5">
                 <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" IsTabStop="False"
                          Watermark="搜索..." AcceptsReturn="False" KeyDown="tx_KeyDown"
@@ -74,7 +74,7 @@
                           IsVisible="{Binding NowInSelectMode}"
                           CanClose="False" />
             </StackPanel>
-            
+
 
             <ListBox Name="dataGrid"
                      ItemsSource="{Binding Items,Mode=OneWay }"
@@ -82,18 +82,17 @@
                      PointerMoved="DataGrid_OnPointerMoved"
                      Margin="0,0,0,0">
                 <ListBox.Resources>
-                    <SolidColorBrush x:Key="Brush" Color="LightGray" Opacity="0.15" />
                 </ListBox.Resources>
 
                 <ListBox.Styles>
                     <Style
                         Selector="ListBoxItem:selected > Button#Item /template/ ContentPresenter#PART_ContentPresenter">
                         <Setter Property="Background" Value="{DynamicResource SemiColorTertiaryLightPointerover}" />
-                        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorText2 }"></Setter>
+                        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorText2 }" />
                     </Style>
 
                     <Style Selector="ListBoxItem">
-                        <Setter Property="Padding" Value="0,3,0,3"></Setter>
+                        <Setter Property="Padding" Value="0,3,0,3" />
                         <Setter Property="Template">
                             <ControlTemplate x:DataType="pluginCore:SearchViewItem">
 
@@ -124,12 +123,10 @@
                                                 <MultiBinding.Bindings>
                                                     <Binding
                                                         RelativeSource="{RelativeSource AncestorType=ContentPresenter, Tree=Visual}"
-                                                        Path="Bounds.Width">
-                                                    </Binding>
+                                                        Path="Bounds.Width" />
                                                     <Binding
                                                         RelativeSource="{RelativeSource AncestorType=ContentPresenter, Tree=Visual}"
-                                                        Path="Padding">
-                                                    </Binding>
+                                                        Path="Padding" />
 
                                                 </MultiBinding.Bindings>
                                             </MultiBinding>

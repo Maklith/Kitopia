@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="KitopiaAvalonia.Controls.DialogOvercover"
              Foreground="{DynamicResource ContentDialogForeground}"
@@ -13,7 +12,7 @@
              PointerPressed="InputElement_OnPointerPressed">
 
     <UserControl.Background>
-        <SolidColorBrush Opacity="0.5" Color="{DynamicResource SemiGrey2Color}"></SolidColorBrush>
+        <SolidColorBrush Opacity="0.5" Color="{DynamicResource SemiGrey2Color}" />
     </UserControl.Background>
 
     <!-- Even in WinUI, shadow is always black regardless of light/dark mode -->
@@ -27,7 +26,7 @@
             PointerMoved="InputElement_OnPointerMoved" PointerPressed="InputElement_OnPointerPressed"
             PointerReleased="InputElement_OnPointerReleased">
         <Border.Background>
-            <SolidColorBrush Opacity="0.5" Color="{DynamicResource SemiBackground0Color}"></SolidColorBrush>
+            <SolidColorBrush Opacity="0.5" Color="{DynamicResource SemiBackground0Color}" />
         </Border.Background>
         <Panel>
             <Grid Name="DialogSpace" ClipToBounds="True"

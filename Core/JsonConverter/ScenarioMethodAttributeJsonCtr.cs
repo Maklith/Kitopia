@@ -10,25 +10,19 @@ public class ScenarioMethodAttributeJsonCtr : JsonConverter<ScenarioMethodAttrib
         JsonSerializerOptions options)
     {
         // 创建一个 ScenarioMethodAttribute 实例
-        ScenarioMethodAttribute attribute = new ScenarioMethodAttribute();
+        var attribute = new ScenarioMethodAttribute();
 
         // 确保 JSON 数据以对象开始
-        if (reader.TokenType != JsonTokenType.StartObject)
-        {
-            throw new JsonException();
-        }
+        if (reader.TokenType != JsonTokenType.StartObject) throw new JsonException();
 
         // 读取 JSON 对象的属性
         while (reader.Read())
         {
             // 检查是否已经到达对象的结尾
-            if (reader.TokenType == JsonTokenType.EndObject)
-            {
-                return attribute;
-            }
+            if (reader.TokenType == JsonTokenType.EndObject) return attribute;
 
             // 读取属性名称
-            string propertyName = reader.GetString();
+            var propertyName = reader.GetString();
             reader.Read(); // 进入属性值
 
             // 根据属性名称将值分配给属性

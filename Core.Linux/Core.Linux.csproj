@@ -11,8 +11,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Core\Core.csproj" />
-      <ProjectReference Include="..\PluginCore\PluginCore.csproj" />
+        <ProjectReference Include="..\Core\Core.csproj"/>
+        <ProjectReference Include="..\PluginCore\PluginCore.csproj"/>
     </ItemGroup>
 
 </Project>

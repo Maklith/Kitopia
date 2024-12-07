@@ -35,7 +35,7 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
         _expander.Loaded += ExpanderLoaded;
         _expander.Expanding += ExpanderExpanding;
 
-        _contentHost = e.NameScope.Get<KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem>(s_tpContentHost);
+        _contentHost = e.NameScope.Get<SettingsExpanderItem>(s_tpContentHost);
         _hasAppliedTemplate = true;
 
         SetIcons();
@@ -49,10 +49,8 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
         {
             var newVal = change.GetNewValue<bool>();
             if (ItemCount > 0 && newVal)
-            {
                 throw new InvalidOperationException(
                     "Cannot set Items and mark IsClickEnabled to true on a SettingsExpander");
-            }
 
             if (_expanderToggleButton != null)
             {
@@ -72,28 +70,20 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
             // Use the IsAttachedToVisualTree flag here to prevent overwriting 'true' while control
             // is Initializing where IsExpanded may be set before Items
             if (ItemCount == 0 && change.GetNewValue<bool>() && this.IsAttachedToVisualTree())
-            {
                 // There seems to be an issue here where if we just set IsExpanded = false
                 // the property does get set, but the :expanded pseudoclass is never cleared
                 // from the Expander. So post to dispatcher to let this prop change notification
                 // go through real quick, then change the value to false to get the correct state
                 Dispatcher.UIThread.Post(() => IsExpanded = false, DispatcherPriority.Send);
-            }
         }
         else if (change.Property == CommandProperty)
         {
             if (((ILogical)this).IsAttachedToLogicalTree)
             {
                 var (oldValue, newValue) = change.GetOldAndNewValue<ICommand>();
-                if (oldValue != null)
-                {
-                    oldValue.CanExecuteChanged -= CanExecuteChanged;
-                }
+                if (oldValue != null) oldValue.CanExecuteChanged -= CanExecuteChanged;
 
-                if (newValue != null)
-                {
-                    newValue.CanExecuteChanged += CanExecuteChanged;
-                }
+                if (newValue != null) newValue.CanExecuteChanged += CanExecuteChanged;
             }
 
             CanExecuteChanged(this, EventArgs.Empty);
@@ -127,7 +117,7 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
         if (_expanderToggleButton is not null)
         {
             // Disable the interaction states if items collection is cleared
-            bool isInteractable = ItemCount > 0;
+            var isInteractable = ItemCount > 0;
             ((IPseudoClasses)_expanderToggleButton.Classes).Set(SharedPseudoclasses.s_pcAllowClick, isInteractable);
             ((IPseudoClasses)_expanderToggleButton.Classes).Set(s_pcEmpty, !isInteractable);
         }
@@ -135,8 +125,8 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
 
     protected override bool NeedsContainerOverride(object item, int index, out object recycleKey)
     {
-        bool isItem = item is KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem;
-        recycleKey = isItem ? null : nameof(KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem);
+        var isItem = item is SettingsExpanderItem;
+        recycleKey = isItem ? null : nameof(SettingsExpanderItem);
         return !isItem;
     }
 
@@ -144,19 +134,19 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
     {
         var cont = this.FindDataTemplate(item, ItemTemplate)?.Build(item);
 
-        if (cont is KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem sei)
+        if (cont is SettingsExpanderItem sei)
         {
             sei.DataContext = item;
             sei.IsContainerFromTemplate = true;
             return sei;
         }
 
-        return new KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem();
+        return new SettingsExpanderItem();
     }
 
     protected override void PrepareContainerForItemOverride(Control container, object item, int index)
     {
-        var sei = container as KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem;
+        var sei = container as SettingsExpanderItem;
 
         // If the container was created from a DataTemplate, do NOT call PrepareContainer or it will
         // do another template lookup and then put a item within an item as it sets the normal
@@ -173,11 +163,9 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
     {
         base.ClearContainerForItemOverride(container);
 
-        if (container is KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem sei)
-        {
+        if (container is SettingsExpanderItem sei)
             if (sei.IconSource != null)
                 _iconCount--;
-        }
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -197,10 +185,7 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
 
         var @param = CommandParameter;
         var command = Command;
-        if (!args.Handled && command?.CanExecute(@param) == true)
-        {
-            command.Execute(@param);
-        }
+        if (!args.Handled && command?.CanExecute(@param) == true) command.Execute(@param);
     }
 
     private void ExpanderLoaded(object sender, RoutedEventArgs e)
@@ -219,7 +204,7 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
         _expanderToggleButton = header;
         _expanderToggleButton.Click += ExpanderToggleButtonClick;
 
-        bool allowClick = IsClickEnabled;
+        var allowClick = IsClickEnabled;
 
         // Disable pointerover/pressed styles if we aren't clickable (empty or !IsClickEnabled)
         ((IPseudoClasses)_expanderToggleButton.Classes).Set(SharedPseudoclasses.s_pcAllowClick,
@@ -261,8 +246,10 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
         }
     }
 
-    void ICommandSource.CanExecuteChanged(object sender, EventArgs e) =>
+    void ICommandSource.CanExecuteChanged(object sender, EventArgs e)
+    {
         CanExecuteChanged(sender, e);
+    }
 
     private void SetIcons()
     {
@@ -274,17 +261,15 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
         if (ItemCount == 0)
             return;
 
-        bool usePlaceholder = _iconCount > 0;
+        var usePlaceholder = _iconCount > 0;
         ((IPseudoClasses)_contentHost.Classes).Set(s_pcIconPlaceholder, usePlaceholder);
 
         var rc = GetRealizedContainers();
         foreach (var item in GetRealizedContainers())
-        {
             ((IPseudoClasses)item.Classes).Set(s_pcIconPlaceholder, usePlaceholder);
-        }
     }
 
-    internal void InvalidateIcons(KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem item)
+    internal void InvalidateIcons(SettingsExpanderItem item)
     {
         if (item == _contentHost)
             return;
@@ -295,7 +280,7 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
     private bool _commandCanExecute = true;
     private Expander _expander;
     private ToggleButton _expanderToggleButton;
-    private KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem _contentHost;
+    private SettingsExpanderItem _contentHost;
     private int _iconCount = 0;
     private bool _hasAppliedTemplate;
 }

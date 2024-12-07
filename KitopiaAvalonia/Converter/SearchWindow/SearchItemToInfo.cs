@@ -15,10 +15,7 @@ public class SearchItemToInfo : IValueConverter
 {
     public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        if (value is not SearchViewItem)
-        {
-            return null;
-        }
+        if (value is not SearchViewItem) return null;
 
         var item = (SearchViewItem)value;
         var info = new StringBuilder();
@@ -39,7 +36,7 @@ public class SearchItemToInfo : IValueConverter
                 info.Append(item.OnlyKey);
                 break;
             case FileType.数学运算:
-                info.Append($"点击将{item.ItemDisplayName.Remove(0,1)}复制到剪贴板");
+                info.Append($"点击将{item.ItemDisplayName.Remove(0, 1)}复制到剪贴板");
                 break;
             case FileType.剪贴板图像:
             case FileType.None:
@@ -63,14 +60,13 @@ public class SearchItemToInfo : IValueConverter
                 return null;
         }
 
-        if (info.Length > 1)
-        {
-            return info.ToString();
-        }
+        if (info.Length > 1) return info.ToString();
 
         return null;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
         throw new NotImplementedException();
+    }
 }

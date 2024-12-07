@@ -14,7 +14,7 @@ public partial class ErrorDialog : Window
 
     private void Button_Click(object? sender, RoutedEventArgs e)
     {
-        this.Close();
+        Close();
     }
 
     private void logs_Click(object? sender, RoutedEventArgs e)

@@ -15,7 +15,7 @@ namespace KitopiaAvalonia.Pages;
 public class MyDataTemplateSelector : IDataTemplate
 {
     // Override the SelectTemplate method
-    [Content] public Dictionary<string, IDataTemplate> Templates { get; } = new Dictionary<string, IDataTemplate>();
+    [Content] public Dictionary<string, IDataTemplate> Templates { get; } = new();
 
     private static Type ResolveType(string? ns, string typeName)
     {
@@ -32,17 +32,16 @@ public class MyDataTemplateSelector : IDataTemplate
         if (item is ConnectorItem pointItem)
         {
             // Check the type of the item and return the corresponding data template from the resources
-            if (!pointItem.IsSelf||pointItem.InputObject.RealType ==null||pointItem.InputObject.RealType.BaseType ==null)
-            {
+            if (!pointItem.IsSelf || pointItem.InputObject.RealType == null ||
+                pointItem.InputObject.RealType.BaseType == null)
                 return Templates["InputTemplate"]
                     .Build(item);
-            }
 
             if (pointItem.isPluginInputConnector)
             {
                 var control = pointItem.PluginInputConnector.IDataTemplate.Build(item);
                 control.DataContext = pointItem.PluginInputConnector;
-                pointItem.PluginInputConnector.Value.Subscribe(x => { pointItem.InputObject.Value= x; });
+                pointItem.PluginInputConnector.Value.Subscribe(x => { pointItem.InputObject.Value = x; });
                 pointItem.InputObject.Value = pointItem.PluginInputConnector.Value.Value;
                 control!.Styles.Add(pointItem.PluginInputConnector.Style);
                 return control;
@@ -77,5 +76,8 @@ public class MyDataTemplateSelector : IDataTemplate
         return null;
     }
 
-    public bool Match(object? data) => true;
+    public bool Match(object? data)
+    {
+        return true;
+    }
 }

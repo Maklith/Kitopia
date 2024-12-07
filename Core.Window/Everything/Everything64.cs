@@ -67,7 +67,7 @@ public class Everything64
     public static extern int Everything_GetReplyID();
 
     [DllImport("Everything64.dll")]
-    public static extern bool Everything_QueryW(bool bWait); 
+    public static extern bool Everything_QueryW(bool bWait);
 
     [DllImport("Everything64.dll")]
     public static extern bool Everything_IsQueryReply(int message, IntPtr wParam, IntPtr lParam, uint nId);
@@ -82,7 +82,7 @@ public class Everything64
     public static extern int Everything_GetNumFolderResults();
 
     [DllImport("Everything64.dll")]
-    public static extern int Everything_GetNumResults(); 
+    public static extern int Everything_GetNumResults();
 
     [DllImport("Everything64.dll")]
     public static extern int Everything_GetTotFileResults();

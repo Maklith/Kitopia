@@ -12,12 +12,14 @@ public class SearchWindowService : ISearchWindowService
 {
     public void ShowOrHiddenSearchWindow()
     {
-        Dispatcher.UIThread.InvokeAsync(() => {
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
             var searchWindow = ServiceManager.Services.GetService<SearchWindow>();
             {
                 ServiceManager.Services.GetService<SearchWindowViewModel>()!.CheckClipboard();
                 searchWindow.Show();
-                Task.Run(() => {
+                Task.Run(() =>
+                {
                     Thread.CurrentThread.Priority = ThreadPriority.Lowest;
                     ServiceManager.Services.GetService<SearchWindowViewModel>()!.ReloadApps();
                 });

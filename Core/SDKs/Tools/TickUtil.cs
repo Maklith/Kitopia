@@ -47,7 +47,7 @@ public class TickUtil
     /// </summary>
     private long _Period = 10;
 
-    private System.Threading.Thread _threadRumTimer;
+    private Thread _threadRumTimer;
 
     /// <summary>
     /// 回调函数定义
@@ -79,15 +79,9 @@ public class TickUtil
             throw new Exception("初始化定时器失败");
         }
 
-        if (_CpuIndex == 0)
-        {
-            throw new Exception("定时器不允许被分配到0#CPU");
-        }
+        if (_CpuIndex == 0) throw new Exception("定时器不允许被分配到0#CPU");
 
-        if (_CpuIndex >= System.Environment.ProcessorCount)
-        {
-            throw new Exception("为定时器分配了超出索引的CPU");
-        }
+        if (_CpuIndex >= Environment.ProcessorCount) throw new Exception("为定时器分配了超出索引的CPU");
     }
 
     /// <summary>
@@ -113,14 +107,14 @@ public class TickUtil
     /// <param name="dwThreadAffinityMask"></param>
     /// <returns></returns>
     [DllImport("kernel32.dll")]
-    static extern UIntPtr SetThreadAffinityMask(IntPtr hThread, UIntPtr dwThreadAffinityMask);
+    private static extern UIntPtr SetThreadAffinityMask(IntPtr hThread, UIntPtr dwThreadAffinityMask);
 
     /// <summary>
     /// 获取当前线程的Handler
     /// </summary>
     /// <returns></returns>
     [DllImport("kernel32.dll")]
-    static extern IntPtr GetCurrentThread();
+    private static extern IntPtr GetCurrentThread();
 
     /// <summary>
     /// 根据CPU的索引序号获取CPU的标识序号
@@ -130,10 +124,7 @@ public class TickUtil
     private ulong GetCpuID(int idx)
     {
         ulong cpuid = 0;
-        if (idx < 0 || idx >= System.Environment.ProcessorCount)
-        {
-            idx = 0;
-        }
+        if (idx < 0 || idx >= Environment.ProcessorCount) idx = 0;
 
         cpuid |= 1UL << idx;
         return cpuid;
@@ -146,7 +137,7 @@ public class TickUtil
     {
         if (Tick != null)
         {
-            _threadRumTimer = new System.Threading.Thread(new System.Threading.ThreadStart(RunTimer));
+            _threadRumTimer = new Thread(new ThreadStart(RunTimer));
             _threadRumTimer.Start();
         }
     }
@@ -156,24 +147,17 @@ public class TickUtil
     /// </summary>
     private void RunTimer()
     {
-        UIntPtr up = UIntPtr.Zero;
+        var up = UIntPtr.Zero;
         if (_CpuIndex != 0)
             up = SetThreadAffinityMask(GetCurrentThread(), new UIntPtr(GetCpuID(_CpuIndex)));
-        if (up == UIntPtr.Zero)
-        {
-            throw new Exception("为定时器分配CPU核心时失败");
-        }
+        if (up == UIntPtr.Zero) throw new Exception("为定时器分配CPU核心时失败");
 
         long q1, q2;
         QueryPerformanceCounter(out q1);
         QueryPerformanceCounter(out q2);
         if (_Delay > 0)
-        {
             while (q2 < q1 + _Delay * _Freqmms)
-            {
                 QueryPerformanceCounter(out q2);
-            }
-        }
 
         QueryPerformanceCounter(out q1);
         QueryPerformanceCounter(out q2);

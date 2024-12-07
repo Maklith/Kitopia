@@ -11,15 +11,15 @@ public class ConnectorItemJsonCtr : JsonConverter<ConnectorItem>
 {
     public override ConnectorItem? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        ConnectorItem connectorItem = JsonSerializer.Deserialize<ConnectorItem>(ref reader, new JsonSerializerOptions
+        var connectorItem = JsonSerializer.Deserialize<ConnectorItem>(ref reader, new JsonSerializerOptions
         {
             IncludeFields = true,
             WriteIndented = true,
 
-            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
             //DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
-        
+
         return connectorItem;
     }
 
@@ -30,7 +30,7 @@ public class ConnectorItemJsonCtr : JsonConverter<ConnectorItem>
             IncludeFields = true,
             WriteIndented = true,
 
-            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
             //DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
     }

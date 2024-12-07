@@ -18,7 +18,7 @@
                         Command="{TemplateBinding EditHotKey}" Foreground="{DynamicResource TextControlForeground}">
                     <Button.Styles>
                         <Style Selector="Button.IsActivated">
-                            <Setter Property="ToolTip.Tip" Value="修改快捷键"></Setter>
+                            <Setter Property="ToolTip.Tip" Value="修改快捷键" />
                         </Style>
                     </Button.Styles>
                     <StackPanel Orientation="Horizontal" Height="{TemplateBinding Height}"

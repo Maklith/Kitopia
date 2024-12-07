@@ -37,25 +37,13 @@ public partial class HotKeyEditorWindow : UrsaWindow
             MainName = "测试"
         };
         Name.Text = $"快捷键:{_hotKeyModel.Value.SignName}";
-        if (_hotKeyModel.Value.IsSelectAlt)
-        {
-            Alt.IsVisible = true;
-        }
+        if (_hotKeyModel.Value.IsSelectAlt) Alt.IsVisible = true;
 
-        if (_hotKeyModel.Value.IsSelectCtrl)
-        {
-            Ctrl.IsVisible = true;
-        }
+        if (_hotKeyModel.Value.IsSelectCtrl) Ctrl.IsVisible = true;
 
-        if (_hotKeyModel.Value.IsSelectShift)
-        {
-            Shift.IsVisible = true;
-        }
+        if (_hotKeyModel.Value.IsSelectShift) Shift.IsVisible = true;
 
-        if (_hotKeyModel.Value.IsSelectWin)
-        {
-            Win.IsVisible = true;
-        }
+        if (_hotKeyModel.Value.IsSelectWin) Win.IsVisible = true;
 
         selectedKey = _hotKeyModel.Value.SelectKey;
         KeyName.Content = _hotKeyModel.Value.SelectKey.ToString();
@@ -72,25 +60,13 @@ public partial class HotKeyEditorWindow : UrsaWindow
             case HotKeyType.Keyboard:
             {
                 KeyBoard.IsChecked = true;
-                if (hotKeyModel.IsSelectAlt)
-                {
-                    Alt.IsVisible = true;
-                }
+                if (hotKeyModel.IsSelectAlt) Alt.IsVisible = true;
 
-                if (hotKeyModel.IsSelectCtrl)
-                {
-                    Ctrl.IsVisible = true;
-                }
+                if (hotKeyModel.IsSelectCtrl) Ctrl.IsVisible = true;
 
-                if (hotKeyModel.IsSelectShift)
-                {
-                    Shift.IsVisible = true;
-                }
+                if (hotKeyModel.IsSelectShift) Shift.IsVisible = true;
 
-                if (hotKeyModel.IsSelectWin)
-                {
-                    Win.IsVisible = true;
-                }
+                if (hotKeyModel.IsSelectWin) Win.IsVisible = true;
 
                 selectedKey = hotKeyModel.SelectKey;
                 KeyName.Content = hotKeyModel.SelectKey.ToString();
@@ -117,52 +93,30 @@ public partial class HotKeyEditorWindow : UrsaWindow
 
     private void HotKeyEditorWindow_OnKeyDown(object sender, KeyEventArgs e)
     {
-        if (!_hotKeyModel.HasValue)
-        {
-            return;
-        }
+        if (!_hotKeyModel.HasValue) return;
 
-        if (_type != HotKeyType.Keyboard)
-        {
-            return;
-        }
+        if (_type != HotKeyType.Keyboard) return;
 
         {
             if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
-            {
                 Ctrl.IsVisible = true;
-            }
             else
-            {
                 Ctrl.IsVisible = false;
-            }
 
             if (e.KeyModifiers.HasFlag(KeyModifiers.Alt))
-            {
                 Alt.IsVisible = true;
-            }
             else
-            {
                 Alt.IsVisible = false;
-            }
 
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-            {
                 Shift.IsVisible = true;
-            }
             else
-            {
                 Shift.IsVisible = false;
-            }
 
             if (e.KeyModifiers.HasFlag(KeyModifiers.Meta))
-            {
                 Win.IsVisible = true;
-            }
             else
-            {
                 Win.IsVisible = false;
-            }
 
             if (e.Key == Key.System)
             {
@@ -208,15 +162,9 @@ public partial class HotKeyEditorWindow : UrsaWindow
 
     private void ButtonBase_OnClick(object sender, RoutedEventArgs e)
     {
-        if (_type == HotKeyType.Keyboard && selectedKey is null)
-        {
-            return;
-        }
+        if (_type == HotKeyType.Keyboard && selectedKey is null) return;
 
-        if (_type == HotKeyType.Mouse && selectedMouseButton is null)
-        {
-            return;
-        }
+        if (_type == HotKeyType.Mouse && selectedMouseButton is null) return;
 
         var hotKeyModel = new HotKeyModel(_hotKeyModel.Value.UUID)
         {
@@ -254,47 +202,26 @@ public partial class HotKeyEditorWindow : UrsaWindow
     {
         isFinnish = true;
         setSuccess = true;
-        this.Close();
+        Close();
     }
 
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (!_hotKeyModel.HasValue)
-        {
-            return;
-        }
+        if (!_hotKeyModel.HasValue) return;
 
-        if (_type != HotKeyType.Mouse)
-        {
-            return;
-        }
+        if (_type != HotKeyType.Mouse) return;
 
         ushort id = 0;
         var pointerPointProperties = e.GetCurrentPoint(this).Properties;
-        if (pointerPointProperties.IsLeftButtonPressed)
-        {
-            id = 0;
-        }
+        if (pointerPointProperties.IsLeftButtonPressed) id = 0;
 
-        if (pointerPointProperties.IsRightButtonPressed)
-        {
-            id = 1;
-        }
+        if (pointerPointProperties.IsRightButtonPressed) id = 1;
 
-        if (pointerPointProperties.IsMiddleButtonPressed)
-        {
-            id = 2;
-        }
+        if (pointerPointProperties.IsMiddleButtonPressed) id = 2;
 
-        if (pointerPointProperties.IsXButton1Pressed)
-        {
-            id = 3;
-        }
+        if (pointerPointProperties.IsXButton1Pressed) id = 3;
 
-        if (pointerPointProperties.IsXButton2Pressed)
-        {
-            id = 4;
-        }
+        if (pointerPointProperties.IsXButton2Pressed) id = 4;
 
         selectedMouseButton = id;
         KeyName.IsVisible = true;

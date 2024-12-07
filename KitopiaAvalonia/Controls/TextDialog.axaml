@@ -6,5 +6,5 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="controls:TextDialogViewModel"
              x:Class="KitopiaAvalonia.Controls.TextDialog">
-    <ContentPresenter Content="{Binding Text}"></ContentPresenter>
+    <ContentPresenter Content="{Binding Text}" />
 </UserControl>

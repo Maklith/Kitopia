@@ -30,11 +30,13 @@ using JsonSerializer = System.Text.Json.JsonSerializer;
 using Point = Avalonia.Point;
 
 namespace Core.ViewModel.Pages;
+
 public class ApiResponse
 {
     public bool flag { get; set; }
     public List<OnlinePluginInfo> data { get; set; }
 }
+
 public partial class OnlinePluginInfo : ObservableObject
 {
     public int Id { set; get; }
@@ -44,16 +46,16 @@ public partial class OnlinePluginInfo : ObservableObject
         set => throw new NotImplementedException();
         get
         {
-           
-            var request = new HttpRequestMessage() {
+            var request = new HttpRequestMessage()
+            {
                 RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/user/baseInfo"),
-                Method = HttpMethod.Get,
+                Method = HttpMethod.Get
             };
-            request.Headers.Add("id",AuthorId.ToString());
+            request.Headers.Add("id", AuthorId.ToString());
             var async = PluginManager._httpClient.SendAsync(request).GetAwaiter().GetResult();
-            var stringAsync =  async.Content.ReadAsStringAsync().Result;
+            var stringAsync = async.Content.ReadAsStringAsync().Result;
             var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
-            
+
             return deserializeObject["data"]["userName"].ToString();
         }
     }
@@ -71,25 +73,30 @@ public partial class OnlinePluginInfo : ObservableObject
     public string DescriptionShort { set; get; }
     public string Description { set; get; }
     public List<string> SupportSystems { set; get; }
-    public bool InLocal {
-        get{
-            return PluginManager.AllPluginInfos.Any(x=>x.NameSign==NameSign);
-        }}
+
+    public bool InLocal
+    {
+        get { return PluginManager.AllPluginInfos.Any(x => x.NameSign == NameSign); }
+    }
 
     public void Upadate()
     {
         OnPropertyChanged(nameof(InLocal));
     }
-    public string ToPlgString() => $"{Id}_{AuthorId}_{NameSign}";
+
+    public string ToPlgString()
+    {
+        return $"{Id}_{AuthorId}_{NameSign}";
+    }
 
     public override string ToString()
     {
         return ToPlgString();
     }
 }
+
 public partial class MarketPageViewModel : ObservableObject
 {
-    
     [ObservableProperty] private ObservableCollection<OnlinePluginInfo> _plugins = new();
 
     public MarketPageViewModel()
@@ -97,35 +104,29 @@ public partial class MarketPageViewModel : ObservableObject
         LoadPlugins();
     }
 
-     ~MarketPageViewModel()
-     {
-         for (var i = 0; i < _plugins.Count; i++)
-         {
-             _plugins[i].Icon?.Dispose();
-         }
-     }
+    ~MarketPageViewModel()
+    {
+        for (var i = 0; i < _plugins.Count; i++) _plugins[i].Icon?.Dispose();
+    }
+
     private async Task LoadPlugins()
     {
-        var async =await  PluginManager._httpClient.GetAsync($"{ConfigManger.ApiUrl}/api/plugin/all");
+        var async = await PluginManager._httpClient.GetAsync($"{ConfigManger.ApiUrl}/api/plugin/all");
         var stringAsync = await async.Content.ReadAsStringAsync();
         var options = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         };
-        var apiResponse = JsonSerializer.Deserialize<ApiResponse>(stringAsync,options);
+        var apiResponse = JsonSerializer.Deserialize<ApiResponse>(stringAsync, options);
         if (apiResponse != null && apiResponse.data != null)
-        {
             for (var i = 0; i < apiResponse.data.Count; i++)
-            {
                 Plugins.Add(apiResponse.data[i]);
-            }
-        }
     }
 
     [RelayCommand]
     private async Task<bool> DownloadPlugin(OnlinePluginInfo plugin)
     {
-       return await PluginManager.DownloadPluginOnline(plugin);
+        return await PluginManager.DownloadPluginOnline(plugin);
     }
 
     [RelayCommand]
@@ -133,67 +134,68 @@ public partial class MarketPageViewModel : ObservableObject
     {
         if (control.DataContext is OnlinePluginInfo pluginInfo)
         {
-            StackPanel stackPanel = new StackPanel();
+            var stackPanel = new StackPanel();
             stackPanel.Spacing = 4;
-            
+
             var request = new HttpRequestMessage()
             {
-                RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/plugin/detail/{pluginInfo.Id}/{pluginInfo.LastVersionId}"),
-                Method = HttpMethod.Get,
+                RequestUri =
+                    new Uri($"{ConfigManger.ApiUrl}/api/plugin/detail/{pluginInfo.Id}/{pluginInfo.LastVersionId}"),
+                Method = HttpMethod.Get
             };
-            request.Headers.Add("AllBeforeThisVersion",true.ToString());
-            var sendAsync =await PluginManager._httpClient.SendAsync(request);
-            var stringAsync =await  sendAsync.Content.ReadAsStringAsync();
+            request.Headers.Add("AllBeforeThisVersion", true.ToString());
+            var sendAsync = await PluginManager._httpClient.SendAsync(request);
+            var stringAsync = await sendAsync.Content.ReadAsStringAsync();
             var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
             var list = deserializeObject["data"].ToObject<List<JObject>>();
-            
-            Application.Current.Styles.TryGetResource("TitleLabel",null,out var h1);
-            Application.Current.Styles.TryGetResource("SemiColorBorder",null,out var semiColorBorder);
+
+            Application.Current.Styles.TryGetResource("TitleLabel", null, out var h1);
+            Application.Current.Styles.TryGetResource("SemiColorBorder", null, out var semiColorBorder);
             var semiColorBorder2 = semiColorBorder as SolidColorBrush;
             var controlTheme = h1 as ControlTheme;
             var childOfType = control.GetParentOfType<Window>().GetChildOfType<ContentPresenter>("DialogOvercover");
-            stackPanel.Children.Add( new Label()
+            stackPanel.Children.Add(new Label()
             {
                 Classes = { "H2" },
-                Theme =controlTheme,
+                Theme = controlTheme,
                 Content = "版本说明"
             });
             stackPanel.Children.Add(new Line()
             {
                 Stroke = semiColorBorder2,
-                EndPoint = new Point( childOfType.Bounds.Width,0)
+                EndPoint = new Point(childOfType.Bounds.Width, 0)
             });
             for (var i = 0; i < list.Count; i++)
             {
-                stackPanel.Children.Add( new Label()
+                stackPanel.Children.Add(new Label()
                 {
                     Classes = { "H3" },
-                    Theme =controlTheme,
+                    Theme = controlTheme,
                     Content = list[i]["version"]
                 });
                 stackPanel.Children.Add(new Line()
                 {
                     Stroke = semiColorBorder2,
-                    EndPoint = new Point( childOfType.Bounds.Width,0)
+                    EndPoint = new Point(childOfType.Bounds.Width, 0)
                 });
-                stackPanel.Children.Add( new MarkdownScrollViewer()
+                stackPanel.Children.Add(new MarkdownScrollViewer()
                 {
                     Markdown = list[i]["detail"].ToString()
                 });
             }
+
             var pluginDetail = new AvaloniaControl.MarketPage.PluginDetail();
-            pluginDetail.DataContext= pluginInfo;
+            pluginDetail.DataContext = pluginInfo;
             pluginDetail.Content = stackPanel;
             var dialog = new DialogContent()
             {
-                Content =pluginDetail,
-                Title = "插件详细信息",
+                Content = pluginDetail,
+                Title = "插件详细信息"
             };
 
-            
+
             ServiceManager.Services!.GetService<IContentDialog>()!.ShowDialogAsync(childOfType,
-                dialog,true);
+                dialog, true);
         }
-        
     }
 }

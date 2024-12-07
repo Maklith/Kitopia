@@ -44,7 +44,7 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     {
         PluginManager.CheckAllUpdate();
     }
-    
+
     [RelayCommand]
     private void RestartApp()
     {
@@ -55,62 +55,49 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     private void Delete(PluginInfo pluginInfoEx)
     {
         PluginManager.DeletePlugin(pluginInfoEx);
-        
-        
     }
+
     [RelayCommand]
     public void Switch(PluginInfo pluginInfoEx)
     {
         if (pluginInfoEx.IsEnabled)
-        {
             //卸载插件
-
             PluginManager.UnloadPlugin(pluginInfoEx);
-        }
         else
-        {
             //加载插件
             //Plugin.NewPlugin(pluginInfoEx.Path, out var weakReference);
             PluginManager.EnablePluginByInfo(pluginInfoEx);
-        }
     }
 
     [RelayCommand]
     public async Task Update(PluginInfo pluginInfoEx)
     {
-        var httpResponseMessage = PluginManager._httpClient.GetAsync($"{ConfigManger.ApiUrl}/api/plugin/{pluginInfoEx.Id}").Result;
+        var httpResponseMessage = PluginManager._httpClient
+            .GetAsync($"{ConfigManger.ApiUrl}/api/plugin/{pluginInfoEx.Id}").Result;
         var httpContent = httpResponseMessage.Content.ReadAsStringAsync().Result;
         var deserializeObject = (JObject)JsonConvert.DeserializeObject(httpContent);
         pluginInfoEx.UpdateTargetVersion = deserializeObject["data"]["lastVersionId"].ToObject<int>();
-        
+
         PluginManager.UnloadPlugin(pluginInfoEx);
 
         if (!pluginInfoEx.UnloadFailed)
         {
             await PluginManager.DownloadPluginOnline(pluginInfoEx);
-            var pluginInfoEx2 = PluginManager.AllPluginInfos.FirstOrDefault(e=>e.ToPlgString()==pluginInfoEx.ToPlgString());
-            if (pluginInfoEx2 is null)
-            {
-                return;
-            }
+            var pluginInfoEx2 =
+                PluginManager.AllPluginInfos.FirstOrDefault(e => e.ToPlgString() == pluginInfoEx.ToPlgString());
+            if (pluginInfoEx2 is null) return;
             PluginManager.EnablePluginByInfo(pluginInfoEx);
         }
-        
     }
 
-   
 
     [RelayCommand]
     public void ToPluginSettingPage(PluginInfo pluginInfoEx)
     {
-        if (!pluginInfoEx.IsEnabled)
-        {
-            return;
-        }
+        if (!pluginInfoEx.IsEnabled) return;
 
         ((INavigationPageService)ServiceManager.Services!.GetService(typeof(INavigationPageService))).Navigate(
             $"PluginSettingSelectPage_{pluginInfoEx.ToPlgString()}");
-        
     }
 
     [RelayCommand]
@@ -120,117 +107,119 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
         {
             var request = new HttpRequestMessage()
             {
-                RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/plugin/detail/{pluginInfo.Id}/{pluginInfo.CanUpdateVersionId}"),
-                Method = HttpMethod.Get,
+                RequestUri =
+                    new Uri($"{ConfigManger.ApiUrl}/api/plugin/detail/{pluginInfo.Id}/{pluginInfo.CanUpdateVersionId}"),
+                Method = HttpMethod.Get
             };
-            request.Headers.Add("AllBeforeThisVersion",true.ToString());
-            var sendAsync =await PluginManager._httpClient.SendAsync(request);
-            var stringAsync =await  sendAsync.Content.ReadAsStringAsync();
+            request.Headers.Add("AllBeforeThisVersion", true.ToString());
+            var sendAsync = await PluginManager._httpClient.SendAsync(request);
+            var stringAsync = await sendAsync.Content.ReadAsStringAsync();
             var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
             var list = deserializeObject["data"].ToObject<List<JObject>>();
-            StackPanel stackPanel = new StackPanel();
+            var stackPanel = new StackPanel();
             stackPanel.Spacing = 4;
-            Application.Current.Styles.TryGetResource("TitleLabel",null,out var h1);
-            Application.Current.Styles.TryGetResource("SemiColorBorder",null,out var semiColorBorder);
+            Application.Current.Styles.TryGetResource("TitleLabel", null, out var h1);
+            Application.Current.Styles.TryGetResource("SemiColorBorder", null, out var semiColorBorder);
             var semiColorBorder2 = semiColorBorder as SolidColorBrush;
             var controlTheme = h1 as ControlTheme;
             var childOfType = control.GetParentOfType<Window>().GetChildOfType<ContentPresenter>("DialogOvercover");
             for (var i = 0; i < list.Count; i++)
             {
-                stackPanel.Children.Add( new Label()
+                stackPanel.Children.Add(new Label()
                 {
                     Classes = { "H3" },
-                    Theme =controlTheme,
+                    Theme = controlTheme,
                     Content = list[i]["version"]
                 });
                 stackPanel.Children.Add(new Line()
                 {
                     Stroke = semiColorBorder2,
-                    EndPoint = new Point( childOfType.Bounds.Width,0)
+                    EndPoint = new Point(childOfType.Bounds.Width, 0)
                 });
-                stackPanel.Children.Add( new MarkdownScrollViewer()
+                stackPanel.Children.Add(new MarkdownScrollViewer()
                 {
                     Markdown = list[i]["detail"].ToString()
                 });
             }
+
             var dialog = new DialogContent()
             {
-                Content =stackPanel,
-                Title = "版本详细信息",
+                Content = stackPanel,
+                Title = "版本详细信息"
             };
-            
+
             ServiceManager.Services!.GetService<IContentDialog>()!.ShowDialogAsync(childOfType,
-                dialog,true);
+                dialog, true);
         }
-        
     }
-    
+
     [RelayCommand]
     private async Task ShowPluginDetail(Control control)
     {
         if (control.DataContext is PluginInfo pluginInfo)
         {
-            StackPanel stackPanel = new StackPanel();
+            var stackPanel = new StackPanel();
             stackPanel.Spacing = 4;
-            
+
             var request = new HttpRequestMessage()
             {
-                RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/plugin/detail/{pluginInfo.Id}/{pluginInfo.CanUpdateVersionId}"),
-                Method = HttpMethod.Get,
+                RequestUri =
+                    new Uri($"{ConfigManger.ApiUrl}/api/plugin/detail/{pluginInfo.Id}/{pluginInfo.CanUpdateVersionId}"),
+                Method = HttpMethod.Get
             };
-            request.Headers.Add("AllBeforeThisVersion",true.ToString());
-            var sendAsync =await PluginManager._httpClient.SendAsync(request);
-            var stringAsync =await  sendAsync.Content.ReadAsStringAsync();
+            request.Headers.Add("AllBeforeThisVersion", true.ToString());
+            var sendAsync = await PluginManager._httpClient.SendAsync(request);
+            var stringAsync = await sendAsync.Content.ReadAsStringAsync();
             var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
             var list = deserializeObject["data"].ToObject<List<JObject>>();
-            
-            Application.Current.Styles.TryGetResource("TitleLabel",null,out var h1);
-            Application.Current.Styles.TryGetResource("SemiColorBorder",null,out var semiColorBorder);
+
+            Application.Current.Styles.TryGetResource("TitleLabel", null, out var h1);
+            Application.Current.Styles.TryGetResource("SemiColorBorder", null, out var semiColorBorder);
             var semiColorBorder2 = semiColorBorder as SolidColorBrush;
             var controlTheme = h1 as ControlTheme;
             var childOfType = control.GetParentOfType<Window>().GetChildOfType<ContentPresenter>("DialogOvercover");
-            stackPanel.Children.Add( new Label()
+            stackPanel.Children.Add(new Label()
             {
                 Classes = { "H2" },
-                Theme =controlTheme,
+                Theme = controlTheme,
                 Content = "版本说明"
             });
             stackPanel.Children.Add(new Line()
             {
                 Stroke = semiColorBorder2,
-                EndPoint = new Point( childOfType.Bounds.Width,0)
+                EndPoint = new Point(childOfType.Bounds.Width, 0)
             });
             for (var i = 0; i < list.Count; i++)
             {
-                stackPanel.Children.Add( new Label()
+                stackPanel.Children.Add(new Label()
                 {
                     Classes = { "H3" },
-                    Theme =controlTheme,
+                    Theme = controlTheme,
                     Content = list[i]["version"]
                 });
                 stackPanel.Children.Add(new Line()
                 {
                     Stroke = semiColorBorder2,
-                    EndPoint = new Point( childOfType.Bounds.Width,0)
+                    EndPoint = new Point(childOfType.Bounds.Width, 0)
                 });
-                stackPanel.Children.Add( new MarkdownScrollViewer()
+                stackPanel.Children.Add(new MarkdownScrollViewer()
                 {
                     Markdown = list[i]["detail"].ToString()
                 });
             }
+
             var pluginDetail = new PluginDetail();
-            pluginDetail.DataContext= pluginInfo;
+            pluginDetail.DataContext = pluginInfo;
             pluginDetail.Content = stackPanel;
             var dialog = new DialogContent()
             {
-                Content =pluginDetail,
-                Title = "插件详细信息",
+                Content = pluginDetail,
+                Title = "插件详细信息"
             };
 
-            
+
             ServiceManager.Services!.GetService<IContentDialog>()!.ShowDialogAsync(childOfType,
-                dialog,true);
+                dialog, true);
         }
-        
     }
 }

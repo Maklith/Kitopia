@@ -13,15 +13,12 @@
     <Canvas RenderTransformOrigin="0%,0%">
 
         <Image Name="Image" Width="{Binding $parent[Canvas].Bounds.Width}"
-               Height="{Binding $parent[Canvas].Bounds.Height}"/>
+               Height="{Binding $parent[Canvas].Bounds.Height}" />
         <Image Name="MosaicImage" Width="{Binding $parent[Canvas].Bounds.Width}"
-               Height="{Binding $parent[Canvas].Bounds.Height}">
-
-        </Image>
+               Height="{Binding $parent[Canvas].Bounds.Height}" />
         <capture:PenCaptureTool Name="MosaicCanvas" Width="{Binding $parent[Canvas].Bounds.Width}" ZIndex="-1"
                                 Height="{Binding $parent[Canvas].Bounds.Height}" Stroke="Black" Fill="Black"
-                                StrokeThickness="7">
-        </capture:PenCaptureTool>
+                                StrokeThickness="7" />
         <Rectangle ZIndex="1" Name="Rectangle" Width="{Binding $parent[Window].Bounds.Width}" Focusable="True"
                    Height="{Binding $parent[Window].Bounds.Height}" PointerEntered="Rectangle_OnPointerEntered">
             <Rectangle.Fill>
@@ -52,17 +49,17 @@
                         <Style Selector="Button.Selected">
                             <Setter Property="Background">
                                 <Setter.Value>
-                                    <SolidColorBrush Color="Black" Opacity="0.2"></SolidColorBrush>
+                                    <SolidColorBrush Color="Black" Opacity="0.2" />
                                 </Setter.Value>
                             </Setter>
-                            <Setter Property="BorderBrush" Value="DimGray"></Setter>
+                            <Setter Property="BorderBrush" Value="DimGray" />
 
                         </Style>
                         <Style Selector="Button.Selected:pointerover /template/ Border#Root">
                             <Setter Property="BorderBrush" Value="DimGray" />
                             <Setter Property="Background">
                                 <Setter.Value>
-                                    <SolidColorBrush Color="Black" Opacity="0.1"></SolidColorBrush>
+                                    <SolidColorBrush Color="Black" Opacity="0.1" />
                                 </Setter.Value>
                             </Setter>
                         </Style>
@@ -135,27 +132,25 @@
                         <Style Selector="Button.Selected">
                             <Setter Property="Background">
                                 <Setter.Value>
-                                    <SolidColorBrush Color="Black" Opacity="0.2"></SolidColorBrush>
+                                    <SolidColorBrush Color="Black" Opacity="0.2" />
                                 </Setter.Value>
                             </Setter>
-                            <Setter Property="BorderBrush" Value="DimGray"></Setter>
+                            <Setter Property="BorderBrush" Value="DimGray" />
 
                         </Style>
                         <Style Selector="Button.Selected:pointerover /template/ Border#Root">
                             <Setter Property="BorderBrush" Value="DimGray" />
                             <Setter Property="Background">
                                 <Setter.Value>
-                                    <SolidColorBrush Color="Black" Opacity="0.1"></SolidColorBrush>
+                                    <SolidColorBrush Color="Black" Opacity="0.1" />
                                 </Setter.Value>
                             </Setter>
                         </Style>
                     </StackPanel.Styles>
                     <u:NumericIntUpDown ToolTip.Tip="画笔大小" Margin="0,2,0,0" Height="37" Name="StrokeWidth" Minimum="1"
-                                        Maximum="50" Value="3">
-                    </u:NumericIntUpDown>
+                                        Maximum="50" Value="3" />
                     <ColorPicker SelectedIndex="1" ToolTip.Tip="画笔颜色" Name="ColorPicker"
-                                 Foreground="{DynamicResource SemiColorText0}">
-                    </ColorPicker>
+                                 Foreground="{DynamicResource SemiColorText0}" />
 
                 </StackPanel>
             </StackPanel>

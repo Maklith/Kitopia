@@ -25,8 +25,7 @@ public class SearchItemShow : Button
 
     public static readonly StyledProperty<string> OnlyKeyProperty =
         AvaloniaProperty.Register<SearchItemShow, string>(nameof(OnlyKey), "");
-    
-    
+
 
     [Bindable(true)]
     [Category("SearchViewItem")]
@@ -61,26 +60,24 @@ public class SearchItemShow : Button
     private void ChosseCommand()
     {
         ServiceManager.Services.GetService<SearchWindowViewModel>()!.SetSelectMode(true,
-            (item => { Dispatcher.UIThread.Post(() => { this.OnlyKey = item.OnlyKey; }); }));
+            item => { Dispatcher.UIThread.Post(() => { OnlyKey = item.OnlyKey; }); });
         ServiceManager.Services.GetService<SearchWindow>()!.Show();
 
-        ServiceManager.Services.GetService<WindowToolServiceWindow>().SetForegroundWindow(ServiceManager.Services.GetService<SearchWindow>()!.TryGetPlatformHandle()
-            .Handle);
+        ServiceManager.Services.GetService<WindowToolServiceWindow>().SetForegroundWindow(
+            ServiceManager.Services.GetService<SearchWindow>()!.TryGetPlatformHandle()
+                .Handle);
         ServiceManager.Services.GetService<SearchWindow>()!.tx.Focus();
     }
+
     protected override void OnClick()
     {
         base.OnClick();
-       
     }
 
     private static void OnOnlyKeyChanged(SearchItemShow searchItemShow, AvaloniaPropertyChangedEventArgs e)
     {
         var value = (string)e.NewValue;
-        if (value is null)
-        {
-            return;
-        }
+        if (value is null) return;
 
         if (ServiceManager.Services.GetService<SearchWindowViewModel>()!._collection.TryGetValue(value,
                 out var searchViewItem))

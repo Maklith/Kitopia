@@ -37,7 +37,7 @@ using ScreenCaptureWindow = KitopiaAvalonia.Services.ScreenCaptureWindow;
 
 namespace KitopiaAvalonia;
 
-class Program
+internal class Program
 {
     private static readonly ILog log = LogManager.GetLogger(nameof(Program));
 
@@ -54,9 +54,12 @@ class Program
         try
         {
             // RxApp.DefaultExceptionHandler = new MyCoolObservableExceptionHandler();
-            TaskScheduler.UnobservedTaskException += (sender, eventArgs) => { log.Error("错误",eventArgs.Exception); };
+            TaskScheduler.UnobservedTaskException += (sender, eventArgs) => { log.Error("错误", eventArgs.Exception); };
 
-            AppDomain.CurrentDomain.UnhandledException += (sender, e) => { log.Fatal("错误",(Exception)e.ExceptionObject); };
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+            {
+                log.Fatal("错误", (Exception)e.ExceptionObject);
+            };
             AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
             {
                 log.Info("程序退出");
@@ -64,11 +67,8 @@ class Program
             };
             Task.Run(async () =>
             {
-                while (Application.Current is null)
-                {
-                    await Task.Delay(100);
-                }
-                
+                while (Application.Current is null) await Task.Delay(100);
+
                 OnStartup(args);
             });
             BuildAvaloniaApp()
@@ -83,7 +83,8 @@ class Program
         {
         }
     }
-     [MemberNotNull]
+
+    [MemberNotNull]
     private static IServiceProvider ConfigureServices()
     {
         var services = new ServiceCollection();
@@ -108,7 +109,7 @@ class Program
         services.AddTransient<IScreenCaptureManager, ScreenCaptureManager>();
         services.AddTransient<IScreenCapture, ScreenCaptureByWGC>();
         services.AddTransient<IScreenCapture, ScreenCaptureByDx11>();
-        
+
         services.AddTransient<IEverythingService, EverythingService>();
         services.AddTransient<IAppToolService, AppToolService>();
         services.AddSingleton<ISearchItemTool, SearchItemTool>();
@@ -157,6 +158,7 @@ class Program
 
         return services.BuildServiceProvider();
     }
+
     private static void CheckAndDeleteLogFiles()
     {
         // 定义日志文件的目录
@@ -175,7 +177,6 @@ class Program
 
         // 遍历每个日志文件
         foreach (var logFile in logFiles)
-        {
             // 计算日志文件的最后修改时间和当前日期的差值
             // 如果差值大于要保留的时间范围，就删除该日志文件
             if (currentDate - logFile.LastWriteTime > timeSpan)
@@ -183,30 +184,25 @@ class Program
                 log.Debug($"删除日志文件:{logFile.FullName}");
                 logFile.Delete();
             }
-        }
     }
-    
+
     public static void OnStartup(string[] arg)
     {
         log.Info("启动");
         ServiceManager.Services = ConfigureServices();
 
         CheckAndDeleteLogFiles();
-        
+
         MqttManager.Init().Wait();
         log.Info("MQTT初始化完成");
         HotKeyManager.Init();
         log.Debug("注册热键管理器完成");
         ConfigManger.Init();
         log.Info("配置文件初始化完成");
-        if (ConfigManger.Config.mouseCapture)
-        {
-            HotKeyManager.HotKetImpl.StartHook();
-        }
+        if (ConfigManger.Config.mouseCapture) HotKeyManager.HotKetImpl.StartHook();
         ServiceManager.Services.GetService<IToastService>().Init();
-        
-        
-        
+
+
         switch (ConfigManger.Config.themeChoice)
         {
             case ThemeEnum.跟随系统:
@@ -249,9 +245,11 @@ class Program
             ServiceManager.Services.GetService<IApplicationService>()
                 .ChangeAutoStart(true);
         }
+
         ServiceManager.Services.GetService<IApplicationService>().Init();
         Dispatcher.UIThread.InvokeAsync(() => { ServiceManager.Services.GetService<SearchWindowViewModel>(); });
     }
+
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
     {
@@ -267,13 +265,13 @@ class Program
                     FontFamily =
                         new FontFamily("avares://KitopiaAvalonia/Assets/HarmonyOS_Sans_SC_Regular.ttf#HarmonyOS Sans")
                 }
-            },
+            }
         });
         buildAvaloniaApp.With(new RenderOptions()
         {
             TextRenderingMode = TextRenderingMode.Antialias,
             EdgeMode = EdgeMode.Antialias,
-            BitmapInterpolationMode = BitmapInterpolationMode.HighQuality,
+            BitmapInterpolationMode = BitmapInterpolationMode.HighQuality
         });
         buildAvaloniaApp.LogToTrace();
 

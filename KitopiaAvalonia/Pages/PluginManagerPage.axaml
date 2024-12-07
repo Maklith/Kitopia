@@ -3,7 +3,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:plugin="clr-namespace:Core.ViewModel.Pages.plugin;assembly=Core"
-             xmlns:pluginManagerPage="clr-namespace:KitopiaAvalonia.Converter.PluginManagerPage"
              xmlns:pluginManagerPage1="clr-namespace:KitopiaAvalonia.Converter.PluginManagerPage;assembly=Core"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="plugin:PluginManagerPageViewModel"
@@ -14,15 +13,13 @@
         <pluginManagerPage1:IconCtr x:Key="IconCtr" />
     </UserControl.Resources>
     <Panel>
-        <ContentPresenter ZIndex="1" x:Name="DialogOvercover"></ContentPresenter>
+        <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
         <Grid RowDefinitions="Auto,*" Margin="42">
-            <TextBlock Margin="0" FontSize="18" FontWeight="Bold" Text="插件列表">
-
-            </TextBlock>
+            <TextBlock Margin="0" FontSize="18" FontWeight="Bold" Text="插件列表" />
             <ItemsControl Grid.Row="1" ItemsSource="{Binding Items}" Margin="0,10,0,0">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <WrapPanel></WrapPanel>
+                        <WrapPanel />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
@@ -45,16 +42,16 @@
                                                 HorizontalAlignment="Left"
                                                 Theme="{DynamicResource BorderlessButton}" Padding="0"
                                                 MinHeight="0"
-                                                Content="{Binding Name}" 
+                                                Content="{Binding Name}"
                                                 FontWeight="Normal" FontSize="18"
                                                 Foreground="{DynamicResource DefaultForeground}"
                                                 Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ShowPluginDetailCommand}"
-                                                CommandParameter="{Binding $self}">
-                                        </Button>
+                                                CommandParameter="{Binding $self}" />
                                         <StackPanel Orientation="Horizontal" Spacing="5">
                                             <TextBlock VerticalAlignment="Top"
                                                        Text="{Binding Version}" />
-                                            <StackPanel Orientation="Horizontal" Spacing="5" IsVisible="{Binding CanUpdata}">
+                                            <StackPanel Orientation="Horizontal" Spacing="5"
+                                                        IsVisible="{Binding CanUpdata}">
                                                 <TextBlock VerticalAlignment="Top" Text=">">
                                                     <TextBlock.Foreground>
                                                         <SolidColorBrush Color="{DynamicResource SemiOrange4Color}" />
@@ -63,7 +60,7 @@
                                                 <Button VerticalAlignment="Top"
                                                         Theme="{DynamicResource BorderlessButton}" Padding="0"
                                                         MinHeight="0"
-                                                        Content="{Binding CanUpdateVersion}" 
+                                                        Content="{Binding CanUpdateVersion}"
                                                         Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ShowPluginVersionInfoCommand}"
                                                         CommandParameter="{Binding $self}">
                                                     <Button.Foreground>
@@ -91,8 +88,7 @@
                                                 Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
                                         <Button IsVisible="{Binding IsEnabled}" Content="配置"
                                                 Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ToPluginSettingPageCommand}"
-                                                CommandParameter="{Binding }">
-                                        </Button>
+                                                CommandParameter="{Binding }" />
                                         <ToggleButton Classes.Success="{Binding !IsEnabled}"
                                                       Classes.Danger="{Binding IsEnabled}"
                                                       IsChecked="{Binding IsEnabled,Mode=OneWay}" FontWeight="Normal"
@@ -100,10 +96,10 @@
                                                       CommandParameter="{Binding}">
                                             <ToggleButton.Styles>
                                                 <Style Selector="ToggleButton[IsChecked=True]">
-                                                    <Setter Property="Content" Value="禁用"></Setter>
+                                                    <Setter Property="Content" Value="禁用" />
                                                 </Style>
                                                 <Style Selector="ToggleButton[IsChecked=False]">
-                                                    <Setter Property="Content" Value="启用"></Setter>
+                                                    <Setter Property="Content" Value="启用" />
                                                 </Style>
                                             </ToggleButton.Styles>
                                         </ToggleButton>
@@ -112,24 +108,21 @@
                                                 Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left">
                                         <Button Classes="Danger" Content="删除"
                                                 Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).DeleteCommand}"
-                                                CommandParameter="{Binding }">
-                                        </Button>
+                                                CommandParameter="{Binding }" />
                                         <Button Content="更新" IsVisible="{Binding CanUpdata}"
                                                 Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).UpdateCommand}"
-                                                CommandParameter="{Binding }">
-                                        </Button>
+                                                CommandParameter="{Binding }" />
                                     </StackPanel>
 
                                 </Grid>
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" ZIndex="1"
                                             IsVisible="{Binding UnloadFailed}">
                                     <StackPanel.Background>
-                                        <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.4"></SolidColorBrush>
+                                        <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.4" />
                                     </StackPanel.Background>
-                                    <TextBlock Text="插件动态卸载失败,重启后完成卸载/更新"></TextBlock>
+                                    <TextBlock Text="插件动态卸载失败,重启后完成卸载/更新" />
                                     <Button Content="重启"
-                                            Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).RestartAppCommand}">
-                                    </Button>
+                                            Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).RestartAppCommand}" />
                                 </StackPanel>
                             </Panel>
 

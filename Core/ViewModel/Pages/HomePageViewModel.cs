@@ -11,6 +11,9 @@ namespace Core.ViewModel.Pages;
 public partial class HomePageViewModel : ObservableRecipient
 {
     [RelayCommand]
-    public void Click() => ((INavigationPageService)ServiceManager.Services!.GetService(typeof(INavigationPageService)))
-        .Navigate("设置");
+    public void Click()
+    {
+        ((INavigationPageService)ServiceManager.Services!.GetService(typeof(INavigationPageService)))
+            .Navigate("设置");
+    }
 }

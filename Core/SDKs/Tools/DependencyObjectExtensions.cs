@@ -3,79 +3,65 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 
-namespace KitopiaAvalonia.Tools
+namespace KitopiaAvalonia.Tools;
+
+public static class DependencyObjectExtensions
 {
-    public static class DependencyObjectExtensions
+    public static T? GetParentOfType<T>(this Control child, string? name = null)
+        where T : Control
     {
-        public static T? GetParentOfType<T>(this Control child, string? name = null)
-            where T : Control
+        Visual? current = child;
+
+        while (true)
         {
-            Visual? current = child;
+            current = current.GetVisualParent();
+            if (current == default) return default;
 
-            while (true)
+            if (current is T control)
             {
-                current = current.GetVisualParent();
-                if (current == default)
-                {
-                    return default;
-                }
+                if (name != null && control.Name != name) continue;
 
-                if (current is T control)
-                {
-                    if (name != null && control.Name != name)
-                    {
-                        continue;
-                    }
+                return control;
+            }
+        }
+    }
 
-                    return control;
+    public static T? GetChildOfType<T>(this Control control, string? name = null)
+        where T : Control
+    {
+        var queue = new Queue<Control>();
+        queue.Enqueue(control);
+
+        while (queue.Count > 0)
+        {
+            var currentControl = queue.Dequeue();
+
+            if (string.IsNullOrEmpty(name) && currentControl is T targetControl) return targetControl;
+
+            foreach (var child in currentControl.GetVisualChildren())
+            {
+                var childControl = child as Control;
+                if (childControl != null)
+                {
+                    if (string.IsNullOrEmpty(name) || childControl.Name == name)
+                        if (childControl is T targetChild)
+                            return targetChild;
+
+                    queue.Enqueue(childControl);
                 }
             }
         }
 
-        public static T? GetChildOfType<T>(this Control control, string? name = null)
-            where T : Control
-        {
-            var queue = new Queue<Control>();
-            queue.Enqueue(control);
+        return null;
+    }
 
-            while (queue.Count > 0)
-            {
-                var currentControl = queue.Dequeue();
-
-                if (string.IsNullOrEmpty(name) && currentControl is T targetControl)
-                {
-                    return targetControl;
-                }
-
-                foreach (var child in currentControl.GetVisualChildren())
-                {
-                    var childControl = child as Control;
-                    if (childControl != null)
-                    {
-                        if (string.IsNullOrEmpty(name) || childControl.Name == name)
-                        {
-                            if (childControl is T targetChild)
-                            {
-                                return targetChild;
-                            }
-                        }
-
-                        queue.Enqueue(childControl);
-                    }
-                }
-            }
-
+    public static T? GetVisualAt<T>(this Control control, Point anchor)
+        where T : Control
+    {
+        var visualAt = control.GetVisualAt(anchor);
+        if (visualAt == null)
             return null;
-        }
-
-        public static T? GetVisualAt<T>(this Control control, Point anchor)
-            where T : Control
-        {
-            var visualAt = control.GetVisualAt(anchor);
-            if (visualAt == null)
-                return null;
-            else
-                return ((Control)visualAt).GetParentOfType<T>();
-        }
+        else
+            return ((Control)visualAt).GetParentOfType<T>();
     }
 }

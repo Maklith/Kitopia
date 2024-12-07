@@ -38,7 +38,10 @@ public partial class TaskEditor : UrsaWindow
         Editor.AddHandler(DragDrop.DropEvent, NodifyEditor_Drop);
     }
 
-    public void LoadTask(CustomScenario name) => ((TaskEditorViewModel)DataContext).Load(name);
+    public void LoadTask(CustomScenario name)
+    {
+        ((TaskEditorViewModel)DataContext).Load(name);
+    }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -52,7 +55,6 @@ public partial class TaskEditor : UrsaWindow
         var point = e.GetCurrentPoint(this);
 
         if (sender is Border border)
-        {
             if (point.Properties.IsLeftButtonPressed)
             {
                 var borderDataContext = border.DataContext;
@@ -69,14 +71,16 @@ public partial class TaskEditor : UrsaWindow
                         case "Set":
                         {
                             var keyValuePair = (KeyValuePair<string, CustomScenarioValue>)borderDataContext;
-                            pointItem = new ScenarioMethod(ScenarioMethodType.变量设置) { ValueName = keyValuePair.Key,ValueDataType = keyValuePair.Value.Type}
+                            pointItem = new ScenarioMethod(ScenarioMethodType.变量设置)
+                                    { ValueName = keyValuePair.Key, ValueDataType = keyValuePair.Value.Type }
                                 .GenerateNode();
                             break;
                         }
                         case "Get":
                         {
                             var keyValuePair = (KeyValuePair<string, CustomScenarioValue>)borderDataContext;
-                            pointItem = new ScenarioMethod(ScenarioMethodType.变量获取) { ValueName = keyValuePair.Key,ValueDataType = keyValuePair.Value.Type }
+                            pointItem = new ScenarioMethod(ScenarioMethodType.变量获取)
+                                    { ValueName = keyValuePair.Key, ValueDataType = keyValuePair.Value.Type }
                                 .GenerateNode();
                             break;
                         }
@@ -85,7 +89,7 @@ public partial class TaskEditor : UrsaWindow
                     var data = new DataObject();
                     data.Set("KitopiaPointItem", pointItem);
                     DragDrop.DoDragDrop(e, data, DragDropEffects.Copy);
-                    RenderTargetBitmap renderTargetBitmap =
+                    var renderTargetBitmap =
                         new RenderTargetBitmap(new PixelSize((int)border.Bounds.Width, (int)border.Bounds.Height));
                     renderTargetBitmap.Render(border);
                     //Cursor.Dispose();
@@ -96,7 +100,6 @@ public partial class TaskEditor : UrsaWindow
                     Console.WriteLine(exception);
                 }
             }
-        }
     }
 
     private void NodifyEditor_Drop(object sender, DragEventArgs e)
@@ -130,5 +133,4 @@ public partial class TaskEditor : UrsaWindow
     {
         //throw new System.NotImplementedException();
     }
-    
 }

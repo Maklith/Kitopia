@@ -18,10 +18,10 @@ public class Tests
         var mqttServerOptions = mqttFactory.CreateServerOptionsBuilder()
             .WithDefaultEndpoint().WithDefaultEndpointPort(6600).Build();
         var Server = mqttFactory.CreateMqttServer(mqttServerOptions);
-       
-        
-            Server.StartAsync();
-            Console.Read();
+
+
+        Server.StartAsync();
+        Console.Read();
 
 
         Assert.Pass();

@@ -23,10 +23,10 @@ public partial class AppViewModel : ObservableObject
     {
         if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-           
             desktop.MainWindow!.Show();
             desktop.MainWindow.WindowState = WindowState.Normal;
-            ServiceManager.Services.GetService<IWindowTool>().SetForegroundWindow(desktop.MainWindow.TryGetPlatformHandle().Handle);
+            ServiceManager.Services.GetService<IWindowTool>()
+                .SetForegroundWindow(desktop.MainWindow.TryGetPlatformHandle().Handle);
         }
     }
 }

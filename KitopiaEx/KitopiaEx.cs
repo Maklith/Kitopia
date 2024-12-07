@@ -22,9 +22,10 @@ public class KitopiaEx : IPlugin
         Kitopia.ToolTipConverters.TryAdd(typeof(ScreenCaptureInfo), info =>
         {
             var screenCaptureInfo = (ScreenCaptureInfo)info;
-            return $"显示器:{screenCaptureInfo.hdcMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
+            return
+                $"显示器:{screenCaptureInfo.hdcMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
         });
-        Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureInfo),new ScreenCaptureInfoCustomScenarioValueSerializer());
+        Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureInfo), new ScreenCaptureInfoCustomScenarioValueSerializer());
     }
 
     public void OnDisabled()

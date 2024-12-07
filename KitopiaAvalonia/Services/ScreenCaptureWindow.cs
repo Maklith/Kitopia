@@ -22,7 +22,7 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
             window.Image.Source = result.Source;
             window.Show();
         }
-        
+
         GC.Collect(2, GCCollectionMode.Aggressive);
     }
 

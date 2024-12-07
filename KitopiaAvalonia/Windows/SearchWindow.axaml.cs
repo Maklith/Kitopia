@@ -26,21 +26,18 @@ public partial class SearchWindow : Window
         WeakReferenceMessenger.Default.Register<string, string>(this, "SearchWindowClose",
             (_, _) => { Dispatcher.UIThread.InvokeAsync(() => { IsVisible = false; }); });
         #if DEBUG
-        this.Topmost = false;
+        Topmost = false;
         #endif
     }
 
     public override void Show()
     {
-        if (!IsLoaded)
-        {
-            base.Show();
-        }
+        if (!IsLoaded) base.Show();
         ServiceManager.Services.GetService<IWindowTool>()!.MoveWindowToMouseScreenCenter(this);
         base.Show();
         ServiceManager.Services.GetService<IWindowTool>()!.MoveWindowToMouseScreenCenter(this);
         ServiceManager.Services.GetService<IWindowTool>()!.SetForegroundWindow(
-            this.TryGetPlatformHandle()!.Handle);
+            TryGetPlatformHandle()!.Handle);
         tx.Focus();
         tx.SelectAll();
     }
@@ -63,7 +60,7 @@ public partial class SearchWindow : Window
 
     private void w_Activated(object sender, EventArgs e)
     {
-        this.Focus();
+        Focus();
     }
 
     private void tx_KeyDown(object? sender, KeyEventArgs e)
@@ -71,10 +68,8 @@ public partial class SearchWindow : Window
         if (e.Key == Key.Enter)
         {
             if (dataGrid.Items.Count != 0)
-            {
                 ServiceManager.Services!.GetService<SearchWindowViewModel>()!.OpenFile(
                     (SearchViewItem)dataGrid.Items[0]);
-            }
 
             e.Handled = true;
         }
@@ -83,13 +78,11 @@ public partial class SearchWindow : Window
             var realizedContainers = dataGrid.GetRealizedContainers();
             dataGrid.SelectedItem = (object)((SearchWindowViewModel)DataContext).Items[0];
             foreach (var realizedContainer in realizedContainers)
-            {
                 if (realizedContainer.DataContext == dataGrid.SelectedItem)
                 {
                     realizedContainer.Focus();
                     break;
                 }
-            }
         }
     }
 
@@ -100,9 +93,7 @@ public partial class SearchWindow : Window
             var realizedContainers = dataGrid.GetRealizedContainers();
             if (realizedContainers.First()
                     .DataContext == dataGrid.SelectedItem)
-            {
                 tx.Focus();
-            }
 
             return;
         }
@@ -116,27 +107,19 @@ public partial class SearchWindow : Window
 
         if (e.Key != Key.Down && e.Key != Key.Home && e.Key != Key.End &&
             e.Key != Key.Left && e.Key != Key.Right && e.Key != Key.Tab && e.Key != Key.PageDown && e.Key != Key.PageUp)
-        {
             tx.Focus();
-        }
     }
 
     private void DataGrid_OnPointerMoved(object? sender, PointerEventArgs e)
     {
         var listBoxItem = dataGrid.GetVisualAt<ListBoxItem>(e.GetCurrentPoint(dataGrid)
             .Position);
-        if (listBoxItem != null)
-        {
-            listBoxItem.IsSelected = true;
-        }
+        if (listBoxItem != null) listBoxItem.IsSelected = true;
     }
 
     private void InputElement_OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Escape)
-        {
-            IsVisible = false;
-        }
+        if (e.Key == Key.Escape) IsVisible = false;
     }
 
     private void Window_OnClosing(object? sender, WindowClosingEventArgs e)

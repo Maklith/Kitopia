@@ -43,23 +43,19 @@ public class MosaicIcon : Control
         var pen = new Pen((IBrush?)brush, 2d);
 
         // 计算每个像素方块的大小
-        double blockSize = Math.Min(Bounds.Width, Bounds.Height) / 2; // 假设图标由8x8的格子组成
+        var blockSize = Math.Min(Bounds.Width, Bounds.Height) / 2; // 假设图标由8x8的格子组成
 
         // 绘制像素方块
-        for (int x = 0; x < 2; x++)
-        {
-            for (int y = 0; y < 2; y++)
+        for (var x = 0; x < 2; x++)
+        for (var y = 0; y < 2; y++)
+            // 简化的示例：我们随机地绘制方块来模拟马赛克效果
+            if (new Random().Next(2) == 0)
             {
-                // 简化的示例：我们随机地绘制方块来模拟马赛克效果
-                if (new Random().Next(2) == 0)
-                {
-                    var rect = new Rect(x * blockSize, y * blockSize, blockSize, blockSize);
-                    // 填充方块
-                    context.FillRectangle((IBrush)brush, rect);
-                    // 绘制方块边框
-                    context.DrawRectangle(pen, rect);
-                }
+                var rect = new Rect(x * blockSize, y * blockSize, blockSize, blockSize);
+                // 填充方块
+                context.FillRectangle((IBrush)brush, rect);
+                // 绘制方块边框
+                context.DrawRectangle(pen, rect);
             }
-        }
     }
 }

@@ -32,7 +32,7 @@
     <x:Double x:Key="SettingsExpanderItemAdaptiveWidthTrigger">100</x:Double>
 
     <ControlTheme x:Key="{x:Type ui:SettingsExpanderItem}" TargetType="ui:SettingsExpanderItem">
-        
+
         <Setter Property="Padding" Value="{DynamicResource SettingsExpanderItemPadding}" />
         <Setter Property="MinHeight" Value="{DynamicResource SettingsExpanderItemMinHeight}" />
         <Setter Property="BackgroundSizing" Value="InnerBorderEdge" />
@@ -55,8 +55,9 @@
 
                     <Grid ColumnDefinitions="*,Auto,Auto"
                           RowDefinitions="*,Auto">
-                        <DockPanel >
-                            <Viewbox DockPanel.Dock="Left" Width="{DynamicResource SettingsExpanderItemIconSize}" Margin="0,0,5,0"
+                        <DockPanel>
+                            <Viewbox DockPanel.Dock="Left" Width="{DynamicResource SettingsExpanderItemIconSize}"
+                                     Margin="0,0,5,0"
                                      Height="{DynamicResource SettingsExpanderItemIconSize}"
                                      HorizontalAlignment="Left"
                                      VerticalAlignment="Center"
@@ -81,7 +82,7 @@
                                            IsVisible="False" />
                             </StackPanel>
                         </DockPanel>
-                        
+
 
                         <ContentPresenter Content="{TemplateBinding Footer}"
                                           ContentTemplate="{TemplateBinding FooterTemplate}"
@@ -91,8 +92,7 @@
                                           Name="FooterPresenter"
                                           IsVisible="False"
                                           Margin="{DynamicResource SettingsExpanderItemFooterMargin}"
-                                          Grid.Row="0"
-                                          Grid.ColumnSpan="1" />
+                                          Grid.Row="0" />
 
                         <Viewbox Width="{DynamicResource SettingsExpanderItemActionIconSize}"
                                  Height="{DynamicResource SettingsExpanderItemActionIconSize}"
@@ -139,9 +139,9 @@
             <Style Selector="^ /template/ Viewbox#IconHost">
                 <Setter Property="IsVisible" Value="True" />
             </Style>
-            
+
         </Style>
-        
+
 
         <Style Selector="^:allowClick">
             <Style Selector="^:pointerover /template/ Border#Root">

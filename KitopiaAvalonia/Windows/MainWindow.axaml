@@ -80,7 +80,7 @@
                        IconBinding="{Binding}">
                 <u:NavMenu.Styles>
                     <Style Selector="u|NavMenuItem" x:DataType="viewModel:MenuItemViewModel">
-                        <Setter Property="IsSeparator" Value="{Binding IsSeparator}"></Setter>
+                        <Setter Property="IsSeparator" Value="{Binding IsSeparator}" />
                     </Style>
                 </u:NavMenu.Styles>
                 <u:NavMenu.HeaderTemplate>
@@ -107,7 +107,6 @@
                             Command="{Binding ActivateSettingPageCommand}"
                             Foreground="{DynamicResource SemiColorText0}">
                         <Button.Resources>
-                            <SolidColorBrush x:Key="ButtonDefaultBackground" Opacity="0.05" Color="Transparent" />
                         </Button.Resources>
                         <controls:FontIcon
                             Foreground="{DynamicResource SemiColorText0}"
@@ -124,8 +123,7 @@
         </Border>
 
         <ContentPresenter Grid.Row="1" Grid.Column="1" Padding="3"
-                          Content="{Binding Content,Converter={StaticResource ViewLocator}}">
-        </ContentPresenter>
+                          Content="{Binding Content,Converter={StaticResource ViewLocator}}" />
 
     </Grid>
 

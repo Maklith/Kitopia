@@ -14,19 +14,20 @@ public class ScreenCaptureManager : IScreenCaptureManager
 
     public List<string> GetCaptureMethodName()
     {
-        return new List<string>{
-           "自动","Directx11","WGC"
+        return new List<string>
+        {
+            "自动", "Directx11", "WGC"
         };
     }
 
     public List<ScreenCaptureInfo> GetAllScreenInfo()
     {
-        var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>( );
+        var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>();
         switch (ConfigManger.Config.截图方法)
         {
             case "Directx11":
             {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e=>e.GetType()==typeof(ScreenCaptureByDx11));
+                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByDx11));
                 if (firstOrDefault is null)
                 {
                     ConfigManger.Config.截图方法 = "自动";
@@ -35,10 +36,10 @@ public class ScreenCaptureManager : IScreenCaptureManager
 
                 return firstOrDefault.GetAllScreenInfo();
             }
-                
+
             case "WGC":
             {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e=>e.GetType()==typeof(ScreenCaptureByWGC));
+                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWGC));
                 if (firstOrDefault is null)
                 {
                     ConfigManger.Config.截图方法 = "自动";
@@ -52,11 +53,9 @@ public class ScreenCaptureManager : IScreenCaptureManager
                 foreach (var screenCapture in screenCaptures)
                 {
                     var screenCaptureInfos = screenCapture.GetAllScreenInfo();
-                    if (screenCaptureInfos.Count>0)
-                    {
-                        return screenCaptureInfos;
-                    }
+                    if (screenCaptureInfos.Count > 0) return screenCaptureInfos;
                 }
+
                 break;
             }
         }
@@ -71,12 +70,12 @@ public class ScreenCaptureManager : IScreenCaptureManager
 
     public Stack<ScreenCaptureResult> CaptureAllScreenBitmap()
     {
-        var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>( );
+        var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>();
         switch (ConfigManger.Config.截图方法)
         {
             case "Directx11":
             {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e=>e.GetType()==typeof(ScreenCaptureByDx11));
+                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByDx11));
                 if (firstOrDefault is null)
                 {
                     ConfigManger.Config.截图方法 = "自动";
@@ -85,10 +84,10 @@ public class ScreenCaptureManager : IScreenCaptureManager
 
                 return firstOrDefault.CaptureAllScreenBitmap();
             }
-                
+
             case "WGC":
             {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e=>e.GetType()==typeof(ScreenCaptureByWGC));
+                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWGC));
                 if (firstOrDefault is null)
                 {
                     ConfigManger.Config.截图方法 = "自动";
@@ -102,25 +101,24 @@ public class ScreenCaptureManager : IScreenCaptureManager
                 foreach (var screenCapture in screenCaptures)
                 {
                     var screenCaptureInfos = screenCapture.CaptureAllScreenBitmap();
-                    if (screenCaptureInfos.Count>0)
-                    {
-                        return screenCaptureInfos;
-                    }
+                    if (screenCaptureInfos.Count > 0) return screenCaptureInfos;
                 }
+
                 break;
             }
         }
+
         return null;
     }
 
     public Stack<ScreenCaptureResult> CaptureAllScreenBytes()
     {
-        var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>( );
+        var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>();
         switch (ConfigManger.Config.截图方法)
         {
             case "Directx11":
             {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e=>e.GetType()==typeof(ScreenCaptureByDx11));
+                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByDx11));
                 if (firstOrDefault is null)
                 {
                     ConfigManger.Config.截图方法 = "自动";
@@ -129,10 +127,10 @@ public class ScreenCaptureManager : IScreenCaptureManager
 
                 return firstOrDefault.CaptureAllScreenBytes();
             }
-                
+
             case "WGC":
             {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e=>e.GetType()==typeof(ScreenCaptureByWGC));
+                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWGC));
                 if (firstOrDefault is null)
                 {
                     ConfigManger.Config.截图方法 = "自动";
@@ -146,11 +144,9 @@ public class ScreenCaptureManager : IScreenCaptureManager
                 foreach (var screenCapture in screenCaptures)
                 {
                     var screenCaptureInfos = screenCapture.CaptureAllScreenBytes();
-                    if (screenCaptureInfos.Count>0)
-                    {
-                        return screenCaptureInfos;
-                    }
+                    if (screenCaptureInfos.Count > 0) return screenCaptureInfos;
                 }
+
                 break;
             }
         }

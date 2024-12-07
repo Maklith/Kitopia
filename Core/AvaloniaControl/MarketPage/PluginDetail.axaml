@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:pluginCore="clr-namespace:PluginCore;assembly=Core"
              xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia.Tight"
              xmlns:pluginManagerPage1="clr-namespace:Core.AvaloniaControl.MarketPage"
              xmlns:pages="clr-namespace:Core.ViewModel.Pages"
@@ -24,7 +23,7 @@
         <Panel>
             <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
                   ColumnDefinitions="80,*" x:DataType="pages:OnlinePluginInfo"
-                  
+
                   RowDefinitions="*,48">
                 <Image Grid.Column="0" HorizontalAlignment="Center" Margin="0,15,0,0"
                        VerticalAlignment="Top" Focusable="False" Width="64" x:DataType="pages:OnlinePluginInfo"
@@ -35,41 +34,38 @@
                     <StackPanel Orientation="Horizontal" x:DataType="pages:OnlinePluginInfo" Spacing="5">
                         <TextBlock VerticalAlignment="Center"
                                    HorizontalAlignment="Left"
-                                  x:DataType="pages:OnlinePluginInfo"
+                                   x:DataType="pages:OnlinePluginInfo"
                                    Text="{Binding Name}"
                                    FontWeight="Normal" FontSize="18"
-                                   Foreground="{DynamicResource DefaultForeground}">
-                        </TextBlock>
+                                   Foreground="{DynamicResource DefaultForeground}" />
                         <TextBlock VerticalAlignment="Center"
                                    HorizontalAlignment="Left"
-                                  x:DataType="pages:OnlinePluginInfo"
+                                   x:DataType="pages:OnlinePluginInfo"
                                    Text="{Binding LastVersion}"
                                    FontWeight="Normal" FontSize="18"
-                                   Foreground="{DynamicResource DefaultForeground}">
-                        </TextBlock>
+                                   Foreground="{DynamicResource DefaultForeground}" />
                     </StackPanel>
-                    
+
                     <TextBlock VerticalAlignment="Center"
                                MaxWidth="{Binding $parent.Bounds.Width}"
                                TextWrapping="Wrap"
-                              x:DataType="pages:OnlinePluginInfo"
+                               x:DataType="pages:OnlinePluginInfo"
                                Text="{Binding DescriptionShort}" />
-                    <Label Theme="{DynamicResource TitleLabel}" Classes="H3" Content="详细"></Label>
-                    <Line EndPoint="5000,0" HorizontalAlignment="Stretch" Stroke="{DynamicResource SemiColorBorder}"/>
+                    <Label Theme="{DynamicResource TitleLabel}" Classes="H3" Content="详细" />
+                    <Line EndPoint="5000,0" HorizontalAlignment="Stretch" Stroke="{DynamicResource SemiColorBorder}" />
                     <ScrollViewer IsHitTestVisible="False"
                                   VerticalAlignment="Stretch"
                                   HorizontalAlignment="Stretch"
                                   HorizontalScrollBarVisibility="Hidden">
-                        
-                        <mdxaml:MarkdownScrollViewer x:DataType="pages:OnlinePluginInfo" 
-                                                     Markdown="{Binding $parent[pluginManagerPage1:PluginDetail].Markdown}"  ></mdxaml:MarkdownScrollViewer>
+
+                        <mdxaml:MarkdownScrollViewer x:DataType="pages:OnlinePluginInfo"
+                                                     Markdown="{Binding $parent[pluginManagerPage1:PluginDetail].Markdown}" />
                     </ScrollViewer>
                     <ContentPresenter HorizontalAlignment="Stretch"
                                       VerticalAlignment="Stretch"
                                       HorizontalContentAlignment="Stretch"
                                       VerticalContentAlignment="Stretch"
-                                      Content="{Binding $parent[pluginManagerPage1:PluginDetail].Content}">
-                    </ContentPresenter>
+                                      Content="{Binding $parent[pluginManagerPage1:PluginDetail].Content}" />
 
                 </StackPanel>
 

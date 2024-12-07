@@ -8,7 +8,7 @@ public class HotKey_KeyTypeToVisible : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        var i = int.Parse(((int)value).ToString(), System.Globalization.NumberStyles.BinaryNumber);
+        var i = int.Parse(((int)value).ToString(), NumberStyles.BinaryNumber);
 
         var s = parameter.ToString();
         switch (s)
@@ -20,16 +20,18 @@ public class HotKey_KeyTypeToVisible : IValueConverter
             case "Alt":
                 return (i & (1 << 1)) != 0;
             case "Win":
-                return (i & (1)) != 0;
+                return (i & 1) != 0;
             case "None":
-                return (i) == 0;
+                return i == 0;
             case "KeyName":
-                return (i) != 0;
+                return i != 0;
             default:
                 return false;
         }
     }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
         throw new NotImplementedException();
+    }
 }

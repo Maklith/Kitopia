@@ -11,19 +11,24 @@ namespace Core.AvaloniaControl.PluginManagerPage;
 
 public partial class PluginDetail : UserControl
 {
-    public static AvaloniaProperty<Control> ContentProperty = AvaloniaProperty.Register<PluginDetail, Control>(nameof(Content));
+    public static AvaloniaProperty<Control> ContentProperty =
+        AvaloniaProperty.Register<PluginDetail, Control>(nameof(Content));
+
     public Control Content
     {
         get => (Control)GetValue(ContentProperty);
         set => SetValue(ContentProperty, value);
     }
-    
-    public static AvaloniaProperty<string>  MarkdownProperty = AvaloniaProperty.Register<PluginDetail, string>(nameof(Markdown));
+
+    public static AvaloniaProperty<string> MarkdownProperty =
+        AvaloniaProperty.Register<PluginDetail, string>(nameof(Markdown));
+
     public string Markdown
     {
         get => (string)GetValue(ContentProperty);
         set => SetValue(ContentProperty, value);
     }
+
     public PluginDetail()
     {
         InitializeComponent();
@@ -32,29 +37,21 @@ public partial class PluginDetail : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        if (DataContext is not PluginInfo pluginInfo)
-        {
-            return;
-        }
+        if (DataContext is not PluginInfo pluginInfo) return;
 
         Task.Run(async () =>
         {
             var request = new HttpRequestMessage()
             {
                 RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/plugin/{pluginInfo.Id}"),
-                Method = HttpMethod.Get,
+                Method = HttpMethod.Get
             };
             request.Headers.Add("AllBeforeThisVersion", true.ToString());
             var sendAsync = await PluginManager._httpClient.SendAsync(request);
             var stringAsync = await sendAsync.Content.ReadAsStringAsync();
             var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
             var list = deserializeObject["data"]["description"].ToString();
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                SetValue(MarkdownProperty, list);
-            });
-
+            await Dispatcher.UIThread.InvokeAsync(() => { SetValue(MarkdownProperty, list); });
         });
-
     }
 }

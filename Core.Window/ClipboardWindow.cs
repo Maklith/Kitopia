@@ -32,13 +32,11 @@ public class ClipboardWindow : IClipboardService
         try
         {
             if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
-            {
                 return appLifetime.MainWindow.Clipboard.GetFormatsAsync()
-                                  .WaitAsync(TimeSpan.FromSeconds(1))
-                                  .GetAwaiter()
-                                  .GetResult()
-                                  .Contains("Text");
-            }
+                    .WaitAsync(TimeSpan.FromSeconds(1))
+                    .GetAwaiter()
+                    .GetResult()
+                    .Contains("Text");
 
             return false;
         }
@@ -53,12 +51,10 @@ public class ClipboardWindow : IClipboardService
         try
         {
             if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
-            {
                 return appLifetime.MainWindow.Clipboard.GetTextAsync()
-                                  .WaitAsync(TimeSpan.FromSeconds(1))
-                                  .GetAwaiter()
-                                  .GetResult();
-            }
+                    .WaitAsync(TimeSpan.FromSeconds(1))
+                    .GetAwaiter()
+                    .GetResult();
 
             return null;
         }
@@ -75,9 +71,9 @@ public class ClipboardWindow : IClipboardService
             if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
             {
                 appLifetime.MainWindow.Clipboard.SetTextAsync(text)
-                           .WaitAsync(TimeSpan.FromSeconds(1))
-                           .GetAwaiter()
-                           .GetResult();
+                    .WaitAsync(TimeSpan.FromSeconds(1))
+                    .GetAwaiter()
+                    .GetResult();
                 return true;
             }
 
@@ -97,61 +93,62 @@ public class ClipboardWindow : IClipboardService
     [STAThread]
     public Bitmap? GetImage()
     {
-        WriteableBitmap? writeableBitmap=null;
+        WriteableBitmap? writeableBitmap = null;
         var tcs = new TaskCompletionSource<bool>();
         var thread = new Thread(() =>
         {
             var bitmapSource = Clipboard.GetImage();
-            writeableBitmap = new WriteableBitmap(new PixelSize(bitmapSource.PixelWidth,bitmapSource.PixelHeight),new Vector(96,96));
+            writeableBitmap = new WriteableBitmap(new PixelSize(bitmapSource.PixelWidth, bitmapSource.PixelHeight),
+                new Vector(96, 96));
 
             using var lockedFramebuffer = writeableBitmap.Lock();
-            
-            bitmapSource.CopyPixels( new Int32Rect(), lockedFramebuffer.Address,bitmapSource.PixelWidth*bitmapSource.PixelHeight*4 ,(((bitmapSource.PixelWidth * bitmapSource.Format.BitsPerPixel) + 31) & ~31) >> 3);
+
+            bitmapSource.CopyPixels(new Int32Rect(), lockedFramebuffer.Address,
+                bitmapSource.PixelWidth * bitmapSource.PixelHeight * 4,
+                ((bitmapSource.PixelWidth * bitmapSource.Format.BitsPerPixel + 31) & ~31) >> 3);
             tcs.SetResult(true);
-           
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         tcs.Task.Wait();
         return writeableBitmap;
-       // var writeableBitmap = new WriteableBitmap();
-       // bitmapSource.CopyPixels();
+        // var writeableBitmap = new WriteableBitmap();
+        // bitmapSource.CopyPixels();
         try
         {
             if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
             {
                 byte[] result = [];
-                Dispatcher.UIThread.Invoke(() => {
+                Dispatcher.UIThread.Invoke(() =>
+                {
                     result = appLifetime.MainWindow.Clipboard.GetDataAsync("Unknown_Format_2")
-                                        .WaitAsync(TimeSpan.FromSeconds(1))
-                                        .GetAwaiter()
-                                        .GetResult() as byte[];
+                        .WaitAsync(TimeSpan.FromSeconds(1))
+                        .GetAwaiter()
+                        .GetResult() as byte[];
                 });
                 var imgInfo = new byte[Marshal.SizeOf<Gdi32.BITMAPINFO>()];
                 var img = new byte[result.Length - Marshal.SizeOf<Gdi32.BITMAPINFO>() + 4];
                 Array.Copy(result, 40, img, 0, img.Length);
                 Array.Copy(result, 0, imgInfo, 0, imgInfo.Length);
-                Gdi32.BITMAPINFO info = BytesToStructure<Gdi32.BITMAPINFO>(imgInfo);
-                SixLabors.ImageSharp.Configuration configuration = Configuration.Default;
+                var info = BytesToStructure<Gdi32.BITMAPINFO>(imgInfo);
+                var configuration = Configuration.Default;
                 configuration.PreferContiguousImageBuffers = true;
 
-                var image = SixLabors.ImageSharp.Image.LoadPixelData<Rgba32>(configuration, img, info.bmiHeader.biWidth,
+                var image = Image.LoadPixelData<Rgba32>(configuration, img, info.bmiHeader.biWidth,
                     info.bmiHeader.biHeight);
                 image.Mutate(x => x.Flip(FlipMode.Vertical));
-                if (!image.DangerousTryGetSinglePixelMemory(out Memory<Rgba32> memory))
-                {
+                if (!image.DangerousTryGetSinglePixelMemory(out var memory))
                     throw new Exception(
                         "This can only happen with multi-GB images or when PreferContiguousImageBuffers is not set to true.");
-                }
 
-                using (MemoryHandle pinHandle = memory.Pin())
+                using (var pinHandle = memory.Pin())
                 {
                     unsafe
                     {
                         var pixelFormat = PixelFormat.Bgra8888;
                         var bitmap1 = new Bitmap(pixelFormat, AlphaFormat.Unpremul, (IntPtr)pinHandle.Pointer,
                             new PixelSize(info.bmiHeader.biWidth, info.bmiHeader.biHeight), new Vector(96, 96),
-                            ((((info.bmiHeader.biWidth * pixelFormat.BitsPerPixel) + 31) & ~31) >> 3));
+                            ((info.bmiHeader.biWidth * pixelFormat.BitsPerPixel + 31) & ~31) >> 3);
                         return bitmap1;
                     }
                 }
@@ -171,7 +168,7 @@ public class ClipboardWindow : IClipboardService
         {
             var data2 = new DataObject();
             var memoryStream = new MemoryStream();
-            image.Save(memoryStream,100);
+            image.Save(memoryStream, 100);
             var bitmap = new System.Drawing.Bitmap(memoryStream);
 
             var bitmapData = bitmap.LockBits(
@@ -189,7 +186,6 @@ public class ClipboardWindow : IClipboardService
 
             data2.SetImage(bitmapSource);
             Ole32.OleSetClipboard(data2);
-            
         }
         catch (Exception e)
         {
@@ -204,15 +200,16 @@ public class ClipboardWindow : IClipboardService
     public async Task<bool> SetImageAsync(Image image)
     {
         var tcs = new TaskCompletionSource<bool>();
-        var thread = new Thread(() => {
+        var thread = new Thread(() =>
+        {
             var memoryStream = new MemoryStream();
-            
+
             image.SaveAsBmp(memoryStream);
             var bitmap = new System.Drawing.Bitmap(memoryStream);
 
             var bitmapData = bitmap.LockBits(
-                new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height),
-                System.Drawing.Imaging.ImageLockMode.ReadOnly, bitmap.PixelFormat);
+                new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                ImageLockMode.ReadOnly, bitmap.PixelFormat);
             var bitmapSource = BitmapSource.Create(
                 bitmapData.Width, bitmapData.Height,
                 bitmap.HorizontalResolution, bitmap.VerticalResolution,
@@ -230,11 +227,11 @@ public class ClipboardWindow : IClipboardService
 
     private static T BytesToStructure<T>(byte[] bytes)
     {
-        int size = Marshal.SizeOf(typeof(T));
+        var size = Marshal.SizeOf(typeof(T));
         if (bytes.Length < size)
             throw new Exception("Invalid parameter");
 
-        IntPtr ptr = Marshal.AllocHGlobal(size);
+        var ptr = Marshal.AllocHGlobal(size);
         try
         {
             Marshal.Copy(bytes, 0, ptr, size);
@@ -248,12 +245,12 @@ public class ClipboardWindow : IClipboardService
 
     public static byte[] StructToBytes(object structObj)
     {
-        int size = Marshal.SizeOf(structObj);
-        IntPtr buffer = Marshal.AllocHGlobal(size);
+        var size = Marshal.SizeOf(structObj);
+        var buffer = Marshal.AllocHGlobal(size);
         try
         {
             Marshal.StructureToPtr(structObj, buffer, false);
-            byte[] bytes = new byte[size];
+            var bytes = new byte[size];
             Marshal.Copy(buffer, bytes, 0, size);
             return bytes;
         }

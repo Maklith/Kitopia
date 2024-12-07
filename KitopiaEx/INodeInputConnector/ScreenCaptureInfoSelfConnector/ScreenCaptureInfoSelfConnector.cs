@@ -9,20 +9,28 @@ using PluginCore.Attribute.Scenario;
 
 namespace KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
 
-public partial class ScreenCaptureInfoSelfConnector : ObservableObject,PluginCore.INodeInputConnector
+public partial class ScreenCaptureInfoSelfConnector : ObservableObject, PluginCore.INodeInputConnector
 {
     public StyleInclude Style =>
         new(new Uri("avares://KitopiaEx"))
-            { Source = new Uri("INodeInputConnector/ScreenCaptureInfoSelfConnector/ScreenCaptureInfoSelfConnectorStyle.axaml", UriKind.Relative) };
+        {
+            Source = new Uri(
+                "INodeInputConnector/ScreenCaptureInfoSelfConnector/ScreenCaptureInfoSelfConnectorStyle.axaml",
+                UriKind.Relative)
+        };
 
     public IDataTemplate IDataTemplate =>
         new ResourceInclude(new Uri("avares://KitopiaEx"))
-                { Source = new Uri("INodeInputConnector/ScreenCaptureInfoSelfConnector/ScreenCaptureInfoSelfConnectorDataTemplate.axaml", UriKind.Relative) }
+            {
+                Source = new Uri(
+                    "INodeInputConnector/ScreenCaptureInfoSelfConnector/ScreenCaptureInfoSelfConnectorDataTemplate.axaml",
+                    UriKind.Relative)
+            }
             .TryGetResource("Template", null, out var variant)
             ? (IDataTemplate)variant
             : null;
-    
-    public ObservableValue Value { get; set; }= new ObservableValue()
+
+    public ObservableValue Value { get; set; } = new()
     {
         Value = new CustomScenarioValue()
         {
@@ -34,6 +42,6 @@ public partial class ScreenCaptureInfoSelfConnector : ObservableObject,PluginCor
     [RelayCommand]
     private void GetScreenCaptureInfo()
     {
-       Value.SetValue(new ScreenCaptureInfo());
+        Value.SetValue(new ScreenCaptureInfo());
     }
 }

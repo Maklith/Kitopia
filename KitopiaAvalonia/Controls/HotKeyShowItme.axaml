@@ -38,18 +38,14 @@
                             VerticalAlignment="Center"
                             Content="{TemplateBinding Icon}"
                             Foreground="{DynamicResource SemiBackground3Color}"
-                            Focusable="False">
-
-                        </ContentPresenter>
+                            Focusable="False" />
 
                         <ContentPresenter
                             x:Name="ContentPresenter"
                             Grid.Column="1"
                             VerticalAlignment="Center"
                             Content="{TemplateBinding Content}"
-                            Foreground="{DynamicResource SemiBackground3Color}">
-
-                        </ContentPresenter>
+                            Foreground="{DynamicResource SemiBackground3Color}" />
                     </Grid>
                     <Border.Styles>
                         <Style Selector="Border:disabled">

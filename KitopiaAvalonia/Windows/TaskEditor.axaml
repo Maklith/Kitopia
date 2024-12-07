@@ -31,18 +31,13 @@
     </u:UrsaWindow.Background>
     <u:UrsaWindow.Resources>
 
-        <converter:HotKeySignNameToolCTr x:Key="HotKeySignNameToolCTr" />
         <taskEditor:IfNullVisibilityHidden x:Key="IfNullVisibilityHidden" />
 
 
-        <converter:ReverseBool x:Key="ReverseBool" />
         <taskEditor:ScenarioMethodCategoryGroupCtr x:Key="ScenarioMethodCategoryGroupCtr" />
         <taskEditor:ToolTipConverter x:Key="ToolTipConverter" />
         <taskEditor:NodeTypeNameI18NCtr x:Key="NodeTypeNameI18NCtr" />
     </u:UrsaWindow.Resources>
-    <u:UrsaWindow.Styles>
-
-    </u:UrsaWindow.Styles>
     <Interaction.Behaviors>
         <EventTriggerBehavior EventName="Closing">
             <InvokeCommandAction Command="{Binding ReloadScenarioCommand}" PassEventArgsToCommand="True" />
@@ -201,14 +196,13 @@
                             <Grid ColumnDefinitions="*,5,Auto,Auto" VerticalAlignment="Center"
                                   HorizontalAlignment="Stretch">
                                 <TextBox Watermark="变量名称" HorizontalAlignment="Stretch"
-                                         Text="{Binding InputValueValue,Mode=TwoWay}">
-                                </TextBox>
+                                         Text="{Binding InputValueValue,Mode=TwoWay}" />
                                 <ComboBox Grid.Column="2" VerticalAlignment="Center"
                                           SelectedItem="{Binding InputValueType}"
                                           ItemsSource="{Binding Source={x:Static customScenario:CustomScenarioGloble.GetAllCouldUseTypeInValue}}">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate DataType="taskEditor1:CustomScenarioValueTuple">
-                                            <TextBlock Text="{Binding Value}" ToolTip.Tip="{Binding Type}"></TextBlock>
+                                            <TextBlock Text="{Binding Value}" ToolTip.Tip="{Binding Type}" />
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
@@ -354,21 +348,17 @@
 
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
-                                                                                       
+
                                                                                         FontSize="12"
                                                                                         Background="{DynamicResource SemiColorText0}"
                                                                                         Foreground="{DynamicResource SemiBackground4Color}"
-                                                                                        Text="节点">
-
-
-                                                                                    </TextBlock>
+                                                                                        Text="节点" />
 
 
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
                                                                                         Foreground="{DynamicResource SemiColorText0}"
-                                                                                        Text="流输入">
-                                                                                    </TextBlock>
+                                                                                        Text="流输入" />
                                                                                 </StackPanel>
                                                                                 <StackPanel Orientation="Horizontal"
                                                                                     VerticalAlignment="Center">
@@ -395,38 +385,32 @@
                                                                                         FontSize="12"
                                                                                         Background="{DynamicResource SemiColorText0}"
                                                                                         Foreground="{DynamicResource SemiBackground4Color}"
-                                                                                        Text="{Binding Value,Converter={StaticResource NodeTypeNameI18NCtr}}">
-
-                                                                                    </TextBlock>
+                                                                                        Text="{Binding Value,Converter={StaticResource NodeTypeNameI18NCtr}}" />
 
 
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
                                                                                         Foreground="{DynamicResource SemiColorText0}"
-                                                                                        Text="设置">
-                                                                                    </TextBlock>
+                                                                                        Text="设置" />
                                                                                 </StackPanel>
                                                                             </StackPanel>
                                                                             <StackPanel Orientation="Vertical"
                                                                                 DockPanel.Dock="Right"
                                                                                 HorizontalAlignment="Right"
                                                                                 VerticalAlignment="Center">
-                                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                                                <StackPanel Orientation="Horizontal"
+                                                                                    HorizontalAlignment="Right">
 
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
                                                                                         Foreground="{DynamicResource SemiColorText0}"
-                                                                                        Text="流输出">
-
-                                                                                    </TextBlock>
+                                                                                        Text="流输出" />
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
                                                                                         FontSize="12"
                                                                                         Background="{DynamicResource SemiColorText0}"
                                                                                         Foreground="{DynamicResource SemiBackground4Color}"
-                                                                                        Text="节点">
-
-                                                                                    </TextBlock>
+                                                                                        Text="节点" />
 
                                                                                     <Border Background="Transparent">
                                                                                         <!-- Set the border color to red -->
@@ -447,7 +431,7 @@
                                                                                     <!-- Declare a TextBlock element and give it a name -->
 
                                                                                 </StackPanel>
-                                                                                
+
                                                                             </StackPanel>
 
                                                                         </DockPanel>
@@ -515,43 +499,36 @@
 
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
-                                                                                       
+
                                                                                         FontSize="12"
                                                                                         Background="{DynamicResource SemiColorText0}"
                                                                                         Foreground="{DynamicResource SemiBackground4Color}"
-                                                                                        Text="节点">
-
-
-                                                                                    </TextBlock>
+                                                                                        Text="节点" />
 
 
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
                                                                                         Foreground="{DynamicResource SemiColorText0}"
-                                                                                        Text="流输入">
-                                                                                    </TextBlock>
+                                                                                        Text="流输入" />
                                                                                 </StackPanel>
                                                                             </StackPanel>
                                                                             <StackPanel Orientation="Vertical"
                                                                                 DockPanel.Dock="Right"
                                                                                 HorizontalAlignment="Right"
                                                                                 VerticalAlignment="Center">
-                                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                                                <StackPanel Orientation="Horizontal"
+                                                                                    HorizontalAlignment="Right">
 
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
                                                                                         Foreground="{DynamicResource SemiColorText0}"
-                                                                                        Text="流输出">
-
-                                                                                    </TextBlock>
+                                                                                        Text="流输出" />
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
                                                                                         FontSize="12"
                                                                                         Background="{DynamicResource SemiColorText0}"
                                                                                         Foreground="{DynamicResource SemiBackground4Color}"
-                                                                                        Text="节点">
-
-                                                                                    </TextBlock>
+                                                                                        Text="节点" />
 
                                                                                     <Border Background="Transparent">
                                                                                         <!-- Set the border color to red -->
@@ -572,22 +549,19 @@
                                                                                     <!-- Declare a TextBlock element and give it a name -->
 
                                                                                 </StackPanel>
-                                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                                                <StackPanel Orientation="Horizontal"
+                                                                                    HorizontalAlignment="Right">
 
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
                                                                                         Foreground="{DynamicResource SemiColorText0}"
-                                                                                        Text="读取">
-
-                                                                                    </TextBlock>
+                                                                                        Text="读取" />
                                                                                     <TextBlock
                                                                                         VerticalAlignment="Center"
                                                                                         FontSize="12"
                                                                                         Background="{DynamicResource SemiColorText0}"
                                                                                         Foreground="{DynamicResource SemiBackground4Color}"
-                                                                                        Text="{Binding Value,Converter={StaticResource NodeTypeNameI18NCtr}}">
-
-                                                                                    </TextBlock>
+                                                                                        Text="{Binding Value,Converter={StaticResource NodeTypeNameI18NCtr}}" />
 
                                                                                     <Border Background="Transparent">
                                                                                         <!-- Set the border color to red -->
@@ -629,14 +603,13 @@
                                 <Grid ColumnDefinitions="*,5,Auto,Auto" VerticalAlignment="Center"
                                       HorizontalAlignment="Stretch">
                                     <TextBox Watermark="变量名称" HorizontalAlignment="Stretch"
-                                             Text="{Binding ValueValue,Mode=TwoWay}">
-                                    </TextBox>
+                                             Text="{Binding ValueValue,Mode=TwoWay}" />
                                     <ComboBox Grid.Column="2" VerticalAlignment="Center"
                                               SelectedItem="{Binding ValueType}"
                                               ItemsSource="{Binding Source={x:Static customScenario:CustomScenarioGloble.GetAllCouldUseTypeInValue}}">
                                         <ComboBox.ItemTemplate>
                                             <DataTemplate DataType="taskEditor1:CustomScenarioValueTuple">
-                                                <TextBlock Text="{Binding Value}" ToolTip.Tip="{Binding Type}"></TextBlock>
+                                                <TextBlock Text="{Binding Value}" ToolTip.Tip="{Binding Type}" />
                                             </DataTemplate>
                                         </ComboBox.ItemTemplate>
                                     </ComboBox>
@@ -681,9 +654,7 @@
                                             </settingsExpander:SettingsExpander.IconSource>
                                             <controls1:ListShow AddCommand="{Binding AddKeyCommand}"
                                                                 DelCommand="{Binding DelKeyCommand}"
-                                                                ItemsSource="{Binding Scenario.Keys}" WithAdd="True">
-
-                                            </controls1:ListShow>
+                                                                ItemsSource="{Binding Scenario.Keys}" WithAdd="True" />
 
                                         </settingsExpander:SettingsExpander>
 
@@ -715,8 +686,7 @@
                                                         IsChecked="{Binding Path=$parent[Expander].((taskEditor1:TaskEditorViewModel)DataContext).Scenario,Converter={StaticResource AutoTriggersCtr},
                                                               ConverterParameter={Binding .}}" />
                                                     <TextBlock VerticalAlignment="Center"
-                                                               Text="{Binding Value.Name}">
-                                                    </TextBlock>
+                                                               Text="{Binding Value.Name}" />
 
                                                     <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
                                                                         Glyph="&#xf4a3;"
@@ -744,8 +714,7 @@
                                                                         ToolTip.ShowDelay="100">
                                                         <controls1:HotKeyShow
                                                             HotKeyModel="{Binding Scenario.RunHotKey}"
-                                                            IsEnabled="{Binding IsSaveInLocal}">
-                                                        </controls1:HotKeyShow>
+                                                            IsEnabled="{Binding IsSaveInLocal}" />
                                                     </u:DisableContainer>
 
                                                 </Panel>
@@ -765,8 +734,7 @@
                                                                         ToolTip.ShowDelay="100">
                                                         <controls1:HotKeyShow
                                                             HotKeyModel="{Binding Scenario.StopHotKey}"
-                                                            IsEnabled="{Binding IsSaveInLocal}">
-                                                        </controls1:HotKeyShow>
+                                                            IsEnabled="{Binding IsSaveInLocal}" />
                                                     </u:DisableContainer>
                                                 </Panel>
                                             </settingsExpander:SettingsExpander.Footer>
@@ -852,20 +820,17 @@
 
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                         
+
                                                                             FontSize="12"
                                                                             Background="{DynamicResource SemiColorText0}"
                                                                             Foreground="{DynamicResource SemiBackground4Color}"
-                                                                            Text="{Binding TypeName}">
-
-                                                                        </TextBlock>
+                                                                            Text="{Binding TypeName}" />
 
 
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
                                                                             Foreground="{DynamicResource SemiColorText0}"
-                                                                            Text="{Binding Title}">
-                                                                        </TextBlock>
+                                                                            Text="{Binding Title}" />
                                                                     </StackPanel>
 
 
@@ -878,7 +843,7 @@
                                                                         HorizontalAlignment="Right">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            
+
                                                                             Text="{Binding Title}"
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <TextBox Margin="10,5,10,5"
@@ -896,7 +861,7 @@
                                                                         HorizontalAlignment="Right">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            
+
                                                                             Text="{Binding Title}"
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <ComboBox Margin="10,5,10,5"
@@ -914,7 +879,7 @@
                                                                         HorizontalAlignment="Right">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            
+
                                                                             Text="{Binding Title}"
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <u:NumericIntUpDown
@@ -935,7 +900,7 @@
                                                                         HorizontalAlignment="Right">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            
+
                                                                             Text="{Binding Title}"
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <u:NumericDoubleUpDown
@@ -954,7 +919,7 @@
                                                                         HorizontalAlignment="Right">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            
+
                                                                             Text="{Binding Title}"
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <ToggleSwitch
@@ -973,7 +938,7 @@
                                                                         HorizontalAlignment="Right">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
-                                                                            
+
                                                                             Text="{Binding Title}"
                                                                             Foreground="{DynamicResource SemiColorText0}" />
                                                                         <controls1:SearchItemShow
@@ -1008,17 +973,15 @@
 
                                                                     <TextBlock
                                                                         VerticalAlignment="Center"
-                                                                        
+
                                                                         Foreground="{DynamicResource SemiColorText0}"
-                                                                        Text="{Binding Title}">
-                                                                    </TextBlock>
+                                                                        Text="{Binding Title}" />
                                                                     <TextBlock
                                                                         VerticalAlignment="Center"
                                                                         FontSize="12"
                                                                         Background="{DynamicResource SemiColorText0}"
                                                                         Foreground="{DynamicResource SemiBackground4Color}"
-                                                                        Text="{Binding TypeName}">
-                                                                    </TextBlock>
+                                                                        Text="{Binding TypeName}" />
                                                                     <controls1:FontIcon
                                                                         FontFamily="{StaticResource FluentFont}"
                                                                         Glyph="&#xf10c;"
@@ -1062,8 +1025,7 @@
                             <Binding
                                 Path="ScenarioMethodCategoryGroup"
                                 Converter="{StaticResource ScenarioMethodCategoryGroupCtr}"
-                                ConverterParameter="{Binding #ContentPresenter}" UpdateSourceTrigger="PropertyChanged">
-                            </Binding>
+                                ConverterParameter="{Binding #ContentPresenter}" UpdateSourceTrigger="PropertyChanged" />
                         </ContentPresenter.Content>
                     </ContentPresenter>
 
@@ -1223,7 +1185,7 @@
                                                         Command="{Binding $parent[controls2:NodifyEditor].((taskEditor1:TaskEditorViewModel)DataContext).SwitchConnectorCommand}"
                                                         CommandParameter="{Binding #ContentPresenter1  }">
                                                         <MenuItem.Header>
-                                                            <TextBlock Text="切换自输入/连接器"></TextBlock>
+                                                            <TextBlock Text="切换自输入/连接器" />
                                                         </MenuItem.Header>
                                                     </MenuItem>
                                                 </MenuFlyout>
@@ -1246,9 +1208,7 @@
                                                                         <Style
                                                                             Selector="TextBlock#TypeNametextBlock">
                                                                             <Setter Property="Background"
-                                                                                Value="{DynamicResource SemiColorText0}">
-
-                                                                            </Setter>
+                                                                                Value="{DynamicResource SemiColorText0}" />
                                                                             <Setter Property="Foreground">
                                                                                 <Setter.Value>
                                                                                     <SolidColorBrush
@@ -1278,7 +1238,7 @@
                                                                                Classes.IsNotUsed="{Binding IsNotUsed}"
                                                                                Text="{Binding TypeName}" />
                                                                     <TextBlock VerticalAlignment="Center"
-                                                                               
+
                                                                                Classes.IsNotUsed="{Binding IsNotUsed}"
                                                                                Text="{Binding Title}" />
                                                                 </StackPanel>
@@ -1298,7 +1258,7 @@
 
                                                                     HorizontalAlignment="Right">
                                                             <TextBlock VerticalAlignment="Center"
-                                                                       
+
                                                                        Text="{Binding Title}"
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <TextBox Margin="10,5,10,5" MinWidth="40"
@@ -1314,7 +1274,7 @@
                                                                     HorizontalAlignment="Right">
                                                             <TextBlock
                                                                 VerticalAlignment="Center"
-                                                                
+
                                                                 Text="{Binding Title}"
                                                                 Foreground="{DynamicResource SemiColorText0}" />
                                                             <ComboBox Margin="10,5,10,5" x:Name="ComboBox"
@@ -1323,8 +1283,7 @@
                                                                 <ComboBox.DataTemplates>
                                                                     <DataTemplate DataType="system:Object">
                                                                         <TextBlock Text="{Binding}"
-                                                                            Foreground="{DynamicResource SemiColorText0}">
-                                                                        </TextBlock>
+                                                                            Foreground="{DynamicResource SemiColorText0}" />
                                                                     </DataTemplate>
                                                                 </ComboBox.DataTemplates>
                                                                 <ComboBox.Styles>
@@ -1334,8 +1293,7 @@
                                                                             <Setter.Value>
                                                                                 <DataTemplate DataType="system:Object">
                                                                                     <TextBlock Text="{Binding}"
-                                                                                        Foreground="{DynamicResource SemiColorText0}">
-                                                                                    </TextBlock>
+                                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                                                 </DataTemplate>
                                                                             </Setter.Value>
                                                                         </Setter>
@@ -1352,7 +1310,7 @@
                                                                     VerticalAlignment="Center"
                                                                     HorizontalAlignment="Right">
                                                             <TextBlock VerticalAlignment="Center"
-                                                                       
+
                                                                        Text="{Binding Title}"
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <u:NumericIntUpDown Margin="10,5,10,5" MinWidth="40"
@@ -1370,7 +1328,7 @@
                                                                     VerticalAlignment="Center"
                                                                     HorizontalAlignment="Right">
                                                             <TextBlock VerticalAlignment="Center"
-                                                                       
+
                                                                        Text="{Binding Title}"
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <u:NumericDoubleUpDown Margin="10,5,10,5" MinWidth="40"
@@ -1386,7 +1344,7 @@
                                                                     VerticalAlignment="Center"
                                                                     HorizontalAlignment="Right">
                                                             <TextBlock VerticalAlignment="Center"
-                                                                       
+
                                                                        Text="{Binding Title}"
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <ToggleSwitch Margin="10,5,10,5" MinWidth="40"
@@ -1400,7 +1358,7 @@
                                                                     VerticalAlignment="Center"
                                                                     HorizontalAlignment="Right">
                                                             <TextBlock VerticalAlignment="Center"
-                                                                     
+
                                                                        Text="{Binding Title}"
                                                                        Foreground="{DynamicResource SemiColorText0}" />
                                                             <controls1:SearchItemShow Margin="10,5,10,5"
@@ -1435,13 +1393,12 @@
                                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
                                                             HorizontalAlignment="Right">
 
-                                                    <TextBlock VerticalAlignment="Center" 
+                                                    <TextBlock VerticalAlignment="Center"
                                                                Text="{Binding Title}" />
                                                     <TextBlock VerticalAlignment="Center" FontSize="12"
                                                                Background="{DynamicResource SemiColorText0}"
                                                                Foreground="{DynamicResource SemiBackground4Color}"
-                                                               Text="{Binding TypeName}">
-                                                    </TextBlock>
+                                                               Text="{Binding TypeName}" />
 
                                                     <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
                                                                         Glyph="&#xf10c;"
@@ -1492,8 +1449,8 @@
                             Command="{Binding CleanUnusedNodeCommand}">
                         <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf34c;" FontSize="24" />
                     </Button>
-                    <ItemsControl Grid.Column="4"
-                                  IsVisible="{Binding Scenario.IsHaveInputValue,Converter={StaticResource reverseBoolToVisibilityConverter}}">
+                    <ItemsControl
+                        IsVisible="{Binding Scenario.IsHaveInputValue,Converter={StaticResource reverseBoolToVisibilityConverter}}">
                         <Button ToolTip.Tip="运行测试" ToolTip.ShowDelay="100" FontWeight="Normal"
                                 IsVisible="{Binding Scenario.IsRunning,Converter={StaticResource reverseBoolToVisibilityConverter}}"
                                 Foreground="GreenYellow"

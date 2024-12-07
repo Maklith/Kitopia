@@ -2,21 +2,17 @@
 
 namespace Core.SDKs.CustomScenario.CustomScenarioValueSerializer;
 
-public class BoolCustomScenarioValueSerializer: ICustomScenarioValueSerializer
+public class BoolCustomScenarioValueSerializer : ICustomScenarioValueSerializer
 {
     public string Serialize<T>(T value)
     {
-        if (value is null)
-        {
-            return false.ToString();
-        }
+        if (value is null) return false.ToString();
 
         return value.ToString();
     }
 
     public object Deserialize(ReadOnlySpan<byte> value)
     {
-        return bool.Parse(Encoding.UTF8.GetString(value));    
-        
+        return bool.Parse(Encoding.UTF8.GetString(value));
     }
 }

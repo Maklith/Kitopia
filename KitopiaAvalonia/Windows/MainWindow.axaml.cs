@@ -14,7 +14,6 @@ using Core.SDKs.Services.MQTT;
 using Core.SDKs.Services.Plugin;
 using Core.ViewModel;
 using log4net;
-
 using Ursa.Controls;
 using HotKeyManager = Core.SDKs.HotKey.HotKeyManager;
 
@@ -27,13 +26,13 @@ public partial class MainWindow : UrsaWindow
     public MainWindow()
     {
         InitializeComponent();
-        
+
         Dispatcher.UIThread.UnhandledException += (sender, e) =>
         {
             e.Handled = true;
             log.Fatal(e.Exception);
         };
-        this.Opened += FirstOpenEventHandler;
+        Opened += FirstOpenEventHandler;
 
         IsVisible = false;
     }
@@ -41,21 +40,17 @@ public partial class MainWindow : UrsaWindow
 
     private void Window_OnClosing(object? sender, WindowClosingEventArgs e)
     {
-        this.IsVisible = false;
+        IsVisible = false;
         e.Cancel = true;
     }
 
 
     private void FirstOpenEventHandler(object? o, EventArgs args)
     {
-        Dispatcher.UIThread.InvokeAsync(() => { this.IsVisible = false; });
-        this.Opened -= FirstOpenEventHandler;
+        Dispatcher.UIThread.InvokeAsync(() => { IsVisible = false; });
+        Opened -= FirstOpenEventHandler;
     }
 
-    
-
-
-   
 
     private void TitleBarHost_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {

@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
+
 namespace KitopiaAvalonia.Controls.SettingsExpander;
 
 [PseudoClasses(s_pcFooterBottom, SharedPseudoclasses.s_pcFooter, s_pcContent, s_pcDescription)]
@@ -17,61 +18,61 @@ public partial class SettingsExpanderItem : ContentControl
     /// Defines the <see cref="Description"/> property
     /// </summary>
     public static readonly StyledProperty<string> DescriptionProperty =
-        KitopiaAvalonia.Controls.SettingsExpander.SettingsExpander.DescriptionProperty.AddOwner<KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem>();
+        SettingsExpander.DescriptionProperty.AddOwner<SettingsExpanderItem>();
 
     /// <summary>
     /// Defines the <see cref="IconSource"/> property
     /// </summary>
     public static readonly StyledProperty<object> IconSourceProperty =
-        KitopiaAvalonia.Controls.SettingsExpander.SettingsExpander.IconSourceProperty.AddOwner<KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem>();
+        SettingsExpander.IconSourceProperty.AddOwner<SettingsExpanderItem>();
 
     /// <summary>
     /// Defines the <see cref="Footer"/> property
     /// </summary>
     public static readonly StyledProperty<object> FooterProperty =
-        KitopiaAvalonia.Controls.SettingsExpander.SettingsExpander.FooterProperty.AddOwner<KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem>();
+        SettingsExpander.FooterProperty.AddOwner<SettingsExpanderItem>();
 
     /// <summary>
     /// Defines the <see cref="FooterTemplate"/> property
     /// </summary>
     public static readonly StyledProperty<IDataTemplate> FooterTemplateProperty =
-        KitopiaAvalonia.Controls.SettingsExpander.SettingsExpander.FooterTemplateProperty.AddOwner<KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem>();
+        SettingsExpander.FooterTemplateProperty.AddOwner<SettingsExpanderItem>();
 
     /// <summary>
     /// Defines the <see cref="ActionIconSource"/> property
     /// </summary>
     public static readonly StyledProperty<object> ActionIconSourceProperty =
-        KitopiaAvalonia.Controls.SettingsExpander.SettingsExpander.ActionIconSourceProperty.AddOwner<KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem>();
+        SettingsExpander.ActionIconSourceProperty.AddOwner<SettingsExpanderItem>();
 
     /// <summary>
     /// Defines the <see cref="IsClickEnabled"/> property
     /// </summary>
     public static readonly StyledProperty<bool> IsClickEnabledProperty =
-        KitopiaAvalonia.Controls.SettingsExpander.SettingsExpander.IsClickEnabledProperty.AddOwner<KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem>();
+        SettingsExpander.IsClickEnabledProperty.AddOwner<SettingsExpanderItem>();
 
     /// <summary>
     /// Defines the <see cref="Command"/> property
     /// </summary>
     public static readonly StyledProperty<ICommand> CommandProperty =
-        Button.CommandProperty.AddOwner<KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem>();
+        Button.CommandProperty.AddOwner<SettingsExpanderItem>();
 
     /// <summary>
     /// Defines the <see cref="CommandParameter"/> property
     /// </summary>
     public static readonly StyledProperty<object> CommandParameterProperty =
-        Button.CommandParameterProperty.AddOwner<KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem>();
+        Button.CommandParameterProperty.AddOwner<SettingsExpanderItem>();
 
     /// <summary>
     /// Defines the <see cref="TemplateSettings"/> property
     /// </summary>
     public static readonly StyledProperty<SettingsExpanderTemplateSettings> TemplateSettingsProperty =
-        AvaloniaProperty.Register<KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem, SettingsExpanderTemplateSettings>(nameof(TemplateSettings));
+        AvaloniaProperty.Register<SettingsExpanderItem, SettingsExpanderTemplateSettings>(nameof(TemplateSettings));
 
     /// <summary>
     /// Defines the <see cref="Click"/> event
     /// </summary>
     public static readonly RoutedEvent<RoutedEventArgs> ClickEvent =
-        KitopiaAvalonia.Controls.SettingsExpander.SettingsExpander.ClickEvent;
+        SettingsExpander.ClickEvent;
 
     /// <summary>
     /// Gets or sets the description text

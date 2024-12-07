@@ -75,38 +75,30 @@ public partial class PendingConnectionViewModel : ObservableRecipient
     }
 
     [RelayCommand]
-    public void Start(ConnectorItem item) => Source = item;
+    public void Start(ConnectorItem item)
+    {
+        Source = item;
+    }
 
     [RelayCommand]
     public void Finish(ConnectorItem? target)
     {
-        if (target == null)
-        {
-            return;
-        }
+        if (target == null) return;
 
-        if (target == Source || target.Source == Source.Source)
-        {
-            return;
-        }
+        if (target == Source || target.Source == Source.Source) return;
 
-        if (Source.InputObject.Type.FullName != target.InputObject.Type.FullName && !(target.InputObject.Type.IsAssignableFrom(Source.InputObject.Type) ||
-                                                                          Source.InputObject.Type.FullName == "System.Object" ||
-                                                                          target.InputObject.Type.FullName == "System.Object"))
-        {
+        if (Source.InputObject.Type.FullName != target.InputObject.Type.FullName &&
+            !(target.InputObject.Type.IsAssignableFrom(Source.InputObject.Type) ||
+              Source.InputObject.Type.FullName == "System.Object" ||
+              target.InputObject.Type.FullName == "System.Object"))
             return;
-        }
 
         if (Source.IsOut != target.IsOut)
         {
             if (!Source.IsOut)
-            {
                 _editor.Connect(target, Source);
-            }
             else
-            {
                 _editor.Connect(Source, target);
-            }
         }
     }
 }

@@ -1,9 +1,9 @@
 {
   "Id": 7,
   "AuthorName": "Kitopia",
-  "AuthorId" : 1,
+  "AuthorId": 1,
   "Name": "Kitopia拓展",
-  "NameSign" : "kitopiaex",
+  "NameSign": "kitopiaex",
   "IsPublic": true,
   "Version": "1.0.0",
   "VersionId": 1,

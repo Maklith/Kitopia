@@ -5,12 +5,10 @@
         <Canvas Height="400" Width="400">
 
 
-           <controls:PenCaptureTool Stroke="Red" StrokeThickness="2" Fill="Red" Points="10,10 60,10 110,110">
-               
-           </controls:PenCaptureTool>
+            <controls:PenCaptureTool Stroke="Red" StrokeThickness="2" Fill="Red" Points="10,10 60,10 110,110" />
 
         </Canvas>
     </Design.PreviewWith>
 
-   
+
 </Styles>

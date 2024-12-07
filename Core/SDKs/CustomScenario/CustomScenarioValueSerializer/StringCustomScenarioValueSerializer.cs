@@ -6,16 +6,12 @@ public class StringCustomScenarioValueSerializer : ICustomScenarioValueSerialize
 {
     public string Serialize<T>(T value)
     {
-        if (value is null)
-        {
-            return "";
-        }
+        if (value is null) return "";
         return value.ToString();
     }
 
     public object Deserialize(ReadOnlySpan<byte> value)
     {
-        return Encoding.UTF8.GetString(value);    
-        
+        return Encoding.UTF8.GetString(value);
     }
 }

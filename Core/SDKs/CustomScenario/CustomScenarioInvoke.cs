@@ -20,33 +20,13 @@ public class CustomScenarioInvoke
 {
     private CustomScenario _customScenario;
 
-    public bool IsUsed
-    {
-        get;
-        set;
-    } = false;
+    public bool IsUsed { get; set; } = false;
 
-    public TriggerType TriggerType
-    {
-        get;
-        set;
-    }
+    public TriggerType TriggerType { get; set; }
 
-    public AutoTriggerType AutoTriggerType
-    {
-        get;
-        set;
-    }
+    public AutoTriggerType AutoTriggerType { get; set; }
 
-    public string AutoTriggerTypeFrom
-    {
-        get;
-        set;
-    }
+    public string AutoTriggerTypeFrom { get; set; }
 
-    public object? Value
-    {
-        get;
-        set;
-    }
+    public object? Value { get; set; }
 }

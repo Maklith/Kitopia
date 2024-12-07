@@ -7,6 +7,7 @@ public class CaptureToolBase : ContentControl
 {
     public static readonly StyledProperty<bool> IsSelectedProperty =
         AvaloniaProperty.Register<CaptureToolBase, bool>(nameof(IsSelected));
+
     public bool IsSelected
     {
         get => (bool)GetValue(IsSelectedProperty);

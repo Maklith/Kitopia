@@ -15,13 +15,13 @@ public class ToastService : IToastService
 {
     private static readonly ILog log = LogManager.GetLogger(nameof(ToastService));
     private ToastNotifier _toastNotifier;
+
     public void Init()
     {
-        global::WinRT.ComWrappersSupport.InitializeComWrappers();
+        WinRT.ComWrappersSupport.InitializeComWrappers();
         var toastNotificationManagerForUser = ToastNotificationManager.GetDefault();
-        _toastNotifier = toastNotificationManagerForUser.CreateToastNotifier(applicationId: "Kitopia");
+        _toastNotifier = toastNotificationManagerForUser.CreateToastNotifier("Kitopia");
     }
-    
 
 
     public void Show(string header, string text)
@@ -30,16 +30,15 @@ public class ToastService : IToastService
         var xmlDocument = new XmlDocument();
         // lang=xml
         xmlDocument = ToastNotificationManager.GetTemplateContent(ToastTemplateType.ToastText01);
-        XmlNodeList stringElements = xmlDocument.GetElementsByTagName("text");
+        var stringElements = xmlDocument.GetElementsByTagName("text");
         stringElements[0].AppendChild(xmlDocument.CreateTextNode(header));
         stringElements[0].AppendChild(xmlDocument.CreateTextNode(text));
         var toastNotification = new ToastNotification(xmlDocument);
-        
+
         _toastNotifier.Show(toastNotification);
     }
 
     public void Unregister()
     {
-        
     }
 }

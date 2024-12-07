@@ -29,8 +29,9 @@ public partial class DialogWindow : Window
         {
             PrimaryButton.Content = content.PrimaryButtonText;
 
-            PrimaryButton.Click += (sender, args) => {
-                this.Close();
+            PrimaryButton.Click += (sender, args) =>
+            {
+                Close();
                 content.PrimaryAction?.Invoke();
             };
             PrimaryButton.IsVisible = true;
@@ -39,8 +40,9 @@ public partial class DialogWindow : Window
         if (content.CloseButtonText != null)
         {
             CloseButton.Content = content.CloseButtonText;
-            CloseButton.Click += (sender, args) => {
-                this.Close();
+            CloseButton.Click += (sender, args) =>
+            {
+                Close();
                 content.CloseAction?.Invoke();
             };
             CloseButton.IsVisible = true;
@@ -49,8 +51,9 @@ public partial class DialogWindow : Window
         if (content.SecondaryButtonText != null)
         {
             SecondaryButton.Content = content.SecondaryButtonText;
-            SecondaryButton.Click += (sender, args) => {
-                this.Close();
+            SecondaryButton.Click += (sender, args) =>
+            {
+                Close();
                 content.SecondaryAction?.Invoke();
             };
             SecondaryButton.IsVisible = true;
@@ -122,7 +125,7 @@ public partial class DialogWindow : Window
     {
         if (!_mouseDownForWindowMoving) return;
 
-        PointerPoint currentPoint = e.GetCurrentPoint(this);
+        var currentPoint = e.GetCurrentPoint(this);
         Position = new PixelPoint(Position.X + (int)(currentPoint.Position.X - _originalPoint.Position.X),
             Position.Y + (int)(currentPoint.Position.Y - _originalPoint.Position.Y));
     }

@@ -65,84 +65,66 @@ public partial class CustomScenario : ObservableRecipient
     public CustomScenario()
     {
         PropertyChanged += PropertyChangedEventHandler();
-        runHotKey = new()
+        runHotKey = new HotKeyModel
         {
             MainName = "Kitopia情景", Name = $"{UUID}_开始快捷键", IsSelectCtrl = false, IsSelectAlt = false,
             IsSelectWin = false,
-            IsSelectShift = false, SelectKey = EKey.未设置,
+            IsSelectShift = false, SelectKey = EKey.未设置
         };
 
-        stopHotKey = new()
+        stopHotKey = new HotKeyModel
         {
             MainName = "Kitopia情景", Name = $"{UUID}_停止快捷键", IsSelectCtrl = false, IsSelectAlt = false,
             IsSelectWin = false,
-            IsSelectShift = false, SelectKey = EKey.未设置,
+            IsSelectShift = false, SelectKey = EKey.未设置
         };
         if (RunHotKey.SelectKey != EKey.未设置)
-        {
             if (HotKeyManager.HotKetImpl.Add(RunHotKey, e => Run()))
-            {
                 ServiceManager.Services.GetService<IContentDialog>()!.ShowDialogAsync(null, new DialogContent()
                 {
                     Title = $"快捷键{RunHotKey.SignName}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
                     CloseButtonText = "关闭"
                 });
-            }
-        }
 
         if (StopHotKey.SelectKey != EKey.未设置)
-        {
             if (HotKeyManager.HotKetImpl.Add(StopHotKey, e => Stop()))
-            {
                 ServiceManager.Services.GetService<IContentDialog>().ShowDialogAsync(null, new DialogContent()
                 {
                     Title = $"快捷键{StopHotKey.SignName}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
                     CloseButtonText = "关闭"
                 });
-            }
-        }
 
 
         InputValue.CollectionChanged += OnInputValueOnCollectionChanged;
     }
 
 
-    void OnInputValueOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
+    private void OnInputValueOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
     {
         var outputs = nodes.First()
             .Output;
-        for (var i = outputs.Count - 1; i >= 1; i--)
-        {
-            outputs.RemoveAt(i);
-        }
+        for (var i = outputs.Count - 1; i >= 1; i--) outputs.RemoveAt(i);
 
         if (sender is ObservableDictionary<string, object> dictionary)
-        {
             foreach (var (key, value) in dictionary)
-            {
-                outputs.Add(new()
+                outputs.Add(new ConnectorItem
                 {
                     IsOut = true,
                     Source = nodes.First(),
-                    InputObject = new CustomScenarioValue(){Type = value.GetType()},
+                    InputObject = new CustomScenarioValue() { Type = value.GetType() },
                     TypeName = CustomScenarioGloble.GetI18N(value.GetType()
                         .FullName),
                     Title = key
                 });
-            }
-        }
     }
 
     private PropertyChangedEventHandler? PropertyChangedEventHandler()
     {
         return (e, s) =>
         {
-            if (s.PropertyName == nameof(IsRunning))
-            {
-                return;
-            }
+            if (s.PropertyName == nameof(IsRunning)) return;
 
             WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg()
                 { Type = 1, Name = nameof(e), CustomScenario = this });
@@ -168,32 +150,22 @@ public partial class CustomScenario : ObservableRecipient
 
     partial void OnTickIntervalSecondChanged(double? oldValue)
     {
-        if (oldValue is null)
-        {
-            TickIntervalSecond = 0.1;
-        }
+        if (oldValue is null) TickIntervalSecond = 0.1;
     }
 
 
     public void Run(bool realTime = false, bool onExit = false, params object[] inputValues)
     {
         if (IsHaveInputValue)
-        {
             if (inputValues.Length != InputValue.Count)
-            {
                 return;
-            }
-        }
 
         StartRun(!realTime, onExit, inputValues);
     }
 
     private void StartRun(bool notRealTime, bool onExit = false, params object[] inputValues)
     {
-        if (IsRunning || !HasInit)
-        {
-            return;
-        }
+        if (IsRunning || !HasInit) return;
 
         _cancellationTokenSource.Cancel();
         _cancellationTokenSource.Dispose();
@@ -207,15 +179,9 @@ public partial class CustomScenario : ObservableRecipient
         }
 
 
-        foreach (var task in _initTasks)
-        {
-            task.Value?.Join();
-        }
+        foreach (var task in _initTasks) task.Value?.Join();
 
-        foreach (var task in _tickTasks)
-        {
-            task.Value?.Join();
-        }
+        foreach (var task in _tickTasks) task.Value?.Join();
 
         _initTasks.Clear();
         _tickTasks.Clear();
@@ -223,25 +189,16 @@ public partial class CustomScenario : ObservableRecipient
         {
             foreach (var pointItem in nodes)
             {
-                foreach (var connectorItem in pointItem.Output)
-                {
-                    connectorItem.InputObject.Value = null;
-                }
+                foreach (var connectorItem in pointItem.Output) connectorItem.InputObject.Value = null;
 
                 foreach (var connectorItem in pointItem.Input)
-                {
                     if (!connectorItem.IsSelf)
-                    {
                         connectorItem.InputObject.Value = null;
-                    }
-                }
             }
 
             for (var i = 0; i < inputValues.Length; i++)
-            {
                 nodes[0]
-                    .Output[i + 1].InputObject.Value= inputValues[i];
-            }
+                    .Output[i + 1].InputObject.Value = inputValues[i];
         }
 
         for (var i = nodes.Count - 1; i >= 1; i--)
@@ -251,14 +208,9 @@ public partial class CustomScenario : ObservableRecipient
 
             if (nodes[i]
                 .Output.Any(connectorItem => connectorItem.IsConnected))
-            {
                 toRemove = false;
-            }
 
-            if (toRemove)
-            {
-                nodes[i].Status = S节点状态.未验证;
-            }
+            if (toRemove) nodes[i].Status = S节点状态.未验证;
         }
 
         try
@@ -273,7 +225,6 @@ public partial class CustomScenario : ObservableRecipient
 
         //监听任务是否结束
         if (notRealTime)
-        {
             new Task(() =>
             {
                 while (true)
@@ -282,44 +233,26 @@ public partial class CustomScenario : ObservableRecipient
                     var f = true;
                     foreach (var (_, value) in _initTasks)
                     {
-                        if (value is null)
-                        {
-                            continue;
-                        }
+                        if (value is null) continue;
 
-                        if (!value.IsAlive)
-                        {
-                            continue;
-                        }
+                        if (!value.IsAlive) continue;
 
                         f = false;
                         break;
                     }
 
-                    if (!f)
-                    {
-                        continue;
-                    }
+                    if (!f) continue;
 
-                    if (!notRealTime)
-                    {
-                        return;
-                    }
+                    if (!notRealTime) return;
 
-                    if (_cancellationTokenSource.IsCancellationRequested)
-                    {
-                        return;
-                    }
+                    if (_cancellationTokenSource.IsCancellationRequested) return;
 
                     var connectionItem = connections.FirstOrDefault((e) => e.Source == nodes[1]
                         .Output[0]);
                     if (connectionItem == null || onExit)
                     {
                         //当没有tick时直接结束
-                        if (notRealTime)
-                        {
-                            _cancellationTokenSource.Cancel();
-                        }
+                        if (notRealTime) _cancellationTokenSource.Cancel();
 
                         IsRunning = false;
                         ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
@@ -344,15 +277,11 @@ public partial class CustomScenario : ObservableRecipient
                     break;
                 }
             }).Start();
-        }
     }
 
     private void TickMethod(object sender, long JumpPeriod, long interval)
     {
-        if (InTick)
-        {
-            return;
-        }
+        if (InTick) return;
 
         var nowPointItem = nodes[1];
         ParsePointItem(_tickTasks, nowPointItem, false, true, _cancellationTokenSource.Token);
@@ -370,24 +299,15 @@ public partial class CustomScenario : ObservableRecipient
             var f = true;
             foreach (var (_, value) in _tickTasks)
             {
-                if (value is null)
-                {
-                    continue;
-                }
+                if (value is null) continue;
 
-                if (!value.IsAlive)
-                {
-                    continue;
-                }
+                if (!value.IsAlive) continue;
 
                 f = false;
                 break;
             }
 
-            if (!f)
-            {
-                continue;
-            }
+            if (!f) continue;
 
             //tick完成一次
             InTick = false;
@@ -398,10 +318,7 @@ public partial class CustomScenario : ObservableRecipient
 
     public void Stop(bool inTickError = false)
     {
-        if (!IsRunning)
-        {
-            return;
-        }
+        if (!IsRunning) return;
 
 
         try
@@ -414,15 +331,9 @@ public partial class CustomScenario : ObservableRecipient
             Console.WriteLine(e);
         }
 
-        foreach (var task in _initTasks)
-        {
-            task.Value?.Join();
-        }
+        foreach (var task in _initTasks) task.Value?.Join();
 
-        foreach (var task in _tickTasks)
-        {
-            task.Value?.Join();
-        }
+        foreach (var task in _tickTasks) task.Value?.Join();
 
         _initTasks.Clear();
         _tickTasks.Clear();
@@ -443,16 +354,10 @@ public partial class CustomScenario : ObservableRecipient
     private void MakeSourcePointState(ConnectorItem targetConnectorItem, ScenarioMethodNode scenarioMethodNode)
     {
         foreach (var connectionItem in connections.Where(e => e.Target == targetConnectorItem))
-        {
             if (connectionItem.Source.Source == scenarioMethodNode)
-            {
                 connectionItem.Source.Source.Status = S节点状态.已验证;
-            }
             else
-            {
                 connectionItem.Source.Source.Status = S节点状态.未验证;
-            }
-        }
     }
 
     private void ParsePointItem(Dictionary<ScenarioMethodNode, Thread?> threads,
@@ -490,15 +395,11 @@ public partial class CustomScenario : ObservableRecipient
 
             //这是连接当前节点的节点
             foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections))
-            {
                 lock (threads)
                 {
                     if (threads.TryGetValue(sourceSource, out var task1))
                     {
-                        if (task1 is not null)
-                        {
-                            sourceDataTask.Add(task1);
-                        }
+                        if (task1 is not null) sourceDataTask.Add(task1);
                     }
                     else
                     {
@@ -513,41 +414,24 @@ public partial class CustomScenario : ObservableRecipient
                         task.Start();
                     }
                 }
-            }
         }
         //源数据全部生成
 
-        foreach (var thread in sourceDataTask)
-        {
-            thread.Join();
-        }
+        foreach (var thread in sourceDataTask) thread.Join();
 
         //这是连接当前节点的节点
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return;
-        }
+        if (cancellationToken.IsCancellationRequested) return;
 
         foreach (var connectorItem in nowScenarioMethodNode.Input)
-        {
-            foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections))
-            {
-                if (sourceSource.Status == S节点状态.错误)
-                {
-                    valid = false;
-                }
-            }
-        }
+        foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections))
+            if (sourceSource.Status == S节点状态.错误)
+                valid = false;
 
 
-        if (!valid)
-        {
-            goto finnish;
-        }
+        if (!valid) goto finnish;
 
 
         if (notRealTime)
-        {
             try
             {
                 nowScenarioMethodNode.Invoke(cancellationToken, connections, Values);
@@ -562,38 +446,25 @@ public partial class CustomScenario : ObservableRecipient
                 valid = false;
                 goto finnish;
             }
-        }
 
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return;
-        }
+        if (cancellationToken.IsCancellationRequested) return;
 
         if (!onlyForward)
-        {
             foreach (var outputConnector in nowScenarioMethodNode.Output)
-            {
-                foreach (var nextPointItem in outputConnector.GetSourceOrNextPointItems(connections)
-                             .Where(_ => !outputConnector.IsNotUsed))
+            foreach (var nextPointItem in outputConnector.GetSourceOrNextPointItems(connections)
+                         .Where(_ => !outputConnector.IsNotUsed))
+                lock (threads)
                 {
-                    lock (threads)
+                    if (threads.ContainsKey(nextPointItem)) return;
+
+                    var task = new Thread(() =>
                     {
-                        if (threads.ContainsKey(nextPointItem))
-                        {
-                            return;
-                        }
+                        ParsePointItem(threads, nextPointItem, false, notRealTime, cancellationToken);
+                    });
 
-                        var task = new Thread(() =>
-                        {
-                            ParsePointItem(threads, nextPointItem, false, notRealTime, cancellationToken);
-                        });
-
-                        threads.Add(nextPointItem, task);
-                        task.Start();
-                    }
+                    threads.Add(nextPointItem, task);
+                    task.Start();
                 }
-            }
-        }
 
         finnish:
         if (valid)

@@ -17,7 +17,7 @@ public partial class ConnectorItem : ObservableRecipient
     #pragma warning restore CS0657 // 不是此声明的有效特性位置
     [ObservableProperty]
     private Point _anchor;
-    
+
     [JsonConverter(typeof(CustomScenarioInputValueJsonConverter))]
     public CustomScenarioValue? InputObject { get; init; } //数据
 
@@ -26,7 +26,6 @@ public partial class ConnectorItem : ObservableRecipient
     [ObservableProperty] private bool _isOut;
     [ObservableProperty] private bool _isSelf = false;
 
-   
 
     public bool SelfInputAble { get; set; } = true;
 
@@ -36,10 +35,7 @@ public partial class ConnectorItem : ObservableRecipient
 
     public string Title { get; set; }
 
-   
-    
 
-    
     public List<string>? Interfaces { get; set; }
 
     public ScenarioMethodNode Source { get; set; }
@@ -48,10 +44,8 @@ public partial class ConnectorItem : ObservableRecipient
         ObservableCollection<ConnectionItem> connectionItems)
     {
         if (IsOut)
-        {
             return connectionItems.Where((e) => e.Source == this)
                 .Select(e => e.Target);
-        }
 
         return connectionItems.Where((e) => e.Target == this)
             .Select(e => e.Source);
@@ -61,17 +55,14 @@ public partial class ConnectorItem : ObservableRecipient
         ObservableCollection<ConnectionItem> connectionItems)
     {
         if (IsOut)
-        {
             return connectionItems.Where((e) => e.Source == this)
                 .Select(e => e.Target.Source);
-        }
 
         return connectionItems.Where((e) => e.Target == this)
             .Select(e => e.Source.Source);
     }
-    
+
     //插件自定义输入连接器
     public bool isPluginInputConnector { get; set; }
-    [JsonIgnore]
-    public INodeInputConnector PluginInputConnector { get; set; }
+    [JsonIgnore] public INodeInputConnector PluginInputConnector { get; set; }
 }

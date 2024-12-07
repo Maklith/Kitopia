@@ -2,6 +2,5 @@
 
 public interface ISearchWindowService
 {
-    
     public void ShowOrHiddenSearchWindow();
 }

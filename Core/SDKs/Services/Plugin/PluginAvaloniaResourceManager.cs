@@ -8,20 +8,14 @@ public static class PluginAvaloniaResourceManager
 
     public static IStyle GetStyle(string key)
     {
-        if (_resources.ContainsKey(key))
-        {
-            return _resources[key];
-        }
+        if (_resources.ContainsKey(key)) return _resources[key];
 
         return null;
     }
 
     public static IStyle AddStyle(string key, IStyle style)
     {
-        if (!_resources.ContainsKey(key))
-        {
-            _resources.Add(key, style);
-        }
+        if (!_resources.ContainsKey(key)) _resources.Add(key, style);
 
         return style;
     }

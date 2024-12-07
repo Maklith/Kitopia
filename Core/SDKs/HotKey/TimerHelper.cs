@@ -7,9 +7,9 @@ namespace Kitopia.SDKs;
 
 public class TimerHelper
 {
-    Action<HotKeyModel> action;
+    private Action<HotKeyModel> action;
     private HotKeyModel HotKeyModel;
-    Timer timer;
+    private Timer timer;
 
     public TimerHelper(int interval, Action<HotKeyModel> action, HotKeyModel hotKeyModel)
     {
@@ -17,7 +17,7 @@ public class TimerHelper
         timer.AutoReset = false;
         timer.Elapsed += OnTimerElapsed;
         this.action = action;
-        this.HotKeyModel = hotKeyModel;
+        HotKeyModel = hotKeyModel;
     }
 
 // 当计时器触发时执行的操作

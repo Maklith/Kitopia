@@ -36,22 +36,18 @@ public partial class AppTools
         if (ConfigManger.Config.autoStartEverything)
         {
             if (string.IsNullOrWhiteSpace(ConfigManger.Config.everythingOnlyKey))
-            {
                 foreach (var (key, value) in collection)
-                {
                     if (key.Contains("Everything.exe"))
                     {
                         ConfigManger.Config.everythingOnlyKey = key;
                         ConfigManger.Save();
                         break;
                     }
-                }
-            }
 
             if (collection.TryGetValue(ConfigManger.Config.everythingOnlyKey, out var searchViewItem))
             {
                 var isRun = ServiceManager.Services.GetService<IEverythingService>()
-                                          .isRun();
+                    .isRun();
 
 
                 if (!isRun)
@@ -67,7 +63,8 @@ public partial class AppTools
                                 $"Kitopia即将使用任务计划来创建绕过UAC启动Everything的快捷方式\n需要确认UAC权限\n按下取消则关闭自动启动功能\n路径:{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.lnk",
                             PrimaryButtonText = "确定",
                             CloseButtonText = "取消",
-                            PrimaryAction = () => {
+                            PrimaryAction = () =>
+                            {
                                 Directory.CreateDirectory(AppDomain.CurrentDomain.BaseDirectory + "noUAC");
                                 var TempFileName =
                                     $"{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.xml";
@@ -92,7 +89,8 @@ public partial class AppTools
                                     ShowWindowCommand.SW_HIDE);
                                 action.Invoke();
                             },
-                            CloseAction = () => {
+                            CloseAction = () =>
+                            {
                                 log.Debug("关闭自动启动Everything功能");
                                 ConfigManger.Config.autoStartEverything = false;
                                 ConfigManger.Save();
@@ -119,7 +117,6 @@ public partial class AppTools
     {
         var toRemove = new List<string>();
         foreach (var (key, searchViewItem) in collection)
-        {
             switch (searchViewItem.FileType)
             {
                 case FileType.文件:
@@ -128,39 +125,27 @@ public partial class AppTools
                 case FileType.PDF文档:
                 case FileType.PPT文档:
                 {
-                    if (!File.Exists(searchViewItem.OnlyKey))
-                    {
-                        toRemove.Add(key);
-                        //collection.Remove(searchViewItem);
-                    }
-
+                    if (!File.Exists(searchViewItem.OnlyKey)) toRemove.Add(key);
+                    //collection.Remove(searchViewItem);
                     break;
                 }
                 case FileType.文件夹:
                 {
-                    if (!Directory.Exists(searchViewItem.OnlyKey))
-                    {
-                        toRemove.Add(key);
-                        //collection.Remove(searchViewItem);
-                    }
-
+                    if (!Directory.Exists(searchViewItem.OnlyKey)) toRemove.Add(key);
+                    //collection.Remove(searchViewItem);
                     break;
                 }
             }
-        }
 
-        foreach (var searchViewItem in toRemove)
-        {
-            collection.TryRemove(searchViewItem, out _);
-        }
+        foreach (var searchViewItem in toRemove) collection.TryRemove(searchViewItem, out _);
     }
 
     internal static void GetAllApps(ConcurrentDictionary<string, SearchViewItem> collection,
         bool logging = false, bool useEverything = false)
     {
         log.Debug("索引全部软件及收藏项目");
-        
-       
+
+
         UwpTools.GetAll(collection);
         log.Debug("索引全部软件及收藏项目UWP");
 
@@ -169,21 +154,17 @@ public partial class AppTools
 
         foreach (var enumerateFile in Directory.EnumerateFiles(
                      Environment.GetFolderPath(Environment.SpecialFolder.Desktop)))
-        {
             AppSolverA(collection, enumerateFile, logging: logging);
-        }
 
         foreach (var enumerateFile in Directory.EnumerateDirectories(
                      Environment.GetFolderPath(Environment.SpecialFolder.Desktop)))
-        {
             AppSolverA(collection, enumerateFile, logging: logging);
-        }
 
         foreach (var enumerateFile in Directory.EnumerateFiles(@"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
                      "*", SearchOption.AllDirectories))
         {
             switch (enumerateFile.Split(".")
-                                 .Last())
+                        .Last())
             {
                 case "lnk":
                 case "url":
@@ -202,7 +183,7 @@ public partial class AppTools
                      , "*", SearchOption.AllDirectories))
         {
             switch (enumerateFile.Split(".")
-                                 .Last())
+                        .Last())
             {
                 case "lnk":
                 case "url":
@@ -216,18 +197,13 @@ public partial class AppTools
         }
 
         foreach (var configCustomCollection in ConfigManger.Config.customCollections)
-        {
             AppSolverA(collection, configCustomCollection, logging: logging);
-        }
 
         if (useEverything)
         {
             List<string> filePaths = new();
             Tools.main(filePaths);
-            foreach (var filePath in filePaths)
-            {
-                AppSolverA(collection, filePath, logging: logging);
-            }
+            foreach (var filePath in filePaths) AppSolverA(collection, filePath, logging: logging);
 
             filePaths.Clear();
         }
@@ -237,10 +213,7 @@ public partial class AppTools
         if (ErrorLnkList.Any())
         {
             var c = new StringBuilder("检测到多个无效的快捷方式\n需要Kitopia帮你清理吗?(该功能每个错误快捷方式只提示一次)\n以下为无效的快捷方式列表:\n");
-            foreach (var s in ErrorLnkList)
-            {
-                c.AppendLine(s);
-            }
+            foreach (var s in ErrorLnkList) c.AppendLine(s);
 
             log.Debug(c.ToString());
             var dialog = new DialogContent()
@@ -249,7 +222,8 @@ public partial class AppTools
                 Content = c.ToString(),
                 PrimaryButtonText = "确定",
                 SecondaryButtonText = "取消",
-                PrimaryAction = () => {
+                PrimaryAction = () =>
+                {
                     foreach (var s in ErrorLnkList)
                     {
                         log.Debug($"删除无效快捷方式:{s}");
@@ -267,7 +241,8 @@ public partial class AppTools
 
                     ErrorLnkList.Clear();
                 },
-                SecondaryAction = () => {
+                SecondaryAction = () =>
+                {
                     foreach (var s in ErrorLnkList)
                     {
                         log.Debug($"添加无效快捷方式记录:{s}");
@@ -290,12 +265,9 @@ public partial class AppTools
         //log.Debug(Thread.CurrentThread.ManagedThreadId);
 
         var localizedName = file.Split("\\")
-                                .Last();
+            .Last();
         var lastIndexOf = localizedName.LastIndexOf(".", StringComparison.Ordinal);
-        if (lastIndexOf != -1)
-        {
-            localizedName = localizedName.Remove(lastIndexOf);
-        }
+        if (lastIndexOf != -1) localizedName = localizedName.Remove(lastIndexOf);
 
 
         if (Path.HasExtension(file))
@@ -306,7 +278,7 @@ public partial class AppTools
                 case ".lnk":
                 {
                     localizedName = Shell32.SHCreateItemFromParsingName<Shell32.IShellItem>(file)
-                                           .GetDisplayName(Shell32.SIGDN.SIGDN_NORMALDISPLAY);
+                        .GetDisplayName(Shell32.SIGDN.SIGDN_NORMALDISPLAY);
                     //var sb = new StringBuilder(260);
                     // var shellLink = new ShellLink(file, LinkResolution.None);
                     var link = new Shell32.IShellLinkW();
@@ -322,10 +294,11 @@ public partial class AppTools
                     var arg = argSb.Length > 0 ? argSb.ToString() : null;
                     if (arg != null && arg.Contains('%'))
                     {
-                        Regex regex = new Regex("%(\\w+)%");
+                        var regex = new Regex("%(\\w+)%");
 
                         // 替换后的字符串
-                        arg = regex.Replace(arg, match => {
+                        arg = regex.Replace(arg, match =>
+                        {
                             // 获取匹配到的环境变量名称
                             var variable = match.Groups[1].Value;
 
@@ -340,10 +313,7 @@ public partial class AppTools
 
                     var targetPath = sb.ToString() ?? file;
 
-                    if (string.IsNullOrWhiteSpace(targetPath))
-                    {
-                        targetPath = file;
-                    }
+                    if (string.IsNullOrWhiteSpace(targetPath)) targetPath = file;
 
                     if (!File.Exists(targetPath))
                     {
@@ -377,18 +347,13 @@ public partial class AppTools
 
                     if (refFileInfo.Exists)
                     {
-                        if (collection.ContainsKey(fullName))
-                        {
-                            return;
-                        }
+                        if (collection.ContainsKey(fullName)) return;
                     }
                     else
                     {
                         log.Debug($"无效索引:\n{file}\n目标位置:{fullName}");
                         if (!ErrorLnkList.Contains(file) && !ConfigManger.Config.errorLnk.Contains(file))
-                        {
                             ErrorLnkList.Add(file);
-                        }
 
                         return;
                     }
@@ -429,16 +394,11 @@ public partial class AppTools
                     var pattern = @"URL=(.*)"; // the regex pattern to match the url
                     var match = Regex.Match(fileContent, pattern, RegexOptions.NonBacktracking); // match the pattern
                     if (match.Success) // if a match is found
-                    {
                         url = match.Groups[1]
-                                   .Value.Replace("\r", ""); // get the url from the first group
-                    }
+                            .Value.Replace("\r", ""); // get the url from the first group
 
                     var onlyKey = url;
-                    if (collection.ContainsKey(onlyKey))
-                    {
-                        return;
-                    }
+                    if (collection.ContainsKey(onlyKey)) return;
 
                     if (ConfigManger.Config.ignoreItems.Contains(onlyKey))
                     {
@@ -449,15 +409,10 @@ public partial class AppTools
                     var pattern2 = @"IconFile=(.*)"; // the regex pattern to match the url
                     var match2 = Regex.Match(fileContent, pattern2, RegexOptions.NonBacktracking); // match the pattern
                     if (match2.Success) // if a match is found
-                    {
                         relFile = match2.Groups[1]
-                                        .Value.Replace("\r", ""); // get the url from the first group
-                    }
+                            .Value.Replace("\r", ""); // get the url from the first group
 
-                    if (string.IsNullOrWhiteSpace(relFile))
-                    {
-                        return;
-                    }
+                    if (string.IsNullOrWhiteSpace(relFile)) return;
 
                     {
                         collection.TryAdd(onlyKey, new SearchViewItem
@@ -476,10 +431,7 @@ public partial class AppTools
                 default:
                     if (File.Exists(file))
                     {
-                        if (ConfigManger.Config.ignoreItems.Contains(file))
-                        {
-                            return;
-                        }
+                        if (ConfigManger.Config.ignoreItems.Contains(file)) return;
 
                         collection.TryAdd(file, new SearchViewItem()
                         {
@@ -499,20 +451,17 @@ public partial class AppTools
         else
         {
             if (!Directory.Exists(file)) return;
-            if (ConfigManger.Config.ignoreItems.Contains(file))
-            {
-                return;
-            }
+            if (ConfigManger.Config.ignoreItems.Contains(file)) return;
 
             collection.TryAdd(file, new SearchViewItem()
             {
                 ItemDisplayName = file.Split(Path.DirectorySeparatorChar)
-                                      .Last(),
+                    .Last(),
                 FileType = FileType.文件夹,
                 IsStared = star,
                 OnlyKey = file,
                 PinyinItem = _pinyinProcessor.GetPinyin(file.Split(Path.DirectorySeparatorChar)
-                                                            .Last(), true),
+                    .Last(), true),
                 Icon = null,
                 IsVisible = true
             });
@@ -525,21 +474,15 @@ public partial class AppTools
     // 使用const或readonly修饰符来声明pattern字符串
     internal static PinyinItem NameSolver(string name)
     {
-        return (_pinyinProcessor.GetPinyin(name, true));
+        return _pinyinProcessor.GetPinyin(name, true);
     }
 
     private static void AddUtil(List<string> keys, string name)
     {
-        if (string.IsNullOrEmpty(name) || name.Length <= 1)
-        {
-            return;
-        }
+        if (string.IsNullOrEmpty(name) || name.Length <= 1) return;
 
 
-        if (!keys.Contains(name))
-        {
-            keys.Add(name);
-        }
+        if (!keys.Contains(name)) keys.Add(name);
     }
 
     [GeneratedRegex("[^A-Z]")]

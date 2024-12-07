@@ -65,10 +65,7 @@ public static class Math
         {
             // 使用正则表达式匹配第一个加法或减法运算符及其两边的操作数
             var match = Regex.Match(expression, @"(-?\d+(\.?\d+?)?)(\+|-)(-?\d+(\.\d+)?)");
-            if (string.IsNullOrWhiteSpace(match.Value))
-            {
-                break;
-            }
+            if (string.IsNullOrWhiteSpace(match.Value)) break;
 
             // 获取操作数和运算符
             var left = decimal.Parse(match.Groups[1].Value);

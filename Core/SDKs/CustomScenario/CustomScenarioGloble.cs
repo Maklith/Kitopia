@@ -1,5 +1,4 @@
-﻿
-using Core.SDKs.CustomScenario.CustomScenarioValueSerializer;
+﻿using Core.SDKs.CustomScenario.CustomScenarioValueSerializer;
 using Core.SDKs.CustomType;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Tools;
@@ -17,7 +16,7 @@ public class CustomScenarioGloble
         { "System.Int32", "整数" },
         { "System.Double", "浮点" },
         { "System.Object", "任意" },
-        { "PluginCore.NodeConnectorClass", "节点" },
+        { "PluginCore.NodeConnectorClass", "节点" }
     };
 
     public static ObservableDictionary<string, CustomScenarioTriggerInfo> Triggers = new()
@@ -26,7 +25,7 @@ public class CustomScenarioGloble
         {
             "Kitopia_SoftwareShutdown",
             new CustomScenarioTriggerInfo() { Name = "Kitopia程序关闭时", Description = "注意该触发器不会进入Tick" }
-        },
+        }
     };
 
     public static Dictionary<Type, Func<object, string>> ToolTipConverters = new();
@@ -35,10 +34,9 @@ public class CustomScenarioGloble
     {
         { typeof(string), new StringCustomScenarioValueSerializer() },
         { typeof(bool), new BoolCustomScenarioValueSerializer() },
-        {typeof(NodeConnectorClass),new NodeConnectorClassCustomScenarioValueSerializer()},
-        {typeof(Int32),new Int32CustomScenarioValueSerializer()},
-        {typeof(double),new DoubleCustomScenarioValueSerializer()},
-      
+        { typeof(NodeConnectorClass), new NodeConnectorClassCustomScenarioValueSerializer() },
+        { typeof(int), new Int32CustomScenarioValueSerializer() },
+        { typeof(double), new DoubleCustomScenarioValueSerializer() }
     };
 
     public static IEnumerable<CustomScenarioValueTuple> GetAllCouldUseTypeInValue
@@ -47,14 +45,11 @@ public class CustomScenarioGloble
         {
             var valueTuples = new List<CustomScenarioValueTuple>();
             foreach (var keyValuePair in JsonConverters)
-            {
-                
-               valueTuples.Add(new CustomScenarioValueTuple()
-               {
-                   Type = keyValuePair.Key,
-                   Value = GetI18N(keyValuePair.Key.FullName)
-               }) ;
-            }
+                valueTuples.Add(new CustomScenarioValueTuple()
+                {
+                    Type = keyValuePair.Key,
+                    Value = GetI18N(keyValuePair.Key.FullName)
+                });
 
             return valueTuples;
         }
@@ -65,15 +60,12 @@ public class CustomScenarioGloble
         { "字符串", typeof(string) },
         { "布尔", typeof(bool) },
         { "整型", typeof(int) },
-        { "双精度浮点数", typeof(double) },
+        { "双精度浮点数", typeof(double) }
     };
 
     public static string GetI18N(string key)
     {
-        if (_i18n.TryGetValue(key, out var n))
-        {
-            return n;
-        }
+        if (_i18n.TryGetValue(key, out var n)) return n;
 
         return key;
     }

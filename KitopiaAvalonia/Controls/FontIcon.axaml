@@ -6,23 +6,21 @@
     </Design.PreviewWith>
 
     <Style Selector="controls|FontIcon">
-        <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}"></Setter>
-        <Setter Property="HorizontalAlignment" Value="Center"></Setter>
-        <Setter Property="VerticalAlignment" Value="Center"></Setter>
-        <Setter Property="FontFamily" Value="{StaticResource FluentFont}"></Setter>
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="FontFamily" Value="{StaticResource FluentFont}" />
         <!-- Set Defaults -->
         <Setter Property="Template">
             <ControlTemplate>
                 <TextBlock HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
                            VerticalAlignment="{TemplateBinding VerticalAlignment}" Name="Icon"
-                           Text="{TemplateBinding Glyph}" Foreground="{TemplateBinding Foreground}">
-
-                </TextBlock>
+                           Text="{TemplateBinding Glyph}" Foreground="{TemplateBinding Foreground}" />
             </ControlTemplate>
         </Setter>
     </Style>
     <Style Selector="controls|FontIcon[IsFilled=True] /template/ TextBlock#Icon">
-        <Setter Property="FontFamily" Value="{StaticResource FluentFontFilled}"></Setter>
-        <Setter Property="Text" Value="{Binding $parent[controls:FontIcon].GlyphFilled}"></Setter>
+        <Setter Property="FontFamily" Value="{StaticResource FluentFontFilled}" />
+        <Setter Property="Text" Value="{Binding $parent[controls:FontIcon].GlyphFilled}" />
     </Style>
 </Styles>

@@ -10,7 +10,7 @@ namespace KitopiaAvalonia.Controls.SettingsExpander;
 
 [PseudoClasses(SharedPseudoclasses.s_pcAllowClick, s_pcEmpty)]
 [TemplatePart(s_tpExpander, typeof(Expander))]
-[TemplatePart(s_tpContentHost, typeof(KitopiaAvalonia.Controls.SettingsExpander.SettingsExpanderItem))]
+[TemplatePart(s_tpContentHost, typeof(SettingsExpanderItem))]
 public partial class SettingsExpander
 {
     /// <summary>

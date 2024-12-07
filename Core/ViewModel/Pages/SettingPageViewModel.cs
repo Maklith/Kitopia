@@ -23,10 +23,10 @@ public partial class SettingPageViewModel : ObservableRecipient
     private static readonly ILog log = LogManager.GetLogger("SettingPageViewModel");
 
     private ConfigBase _configBase;
-    
+
 
     public SettingPageViewModel(ConfigBase configBase)
     {
-         _configBase = configBase;
+        _configBase = configBase;
     }
 }

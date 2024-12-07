@@ -26,10 +26,7 @@ public partial class MouseQuickWindow : Window
 
     private void WindowBase_OnDeactivated(object? sender, EventArgs e)
     {
-        if (IsVisible)
-        {
-            this.Close();
-        }
+        if (IsVisible) Close();
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -46,31 +43,20 @@ public partial class MouseQuickWindow : Window
 
         int Left, Top;
         if (pos.X + windowinfo.rcClient.Width < monitorInfo.rcMonitor.Right)
-        {
             Left = pos.X;
-        }
         else
-        {
             Left = pos.X - windowinfo.rcClient.Width;
-        }
 
 
         if (pos.Y + windowinfo.rcClient.Height < monitorInfo.rcMonitor.Bottom)
-        {
             Top = pos.Y;
-        }
         else
-        {
             Top = pos.Y - windowinfo.rcClient.Height;
-        }
 
         Position = new PixelPoint(Left, Top);
 
         string? text = null;
-        if (Clipboard.GetFormatsAsync().Result.Contains("Text"))
-        {
-            text = Clipboard.GetTextAsync().Result;
-        }
+        if (Clipboard.GetFormatsAsync().Result.Contains("Text")) text = Clipboard.GetTextAsync().Result;
 
 
         var eventSimulator = new EventSimulator();
@@ -92,10 +78,7 @@ public partial class MouseQuickWindow : Window
                 log.Info(s);
             }
 
-            if (text != null)
-            {
-                Clipboard.SetTextAsync(text);
-            }
+            if (text != null) Clipboard.SetTextAsync(text);
         });
 
 

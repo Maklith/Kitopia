@@ -29,10 +29,7 @@ public class DelayAction
             {
                 Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.None, invoker);
                 //Log.Debug("完成"+timeMs);
-                if (timeMs == 0)
-                {
-                    return;
-                }
+                if (timeMs == 0) return;
 
                 _timerDbc = new Timer(timeMs);
                 _timerDbc.AutoReset = false;
@@ -43,10 +40,8 @@ public class DelayAction
                     _timerDbc.Close();
                     _timerDbc = null;
                     if (_needDelay)
-                    {
                         Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.None, invoker);
-                        //Log.Debug("完成1");
-                    }
+                    //Log.Debug("完成1");
                 };
                 _timerDbc.Start();
             }

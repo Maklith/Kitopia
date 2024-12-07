@@ -12,11 +12,14 @@ public class PluginMangerService : IPluginManger
     {
         if (PluginManager.EnablePlugin.TryGetValue(strings[0], out var value))
         {
-            return value.GetType(strings[1])?? throw new CustomScenarioLoadFromJsonException(CustomScenarioLoadFromJsonFailedType.类未找到,strings[0], strings[1]);;
+            return value.GetType(strings[1]) ??
+                   throw new CustomScenarioLoadFromJsonException(CustomScenarioLoadFromJsonFailedType.类未找到, strings[0],
+                       strings[1]);
+            ;
         }
 
-        throw new CustomScenarioLoadFromJsonException(CustomScenarioLoadFromJsonFailedType.插件未找到,strings[0], strings[1]);
-        
+        throw new CustomScenarioLoadFromJsonException(CustomScenarioLoadFromJsonFailedType.插件未找到, strings[0],
+            strings[1]);
     }
 
     public PluginInfo? GetPluginInfo(Type type)

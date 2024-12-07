@@ -19,10 +19,7 @@ public class SearchItemTool : ISearchItemTool
 
     public void OpenFile(SearchViewItem? searchViewItem, params object[] inputValues)
     {
-        if (searchViewItem is null)
-        {
-            return;
-        }
+        if (searchViewItem is null) return;
 
         WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
         Log.Debug("打开指定内容" + searchViewItem.OnlyKey);
@@ -38,9 +35,9 @@ public class SearchItemTool : ISearchItemTool
                     var timeStamp = Convert.ToInt64(ts.TotalMilliseconds);
                     var f = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Downloads\\Kitopia" +
                             timeStamp + ".png";
-                    
+
                     bitmap.Save(f);
-                    
+
                     bitmap.Dispose();
                     Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + f, "",
                         ShowWindowCommand.SW_NORMAL);
@@ -84,7 +81,7 @@ public class SearchItemTool : ISearchItemTool
                             FileName = "cmd.exe",
                             Arguments = $"/c {searchViewItem.OnlyKey} & pause",
                             UseShellExecute = false,
-                            CreateNoWindow = false,
+                            CreateNoWindow = false
                         });
                         break;
                     }
@@ -95,7 +92,8 @@ public class SearchItemTool : ISearchItemTool
                         {
                             var remove = searchViewItem.ItemDisplayName.Remove(0, 1);
                             Clipboard.SetText(remove);
-                            ServiceManager.Services.GetService<IToastService>()!.Show("Kitopia",$"计算结果{remove}已经复制到剪贴板");
+                            ServiceManager.Services.GetService<IToastService>()!.Show("Kitopia",
+                                $"计算结果{remove}已经复制到剪贴板");
                         });
                         thread.SetApartmentState(ApartmentState.STA);
                         thread.Start();
@@ -105,18 +103,14 @@ public class SearchItemTool : ISearchItemTool
                     case FileType.文件夹:
                     {
                         if (searchViewItem.Arguments == null)
-                        {
                             Shell32.ShellExecute(IntPtr.Zero, "open", searchViewItem.OnlyKey, "",
                                 searchViewItem.OnlyKey.Remove(searchViewItem.OnlyKey.LastIndexOf('\\')),
                                 ShowWindowCommand.SW_NORMAL);
-                        }
                         else
-                        {
                             Shell32.ShellExecute(IntPtr.Zero, "open", searchViewItem.OnlyKey,
                                 searchViewItem.Arguments,
                                 searchViewItem.OnlyKey.Remove(searchViewItem.OnlyKey.LastIndexOf('\\')),
                                 ShowWindowCommand.SW_SHOWNORMAL);
-                        }
 
                         break;
                     }
@@ -144,13 +138,9 @@ public class SearchItemTool : ISearchItemTool
                     case FileType.自定义情景:
                     {
                         if (ConfigManger.Config.lastOpens.ContainsKey(searchViewItem.OnlyKey))
-                        {
                             ConfigManger.Config.lastOpens[searchViewItem.OnlyKey]++;
-                        }
                         else
-                        {
                             ConfigManger.Config.lastOpens.Add(searchViewItem.OnlyKey, 1);
-                        }
 
                         break;
                     }
@@ -195,13 +185,9 @@ public class SearchItemTool : ISearchItemTool
                 case FileType.文件:
                 {
                     if (ConfigManger.Config.lastOpens.ContainsKey(item.OnlyKey))
-                    {
                         ConfigManger.Config.lastOpens[item.OnlyKey]++;
-                    }
                     else
-                    {
                         ConfigManger.Config.lastOpens.Add(item.OnlyKey, 1);
-                    }
 
                     break;
                 }
@@ -221,17 +207,12 @@ public class SearchItemTool : ISearchItemTool
             WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
             Log.Debug("以管理员身份打开指定内容" + item.OnlyKey);
             if (item.FileType == FileType.UWP应用)
-            {
                 //explorer.exe shell:AppsFolder\Microsoft.WindowsMaps_8wekyb3d8bbwe!App
-
                 Shell32.ShellExecute(IntPtr.Zero, "runas", "explorer.exe", $"shell:AppsFolder\\{item.OnlyKey}!App",
                     "", ShowWindowCommand.SW_NORMAL);
-            }
             else
-            {
                 Shell32.ShellExecute(IntPtr.Zero, "runas", item.OnlyKey, "", "",
                     ShowWindowCommand.SW_NORMAL);
-            }
 
             switch (item.FileType)
             {
@@ -245,13 +226,9 @@ public class SearchItemTool : ISearchItemTool
                 case FileType.文件:
                 {
                     if (ConfigManger.Config.lastOpens.ContainsKey(item.OnlyKey))
-                    {
                         ConfigManger.Config.lastOpens[item.OnlyKey]++;
-                    }
                     else
-                    {
                         ConfigManger.Config.lastOpens.Add(item.OnlyKey, 1);
-                    }
 
                     break;
                 }
@@ -266,18 +243,13 @@ public class SearchItemTool : ISearchItemTool
 
     public void Star(SearchViewItem? item)
     {
-        if (item is null)
-        {
-            return;
-        }
+        if (item is null) return;
 
         var collection = ServiceManager.Services.GetService<SearchWindowViewModel>()!._collection;
         Log.Debug("添加/移除收藏" + item.OnlyKey);
         item.IsStared = !item.IsStared;
         if (ConfigManger.Config!.customCollections.Contains(item.OnlyKey))
-        {
             ConfigManger.Config.customCollections.Remove(item.OnlyKey);
-        }
 
         if (item.IsStared) //收藏操作
         {
@@ -288,10 +260,7 @@ public class SearchItemTool : ISearchItemTool
         {
             var keyValuePairs = collection.Where(e =>
                 e.Value.OnlyKey.Equals(item.OnlyKey));
-            foreach (var keyValuePair in keyValuePairs)
-            {
-                collection.TryRemove(keyValuePair.Key, out _);
-            }
+            foreach (var keyValuePair in keyValuePairs) collection.TryRemove(keyValuePair.Key, out _);
         }
 
         ConfigManger.Save();
@@ -299,15 +268,10 @@ public class SearchItemTool : ISearchItemTool
 
     public void Pin(SearchViewItem? item)
     {
-        if (ConfigManger.Config.alwayShows.Contains(item.OnlyKey))
-        {
-            ConfigManger.Config.alwayShows.Remove(item.OnlyKey);
-        }
+        if (ConfigManger.Config.alwayShows.Contains(item.OnlyKey)) ConfigManger.Config.alwayShows.Remove(item.OnlyKey);
 
         if (item.IsPined) //收藏操作
-        {
             ConfigManger.Config.alwayShows.Insert(0, item.OnlyKey);
-        }
 
         ConfigManger.Save();
     }
@@ -328,15 +292,10 @@ public class SearchItemTool : ISearchItemTool
                 startInfo.FileName = @"C:\Windows\sysnative\cmd.exe";
             }
 
-            if (item.FileType == FileType.文件夹)
-            {
-                startInfo.WorkingDirectory = item.OnlyKey;
-            }
+            if (item.FileType == FileType.文件夹) startInfo.WorkingDirectory = item.OnlyKey;
 
             if (item.FileType is FileType.文件 or FileType.Excel文档 or FileType.Word文档 or FileType.PDF文档 or FileType.PPT文档)
-            {
                 startInfo.WorkingDirectory = item.OnlyKey[..item.OnlyKey.LastIndexOf('\\')];
-            }
 
             Process.Start(startInfo);
 
@@ -352,13 +311,9 @@ public class SearchItemTool : ISearchItemTool
                 case FileType.文件:
                 {
                     if (ConfigManger.Config.lastOpens.ContainsKey(item.OnlyKey))
-                    {
                         ConfigManger.Config.lastOpens[item.OnlyKey]++;
-                    }
                     else
-                    {
                         ConfigManger.Config.lastOpens.Add(item.OnlyKey, 1);
-                    }
 
                     break;
                 }
@@ -375,8 +330,6 @@ public class SearchItemTool : ISearchItemTool
     {
         if (((SearchWindowViewModel)ServiceManager.Services!.GetService(typeof(SearchWindowViewModel))!)._collection
             .TryGetValue(onlyKey, out var item))
-        {
-            OpenFile(item, inputValues: inputValues);
-        }
+            OpenFile(item, inputValues);
     }
 }

@@ -2,12 +2,6 @@
 
 public class KeyValuePairBindingTool
 {
-    public object Key
-    {
-        get;
-    }
-    public object Value
-    {
-        get;
-    }
+    public object Key { get; }
+    public object Value { get; }
 }

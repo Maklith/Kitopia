@@ -6,7 +6,7 @@
 
         <IsPackable>false</IsPackable>
         <IsTestProject>true</IsTestProject>
-        
+
     </PropertyGroup>
     <PropertyGroup Condition=" '$(OS)' != 'Windows_NT' ">
         <TargetFrameworks>net8.0</TargetFrameworks>
@@ -29,7 +29,7 @@
         <PackageReference Include="Silk.NET.Direct3D9" Version="2.21.0"/>
     </ItemGroup>
     <ItemGroup>
-      <ProjectReference Include="..\KitopiaAvalonia\KitopiaAvalonia.csproj" />
+        <ProjectReference Include="..\KitopiaAvalonia\KitopiaAvalonia.csproj"/>
     </ItemGroup>
 
 </Project>

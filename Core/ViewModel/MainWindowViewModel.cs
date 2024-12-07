@@ -29,41 +29,41 @@ public partial class MainWindowViewModel : ObservableRecipient
 
     public ObservableCollection<MenuItemViewModel> MenuItems { get; } = new()
     {
-        new()
+        new MenuItemViewModel
         {
             MenuHeader = "主页",
             Key = "Home",
             MenuIconGlyph = "\uf481",
-            MenuIconFilledGlyph = "\uf488",
+            MenuIconFilledGlyph = "\uf488"
         },
-        new()
+        new MenuItemViewModel
         {
             MenuHeader = "市场",
             Key = "Market",
             MenuIconGlyph = "\uf151",
-            MenuIconFilledGlyph = "\uf151",
+            MenuIconFilledGlyph = "\uf151"
         },
-        new()
+        new MenuItemViewModel
         {
             MenuHeader = "插件",
             Key = "Plugin",
             MenuIconGlyph = "\uf60a",
-            MenuIconFilledGlyph = "\uf614",
+            MenuIconFilledGlyph = "\uf614"
         },
-        new()
+        new MenuItemViewModel
         {
             MenuHeader = "情景",
             Key = "Scenario",
             MenuIconGlyph = "\ue065",
-            MenuIconFilledGlyph = "\ue065",
+            MenuIconFilledGlyph = "\ue065"
         },
-        new()
+        new MenuItemViewModel
         {
             MenuHeader = "快捷键",
             Key = "Hotkey",
             MenuIconGlyph = "\uf4b9",
-            MenuIconFilledGlyph = "\uf4c3",
-        },
+            MenuIconFilledGlyph = "\uf4c3"
+        }
     };
 
     [RelayCommand]

@@ -10,13 +10,7 @@ namespace Core.ViewModel.Pages.customScenario;
 
 public partial class CustomScenariosManagerPageViewModel : ObservableRecipient
 {
-    public ObservableCollection<CustomScenario> CustomScenarios
-    {
-        get
-        {
-            return CustomScenarioManger.CustomScenarios;
-        }
-    }
+    public ObservableCollection<CustomScenario> CustomScenarios => CustomScenarioManger.CustomScenarios;
 
     [RelayCommand]
     public void NewCustomScenarios()
@@ -52,13 +46,7 @@ public partial class CustomScenariosManagerPageViewModel : ObservableRecipient
             Content = "是否确定删除?\n他真的会丢失很久很久(不可恢复)",
             PrimaryButtonText = "确定",
             SecondaryButtonText = "取消",
-            PrimaryAction = () =>
-            {
-                Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    CustomScenarioManger.Remove(scenario);
-                });
-            }
+            PrimaryAction = () => { Dispatcher.UIThread.InvokeAsync(() => { CustomScenarioManger.Remove(scenario); }); }
         };
         ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
             dialog);

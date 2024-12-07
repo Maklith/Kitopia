@@ -16,10 +16,7 @@ public class MyCoolObservableExceptionHandler : IObserver<Exception>
         if (Debugger.IsAttached) Debugger.Break();
         Log.Error(value);
         new ErrorDialog(null, value.ToString()).Show();
-        RxApp.MainThreadScheduler.Schedule(() =>
-        {
-            throw value;
-        });
+        RxApp.MainThreadScheduler.Schedule(() => { throw value; });
     }
 
     public void OnError(Exception error)
@@ -27,18 +24,12 @@ public class MyCoolObservableExceptionHandler : IObserver<Exception>
         if (Debugger.IsAttached) Debugger.Break();
         Log.Error(error);
         new ErrorDialog(null, error.ToString()).Show();
-        RxApp.MainThreadScheduler.Schedule(() =>
-        {
-            throw error;
-        });
+        RxApp.MainThreadScheduler.Schedule(() => { throw error; });
     }
 
     public void OnCompleted()
     {
         if (Debugger.IsAttached) Debugger.Break();
-        RxApp.MainThreadScheduler.Schedule(() =>
-        {
-            throw new NotImplementedException();
-        });
+        RxApp.MainThreadScheduler.Schedule(() => { throw new NotImplementedException(); });
     }
 }

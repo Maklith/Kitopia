@@ -34,10 +34,7 @@ public class AutoTriggersCtr : IValueConverter
         {
             var keyValuePair = ((Control)((CompiledBindingExtension)parameter).DefaultAnchor.Target).DataContext;
             var key = ((KeyValuePair<string, CustomScenarioTriggerInfo>)keyValuePair).Key;
-            if (b == CustomScenario.AutoTriggers.Contains(key))
-            {
-                return CustomScenario;
-            }
+            if (b == CustomScenario.AutoTriggers.Contains(key)) return CustomScenario;
 
             WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg()
                 { Type = 1, Name = key, CustomScenario = CustomScenario });
@@ -48,10 +45,7 @@ public class AutoTriggersCtr : IValueConverter
             }
             else
             {
-                if (CustomScenario.AutoTriggers.Contains(key))
-                {
-                    CustomScenario.AutoTriggers.Remove(key);
-                }
+                if (CustomScenario.AutoTriggers.Contains(key)) CustomScenario.AutoTriggers.Remove(key);
             }
         }
 

@@ -34,10 +34,7 @@ public class HotKeyShow : TemplatedControl
     public static readonly StyledProperty<HotKeyModel> HotKeyModelProperty =
         AvaloniaProperty.Register<HotKeyShow, HotKeyModel>(nameof(HotKeyModel), coerce: (o, s) =>
         {
-            if (s.UUID is not null)
-            {
-                HotKeyModelChanged(s, (HotKeyShow)o);
-            }
+            if (s.UUID is not null) HotKeyModelChanged(s, (HotKeyShow)o);
 
             return s;
         });
@@ -71,15 +68,9 @@ public class HotKeyShow : TemplatedControl
         Default = this;
         WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey", (_, s) =>
         {
-            if (!HotKeyModel.HasValue)
-            {
-                return;
-            }
+            if (!HotKeyModel.HasValue) return;
 
-            if (s == HotKeyModel.Value.UUID)
-            {
-                HotKeyModelChanged(HotKeyManager.HotKetImpl.GetByUuid(s), this);
-            }
+            if (s == HotKeyModel.Value.UUID) HotKeyModelChanged(HotKeyManager.HotKetImpl.GetByUuid(s), this);
         });
         SetValue(RemoveHotKeyProperty, new RelayCommand(Remove));
         SetValue(EditHotKeyProperty, new RelayCommand(Edit));
@@ -131,7 +122,7 @@ public class HotKeyShow : TemplatedControl
         var type = 0000;
         if (hotKeyModelN == null)
         {
-            hotKeyShow.KeyType = (HotKeyShow.KeyTypeE)type;
+            hotKeyShow.KeyType = (KeyTypeE)type;
             return;
         }
 
@@ -150,34 +141,19 @@ public class HotKeyShow : TemplatedControl
             return;
         }
 
-        if (hotKeyModel.IsSelectAlt)
-        {
-            type += 10;
-        }
+        if (hotKeyModel.IsSelectAlt) type += 10;
 
-        if (hotKeyModel.IsSelectCtrl)
-        {
-            type += 1000;
-        }
+        if (hotKeyModel.IsSelectCtrl) type += 1000;
 
-        if (hotKeyModel.IsSelectShift)
-        {
-            type += 100;
-        }
+        if (hotKeyModel.IsSelectShift) type += 100;
 
-        if (hotKeyModel.IsSelectWin)
-        {
-            type += 1;
-        }
+        if (hotKeyModel.IsSelectWin) type += 1;
 
-        if (type == 0000 && hotKeyModel.SelectKey != EKey.未设置)
-        {
-            type = 10000;
-        }
+        if (type == 0000 && hotKeyModel.SelectKey != EKey.未设置) type = 10000;
 
 
         hotKeyShow.IsActivated = HotKeyManager.HotKetImpl.IsActive(hotKeyModel.UUID);
-        hotKeyShow.KeyType = (HotKeyShow.KeyTypeE)type;
+        hotKeyShow.KeyType = (KeyTypeE)type;
         hotKeyShow.KeyName = hotKeyModel.SelectKey.ToString();
     }
 
@@ -193,10 +169,7 @@ public class HotKeyShow : TemplatedControl
 
     private void Edit()
     {
-        if (HotKeyModel is null)
-        {
-            return;
-        }
+        if (HotKeyModel is null) return;
 
         if (HotKeyModel.Value.Type == HotKeyType.Mouse && HotKeyModel.Value.MouseButton == ushort.MaxValue)
             return;

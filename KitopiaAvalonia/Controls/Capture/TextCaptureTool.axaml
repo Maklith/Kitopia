@@ -11,7 +11,9 @@
             <ControlTemplate>
                 <Panel>
                     <TextBlock Text="{TemplateBinding Text}" />
-                    <TextBox ZIndex="1" Text="{Binding RelativeSource={RelativeSource TemplatedParent},Path=Text,Mode=TwoWay}" IsVisible="{TemplateBinding IsSelected}"></TextBox>
+                    <TextBox ZIndex="1"
+                             Text="{Binding RelativeSource={RelativeSource TemplatedParent},Path=Text,Mode=TwoWay}"
+                             IsVisible="{TemplateBinding IsSelected}" />
                 </Panel>
 
             </ControlTemplate>

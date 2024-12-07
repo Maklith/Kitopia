@@ -25,7 +25,7 @@ public class WindowToolServiceWindow : IWindowTool
         User32.GetWindowRect(window.TryGetPlatformHandle().Handle, out var windowRect);
         window.Position =
             new PixelPoint(
-                (monitorInfo.rcMonitor.Left + (int)((monitorInfo.rcMonitor.Width - windowRect.Width) / 2)),
+                monitorInfo.rcMonitor.Left + (int)((monitorInfo.rcMonitor.Width - windowRect.Width) / 2),
                 monitorInfo.rcMonitor.Top + monitorInfo.rcMonitor.Height / 4);
     }
 }

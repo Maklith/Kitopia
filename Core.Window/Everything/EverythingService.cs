@@ -14,7 +14,8 @@ public class EverythingService : IEverythingService
         if (IntPtr.Size == 8)
         {
             // 64-bit
-            var task = Task.Run<bool>(() => {
+            var task = Task.Run<bool>(() =>
+            {
                 Everything64.Everything_SetMax(1);
                 return Everything64.Everything_QueryW(true);
             });
@@ -31,7 +32,8 @@ public class EverythingService : IEverythingService
         {
             // 32-bit
 
-            var task = Task.Run<bool>(() => {
+            var task = Task.Run<bool>(() =>
+            {
                 Everything32.Everything_SetMax(1);
                 return Everything32.Everything_QueryW(true);
             });

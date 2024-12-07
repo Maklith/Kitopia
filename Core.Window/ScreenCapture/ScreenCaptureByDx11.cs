@@ -62,26 +62,20 @@ public class ScreenCaptureByDx11 : IScreenCapture
     {
         unsafe
         {
-            DXGI dxgi = new DXGI(new DefaultNativeContext("dxgi"));
+            var dxgi = new DXGI(new DefaultNativeContext("dxgi"));
             ComPtr<IDXGIFactory1> factory = null;
             IDXGIAdapter1* adapter1 = null;
             ID3D11Device* device = null;
             ID3D11DeviceContext* context = null;
             ID3D11DeviceContext* immediateContext = null;
-            D3D11 d3D11 = new D3D11(new DefaultNativeContext("d3d11"));
+            var d3D11 = new D3D11(new DefaultNativeContext("d3d11"));
             try
             {
-                if (dxgi.CreateDXGIFactory1(out factory) != 0)
-                {
-                    throw new Exception("Failed to create DXGI factory");
-                }
+                if (dxgi.CreateDXGIFactory1(out factory) != 0) throw new Exception("Failed to create DXGI factory");
 
-                if (factory.EnumAdapters1(0, ref adapter1) != 0)
-                {
-                    throw new Exception("Failed to create DXGI adapter");
-                }
+                if (factory.EnumAdapters1(0, ref adapter1) != 0) throw new Exception("Failed to create DXGI adapter");
 
-                D3DFeatureLevel featureLevel = D3DFeatureLevel.Level110;
+                var featureLevel = D3DFeatureLevel.Level110;
                 D3DFeatureLevel[] featureLevels =
                 [
                     D3DFeatureLevel.Level110
@@ -93,20 +87,18 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             (uint)CreateDeviceFlag.None, pFeatureLevels, (uint)featureLevels.Length, D3D11.SdkVersion,
                             ref device,
                             &featureLevel, ref context) != 0)
-                    {
                         throw new Exception("Failed to create D3D11 device");
-                    }
                 }
 
                 device->GetImmediateContext(ref immediateContext);
 
-                   
+
                 action.Invoke(new Dx11Ptrs()
                 {
                     _adapter1 = adapter1,
                     device = device,
                     context = context,
-                    immediateContext = immediateContext,
+                    immediateContext = immediateContext
                 });
             }
             finally
@@ -128,12 +120,10 @@ public class ScreenCaptureByDx11 : IScreenCapture
             }
         }
     }
+
     public Stack<ScreenCaptureResult> CaptureAllScreen()
     {
         var screenCaptureResults = new Stack<ScreenCaptureResult>();
-        
-       
-       
 
 
         return screenCaptureResults;
@@ -144,26 +134,20 @@ public class ScreenCaptureByDx11 : IScreenCapture
         var screenCaptureInfos = new List<ScreenCaptureInfo>();
         unsafe
         {
-            DXGI dxgi = new DXGI(new DefaultNativeContext("dxgi"));
+            var dxgi = new DXGI(new DefaultNativeContext("dxgi"));
             ComPtr<IDXGIFactory1> factory = null;
             IDXGIAdapter1* adapter1 = null;
             ID3D11Device* device = null;
             ID3D11DeviceContext* context = null;
             ID3D11DeviceContext* immediateContext = null;
-            D3D11 d3D11 = new D3D11(new DefaultNativeContext("d3d11"));
+            var d3D11 = new D3D11(new DefaultNativeContext("d3d11"));
             try
             {
-                if (dxgi.CreateDXGIFactory1(out factory) != 0)
-                {
-                    throw new Exception("Failed to create DXGI factory");
-                }
+                if (dxgi.CreateDXGIFactory1(out factory) != 0) throw new Exception("Failed to create DXGI factory");
 
-                if (factory.EnumAdapters1(0, ref adapter1) != 0)
-                {
-                    throw new Exception("Failed to create DXGI adapter");
-                }
+                if (factory.EnumAdapters1(0, ref adapter1) != 0) throw new Exception("Failed to create DXGI adapter");
 
-                D3DFeatureLevel featureLevel = D3DFeatureLevel.Level111;
+                var featureLevel = D3DFeatureLevel.Level111;
                 D3DFeatureLevel[] featureLevels =
                 [
                     D3DFeatureLevel.Level111
@@ -175,9 +159,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             (uint)CreateDeviceFlag.None, pFeatureLevels, (uint)featureLevels.Length, D3D11.SdkVersion,
                             ref device,
                             &featureLevel, ref context) != 0)
-                    {
                         throw new Exception("Failed to create D3D11 device");
-                    }
                 }
 
                 device->GetImmediateContext(ref immediateContext);
@@ -189,11 +171,8 @@ public class ScreenCaptureByDx11 : IScreenCapture
                     i++;
                     try
                     {
-                        OutputDesc desc = new OutputDesc(null);
-                        if (output->GetDesc(ref desc) != 0)
-                        {
-                            throw new Exception("Failed to get output description");
-                        }
+                        var desc = new OutputDesc(null);
+                        if (output->GetDesc(ref desc) != 0) throw new Exception("Failed to get output description");
                         screenCaptureInfos.Add(new ScreenCaptureInfo()
                         {
                             Index = i,
@@ -202,7 +181,6 @@ public class ScreenCaptureByDx11 : IScreenCapture
                             X = desc.DesktopCoordinates.Min.X,
                             Y = desc.DesktopCoordinates.Min.Y
                         });
-
                     }
                     catch (Exception e)
                     {
@@ -212,7 +190,6 @@ public class ScreenCaptureByDx11 : IScreenCapture
                     {
                         output->Release();
                         output = null;
-                            
                     }
                 }
 
@@ -243,16 +220,15 @@ public class ScreenCaptureByDx11 : IScreenCapture
         return default;
     }
 
-    
 
     private unsafe struct Dx11Ptrs
     {
         public IDXGIAdapter1* _adapter1;
-        public ID3D11Device* device ;
-        public ID3D11DeviceContext* context ;
-        public ID3D11DeviceContext* immediateContext ;
-        
+        public ID3D11Device* device;
+        public ID3D11DeviceContext* context;
+        public ID3D11DeviceContext* immediateContext;
     }
+
     public unsafe Stack<ScreenCaptureResult> CaptureAllScreenBytes()
     {
         var screenCaptureResults = new Stack<ScreenCaptureResult>();
@@ -263,7 +239,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
             while (intPtr._adapter1->EnumOutputs(i, ref output) == 0)
             {
                 i++;
-                
+
                 IDXGIOutputDuplication* outputDuplication = null;
                 IDXGIResource* desktopResource = null;
                 ID3D11Texture2D* stagingTexture = null;
@@ -274,82 +250,59 @@ public class ScreenCaptureByDx11 : IScreenCapture
                 ComPtr<ID3D11Resource> stagingResource = null;
                 try
                 {
-                    OutputDesc desc = new OutputDesc(null);
-                    if (output->GetDesc(ref desc) != 0)
-                    {
-                        throw new Exception("Failed to get output description");
-                    }
+                    var desc = new OutputDesc(null);
+                    if (output->GetDesc(ref desc) != 0) throw new Exception("Failed to get output description");
                     if (output->QueryInterface<IDXGIOutput1>(out output1) != 0)
-                    {
                         throw new Exception("Failed to get IDXGIOutput5");
-                    }
                     if (output->QueryInterface<IDXGIOutput5>(out output5) != 0)
-                    {
                         throw new Exception("Failed to get IDXGIOutput5");
-                    }
                     if (output->QueryInterface<IDXGIOutput6>(out output6) != 0)
-                    {
                         throw new Exception("Failed to get IDXGIOutput6");
-                    }
 
-                    OutputDesc1 outputDesc=new OutputDesc1() ;
-                    if (output6.GetDesc1(ref outputDesc)!=0)
-                    {
-                        throw new Exception("Failed to get Desc1");
-                    }
+                    var outputDesc = new OutputDesc1();
+                    if (output6.GetDesc1(ref outputDesc) != 0) throw new Exception("Failed to get Desc1");
                     //uint whiteSDRLevel = 0;
                     //var firstOrDefault = whiteSdrLevel.FirstOrDefault(e=>e?.Item1==i-1);
-                            
+
                     Format[] dFormats =
                     [
                         Format.FormatR16G16B16A16Float
                     ];
                     if (!outputDesc.ColorSpace.ToString().EndsWith("2020"))
-                    {
                         dFormats =
                         [
                             Format.FormatR8G8B8A8Unorm
                         ];
-                    }
                     fixed (Format* pFeatureLevels = &dFormats[0])
                     {
-                                
-                        if (output5.DuplicateOutput1 ((IUnknown*)intPtr.device,0,(uint)dFormats.Length,pFeatureLevels, ref outputDuplication) != 0)
-                        {
-                            if (output1.DuplicateOutput((IUnknown*)intPtr.device, ref outputDuplication )!=0)
-                            {
+                        if (output5.DuplicateOutput1((IUnknown*)intPtr.device, 0, (uint)dFormats.Length, pFeatureLevels,
+                                ref outputDuplication) != 0)
+                            if (output1.DuplicateOutput((IUnknown*)intPtr.device, ref outputDuplication) != 0)
                                 throw new Exception("Failed to get output duplication");
-                            }
-
-                            
-                        }
                     }
-                            
 
-                    OutduplFrameInfo outduplFrameInfo = new OutduplFrameInfo();
-                            
-                            
-                    OutduplDesc desc2 = new OutduplDesc();
+
+                    var outduplFrameInfo = new OutduplFrameInfo();
+
+
+                    var desc2 = new OutduplDesc();
                     outputDuplication->GetDesc(ref desc2);
-                            
+
                     while (true)
                     {
                         Thread.Sleep(50);
                         if (outputDuplication->AcquireNextFrame(3000, &outduplFrameInfo, &desktopResource) != 0 ||
-                            outduplFrameInfo.LastPresentTime== 0)
-                        {
+                            outduplFrameInfo.LastPresentTime == 0)
                             break;
-                        }
                     }
+
                     if (desktopResource->QueryInterface<ID3D11Resource>(out desktopTexture) != 0)
-                    {
                         throw new Exception("Failed to get desktop texture");
-                    }
-                            
+
                     Texture2DDesc stagingTextureDesc = new()
                     {
                         CPUAccessFlags = (uint)CpuAccessFlag.Read,
-                        BindFlags = (uint)(BindFlag.None),
+                        BindFlags = (uint)BindFlag.None,
                         Format = dFormats[0],
                         Width = (uint)desc.DesktopCoordinates.Size.X,
                         Height = (uint)desc.DesktopCoordinates.Size.Y,
@@ -361,24 +314,20 @@ public class ScreenCaptureByDx11 : IScreenCapture
                     };
 
                     if (intPtr.device->CreateTexture2D(&stagingTextureDesc, null, ref stagingTexture) != 0)
-                    {
                         throw new Exception("Failed to create staging texture");
-                    }
 
                     stagingTexture->QueryInterface<ID3D11Resource>(out stagingResource);
                     intPtr.immediateContext->CopyResource(stagingResource, desktopTexture);
-                            
-                    MappedSubresource mappedSubresource = new MappedSubresource();
-                            
+
+                    var mappedSubresource = new MappedSubresource();
+
                     if (intPtr.immediateContext->Map(stagingResource, 0, Map.Read, 0, &mappedSubresource) != 0)
-                    {
                         throw new Exception("Failed to map staging texture");
-                    }
-                            
+
                     var re = CaptureTool.GetBytesSpan(mappedSubresource, outputDesc);
                     intPtr.immediateContext->Unmap(stagingResource, 0);
                     outputDuplication->ReleaseFrame();
-                    
+
                     screenCaptureResults.Push(new ScreenCaptureResult()
                     {
                         Bytes = re,
@@ -386,7 +335,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                         {
                             Height = desc.DesktopCoordinates.Size.Y,
                             Width = desc.DesktopCoordinates.Size.X,
-                            X= desc.DesktopCoordinates.Min.X,
+                            X = desc.DesktopCoordinates.Min.X,
                             Y = desc.DesktopCoordinates.Min.Y
                         }
                     });
@@ -412,13 +361,12 @@ public class ScreenCaptureByDx11 : IScreenCapture
                     output5 = null;
                     desktopTexture = null;
                     stagingResource = null;
-                            
                 }
             }
         });
         return screenCaptureResults;
     }
-    
+
     public Stack<ScreenCaptureResult> CaptureAllScreenBitmap()
     {
         var screenCaptureResults = new Stack<ScreenCaptureResult>();
@@ -430,12 +378,10 @@ public class ScreenCaptureByDx11 : IScreenCapture
                 new Vector(96, 96), PixelFormat.Rgba8888);
             using (var l = writeableBitmap.Lock())
             {
-                for (var r = 0; r <captureAllScreenInfo.Info.Height; r++)
-                {
+                for (var r = 0; r < captureAllScreenInfo.Info.Height; r++)
                     Marshal.Copy(captureAllScreenInfo.Bytes, r * captureAllScreenInfo.Info.Width * 4,
                         new IntPtr(l.Address.ToInt64() + r * l.RowBytes),
                         captureAllScreenInfo.Info.Width * 4);
-                }
             }
 
             captureAllScreenInfo.Bytes = null;

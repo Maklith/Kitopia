@@ -16,16 +16,16 @@
                 <ResourceInclude Source="Styles/Icons.axaml" />
                 <ResourceInclude Source="Styles/FluentUiStyles.axaml" />
                 <ResourceInclude Source="Styles/FAColorPicker.axaml" />
-                <ResourceInclude Source="Controls/SettingsExpander/SettingsExpanderStyles.axaml"></ResourceInclude>
-                <ResourceInclude Source="Controls/SettingsExpander/SettingsExpanderItemStyles.axaml"></ResourceInclude>
+                <ResourceInclude Source="Controls/SettingsExpander/SettingsExpanderStyles.axaml" />
+                <ResourceInclude Source="Controls/SettingsExpander/SettingsExpanderItemStyles.axaml" />
             </ResourceDictionary.MergedDictionaries>
             <converter:DoubleQuarterConverter x:Key="doubleQuarterConverter" />
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>
-        
+
         <semi:SemiTheme Locale="zh-CN" />
-        
+
         <u-semi:SemiTheme Locale="zh-CN" />
         <StyleInclude Source="avares://Semi.Avalonia/Themes/Index.axaml" />
         <StyleInclude Source="avares://Semi.Avalonia.ColorPicker/Index.axaml" />

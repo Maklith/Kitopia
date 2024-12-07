@@ -67,10 +67,7 @@ public class ListShow : ListBox
     //AddCommand执行方法
     private void OnAdd(string? obj)
     {
-        if (string.IsNullOrWhiteSpace(obj))
-        {
-            return;
-        }
+        if (string.IsNullOrWhiteSpace(obj)) return;
 
         if (ItemsSource is IList list)
         {
@@ -81,10 +78,7 @@ public class ListShow : ListBox
 
     private void InnerOnAdd(string? obj)
     {
-        if (string.IsNullOrWhiteSpace(obj))
-        {
-            return;
-        }
+        if (string.IsNullOrWhiteSpace(obj)) return;
 
         AddCommand.Execute(obj);
         TextValue = "";
@@ -93,14 +87,8 @@ public class ListShow : ListBox
     //DelCommand执行方法
     private void OnDel(string? obj)
     {
-        if (obj == null)
-        {
-            return;
-        }
+        if (obj == null) return;
 
-        if (ItemsSource is IList list)
-        {
-            list.Remove(obj);
-        }
+        if (ItemsSource is IList list) list.Remove(obj);
     }
 }

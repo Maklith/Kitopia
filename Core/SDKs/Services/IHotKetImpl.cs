@@ -17,8 +17,5 @@ public interface IHotKetImpl
     public bool IsActive(string uuid);
     public IEnumerable<HotKeyModel> GetAllRegistered();
 
-    public IEnumerable<HotKeyModel> AllRegistered
-    {
-        get => GetAllRegistered();
-    }
+    public IEnumerable<HotKeyModel> AllRegistered => GetAllRegistered();
 }

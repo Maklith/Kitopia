@@ -10,12 +10,13 @@ public partial class DialogOvercover : UserControl
 {
     public static readonly StyledProperty<bool> CanDismissProperty =
         AvaloniaProperty.Register<DialogOvercover, bool>(nameof(CanDismiss), false);
-    
+
     public bool CanDismiss
     {
         get => GetValue(CanDismissProperty);
         set => SetValue(CanDismissProperty, value);
     }
+
     private const string s_pcPrimary = ":primary";
     private const string s_pcSecondary = ":secondary";
     private const string s_pcClose = ":close";
@@ -27,20 +28,20 @@ public partial class DialogOvercover : UserControl
         InitializeComponent();
     }
 
-    public DialogOvercover(DialogContent content,bool canDismiss = false)
+    public DialogOvercover(DialogContent content, bool canDismiss = false)
     {
         CanDismiss = canDismiss;
         InitializeComponent();
         Title.Text = content.Title;
         Content.Content = content.Content;
 
-       
 
         if (content.PrimaryButtonText != null)
         {
             PrimaryButton.Content = content.PrimaryButtonText;
 
-            PrimaryButton.Click += (sender, args) => {
+            PrimaryButton.Click += (sender, args) =>
+            {
                 IsVisible = false;
                 content.PrimaryAction?.Invoke();
             };
@@ -50,7 +51,8 @@ public partial class DialogOvercover : UserControl
         if (content.CloseButtonText != null)
         {
             CloseButton.Content = content.CloseButtonText;
-            CloseButton.Click += (sender, args) => {
+            CloseButton.Click += (sender, args) =>
+            {
                 IsVisible = false;
                 content.CloseAction?.Invoke();
             };
@@ -134,19 +136,20 @@ public partial class DialogOvercover : UserControl
     {
         if (!_mouseDownForWindowMoving) return;
 
-        PointerPoint currentPoint = e.GetCurrentPoint(this);
+        var currentPoint = e.GetCurrentPoint(this);
         // Position = new PixelPoint(Position.X + (int)(currentPoint.Position.X - _originalPoint.Position.X),
         //     Position.Y + (int)(currentPoint.Position.Y - _originalPoint.Position.Y));
     }
 
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (CanDismiss&&sender is DialogOvercover)
+        if (CanDismiss && sender is DialogOvercover)
         {
-            this.IsVisible = false;
+            IsVisible = false;
             e.Handled = true;
             return;
         }
+
         _mouseDownForWindowMoving = true;
         _originalPoint = e.GetCurrentPoint(this);
         e.Handled = true;
@@ -162,6 +165,6 @@ public partial class DialogOvercover : UserControl
     {
         var visualParent = this.GetVisualParent();
         BackgroundElement.Width = visualParent.Bounds.Width / 2.5;
-        BackgroundElement.Height = visualParent.Bounds.Height /2;
+        BackgroundElement.Height = visualParent.Bounds.Height / 2;
     }
 }

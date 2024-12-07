@@ -12,6 +12,8 @@ public class HotKeySignNameToolCTr : IMultiValueConverter
         return string.Join("_", values);
     }
 
-    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) =>
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+    {
         throw new NotImplementedException();
+    }
 }

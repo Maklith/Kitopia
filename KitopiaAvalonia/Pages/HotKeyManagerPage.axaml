@@ -6,7 +6,6 @@
              xmlns:pages="clr-namespace:Core.ViewModel.Pages;assembly=Core"
              xmlns:controls1="clr-namespace:KitopiaAvalonia.Controls"
              xmlns:hotkey="clr-namespace:Core.SDKs.HotKey;assembly=Core"
-             xmlns:hotKey="clr-namespace:Core.SDKs.HotKey;assembly=PluginCore"
              xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="pages:HotKeyManagerPageViewModel"
@@ -15,8 +14,7 @@
         <converter:HotKeySignNameToStringCtr x:Key="HotKeySignNameToStringCtr" />
     </UserControl.Resources>
     <Grid RowDefinitions="Auto,*" Margin="42">
-        <TextBlock Margin="0" FontSize="18" FontWeight="Bold" Text="快捷键列表">
-        </TextBlock>
+        <TextBlock Margin="0" FontSize="18" FontWeight="Bold" Text="快捷键列表" />
         <ScrollViewer Grid.Row="1">
             <ItemsControl
 
@@ -42,9 +40,7 @@
 
                         <WrapPanel ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                    ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                   ScrollViewer.AllowAutoHide="True">
-
-                        </WrapPanel>
+                                   ScrollViewer.AllowAutoHide="True" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
 

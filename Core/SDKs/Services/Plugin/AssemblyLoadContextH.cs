@@ -24,7 +24,7 @@ public class AssemblyLoadContextH : AssemblyLoadContext
     public AssemblyLoadContextH(string pluginPath, string name) : base(isCollectible: true, name: name)
     {
         _resolver = new AssemblyDependencyResolver(pluginPath);
-        _assembly = this.LoadFromAssemblyPath(pluginPath);
+        _assembly = LoadFromAssemblyPath(pluginPath);
 
         Unloading += (sender) =>
         {
@@ -41,7 +41,7 @@ public class AssemblyLoadContextH : AssemblyLoadContext
                 IncludeFields = true,
                 WriteIndented = true,
                 ReferenceHandler = ReferenceHandler.Preserve,
-                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
                 //DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
             _assembly = null;
@@ -61,9 +61,7 @@ public class AssemblyLoadContextH : AssemblyLoadContext
         {
             if (assemblyPath.EndsWith("WinRT.Runtime.dll") || assemblyPath.EndsWith("Microsoft.Windows.SDK.NET.dll") ||
                 AppDomain.CurrentDomain.GetAssemblies().Any(x => x.GetName().FullName == assemblyName.FullName))
-            {
                 return null;
-            }
 
             return LoadFromAssemblyPath(assemblyPath);
         }
@@ -74,10 +72,7 @@ public class AssemblyLoadContextH : AssemblyLoadContext
     protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)
     {
         var libraryPath = _resolver.ResolveUnmanagedDllToPath(unmanagedDllName);
-        if (libraryPath != null)
-        {
-            return LoadUnmanagedDllFromPath(libraryPath);
-        }
+        if (libraryPath != null) return LoadUnmanagedDllFromPath(libraryPath);
 
         return IntPtr.Zero;
     }

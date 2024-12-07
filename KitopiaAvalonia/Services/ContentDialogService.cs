@@ -17,13 +17,13 @@ namespace KitopiaAvalonia.Services;
 
 public class ContentDialogService : IContentDialog
 {
-    public async Task ShowDialogAsync(object? contentPresenter, DialogContent dialogContent,bool canDismiss = false)
+    public async Task ShowDialogAsync(object? contentPresenter, DialogContent dialogContent, bool canDismiss = false)
     {
         if (contentPresenter is null)
         {
             Dispatcher.UIThread.InvokeAsync(() =>
             {
-                var dialog = new KitopiaAvalonia.Windows.DialogWindow(dialogContent);
+                var dialog = new DialogWindow(dialogContent);
                 dialog.Show();
             });
             return;
@@ -34,10 +34,7 @@ public class ContentDialogService : IContentDialog
             Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (contentPresenter is ContentPresenter control)
-                {
-                    control.Content = new DialogOvercover(dialogContent,canDismiss);
-                    
-                }
+                    control.Content = new DialogOvercover(dialogContent, canDismiss);
             });
         });
     }
@@ -62,51 +59,39 @@ public class ContentDialogService : IContentDialog
         {
             Dispatcher.UIThread.InvokeAsync(() =>
             {
-                DialogButton button = DialogButton.None;
+                var button = DialogButton.None;
                 if (dialogContent.CloseButtonText is null && dialogContent.PrimaryButtonText is null &&
                     dialogContent.SecondaryButtonText is null)
-                {
                     button = DialogButton.None;
-                }
                 else if (dialogContent.PrimaryButtonText is null && dialogContent.SecondaryButtonText is null &&
                          dialogContent.CloseButtonText is not null)
-                {
                     button = DialogButton.None;
-                }
                 else if (dialogContent.CloseButtonText is null && dialogContent.PrimaryButtonText is null &&
                          dialogContent.SecondaryButtonText is not null)
-                {
                     button = DialogButton.OKCancel;
-                }
                 else if (dialogContent.CloseButtonText is null && dialogContent.PrimaryButtonText is not null &&
                          dialogContent.SecondaryButtonText is null)
-                {
                     button = DialogButton.OK;
-                }
                 else if (dialogContent.CloseButtonText is null && dialogContent.PrimaryButtonText is not null &&
                          dialogContent.SecondaryButtonText is not null)
-                {
                     button = DialogButton.YesNo;
-                }
                 else if (dialogContent.CloseButtonText is not null && dialogContent.PrimaryButtonText is not null &&
                          dialogContent.SecondaryButtonText is not null)
-                {
                     button = DialogButton.YesNoCancel;
-                }
 
                 var dialog = new DefaultDialogWindow()
                 {
                     Title = dialogContent.Title,
                     Content = dialogContent.Content,
-                    Buttons = button,
+                    Buttons = button
                 };
                 dialog.Resources.Add("STRING_MENU_DIALOG_NO", dialogContent.CloseButtonText);
-                var result = Ursa.Controls.Dialog.ShowModal<TextDialog, TextDialogViewModel>(
+                var result = Dialog.ShowModal<TextDialog, TextDialogViewModel>(
                     new TextDialogViewModel() { Text = dialogContent.Content }, (Window)contentPresenter,
                     new DialogOptions()
                     {
                         Title = dialogContent.Title,
-                        Button = button,
+                        Button = button
                     }).Result;
 
                 switch (result)

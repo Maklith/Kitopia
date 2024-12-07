@@ -17,17 +17,14 @@ public class Tools
 
     public static void main(List<string> Items)
     {
-        var task = Task.Run(() => {
+        var task = Task.Run(() =>
+        {
             if (IntPtr.Size == 8)
                 // 64-bit
-            {
                 amd64(Items);
-            }
             else
                 // 32-bit
-            {
                 amd32(Items);
-            }
         });
         if (!task.Wait(TimeSpan.FromSeconds(1)))
         {
@@ -39,7 +36,7 @@ public class Tools
     public static void amd32(List<string> Items)
     {
         Everything32.Everything_Reset();
-        Everything32.Everything_SetSearchW(String.Join("|", ConfigManger.Config!.everythingSearchExtensions));
+        Everything32.Everything_SetSearchW(string.Join("|", ConfigManger.Config!.everythingSearchExtensions));
         Everything32.Everything_SetMatchCase(true);
         Everything32.Everything_QueryW(true);
         const int bufsize = 260;
@@ -56,7 +53,7 @@ public class Tools
     public static void amd64(List<string> Items)
     {
         Everything64.Everything_Reset();
-        Everything64.Everything_SetSearchW(String.Join("|", ConfigManger.Config!.everythingSearchExtensions));
+        Everything64.Everything_SetSearchW(string.Join("|", ConfigManger.Config!.everythingSearchExtensions));
         Everything64.Everything_SetMatchCase(true);
         Everything64.Everything_QueryW(true);
         const int bufsize = 260;

@@ -10,23 +10,23 @@ public class AppToolService : IAppToolService
     public void AppSolverA(ConcurrentDictionary<string, SearchViewItem> _collection, string search,
         bool isSearch = false)
     {
-        Window.AppTools.AppSolverA(_collection, search, isSearch);
+        AppTools.AppSolverA(_collection, search, isSearch);
     }
 
     public void DelNullFile(ConcurrentDictionary<string, SearchViewItem> _collection)
     {
-        Window.AppTools.DelNullFile(_collection);
+        AppTools.DelNullFile(_collection);
     }
 
     public void GetAllApps(ConcurrentDictionary<string, SearchViewItem> _collection, bool logging,
         bool useEverything = false)
     {
-        Window.AppTools.GetAllApps(_collection, logging, useEverything);
+        AppTools.GetAllApps(_collection, logging, useEverything);
     }
 
     public void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> _collection, Action action)
     {
-        Window.AppTools.AutoStartEverything(_collection, action);
+        AppTools.AutoStartEverything(_collection, action);
     }
 
     public void GetIconByItem(SearchViewItem item)

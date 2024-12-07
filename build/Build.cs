@@ -87,15 +87,12 @@ class Build : NukeBuild
             .Repository.GetAllTags(gitRepository.GetGitHubOwner(),
                 gitRepository.GetGitHubName())
             .Result;
-        if (readOnlyList.Any(e => e.Name == AvaloniaProject.GetProperty("Version")))
-        {
-            return false;
-        }
+        if (readOnlyList.Any(e => e.Name == AvaloniaProject.GetProperty("Version"))) return false;
 
         return true;
     }).DependsOn(CompileWindowsX64).Executes(() =>
     {
-        StringBuilder body = new StringBuilder();
+        var body = new StringBuilder();
         var gitRepository = GitRepository.FromUrl("https://github.com/MakesYT/Kitopia");
         var repositoryTags = _gitHubClient
             .Repository.GetAllTags(gitRepository.GetGitHubOwner(),
@@ -107,7 +104,7 @@ class Build : NukeBuild
         }
         else
         {
-            string lastCommit = GitTasks.GitCurrentCommit();
+            var lastCommit = GitTasks.GitCurrentCommit();
             Log.Debug("Last commit {0}", lastCommit);
             var repositoryTag = repositoryTags.First();
             Log.Debug("First commit {0}", repositoryTag.Commit.Sha);
@@ -118,12 +115,8 @@ class Build : NukeBuild
                         gitRepository.GetGitHubName(), lastCommit)
                     .Result;
                 if (gitHubCommit.Commit.Message.Length >= 3)
-                {
                     if (!gitHubCommit.Commit.Message.StartsWith("*"))
-                    {
                         body.AppendLine(gitHubCommit.Commit.Message);
-                    }
-                }
 
                 lastCommit = gitHubCommit.Parents.First()
                     .Sha;
@@ -137,7 +130,7 @@ class Build : NukeBuild
                 {
                     Object = GitTasks.GitCurrentCommit(),
                     Tag = AvaloniaProject.GetProperty("Version"),
-                    Message = AvaloniaProject.GetProperty("Version"),
+                    Message = AvaloniaProject.GetProperty("Version")
                 })
             .Result;
         var reference = _gitHubClient.Git.Reference.Create(gitRepository.GetGitHubOwner(),
@@ -177,7 +170,7 @@ class Build : NukeBuild
             {
                 FileName = archiveFile.Name,
                 ContentType = "application/octet-stream",
-                RawData = artifactStream,
+                RawData = artifactStream
             };
             _gitHubClient.Repository.Release.UploadAsset(release, assetUpload)
                 .Wait();
@@ -208,12 +201,8 @@ class Build : NukeBuild
                     .SetSelfContained(false)
                 );
                 foreach (var absolutePath in rootDirectory.GetFiles())
-                {
                     if (absolutePath.Extension is ".pdb" or ".xml")
-                    {
                         absolutePath.DeleteFile();
-                    }
-                }
 
                 var archiveFile = RootDirectory / "Kitopia" + AvaloniaProject.GetProperty("Version") +
                                   "_WithoutContained.zip";
@@ -225,7 +214,7 @@ class Build : NukeBuild
                 {
                     FileName = archiveFile.Name,
                     ContentType = "application/octet-stream",
-                    RawData = artifactStream,
+                    RawData = artifactStream
                 };
                 _gitHubClient.Repository.Release.UploadAsset(release, assetUpload)
                     .Wait();
@@ -262,19 +251,15 @@ class Build : NukeBuild
                                        AvaloniaProject.GetProperty("Version") + "_SelfContained.zip";
                 archiveFile_self.DeleteFile();
                 foreach (var absolutePath in rootDirectory_self.GetFiles())
-                {
                     if (absolutePath.Extension is ".pdb" or ".xml")
-                    {
                         absolutePath.DeleteFile();
-                    }
-                }
 
                 rootDirectory_self.ZipTo(archiveFile_self, compressionLevel: CompressionLevel.SmallestSize);
                 var assetUpload_self = new ReleaseAssetUpload
                 {
                     FileName = archiveFile_self.Name,
                     ContentType = "application/octet-stream",
-                    RawData = File.OpenRead(archiveFile_self),
+                    RawData = File.OpenRead(archiveFile_self)
                 };
                 _gitHubClient.Repository.Release.UploadAsset(release, assetUpload_self)
                     .Wait();

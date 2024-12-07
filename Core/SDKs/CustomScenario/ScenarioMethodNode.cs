@@ -75,13 +75,9 @@ public partial class ScenarioMethodNode : ObservableRecipient
                         var instance = parameterInfo.ParameterType.GetConstructor(parameterTypesList.ToArray())
                             ?.Invoke(parameterList.ToArray());
                         if (instance != null)
-                        {
                             list.Add(instance);
-                        }
                         else
-                        {
                             return false;
-                        }
 
                         continue;
                     }
@@ -101,15 +97,11 @@ public partial class ScenarioMethodNode : ObservableRecipient
                     {
                         var inputObject = Input[index].InputObject;
                         if (inputObject != null)
-                        {
                             list.Add(inputObject);
-                        }
                         else
-                        {
                             return false;
-                        }
                     }
-                    
+
 
                     index++;
                 }
@@ -124,29 +116,22 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 {
                     var type = ScenarioMethod.Method.ReturnParameter.ParameterType;
                     foreach (var memberInfo in type.GetProperties())
-                    {
-                        foreach (var connectorItem in Output)
+                    foreach (var connectorItem in Output)
+                        if (connectorItem.InputObject.Type == memberInfo.PropertyType)
                         {
-                            if (connectorItem.InputObject.Type == memberInfo.PropertyType)
-                            {
-                                var value = invoke.GetType()
-                                    .InvokeMember(memberInfo.Name,
-                                        BindingFlags.Instance | BindingFlags.IgnoreCase |
-                                        BindingFlags.Public | BindingFlags.NonPublic |
-                                        BindingFlags.GetProperty, null, invoke, null);
+                            var value = invoke.GetType()
+                                .InvokeMember(memberInfo.Name,
+                                    BindingFlags.Instance | BindingFlags.IgnoreCase |
+                                    BindingFlags.Public | BindingFlags.NonPublic |
+                                    BindingFlags.GetProperty, null, invoke, null);
 
-                                connectorItem.InputObject.Value = value;
-                                break;
-                            }
+                            connectorItem.InputObject.Value = value;
+                            break;
                         }
-                    }
                 }
                 else
                 {
-                    if (Output.Any())
-                    {
-                        Output[1].InputObject.Value = invoke;
-                    }
+                    if (Output.Any()) Output[1].InputObject.Value = invoke;
                 }
 
                 break;
@@ -159,46 +144,32 @@ public partial class ScenarioMethodNode : ObservableRecipient
             }
             case ScenarioMethodType.一对多:
             {
-                for (var i = 0; i < Output.Count; i++)
-                {
-                    Output[i].InputObject.Value = $"流{i + 1}";
-                }
+                for (var i = 0; i < Output.Count; i++) Output[i].InputObject.Value = $"流{i + 1}";
 
                 break;
             }
             case ScenarioMethodType.相等:
             {
                 if (Input[1].InputObject is null)
-                {
                     Output[0].InputObject.Value = false;
-                }
                 else if (Input[2].InputObject is null)
-                {
                     Output[0].InputObject.Value = false;
-                }
                 else
-                {
                     Output[0].InputObject.Value = Input[1].InputObject.Value!.Equals(Input[2].InputObject.Value);
-                }
 
                 break;
             }
             case ScenarioMethodType.变量设置:
             {
                 if (values.ContainsKey(ScenarioMethod.ValueName))
-                {
                     values[ScenarioMethod.ValueName].Value = Input[1].InputObject.Value!;
-                    
-                }
 
                 break;
             }
             case ScenarioMethodType.变量获取:
             {
                 if (values.ContainsKey(ScenarioMethod.ValueName))
-                {
                     Output[1].InputObject.Value = values[ScenarioMethod.ValueName].Value;
-                }
 
                 break;
             }
@@ -229,10 +200,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 if (Input.Count() >= 3)
                 {
                     List<object> parameterList = new();
-                    for (var index = 2; index < Input.Count; index++)
-                    {
-                        parameterList.Add(Input[index].InputObject);
-                    }
+                    for (var index = 2; index < Input.Count; index++) parameterList.Add(Input[index].InputObject);
 
                     ServiceManager.Services.GetService<ISearchItemTool>()
                         .OpenSearchItemByOnlyKey((string)Input[1].InputObject.Value,
@@ -248,21 +216,12 @@ public partial class ScenarioMethodNode : ObservableRecipient
             }
             case ScenarioMethodType.默认:
             {
-                if (Input == null || Input.Count == 0)
-                {
-                    break;
-                }
+                if (Input == null || Input.Count == 0) break;
 
                 var connectorItem = Input.First(e => e.InputObject.RealType != typeof(NodeConnectorClass));
-                if (connectorItem == null)
-                {
-                    break;
-                }
+                if (connectorItem == null) break;
 
-                foreach (var item in Output)
-                {
-                    item.InputObject.Value = connectorItem.InputObject.Value;
-                }
+                foreach (var item in Output) item.InputObject.Value = connectorItem.InputObject.Value;
 
                 break;
             }
@@ -271,15 +230,10 @@ public partial class ScenarioMethodNode : ObservableRecipient
         //将节点数据赋值给下一个节点
         foreach (var connectorItem in Output)
         {
-            if (connectorItem.InputObject.RealType == typeof(NodeConnectorClass))
-            {
-                continue;
-            }
+            if (connectorItem.InputObject.RealType == typeof(NodeConnectorClass)) continue;
 
             foreach (var sourceOrNextConnectorItem in connectorItem.GetSourceOrNextConnectorItems(connections))
-            {
                 sourceOrNextConnectorItem.InputObject.Value = connectorItem.InputObject.Value;
-            }
         }
 
         return true;
@@ -289,14 +243,11 @@ public partial class ScenarioMethodNode : ObservableRecipient
     {
         var item = new ScenarioMethodNode
         {
-            Title = this.Title,
-            ScenarioMethod = this.ScenarioMethod,
+            Title = Title,
+            ScenarioMethod = ScenarioMethod,
             Location = new Point(Location.X, Location.Y)
         };
-        if (ScenarioMethod.IsFromPlugin)
-        {
-            pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
-        }
+        if (ScenarioMethod.IsFromPlugin) pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
 
         ObservableCollection<ConnectorItem> input = new();
         foreach (var connectorItem in Input)
@@ -307,7 +258,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 Source = item,
                 TypeName = connectorItem.TypeName,
                 Title = connectorItem.Title,
-                InputObject =new CustomScenarioValue()
+                InputObject = new CustomScenarioValue()
                 {
                     RealType = connectorItem.InputObject.RealType,
                     Type = connectorItem.InputObject.Type,
@@ -320,20 +271,15 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 isPluginInputConnector = connectorItem.isPluginInputConnector,
                 PluginInputConnector = connectorItem.PluginInputConnector
             });
-            var plugin = PluginManager.EnablePlugin.FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.Type.Assembly)
+            var plugin = PluginManager.EnablePlugin
+                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.Type.Assembly)
                 .Value;
-            if (plugin is not null)
-            {
-                pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
-            }
+            if (plugin is not null) pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
 
             var plugin2 = PluginManager.EnablePlugin
                 .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.RealType.Assembly)
                 .Value;
-            if (plugin2 is not null)
-            {
-                pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
-            }
+            if (plugin2 is not null) pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
         }
 
         ObservableCollection<ConnectorItem> output = new();
@@ -345,43 +291,35 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 Source = item,
                 Title = connectorItem.Title,
                 TypeName = connectorItem.TypeName,
-                InputObject =new CustomScenarioValue()
+                InputObject = new CustomScenarioValue()
                 {
                     RealType = connectorItem.InputObject.RealType,
                     Type = connectorItem.InputObject.Type,
                     Value = connectorItem.InputObject.Value
                 },
-                
+
                 AutoUnboxIndex = connectorItem.AutoUnboxIndex,
-                
+
                 IsConnected = connectorItem.IsConnected,
                 IsOut = connectorItem.IsOut
             };
             if (connectorItem.Interfaces is { Count: > 0 })
             {
                 List<string> interfaces = new();
-                foreach (var connectorItemInterface in connectorItem.Interfaces)
-                {
-                    interfaces.Add(connectorItemInterface);
-                }
+                foreach (var connectorItemInterface in connectorItem.Interfaces) interfaces.Add(connectorItemInterface);
 
                 connectorItem1.Interfaces = interfaces;
             }
 
-            var plugin = PluginManager.EnablePlugin.FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.Type.Assembly)
+            var plugin = PluginManager.EnablePlugin
+                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.Type.Assembly)
                 .Value;
-            if (plugin is not null)
-            {
-                pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
-            }
+            if (plugin is not null) pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
 
             var plugin2 = PluginManager.EnablePlugin
                 .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.RealType.Assembly)
                 .Value;
-            if (plugin2 is not null)
-            {
-                pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
-            }
+            if (plugin2 is not null) pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
 
             output.Add(connectorItem1);
         }

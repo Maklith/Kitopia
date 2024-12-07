@@ -27,7 +27,7 @@ namespace KitopiaAvalonia.Pages;
 public partial class SettingPage : UserControl
 {
     private ConfigBase? _configBase;
-    private CompositeDisposable disposables = new CompositeDisposable();
+    private CompositeDisposable disposables = new();
 
     private StackPanel nowControl;
 
@@ -67,7 +67,6 @@ public partial class SettingPage : UserControl
         nowControl = StackPanel;
         Application.Current.TryGetResource("FluentFont", null, out var font);
         if (_configBase is not null)
-        {
             foreach (var fieldInfo in _configBase.GetType()
                          .GetFields(BindingFlags.Instance | BindingFlags.Public))
             {
@@ -79,7 +78,7 @@ public partial class SettingPage : UserControl
                         Header = new TextBlock() { Text = configFieldCategory.Category, FontSize = 16 },
                         HorizontalAlignment = HorizontalAlignment.Stretch,
                         HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                        IsExpanded = true,
+                        IsExpanded = true
                     };
                     var stackPanel = new StackPanel();
 
@@ -99,9 +98,9 @@ public partial class SettingPage : UserControl
 
                         IconSource = new FontIcon()
                         {
-                            Glyph = System.Convert.ToChar(configField.Symbol)
+                            Glyph = Convert.ToChar(configField.Symbol)
                                 .ToString()
-                        },
+                        }
                     };
 
                     var selectedValue = fieldInfo.GetValue(_configBase);
@@ -111,7 +110,7 @@ public partial class SettingPage : UserControl
                         {
                             var textBox = new TextBox()
                             {
-                                Text = selectedValue?.ToString(),
+                                Text = selectedValue?.ToString()
                             };
                             disposables.Add(textBox.GetObservable(TextBox.TextProperty)
                                 .Subscribe((d) =>
@@ -129,7 +128,7 @@ public partial class SettingPage : UserControl
                             {
                                 Value = (int)selectedValue,
                                 Maximum = configField.MaxValue,
-                                Minimum = configField.MinValue,
+                                Minimum = configField.MinValue
                             };
 
                             disposables.Add(
@@ -178,20 +177,20 @@ public partial class SettingPage : UserControl
                                 TickFrequency = configField.Step,
                                 IsSnapToTickEnabled = true,
                                 Width = 160,
-                                VerticalAlignment = VerticalAlignment.Center,
+                                VerticalAlignment = VerticalAlignment.Center
                             };
                             var textBox = new TextBlock()
                             {
                                 FontSize = 14,
                                 Margin = new Thickness(10, 0, 0, 0),
-                                VerticalAlignment = VerticalAlignment.Center,
+                                VerticalAlignment = VerticalAlignment.Center
                             };
 
 
                             var binding = new Binding("Value")
                             {
                                 Source = slider,
-                                Mode = BindingMode.OneWay,
+                                Mode = BindingMode.OneWay
                             };
                             textBox.SetValue(ToolTip.TipProperty, binding);
                             textBox.SetValue(ToolTip.PlacementProperty, PlacementMode.Center);
@@ -218,7 +217,7 @@ public partial class SettingPage : UserControl
                             {
                                 Value = (double)selectedValue,
                                 Maximum = configField.MaxValue,
-                                Minimum = configField.MinValue,
+                                Minimum = configField.MinValue
                             };
 
                             disposables.Add(
@@ -239,7 +238,7 @@ public partial class SettingPage : UserControl
                                 IsChecked = (bool)selectedValue,
                                 FlowDirection = FlowDirection.RightToLeft,
                                 OnContent = "开",
-                                OffContent = "关",
+                                OffContent = "关"
                             };
                             disposables.Add(
                                 toggleSwitch.GetObservable(ToggleSwitch.IsCheckedProperty)
@@ -295,19 +294,14 @@ public partial class SettingPage : UserControl
                                 }
                             }
 
-                            if (configField.ActionName ==null)
-                            {
-                                break;
-                            }    
+                            if (configField.ActionName == null) break;
                             if (_configBase.invokes.TryGetValue(configField.ActionName, out var value))
-                            {
                                 if (value is Delegate func)
                                 {
                                     // 使用 DynamicInvoke 来执行这个委托
                                     var result = func.DynamicInvoke();
 
                                     // 确保 result 转换为 IEnumerable<T>
-
                                     var comboBox = new ComboBox()
                                     {
                                         ItemsSource = result as IEnumerable,
@@ -324,9 +318,7 @@ public partial class SettingPage : UserControl
                                             }));
                                     SettingsExpander.Footer = comboBox;
                                 }
-                            }
-                                
-                            
+
 
                             break;
                         }
@@ -334,13 +326,13 @@ public partial class SettingPage : UserControl
                         {
                             var listShow = new ListShow();
 
-                            SettingsExpander.Bind(Expander.WidthProperty, new Binding("Bounds.Width")
+                            SettingsExpander.Bind(WidthProperty, new Binding("Bounds.Width")
                             {
                                 RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor)
                                 {
                                     AncestorType = typeof(SettingsExpander)
                                 },
-                                Mode = BindingMode.OneWay,
+                                Mode = BindingMode.OneWay
                             });
                             var enumerable = (IEnumerable?)selectedValue;
                             if (enumerable is ObservableCollection<string> observableCollection)
@@ -361,13 +353,13 @@ public partial class SettingPage : UserControl
                         {
                             var listShow = new ListShow();
                             listShow.WithAdd = true;
-                            SettingsExpander.Bind(Expander.WidthProperty, new Binding("Bounds.Width")
+                            SettingsExpander.Bind(WidthProperty, new Binding("Bounds.Width")
                             {
                                 RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor)
                                 {
                                     AncestorType = typeof(SettingsExpander)
                                 },
-                                Mode = BindingMode.OneWay,
+                                Mode = BindingMode.OneWay
                             });
                             var enumerable = (IEnumerable?)selectedValue;
                             if (enumerable is ObservableCollection<string> observableCollection)
@@ -392,7 +384,6 @@ public partial class SettingPage : UserControl
                     nowControl.Children.Add(SettingsExpander);
                 }
             }
-        }
     }
 
     private void ObservableCollectionChange(object? sender,

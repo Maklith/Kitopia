@@ -16,10 +16,7 @@ public class HotKeySignNameToStringCtr : IValueConverter
         {
             var uuid = s.Split("_")[1].Split("_")[0];
             var firstOrDefault = CustomScenarioManger.CustomScenarios.FirstOrDefault(e => e.UUID == uuid);
-            if (firstOrDefault is null)
-            {
-                return s;
-            }
+            if (firstOrDefault is null) return s;
 
             s = s.Replace(uuid, firstOrDefault.Name);
             return s;
@@ -28,6 +25,8 @@ public class HotKeySignNameToStringCtr : IValueConverter
         return s;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
         throw new NotImplementedException();
+    }
 }

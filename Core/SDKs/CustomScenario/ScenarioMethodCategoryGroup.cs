@@ -27,7 +27,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
             var String = new ScenarioMethodNode()
             {
                 ScenarioMethod = new ScenarioMethod(ScenarioMethodType.默认),
-                Title = key,
+                Title = key
             };
             ObservableCollection<ConnectorItem> StringoutItems = new()
             {
@@ -36,7 +36,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                     Source = String,
                     InputObject = new CustomScenarioValue()
                     {
-                        Type = value,
+                        Type = value
                     },
                     Title = CustomScenarioGloble.GetI18N(value.FullName),
                     TypeName = CustomScenarioGloble.GetI18N(value.FullName),
@@ -59,10 +59,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                     IsSelf = true
                 }
             };
-            if (value.FullName == "System.Int32")
-            {
-                StringinItems[0].InputObject.Value = (double)0;
-            }
+            if (value.FullName == "System.Int32") StringinItems[0].InputObject.Value = (double)0;
 
             String.Input = StringinItems;
             valueScenarioMethodCategoryGroup.Methods.Add(key, String);
@@ -115,12 +112,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                 };
                 nowScenarioMethodCategoryGroup.Childrens.Add(se, newScenarioMethodCategoryGroup);
                 nowScenarioMethodCategoryGroup = newScenarioMethodCategoryGroup;
-                if (index == strings.Length - 1)
-                {
-                    nowScenarioMethodCategoryGroup.DisplayName = attribute.Name;
-                }
-
-               
+                if (index == strings.Length - 1) nowScenarioMethodCategoryGroup.DisplayName = attribute.Name;
             }
         }
 
@@ -136,40 +128,37 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
     //
     public Dictionary<string, ScenarioMethodCategoryGroup> Childrens { get; set; } = new();
     public Dictionary<string, ScenarioMethodNode> Methods { get; set; } = new();
-    public ScenarioMethodCategoryGroup? GetParent() => Parent;
-    public ScenarioMethodCategoryGroup GetRoot() => Parent?.GetRoot() ?? this;
+
+    public ScenarioMethodCategoryGroup? GetParent()
+    {
+        return Parent;
+    }
+
+    public ScenarioMethodCategoryGroup GetRoot()
+    {
+        return Parent?.GetRoot() ?? this;
+    }
 
 
     private void Clear()
     {
-        
-        for (var i = 0; i < Childrens.Count; i++)
-        {
-            Childrens.ElementAt(i).Value.Clear();
-        }
+        for (var i = 0; i < Childrens.Count; i++) Childrens.ElementAt(i).Value.Clear();
         Methods.Clear();
         Methods = null;
     }
 
     public void RemoveMethodsByPluginName(string pluginName)
     {
-        if (Childrens.ContainsKey(pluginName))
-        {
-            Childrens[pluginName].Clear();
-        }
+        if (Childrens.ContainsKey(pluginName)) Childrens[pluginName].Clear();
         Childrens.Remove(pluginName);
         for (var i = 0; i < MixinInfos.Count; i++)
         {
             var target = MixinInfos[i].Target.Split("/");
             var nowScenarioMethodCategoryGroup = RootScenarioMethodCategoryGroup;
             for (var i1 = 0; i1 < target.Length - 1; i1++)
-            {
                 if (nowScenarioMethodCategoryGroup.Childrens.ContainsKey(target[i1]))
-                {
                     nowScenarioMethodCategoryGroup = nowScenarioMethodCategoryGroup.Childrens[target[i1]];
-                }
                 else throw new ScenarioException("路径不存在");
-            }
 
             nowScenarioMethodCategoryGroup.Methods.Remove(target.Last());
         }

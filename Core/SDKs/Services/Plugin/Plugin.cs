@@ -41,10 +41,7 @@ public class Plugin
             var deserializeObject =
                 JsonSerializer.Deserialize(json, configBase.GetType(), ConfigManger.DefaultOptions)! as ConfigBase ??
                 configBase;
-            if (!ConfigManger.Configs.TryAdd(key, deserializeObject))
-            {
-                ConfigManger.Configs[key] = deserializeObject;
-            }
+            if (!ConfigManger.Configs.TryAdd(key, deserializeObject)) ConfigManger.Configs[key] = deserializeObject;
 
             deserializeObject.GetType()
                 .BaseType.GetField("Instance")
@@ -63,7 +60,6 @@ public class Plugin
             .ForEach(x =>
             {
                 if (x.GetCustomAttribute<ConfigField>() is { } configField)
-                {
                     if (configField.FieldType == ConfigFieldType.快捷键)
                     {
                         var hotKeyModel = (HotKeyModel)x.GetValue(configBase)!;
@@ -71,16 +67,13 @@ public class Plugin
                         if (HotKeyManager.HotKetImpl.Add(hotKeyModel,
                                 (Action<HotKeyModel>)configBase.GetType().GetProperty($"{x.Name}Action")
                                     .GetValue(configBase, null)))
-                        {
                             ServiceManager.Services.GetService<IContentDialog>().ShowDialog(null, new DialogContent()
                             {
                                 Title = $"快捷键{hotKeyModel.SignName}设置失败",
                                 Content = "请重新设置快捷键，按键与系统其他程序冲突",
                                 CloseButtonText = "关闭"
                             });
-                        }
                     }
-                }
             });
     }
 
@@ -96,7 +89,6 @@ public class Plugin
         List<Func<string, SearchViewItem?>> searchViews = new();
         PluginInfo = pluginInfo;
         foreach (var type in t)
-        {
             if (type.GetInterface("IPlugin") != null)
             {
                 Log.Debug($"加载插件:{PluginInfo.ToPlgString()}");
@@ -107,8 +99,8 @@ public class Plugin
                 ((IPlugin)ServiceProvider.GetService(type)).OnEnabled(ServiceProvider);
                 break;
             }
-        }
-        ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.Childrens.Add(this.PluginInfo.ToPlgString(),
+
+        ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.Childrens.Add(PluginInfo.ToPlgString(),
             pluginMainScenarioMethodCategoryGroup);
         pluginMainScenarioMethodCategoryGroup.Name = PluginInfo.Name;
 
@@ -131,22 +123,18 @@ public class Plugin
                 CustomScenarioGloble.Triggers.Add($"{PluginInfo.ToPlgString()}_{type.Name}",
                     customScenarioTriggerInfo);
             }
-            ScenarioMethodCategoryGroup scenarioMethodCategoryGroup = pluginMainScenarioMethodCategoryGroup;
+
+            var scenarioMethodCategoryGroup = pluginMainScenarioMethodCategoryGroup;
             if (type.GetCustomAttribute<ScenarioMethodCategoryAttribute>() is { } scenarioMethodCategoryAttribute)
-            {
                 scenarioMethodCategoryGroup =
                     ScenarioMethodCategoryGroup.GetScenarioMethodCategoryGroupByAttribute(
                         scenarioMethodCategoryAttribute, pluginMainScenarioMethodCategoryGroup);
-            }
             foreach (var methodInfo in type.GetMethods())
             {
-                
                 if (methodInfo.GetCustomAttribute<ScenarioMethodAttribute>() is { } scenarioMethodAttribute) //情景的可用节点
                 {
-                    if (methodInfo.GetParameters()[^1].ParameterType.FullName != "System.Threading.CancellationToken")
-                    {
-                        continue;
-                    }
+                    if (methodInfo.GetParameters()[^1].ParameterType.FullName !=
+                        "System.Threading.CancellationToken") continue;
 
                     var scenarioMethodInfo = new ScenarioMethod(methodInfo, PluginInfo, scenarioMethodAttribute,
                         ScenarioMethodType.插件方法, ServiceProvider);
@@ -156,20 +144,15 @@ public class Plugin
 
                 if (methodInfo.GetCustomAttributes(typeof(SearchMethod))
                     .Any()) //搜索的切入方法
-                {
                     searchViews.Add(e =>
                     {
                         var invoke = methodInfo.Invoke(
                             ServiceProvider!.GetService(methodInfo.DeclaringType!),
                             new object?[] { e });
-                        if (invoke is null)
-                        {
-                            return null;
-                        }
+                        if (invoke is null) return null;
 
-                        return ((SearchViewItem)invoke);
+                        return (SearchViewItem)invoke;
                     });
-                }
             }
         }
 
@@ -184,12 +167,8 @@ public class Plugin
     public Type? GetType(string typeName)
     {
         foreach (var pluginAssembly in _plugin.Assemblies)
-        {
             if (pluginAssembly.GetType(typeName) != null)
-            {
                 return pluginAssembly.GetType(typeName);
-            }
-        }
 
         return null;
     }
@@ -197,15 +176,9 @@ public class Plugin
     public Type GetType(Type type)
     {
         foreach (var pluginAssembly in _plugin.Assemblies)
-        {
-            foreach (var type1 in pluginAssembly.GetTypes())
-            {
-                if (type1 == type)
-                {
-                    return type1;
-                }
-            }
-        }
+        foreach (var type1 in pluginAssembly.GetTypes())
+            if (type1 == type)
+                return type1;
 
         return null;
     }
@@ -221,23 +194,14 @@ public class Plugin
         var split = strings[2].Split("|");
         return _dll.GetType(strings[1]).GetMethods().First(x =>
         {
-            if (x.Name != split[0])
-            {
-                return false;
-            }
+            if (x.Name != split[0]) return false;
 
-            if (x.GetParameters().Length != split.Length - 1)
-            {
-                return false;
-            }
+            if (x.GetParameters().Length != split.Length - 1) return false;
 
             for (var index = 0; index < x.GetParameters().Length; index++)
             {
                 var parameterInfo = x.GetParameters()[index];
-                if (parameterInfo.ParameterType.FullName != split[index + 1].Split(" ").Last())
-                {
-                    return false;
-                }
+                if (parameterInfo.ParameterType.FullName != split[index + 1].Split(" ").Last()) return false;
             }
 
             return true;
@@ -250,12 +214,10 @@ public class Plugin
     {
         if (PluginManager.EnablePlugin.ContainsKey(pluginInfoEx))
         {
-            {
-                PluginManager.EnablePlugin[pluginInfoEx]
-                    .Unload(out weakReference);
+            PluginManager.EnablePlugin[pluginInfoEx]
+                .Unload(out weakReference);
 
-                return;
-            }
+            return;
         }
 
         weakReference = new WeakReference(null);
@@ -276,10 +238,7 @@ public class Plugin
         PluginOverall.SearchActions.Remove($"{PluginInfo.ToPlgString()}");
         ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.RemoveMethodsByPluginName(PluginInfo.ToPlgString());
         var keyValuePairs = CustomScenarioGloble.Triggers.Where(e => e.Value.PluginInfo == PluginInfo.ToPlgString());
-        foreach (var keyValuePair in keyValuePairs)
-        {
-            CustomScenarioGloble.Triggers.Remove(keyValuePair.Key);
-        }
+        foreach (var keyValuePair in keyValuePairs) CustomScenarioGloble.Triggers.Remove(keyValuePair.Key);
 
         keyValuePairs = null;
 

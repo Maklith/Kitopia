@@ -28,7 +28,7 @@ internal class IconTools
             Delay = TimeSpan.FromSeconds(1),
             MaxRetryAttempts = 5,
             BackoffType = DelayBackoffType.Linear,
-            UseJitter = true,
+            UseJitter = true
         }).Build();
 
     private const uint SHGFI_ICON = 0x100;
@@ -68,10 +68,7 @@ internal class IconTools
             case ".ico":
             case ".jpg":
             {
-                if (!File.Exists(path))
-                {
-                    return null;
-                }
+                if (!File.Exists(path)) return null;
 
                 using var bm = new Bitmap(path);
                 using var iconBm = new Bitmap(bm, new Size(64, 64));
@@ -103,29 +100,18 @@ internal class IconTools
             var successCount = PrivateExtractIcons((string)path, 0, 64, 64, hIcons, ids, iconTotalCount, 0);
 
             //遍历并保存图标
-            Icon? icon =null;
+            Icon? icon = null;
             for (var i = 0; i < successCount; i++)
             {
                 //指针为空，跳过
-                if (hIcons[i] == IntPtr.Zero)
-                {
-                    continue;
-                }
+                if (hIcons[i] == IntPtr.Zero) continue;
 
                 if (icon is null)
-                {
                     icon = Icon.FromHandle(hIcons[i]);
-                }
                 else DestroyIcon(hIcons[i]);
-
-
-
             }
 
-            if (icon is not null)
-            {
-                return icon;
-            }
+            if (icon is not null) return icon;
         }
 
         #endregion
@@ -161,25 +147,22 @@ internal class IconTools
             switch (t.FileType)
             {
                 case FileType.文件夹:
-                    IconTools.GetIconByPath(t.OnlyKey, t);
+                    GetIconByPath(t.OnlyKey, t);
                     break;
                 case FileType.URL:
                     if (t.IconPath is not null)
                     {
-                        IconTools.GetIcon(t.IconPath, t);
+                        GetIcon(t.IconPath, t);
                         t.IconPath = null;
                     }
 
                     break;
                 case FileType.自定义:
-                    if (t.GetIconAction != null)
-                    {
-                        t.Icon = t.GetIconAction(t);
-                    }
+                    if (t.GetIconAction != null) t.Icon = t.GetIconAction(t);
 
                     break;
                 case FileType.UWP应用:
-                    IconTools.GetIcon(t.IconPath!, t);
+                    GetIcon(t.IconPath!, t);
                     t.IconPath = null;
                     break;
                 case FileType.应用程序:
@@ -189,7 +172,7 @@ internal class IconTools
                 case FileType.PDF文档:
                 case FileType.图像:
                 case FileType.文件:
-                    IconTools.GetIcon(t.OnlyKey, t);
+                    GetIcon(t.OnlyKey, t);
                     break;
                 case FileType.命令:
                 case FileType.自定义情景:
@@ -200,7 +183,7 @@ internal class IconTools
                     break;
 
                 default:
-                    IconTools.GetIcon(t.OnlyKey, t);
+                    GetIcon(t.OnlyKey, t);
                     break;
             }
         }
@@ -247,20 +230,14 @@ internal class IconTools
         }
 
         //缓存
-        if (_icons.TryGetValue(cacheKey, out var icon2))
-        {
-            item.Icon = icon2;
-        }
+        if (_icons.TryGetValue(cacheKey, out var icon2)) item.Icon = icon2;
 
         ResiliencePipeline.ExecuteAsync(async e =>
         {
             await Task.Run(() =>
             {
                 var iconBase = GetIconBase(path, cacheKey);
-                if (iconBase == null)
-                {
-                    return;
-                }
+                if (iconBase == null) return;
 
                 var clone = ((Bitmap)iconBase.ToBitmap()).ToAvaloniaBitmap();
                 _icons.TryAdd(cacheKey, clone);
@@ -273,10 +250,7 @@ internal class IconTools
 
     private static void GetIconByPath(string path, SearchViewItem item)
     {
-        if (_icons.TryGetValue(path, out var fromPath))
-        {
-            item.Icon = fromPath;
-        }
+        if (_icons.TryGetValue(path, out var fromPath)) item.Icon = fromPath;
 
         ResiliencePipeline.ExecuteAsync(async e =>
         {

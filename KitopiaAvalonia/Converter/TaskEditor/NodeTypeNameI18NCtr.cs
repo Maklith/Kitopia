@@ -12,12 +12,9 @@ public class NodeTypeNameI18NCtr : IValueConverter
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is CustomScenarioValue customScenarioInputValue)
-        {
             return CustomScenarioGloble.GetI18N(customScenarioInputValue.Type.FullName);
-        }
 
         return "";
-
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

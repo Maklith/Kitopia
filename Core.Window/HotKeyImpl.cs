@@ -16,7 +16,7 @@ public class HotKeyImpl : IHotKetImpl
 {
     private static Avalonia.Controls.Window globalHotKeyWindow = null!;
     private static ObservableDictionary<string, HotkeyInfo> HotKeys = new();
-    private static SimpleReactiveGlobalHook hook = new SimpleReactiveGlobalHook(GlobalHookType.Mouse);
+    private static SimpleReactiveGlobalHook hook = new(GlobalHookType.Mouse);
 
     private class HotkeyInfo
     {
@@ -30,15 +30,13 @@ public class HotKeyImpl : IHotKetImpl
 
     public void Init()
     {
-       
-      
         Dispatcher.UIThread.Invoke(() =>
         {
             globalHotKeyWindow = new Avalonia.Controls.Window()
             {
                 Height = 1,
                 Width = 1,
-                ShowInTaskbar = false,
+                ShowInTaskbar = false
             };
             globalHotKeyWindow.Show();
             globalHotKeyWindow.Hide();
@@ -60,10 +58,7 @@ public class HotKeyImpl : IHotKetImpl
             if (value.HotKeyModel.Type != HotKeyType.Mouse) continue;
             if (value.Id == -1) continue;
             var dataButton = (int)e.Data.Button;
-            if (dataButton == 0)
-            {
-                continue;
-            }
+            if (dataButton == 0) continue;
 
             if (value.HotKeyModel.MouseButton == dataButton - 1)
             {
@@ -71,7 +66,7 @@ public class HotKeyImpl : IHotKetImpl
                 {
                     value.Timer = new Timer(value.HotKeyModel.PressTimeMillis)
                     {
-                        AutoReset = false,
+                        AutoReset = false
                     };
                     value.Timer.Elapsed += (_, _) =>
                     {
@@ -91,15 +86,9 @@ public class HotKeyImpl : IHotKetImpl
             if (value.HotKeyModel.Type != HotKeyType.Mouse) continue;
             if (value.Id == -1) continue;
             var dataButton = (int)e.Data.Button;
-            if (dataButton == 0)
-            {
-                continue;
-            }
+            if (dataButton == 0) continue;
 
-            if (value.HotKeyModel.MouseButton == dataButton - 1)
-            {
-                value.Timer?.Stop();
-            }
+            if (value.HotKeyModel.MouseButton == dataButton - 1) value.Timer?.Stop();
         }
     }
 
@@ -133,25 +122,13 @@ public class HotKeyImpl : IHotKetImpl
             case HotKeyType.Keyboard:
             {
                 User32.HotKeyModifiers hotkeyModifiers = 0;
-                if (hotKeyModel.IsSelectAlt)
-                {
-                    hotkeyModifiers |= User32.HotKeyModifiers.MOD_ALT;
-                }
+                if (hotKeyModel.IsSelectAlt) hotkeyModifiers |= User32.HotKeyModifiers.MOD_ALT;
 
-                if (hotKeyModel.IsSelectCtrl)
-                {
-                    hotkeyModifiers |= User32.HotKeyModifiers.MOD_CONTROL;
-                }
+                if (hotKeyModel.IsSelectCtrl) hotkeyModifiers |= User32.HotKeyModifiers.MOD_CONTROL;
 
-                if (hotKeyModel.IsSelectShift)
-                {
-                    hotkeyModifiers |= User32.HotKeyModifiers.MOD_SHIFT;
-                }
+                if (hotKeyModel.IsSelectShift) hotkeyModifiers |= User32.HotKeyModifiers.MOD_SHIFT;
 
-                if (hotKeyModel.IsSelectWin)
-                {
-                    hotkeyModifiers |= User32.HotKeyModifiers.MOD_WIN;
-                }
+                if (hotKeyModel.IsSelectWin) hotkeyModifiers |= User32.HotKeyModifiers.MOD_WIN;
 
                 _id++;
                 var registerHotKey = false;
@@ -269,10 +246,7 @@ public class HotKeyImpl : IHotKetImpl
             hotKeyModel.IsEnabled = true;
             ConfigManger.RequsetUpdateHotKey(hotKeyModel);
             ConfigManger.Save();
-            if (!Add(hotKeyModel, rallback))
-            {
-                return false;
-            }
+            if (!Add(hotKeyModel, rallback)) return false;
 
             return true;
         }
@@ -282,10 +256,7 @@ public class HotKeyImpl : IHotKetImpl
 
     public HotKeyModel? GetByUuid(string uuid)
     {
-        if (HotKeys.ContainsKey(uuid))
-        {
-            return HotKeys[uuid].HotKeyModel;
-        }
+        if (HotKeys.ContainsKey(uuid)) return HotKeys[uuid].HotKeyModel;
 
         return null;
     }
@@ -293,7 +264,6 @@ public class HotKeyImpl : IHotKetImpl
     public bool IsActive(string uuid)
     {
         if (HotKeys.TryGetValue(uuid, out var hotkeyInfo))
-        {
             switch (hotkeyInfo.HotKeyModel.Type)
             {
                 case HotKeyType.Keyboard:
@@ -305,7 +275,6 @@ public class HotKeyImpl : IHotKetImpl
                     return HotKeys[uuid].Id != -1;
                 }
             }
-        }
 
         return false;
     }

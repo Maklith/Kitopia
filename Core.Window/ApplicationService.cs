@@ -12,6 +12,7 @@ namespace Core.Window;
 public class ApplicationService : IApplicationService
 {
     private static readonly ILog Log = LogManager.GetLogger(nameof(ApplicationService));
+
     public void Init()
     {
         InitUrlProtocol();
@@ -19,10 +20,10 @@ public class ApplicationService : IApplicationService
 
     public void Restart()
     {
-       
-        Shell32.ShellExecute(IntPtr.Zero, "open", AppDomain.CurrentDomain.FriendlyName+".exe", "", AppDomain.CurrentDomain.BaseDirectory,
+        Shell32.ShellExecute(IntPtr.Zero, "open", AppDomain.CurrentDomain.FriendlyName + ".exe", "",
+            AppDomain.CurrentDomain.BaseDirectory,
             ShowWindowCommand.SW_NORMAL);
-        System.Environment.Exit(0);
+        Environment.Exit(0);
     }
 
     public void Stop()
@@ -33,37 +34,38 @@ public class ApplicationService : IApplicationService
 
     public void InitUrlProtocol()
     {
-        string protocolName = "kitopiaurl";
- 
+        var protocolName = "kitopiaurl";
+
         try
         {
             // 创建或打开HKEY_CLASSES_ROOT下的URL Protocol键
-            using (RegistryKey key = Registry.CurrentUser.CreateSubKey("Software\\Classes\\"+protocolName))
+            using (var key = Registry.CurrentUser.CreateSubKey("Software\\Classes\\" + protocolName))
             {
                 // 设置默认值为描述你的协议的字符串
                 key.SetValue(null, "URL: Kitopia");
-                key.SetValue("URL Protocol","");
- 
+                key.SetValue("URL Protocol", "");
+
                 // 创建一个子键用于处理打开协议的操作
-                using (RegistryKey commandKey = key.CreateSubKey("shell\\open\\command"))
+                using (var commandKey = key.CreateSubKey("shell\\open\\command"))
                 {
                     // 设置默认值为你的应用程序可执行文件的路径，包括 "%1" 用于参数
-                    string appPath = $"{AppDomain.CurrentDomain.BaseDirectory}KitopiaAvalonia.exe \"%1\"";
+                    var appPath = $"{AppDomain.CurrentDomain.BaseDirectory}KitopiaAvalonia.exe \"%1\"";
                     commandKey.SetValue(null, appPath);
                     commandKey.Flush();
                 }
+
                 key.Flush();
             }
- 
+
             Log.Debug("定义URL Protocol成功");
         }
         catch (Exception ex)
         {
-            Log.Error("定义URL Protocol失败",ex);
+            Log.Error("定义URL Protocol失败", ex);
         }
-
     }
-     public bool ChangeAutoStart(bool autoStart)
+
+    public bool ChangeAutoStart(bool autoStart)
     {
         try
         {
@@ -71,9 +73,7 @@ public class ApplicationService : IApplicationService
             {
                 var strName = AppDomain.CurrentDomain.BaseDirectory + "KitopiaAvalonia.exe"; //获取要自动运行的应用程序名
                 if (!File.Exists(strName)) //判断要自动运行的应用程序文件是否存在
-                {
                     return false;
-                }
 
                 var registry =
                     Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Run",
