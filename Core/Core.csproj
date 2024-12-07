@@ -42,8 +42,8 @@
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2"/>
         <PackageReference Include="log4net" Version="2.0.17"/>
         <PackageReference Include="Markdown.Avalonia" Version="11.0.3-a1"/>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0-rc.2.24473.5"/>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0-rc.2.24473.5"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
         <PackageReference Include="Microsoft.Extensions.Resilience" Version="9.0.0-preview.9.24507.7"/>
         <PackageReference Include="MQTTnet" Version="4.3.6.1152"/>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>

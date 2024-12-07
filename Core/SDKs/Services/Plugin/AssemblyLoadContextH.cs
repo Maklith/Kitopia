@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
 using Avalonia;
+using Core.JsonConverter;
 using Core.SDKs.Services.Config;
 using log4net;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,8 +42,9 @@ public class AssemblyLoadContextH : AssemblyLoadContext
                 IncludeFields = true,
                 WriteIndented = true,
                 ReferenceHandler = ReferenceHandler.Preserve,
-                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
-                //DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+                Converters = { new CustomScenarioInputValueJsonConverter(), new INodeInputJsonConverter() }
+
             };
             _assembly = null;
             log.Info($"Unloading {sender.Assemblies.First()}");

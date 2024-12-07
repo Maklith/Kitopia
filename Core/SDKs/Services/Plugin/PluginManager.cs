@@ -36,6 +36,7 @@ public class PluginManager
         PluginCore.Kitopia._i18n = CustomScenarioGloble._i18n;
         PluginCore.Kitopia.ToolTipConverters = CustomScenarioGloble.ToolTipConverters;
         PluginCore.Kitopia.JsonConverters = CustomScenarioGloble.JsonConverters;
+        
         Load(true);
     }
 

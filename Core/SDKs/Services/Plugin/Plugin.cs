@@ -93,7 +93,8 @@ public class Plugin
             {
                 Log.Debug($"加载插件:{PluginInfo.ToPlgString()}");
                 //var instance = Activator.CreateInstance(type);
-                ServiceProvider = (IServiceProvider)type.GetMethod("GetServiceProvider")
+                var methodInfo = type.GetMethod("GetServiceProvider");
+                ServiceProvider = (IServiceProvider)methodInfo
                     .Invoke(null, null);
 
                 ((IPlugin)ServiceProvider.GetService(type)).OnEnabled(ServiceProvider);

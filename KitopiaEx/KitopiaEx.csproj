@@ -28,7 +28,6 @@
 
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0"/>
         <PackageReference Include="SharpHook" Version="5.3.7"/>
     </ItemGroup>
 
