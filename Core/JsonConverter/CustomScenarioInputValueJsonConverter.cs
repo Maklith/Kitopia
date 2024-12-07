@@ -62,7 +62,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                         }
                         else if (CustomScenarioGloble.JsonConverters.ContainsKey(realType))
                         {
-                            var jsonConverter = CustomScenarioGloble.JsonConverters[type];
+                            var jsonConverter = CustomScenarioGloble.JsonConverters[realType];
                             // 获取 Read 方法
                             var readerValueSpan = reader.ValueSpan;
                             reader.Read();
@@ -111,7 +111,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
         else
         {
             throw new CustomScenarioLoadFromJsonException(
-                CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, value.RealType.FullName, null);
+                CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, value.Type.FullName, null);
         }
 
         writer.WriteEndObject();
