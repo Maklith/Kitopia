@@ -94,7 +94,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                     }
                     else
                     {
-                        var inputObject = Input[index].InputObject;
+                        var inputObject = Input[index].InputObject.Value;
                         if (inputObject != null)
                             list.Add(inputObject);
                         else

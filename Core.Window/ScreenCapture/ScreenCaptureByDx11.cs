@@ -323,21 +323,22 @@ public class ScreenCaptureByDx11 : IScreenCapture
 
                     if (intPtr.immediateContext->Map(stagingResource, 0, Map.Read, 0, &mappedSubresource) != 0)
                         throw new Exception("Failed to map staging texture");
-
-                    var re = CaptureTool.GetBytesSpan(mappedSubresource, outputDesc);
+                    var screenCaptureInfo = new ScreenCaptureInfo()
+                    {
+                        Height = desc.DesktopCoordinates.Size.Y,
+                        Width = desc.DesktopCoordinates.Size.X,
+                        X = desc.DesktopCoordinates.Min.X,
+                        Y = desc.DesktopCoordinates.Min.Y
+                    };
+                    var re = CaptureTool.GetBytesSpan(mappedSubresource, outputDesc,screenCaptureInfo);
                     intPtr.immediateContext->Unmap(stagingResource, 0);
                     outputDuplication->ReleaseFrame();
 
+                   
                     screenCaptureResults.Push(new ScreenCaptureResult()
                     {
                         Bytes = re,
-                        Info = new ScreenCaptureInfo()
-                        {
-                            Height = desc.DesktopCoordinates.Size.Y,
-                            Width = desc.DesktopCoordinates.Size.X,
-                            X = desc.DesktopCoordinates.Min.X,
-                            Y = desc.DesktopCoordinates.Min.Y
-                        }
+                        Info = screenCaptureInfo
                     });
                 }
                 catch (Exception e)
@@ -392,7 +393,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
         return screenCaptureResults;
     }
 
-    public ScreenCaptureResult CaptureScreenBitmap(ScreenCaptureInfo screenCaptureInfo)
+    public ScreenCaptureResult CaptureScreenBitmap(ScreenCaptureResult captureAllScreenInfo)
     {
         return default;
     }

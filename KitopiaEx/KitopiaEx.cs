@@ -26,6 +26,8 @@ public class KitopiaEx : IPlugin
                 $"显示器:{screenCaptureInfo.hdcMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
         });
         Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureInfo), new ScreenCaptureInfoCustomScenarioValueSerializer());
+        Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureResult),
+            new ScreenCaptureResultCustomScenarioValueSerializer());
     }
 
     public void OnDisabled()

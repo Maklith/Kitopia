@@ -304,6 +304,7 @@ public static class CustomScenarioManger
         }
         catch (CustomScenarioLoadFromJsonException e)
         {
+            Log.Error("情景保存失败",e);
             switch (e.FailedType)
             {
                 case CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到:
@@ -321,8 +322,7 @@ public static class CustomScenarioManger
                     break;
                 }
             }
-
-            throw;
+            
         }
     }
 

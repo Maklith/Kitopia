@@ -40,21 +40,21 @@ public partial class PendingConnectionViewModel : ObservableRecipient
                     break;
                 }
 
-                if (Source.InputObject.Type.FullName != con.InputObject.Type.FullName)
+                if (Source.InputObject.RealType.FullName != con.InputObject.RealType.FullName)
                 {
-                    if (con.InputObject.Type.FullName == "System.Object")
+                    if (con.InputObject.RealType.FullName == "System.Object")
                     {
                         PreviewText = "连接";
                         break;
                     }
 
-                    if (Source.InputObject.Type.FullName == "System.Object")
+                    if (Source.InputObject.RealType.FullName == "System.Object")
                     {
                         PreviewText = "连接";
                         break;
                     }
 
-                    if (con.InputObject.Type.IsAssignableFrom(Source.InputObject.Type))
+                    if (con.InputObject.RealType.IsAssignableFrom(Source.InputObject.RealType))
                     {
                         PreviewText = "连接";
                         break;
@@ -87,10 +87,10 @@ public partial class PendingConnectionViewModel : ObservableRecipient
 
         if (target == Source || target.Source == Source.Source) return;
 
-        if (Source.InputObject.Type.FullName != target.InputObject.Type.FullName &&
-            !(target.InputObject.Type.IsAssignableFrom(Source.InputObject.Type) ||
-              Source.InputObject.Type.FullName == "System.Object" ||
-              target.InputObject.Type.FullName == "System.Object"))
+        if (Source.InputObject.RealType.FullName != target.InputObject.RealType.FullName &&
+            !(target.InputObject.RealType.IsAssignableFrom(Source.InputObject.RealType) ||
+              Source.InputObject.RealType.FullName == "System.Object" ||
+              target.InputObject.RealType.FullName == "System.Object"))
             return;
 
         if (Source.IsOut != target.IsOut)
