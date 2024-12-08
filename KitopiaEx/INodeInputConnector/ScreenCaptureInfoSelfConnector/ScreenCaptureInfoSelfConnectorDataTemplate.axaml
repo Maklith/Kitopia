@@ -10,7 +10,7 @@
                 <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
             </Button.Resources>
             <TextBlock x:DataType="screenCaptureInfoSelfConnector:ScreenCaptureInfoSelfConnector" 
-                       Text="{Binding Value.Value,Converter={StaticResource ToolTipConverter} }"></TextBlock>
+                       Text="{Binding Value.Value.Value,Converter={StaticResource ToolTipConverter},ConverterParameter='截图区域未设置' }"></TextBlock>
         </Button>
     </DataTemplate>
 </ResourceDictionary>
