@@ -191,20 +191,6 @@ public partial class ScreenCaptureWindow : Window
 
             WeakReferenceMessenger.Default.Send<string, string>("Selected", "ScreenCapture");
             UpdateSelectBox();
-            if (selectMode)
-            {
-                selectModeAction?.Invoke(new ScreenCaptureInfo()
-                {
-                    X = (int)SelectBox._dragTransform.X,
-                    Y = (int)SelectBox._dragTransform.Y,
-                    Width = (int)SelectBox.Width,
-                    Height = (int)SelectBox.Height
-                });
-                Image.Source = null;
-
-                WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");
-                Close();
-            }
 
             if (ConfigManger.Config.截图直接复制到剪贴板)
                 FinnishCapture();
