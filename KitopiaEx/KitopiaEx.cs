@@ -18,12 +18,20 @@ public class KitopiaEx : IPlugin
         Kitopia._i18n.TryAdd("System.Windows.Media.Imaging.BitmapSource", "图像BitmapSource");
         Kitopia._i18n.TryAdd(typeof(ScreenCaptureInfoSelfConnector).FullName, "屏幕截图信息");
         Kitopia._i18n.TryAdd(typeof(ScreenCaptureInfo).FullName, "屏幕截图信息");
+        Kitopia._i18n.TryAdd(typeof(ScreenCaptureResult).FullName, "屏幕截图数据");
         ServiceProvider = serviceProvider;
         Kitopia.ToolTipConverters.TryAdd(typeof(ScreenCaptureInfo), info =>
         {
             var screenCaptureInfo = (ScreenCaptureInfo)info;
             return
                 $"显示器:{screenCaptureInfo.hdcMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
+        });
+        Kitopia.ToolTipConverters.TryAdd(typeof(ScreenCaptureResult), e =>
+        {
+            var screenCaptureResult = (ScreenCaptureResult)e;
+            var screenCaptureInfo = screenCaptureResult.Info;
+            return
+                $"显示器:{screenCaptureInfo.hdcMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}\nByte数据:{(screenCaptureResult.Bytes is null?"不存在":"存在")}\nBitmap数据:{(screenCaptureResult.Source is null?"不存在":"存在")}";
         });
         Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureInfo), new ScreenCaptureInfoCustomScenarioValueSerializer());
         Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureResult),
