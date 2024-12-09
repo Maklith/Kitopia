@@ -39,7 +39,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                         Type = value
                     },
                     Title = CustomScenarioGloble.GetI18N(value.FullName),
-                    TypeName = CustomScenarioGloble.GetI18N(value.FullName),
+                 
                     IsOut = true
                 }
             };
@@ -55,7 +55,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                         Value = value.IsValueType ? Activator.CreateInstance(value) : null
                     },
                     Title = CustomScenarioGloble.GetI18N(value.FullName),
-                    TypeName = CustomScenarioGloble.GetI18N(value.FullName),
+                  
                     IsSelf = true
                 }
             };

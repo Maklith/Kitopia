@@ -31,7 +31,7 @@ public partial class ConnectorItem : ObservableRecipient
 
     public int AutoUnboxIndex { get; set; }
 
-    public string TypeName { get; set; }
+    
 
     public string Title { get; set; }
 

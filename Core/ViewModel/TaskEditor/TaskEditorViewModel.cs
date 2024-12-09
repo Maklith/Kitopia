@@ -67,8 +67,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 {
                     Type = typeof(NodeConnectorClass)
                 },
-
-                TypeName = CustomScenarioGloble.GetI18N(typeof(NodeConnectorClass).FullName),
+                
                 Title = "开始"
             }
         };
@@ -89,7 +88,6 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 {
                     Type = typeof(NodeConnectorClass)
                 },
-                TypeName = CustomScenarioGloble.GetI18N(typeof(NodeConnectorClass).FullName),
                 Title = "开始"
             }
         };
@@ -166,7 +164,6 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                 },
                                 Title = "流输出",
                                 IsOut = true,
-                                TypeName = "节点"
                             });
                         }
                 }
@@ -194,8 +191,6 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                             {
                                                 Type = value.GetType()
                                             },
-                                            TypeName = CustomScenarioGloble.GetI18N(value.GetType()
-                                                .FullName),
                                             Title = key
                                         });
 
@@ -203,10 +198,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                     {
                                         e.ScenarioMethodNode.Input[index + 2].Title = key;
                                         e.ScenarioMethodNode.Input[index + 2].InputObject.Value = value.GetType();
-                                        e.ScenarioMethodNode.Input[index + 2].TypeName = CustomScenarioGloble.GetI18N(
-                                            value
-                                                .GetType()
-                                                .FullName);
+                                        
                                     }
                                 }
 

@@ -114,8 +114,6 @@ public partial class CustomScenario : ObservableRecipient
                     IsOut = true,
                     Source = nodes.First(),
                     InputObject = new CustomScenarioValue() { Type = value.GetType() },
-                    TypeName = CustomScenarioGloble.GetI18N(value.GetType()
-                        .FullName),
                     Title = key
                 });
     }

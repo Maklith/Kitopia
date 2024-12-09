@@ -255,7 +255,6 @@ public partial class ScenarioMethodNode : ObservableRecipient
             {
                 Anchor = new Point(connectorItem.Anchor.X, connectorItem.Anchor.Y),
                 Source = item,
-                TypeName = connectorItem.TypeName,
                 Title = connectorItem.Title,
                 InputObject = new CustomScenarioValue()
                 {
@@ -289,7 +288,6 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 Anchor = new Point(connectorItem.Anchor.X, connectorItem.Anchor.Y),
                 Source = item,
                 Title = connectorItem.Title,
-                TypeName = connectorItem.TypeName,
                 InputObject = new CustomScenarioValue()
                 {
                     RealType = connectorItem.InputObject.RealType,
