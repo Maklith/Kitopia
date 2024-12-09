@@ -74,7 +74,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                                 Value = deserialize
                             };
                         }
-                        else
+                        else 
                         {
                             throw new CustomScenarioLoadFromJsonException(
                                 CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, type.FullName, null);
