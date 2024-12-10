@@ -24,7 +24,7 @@ public partial class ConnectorItem : ObservableRecipient
     [ObservableProperty] private bool _isConnected;
     [ObservableProperty] private bool _isNotUsed = false;
     [ObservableProperty] private bool _isOut;
-    [ObservableProperty] private bool _isSelf = false;
+    
 
 
     public bool SelfInputAble { get; set; } = true;

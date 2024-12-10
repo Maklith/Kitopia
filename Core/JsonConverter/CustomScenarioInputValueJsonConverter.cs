@@ -12,6 +12,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
         JsonSerializerOptions options)
     {
         object value;
+        bool isSelf = false;
         Type type = null;
         Type realType = null;
         while (reader.Read())
@@ -33,6 +34,13 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                         realType = new TypeJsonConverter().Read(ref reader, typeToConvert, options);
                         break;
                     }
+                    case "IsSelf":
+                    {
+                        reader.Read();
+
+                        isSelf = reader.GetBoolean();
+                        break;
+                    }
                     case "Value":
                     {
                         reader.Read();
@@ -42,7 +50,8 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                             return new CustomScenarioValue
                             {
                                 RealType = realType,
-                                Type = type
+                                Type = type,
+                                IsSelf = isSelf
                             };
                         }
 
@@ -57,6 +66,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                             {
                                 Type = type,
                                 RealType = realType,
+                                IsSelf = isSelf,
                                 Value = null
                             };
                         }
@@ -71,13 +81,26 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                             {
                                 Type = type,
                                 RealType = realType,
-                                Value = deserialize
+                                Value = deserialize,
+                                IsSelf = isSelf
                             };
                         }
-                        else 
+                        else if (isSelf)
                         {
                             throw new CustomScenarioLoadFromJsonException(
                                 CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, type.FullName, null);
+                        }else
+                        {
+                           
+                            reader.Read();
+                          
+                            return new CustomScenarioValue
+                            {
+                                Type = type,
+                                RealType = realType,
+                                Value = null,
+                                IsSelf = isSelf
+                            };
                         }
 
                         break;
@@ -92,6 +115,8 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
     public override void Write(Utf8JsonWriter writer, CustomScenarioValue value, JsonSerializerOptions options)
     {
         writer.WriteStartObject();
+        writer.WritePropertyName("IsSelf");
+        writer.WriteBooleanValue(value.IsSelf);
         writer.WritePropertyName("Type");
         var typeJsonConverter = new TypeJsonConverter();
         typeJsonConverter.Write(writer, value.Type, options);
@@ -108,11 +133,11 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
             var serialize = jsonConverter.Serialize(value.Value);
             writer.WriteStringValue(serialize);
         }
-        else
+        else if (value.IsSelf)
         {
             throw new CustomScenarioLoadFromJsonException(
                 CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, value.RealType.FullName, null);
-        }
+        }else writer.WriteNullValue();
 
         writer.WriteEndObject();
     }

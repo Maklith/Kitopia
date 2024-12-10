@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
-using Microsoft.ML.OnnxRuntime.Tensors;
 using Microsoft.ML.OnnxRuntime;
+using Microsoft.ML.OnnxRuntime.Tensors;
 using OpenCvSharp;
 
-namespace PaddleOCRTestOnnx
+namespace KitopiaEx.Ocr
 {
-    internal class TextDetector
+    internal class TextDetector : IDisposable
     {
         private float unclipRatio;
         private int maxCandidates;
@@ -152,7 +151,7 @@ namespace PaddleOCRTestOnnx
             }
 
             var dstImg = new Mat();
-            Cv2.CvtColor(srcMat, dstImg, ColorConversionCodes.BGR2GRAY);
+            Cv2.CvtColor(srcMat, dstImg, ColorConversionCodes.BGRA2GRAY);
             Cv2.Resize(dstImg, dstImg, new OpenCvSharp.Size((int)(scaleW * dstImg.Cols), (int)(scaleH * dstImg.Rows)), interpolation: InterpolationFlags.Linear);
             return dstImg;
         }
@@ -290,6 +289,12 @@ namespace PaddleOCRTestOnnx
             Cv2.WarpPerspective(cropImg, result, rotationMatrix, outputSize, borderMode: BorderTypes.Replicate);
 
             return result;
+        }
+
+        public void Dispose()
+        {
+            sessionOptions.Dispose();
+            _session.Dispose();
         }
     }
 

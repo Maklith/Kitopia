@@ -2,14 +2,14 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using OpenCvSharp;
-using System.Text;
 
-namespace PaddleOCRTestOnnx
+namespace KitopiaEx.Ocr 
 {
-    internal class TextRecognizer
+    internal class TextRecognizer : IDisposable
     {
         private InferenceSession _session;
         private List<string> input_names;
@@ -21,7 +21,7 @@ namespace PaddleOCRTestOnnx
         private List<float> input_image_;
         private List<int> preb_label;
 
-        public TextRecognizer(string modelpath)
+        public TextRecognizer(string modelpath,string recWorldDictPath)
         {
             var sessionOptions = new SessionOptions();
             sessionOptions.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_BASIC;
@@ -51,7 +51,7 @@ namespace PaddleOCRTestOnnx
                 this.output_node_dims.Add(value.Dimensions);
             }
 
-            using (StreamReader sr = new StreamReader("rec_word_dict.txt"))
+            using (StreamReader sr = new StreamReader(recWorldDictPath))
             {
                 string line;
                 alphabet = new List<string>();
@@ -161,5 +161,9 @@ namespace PaddleOCRTestOnnx
             }
         }
 
+        public void Dispose()
+        {
+            _session.Dispose();
+        }
     }
 }

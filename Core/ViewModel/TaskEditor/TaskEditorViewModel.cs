@@ -252,8 +252,8 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
         IsModified = true;
 
-        connector.IsSelf = !connector.IsSelf;
-        if (connector.IsSelf)
+        connector.InputObject.IsSelf = !connector.InputObject.IsSelf;
+        if (connector.InputObject.IsSelf)
         {
             var connectionItems = Scenario.connections
                 .Where(e => e.Source == connector || e.Target == connector)

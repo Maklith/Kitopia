@@ -260,10 +260,11 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 {
                     RealType = connectorItem.InputObject.RealType,
                     Type = connectorItem.InputObject.Type,
-                    Value = connectorItem.InputObject.Value
+                    Value = connectorItem.InputObject.Value,
+                    IsSelf = connectorItem.InputObject.IsSelf,
                 },
                 AutoUnboxIndex = connectorItem.AutoUnboxIndex,
-                IsSelf = connectorItem.IsSelf,
+                
                 SelfInputAble = connectorItem.SelfInputAble,
                 IsOut = connectorItem.IsOut,
                 isPluginInputConnector = connectorItem.isPluginInputConnector,

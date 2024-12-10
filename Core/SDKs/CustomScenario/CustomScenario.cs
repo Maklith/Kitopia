@@ -190,7 +190,7 @@ public partial class CustomScenario : ObservableRecipient
                 foreach (var connectorItem in pointItem.Output) connectorItem.InputObject.Value = null;
 
                 foreach (var connectorItem in pointItem.Input)
-                    if (!connectorItem.IsSelf)
+                    if (!connectorItem.InputObject.IsSelf)
                         connectorItem.InputObject.Value = null;
             }
 
@@ -374,7 +374,7 @@ public partial class CustomScenario : ObservableRecipient
                 if (connectorItem.InputObject.Type.FullName != "PluginCore.NodeConnectorClass")
                 {
                     //当前节点有一个输入参数不存在,验证失败
-                    if (!connectorItem.IsSelf)
+                    if (!connectorItem.InputObject.IsSelf)
                     {
                         valid = false;
                         break;

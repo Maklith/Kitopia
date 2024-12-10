@@ -1,0 +1,21 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ocr="clr-namespace:KitopiaEx.Ocr"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="KitopiaEx.Ocr.OcrResultShowWindow"
+        Title="OcrResultShowWindow">
+    <Canvas>
+        <Image x:Name="Image"></Image>
+        <ItemsControl x:Name="ItemsControl">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="ocr:OcrResult">
+                    <TextBox Text="{Binding Text}" 
+                               Canvas.Top="{Binding SPoint.Y}"
+                               Canvas.Left="{Binding SPoint.X}"></TextBox>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Canvas>
+</Window>

@@ -144,9 +144,10 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue()
                             {
-                                Type = memberInfo.PropertyType
+                                Type = memberInfo.PropertyType,
+                                IsSelf = IsSelf,
                             },
-                            IsSelf = IsSelf,
+                            
                             AutoUnboxIndex = autoUnboxIndex,
                             Interfaces = interfaces,
                             Title = Attribute.GetParameterName(memberInfo.Name),
@@ -160,17 +161,18 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue()
                         {
-                            Type = parameterInfo.ParameterType
+                            Type = parameterInfo.ParameterType,
+                            IsSelf = IsSelf,
                         },
 
-                        IsSelf = IsSelf,
+                        
                         Title = Attribute.GetParameterName(parameterInfo.Name),
                     };
                     if (parameterInfo.GetCustomAttribute<CustomNodeInputType>() is not null
                         and var customNodeInputType)
                     {
                         connectorItem.isPluginInputConnector = true;
-                        connectorItem.IsSelf = parameterInfo.GetCustomAttribute<SelfInput>()is not null;
+                        connectorItem.InputObject.IsSelf = parameterInfo.GetCustomAttribute<SelfInput>()is not null;
                         connectorItem.InputObject.RealType = connectorItem.InputObject.Type;
                         connectorItem.InputObject.Type = customNodeInputType.Type;
                         try
@@ -415,10 +417,11 @@ public class ScenarioMethod
                             InputObject = new CustomScenarioValue()
                             {
                                 Type = typeof(int),
-                                Value = (double)2
+                                Value = (double)2,
+                                IsSelf = true,
                             },
 
-                            IsSelf = true,
+                           
                             SelfInputAble = false,
                             Title = "输出数量",
                           
@@ -598,13 +601,14 @@ public class ScenarioMethod
                             {
                                 Type = typeof(string),
                                 RealType = typeof(SearchViewItem),
-                                Value = ""
+                                Value = "",
+                                IsSelf = true
                             },
 
 
                             Title = "本地项目",
                         
-                            IsSelf = true
+                            
                         }
                     };
                     pointItem.Input = pointInItems;

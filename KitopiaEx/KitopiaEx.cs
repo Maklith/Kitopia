@@ -1,6 +1,7 @@
 ﻿using System;
 using KitopiaEx.CustomScenarioValueSerializer;
 using KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
+using KitopiaEx.Ocr;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
@@ -19,6 +20,7 @@ public class KitopiaEx : IPlugin
         Kitopia._i18n.TryAdd(typeof(ScreenCaptureInfoSelfConnector).FullName, "屏幕截图信息");
         Kitopia._i18n.TryAdd(typeof(ScreenCaptureInfo).FullName, "屏幕截图信息");
         Kitopia._i18n.TryAdd(typeof(ScreenCaptureResult).FullName, "屏幕截图数据");
+        Kitopia._i18n.TryAdd(typeof(System.Collections.Generic.IEnumerable<OcrResult>).FullName, "文字识别结果数组");
         ServiceProvider = serviceProvider;
         Kitopia.ToolTipConverters.TryAdd(typeof(ScreenCaptureInfo), info =>
         {
@@ -54,6 +56,7 @@ public class KitopiaEx : IPlugin
         services.AddTransient<ScreenCaptureInfoSelfConnector>();
         services.AddSingleton<KeyboardSimulation>();
         services.AddSingleton<ScreenCaptureNode>();
+        services.AddTransient<Ocr.Ocr>();
         return services.BuildServiceProvider();
     }
 }

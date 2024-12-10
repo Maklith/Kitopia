@@ -52,11 +52,12 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                     InputObject = new CustomScenarioValue()
                     {
                         Type = value,
-                        Value = value.IsValueType ? Activator.CreateInstance(value) : null
+                        Value = value.IsValueType ? Activator.CreateInstance(value) : null,
+                        IsSelf = true
                     },
                     Title = CustomScenarioGloble.GetI18N(value.FullName),
                   
-                    IsSelf = true
+                    
                 }
             };
             if (value.FullName == "System.Int32") StringinItems[0].InputObject.Value = (double)0;
