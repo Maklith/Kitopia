@@ -3,6 +3,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using Core.JsonConverter;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.HotKey;
 using Core.SDKs.Services.Config;
@@ -193,16 +194,31 @@ public class Plugin
     {
         var strings = methodAbsolutelyName.Split("#");
         var split = strings[2].Split("|");
+        var typeJsonConverter = new TypeJsonConverter();
+        var typeNames = split.Select(e =>
+        {
+            var name = e.Replace("[", ",").Replace("]", "");
+            return  name.Split(",");
+           
+        }).ToList();
+        var typeName = typeNames[1..];
+        var stringsList = typeName.Select(e =>
+        {
+            int index = 0;
+            return typeJsonConverter.ParseType(e, ref index);
+        }).ToList();
+
         return _dll.GetType(strings[1]).GetMethods().First(x =>
         {
             if (x.Name != split[0]) return false;
 
-            if (x.GetParameters().Length != split.Length - 1) return false;
+            var parameterInfos = x.GetParameters();
+            if (parameterInfos.Length != split.Length - 1) return false;
 
-            for (var index = 0; index < x.GetParameters().Length; index++)
+            for (var index = 0; index < parameterInfos.Length; index++)
             {
-                var parameterInfo = x.GetParameters()[index];
-                if (parameterInfo.ParameterType.FullName != split[index + 1].Split(" ").Last()) return false;
+                var parameterInfo = parameterInfos[index];
+                if (parameterInfo.ParameterType != stringsList.ElementAt(index)) return false;
             }
 
             return true;

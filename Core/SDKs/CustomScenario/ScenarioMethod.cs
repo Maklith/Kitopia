@@ -2,6 +2,7 @@
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
+using Core.JsonConverter;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Plugin;
 using Core.SDKs.Tools;
@@ -56,25 +57,17 @@ public class ScenarioMethod
             if (Type == ScenarioMethodType.插件方法)
             {
                 var sb = new StringBuilder("|");
-
+                var typeJsonConverter = new TypeJsonConverter();
+                
                 foreach (var genericArgument in Method.GetParameters())
                 {
-                    var plugin = PluginManager.EnablePlugin
-                        .FirstOrDefault((e) => e.Value._dll == genericArgument.ParameterType.Assembly)
-                        .Value;
-                    // type.Assembly.
-                    // var a = PluginManager.GetPlugnNameByTypeName(type.FullName);
-                    if (plugin is null)
-                    {
-                        sb.Append($"System {genericArgument.ParameterType.FullName}");
-                        sb.Append("|");
-                        continue;
-                    }
-
-                    sb.Append($"{PluginInfo.ToPlgString()} {genericArgument.ParameterType.FullName}");
+                    
+                  
+                    sb.Append(typeJsonConverter.GetTypeName(genericArgument.ParameterType));
                     sb.Append("|");
+                    
                 }
-
+                
                 sb.Remove(sb.Length - 1, 1);
                 var methodAbsolutelyName =
                     $"{PluginInfo}#{Method.DeclaringType!.FullName}#{Method.Name}{sb}";
