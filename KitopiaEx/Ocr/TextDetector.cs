@@ -151,7 +151,7 @@ namespace KitopiaEx.Ocr
             }
 
             var dstImg = new Mat();
-            Cv2.CvtColor(srcMat, dstImg, ColorConversionCodes.BGRA2GRAY);
+            Cv2.CvtColor(srcMat, dstImg, ColorConversionCodes.RGBA2GRAY);
             Cv2.Resize(dstImg, dstImg, new OpenCvSharp.Size((int)(scaleW * dstImg.Cols), (int)(scaleH * dstImg.Rows)), interpolation: InterpolationFlags.Linear);
             return dstImg;
         }

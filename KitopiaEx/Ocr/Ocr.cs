@@ -36,13 +36,17 @@ public class Ocr
         TextDetector _textDetector=new TextDetector($"{callingAssembly}\\Ocr\\ocr_det.onnx");
         TextRecognizer _textRecognizer= new TextRecognizer($"{callingAssembly}\\Ocr\\ocr_rec.onnx",$"{callingAssembly}\\Ocr\\rec_word_dict.txt");
         Mat img = Mat.FromPixelData(dResult.Info.Height,dResult.Info.Width,MatType.CV_8UC4,dResult.Bytes);
-        
+        //img.SaveImage($"{callingAssembly}\\1.png");
         var detect = _textDetector.Detect(img);
         
         foreach (var point2Fse in detect)
         {
             Mat textimg = _textDetector.GetRotateCropImage(img, point2Fse);
             var predictText = _textRecognizer.PredictText(textimg);
+            if (string.IsNullOrWhiteSpace(predictText))
+            {
+                continue;
+            }
             ocrResults.Add(new OcrResult()
             {
                 SPoint = new Point(point2Fse[0].X,point2Fse[0].Y),
