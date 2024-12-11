@@ -153,6 +153,7 @@ namespace KitopiaEx.Ocr
             var dstImg = new Mat();
             Cv2.CvtColor(srcMat, dstImg, ColorConversionCodes.RGBA2GRAY);
             Cv2.Resize(dstImg, dstImg, new OpenCvSharp.Size((int)(scaleW * dstImg.Cols), (int)(scaleH * dstImg.Rows)), interpolation: InterpolationFlags.Linear);
+            
             return dstImg;
         }
 
@@ -167,9 +168,9 @@ namespace KitopiaEx.Ocr
                 {
                     Vec3b pix = img.Get<Vec3b>(i, j);
                     //由于在上一步中未进行 BGR2RGB ,此处进行
-                    inputImage[i*col+j+2]=(pix[2] / 255.0f - 0.485f) / 0.229f;
+                    inputImage[i*col+j+2]=(pix[0] / 255.0f - 0.485f) / 0.229f;
                     inputImage[i*col+j+1]=(pix[1] / 255.0f -  0.456f) / 0.224f;
-                    inputImage[i*col+j]=(pix[0] / 255.0f -0.406f ) / 0.225f;
+                    inputImage[i*col+j]=(pix[2] / 255.0f -0.406f ) / 0.225f;
                         
                 }
             }
@@ -264,7 +265,7 @@ namespace KitopiaEx.Ocr
         }
 
         //基于vertices围成的外接矩形，似乎没有作用
-        public Mat GetRotateCropImage(Mat frame, Point2f[] vertices)
+        public (Mat,Rect) GetRotateCropImage(Mat frame, Point2f[] vertices)
         {
             Rect rect = Cv2.BoundingRect(vertices);
             Mat cropImg = new Mat(frame, rect);
@@ -288,7 +289,7 @@ namespace KitopiaEx.Ocr
             Mat result = new Mat();
             Cv2.WarpPerspective(cropImg, result, rotationMatrix, outputSize, borderMode: BorderTypes.Replicate);
 
-            return result;
+            return (result, rect);
         }
 
         public void Dispose()

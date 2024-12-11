@@ -15,6 +15,7 @@ using PluginCore.Attribute.Scenario;
 using SharpHook;
 using SharpHook.Native;
 using Point = Avalonia.Point;
+using Rect = OpenCvSharp.Rect;
 using TextDetector = KitopiaEx.Ocr.TextDetector;
 
 namespace KitopiaEx.Ocr;
@@ -41,16 +42,19 @@ public class Ocr
         
         foreach (var point2Fse in detect)
         {
-            Mat textimg = _textDetector.GetRotateCropImage(img, point2Fse);
-            var predictText = _textRecognizer.PredictText(textimg);
+            (Mat, Rect) textimg = _textDetector.GetRotateCropImage(img, point2Fse);
+            var predictText = _textRecognizer.PredictText(textimg.Item1);
             if (string.IsNullOrWhiteSpace(predictText))
             {
                 continue;
             }
+
+            Rect rect = textimg.Item2;
+            
             ocrResults.Add(new OcrResult()
             {
-                SPoint = new Point(point2Fse[0].X,point2Fse[0].Y),
-                EPoint = new Point(point2Fse[1].X,point2Fse[1].Y),
+                SPoint = new Point(rect.Left,rect.Top),
+                EPoint = new Point(rect.Left+rect.Width,rect.Top+rect.Height),
                 Text = predictText
             });
             //Console.WriteLine(predictText);

@@ -420,10 +420,10 @@ public partial class CustomScenario : ObservableRecipient
         //这是连接当前节点的节点
         if (cancellationToken.IsCancellationRequested) return;
 
-        foreach (var connectorItem in nowScenarioMethodNode.Input)
-        foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections))
-            if (sourceSource.Status == S节点状态.错误)
-                valid = false;
+        // foreach (var connectorItem in nowScenarioMethodNode.Input)
+        // foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections))
+        //     if (sourceSource.Status == S节点状态.错误)
+        //         valid = false;
 
 
         if (!valid) goto finnish;
@@ -446,7 +446,17 @@ public partial class CustomScenario : ObservableRecipient
             }
 
         if (cancellationToken.IsCancellationRequested) return;
-
+        finnish:
+        if (valid)
+        {
+            nowScenarioMethodNode.Status = notRealTime ? S节点状态.已验证 : S节点状态.初步验证;
+            Log.Debug($"解析节点完成:{nowScenarioMethodNode.Title}");
+        }
+        else
+        {
+            nowScenarioMethodNode.Status = S节点状态.错误;
+            Log.Debug($"解析节点失败:{nowScenarioMethodNode.Title}");
+        }
         if (!onlyForward)
             foreach (var outputConnector in nowScenarioMethodNode.Output)
             foreach (var nextPointItem in outputConnector.GetSourceOrNextPointItems(connections)
@@ -464,17 +474,7 @@ public partial class CustomScenario : ObservableRecipient
                     task.Start();
                 }
 
-        finnish:
-        if (valid)
-        {
-            nowScenarioMethodNode.Status = notRealTime ? S节点状态.已验证 : S节点状态.初步验证;
-            Log.Debug($"解析节点完成:{nowScenarioMethodNode.Title}");
-        }
-        else
-        {
-            nowScenarioMethodNode.Status = S节点状态.错误;
-            Log.Debug($"解析节点失败:{nowScenarioMethodNode.Title}");
-        }
+      
     }
 
 

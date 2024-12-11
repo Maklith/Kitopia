@@ -7,17 +7,39 @@
         x:Class="KitopiaEx.Ocr.OcrResultShowWindow"
         Width="1440"
         Height="810"
+        WindowStartupLocation="CenterScreen"
         Title="OcrResultShowWindow">
-    <Canvas Width="1440" Height="810">
+    <Panel Width="1440" Height="810">
         <Image x:Name="Image"  Width="1440" Height="810" HorizontalAlignment="Left" VerticalAlignment="Top"></Image>
         <ItemsControl x:Name="ItemsControl" >
+            <ItemsControl.Styles>
+                <Style Selector="TextBox:pointerover /template/ Border#PART_ContentPresenterBorder">
+                    <Setter Property="Background">
+                        <Setter.Value>
+                            <SolidColorBrush Color="Gray" Opacity="0.4"></SolidColorBrush>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ItemsControl.Styles>
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <Canvas></Canvas>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate DataType="ocr:OcrResult">
-                    <TextBox Text="{Binding Text}" 
-                               Canvas.Top="{Binding SPoint.Y}"
-                               Canvas.Left="{Binding SPoint.X}"></TextBox>
+                    <ocr:AdaptiveTextBox TopLeft="{Binding SPoint}" BottomRight="{Binding EPoint}" Text="{Binding Text}"></ocr:AdaptiveTextBox>
+                    
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
+            <ItemsControl.Styles>
+                <Style Selector="ItemsControl > ContentPresenter" >
+
+                    <Setter Property="Canvas.Left"  Value="{ReflectionBinding SPoint.X }" />
+                    <Setter Property="Canvas.Top" Value="{ReflectionBinding SPoint.Y }" />
+
+                </Style>
+            </ItemsControl.Styles>
         </ItemsControl>
-    </Canvas>
+    </Panel>
 </Window>
