@@ -47,8 +47,8 @@ public partial class AdaptiveTextBox : UserControl
     {
         base.OnLoaded(e);
         // Calculate the width and height from the rectangle's coordinates
-        double width = Math.Abs(BottomRight.X - TopLeft.X);
-        double height = Math.Abs(BottomRight.Y - TopLeft.Y);
+        double width = Math.Abs(BottomRight.X - TopLeft.X+5);
+        double height = Math.Abs(BottomRight.Y - TopLeft.Y+5);
 
         // Create the TextBox
         var textBox = new TextBox
@@ -57,7 +57,8 @@ public partial class AdaptiveTextBox : UserControl
             Height = height,
             HorizontalAlignment =  HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Top,
-            TextWrapping = TextWrapping.Wrap,
+            TextWrapping = TextWrapping.NoWrap,
+            IsReadOnly = true,
             Background = new SolidColorBrush(Colors.Gray,0.7d),
             Foreground = new SolidColorBrush(Colors.White),
             AcceptsReturn = true // Allow multiline input if required
@@ -68,11 +69,10 @@ public partial class AdaptiveTextBox : UserControl
         // Set the TextBox's position based on the rectangle's top-left corner
 
         // Optional: Set styles for the TextBox (e.g., font size, alignment)
-        textBox.FontSize = height / 2; // Example: Adjust font size based on height
+        textBox.FontSize = height / 2.1; // Example: Adjust font size based on height
 
         // Add the TextBox to a Canvas for positioning
-        
-
+       
         Content = textBox;
     }
 }

@@ -66,11 +66,11 @@ namespace KitopiaEx.Ocr
         public string PredictText(Mat cv_image)
         {
             Mat dstimg = Preprocess(cv_image);
-            Normalize(dstimg);
+            var normalize = Normalize(dstimg);
 
-            int[] input_shape_ = new int[] { 1, 3, inpHeight, inpWidth };
+            int[] input_shape_ = new int[] { 1, 3, dstimg.Rows, dstimg.Width };
 
-            var input_tensor_ = new DenseTensor<float>(input_image_.ToArray(), input_shape_);
+            var input_tensor_ = new DenseTensor<float>(normalize, input_shape_);
 
             var ort_inputs = new List<NamedOnnxValue>
             {
@@ -121,44 +121,55 @@ namespace KitopiaEx.Ocr
             return plate_text.ToString();
         }
 
-        private Mat Preprocess(Mat srcimg)
+        private Mat Preprocess(Mat srcImg)
         {
-            Mat dstimg = new Mat();
-            int h = srcimg.Rows;
-            int w = srcimg.Cols;
-            float ratio = w / (float)h;
-            int resized_w = (int)Math.Ceiling((float)inpHeight * ratio);
-            if (Math.Ceiling(inpHeight * ratio) > inpWidth)
+           
+            int w = srcImg.Cols;
+            
+            int tarW = (int)(w / 32) * 32;
+            if (tarW < w)
             {
-                resized_w = inpWidth;
+                tarW += 32; // Adjust to the next multiple of 32
             }
 
-            Cv2.Resize(srcimg, dstimg, new OpenCvSharp.Size(resized_w, inpHeight), interpolation: InterpolationFlags.Linear);
-            return dstimg;
+            // Convert to grayscale
+           // var grayImg = new Mat();
+           // Cv2.CvtColor(srcImg, grayImg, ColorConversionCodes.RGBA2GRAY);
+
+            // Create a new image with white padding
+// Force height to 48 without scaling the width
+            int tarH = 48;
+
+            // Create a new image with white padding
+            var paddedImg = new Mat(tarH, w, MatType.CV_8UC3, new Scalar(255, 255, 255));
+
+            // Resize the original image to the target height while keeping the width unchanged
+            var resizedImg = new Mat();
+            Cv2.Resize(srcImg, resizedImg, new OpenCvSharp.Size(w, tarH));
+            // Copy the original image to the center of the new image
+            Cv2.CopyMakeBorder(resizedImg, paddedImg, 0, 0, 0, tarW - srcImg.Cols, BorderTypes.Isolated, new Scalar(255, 255, 255));
+
+            return paddedImg;
         }
 
-        private void Normalize(Mat img)
+        private float[]  Normalize(Mat img)
         {
             int row = img.Rows;
             int col = img.Cols;
-
-            this.input_image_.Clear();
-
-            for (int c = 0; c < 3; c++)
+            float[] inputImage = new float[row*col*3];
+            for (int i = 0; i < row; i++)
             {
-                for (int i = 0; i < row; i++)
+                for (int j = 0; j < col; j++)
                 {
-                    for (int j = 0; j < col; j++)
-                    {
-                        float pix = img.Get<Vec3b>(i, j)[c];
-                        this.input_image_.Add((pix / 255.0f -0.5f) / 0.5f);
-                    }
-                    for (int j = col; j < inpWidth; j++)
-                    {
-                        this.input_image_.Add(0.0f);
-                    }
+                    Vec3b pix = img.Get<Vec3b>(i, j);
+                    //由于在上一步中未进行 BGR2RGB ,此处进行
+                    inputImage[i*col+j+2]=(pix[0] /  255.0f -0.5f) / 0.5f;
+                    inputImage[i*col+j+1]=(pix[1] / 255.0f -0.5f) / 0.5f;
+                    inputImage[i*col+j]=(pix[2] /  255.0f -0.5f) / 0.5f;
+                        
                 }
             }
+            return inputImage;
         }
 
         public void Dispose()

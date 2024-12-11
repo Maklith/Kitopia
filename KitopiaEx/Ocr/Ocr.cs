@@ -39,10 +39,10 @@ public class Ocr
         Mat img = Mat.FromPixelData(dResult.Info.Height,dResult.Info.Width,MatType.CV_8UC4,dResult.Bytes);
         //img.SaveImage($"{callingAssembly}\\1.png");
         var detect = _textDetector.Detect(img);
-        
+        var textDetectorDstImg = _textDetector.dstImg;
         foreach (var point2Fse in detect)
         {
-            (Mat, Rect) textimg = _textDetector.GetRotateCropImage(img, point2Fse);
+            (Mat, Rect) textimg = _textDetector.GetRotateCropImage(textDetectorDstImg, point2Fse);
             var predictText = _textRecognizer.PredictText(textimg.Item1);
             if (string.IsNullOrWhiteSpace(predictText))
             {
@@ -61,6 +61,7 @@ public class Ocr
         }
 
         img.Dispose();
+        textDetectorDstImg.Dispose();
         _textDetector.Dispose();
         _textRecognizer.Dispose();
         return ocrResults;

@@ -42,7 +42,7 @@ namespace KitopiaEx.Ocr
           
         }
 
-
+        public Mat dstImg { set; get; }
         public List<Point2f[]> Detect(Mat srcImg)
         {
             
@@ -50,7 +50,7 @@ namespace KitopiaEx.Ocr
             int w = srcImg.Cols;
 
             //0. 图像预处理 尺寸调整  归一化
-            Mat dstImg = this.Preprocess(srcImg);
+            dstImg = this.Preprocess(srcImg);
             var normalize = this.Normalize(dstImg);
            
             //1. 构建输入张量
@@ -76,8 +76,6 @@ namespace KitopiaEx.Ocr
                     binary.Set<byte>(y, x, (byte)(floatArray.GetValue(y * dstImg.Cols + x) > 0 ? 255:0));
                 }
             }
-            float scaleHeight = (float)(h) / (float)(binary.Size(0));
-            float scaleWidth = (float)(w) / (float)(binary.Size(1));
             OpenCvSharp.Point[][] contours;
             HierarchyIndex[] hierarchy;
             Cv2.FindContours(binary, out contours, out hierarchy, RetrievalModes.List, ContourApproximationModes.ApproxTC89L1);
@@ -112,15 +110,7 @@ namespace KitopiaEx.Ocr
                     continue;
                 results.Add(box.Points());
             }
-            
-            foreach (var t in results)
-            {
-                for (var i1 = 0; i1 < t.Length; i1++)
-                {
-                    t[i1].Y =Math.Clamp(t[i1].Y * scaleHeight,0 ,srcImg.Rows - 1) ;
-                    t[i1].X = Math.Clamp(t[i1].X * scaleWidth, 0, srcImg.Cols - 1);
-                }
-            }
+
             return results;
         }
         
@@ -130,31 +120,35 @@ namespace KitopiaEx.Ocr
 
             int h = srcMat.Rows;
             int w = srcMat.Cols;
-            float scaleH = 1;
-            float scaleW = 1;
+            int tarH = h;
+            int tarW = w;
 
-            if (h < w)
+            // 计算目标高度和宽度，确保是32的倍数
+            tarH = (int)(h / 32) * 32;
+            if (tarH < h)
             {
-                scaleH = (float)shortSize / h;
-                float tarW = w * scaleH;
-                tarW = tarW - (int)tarW % 32;
-                tarW = Math.Max(32, tarW);
-                scaleW = tarW / w;
+                tarH += 32; // 如果刚好是32的倍数，则需要再加32
             }
-            else
+            tarW = (int)(w / 32) * 32;
+            if (tarW < w)
             {
-                scaleW = (float)this.shortSize / w;
-                float tarH = h * scaleW;
-                tarH = tarH - (int)tarH % 32;
-                tarH = Math.Max(32, tarH);
-                scaleH = tarH / h;
+                tarW += 32; // 如果刚好是32的倍数，则需要再加32
             }
 
             var dstImg = new Mat();
             Cv2.CvtColor(srcMat, dstImg, ColorConversionCodes.RGBA2GRAY);
-            Cv2.Resize(dstImg, dstImg, new OpenCvSharp.Size((int)(scaleW * dstImg.Cols), (int)(scaleH * dstImg.Rows)), interpolation: InterpolationFlags.Linear);
+
+            // 创建一个新的图像，用于填充白色背景
+            var resizedImgWithPadding = new Mat(tarH, tarW, MatType.CV_8UC3, new Scalar(255, 255, 255));
+
+            // 计算原图在新图像中的位置
+
+            // 将原图复制到新图像的中心位置
+            Cv2.CopyMakeBorder(dstImg, resizedImgWithPadding, 0, tarH - dstImg.Rows, 0, tarW  - dstImg.Cols, BorderTypes.Isolated, new Scalar(255, 255, 255));
+            return resizedImgWithPadding;
+           // Cv2.Threshold(dstImg,dstImg,127,255,ThresholdTypes.Binary);
             
-            return dstImg;
+           
         }
 
         private float[]  Normalize(Mat img)
@@ -267,29 +261,14 @@ namespace KitopiaEx.Ocr
         //基于vertices围成的外接矩形，似乎没有作用
         public (Mat,Rect) GetRotateCropImage(Mat frame, Point2f[] vertices)
         {
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                vertices[i].X = Math.Clamp(vertices[i].X, 0, frame.Cols - 1);
+                vertices[i].Y = Math.Clamp(vertices[i].Y, 0, frame.Rows - 1);
+            }
             Rect rect = Cv2.BoundingRect(vertices);
             Mat cropImg = new Mat(frame, rect);
-            OpenCvSharp.Size outputSize = new OpenCvSharp.Size(rect.Width, rect.Height);
-
-            List<Point2f> targetVertices = new List<Point2f>
-            {
-                new Point2f(0, outputSize.Height),
-                new Point2f(0, 0),
-                new Point2f(outputSize.Width, 0), 
-                new Point2f(outputSize.Width, outputSize.Height)
-            };
-
-            for (int i = 0; i < 4; i++)
-            {
-                vertices[i].X -= rect.X;
-                vertices[i].Y -= rect.Y;
-            }
-
-            Mat rotationMatrix = Cv2.GetPerspectiveTransform(vertices.ToArray(), targetVertices.ToArray());
-            Mat result = new Mat();
-            Cv2.WarpPerspective(cropImg, result, rotationMatrix, outputSize, borderMode: BorderTypes.Replicate);
-
-            return (result, rect);
+            return (cropImg, rect);
         }
 
         public void Dispose()

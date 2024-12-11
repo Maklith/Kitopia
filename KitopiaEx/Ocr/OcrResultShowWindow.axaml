@@ -5,13 +5,14 @@
         xmlns:ocr="clr-namespace:KitopiaEx.Ocr"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="KitopiaEx.Ocr.OcrResultShowWindow"
-        Width="1440"
-        Height="810"
+        Width="1693"
+        Height="918"
         WindowStartupLocation="CenterScreen"
+         
         Title="OcrResultShowWindow">
-    <Panel Width="1440" Height="810">
-        <Image x:Name="Image"  Width="1440" Height="810" HorizontalAlignment="Left" VerticalAlignment="Top"></Image>
-        <ItemsControl x:Name="ItemsControl" >
+    <Panel >
+        <Image x:Name="Image"   HorizontalAlignment="Left" VerticalAlignment="Top"></Image>
+        <ItemsControl x:Name="ItemsControl"  HorizontalAlignment="Left" VerticalAlignment="Top">
             <ItemsControl.Styles>
                 <Style Selector="TextBox:pointerover /template/ Border#PART_ContentPresenterBorder">
                     <Setter Property="Background">
