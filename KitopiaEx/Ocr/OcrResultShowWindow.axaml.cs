@@ -18,6 +18,7 @@ public partial class OcrResultShowWindow : Window
         
         
         ItemsControl.RenderTransform = _scaleTransform;
+        Image.SizeChanged += OnSizeChanged;
     }
 
     protected override void OnOpened(EventArgs e)
@@ -34,25 +35,22 @@ public partial class OcrResultShowWindow : Window
         ItemsControl.RenderTransformOrigin = new RelativePoint(0, 0, RelativeUnit.Absolute);
     }
 
-
-    protected override void OnSizeChanged(SizeChangedEventArgs e)
+    protected override void OnClosed(EventArgs e)
     {
-        base.OnSizeChanged(e);
+        base.OnClosed(e);
+        Image.SizeChanged -= OnSizeChanged;
+    }
+
+
+    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        
         
         if (Image.Source is not null)
         {
-            double scale = (Image.Bounds.Size.Width / e.PreviousSize.Width)*e.NewSize.Width / Image.Source.Size.Width;
-            Image.Width=e.NewSize.Width;
-            Image.Height=e.NewSize.Height;
-            _scaleTransform.ScaleX = scale;
-            _scaleTransform.ScaleY = scale;
+            
+            _scaleTransform.ScaleX/=  (e.PreviousSize.Width / e.NewSize.Width);
+            _scaleTransform.ScaleY /=  (e.PreviousSize.Width / e.NewSize.Width);
         }
-    }
-
-    protected override void OnResized(WindowResizedEventArgs e)
-    {
-        base.OnResized(e);
-        
-        
     }
 }

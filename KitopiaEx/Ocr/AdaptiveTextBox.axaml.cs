@@ -1,7 +1,9 @@
 ﻿using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Utils;
 using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
@@ -10,7 +12,7 @@ using Avalonia.Styling;
 
 namespace KitopiaEx.Ocr;
 
-public partial class AdaptiveTextBox : UserControl
+public partial class AdaptiveTextBox : SelectableTextBlock
 {
     public Point TopLeft
     {
@@ -30,14 +32,6 @@ public partial class AdaptiveTextBox : UserControl
     public static readonly StyledProperty<Point> BottomRightProperty =
         AvaloniaProperty.Register<AdaptiveTextBox, Point>(nameof(BottomRight));
     //Text
-    public string Text
-    {
-        get => GetValue(TextProperty);
-        set => SetValue(TextProperty, value);
-    }
-
-    public static readonly StyledProperty<string> TextProperty =
-        AvaloniaProperty.Register<AdaptiveTextBox, string>(nameof(Text));
     public AdaptiveTextBox()
     {
         
@@ -49,30 +43,26 @@ public partial class AdaptiveTextBox : UserControl
         // Calculate the width and height from the rectangle's coordinates
         double width = Math.Abs(BottomRight.X - TopLeft.X+5);
         double height = Math.Abs(BottomRight.Y - TopLeft.Y+5);
+        SelectionBrush=new SolidColorBrush(Colors.Cyan,0.7d);
 
-        // Create the TextBox
-        var textBox = new TextBox
-        {
-            Width = width,
-            Height = height,
-            HorizontalAlignment =  HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Top,
-            TextWrapping = TextWrapping.NoWrap,
-            IsReadOnly = true,
-            Background = new SolidColorBrush(Colors.Gray,0.7d),
-            Foreground = new SolidColorBrush(Colors.White),
-            AcceptsReturn = true // Allow multiline input if required
-        };
-        var binding = new Binding("Text");
-        textBox.Bind(TextBox.TextProperty, binding);
+        Width = width;
+        Height = height;
+        HorizontalAlignment = HorizontalAlignment.Left;
+        VerticalAlignment = VerticalAlignment.Top;
+        TextWrapping = TextWrapping.NoWrap;
 
-        // Set the TextBox's position based on the rectangle's top-left corner
-
-        // Optional: Set styles for the TextBox (e.g., font size, alignment)
-        textBox.FontSize = height / 2.1; // Example: Adjust font size based on height
-
-        // Add the TextBox to a Canvas for positioning
+        Background = new SolidColorBrush(Colors.Gray, 0.7d);
+        Foreground = new SolidColorBrush(Colors.White);
        
-        Content = textBox;
+        this.FontSize = height /1.5; 
+       
+      
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        //e.Pointer.Capture(TopLevel.GetTopLevel(this));
+        
     }
 }

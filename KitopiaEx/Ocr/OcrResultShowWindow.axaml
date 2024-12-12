@@ -5,8 +5,9 @@
         xmlns:ocr="clr-namespace:KitopiaEx.Ocr"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="KitopiaEx.Ocr.OcrResultShowWindow"
-        Width="1693"
-        Height="918"
+        WindowState="Maximized"
+        Width="1440"
+        Height="810"
         WindowStartupLocation="CenterScreen"
          
         Title="OcrResultShowWindow">
@@ -18,6 +19,13 @@
                     <Setter Property="Background">
                         <Setter.Value>
                             <SolidColorBrush Color="Gray" Opacity="0.4"></SolidColorBrush>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+                <Style Selector="TextBox:focus /template/ Border#PART_ContentPresenterBorder">
+                    <Setter Property="BorderBrush">
+                        <Setter.Value>
+                            <SolidColorBrush Color="Transparent"></SolidColorBrush>
                         </Setter.Value>
                     </Setter>
                 </Style>
