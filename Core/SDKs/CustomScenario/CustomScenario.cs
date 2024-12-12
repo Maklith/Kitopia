@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.SDKs.CustomType;
 using Core.SDKs.HotKey;
@@ -78,8 +79,45 @@ public partial class CustomScenario : ObservableRecipient
             IsSelectWin = false,
             IsSelectShift = false, SelectKey = EKey.未设置
         };
-        if (RunHotKey.SelectKey != EKey.未设置)
-            if (HotKeyManager.HotKetImpl.Add(RunHotKey, e => Run()))
+        InitHotKey();
+
+        WeakReferenceMessenger.Default.Register<string,string>(this,"hotkey", (recipient, message) =>
+        {
+            if (stopHotKey.UUID==message)
+            {
+                stopHotKey = HotKeyManager.HotKetImpl.GetByUuid(message).Value;
+                CustomScenarioManger.Save(this);
+            }
+
+            if (runHotKey.UUID == message)
+            {
+                runHotKey = HotKeyManager.HotKetImpl.GetByUuid(message).Value;
+                CustomScenarioManger.Save(this);
+            }
+        });
+        InputValue.CollectionChanged += OnInputValueOnCollectionChanged;
+    }
+
+    [RelayCommand]
+    private void InitHotKeyUiCommand(HotKeyModel? hotKeyModel)
+    {
+        if (hotKeyModel == null) return;
+        if (hotKeyModel.Value.UUID==RunHotKey.UUID)
+        {
+            HotKeyManager.HotKetImpl.Add(hotKeyModel.Value, e => Run(), false);
+        }
+
+        if (hotKeyModel.Value.UUID == StopHotKey.UUID)
+        {
+            HotKeyManager.HotKetImpl.Add(hotKeyModel.Value, e => Stop(), false);
+        }
+
+
+    }
+    public void InitHotKey()
+    {
+        if (RunHotKey.IsEnabled)
+            if (!HotKeyManager.HotKetImpl.Add(RunHotKey, e => Run()))
                 ServiceManager.Services.GetService<IContentDialog>()!.ShowDialogAsync(null, new DialogContent()
                 {
                     Title = $"快捷键{RunHotKey.SignName}设置失败",
@@ -87,17 +125,15 @@ public partial class CustomScenario : ObservableRecipient
                     CloseButtonText = "关闭"
                 });
 
-        if (StopHotKey.SelectKey != EKey.未设置)
-            if (HotKeyManager.HotKetImpl.Add(StopHotKey, e => Stop()))
+        if (StopHotKey.IsEnabled)
+            if (!HotKeyManager.HotKetImpl.Add(StopHotKey, e => Stop()))
                 ServiceManager.Services.GetService<IContentDialog>().ShowDialogAsync(null, new DialogContent()
                 {
                     Title = $"快捷键{StopHotKey.SignName}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
                     CloseButtonText = "关闭"
                 });
-
-
-        InputValue.CollectionChanged += OnInputValueOnCollectionChanged;
+        
     }
 
 

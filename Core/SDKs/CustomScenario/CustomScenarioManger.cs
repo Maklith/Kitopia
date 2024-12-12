@@ -125,7 +125,7 @@ public static class CustomScenarioManger
 
                 foreach (var connectorItem in deserializeObjectNode.Output) ConnectorInit(connectorItem);
             }
-
+            deserializeObject.InitHotKey();
             CustomScenarios.Add(deserializeObject);
         }
         catch (CustomScenarioLoadFromJsonException e1)
@@ -249,23 +249,8 @@ public static class CustomScenarioManger
         if (!CustomScenarios.Contains(scenario))
         {
             CustomScenarios.Add(scenario);
-            if (scenario.RunHotKey.SelectKey != EKey.未设置)
-                if (HotKeyManager.HotKetImpl.Add(scenario.RunHotKey, e => scenario.Run()))
-                    ServiceManager.Services.GetService<IContentDialog>().ShowDialogAsync(null, new DialogContent()
-                    {
-                        Title = $"快捷键{scenario.RunHotKey.SignName}设置失败",
-                        Content = "请重新设置快捷键，按键与系统其他程序冲突",
-                        CloseButtonText = "关闭"
-                    });
 
-            if (scenario.StopHotKey.SelectKey != EKey.未设置)
-                if (HotKeyManager.HotKetImpl.Add(scenario.StopHotKey, e => scenario.Stop()))
-                    ServiceManager.Services.GetService<IContentDialog>().ShowDialogAsync(null, new DialogContent()
-                    {
-                        Title = $"快捷键{scenario.StopHotKey.SignName}设置失败",
-                        Content = "请重新设置快捷键，按键与系统其他程序冲突",
-                        CloseButtonText = "关闭"
-                    });
+            scenario.InitHotKey();
         }
 
 
@@ -325,6 +310,8 @@ public static class CustomScenarioManger
             
         }
     }
+
+  
 
     public static void Remove(CustomScenario scenario, bool deleteFile = true)
     {

@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Threading;
+using CommunityToolkit.Mvvm.Messaging;
 using Core.SDKs.CustomType;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
@@ -15,10 +16,10 @@ namespace Core.Window;
 public class HotKeyImpl : IHotKetImpl
 {
     private static Avalonia.Controls.Window globalHotKeyWindow = null!;
-    private static ObservableDictionary<string, HotkeyInfo> HotKeys = new();
+    public static ObservableDictionary<string, HotkeyInfo> HotKeys { get; set; }= new();
     private static SimpleReactiveGlobalHook hook = new(GlobalHookType.Mouse);
 
-    private class HotkeyInfo
+    public class HotkeyInfo
     {
         public HotKeyModel HotKeyModel;
         public int Id;
@@ -104,7 +105,8 @@ public class HotKeyImpl : IHotKetImpl
         return IntPtr.Zero;
     }
 
-    public bool Add(HotKeyModel hotKeyModel, Action<HotKeyModel> rallBack)
+    
+    public bool Add(HotKeyModel hotKeyModel, Action<HotKeyModel> rallBack,bool initHotKey=true)
     {
         if (!hotKeyModel.IsEnabled)
         {
@@ -132,12 +134,16 @@ public class HotKeyImpl : IHotKetImpl
 
                 _id++;
                 var registerHotKey = false;
-                Dispatcher.UIThread.Invoke(() =>
+                if (initHotKey)
                 {
-                    registerHotKey = User32.RegisterHotKey(globalHotKeyWindow.TryGetPlatformHandle().Handle, _id,
-                        hotkeyModifiers,
-                        (uint)hotKeyModel.SelectKey);
-                });
+                    Dispatcher.UIThread.Invoke(() =>
+                    {
+                        registerHotKey = User32.RegisterHotKey(globalHotKeyWindow.TryGetPlatformHandle().Handle, _id,
+                            hotkeyModifiers,
+                            (uint)hotKeyModel.SelectKey);
+                    });
+                }
+              
                 if (registerHotKey)
                 {
                     if (HotKeys.TryGetValue(hotKeyModel.UUID, out var hotKeyModel1) && hotKeyModel1.Id == -1)
@@ -202,7 +208,7 @@ public class HotKeyImpl : IHotKetImpl
         if (HotKeys.TryGetValue(uuid, out var hotkey))
         {
             hotkey.HotKeyModel.IsEnabled = false;
-
+            WeakReferenceMessenger.Default.Send(hotkey.HotKeyModel.UUID, "hotkey");
             ConfigManger.RequsetUpdateHotKey(hotkey.HotKeyModel);
             ConfigManger.Save();
             switch (hotkey.HotKeyModel.Type)
@@ -264,17 +270,7 @@ public class HotKeyImpl : IHotKetImpl
     public bool IsActive(string uuid)
     {
         if (HotKeys.TryGetValue(uuid, out var hotkeyInfo))
-            switch (hotkeyInfo.HotKeyModel.Type)
-            {
-                case HotKeyType.Keyboard:
-                {
-                    return HotKeys[uuid].Id != -1;
-                }
-                case HotKeyType.Mouse:
-                {
-                    return HotKeys[uuid].Id != -1;
-                }
-            }
+            return hotkeyInfo.HotKeyModel.IsEnabled;
 
         return false;
     }

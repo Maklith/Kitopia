@@ -50,6 +50,8 @@ public class HotKeyShow : TemplatedControl
 
     public static readonly StyledProperty<ICommand> EditHotKeyProperty =
         AvaloniaProperty.Register<HotKeyShow, ICommand>(nameof(EditHotKey));
+    public static readonly StyledProperty<ICommand> InitHotKeyProperty =
+        AvaloniaProperty.Register<HotKeyShow, ICommand>(nameof(InitHotKey));
 
     //IsActivated
     public static readonly StyledProperty<bool> IsActivatedProperty =
@@ -116,6 +118,14 @@ public class HotKeyShow : TemplatedControl
         get => (ICommand)GetValue(EditHotKeyProperty);
         private set => SetValue(EditHotKeyProperty, value);
     }
+    
+    [Bindable(true)]
+    [Category("InitHotKey")]
+    public ICommand InitHotKey
+    {
+        get => (ICommand)GetValue(InitHotKeyProperty);
+        private set => SetValue(InitHotKeyProperty, value);
+    }
 
     private static void HotKeyModelChanged(HotKeyModel? hotKeyModelN, HotKeyShow hotKeyShow)
     {
@@ -171,10 +181,13 @@ public class HotKeyShow : TemplatedControl
     {
         if (HotKeyModel is null) return;
 
-        if (HotKeyModel.Value.Type == HotKeyType.Mouse && HotKeyModel.Value.MouseButton == ushort.MaxValue)
+        if (HotKeyManager.HotKetImpl.GetByUuid(HotKeyModel.Value.UUID) is null)
+        {
+            InitHotKey.Execute(HotKeyModel);
+            HotKeyManager.HotKetImpl.RequestUserModify(HotKeyModel.Value.UUID);
             return;
-        if (HotKeyModel.Value.Type == HotKeyType.Keyboard && HotKeyModel.Value.SelectKey == EKey.未设置)
-            return;
+        }
+       
 
         if (!IsActivated)
         {

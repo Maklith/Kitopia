@@ -89,7 +89,7 @@ public class KitopiaConfig : ConfigBase
     public bool 截图直接复制到剪贴板 = true;
 
     [ConfigField("截图方法", "使用特定的截图方法,某些情况下截图失败请尝试切换", 0xE61C, ConfigFieldType.自定义选项, action: "截图方法列表")]
-    public string 截图方法 = "自动";
+    public string 截图方法 = "WGC";
 
     [ConfigField("截图快捷键", "修改截图快捷键", 0xF4B8, ConfigFieldType.快捷键, action: "screenShotHotKeyAction")]
     public HotKeyModel screenShotHotKey = new()

@@ -713,6 +713,7 @@
                                                     <u:DisableContainer DisabledTip="需要先保存一次情景才可设置"
                                                                         ToolTip.ShowDelay="100">
                                                         <controls1:HotKeyShow
+                                                            InitHotKey="{Binding Scenario.InitHotKeyUiCommandCommand }"
                                                             HotKeyModel="{Binding Scenario.RunHotKey}"
                                                             IsEnabled="{Binding IsSaveInLocal}" />
                                                     </u:DisableContainer>
@@ -733,6 +734,7 @@
                                                     <u:DisableContainer DisabledTip="需要先保存一次情景才可设置"
                                                                         ToolTip.ShowDelay="100">
                                                         <controls1:HotKeyShow
+                                                            InitHotKey="{Binding Scenario.InitHotKeyUiCommandCommand }"
                                                             HotKeyModel="{Binding Scenario.StopHotKey}"
                                                             IsEnabled="{Binding IsSaveInLocal}" />
                                                     </u:DisableContainer>
