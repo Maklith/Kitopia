@@ -11,15 +11,16 @@
         WindowStartupLocation="CenterScreen"
          
         Title="OcrResultShowWindow">
-    <Panel >
+    <Panel PointerMoved="InputElement_OnPointerMoved" PointerPressed="InputElement_OnPointerPressed" PointerReleased="InputElement_OnPointerReleased" PointerCaptureLost="InputElement_OnPointerCaptureLost" PointerExited="InputElement_OnPointerExited">
+        <Panel.Background>
+            <SolidColorBrush Color="Azure" Opacity="0.001"></SolidColorBrush>
+        </Panel.Background>
         <Image x:Name="Image"   HorizontalAlignment="Left" VerticalAlignment="Top"></Image>
         <ItemsControl x:Name="ItemsControl"  HorizontalAlignment="Left" VerticalAlignment="Top">
             <ItemsControl.Styles>
-                <Style Selector="TextBox:pointerover /template/ Border#PART_ContentPresenterBorder">
-                    <Setter Property="Background">
-                        <Setter.Value>
-                            <SolidColorBrush Color="Gray" Opacity="0.4"></SolidColorBrush>
-                        </Setter.Value>
+                <Style Selector="ocr|AdaptiveTextBox:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource SemiColorText3}">
+                        
                     </Setter>
                 </Style>
                 <Style Selector="TextBox:focus /template/ Border#PART_ContentPresenterBorder">
@@ -37,7 +38,11 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate DataType="ocr:OcrResult">
-                    <ocr:AdaptiveTextBox TopLeft="{Binding SPoint}" BottomRight="{Binding EPoint}" Text="{Binding Text}"></ocr:AdaptiveTextBox>
+                    <ocr:AdaptiveTextBox 
+                        TopLeft="{Binding SPoint}" BottomRight="{Binding EPoint}" 
+                        Text="{Binding Text}" Foreground="{DynamicResource SemiColorBackground0}"
+                        Background="{DynamicResource SemiColorText2}"
+                        ></ocr:AdaptiveTextBox>
                     
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -50,5 +55,9 @@
                 </Style>
             </ItemsControl.Styles>
         </ItemsControl>
+        <Border VerticalAlignment="Bottom" HorizontalAlignment="Center" Name="TipTextBlock" Background="{DynamicResource SemiColorText2}" CornerRadius="10" IsVisible="False" Padding="10" Margin="0,0,0,50">
+            <TextBlock Name="TextBlock" Text="已复制" FontSize="20" Foreground="{DynamicResource SemiColorBackground0}"></TextBlock>
+        </Border>
+        
     </Panel>
 </Window>
