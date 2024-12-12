@@ -44,7 +44,7 @@ public partial class ScreenCaptureWindow : Window
     private Action<ScreenCaptureResult> selectBytesModeAction;
     private Action selectBytesModeCancelAction;
     private ScreenCaptureInfo _screenCaptureInfo;
-
+    private bool Finish = false;
     public ScreenCaptureWindow(ScreenCaptureInfo screenCaptureInfo)
     {
         InitializeComponent();
@@ -54,6 +54,7 @@ public partial class ScreenCaptureWindow : Window
         SystemDecorations = SystemDecorations.None;
         Background = new SolidColorBrush(Colors.Black);
         ShowInTaskbar = false;
+        
         if (!Debugger.IsAttached) Topmost = true;
 
 
@@ -156,7 +157,7 @@ public partial class ScreenCaptureWindow : Window
 
         renderTargetBitmap?.Dispose();
         MosaicImage.OpacityMask = null;
-        if (selectBytesMode)
+        if (selectBytesMode&&!Finish)
         {
             selectBytesModeCancelAction.Invoke();
         }
@@ -206,7 +207,7 @@ public partial class ScreenCaptureWindow : Window
             WeakReferenceMessenger.Default.Send<string, string>("Selected", "ScreenCapture");
             UpdateSelectBox();
 
-            if (ConfigManger.Config.截图直接复制到剪贴板)
+            if (ConfigManger.Config.截图直接复制到剪贴板|| selectBytesMode|| selectMode)
                 FinnishCapture();
             else
                 UpdateToolBar();
@@ -828,6 +829,7 @@ public partial class ScreenCaptureWindow : Window
                 var renderTargetBitmap =
                     new RenderTargetBitmap(new PixelSize(bitmap.PixelSize.Width, bitmap.PixelSize.Height),
                         new Vector(96, 96));
+                
                 var content = (Control)Content;
                 var transformGroup = new TransformGroup();
                 var scaleTransform = new ScaleTransform(bitmap.PixelSize.Width / Bounds.Width,
@@ -886,7 +888,7 @@ public partial class ScreenCaptureWindow : Window
                 renderTargetBitmap.Dispose();
             }
         }
-
+        Finish = true;
         Image.Source = null;
 
         WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");

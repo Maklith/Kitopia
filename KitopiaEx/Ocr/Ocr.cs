@@ -75,7 +75,7 @@ public class Ocr
             var ocrResultShowWindow = new OcrResultShowWindow();
             var writeableBitmap = new WriteableBitmap(
                 new PixelSize(dResult.Info.Width, dResult.Info.Height),
-                new Vector(96, 96), PixelFormat.Rgba8888);
+                new Vector(96, 96), PixelFormat.Bgra8888);
             using (var l = writeableBitmap.Lock())
             {
                 for (var r = 0; r < dResult.Info.Height; r++)

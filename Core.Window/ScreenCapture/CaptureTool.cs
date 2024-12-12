@@ -39,9 +39,9 @@ public static class CaptureTool
 
                     // 读取原始像素并复制到结果
                     uint value = span[sourceIndex / 4];
-                    result[targetIndex] = (byte)(value & 0xFF);        // R
+                    result[targetIndex+ 2] = (byte)(value & 0xFF);        // R
                     result[targetIndex + 1] = (byte)((value >> 8) & 0xFF); // G
-                    result[targetIndex + 2] = (byte)((value >> 16) & 0xFF); // B
+                    result[targetIndex ] = (byte)((value >> 16) & 0xFF); // B
                     result[targetIndex + 3] = (byte)((value >> 24) & 0xFF); // A
                 }
             }
@@ -88,9 +88,9 @@ public static class CaptureTool
                     float bt2020B = matrix[2, 0] * r + matrix[2, 1] * g + matrix[2, 2] * b;
 
                     // 转换并填充结果
-                    result[targetIndex] = (byte)Math.Clamp(bt2020R * 255, 0, 255);
+                    result[targetIndex+ 2] = (byte)Math.Clamp(bt2020R * 255, 0, 255);
                     result[targetIndex + 1] = (byte)Math.Clamp(bt2020G * 255, 0, 255);
-                    result[targetIndex + 2] = (byte)Math.Clamp(bt2020B * 255, 0, 255);
+                    result[targetIndex ] = (byte)Math.Clamp(bt2020B * 255, 0, 255);
                     result[targetIndex + 3] = 255; // Alpha 固定为 255
                 }
             }

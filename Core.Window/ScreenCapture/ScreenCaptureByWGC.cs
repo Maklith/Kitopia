@@ -124,7 +124,7 @@ public class ScreenCaptureByWGC : IScreenCapture
     {
         var writeableBitmap = new WriteableBitmap(
             new PixelSize(captureAllScreenInfo.Info.Width, captureAllScreenInfo.Info.Height),
-            new Vector(96, 96), PixelFormat.Rgba8888);
+            new Vector(96, 96), PixelFormat.Bgra8888 );
         using (var l = writeableBitmap.Lock())
         {
             for (var r = 0; r < captureAllScreenInfo.Info.Height; r++)
