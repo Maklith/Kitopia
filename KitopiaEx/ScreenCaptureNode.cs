@@ -21,12 +21,37 @@ public class ScreenCaptureNode
     {
         return screenCaptureInfoSelf;
     }
-    [ScenarioMethod("获取指定区域截图", "screenCaptureInfoSelf=截图信息", "return=截图")]
+    [ScenarioMethod("获取指定区域截图信息", "screenCaptureInfoSelf=截图信息", "return=截图")]
     public ScreenCaptureResult ScreenshotTheSelectArea(
         [CustomNodeInputType(typeof(ScreenCaptureInfoSelfConnector))]
         ScreenCaptureInfo screenCaptureInfoSelf, CancellationToken ct)
     {
         return ServiceManager.Services.GetService<IScreenCaptureManager>().CaptureScreenBytes(screenCaptureInfoSelf);
+
+    }
+    [ScenarioMethod("获取指定区域截图数据", "return=截图")]
+    public ScreenCaptureResult ScreenshotTheSelectArea(CancellationToken ct)
+    {
+        ScreenCaptureResult? screenCaptureResult = null;
+        bool IsCancel = false;
+        ServiceManager.Services.GetService<IScreenCaptureWindow>().RequestUserSelectScreenBytes((result =>
+        {
+            screenCaptureResult = result;
+        }), () =>
+        {
+            IsCancel = true;
+        });
+            
+        while (screenCaptureResult==null&& !IsCancel )
+        {
+            Task.Delay(100).GetAwaiter().GetResult();
+        }
+
+        if (IsCancel)
+        {
+            throw new Exception("用户取消截图");
+        }
+        return screenCaptureResult.Value;
 
     }
     [ScenarioMethod("保存图片到文件", "captureResult=截图", "return=截图")]

@@ -40,6 +40,9 @@ public partial class ScreenCaptureWindow : Window
     private List<CaptureToolBase> tools = new();
     private bool selectMode = false;
     private Action<ScreenCaptureInfo> selectModeAction;
+    private bool selectBytesMode = false;
+    private Action<ScreenCaptureResult> selectBytesModeAction;
+    private Action selectBytesModeCancelAction;
     private ScreenCaptureInfo _screenCaptureInfo;
 
     public ScreenCaptureWindow(ScreenCaptureInfo screenCaptureInfo)
@@ -97,6 +100,13 @@ public partial class ScreenCaptureWindow : Window
         selectMode = true;
         this.selectModeAction = selectModeAction;
     }
+    
+    public void SetToSelectBytesMode(Action<ScreenCaptureResult> selectBytesModeAction,Action selectBytesModeCancelAction)
+    {
+        selectBytesMode = true;
+        this.selectBytesModeAction = selectBytesModeAction;
+        this.selectBytesModeCancelAction = selectBytesModeCancelAction;
+    }
 
     private bool ShowAlignLine => !IsSelected && PointerOver && !Selecting;
 
@@ -146,6 +156,10 @@ public partial class ScreenCaptureWindow : Window
 
         renderTargetBitmap?.Dispose();
         MosaicImage.OpacityMask = null;
+        if (selectBytesMode)
+        {
+            selectBytesModeCancelAction.Invoke();
+        }
     }
 
 
@@ -841,9 +855,33 @@ public partial class ScreenCaptureWindow : Window
                     Math.Max((int)dragTransformX, 0), Math.Max((int)dragTransformY, 0),
                     cropW, cropH)));
                 image.Dispose();
-                ServiceManager.Services.GetService<IClipboardService>()
-                    .SetImageAsync(clone)
-                    .ContinueWith((e) => clone.Dispose());
+                if (selectBytesMode)
+                {
+                    byte[] d = new byte[cropH*cropW*4];
+                    clone.CopyPixelDataTo(d);
+                    selectBytesModeAction.Invoke(new ScreenCaptureResult()
+                    {
+                        Info = new ScreenCaptureInfo()
+                        {
+                            Index = _screenCaptureInfo.Index,
+                            hdcMonitor = _screenCaptureInfo.hdcMonitor,
+                            hMonitor = _screenCaptureInfo.hMonitor,
+                            X =   Math.Max((int)dragTransformX, 0),
+                            Y =   Math.Max((int)dragTransformY, 0),
+                            Width = cropW,
+                            Height = cropH
+                        },
+                        Bytes = d
+                    });
+                }
+                else
+                {
+                   
+                    ServiceManager.Services.GetService<IClipboardService>()
+                        .SetImageAsync(clone)
+                        .ContinueWith((e) => clone.Dispose());
+                }
+               
                 bitmap.Dispose();
                 renderTargetBitmap.Dispose();
             }
