@@ -29,10 +29,11 @@ public class ToastService : IToastService
         log.Debug($"{nameof(ToastService)}的接口{nameof(Show)}被调用,header：{header},text：{text}");
         var xmlDocument = new XmlDocument();
         // lang=xml
-        xmlDocument = ToastNotificationManager.GetTemplateContent(ToastTemplateType.ToastText01);
+        xmlDocument = ToastNotificationManager.GetTemplateContent(ToastTemplateType.ToastText02);
+        var xml = xmlDocument.GetXml();
         var stringElements = xmlDocument.GetElementsByTagName("text");
         stringElements[0].AppendChild(xmlDocument.CreateTextNode(header));
-        stringElements[0].AppendChild(xmlDocument.CreateTextNode(text));
+        stringElements[1].AppendChild(xmlDocument.CreateTextNode(text));
         var toastNotification = new ToastNotification(xmlDocument);
 
         _toastNotifier.Show(toastNotification);

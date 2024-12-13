@@ -165,7 +165,7 @@ public partial class OcrResultShowWindow : Window
         var controlsInBounds = ControlHelper.GetControlsInBounds(ItemsControl.ItemsPanelRoot,
             new Rect(startPoint, endPoint));
         StringBuilder sb = new StringBuilder();
-        List<(Point,string)> list = new List<(Point,string)>();
+        List<(Point,AdaptiveTextBox)> list = new List<(Point,AdaptiveTextBox)>();
         foreach (var controlsInBound in controlsInBounds)
         {
             AdaptiveTextBox adaptiveTextBox;
@@ -178,7 +178,7 @@ public partial class OcrResultShowWindow : Window
                 continue;
             }
     
-            list.Add((adaptiveTextBox.TopLeft,adaptiveTextBox.SelectedText));
+            list.Add((adaptiveTextBox.TopLeft,adaptiveTextBox));
         }
         list.Sort((e, a)=>
         {
@@ -190,7 +190,12 @@ public partial class OcrResultShowWindow : Window
         });
         foreach (var (point, item2) in list)
         {
-            sb.Append(item2);
+            if (item2.SelectedText=="")
+            {
+                sb.Append(item2.Text);
+            }else 
+                sb.Append(item2.SelectedText);
+            
             sb.Append(Environment.NewLine);
         }
 
@@ -198,9 +203,10 @@ public partial class OcrResultShowWindow : Window
         {
             return;
         }
+        
         this.Clipboard.SetTextAsync(sb.ToString());
         ClearAllSelected();
-        Kitopia.IToastService.Show("已复制","");
+        Kitopia.IToastService.Show("已复制",sb.ToString());
         TipTextBlock.IsVisible = true;
         Task.Run(async () =>
         {

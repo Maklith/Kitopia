@@ -298,13 +298,13 @@ public partial class CustomScenario : ObservableRecipient
 
                         IsRunning = false;
                         ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
-                            $"情景{Name}运行完成");
+                            $"情景\'{Name}\'运行完成");
                         Log.Debug($"情景运行完成:{Name}");
                         break;
                     }
 
                     ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
-                        $"情景{Name}进入Tick");
+                        $"情景\'{Name}\'进入Tick");
                     Log.Debug($"情景进入Tick:{Name}");
                     try
                     {
@@ -383,13 +383,13 @@ public partial class CustomScenario : ObservableRecipient
         if (inTickError)
         {
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!)
-                .Show("情景", $"情景{Name}由于出现错误被停止");
-            Log.Debug($"情景{Name}由于出现错误被停止");
+                .Show("情景", $"情景\'{Name}\'由于出现错误被停止");
+            Log.Debug($"情景\'{Name}\'由于出现错误被停止");
         }
         else
         {
-            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景", $"情景{Name}被用户停止");
-            Log.Debug($"情景{Name}被用户停止");
+            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景", $"情景\'{Name}\'被用户停止");
+            Log.Debug($"情景\'{Name}\'被用户停止");
         }
     }
 
