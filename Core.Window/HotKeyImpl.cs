@@ -232,6 +232,17 @@ public class HotKeyImpl : IHotKetImpl
         return false;
     }
 
+    public bool DeleteCompletely(string uuid)
+    {
+        if (Del(uuid))
+        {
+            HotKeys.Remove(uuid);
+            WeakReferenceMessenger.Default.Send("", "hotkey");
+            return true;
+        }
+        else return false;
+    }
+
     public bool RequestUserModify(string uuid)
     {
         if (HotKeys.ContainsKey(uuid))

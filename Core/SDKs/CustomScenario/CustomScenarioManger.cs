@@ -315,10 +315,14 @@ public static class CustomScenarioManger
 
     public static void Remove(CustomScenario scenario, bool deleteFile = true)
     {
-        if (CustomScenarios.Contains(scenario)) CustomScenarios.Remove(scenario);
+      
 
-        HotKeyManager.HotKetImpl.Del(scenario.RunHotKey.UUID);
-        HotKeyManager.HotKetImpl.Del(scenario.StopHotKey.UUID);
+        HotKeyManager.HotKetImpl.DeleteCompletely(scenario.RunHotKey.UUID);
+        HotKeyManager.HotKetImpl.DeleteCompletely(scenario.StopHotKey.UUID);
+        
+        
+        scenario.Dispose();
+        if (CustomScenarios.Contains(scenario)) CustomScenarios.Remove(scenario);
         ((SearchWindowViewModel)ServiceManager.Services.GetService(typeof(SearchWindowViewModel))!)
             ._collection.TryRemove($"{nameof(CustomScenario)}:{scenario.UUID}", out _);
         ConfigManger.Save();
@@ -326,7 +330,7 @@ public static class CustomScenarioManger
             File.Delete(
                 $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{scenario.UUID}.json");
 
-        scenario.Dispose();
+        
     }
 
     public static void UnloadByPlugStr(string plugStr)

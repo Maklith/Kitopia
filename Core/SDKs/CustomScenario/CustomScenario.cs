@@ -174,8 +174,16 @@ public partial class CustomScenario : ObservableRecipient
 
     public void Dispose()
     {
-        _cancellationTokenSource.Cancel();
-        _cancellationTokenSource.Dispose();
+        try
+        {
+            _cancellationTokenSource.Cancel();
+            _cancellationTokenSource.Dispose();
+        }
+        catch (Exception e)
+        {
+          
+        }
+        
         _tickTasks = null;
         _initTasks = null;
         nodes.Clear();
