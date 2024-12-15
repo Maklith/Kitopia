@@ -83,16 +83,12 @@ public partial class OcrResultShowWindow : Window
                 new Rect(startPoint, endPoint));
             foreach (var controlsInBound in controlsInBounds)
             {
-                AdaptiveTextBox adaptiveTextBox;
+               
                 if (controlsInBound is AdaptiveTextBox adaptiveTextBox1)
                 {
-                    adaptiveTextBox = adaptiveTextBox1;
+                    adaptiveTextBox1.SelectText(this.TranslatePoint(startPoint,controlsInBound).Value,this.TranslatePoint(endPoint,controlsInBound).Value);
                 }
-                else
-                {
-                    adaptiveTextBox = controlsInBound.GetLogicalChildren().First() as AdaptiveTextBox;
-                }
-                adaptiveTextBox.SelectText(this.TranslatePoint(startPoint,controlsInBound).Value,this.TranslatePoint(endPoint,controlsInBound).Value);
+              
 
             }
            
