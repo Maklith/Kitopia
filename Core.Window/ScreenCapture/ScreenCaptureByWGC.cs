@@ -127,10 +127,8 @@ public class ScreenCaptureByWGC : IScreenCapture
             new Vector(96, 96), PixelFormat.Bgra8888 );
         using (var l = writeableBitmap.Lock())
         {
-            for (var r = 0; r < captureAllScreenInfo.Info.Height; r++)
-                Marshal.Copy(captureAllScreenInfo.Bytes, r * captureAllScreenInfo.Info.Width * 4,
-                    new IntPtr(l.Address.ToInt64() + r * l.RowBytes),
-                    captureAllScreenInfo.Info.Width * 4);
+            Marshal.Copy(captureAllScreenInfo.Bytes,0,l.Address, captureAllScreenInfo.Info.Width * 4 * captureAllScreenInfo.Info.Height);
+            
         }
 
         captureAllScreenInfo.Bytes = null;

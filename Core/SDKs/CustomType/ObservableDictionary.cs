@@ -110,7 +110,7 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
 
     public new void Add(TKey key, TValue value)
     {
-        base.Add(key, value);
+        base.TryAdd(key, value);
         OnCollectionChanged(
             new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, FindPair(key), _index));
         OnPropertyChanged("Keys");
