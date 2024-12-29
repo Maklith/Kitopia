@@ -20,7 +20,7 @@ public class ItemNameMatchCtr : IValueConverter
         InlineCollection list = new();
         if (str.PinyinItem == null || str.PinyinItem.CharMatchResults == null || str.PinyinItem.SplitWords == null ||
             str.PinyinItem.CharMatchResults.Length == 0 ||
-            str.PinyinItem.CharMatchResults.Length / 2 != str.PinyinItem.SplitWords.Length
+            str.PinyinItem.CharMatchResults.Length  != str.PinyinItem.SplitWords.Length
            )
         {
             list.Add(new Run(str.ItemDisplayName));
@@ -31,7 +31,7 @@ public class ItemNameMatchCtr : IValueConverter
         for (var i = 0; i < str.PinyinItem.SplitWords.Length; i++)
         {
             var inline = new Run(str.PinyinItem.SplitWords[i]);
-            if (str.PinyinItem.CharMatchResults[i + str.PinyinItem.SplitWords.Length])
+            if (str.PinyinItem.CharMatchResults[i])
                 inline.Foreground = Brushes.OrangeRed;
 
             list.Add(inline);
