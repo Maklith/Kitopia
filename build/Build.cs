@@ -59,7 +59,7 @@ class Build : NukeBuild
                 .SetProjectFile(AvaloniaProject.Path)
                 .SetOutputDirectory(RootDirectory / "buildTest")
                 .SetRuntime("win-x64")
-                .SetFramework("net9.0-windows10.0.17763.0")
+                .SetFramework("net9.0-windows10.0.19041.0")
                 .SetConfiguration("Release")
             );
         });
@@ -196,7 +196,7 @@ class Build : NukeBuild
                     .SetOutput(RootDirectory / "Publish")
                     .SetPublishSingleFile(true)
                     .SetRuntime("win-x64")
-                    .SetFramework("net9.0-windows10.0.17763.0")
+                    .SetFramework("net9.0-windows10.0.19041.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(false)
                 );
@@ -243,7 +243,7 @@ class Build : NukeBuild
                     .SetOutput(RootDirectory / "Publish_SelfContained")
                     .SetPublishSingleFile(true)
                     .SetRuntime("win-x64")
-                    .SetFramework("net9.0-windows10.0.17763.0")
+                    .SetFramework("net9.0-windows10.0.19041.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(true)
                 );

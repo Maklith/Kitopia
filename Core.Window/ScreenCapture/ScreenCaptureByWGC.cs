@@ -213,8 +213,11 @@ public class ScreenCaptureByWGC : IScreenCapture
                     : DirectXPixelFormat.R8G8B8A8UIntNormalized,
                 2,
                 item.Size);
+            
             session = framePool.CreateCaptureSession(item);
-            session.StartCapture();
+            
+            session.IsCursorCaptureEnabled = false;
+            session.StartCapture( );
 
 
             while ((direct3D11CaptureFrame = framePool.TryGetNextFrame()) == null)
