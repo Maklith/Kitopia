@@ -33,6 +33,7 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("搜索框快捷键", "显示搜索框快捷键", 0xF4B8, ConfigFieldType.快捷键, action: "searchHotKeyAction")]
     public HotKeyModel searchHotKey = new()
     {
+        IsEnabled = true,
         MainName = "Kitopia", Name = "显示搜索框", IsSelectCtrl = false, IsSelectAlt = true,
         IsSelectWin = false,
         IsSelectShift = false, SelectKey = EKey.空格
@@ -73,6 +74,7 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("鼠标快捷键", "激活鼠标快捷菜单快捷键", 0xF4B8, ConfigFieldType.快捷键, action: "mouseHotkeyAction")]
     public HotKeyModel mouseHotkey = new()
     {
+        IsEnabled = true,
         MainName = "Kitopia", Name = "激活鼠标快捷菜单", IsSelectCtrl = false, IsSelectAlt = true,
         Type = HotKeyType.Mouse,
         MouseButton = 1,
@@ -94,6 +96,7 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("截图快捷键", "修改截图快捷键", 0xF4B8, ConfigFieldType.快捷键, action: "screenShotHotKeyAction")]
     public HotKeyModel screenShotHotKey = new()
     {
+        IsEnabled = true,
         MainName = "Kitopia", Name = "截图", IsSelectCtrl = true, IsSelectAlt = true,
         IsSelectWin = false,
         IsSelectShift = false, SelectKey = EKey.Q
