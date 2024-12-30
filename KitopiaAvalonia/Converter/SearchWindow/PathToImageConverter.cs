@@ -35,7 +35,7 @@ public partial class PathToImageConverter : IValueConverter
             switch (searchViewItem.FileType)
             {
                 case FileType.命令:
-                case FileType.自定义情景:
+                
                 case FileType.便签:
                 case FileType.数学运算:
                 case FileType.剪贴板图像:
@@ -52,7 +52,7 @@ public partial class PathToImageConverter : IValueConverter
                 case FileType.图像:
                 case FileType.文件:
                 case FileType.URL:
-
+                case FileType.自定义情景:
                 default:
                     break;
             }

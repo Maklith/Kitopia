@@ -23,7 +23,7 @@ namespace Core.SDKs.CustomScenario;
 public partial class CustomScenario : ObservableRecipient
 {
     private static readonly ILog Log = LogManager.GetLogger(nameof(CustomScenario));
-    [ObservableProperty] private Bitmap? _icon;
+    [property:JsonIgnore][JsonIgnore][ObservableProperty] private Bitmap? _icon;
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> _autoTriggers = new();
     private CancellationTokenSource _cancellationTokenSource = new();
 

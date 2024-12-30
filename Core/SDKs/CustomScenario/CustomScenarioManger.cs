@@ -238,6 +238,7 @@ public static class CustomScenarioManger
         }
         catch (Exception e)
         {
+            Log.Error("错误",e);
             var content = $"情景文件\n{fileInfo.FullName}\n加载失败疑似文件已损坏";
             var dialog = new DialogContent()
             {
