@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
 using Pinyin.NET;
 using PluginCore;
@@ -30,6 +31,11 @@ public class AppToolService : IAppToolService
     }
 
     public void GetIconByItem(SearchViewItem item)
+    {
+        IconTools.GetIconByItem(item);
+    }
+
+    public void GetIconByItem(CustomScenario item)
     {
         IconTools.GetIconByItem(item);
     }

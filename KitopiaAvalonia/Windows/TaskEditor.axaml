@@ -110,6 +110,20 @@
                                                             Glyph="&#xf4a3;" />
                                     </settingsExpander:SettingsExpander.IconSource>
                                 </settingsExpander:SettingsExpander>
+                                <settingsExpander:SettingsExpander Margin="0" Header="情景图标">
+                                    <settingsExpander:SettingsExpander.Footer>
+                                        <Button Command="{Binding ChangeIconCommand}" CommandParameter="{Binding $self}">
+                                            <Image Grid.Column="1" HorizontalAlignment="Left" Focusable="False" Width="48"
+                                                   Height="48" ZIndex="1"
+                                                   Source="{Binding Scenario.Icon, Converter={StaticResource PathToImageConverter}, ConverterParameter={Binding Scenario}}" />
+
+                                        </Button>
+                                    </settingsExpander:SettingsExpander.Footer>
+                                    <settingsExpander:SettingsExpander.IconSource>
+                                        <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                            Glyph="&#xf4a3;" />
+                                    </settingsExpander:SettingsExpander.IconSource>
+                                </settingsExpander:SettingsExpander>
                             </StackPanel>
                         </Expander.Content>
                     </Expander>

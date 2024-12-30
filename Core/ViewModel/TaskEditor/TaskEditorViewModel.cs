@@ -5,6 +5,7 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -532,6 +533,27 @@ public partial class TaskEditorViewModel : ObservableRecipient
         Scenario.connections.Add(new ConnectionItem(source, target));
         ToFirstVerify();
         //OnPropertyChanged(nameof(Connections));
+    }
+
+    [RelayCommand]
+    public async Task ChangeIcon(Control control)
+    {
+        var openFilePickerAsync = await TopLevel.GetTopLevel(control).StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions()
+        {
+            FileTypeFilter = new[] { new FilePickerFileType("图像") { Patterns = new[] { "*.png","*.jpg","*.ico" } } },
+        });
+
+        if (openFilePickerAsync.Count > 0)
+        {
+            var path = $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{Scenario.UUID}.png";
+            var fileStream = File.OpenWrite(path);
+            var openReadAsync = await openFilePickerAsync[0].OpenReadAsync();
+            await openReadAsync.CopyToAsync(fileStream);
+            await fileStream.FlushAsync();
+            fileStream.Close();
+            openReadAsync.Close();
+            Scenario.Icon = null;
+        }
     }
 
     #region 自定义关键词

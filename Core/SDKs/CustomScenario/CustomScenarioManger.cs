@@ -52,7 +52,15 @@ public static class CustomScenarioManger
             Directory.CreateDirectory($"{AppDomain.CurrentDomain.BaseDirectory}customScenarios");
 
         var info = new DirectoryInfo($"{AppDomain.CurrentDomain.BaseDirectory}customScenarios");
-        foreach (var fileInfo in info.GetFiles()) Load(fileInfo);
+        foreach (var fileInfo in info.GetFiles())
+        {
+            if (fileInfo.Extension==".json")
+            {
+                Load(fileInfo);
+            }
+           
+            
+        }
         Log.Debug($"加载情景信息完成共{CustomScenarios.Count}情景被识别");
         WeakReferenceMessenger.Default.Send("Kitopia_SoftwareStarted", "CustomScenarioTrigger");
     }

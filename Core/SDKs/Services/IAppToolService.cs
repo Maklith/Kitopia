@@ -16,5 +16,6 @@ public interface IAppToolService
 
     public void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> _collection, Action action);
     public void GetIconByItem(SearchViewItem item);
+    public void GetIconByItem(CustomScenario.CustomScenario item);
     public PinyinItem GetPinyin(string input);
 }

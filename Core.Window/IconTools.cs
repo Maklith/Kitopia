@@ -3,6 +3,7 @@
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
+using Core.SDKs.CustomScenario;
 using KitopiaAvalonia.Tools;
 using log4net;
 using PluginCore;
@@ -191,6 +192,28 @@ internal class IconTools
         //Log.Debug(t.OnlyKey);
 
         //
+    }
+
+    internal static void GetIconByItem(CustomScenario t)
+    {
+        var path = $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{t.UUID}.png";
+        if (File.Exists(path))
+        {
+            if (_icons.TryGetValue(path, out var icon2)) t.Icon = icon2;
+            ResiliencePipeline.ExecuteAsync(async e =>
+            {
+                await Task.Run(() =>
+                {
+                    var iconBase = GetIconBase(path, path);
+                    if (iconBase == null) return;
+
+                    var clone = ((Bitmap)iconBase.ToBitmap()).ToAvaloniaBitmap();
+                    _icons.TryAdd(path, clone);
+                    iconBase.Dispose();
+                    t.Icon = clone;
+                }, e);
+            });
+        }
     }
 
     private static void GetIcon(string path, SearchViewItem item)
