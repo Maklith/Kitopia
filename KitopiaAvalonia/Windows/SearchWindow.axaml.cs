@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.SDKs.Services;
@@ -141,5 +143,18 @@ public partial class SearchWindow : Window
             // 标记事件为已处理，防止默认的垂直滚动
             pointerWheelEventArgs.Handled = true;
         }
+    }
+
+    private void ToggleButton_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
+    {
+        Task.Run((() =>
+        {
+            Dispatcher.UIThread.InvokeAsync((() =>
+            {
+                ((SearchWindowViewModel)(DataContext)).UpdateFilter();
+            }));
+
+        }));
+
     }
 }

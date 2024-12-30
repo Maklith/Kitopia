@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Avalonia.Threading;
+using AvaloniaEdit.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -17,23 +18,34 @@ using log4net;
 using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;
 using PluginCore;
+using Math = Core.SDKs.Tools.Math;
 
 #endregion
 
 namespace Core.ViewModel;
 
+public class FileTypeFilter 
+{
+    public FileType FileType { get; set; }
+    public bool IsChecked{ get; set; }
+}
 public partial class SearchWindowViewModel : ObservableRecipient
 {
     private static readonly ILog Log = LogManager.GetLogger(nameof(SearchWindowViewModel));
     private static readonly List<SearchViewItem> TempList = new(1000);
-    [ObservableProperty] private List<FileType> _fileTypes = new();
+    
+    
+    [ObservableProperty] private ObservableCollection<FileTypeFilter> _fileTypes = new();
+
+    [ObservableProperty] private bool showFileTypeFilter=false;
     public readonly ConcurrentDictionary<string, SearchViewItem> _collection = new(); //存储本机所有软件
     private readonly TaskScheduler _scheduler = TaskScheduler.FromCurrentSynchronizationContext();
 
     private readonly DelayAction _searchDelayAction = new();
 
     [ObservableProperty] private bool? _everythingIsOk = true;
-    [ObservableProperty] private ObservableCollection<SearchViewItem> _items = new(TempList); //搜索界面显示的软件
+    [ObservableProperty] private ObservableCollection<SearchViewItem> _items = new(TempList); 
+    [ObservableProperty] private ObservableCollection<SearchViewItem> _showItems; //搜索界面显示的软件
     private PinyinSearcher<SearchViewItem> _pinyinSearcher;
 
     private bool _reloading = false;
@@ -62,7 +74,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
     public void AddCollection(string search)
     {
-        ServiceManager.Services.GetService<IAppToolService>()!.AppSolverA(_collection, search, false);
+        ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AppSolverA(_collection, search, false);
     }
 
     public void ReloadApps(bool logging = false)
@@ -70,8 +82,8 @@ public partial class SearchWindowViewModel : ObservableRecipient
         if (_reloading) return;
 
         _reloading = true;
-        ServiceManager.Services.GetService<IAppToolService>()!.DelNullFile(_collection);
-        ServiceManager.Services.GetService<IAppToolService>()!.GetAllApps(_collection, logging,
+        ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.DelNullFile(_collection);
+        ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.GetAllApps(_collection, logging,
             ConfigManger.Config.useEverything);
 
         if (ConfigManger.Config.useEverything && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -79,14 +91,14 @@ public partial class SearchWindowViewModel : ObservableRecipient
             Log.Debug("everything检测");
 
 
-            var service = ServiceManager.Services.GetService<IEverythingService>()!;
+            var service = ServiceProviderServiceExtensions.GetService<IEverythingService>(ServiceManager.Services)!;
             EverythingIsOk = service.isRun();
 
             if (!EverythingIsOk.Value)
-                ServiceManager.Services.GetService<IAppToolService>()!.AutoStartEverything(_collection, () =>
+                ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AutoStartEverything(_collection, () =>
                 {
                     Thread.Sleep(1500);
-                    var everythingService = ServiceManager.Services.GetService<IEverythingService>()!;
+                    var everythingService = ServiceProviderServiceExtensions.GetService<IEverythingService>(ServiceManager.Services)!;
                     EverythingIsOk = everythingService.isRun();
                 });
         }
@@ -98,7 +110,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             var keys = new List<List<string>>();
             foreach (var key in scenario.Keys) keys.Add([key]);
 
-            keys.AddRange(ServiceManager.Services.GetService<IAppToolService>()
+            keys.AddRange(ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)
                 .GetPinyin(scenario.Name)
                 .Keys);
             var viewItem1 = new SearchViewItem()
@@ -133,13 +145,13 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 .ItemDisplayName.StartsWith("打开")))
             Items.RemoveAt(0);
 
-        var data = ServiceManager.Services.GetService<IClipboardService>()!
+        var data = ServiceProviderServiceExtensions.GetService<IClipboardService>(ServiceManager.Services)!
             .HasText();
         try
         {
             if (data)
             {
-                var text = ServiceManager.Services.GetService<IClipboardService>()!
+                var text = ServiceProviderServiceExtensions.GetService<IClipboardService>(ServiceManager.Services)!
                     .GetText();
                 if (text.StartsWith("\"")) text = text.Replace("\"", "");
 
@@ -148,7 +160,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 {
                     Log.Debug("检测路径");
                     ConcurrentDictionary<string, SearchViewItem> a = new();
-                    ServiceManager.Services.GetService<IAppToolService>()!.AppSolverA(a, text);
+                    ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AppSolverA(a, text);
                     foreach (var (key, value) in a)
                     {
                         if (value.FileType == FileType.文件夹)
@@ -167,7 +179,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         }
 
 
-        if (ServiceManager.Services!.GetService<IClipboardService>()!.HasImage())
+        if (ServiceProviderServiceExtensions.GetService<IClipboardService>(ServiceManager.Services!)!.HasImage())
         {
             Log.Debug("剪贴板有图像信息");
 
@@ -268,6 +280,10 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
             searchViewItem.PinyinItem.CharMatchResults = [];
         }
+
+        ShowItems = Items;
+        FileTypes.Clear();
+        ShowFileTypeFilter = FileTypes.Count > 0;
     }
 
     // ReSharper disable once RedundantAssignment
@@ -326,8 +342,8 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 value.IndexOfAny(operators) > -1)
                 try
                 {
-                    var e = SDKs.Tools.Math.Evaluate(value.Remove(0, 1));
-                    Items.Add(new SearchViewItem()
+                    var e = Math.Evaluate(value.Remove(0, 1));
+                    Items.Add(new SearchViewItem
                     {
                         ItemDisplayName = "=" + e,
                         FileType = FileType.数学运算,
@@ -339,7 +355,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 }
                 catch (Exception)
                 {
-                    Items.Add(new SearchViewItem()
+                    Items.Add(new SearchViewItem
                     {
                         ItemDisplayName = "错误的表达式",
                         FileType = FileType.数学运算,
@@ -474,7 +490,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     {
                         Log.Debug("检测路径");
                         ConcurrentDictionary<string, SearchViewItem> a = new();
-                        ServiceManager.Services.GetService<IAppToolService>()!.AppSolverA(a, originalValue);
+                        ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AppSolverA(a, originalValue);
                         foreach (var (key, value) in a)
                         {
                             if (value.FileType == FileType.文件夹)
@@ -498,7 +514,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                             if (!temp.StartsWith("http") && !value.Contains("file://"))
                             {
                                 temp = "https://" + temp;
-                                var viewItem = new SearchViewItem()
+                                var viewItem = new SearchViewItem
                                 {
                                     ItemDisplayName = "打开网页:" + temp,
                                     FileType = FileType.URL,
@@ -509,7 +525,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                                 };
                                 Items.Add(viewItem);
                                 temp = "http://" + value;
-                                var viewItem1 = new SearchViewItem()
+                                var viewItem1 = new SearchViewItem
                                 {
                                     ItemDisplayName = "打开网页:" + temp,
                                     FileType = FileType.URL,
@@ -522,7 +538,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                             }
                             else if (value.Contains("file://"))
                             {
-                                var viewItem1 = new SearchViewItem()
+                                var viewItem1 = new SearchViewItem
                                 {
                                     ItemDisplayName = "打开路径:" + value,
                                     FileType = FileType.URL,
@@ -535,7 +551,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                             }
                             else
                             {
-                                var viewItem1 = new SearchViewItem()
+                                var viewItem1 = new SearchViewItem
                                 {
                                     ItemDisplayName = "打开网页:" + value,
                                     FileType = FileType.URL,
@@ -548,7 +564,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                             }
                         }
 
-                        var searchViewItem3 = new SearchViewItem()
+                        var searchViewItem3 = new SearchViewItem
                         {
                             ItemDisplayName = "将内容添加至便签" + value,
                             FileType = FileType.便签,
@@ -558,7 +574,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                             IsVisible = true
                         };
                         Items.Add(searchViewItem3);
-                        var searchViewItem = new SearchViewItem()
+                        var searchViewItem = new SearchViewItem
                         {
                             ItemDisplayName = "在网页中搜索" + value,
                             FileType = FileType.URL,
@@ -577,7 +593,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             foreach (var se in knownCommand)
                 if (se.Equals(first))
                 {
-                    var item = new SearchViewItem()
+                    var item = new SearchViewItem
                     {
                         ItemDisplayName = "执行命令:" + value,
                         FileType = FileType.命令,
@@ -588,10 +604,18 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     };
                     Items.Insert(0, item);
                 }
-
+            FileTypes.Clear();
             var fileTypes = Items.GroupBy(e=>e.FileType).Select(e=>e.Key);
-            FileTypes = fileTypes.ToList();
-            
+            foreach (var fileType in fileTypes)
+            {
+                FileTypes.Add(new FileTypeFilter()
+                {
+                    FileType = fileType,
+                    IsChecked = false
+                });
+            }
+            ShowItems = Items;
+            ShowFileTypeFilter = FileTypes.Count > 0;
         });
     }
 
@@ -623,7 +647,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 return;
             }
 
-            ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item);
+            ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.OpenFile(item);
         });
         Search = "";
     }
@@ -632,27 +656,27 @@ public partial class SearchWindowViewModel : ObservableRecipient
     private void IgnoreItem(SearchViewItem searchViewItem)
     {
         Dispatcher.UIThread.InvokeAsync(() => { Items.Remove(searchViewItem); });
-        ServiceManager.Services.GetService<ISearchItemTool>()!.IgnoreItem(searchViewItem);
+        ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.IgnoreItem(searchViewItem);
     }
 
     [RelayCommand]
     private void OpenFolder(object searchViewItem)
     {
         Search = "";
-        ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFolder((SearchViewItem?)searchViewItem);
+        ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.OpenFolder((SearchViewItem?)searchViewItem);
     }
 
     [RelayCommand]
     private void RunAsAdmin(object searchViewItem)
     {
         Search = "";
-        ServiceManager.Services.GetService<ISearchItemTool>()!.RunAsAdmin((SearchViewItem?)searchViewItem);
+        ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.RunAsAdmin((SearchViewItem?)searchViewItem);
     }
 
     [RelayCommand]
     private void Star(SearchViewItem item)
     {
-        ServiceManager.Services.GetService<ISearchItemTool>()!.Star(item);
+        ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.Star(item);
     }
 
     [RelayCommand]
@@ -662,13 +686,27 @@ public partial class SearchWindowViewModel : ObservableRecipient
         Log.Debug("添加常驻" + item.OnlyKey);
         //Items.ResetItem(index);
 
-        ServiceManager.Services.GetService<ISearchItemTool>()!.Pin(item);
+        ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.Pin(item);
     }
 
     [RelayCommand]
     private void OpenFolderInTerminal(object searchViewItem)
     {
         Search = "";
-        ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFolderInTerminal((SearchViewItem?)searchViewItem);
+        ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.OpenFolderInTerminal((SearchViewItem?)searchViewItem);
+    }
+
+    
+    public void UpdateFilter()
+    {
+        if (FileTypes.All(e=>!e.IsChecked))
+        {
+            ShowItems = Items;
+        }
+        else
+        {
+            ShowItems = new ObservableCollection<SearchViewItem>(Items.Where(e => FileTypes.Any(e1 => e1.FileType == e.FileType && e1.IsChecked))); 
+        }
+
     }
 }

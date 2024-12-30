@@ -50,7 +50,7 @@
         </Panel.Background>
 
         <DockPanel Margin="10" VerticalAlignment="Stretch">
-            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,5">
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,5" Spacing="5">
                 <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" IsTabStop="False"
                          Watermark="搜索..." AcceptsReturn="False" KeyDown="tx_KeyDown"
                          Name="tx"
@@ -73,7 +73,7 @@
 
                           IsVisible="{Binding NowInSelectMode}"
                           CanClose="False" />
-                <Border Theme="{DynamicResource RadioButtonGroupBorder}" Height="38">
+                <Border IsVisible="{Binding ShowFileTypeFilter}" Theme="{DynamicResource RadioButtonGroupBorder}" Height="38">
                     <Border.Styles>
                         <Style Selector="RadioButton">
                             <Setter Property="Theme" Value="{DynamicResource ButtonRadioButton}" />
@@ -82,8 +82,8 @@
                     <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                         <ItemsControl ItemsSource="{Binding FileTypes}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="pluginCore:FileType">
-                                    <RadioButton VerticalAlignment="Center" GroupName="A" Content="{Binding}" Height="38" />
+                                <DataTemplate DataType="viewModel:FileTypeFilter">
+                                    <ToggleButton Margin="0,0,5,0" ClickMode="Press"  IsCheckedChanged="ToggleButton_OnIsCheckedChanged"   VerticalAlignment="Center" Content="{Binding  FileType}" Height="38" IsChecked="{Binding IsChecked}" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                             <ItemsControl.ItemsPanel>
@@ -101,7 +101,7 @@
 
 
             <ListBox Name="dataGrid"
-                     ItemsSource="{Binding Items,Mode=OneWay }"
+                     ItemsSource="{Binding ShowItems,Mode=OneWay }"
                      KeyDown="DataGrid_OnKeyDown"
                      PointerMoved="DataGrid_OnPointerMoved"
                      Margin="0,0,0,0">
