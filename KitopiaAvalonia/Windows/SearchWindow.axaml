@@ -73,6 +73,30 @@
 
                           IsVisible="{Binding NowInSelectMode}"
                           CanClose="False" />
+                <Border Theme="{DynamicResource RadioButtonGroupBorder}" Height="38">
+                    <Border.Styles>
+                        <Style Selector="RadioButton">
+                            <Setter Property="Theme" Value="{DynamicResource ButtonRadioButton}" />
+                        </Style>
+                    </Border.Styles>
+                    <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding FileTypes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="pluginCore:FileType">
+                                    <RadioButton VerticalAlignment="Center" GroupName="A" Content="{Binding}" Height="38" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <!-- 使用 WrapPanel 实现子项横向排列 -->
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </ScrollViewer>
+       
+
+                </Border>
             </StackPanel>
 
 

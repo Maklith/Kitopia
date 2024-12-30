@@ -127,4 +127,19 @@ public partial class SearchWindow : Window
         e.Cancel = true;
         IsVisible = false;
     }
+
+    private void HorizonScroll(object? sender, PointerWheelEventArgs pointerWheelEventArgs)
+    {
+        if (sender is ScrollViewer scrollViewer)
+        {
+            // 获取滚轮滚动的增量值
+            var delta = pointerWheelEventArgs.Delta.Y;
+
+            // 调整滚动条的横向偏移
+            scrollViewer.Offset = new Vector(scrollViewer.Offset.X - delta*20 , scrollViewer.Offset.Y);
+
+            // 标记事件为已处理，防止默认的垂直滚动
+            pointerWheelEventArgs.Handled = true;
+        }
+    }
 }

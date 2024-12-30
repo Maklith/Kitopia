@@ -26,7 +26,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
 {
     private static readonly ILog Log = LogManager.GetLogger(nameof(SearchWindowViewModel));
     private static readonly List<SearchViewItem> TempList = new(1000);
-
+    [ObservableProperty] private List<FileType> _fileTypes = new();
     public readonly ConcurrentDictionary<string, SearchViewItem> _collection = new(); //存储本机所有软件
     private readonly TaskScheduler _scheduler = TaskScheduler.FromCurrentSynchronizationContext();
 
@@ -588,6 +588,10 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     };
                     Items.Insert(0, item);
                 }
+
+            var fileTypes = Items.GroupBy(e=>e.FileType).Select(e=>e.Key);
+            FileTypes = fileTypes.ToList();
+            
         });
     }
 

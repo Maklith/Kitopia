@@ -433,10 +433,30 @@ public partial class AppTools
                     {
                         if (ConfigManger.Config.ignoreItems.Contains(file)) return;
 
+                        var fileType = FileType.文件;
+                        switch (fileInfo.Extension)
+                        {
+                            case ".pdf":
+                                fileType = FileType.PDF文档;
+                                break;
+                            case ".doc":
+                            case ".docx":
+                                fileType = FileType.Word文档;
+                                break;
+                            case ".xls":
+                            case ".xlsx":
+                                fileType = FileType.Excel文档;
+                                break;
+                            case ".ppt":
+                            case ".pptx":
+                                fileType = FileType.PPT文档;
+                                break;
+                        }
+                        
                         collection.TryAdd(file, new SearchViewItem()
                         {
                             ItemDisplayName = localizedName,
-                            FileType = FileType.文件,
+                            FileType = fileType,
 
                             OnlyKey = file,
                             PinyinItem = _pinyinProcessor.GetPinyin(localizedName, true),
