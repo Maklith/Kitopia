@@ -13,7 +13,6 @@
     "Windows"
   ],
   "Dependencies": {
-    "Kitopia": "^0.0.0",
-    "KitopiaEx": "^0.0.0"
+    "Kitopia": "^0.0.0"
   }
 }

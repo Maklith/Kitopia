@@ -423,8 +423,7 @@ public class PluginManager
     public static async Task<bool> DownloadPluginOnline(OnlinePluginInfo plugin, int? targetVersionId = null,
         string? targetVersion = null)
     {
-        object? key = targetVersionId.HasValue ? targetVersionId.Value : targetVersion;
-        if (key is null) key = plugin.LastVersionId;
+        object? key = targetVersionId.HasValue ? targetVersionId.Value : targetVersion ?? plugin.LastVersion;
         var downloadPlugin = await DownloadPlugin(plugin.Id, key, plugin.ToPlgString());
         if (!downloadPlugin) return false;
         var pluginInfoEx = AllPluginInfos.FirstOrDefault(e => e.ToPlgString() == plugin.ToPlgString());
