@@ -74,15 +74,8 @@ class Build : NukeBuild
             Credentials = new Credentials(GitHubToken)
         };
         var gitRepository = GitRepository.FromUrl("https://github.com/MakesYT/Kitopia");
-        var result = GitHubTasks.GetLatestRelease(gitRepository, true)
-            .Result;
         Log.Debug("Packing project {0}", AvaloniaProject);
         Log.Debug("GitHubName {0}", gitRepository.GetGitHubName());
-        var _gitHubClient = new GitHubClient(new ProductHeaderValue("Kitopia"))
-        {
-            Credentials = new Credentials(GitHubToken)
-        };
-
         var readOnlyList = _gitHubClient
             .Repository.GetAllTags(gitRepository.GetGitHubOwner(),
                 gitRepository.GetGitHubName())

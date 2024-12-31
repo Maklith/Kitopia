@@ -48,6 +48,12 @@ public static class CustomScenarioManger
         });
 
 
+        LoadAll();
+        WeakReferenceMessenger.Default.Send("Kitopia_SoftwareStarted", "CustomScenarioTrigger");
+    }
+
+    private static void LoadAll()
+    {
         if (!Directory.Exists($"{AppDomain.CurrentDomain.BaseDirectory}customScenarios"))
             Directory.CreateDirectory($"{AppDomain.CurrentDomain.BaseDirectory}customScenarios");
 
@@ -62,15 +68,12 @@ public static class CustomScenarioManger
             
         }
         Log.Debug($"加载情景信息完成共{CustomScenarios.Count}情景被识别");
-        WeakReferenceMessenger.Default.Send("Kitopia_SoftwareStarted", "CustomScenarioTrigger");
     }
 
     public static void Reload()
     {
         CustomScenarios.Clear();
-        var info = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory + "customScenarios");
-        foreach (var fileInfo in info.GetFiles()) Load(fileInfo);
-        Log.Debug($"重载情景信息完成共{CustomScenarios.Count}情景被识别");
+        LoadAll();
     }
 
     public static void Load(FileInfo fileInfo)
@@ -383,9 +386,6 @@ public static class CustomScenarioManger
             if (configF.Exists) Load(configF);
         }
 
-        var info = new DirectoryInfo($"{AppDomain.CurrentDomain.BaseDirectory}customScenarios");
-        foreach (var fileInfo in info.GetFiles())
-            if (CustomScenarios.All(e => e.UUID != fileInfo.Name))
-                Load(fileInfo);
+      LoadAll();
     }
 }
