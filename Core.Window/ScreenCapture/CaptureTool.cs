@@ -11,13 +11,16 @@ public static class CaptureTool
         if (value < 0) value = 0;
         return (float)(Math.Log(1 + k * value) / Math.Log(1 + k * maxHDR));
     }
-    public static unsafe byte[] GetBytesSpan(MappedSubresource mappedSubresource, OutputDesc1 outputDesc,ScreenCaptureInfo screenCaptureInfo)
+    public static unsafe byte[] GetBytesSpan(MappedSubresource mappedSubresource, OutputDesc1 outputDesc,ref ScreenCaptureInfo screenCaptureInfo)
     {
         int startX = Math.Clamp(screenCaptureInfo.X, 0, outputDesc.DesktopCoordinates.Size.X - 1);
         int startY = Math.Clamp(screenCaptureInfo.Y, 0, outputDesc.DesktopCoordinates.Size.Y - 1);
         int endX = Math.Clamp(screenCaptureInfo.X + screenCaptureInfo.Width, 0, outputDesc.DesktopCoordinates.Size.X);
         int endY = Math.Clamp(screenCaptureInfo.Y + screenCaptureInfo.Height, 0, outputDesc.DesktopCoordinates.Size.Y);
-
+        screenCaptureInfo.Height = endY - startY;
+        screenCaptureInfo.Width = endX - startX;
+        screenCaptureInfo.X = startX;
+        screenCaptureInfo.Y = startY;
         // 结果数组：区域宽 * 区域高 * 4（RGBA）
         int regionWidth = endX - startX;
         int regionHeight = endY - startY;

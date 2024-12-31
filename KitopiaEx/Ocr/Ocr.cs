@@ -33,13 +33,14 @@ public class Ocr
         var ocrResults = new List<OcrResult>();
         var callingAssembly = Assembly.GetExecutingAssembly().Location;
         callingAssembly = callingAssembly.Remove(callingAssembly.LastIndexOf("\\"));
-        
-        TextDetector _textDetector=new TextDetector($"{callingAssembly}\\Ocr\\ocr_det.onnx");
-        TextRecognizer _textRecognizer= new TextRecognizer($"{callingAssembly}\\Ocr\\ocr_rec.onnx",$"{callingAssembly}\\Ocr\\rec_word_dict.txt");
-        Mat img = Mat.FromPixelData(dResult.Info.Height,dResult.Info.Width,MatType.CV_8UC4,dResult.Bytes);
+
+        using TextDetector _textDetector = new TextDetector($"{callingAssembly}\\Ocr\\ocr_det.onnx");
+        using TextRecognizer _textRecognizer = new TextRecognizer($"{callingAssembly}\\Ocr\\ocr_rec.onnx",
+            $"{callingAssembly}\\Ocr\\rec_word_dict.txt");
+        using Mat img = Mat.FromPixelData(dResult.Info.Height, dResult.Info.Width, MatType.CV_8UC4, dResult.Bytes);
         //img.SaveImage($"{callingAssembly}\\1.png");
         var detect = _textDetector.Detect(img);
-        var textDetectorDstImg = _textDetector.dstImg;
+        using var textDetectorDstImg = _textDetector.dstImg;
         foreach (var point2Fse in detect)
         {
             (Mat, Rect) textimg = _textDetector.GetRotateCropImage(textDetectorDstImg, point2Fse);
@@ -50,20 +51,16 @@ public class Ocr
             }
 
             Rect rect = textimg.Item2;
-            
+
             ocrResults.Add(new OcrResult()
             {
-                SPoint = new Point(rect.Left,rect.Top),
-                EPoint = new Point(rect.Left+rect.Width,rect.Top+rect.Height),
+                SPoint = new Point(rect.Left, rect.Top),
+                EPoint = new Point(rect.Left + rect.Width, rect.Top + rect.Height),
                 Text = predictText
             });
             //Console.WriteLine(predictText);
         }
 
-        img.Dispose();
-        textDetectorDstImg.Dispose();
-        _textDetector.Dispose();
-        _textRecognizer.Dispose();
         return ocrResults;
     }
 

@@ -386,6 +386,6 @@ public static class CustomScenarioManger
             if (configF.Exists) Load(configF);
         }
 
-      LoadAll();
+        LoadAll();
     }
 }

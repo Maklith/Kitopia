@@ -252,7 +252,7 @@ public class ScreenCaptureByWGC : IScreenCapture
                 throw new Exception("Failed to map staging texture");
 
 
-            var bytesSpan = CaptureTool.GetBytesSpan(mappedSubresource, outputDesc,screenCaptureInfo);
+            var bytesSpan = CaptureTool.GetBytesSpan(mappedSubresource, outputDesc,ref screenCaptureInfo);
             return new ScreenCaptureResult()
             {
                 Info = screenCaptureInfo,

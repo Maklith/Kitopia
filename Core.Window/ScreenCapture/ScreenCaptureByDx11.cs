@@ -330,7 +330,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                         X = desc.DesktopCoordinates.Min.X,
                         Y = desc.DesktopCoordinates.Min.Y
                     };
-                    var re = CaptureTool.GetBytesSpan(mappedSubresource, outputDesc,screenCaptureInfo);
+                    var re = CaptureTool.GetBytesSpan(mappedSubresource, outputDesc,ref screenCaptureInfo);
                     intPtr.immediateContext->Unmap(stagingResource, 0);
                     outputDuplication->ReleaseFrame();
 
