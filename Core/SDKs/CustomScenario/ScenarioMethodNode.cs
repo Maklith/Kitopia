@@ -35,7 +35,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
     [ObservableProperty] private ObservableCollection<ConnectorItem> input = new();
     [ObservableProperty] private ObservableCollection<ConnectorItem> output = new();
     [ObservableProperty] private S节点状态 status = S节点状态.未验证;
-    [ObservableProperty] private TimeSpan _invokeTime = TimeSpan.Zero;
+    [JsonIgnore][property:JsonIgnore][ObservableProperty] private TimeSpan _invokeTime = TimeSpan.Zero;
     [JsonConverter(typeof(ScenarioMethodJsonCtr))]
     public ScenarioMethod ScenarioMethod { get; set; }
 
