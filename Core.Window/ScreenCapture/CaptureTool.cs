@@ -74,16 +74,19 @@ public static class CaptureTool
             var maxHdr = 4.75f;
             for (int y = startY; y < endY; y++)
             {
+                int yOffset = y * outputDesc.DesktopCoordinates.Size.X;
+                int targetYOffset = (y - startY) * regionWidth;
+
                 for (int x = startX; x < endX; x++)
                 {
-                    int sourceIndex = (y *  outputDesc.DesktopCoordinates.Size.X + x) * 4;
-                    int targetIndex = ((y - startY) * regionWidth + (x - startX)) * 4;
+                    int sourceIndex = (yOffset + x) * 4;
+                    int targetIndex = (targetYOffset + (x - startX)) * 4;
 
                     // 读取并归一化 RGBA 值
                     float r = LogNormalize((float)span[sourceIndex], maxHdr);
                     float g = LogNormalize((float)span[sourceIndex + 1], maxHdr);
                     float b = LogNormalize((float)span[sourceIndex + 2], maxHdr);
-                    float a = LogNormalize((float)span[sourceIndex + 3], maxHdr);
+                    //float a = LogNormalize((float)span[sourceIndex + 3], maxHdr);
 
                     // 应用色彩转换矩阵
                     float bt2020R = matrix[0, 0] * r + matrix[0, 1] * g + matrix[0, 2] * b;
