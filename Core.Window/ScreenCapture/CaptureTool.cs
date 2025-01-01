@@ -6,11 +6,6 @@ namespace Core.Window;
 
 public static class CaptureTool
 {
-    static float LogNormalize(float value, float maxHDR, float k = 1)
-    {
-        if (value < 0) value = 0;
-        return (float)(Math.Log(1 + k * value) / Math.Log(1 + k * maxHDR));
-    }
     public static unsafe byte[] GetBytesSpan(MappedSubresource mappedSubresource, OutputDesc1 outputDesc,ref ScreenCaptureInfo screenCaptureInfo)
     {
         int startX = Math.Clamp(screenCaptureInfo.X, 0, outputDesc.DesktopCoordinates.Size.X - 1);
@@ -25,9 +20,6 @@ public static class CaptureTool
         int regionWidth = endX - startX;
         int regionHeight = endY - startY;
         byte[] result = new byte[regionWidth * regionHeight * 4];
-
-        
-        
         if (!outputDesc.ColorSpace.ToString().EndsWith("2020"))
         {
             var span = new ReadOnlySpan<uint>(mappedSubresource.PData,
@@ -68,10 +60,6 @@ public static class CaptureTool
             );
             var span = new ReadOnlySpan<Half>(mappedSubresource.PData,
                 (int)mappedSubresource.DepthPitch / 2);
-
-           
-
-            var maxHdr = 4.75f;
             for (int y = startY; y < endY; y++)
             {
                 int yOffset = y * outputDesc.DesktopCoordinates.Size.X;
@@ -83,10 +71,9 @@ public static class CaptureTool
                     int targetIndex = (targetYOffset + (x - startX)) * 4;
 
                     // 读取并归一化 RGBA 值
-                    float r = LogNormalize((float)span[sourceIndex], maxHdr);
-                    float g = LogNormalize((float)span[sourceIndex + 1], maxHdr);
-                    float b = LogNormalize((float)span[sourceIndex + 2], maxHdr);
-                    //float a = LogNormalize((float)span[sourceIndex + 3], maxHdr);
+                    float r = (float)(Math.Log(1 + (float)span[sourceIndex]) / 1.749199854809259d);
+                    float g =  (float)(Math.Log(1 + (float)span[sourceIndex+1]) / 1.749199854809259d);
+                    float b =  (float)(Math.Log(1 + (float)span[sourceIndex+2]) / 1.749199854809259d);
 
                     // 应用色彩转换矩阵
                     float bt2020R = matrix[0, 0] * r + matrix[0, 1] * g + matrix[0, 2] * b;
