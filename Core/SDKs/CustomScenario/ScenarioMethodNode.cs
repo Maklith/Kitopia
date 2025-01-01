@@ -35,13 +35,14 @@ public partial class ScenarioMethodNode : ObservableRecipient
     [ObservableProperty] private ObservableCollection<ConnectorItem> input = new();
     [ObservableProperty] private ObservableCollection<ConnectorItem> output = new();
     [ObservableProperty] private S节点状态 status = S节点状态.未验证;
-
+    [ObservableProperty] private TimeSpan _invokeTime = TimeSpan.Zero;
     [JsonConverter(typeof(ScenarioMethodJsonCtr))]
     public ScenarioMethod ScenarioMethod { get; set; }
 
     public bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
         ObservableDictionary<string, CustomScenarioValue> values)
     {
+        DateTime start = DateTime.Now;
         //生成本节点所有数据
         switch (ScenarioMethod.Type)
         {
@@ -109,7 +110,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                     ScenarioMethod.ServiceProvider!.GetService(ScenarioMethod.Method.DeclaringType!),
                     list.ToArray());
                 if (invoke is null)
-                    return false;
+                   break;
                 if (ScenarioMethod.Method.ReturnParameter.ParameterType.GetCustomAttribute(typeof(AutoUnbox)) is not
                     null)
                 {
@@ -130,7 +131,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 }
                 else
                 {
-                    if (Output.Any()) Output[1].InputObject.Value = invoke;
+                    if (Output.Count()>=2) Output[1].InputObject.Value = invoke;
                 }
 
                 break;
@@ -234,7 +235,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
             foreach (var sourceOrNextConnectorItem in connectorItem.GetSourceOrNextConnectorItems(connections))
                 sourceOrNextConnectorItem.InputObject.Value = connectorItem.InputObject.Value;
         }
-
+        InvokeTime = DateTime.Now-start;
         return true;
     }
 

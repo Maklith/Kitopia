@@ -1187,8 +1187,16 @@
                                                      Opacity="0.5" />
                                 </controls2:Node.HeaderBrush>
                                 <controls2:Node.Header>
-                                    <TextBlock Text="{Binding Title}" Foreground="White"
-                                               HorizontalAlignment="Center" />
+                                    <StackPanel Orientation="Horizontal">
+                                       <TextBlock Text="{Binding Title}" Foreground="White"
+                                                                                      HorizontalAlignment="Center" /> 
+                                       <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                           Glyph="&#xf4a3;" Foreground="White"
+                                                           ToolTip.Tip="{Binding  InvokeTime,StringFormat='执行耗时:{0}'}"
+                                                           ToolTip.ShowDelay="0"
+                                                           />
+                                    </StackPanel>
+                                    
                                 </controls2:Node.Header>
                                 <controls2:Node.InputConnectorTemplate>
                                     <DataTemplate DataType="{x:Type customScenario:ConnectorItem}">

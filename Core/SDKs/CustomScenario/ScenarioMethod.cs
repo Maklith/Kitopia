@@ -185,21 +185,21 @@ public class ScenarioMethod
 
                 //Log.Debug($"参数{index}:类型为{parameterInfo.ParameterType}");
             }
+            ObservableCollection<ConnectorItem> outItems = new();
+            outItems.Add(new ConnectorItem()
+            {
+                Source = pointItem,
+                IsOut = true,
+                InputObject = new CustomScenarioValue()
+                {
+                    Type = typeof(NodeConnectorClass)
+                },
 
+                Title = "流输出",
+            });
             if (Method.ReturnParameter.ParameterType != typeof(void))
             {
-                ObservableCollection<ConnectorItem> outItems = new();
-                outItems.Add(new ConnectorItem()
-                {
-                    Source = pointItem,
-                    IsOut = true,
-                    InputObject = new CustomScenarioValue()
-                    {
-                        Type = typeof(NodeConnectorClass)
-                    },
-
-                    Title = "流输出",
-                });
+                
                 if (Method.ReturnParameter.ParameterType.GetCustomAttribute(typeof(AutoUnbox)) is not null)
                 {
                     autoUnboxIndex++;
@@ -251,9 +251,9 @@ public class ScenarioMethod
                 }
 
 
-                pointItem.Output = outItems;
+                
             }
-
+            pointItem.Output = outItems;
 
             pointItem.Input = inpItems;
         }

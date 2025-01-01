@@ -477,7 +477,9 @@ public partial class CustomScenario : ObservableRecipient
         if (notRealTime)
             try
             {
+                Log.Debug($"执行节点:{nowScenarioMethodNode.Title}");
                 nowScenarioMethodNode.Invoke(cancellationToken, connections, Values);
+                Log.Debug($"执行节点完成:{nowScenarioMethodNode.Title}");
             }
             catch (Exception e)
             {
