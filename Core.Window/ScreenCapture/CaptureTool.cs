@@ -8,9 +8,10 @@ public static class CaptureTool
 {
     public static unsafe byte[] GetBytesSpan(MappedSubresource mappedSubresource, OutputDesc1 outputDesc,ref ScreenCaptureInfo screenCaptureInfo)
     {
-        int startX = Math.Clamp(screenCaptureInfo.X, 0, outputDesc.DesktopCoordinates.Size.X - 1);
+        var sizeX = outputDesc.DesktopCoordinates.Size.X;
+        int startX = Math.Clamp(screenCaptureInfo.X, 0, sizeX - 1);
         int startY = Math.Clamp(screenCaptureInfo.Y, 0, outputDesc.DesktopCoordinates.Size.Y - 1);
-        int endX = Math.Clamp(screenCaptureInfo.X + screenCaptureInfo.Width, 0, outputDesc.DesktopCoordinates.Size.X);
+        int endX = Math.Clamp(screenCaptureInfo.X + screenCaptureInfo.Width, 0, sizeX);
         int endY = Math.Clamp(screenCaptureInfo.Y + screenCaptureInfo.Height, 0, outputDesc.DesktopCoordinates.Size.Y);
         screenCaptureInfo.Height = endY - startY;
         screenCaptureInfo.Width = endX - startX;
@@ -29,7 +30,7 @@ public static class CaptureTool
             {
                 for (int x = startX; x < endX; x++)
                 {
-                    int sourceIndex = (y *  outputDesc.DesktopCoordinates.Size.X + x) * 4;
+                    int sourceIndex = (y *  sizeX + x) * 4;
                     int targetIndex = ((y - startY) * regionWidth + (x - startX)) * 4;
 
                     // 读取原始像素并复制到结果
@@ -59,10 +60,12 @@ public static class CaptureTool
                 ]
             );
             var span = new ReadOnlySpan<Half>(mappedSubresource.PData,
-                (int)mappedSubresource.DepthPitch / 2);
-            for (int y = startY; y < endY; y++)
+                (int)mappedSubresource.DepthPitch / 2).ToArray();
+           // ReadOnlyMemory<Half> readOnlyMemory = new ReadOnlyMemory<Half>(span);
+            Parallel.For(startY, endY, y =>
             {
-                int yOffset = y * outputDesc.DesktopCoordinates.Size.X;
+                
+                int yOffset = y * sizeX;
                 int targetYOffset = (y - startY) * regionWidth;
 
                 for (int x = startX; x < endX; x++)
@@ -71,9 +74,10 @@ public static class CaptureTool
                     int targetIndex = (targetYOffset + (x - startX)) * 4;
 
                     // 读取并归一化 RGBA 值
-                    float r = (float)(Math.Log(1 + (float)span[sourceIndex]) / 1.749199854809259d);
-                    float g =  (float)(Math.Log(1 + (float)span[sourceIndex+1]) / 1.749199854809259d);
-                    float b =  (float)(Math.Log(1 + (float)span[sourceIndex+2]) / 1.749199854809259d);
+                    
+                    float r = float.Log(1 + (float)span[sourceIndex]) / 1.749199854809259f;
+                    float g = float.Log(1 + (float)span[sourceIndex+1]) / 1.749199854809259f;
+                    float b = float.Log(1 + (float)span[sourceIndex+2]) / 1.749199854809259f;
 
                     // 应用色彩转换矩阵
                     float bt2020R = matrix[0, 0] * r + matrix[0, 1] * g + matrix[0, 2] * b;
@@ -81,12 +85,14 @@ public static class CaptureTool
                     float bt2020B = matrix[2, 0] * r + matrix[2, 1] * g + matrix[2, 2] * b;
 
                     // 转换并填充结果
-                    result[targetIndex+ 2] = (byte)Math.Clamp(bt2020R * 255, 0, 255);
-                    result[targetIndex + 1] = (byte)Math.Clamp(bt2020G * 255, 0, 255);
-                    result[targetIndex ] = (byte)Math.Clamp(bt2020B * 255, 0, 255);
+                    
+                    result[targetIndex ] = (byte)Math.Clamp(bt2020B * 255,0,255);
+                    result[targetIndex + 1] = (byte)Math.Clamp(bt2020G * 255,0,255);
+                    result[targetIndex+ 2] = (byte)Math.Clamp(bt2020R * 255,0,255);
                     result[targetIndex + 3] = 255; // Alpha 固定为 255
                 }
-            }
+            });
+           
         }
 
         return result;
