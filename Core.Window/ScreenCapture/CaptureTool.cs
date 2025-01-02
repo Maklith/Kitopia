@@ -1,4 +1,5 @@
-﻿using PluginCore;
+﻿using Windows.Graphics;
+using PluginCore;
 using Silk.NET.Direct3D11;
 using Silk.NET.DXGI;
 
@@ -9,13 +10,13 @@ public static class CaptureTool
     public static unsafe byte[] GetBytesSpan(MappedSubresource mappedSubresource, OutputDesc1 outputDesc,ref ScreenCaptureInfo screenCaptureInfo)
     {
         var sizeX = outputDesc.DesktopCoordinates.Size.X;
-        int startX = Math.Clamp(screenCaptureInfo.X, 0, sizeX - 1);
+        int startX = Math.Clamp(screenCaptureInfo.X, 0, outputDesc.DesktopCoordinates.Size.X - 1);
         int startY = Math.Clamp(screenCaptureInfo.Y, 0, outputDesc.DesktopCoordinates.Size.Y - 1);
-        int endX = Math.Clamp(screenCaptureInfo.X + screenCaptureInfo.Width, 0, sizeX);
-        int endY = Math.Clamp(screenCaptureInfo.Y + screenCaptureInfo.Height, 0, outputDesc.DesktopCoordinates.Size.Y);
+        int endX = Math.Clamp(screenCaptureInfo.Width, 0, outputDesc.DesktopCoordinates.Size.X);
+        int endY = Math.Clamp(screenCaptureInfo.Height, 0, outputDesc.DesktopCoordinates.Size.Y);
         screenCaptureInfo.Height = endY - startY;
         screenCaptureInfo.Width = endX - startX;
-        screenCaptureInfo.X = startX;
+        screenCaptureInfo.X = startX;   
         screenCaptureInfo.Y = startY;
         // 结果数组：区域宽 * 区域高 * 4（RGBA）
         int regionWidth = endX - startX;
@@ -95,6 +96,45 @@ public static class CaptureTool
            
         }
 
+        return result;
+    }
+     public static unsafe byte[] GetBytesSpan(MappedSubresource mappedSubresource,SizeInt32 size,ref ScreenCaptureInfo screenCaptureInfo)
+    {
+        var sizeX = size.Width;
+        int startX = Math.Clamp(screenCaptureInfo.X, 0, size.Width - 1);
+        int startY = Math.Clamp(screenCaptureInfo.Y, 0, size.Height - 1);
+        int endX = Math.Clamp(screenCaptureInfo.X+screenCaptureInfo.Width, 0,size.Width);
+        int endY = Math.Clamp(screenCaptureInfo.Y+screenCaptureInfo.Height, 0,size.Height);
+        screenCaptureInfo.Height = endY - startY;
+        screenCaptureInfo.Width = endX - startX;
+        screenCaptureInfo.X = startX;   
+        screenCaptureInfo.Y = startY;
+        // 结果数组：区域宽 * 区域高 * 4（RGBA）
+        int regionWidth = endX - startX;
+        int regionHeight = endY - startY;
+        byte[] result = new byte[regionWidth * regionHeight * 4];
+        {
+            var span = new ReadOnlySpan<uint>(mappedSubresource.PData,
+                (int)mappedSubresource.DepthPitch / 4);
+            
+            for (int y = startY; y < endY; y++)
+            {
+                for (int x = startX; x < endX; x++)
+                {
+                    int sourceIndex = (y *  sizeX + x) * 4;
+                    int targetIndex = ((y - startY) * regionWidth + (x - startX)) * 4;
+
+                    // 读取原始像素并复制到结果
+                    uint value = span[sourceIndex / 4];
+                    result[targetIndex+ 2] = (byte)(value & 0xFF);        // R
+                    result[targetIndex + 1] = (byte)((value >> 8) & 0xFF); // G
+                    result[targetIndex ] = (byte)((value >> 16) & 0xFF); // B
+                    result[targetIndex + 3] = (byte)((value >> 24) & 0xFF); // A
+                }
+            }
+
+            span = null;
+        }
         return result;
     }
 }

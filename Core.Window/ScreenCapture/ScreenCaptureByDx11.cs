@@ -175,7 +175,6 @@ public class ScreenCaptureByDx11 : IScreenCapture
                         if (output->GetDesc(ref desc) != 0) throw new Exception("Failed to get output description");
                         screenCaptureInfos.Add(new ScreenCaptureInfo()
                         {
-                            Index = i,
                             Height = desc.DesktopCoordinates.Size.Y,
                             Width = desc.DesktopCoordinates.Size.X,
                             X = desc.DesktopCoordinates.Min.X,

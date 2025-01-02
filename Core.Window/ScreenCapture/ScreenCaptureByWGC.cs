@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Graphics;
 using Windows.Graphics.Capture;
 using Avalonia;
 using Avalonia.Media.Imaging;
@@ -28,17 +29,26 @@ public class ScreenCaptureByWGC : IScreenCapture
         {
             screenCaptureInfos.Add(new ScreenCaptureInfo()
             {
-                Index = i,
-                X = arg3.left,
-                Y = arg3.top,
+                
+                X = 0,
+                Y = 0,
                 Width = arg3.right - arg3.left,
                 Height = arg3.bottom - arg3.top,
-                hMonitor = arg2,
-                hdcMonitor = arg4
+                ScreenInfo = new ScreenInfo()
+                {
+                    X = arg3.left,
+                    Y = arg3.top,
+                    Width = arg3.right - arg3.left,
+                    Height = arg3.bottom - arg3.top,
+                    hMonitor = arg1,
+                    hdcMonitor = arg2
+                }
+                
             });
             i++;
             return true;
         }, IntPtr.Zero);
+      
         return screenCaptureInfos;
     }
 
@@ -140,14 +150,14 @@ public class ScreenCaptureByWGC : IScreenCapture
 
         captureAllScreenInfo.Bytes = null;
         captureAllScreenInfo.Source = writeableBitmap;
-        return (captureAllScreenInfo);
+        return captureAllScreenInfo;
     }
 
     public unsafe ScreenCaptureResult CaptureScreenBytes(ScreenCaptureInfo screenCaptureInfo)
     {
         var factory2 = ActivationFactory.Get(typeof(GraphicsCaptureItem).FullName);
         var interop = factory2.AsInterface<IGraphicsCaptureItemInterop>();
-        var itemPointer = interop.CreateForMonitor(screenCaptureInfo.hMonitor, GraphicsCaptureItemGuid);
+        var itemPointer = interop.CreateForMonitor(screenCaptureInfo.ScreenInfo.hMonitor, GraphicsCaptureItemGuid);
         var item = MarshalInterface<GraphicsCaptureItem>.FromAbi(itemPointer);
         var dxgi = new DXGI(new DefaultNativeContext("dxgi"));
 
@@ -156,18 +166,14 @@ public class ScreenCaptureByWGC : IScreenCapture
         ID3D11DeviceContext* immediateContext = null;
         ID3D11Device* d3dDevice = null;
         ComPtr<ID3D11Resource> stagingResource = null;
-        IDXGIOutput* output = null;
-        ComPtr<IDXGIOutput6> output6 = null;
         Direct3D11CaptureFrame direct3D11CaptureFrame = null;
         ID3D11Texture2D* stagingTexture = null;
         GraphicsCaptureSession session = null;
         Direct3D11CaptureFramePool framePool = null;
-        var d3D11 = new D3D11(new DefaultNativeContext("d3d11"));
+        using var d3D11 = new D3D11(new DefaultNativeContext("d3d11"));
         try
         {
             using var factory = dxgi.CreateDXGIFactory1<IDXGIFactory1>();
-
-
             if (factory.EnumAdapters1(0, ref adapter1) != 0) throw new Exception("Failed to create DXGI adapter");
             var featureLevel = D3DFeatureLevel.Level110;
             D3DFeatureLevel[] featureLevels =
@@ -206,43 +212,32 @@ public class ScreenCaptureByWGC : IScreenCapture
             }
 
             var direct3DDeviceFromSharpDxDevice = CreateDirect3DDeviceFromSharpDXDevice(d3dDevice);
-
-
-            adapter1->EnumOutputs(screenCaptureInfo.Index, ref output);
-            if (output->QueryInterface<IDXGIOutput6>(out output6) != 0)
-                throw new Exception("Failed to get IDXGIOutput6");
-            var outputDesc = new OutputDesc1();
-            if (output6.GetDesc1(ref outputDesc) != 0) throw new Exception("Failed to get Desc1");
+            
             framePool = Direct3D11CaptureFramePool.Create(
                 direct3DDeviceFromSharpDxDevice,
-                outputDesc.ColorSpace.ToString().EndsWith("2020")
-                    ? DirectXPixelFormat.R16G16B16A16Float
-                    : DirectXPixelFormat.R8G8B8A8UIntNormalized,
+                DirectXPixelFormat.R8G8B8A8UIntNormalized,
                 2,
-                item.Size);
+               item.Size);
             
             session = framePool.CreateCaptureSession(item);
             
             session.IsCursorCaptureEnabled = false;
             session.StartCapture( );
-
-
             while ((direct3D11CaptureFrame = framePool.TryGetNextFrame()) == null)
             {
             }
-
+            
             using var bitmap = CreateSharpDXTexture2D(direct3D11CaptureFrame.Surface);
+            
             var mappedSubresource = new MappedSubresource();
 
             Texture2DDesc stagingTextureDesc = new()
             {
                 CPUAccessFlags = (uint)CpuAccessFlag.Read,
                 BindFlags = (uint)BindFlag.None,
-                Format = outputDesc.ColorSpace.ToString().EndsWith("2020")
-                    ? Format.FormatR16G16B16A16Float
-                    : Format.FormatR8G8B8A8Unorm,
-                Width = (uint)direct3D11CaptureFrame.ContentSize.Width,
-                Height = (uint)direct3D11CaptureFrame.ContentSize.Height,
+                Format = Format.FormatR8G8B8A8Unorm,
+                Width =  (uint)item.Size.Width,
+                Height = (uint)item.Size.Height,
                 MiscFlags = (uint)ResourceMiscFlag.None,
                 MipLevels = 1,
                 ArraySize = 1,
@@ -257,9 +252,8 @@ public class ScreenCaptureByWGC : IScreenCapture
             immediateContext->CopyResource(stagingResource, bitmap);
             if (immediateContext->Map(stagingResource, 0, Map.Read, 0, &mappedSubresource) != 0)
                 throw new Exception("Failed to map staging texture");
-
-
-            var bytesSpan = CaptureTool.GetBytesSpan(mappedSubresource, outputDesc,ref screenCaptureInfo);
+            var bytesSpan = CaptureTool.GetBytesSpan(mappedSubresource, item.Size,ref screenCaptureInfo);
+           
             return new ScreenCaptureResult()
             {
                 Info = screenCaptureInfo,
@@ -268,6 +262,7 @@ public class ScreenCaptureByWGC : IScreenCapture
         }
         finally
         {
+            
             if (adapter1 != null)
             {
                 adapter1->Release();
@@ -295,19 +290,7 @@ public class ScreenCaptureByWGC : IScreenCapture
 
             stagingResource.Release();
             stagingResource = null;
-
-
-            if (output != null)
-            {
-                output->Release();
-                output = null;
-            }
-
-
-            output6.Release();
-            output6 = null;
-
-
+            
             if (direct3D11CaptureFrame != null)
             {
                 direct3D11CaptureFrame.Dispose();
@@ -328,6 +311,7 @@ public class ScreenCaptureByWGC : IScreenCapture
 
             if (session != null)
             {
+                
                 session.Dispose();
                 session = null;
             }

@@ -14,7 +14,7 @@ public class ScreenCaptureInfoCustomScenarioValueSerializer : ICustomScenarioVal
         {
             return "";
         }
-        return $"{nameof(screenCaptureInfo.Index)}={screenCaptureInfo.Index},{nameof(screenCaptureInfo.hMonitor)}={(uint)screenCaptureInfo.hMonitor},{nameof(screenCaptureInfo.hdcMonitor)}={(uint)screenCaptureInfo.hdcMonitor},{nameof(screenCaptureInfo.X)}={screenCaptureInfo.X},{nameof(screenCaptureInfo.Y)}={screenCaptureInfo.Y},{nameof(screenCaptureInfo.Width)}={screenCaptureInfo.Width},{nameof(screenCaptureInfo.Height)}={screenCaptureInfo.Height}";
+        return $"ScreenInfo.X={screenCaptureInfo.ScreenInfo.X},ScreenInfo.Y={screenCaptureInfo.ScreenInfo.Y},ScreenInfo.Height={screenCaptureInfo.ScreenInfo.Height},ScreenInfo.Width={screenCaptureInfo.ScreenInfo.Width},ScreenInfo.hdcMonitor={screenCaptureInfo.ScreenInfo.hdcMonitor},ScreenInfo.hMonitor={screenCaptureInfo.ScreenInfo.hMonitor},{nameof(screenCaptureInfo.X)}={screenCaptureInfo.X},{nameof(screenCaptureInfo.Y)}={screenCaptureInfo.Y},{nameof(screenCaptureInfo.Width)}={screenCaptureInfo.Width},{nameof(screenCaptureInfo.Height)}={screenCaptureInfo.Height}";
     }
 
     public object Deserialize(ReadOnlySpan<byte> value)
@@ -22,7 +22,7 @@ public class ScreenCaptureInfoCustomScenarioValueSerializer : ICustomScenarioVal
         var str = Encoding.UTF8.GetString(value);
         
         var split = str.Split(',');
-        if (split.Length != 7)
+        if (split.Length != 10)
         {
             return null;
         }
@@ -35,9 +35,15 @@ public class ScreenCaptureInfoCustomScenarioValueSerializer : ICustomScenarioVal
         }
         var screenCaptureInfo = new ScreenCaptureInfo
         {
-            Index = uint.Parse(dic[nameof(ScreenCaptureInfo.Index)]),
-            hMonitor = (IntPtr)uint.Parse(dic[nameof(ScreenCaptureInfo.hMonitor)]),
-            hdcMonitor = (IntPtr)uint.Parse(dic[nameof(ScreenCaptureInfo.hdcMonitor)]),
+            ScreenInfo = new ScreenInfo
+            {
+                hdcMonitor = new IntPtr(int.Parse(dic["ScreenInfo.hdcMonitor"])),
+                hMonitor = new IntPtr(int.Parse(dic["ScreenInfo.hMonitor"])),
+                Height = int.Parse(dic["ScreenInfo.Height"]),
+                Width = int.Parse(dic["ScreenInfo.Width"]),
+                X = int.Parse(dic["ScreenInfo.X"]),
+                Y = int.Parse(dic["ScreenInfo.Y"]),
+            },
             X = int.Parse(dic[nameof(ScreenCaptureInfo.X)]),
             Y = int.Parse(dic[nameof(ScreenCaptureInfo.Y)]),
             Width = int.Parse(dic[nameof(ScreenCaptureInfo.Width)]),

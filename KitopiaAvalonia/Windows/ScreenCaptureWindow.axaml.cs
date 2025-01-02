@@ -49,7 +49,7 @@ public partial class ScreenCaptureWindow : Window
     {
         InitializeComponent();
         _screenCaptureInfo = screenCaptureInfo;
-        Position = new PixelPoint(screenCaptureInfo.X, screenCaptureInfo.Y);
+        Position = new PixelPoint(screenCaptureInfo.ScreenInfo.X, screenCaptureInfo.ScreenInfo.Y);
         WindowState = WindowState.FullScreen;
         SystemDecorations = SystemDecorations.None;
         Background = new SolidColorBrush(Colors.Black);
@@ -81,6 +81,7 @@ public partial class ScreenCaptureWindow : Window
 
                     Close();
                     WeakReferenceMessenger.Default.Unregister<string>(this);
+                    GC.Collect(2,GCCollectionMode.Aggressive,true);
                     break;
                 }
                 case "Selected":
@@ -812,13 +813,12 @@ public partial class ScreenCaptureWindow : Window
             {
                 selectModeAction.Invoke(new ScreenCaptureInfo()
                 {
-                    Index = _screenCaptureInfo.Index,
-                    hdcMonitor = _screenCaptureInfo.hdcMonitor,
-                    hMonitor = _screenCaptureInfo.hMonitor,
+                   
                     X =   Math.Max((int)dragTransformX, 0),
                     Y =   Math.Max((int)dragTransformY, 0),
                     Width = cropW,
-                    Height = cropH
+                    Height = cropH,
+                    ScreenInfo = _screenCaptureInfo.ScreenInfo
                 });
             } else{
                 foreach (var canvasChild in Canvas.Children)
@@ -865,13 +865,12 @@ public partial class ScreenCaptureWindow : Window
                     {
                         Info = new ScreenCaptureInfo()
                         {
-                            Index = _screenCaptureInfo.Index,
-                            hdcMonitor = _screenCaptureInfo.hdcMonitor,
-                            hMonitor = _screenCaptureInfo.hMonitor,
+                            
                             X =   Math.Max((int)dragTransformX, 0),
                             Y =   Math.Max((int)dragTransformY, 0),
                             Width = cropW,
-                            Height = cropH
+                            Height = cropH,
+                            ScreenInfo = _screenCaptureInfo.ScreenInfo
                         },
                         Bytes = d
                     });

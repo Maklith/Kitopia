@@ -26,18 +26,16 @@ public class KitopiaEx : IPlugin
         {
             var screenCaptureInfo = (ScreenCaptureInfo)info;
             return
-                $"显示器:{screenCaptureInfo.hdcMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
+                $"显示器:{screenCaptureInfo.ScreenInfo.hdcMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
         });
         Kitopia.ToolTipConverters.TryAdd(typeof(ScreenCaptureResult), e =>
         {
             var screenCaptureResult = (ScreenCaptureResult)e;
             var screenCaptureInfo = screenCaptureResult.Info;
             return
-                $"显示器:{screenCaptureInfo.hdcMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}\nByte数据:{(screenCaptureResult.Bytes is null?"不存在":"存在")}\nBitmap数据:{(screenCaptureResult.Source is null?"不存在":"存在")}";
+                $"显示器:{screenCaptureInfo.ScreenInfo.hdcMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}\nByte数据:{(screenCaptureResult.Bytes is null?"不存在":"存在")}\nBitmap数据:{(screenCaptureResult.Source is null?"不存在":"存在")}";
         });
         Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureInfo), new ScreenCaptureInfoCustomScenarioValueSerializer());
-        Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureResult),
-            new ScreenCaptureResultCustomScenarioValueSerializer());
     }
 
     public void OnDisabled()
