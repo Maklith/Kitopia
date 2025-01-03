@@ -14,7 +14,7 @@ public class ScreenCaptureInfoCustomScenarioValueSerializer : ICustomScenarioVal
         {
             return "";
         }
-        return $"ScreenInfo.X={screenCaptureInfo.ScreenInfo.X},ScreenInfo.Y={screenCaptureInfo.ScreenInfo.Y},ScreenInfo.Height={screenCaptureInfo.ScreenInfo.Height},ScreenInfo.Width={screenCaptureInfo.ScreenInfo.Width},ScreenInfo.hdcMonitor={screenCaptureInfo.ScreenInfo.hdcMonitor},ScreenInfo.hMonitor={screenCaptureInfo.ScreenInfo.hMonitor},{nameof(screenCaptureInfo.X)}={screenCaptureInfo.X},{nameof(screenCaptureInfo.Y)}={screenCaptureInfo.Y},{nameof(screenCaptureInfo.Width)}={screenCaptureInfo.Width},{nameof(screenCaptureInfo.Height)}={screenCaptureInfo.Height}";
+        return $"WindowInfo.Title={screenCaptureInfo.WindowInfo.Title},ScreenInfo.X={screenCaptureInfo.ScreenInfo.X},ScreenInfo.Y={screenCaptureInfo.ScreenInfo.Y},ScreenInfo.Height={screenCaptureInfo.ScreenInfo.Height},ScreenInfo.Width={screenCaptureInfo.ScreenInfo.Width},{nameof(screenCaptureInfo.X)}={screenCaptureInfo.X},{nameof(screenCaptureInfo.Y)}={screenCaptureInfo.Y},{nameof(screenCaptureInfo.Width)}={screenCaptureInfo.Width},{nameof(screenCaptureInfo.Height)}={screenCaptureInfo.Height}";
     }
 
     public object Deserialize(ReadOnlySpan<byte> value)
@@ -22,7 +22,7 @@ public class ScreenCaptureInfoCustomScenarioValueSerializer : ICustomScenarioVal
         var str = Encoding.UTF8.GetString(value);
         
         var split = str.Split(',');
-        if (split.Length != 10)
+        if (split.Length != 9)
         {
             return null;
         }
@@ -42,6 +42,10 @@ public class ScreenCaptureInfoCustomScenarioValueSerializer : ICustomScenarioVal
                 Width = int.Parse(dic["ScreenInfo.Width"]),
                 X = int.Parse(dic["ScreenInfo.X"]),
                 Y = int.Parse(dic["ScreenInfo.Y"]),
+            },
+            WindowInfo = new WindowInfo()
+            {
+                Title = dic["WindowInfo.Title"],
             },
             X = int.Parse(dic[nameof(ScreenCaptureInfo.X)]),
             Y = int.Parse(dic[nameof(ScreenCaptureInfo.Y)]),

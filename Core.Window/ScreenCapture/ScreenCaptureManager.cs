@@ -62,6 +62,48 @@ public class ScreenCaptureManager : IScreenCaptureManager
 
         return null;
     }
+    public List<WindowInfo> GetAllWindowInfo()
+    {
+        var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>();
+        switch (ConfigManger.Config.截图方法)
+        {
+            case "Directx11":
+            {
+                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByDx11));
+                if (firstOrDefault is null)
+                {
+                    ConfigManger.Config.截图方法 = "自动";
+                    return new List<WindowInfo>();
+                }
+
+                return firstOrDefault.GetAllWindowInfo();
+            }
+
+            case "WGC":
+            {
+                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWGC));
+                if (firstOrDefault is null)
+                {
+                    ConfigManger.Config.截图方法 = "自动";
+                    return new List<WindowInfo>();
+                }
+
+                return firstOrDefault.GetAllWindowInfo();
+            }
+            default:
+            {
+                foreach (var screenCapture in screenCaptures)
+                {
+                    var screenCaptureInfos = screenCapture.GetAllWindowInfo();
+                    if (screenCaptureInfos.Count > 0) return screenCaptureInfos;
+                }
+
+                break;
+            }
+        }
+
+        return null;
+    }
 
     public ScreenCaptureInfo GetScreenCaptureInfoByIndex(int index)
     {

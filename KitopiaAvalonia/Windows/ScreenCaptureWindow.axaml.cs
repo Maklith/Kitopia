@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
@@ -45,9 +46,11 @@ public partial class ScreenCaptureWindow : Window
     private Action selectBytesModeCancelAction;
     private ScreenCaptureInfo _screenCaptureInfo;
     private bool Finish = false;
+    private List<WindowInfo> _windowInfos;
     public ScreenCaptureWindow(ScreenCaptureInfo screenCaptureInfo)
     {
         InitializeComponent();
+        _windowInfos = ServiceManager.Services.GetService<IScreenCaptureManager>()!.GetAllWindowInfo();
         _screenCaptureInfo = screenCaptureInfo;
         Position = new PixelPoint(screenCaptureInfo.ScreenInfo.X, screenCaptureInfo.ScreenInfo.Y);
         WindowState = WindowState.FullScreen;
@@ -295,18 +298,34 @@ public partial class ScreenCaptureWindow : Window
 
         if (ShowAlignLine)
         {
-            X.IsVisible = true;
-            Y.IsVisible = true;
-            X.StartPoint = new Point(0, e.GetPosition(this)
-                .Y);
-
-            X.EndPoint = new Point(Width, e.GetPosition(this)
-                .Y);
-
-            Y.StartPoint = new Point(e.GetPosition(this)
-                .X, 0);
-            Y.EndPoint = new Point(e.GetPosition(this)
-                .X, Height);
+            
+            var currentPoint = e.GetCurrentPoint(this);
+            var screenInfoWidth = Bounds.Width/_screenCaptureInfo.ScreenInfo.Width;
+            var screenInfoHeight =Bounds.Height/_screenCaptureInfo.ScreenInfo.Height;
+            var positionY = currentPoint.Position.Y/screenInfoWidth;
+            var positionX = currentPoint.Position.X/screenInfoHeight;
+            var firstOrDefault = _windowInfos.FirstOrDefault(e => positionX >= e.Rect.X && positionX <= e.Rect.X + e.Rect.Width &&
+                                                                  positionY >= e.Rect.Y && positionY <= e.Rect.Y + e.Rect.Height);
+            if (firstOrDefault.Hwnd == IntPtr.Zero)
+            {
+                _startPoint = new Point(0, 0);
+                SelectBox._dragTransform.X = 0;
+                SelectBox._dragTransform.Y = 0;
+                SelectBox.Width = this.Bounds.Width;
+                SelectBox.Height = this.Bounds.Height;
+               
+            }
+            else
+            {
+                
+                _startPoint=new Point(firstOrDefault.Rect.X*screenInfoWidth,firstOrDefault.Rect.Y*screenInfoHeight);
+                SelectBox._dragTransform.X = _startPoint.X;
+                SelectBox._dragTransform.Y = _startPoint.Y;
+                SelectBox.Width = firstOrDefault.Rect.Width*screenInfoWidth;
+                SelectBox.Height = firstOrDefault.Rect.Height*screenInfoHeight;
+            }
+            SelectBox.IsVisible = true;
+            UpdateSelectBox();
         }
         else
         {

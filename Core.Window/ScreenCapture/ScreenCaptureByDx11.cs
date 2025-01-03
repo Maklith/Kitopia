@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
+using System.Text;
 using Windows.Graphics;
 using Windows.Graphics.Capture;
 using Windows.Graphics.Display;
@@ -120,7 +121,37 @@ public class ScreenCaptureByDx11 : IScreenCapture
             }
         }
     }
+    public List<WindowInfo> GetAllWindowInfo()
+    {
+        var screenCaptureInfos = new List<WindowInfo>();
+        uint i = 0;
+        User32.EnumWindows( (arg1, arg2) =>
+        {
+            if (User32.GetParent(arg1).IsNull)
+            {
+                return true;
+            }
 
+            if (!User32.IsWindowVisible(arg1))
+            {
+                return true;
+            }
+
+            User32.GetWindowRect(arg1, out var rect);
+            StringBuilder stringBuilder = new StringBuilder();
+            User32.GetWindowText(arg1, stringBuilder, 100);
+
+            screenCaptureInfos.Add(new WindowInfo()
+            {
+                Title = stringBuilder.ToString(),
+                Hwnd = arg1.DangerousGetHandle(),
+                Rect = new Rect(rect.X,rect.Y,rect.Width,rect.Height)
+            });
+            return true;
+        }, IntPtr.Zero);
+      
+        return screenCaptureInfos;
+    }
     public Stack<ScreenCaptureResult> CaptureAllScreen()
     {
         var screenCaptureResults = new Stack<ScreenCaptureResult>();

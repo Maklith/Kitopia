@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Text;
 using Windows.Graphics;
 using Windows.Graphics.Capture;
 using Avalonia;
@@ -41,11 +42,43 @@ public class ScreenCaptureByWGC : IScreenCapture
                     Width = arg3.right - arg3.left,
                     Height = arg3.bottom - arg3.top,
                     hMonitor = arg1,
-                    hdcMonitor = arg2
+                    
                 }
                 
             });
             i++;
+            return true;
+        }, IntPtr.Zero);
+      
+        return screenCaptureInfos;
+    }
+    public List<WindowInfo> GetAllWindowInfo()
+    {
+        var screenCaptureInfos = new List<WindowInfo>();
+        uint i = 0;
+        User32.EnumWindows( (arg1, arg2) =>
+        {
+            if (!User32.GetParent(arg1).IsNull)
+            {
+                return true;
+            }
+
+            if (!User32.IsWindowVisible(arg1))
+            {
+                return true;
+            }
+
+            User32.GetWindowRect(arg1, out var rect);
+            StringBuilder stringBuilder = new StringBuilder(100);
+            User32.GetWindowText(arg1, stringBuilder, 100);
+            
+            
+            screenCaptureInfos.Add(new WindowInfo()
+            {
+                Title = stringBuilder.ToString(),
+                Hwnd = arg1.DangerousGetHandle(),
+                Rect = new Rect(rect.X,rect.Y,rect.Width,rect.Height)
+            });
             return true;
         }, IntPtr.Zero);
       
@@ -323,8 +356,8 @@ public class ScreenCaptureByWGC : IScreenCapture
         {
             
             
-                adapter1.Release();
-                adapter1 = null;
+            adapter1.Release();
+            adapter1 = null;
             
 
             if (context != null)
