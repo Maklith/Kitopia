@@ -153,15 +153,68 @@ public class ScreenCaptureByWGC : IScreenCapture
         return captureAllScreenInfo;
     }
 
+    public IntPtr FindHMonitor(ScreenInfo screenInfo)
+    {
+        IntPtr h=IntPtr.Zero;
+        User32.EnumDisplayMonitors(default, null, (arg1, arg2, arg3, arg4) =>
+        {
+            if (screenInfo.X==arg3.left&&screenInfo.Y==arg3.top&&screenInfo.Width==arg3.right-arg3.left&&screenInfo.Height==arg3.bottom-arg3.top)
+            {
+                h = arg1;
+                return false;
+            }
+            return true;
+        }, IntPtr.Zero);
+        return h;
+    }
+    public static (ComPtr<IDXGIAdapter1>,OutputDesc1) GetAdapterForMonitor(ComPtr<IDXGIFactory1> factory,IntPtr hMonitor)
+    {
+        ComPtr<IDXGIAdapter1> adapter = null;
+        while (factory.EnumAdapters1(0, ref adapter) == 0)
+        {
+            ComPtr<IDXGIOutput> output = null;
+            while (adapter.EnumOutputs(0, ref output  ) == 0)
+            {
+                OutputDesc desc = new OutputDesc();
+                output.GetDesc(ref desc);
+                if (desc.Monitor == hMonitor)
+                {
+                    ComPtr<IDXGIOutput6> output6 = null;
+                    if (output.QueryInterface<IDXGIOutput6>(out output6) != 0)
+                        throw new Exception("Failed to get IDXGIOutput6");
+                    var outputDesc = new OutputDesc1();
+                    if (output6.GetDesc1(ref outputDesc) != 0) throw new Exception("Failed to get Desc1");
+                    return (adapter,outputDesc);
+                }
+                else
+                {
+                    output.Release();
+                }
+            }
+
+            adapter.Release();
+        }
+
+        throw new InvalidOperationException("No adapter found for the given monitor.");
+    }
+    
     public unsafe ScreenCaptureResult CaptureScreenBytes(ScreenCaptureInfo screenCaptureInfo)
     {
+        if (screenCaptureInfo.ScreenInfo.hMonitor==null || screenCaptureInfo.ScreenInfo.hMonitor ==IntPtr.Zero)
+        {
+            screenCaptureInfo.ScreenInfo.hMonitor = FindHMonitor(screenCaptureInfo.ScreenInfo);
+            if (screenCaptureInfo.ScreenInfo.hMonitor==IntPtr.Zero)
+            {
+                throw new Exception("目标显示器不存在");
+            }
+        }
         var factory2 = ActivationFactory.Get(typeof(GraphicsCaptureItem).FullName);
         var interop = factory2.AsInterface<IGraphicsCaptureItemInterop>();
         var itemPointer = interop.CreateForMonitor(screenCaptureInfo.ScreenInfo.hMonitor, GraphicsCaptureItemGuid);
         var item = MarshalInterface<GraphicsCaptureItem>.FromAbi(itemPointer);
         var dxgi = new DXGI(new DefaultNativeContext("dxgi"));
 
-        IDXGIAdapter1* adapter1 = null;
+        ComPtr<IDXGIAdapter1> adapter1 = null;
         ID3D11DeviceContext* context = null;
         ID3D11DeviceContext* immediateContext = null;
         ID3D11Device* d3dDevice = null;
@@ -174,7 +227,9 @@ public class ScreenCaptureByWGC : IScreenCapture
         try
         {
             using var factory = dxgi.CreateDXGIFactory1<IDXGIFactory1>();
-            if (factory.EnumAdapters1(0, ref adapter1) != 0) throw new Exception("Failed to create DXGI adapter");
+            var adapterForMonitor = GetAdapterForMonitor(factory,screenCaptureInfo.ScreenInfo.hMonitor);
+            adapter1 = adapterForMonitor.Item1;
+            
             var featureLevel = D3DFeatureLevel.Level110;
             D3DFeatureLevel[] featureLevels =
             [
@@ -182,7 +237,7 @@ public class ScreenCaptureByWGC : IScreenCapture
             ];
             fixed (D3DFeatureLevel* pFeatureLevels = &featureLevels[0])
             {
-                if (d3D11.CreateDevice((IDXGIAdapter*)adapter1, D3DDriverType.Unknown, IntPtr.Zero,
+                if (d3D11.CreateDevice((IDXGIAdapter*)adapter1.Handle, D3DDriverType.Unknown, IntPtr.Zero,
                         (uint)CreateDeviceFlag.None, pFeatureLevels, (uint)featureLevels.Length, D3D11.SdkVersion,
                         ref d3dDevice,
                         &featureLevel, ref context) != 0)
@@ -215,9 +270,11 @@ public class ScreenCaptureByWGC : IScreenCapture
             
             framePool = Direct3D11CaptureFramePool.Create(
                 direct3DDeviceFromSharpDxDevice,
-                DirectXPixelFormat.R8G8B8A8UIntNormalized,
+                adapterForMonitor.Item2.ColorSpace.ToString().EndsWith("2020")
+                    ? DirectXPixelFormat.R16G16B16A16Float
+                    : DirectXPixelFormat.R8G8B8A8UIntNormalized,
                 2,
-               item.Size);
+                item.Size);
             
             session = framePool.CreateCaptureSession(item);
             
@@ -235,7 +292,9 @@ public class ScreenCaptureByWGC : IScreenCapture
             {
                 CPUAccessFlags = (uint)CpuAccessFlag.Read,
                 BindFlags = (uint)BindFlag.None,
-                Format = Format.FormatR8G8B8A8Unorm,
+                Format = adapterForMonitor.Item2.ColorSpace.ToString().EndsWith("2020")
+                    ? Format.FormatR16G16B16A16Float
+                    : Format.FormatR8G8B8A8Unorm,
                 Width =  (uint)item.Size.Width,
                 Height = (uint)item.Size.Height,
                 MiscFlags = (uint)ResourceMiscFlag.None,
@@ -252,7 +311,7 @@ public class ScreenCaptureByWGC : IScreenCapture
             immediateContext->CopyResource(stagingResource, bitmap);
             if (immediateContext->Map(stagingResource, 0, Map.Read, 0, &mappedSubresource) != 0)
                 throw new Exception("Failed to map staging texture");
-            var bytesSpan = CaptureTool.GetBytesSpan(mappedSubresource, item.Size,ref screenCaptureInfo);
+            var bytesSpan = CaptureTool.GetBytesSpan(mappedSubresource,adapterForMonitor.Item2,ref screenCaptureInfo);
            
             return new ScreenCaptureResult()
             {
@@ -263,11 +322,10 @@ public class ScreenCaptureByWGC : IScreenCapture
         finally
         {
             
-            if (adapter1 != null)
-            {
-                adapter1->Release();
+            
+                adapter1.Release();
                 adapter1 = null;
-            }
+            
 
             if (context != null)
             {

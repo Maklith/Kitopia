@@ -33,12 +33,11 @@ public class ScreenCaptureInfoCustomScenarioValueSerializer : ICustomScenarioVal
             var strings = se.Split("=");
             dic.Add(strings[0],strings[1]);
         }
+        
         var screenCaptureInfo = new ScreenCaptureInfo
         {
             ScreenInfo = new ScreenInfo
             {
-                hdcMonitor = new IntPtr(int.Parse(dic["ScreenInfo.hdcMonitor"])),
-                hMonitor = new IntPtr(int.Parse(dic["ScreenInfo.hMonitor"])),
                 Height = int.Parse(dic["ScreenInfo.Height"]),
                 Width = int.Parse(dic["ScreenInfo.Width"]),
                 X = int.Parse(dic["ScreenInfo.X"]),
