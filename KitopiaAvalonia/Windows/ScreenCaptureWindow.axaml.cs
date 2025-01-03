@@ -304,9 +304,9 @@ public partial class ScreenCaptureWindow : Window
             var screenInfoHeight =Bounds.Height/_screenCaptureInfo.ScreenInfo.Height;
             var positionY = currentPoint.Position.Y/screenInfoWidth;
             var positionX = currentPoint.Position.X/screenInfoHeight;
-            var firstOrDefault = _windowInfos.FirstOrDefault(e => positionX >= e.Rect.X && positionX <= e.Rect.X + e.Rect.Width &&
-                                                                  positionY >= e.Rect.Y && positionY <= e.Rect.Y + e.Rect.Height);
-            if (firstOrDefault.Hwnd == IntPtr.Zero)
+            var firstOrDefault = _windowInfos.Where(e=>e.Rect.Height!=_screenCaptureInfo.ScreenInfo.Height||e.Rect.Width!=_screenCaptureInfo.ScreenInfo.Width).Where(e => positionX >= e.Rect.X && positionX <= e.Rect.X + e.Rect.Width &&
+                                                                  positionY >= e.Rect.Y && positionY <= e.Rect.Y + e.Rect.Height).OrderBy(e=>e.ZIndex).ToList();
+            if (firstOrDefault.Count()==0)
             {
                 _startPoint = new Point(0, 0);
                 SelectBox._dragTransform.X = 0;
@@ -317,12 +317,12 @@ public partial class ScreenCaptureWindow : Window
             }
             else
             {
-                
-                _startPoint=new Point(firstOrDefault.Rect.X*screenInfoWidth,firstOrDefault.Rect.Y*screenInfoHeight);
+                var windowInfo = firstOrDefault.Last();
+                _startPoint=new Point(windowInfo.Rect.X*screenInfoWidth,windowInfo.Rect.Y*screenInfoHeight);
                 SelectBox._dragTransform.X = _startPoint.X;
                 SelectBox._dragTransform.Y = _startPoint.Y;
-                SelectBox.Width = firstOrDefault.Rect.Width*screenInfoWidth;
-                SelectBox.Height = firstOrDefault.Rect.Height*screenInfoHeight;
+                SelectBox.Width = windowInfo.Rect.Width*screenInfoWidth;
+                SelectBox.Height = windowInfo.Rect.Height*screenInfoHeight;
             }
             SelectBox.IsVisible = true;
             UpdateSelectBox();
