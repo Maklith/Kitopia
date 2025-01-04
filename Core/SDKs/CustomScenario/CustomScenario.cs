@@ -373,10 +373,13 @@ public partial class CustomScenario : ObservableRecipient
         {
             Console.WriteLine(e);
         }
+        if (!inTickError)
+        {
+            foreach (var task in _initTasks) task.Value?.Join();
 
-        foreach (var task in _initTasks) task.Value?.Join();
-
-        foreach (var task in _tickTasks) task.Value?.Join();
+            foreach (var task in _tickTasks) task.Value?.Join();
+        }
+      
 
         _initTasks.Clear();
         _tickTasks.Clear();
