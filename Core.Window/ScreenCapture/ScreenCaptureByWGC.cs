@@ -58,65 +58,59 @@ public class ScreenCaptureByWGC : IScreenCapture
     {
         var screenCaptureInfos = new List<WindowInfo>();
         uint i = 0;
+        
+        
+            
+
+            
+        // 按 Z-Order 遍历窗口
+           
+        HWND currentHwnd = User32.GetTopWindow(IntPtr.Zero);
         int zIndex = 0;
-        User32.EnumWindows((arg1, arg2) =>
+
+        while (currentHwnd != IntPtr.Zero)
         {
+           
+            zIndex++;
+            currentHwnd = User32.GetWindow(currentHwnd, User32.GetWindowCmd.GW_HWNDNEXT);
             // 忽略有父窗口的和不可见的窗口
-            if (!User32.GetParent(arg1).IsNull || !User32.IsWindowVisible(arg1)|| User32.IsIconic(arg1))
+            if (!User32.GetParent(currentHwnd).IsNull || !User32.IsWindowVisible(currentHwnd)|| User32.IsIconic(currentHwnd))
             {
-                return true;
+                continue;
             }
-            int style = User32.GetWindowLong(arg1,User32.WindowLongFlags.GWL_STYLE);
+            int style = User32.GetWindowLong(currentHwnd,User32.WindowLongFlags.GWL_STYLE);
             if ((style & WS_POPUP) != 0 || (style & WS_CHILD) != 0)
             {
-                return true; // 跳过弹出窗口或子窗口
+                continue;
             }
-            if (!User32.IsWindow(arg1))
+            if (!User32.IsWindow(currentHwnd))
             {
-                return true; // 跳过无效窗口
+                continue;
             }
 
             // 获取窗口标题
             StringBuilder stringBuilder = new StringBuilder(100);
-            User32.GetWindowText(arg1, stringBuilder, 100);
+            User32.GetWindowText(currentHwnd, stringBuilder, 100);
             var title = stringBuilder.ToString();
             if (string.IsNullOrWhiteSpace(title))
             {
-                return true;
+                continue;
             }
             // 获取窗口的位置和大小
-            User32.GetWindowRect(arg1, out var rect);
-
-            
-            // 按 Z-Order 遍历窗口
-            IntPtr hwnd = arg1.DangerousGetHandle();
-            HWND currentHwnd = User32.GetTopWindow(IntPtr.Zero);
-            int zIndex = 0;
-
-            while (currentHwnd != IntPtr.Zero)
-            {
-                if (User32.IsWindowVisible(currentHwnd)) // 只考虑可见窗口
-                {
-                    if (currentHwnd == hwnd)
-                    {
-                        break;
-                    }
-                    zIndex++;
-                }
-                currentHwnd = User32.GetWindow(currentHwnd, User32.GetWindowCmd.GW_HWNDNEXT);
-            }
-
-            // 添加到结果列表
+            User32.GetWindowRect(currentHwnd, out var rect);
             screenCaptureInfos.Add(new WindowInfo()
             {
                 Title = title,
-                Hwnd = hwnd,
+                Hwnd = currentHwnd.DangerousGetHandle(),
                 Rect = new Rect(rect.X, rect.Y, rect.Width, rect.Height),
                 ZIndex = zIndex
             });
+        }
 
-            return true;
-        }, IntPtr.Zero);
+        // 添加到结果列表
+            
+        
+       
 
       
         return screenCaptureInfos;
