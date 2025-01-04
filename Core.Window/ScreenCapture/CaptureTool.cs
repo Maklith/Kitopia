@@ -13,6 +13,15 @@ public static class CaptureTool
         int startY = Math.Clamp(screenCaptureInfo.Y, 0, outputDesc.DesktopCoordinates.Size.Y - 1);
         int endX = Math.Clamp(screenCaptureInfo.X+screenCaptureInfo.Width, 0, outputDesc.DesktopCoordinates.Size.X);
         int endY = Math.Clamp(screenCaptureInfo.Y+screenCaptureInfo.Height, 0, outputDesc.DesktopCoordinates.Size.Y);
+        if (screenCaptureInfo.ScreenCaptureType==ScreenCaptureType.窗口)
+        {
+            sizeX=(screenCaptureInfo.WindowInfo.Rect.Width + 3) & ~3;
+            startX = 0;
+            startY = 0;
+            endX =  (screenCaptureInfo.WindowInfo.Rect.Width + 3) & ~3;
+            endY = (int)screenCaptureInfo.WindowInfo.Rect.Height;
+        }
+        
         screenCaptureInfo.Height = endY - startY;
         screenCaptureInfo.Width = endX - startX;
         screenCaptureInfo.X = startX;   
@@ -61,39 +70,39 @@ public static class CaptureTool
             );
             var span = new ReadOnlySpan<Half>(mappedSubresource.PData,
                 (int)mappedSubresource.DepthPitch / 2).ToArray();
-           // ReadOnlyMemory<Half> readOnlyMemory = new ReadOnlyMemory<Half>(span);
+            // ReadOnlyMemory<Half> readOnlyMemory = new ReadOnlyMemory<Half>(span);
             Parallel.For(startY, endY, y =>
-            //for (int y = startY; y < endY; y++)
-            {
-                
-                int yOffset = y * sizeX;
-                int targetYOffset = (y - startY) * regionWidth;
-
-                for (int x = startX; x < endX; x++)
+                    //for (int y = startY; y < endY; y++)
                 {
-                    int sourceIndex = (yOffset + x) * 4;
-                    int targetIndex = (targetYOffset + (x - startX)) * 4;
+                
+                    int yOffset = y * sizeX;
+                    int targetYOffset = (y - startY) * regionWidth;
 
-                    // 读取并归一化 RGBA 值
+                    for (int x = startX; x < endX; x++)
+                    {
+                        int sourceIndex = (yOffset + x) * 4;
+                        int targetIndex = (targetYOffset + (x - startX)) * 4;
+
+                        // 读取并归一化 RGBA 值
                     
-                    float r = float.Log(1 + (float)span[sourceIndex]) / 1.749199854809259f;
-                    float g = float.Log(1 + (float)span[sourceIndex+1]) / 1.749199854809259f;
-                    float b = float.Log(1 + (float)span[sourceIndex+2]) / 1.749199854809259f;
+                        float r = float.Log(1 + (float)span[sourceIndex]) / 1.749199854809259f;
+                        float g = float.Log(1 + (float)span[sourceIndex+1]) / 1.749199854809259f;
+                        float b = float.Log(1 + (float)span[sourceIndex+2]) / 1.749199854809259f;
 
-                    // 应用色彩转换矩阵
-                    float bt2020R = matrix[0, 0] * r + matrix[0, 1] * g + matrix[0, 2] * b;
-                    float bt2020G = matrix[1, 0] * r + matrix[1, 1] * g + matrix[1, 2] * b;
-                    float bt2020B = matrix[2, 0] * r + matrix[2, 1] * g + matrix[2, 2] * b;
+                        // 应用色彩转换矩阵
+                        float bt2020R = matrix[0, 0] * r + matrix[0, 1] * g + matrix[0, 2] * b;
+                        float bt2020G = matrix[1, 0] * r + matrix[1, 1] * g + matrix[1, 2] * b;
+                        float bt2020B = matrix[2, 0] * r + matrix[2, 1] * g + matrix[2, 2] * b;
 
-                    // 转换并填充结果
+                        // 转换并填充结果
                     
-                    result[targetIndex ] = (byte)Math.Clamp(bt2020B * 255,0,255);
-                    result[targetIndex + 1] = (byte)Math.Clamp(bt2020G * 255,0,255);
-                    result[targetIndex+ 2] = (byte)Math.Clamp(bt2020R * 255,0,255);
-                    result[targetIndex + 3] = 255; // Alpha 固定为 255
+                        result[targetIndex ] = (byte)Math.Clamp(bt2020B * 255,0,255);
+                        result[targetIndex + 1] = (byte)Math.Clamp(bt2020G * 255,0,255);
+                        result[targetIndex+ 2] = (byte)Math.Clamp(bt2020R * 255,0,255);
+                        result[targetIndex + 3] = 255; // Alpha 固定为 255
+                    }
                 }
-            }
-                );
+            );
            
         }
 

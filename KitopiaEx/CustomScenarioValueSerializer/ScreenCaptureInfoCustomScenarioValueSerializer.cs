@@ -14,7 +14,7 @@ public class ScreenCaptureInfoCustomScenarioValueSerializer : ICustomScenarioVal
         {
             return "";
         }
-        return $"WindowInfo.Title={screenCaptureInfo.WindowInfo.Title},ScreenInfo.X={screenCaptureInfo.ScreenInfo.X},ScreenInfo.Y={screenCaptureInfo.ScreenInfo.Y},ScreenInfo.Height={screenCaptureInfo.ScreenInfo.Height},ScreenInfo.Width={screenCaptureInfo.ScreenInfo.Width},{nameof(screenCaptureInfo.X)}={screenCaptureInfo.X},{nameof(screenCaptureInfo.Y)}={screenCaptureInfo.Y},{nameof(screenCaptureInfo.Width)}={screenCaptureInfo.Width},{nameof(screenCaptureInfo.Height)}={screenCaptureInfo.Height}";
+        return $"ScreenCaptureType={screenCaptureInfo.ScreenCaptureType},WindowInfo.Title={screenCaptureInfo.WindowInfo.Title},ScreenInfo.X={screenCaptureInfo.ScreenInfo.X},ScreenInfo.Y={screenCaptureInfo.ScreenInfo.Y},ScreenInfo.Height={screenCaptureInfo.ScreenInfo.Height},ScreenInfo.Width={screenCaptureInfo.ScreenInfo.Width},{nameof(screenCaptureInfo.X)}={screenCaptureInfo.X},{nameof(screenCaptureInfo.Y)}={screenCaptureInfo.Y},{nameof(screenCaptureInfo.Width)}={screenCaptureInfo.Width},{nameof(screenCaptureInfo.Height)}={screenCaptureInfo.Height}";
     }
 
     public object Deserialize(ReadOnlySpan<byte> value)
@@ -22,7 +22,7 @@ public class ScreenCaptureInfoCustomScenarioValueSerializer : ICustomScenarioVal
         var str = Encoding.UTF8.GetString(value);
         
         var split = str.Split(',');
-        if (split.Length != 9)
+        if (split.Length != 10)
         {
             return null;
         }
@@ -36,6 +36,7 @@ public class ScreenCaptureInfoCustomScenarioValueSerializer : ICustomScenarioVal
         
         var screenCaptureInfo = new ScreenCaptureInfo
         {
+            ScreenCaptureType = Enum.Parse<ScreenCaptureType>(dic["ScreenCaptureType"]),
             ScreenInfo = new ScreenInfo
             {
                 Height = int.Parse(dic["ScreenInfo.Height"]),

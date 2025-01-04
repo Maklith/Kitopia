@@ -32,6 +32,7 @@ using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.PixelFormats;
 using Vanara.Extensions.Reflection;
 using Vanara.PInvoke;
+using Rect = PluginCore.Rect;
 
 
 namespace Core.Window;

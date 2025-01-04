@@ -26,6 +26,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using Point = Avalonia.Point;
+using Rect = PluginCore.Rect;
 using Rectangle = SixLabors.ImageSharp.Rectangle;
 using Size = Avalonia.Size;
 
@@ -47,6 +48,7 @@ public partial class ScreenCaptureWindow : Window
     private ScreenCaptureInfo _screenCaptureInfo;
     private bool Finish = false;
     private List<WindowInfo> _windowInfos;
+    private WindowInfo _currentWindowInfo;
     public ScreenCaptureWindow(ScreenCaptureInfo screenCaptureInfo)
     {
         InitializeComponent();
@@ -292,7 +294,7 @@ public partial class ScreenCaptureWindow : Window
                 SelectBox.Width = selectBoxWidth;
                 SelectBox._dragTransform.X = _startPoint.X;
             }
-
+            _currentWindowInfo=new WindowInfo();
             UpdateSelectBox();
         }
 
@@ -317,7 +319,9 @@ public partial class ScreenCaptureWindow : Window
             }
             else
             {
+                
                 var windowInfo = firstOrDefault.FirstOrDefault();
+                _currentWindowInfo=windowInfo;
                 _startPoint=new Point(windowInfo.Rect.X*screenInfoWidth,windowInfo.Rect.Y*screenInfoHeight);
                 SelectBox._dragTransform.X = _startPoint.X;
                 SelectBox._dragTransform.Y = _startPoint.Y;
@@ -553,7 +557,7 @@ public partial class ScreenCaptureWindow : Window
                         ellipse.Width = round;
                         ellipse.Height = round;
                         ellipse.Measure(new Size(round, round));
-                        ellipse.Arrange(new Rect(new Point(0, 0), new Size(round, round)));
+                        ellipse.Arrange(new Avalonia.Rect(new Point(0, 0), new Size(round, round)));
                         renderTargetBitmap.Render(ellipse);
                         SelectBox.Cursor.Dispose();
                         SelectBox.Cursor = new Cursor(renderTargetBitmap,
@@ -575,7 +579,7 @@ public partial class ScreenCaptureWindow : Window
                         ellipse.Width = round;
                         ellipse.Height = round;
                         ellipse.Measure(new Size(round, round));
-                        ellipse.Arrange(new Rect(new Point(0, 0), new Size(round, round)));
+                        ellipse.Arrange(new Avalonia.Rect(new Point(0, 0), new Size(round, round)));
                         renderTargetBitmap.Render(ellipse);
                         SelectBox.Cursor.Dispose();
                         SelectBox.Cursor = new Cursor(renderTargetBitmap,
@@ -758,11 +762,11 @@ public partial class ScreenCaptureWindow : Window
     {
         var fullScreenRect = new RectangleGeometry
         {
-            Rect = new Rect(0, 0, Bounds.Width, Bounds.Height)
+            Rect = new Avalonia.Rect(0, 0, Bounds.Width, Bounds.Height)
         };
         var selectionRect = new RectangleGeometry
         {
-            Rect = new Rect(new Point(SelectBox._dragTransform.X, SelectBox._dragTransform.Y), SelectBox.DesiredSize)
+            Rect = new Avalonia.Rect(new Point(SelectBox._dragTransform.X, SelectBox._dragTransform.Y), SelectBox.DesiredSize)
         };
 
 
@@ -830,15 +834,23 @@ public partial class ScreenCaptureWindow : Window
             else cropH = (int)selectBoxHeight + (int)dragTransformY;
             if (selectMode)
             {
-                selectModeAction.Invoke(new ScreenCaptureInfo()
+                if (_currentWindowInfo.Hwnd != IntPtr.Zero)
+                    selectModeAction.Invoke(new ScreenCaptureInfo()
+                    {
+                        ScreenCaptureType = ScreenCaptureType.窗口,
+                        WindowInfo = _currentWindowInfo,
+                    });
+                else
                 {
-                   
-                    X =   Math.Max((int)dragTransformX, 0),
-                    Y =   Math.Max((int)dragTransformY, 0),
-                    Width = cropW,
-                    Height = cropH,
-                    ScreenInfo = _screenCaptureInfo.ScreenInfo
-                });
+                    selectModeAction.Invoke(new ScreenCaptureInfo()
+                    {
+                        X = Math.Max((int)dragTransformX, 0),
+                        Y = Math.Max((int)dragTransformY, 0),
+                        Width = cropW,
+                        Height = cropH,
+                        ScreenInfo = _screenCaptureInfo.ScreenInfo
+                    });
+                }
             } else{
                 foreach (var canvasChild in Canvas.Children)
                     if (canvasChild is CaptureToolBase draggableResizeableControl)

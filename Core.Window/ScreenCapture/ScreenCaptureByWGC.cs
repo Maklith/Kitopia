@@ -17,6 +17,7 @@ using DirectXPixelFormat = Windows.Graphics.DirectX.DirectXPixelFormat;
 using IDirect3DDevice = Windows.Graphics.DirectX.Direct3D11.IDirect3DDevice;
 using IDirect3DSurface = Windows.Graphics.DirectX.Direct3D11.IDirect3DSurface;
 using IInspectable = WinRT.IInspectable;
+using Rect = PluginCore.Rect;
 
 namespace Core.Window;
 
@@ -74,12 +75,12 @@ public class ScreenCaptureByWGC : IScreenCapture
             zIndex++;
             currentHwnd = User32.GetWindow(currentHwnd, User32.GetWindowCmd.GW_HWNDNEXT);
             // 忽略有父窗口的和不可见的窗口
-            if (!User32.GetParent(currentHwnd).IsNull || !User32.IsWindowVisible(currentHwnd)|| User32.IsIconic(currentHwnd))
+            if (!User32.GetParent(currentHwnd).IsNull || !User32.IsWindowVisible(currentHwnd))
             {
                 continue;
             }
             int style = User32.GetWindowLong(currentHwnd,User32.WindowLongFlags.GWL_STYLE);
-            if ((style & WS_POPUP) != 0 || (style & WS_CHILD) != 0)
+            if ( (style & WS_CHILD) != 0)
             {
                 continue;
             }
@@ -264,17 +265,61 @@ public class ScreenCaptureByWGC : IScreenCapture
     
     public unsafe ScreenCaptureResult CaptureScreenBytes(ScreenCaptureInfo screenCaptureInfo)
     {
-        if (screenCaptureInfo.ScreenInfo.hMonitor==null || screenCaptureInfo.ScreenInfo.hMonitor ==IntPtr.Zero)
+        switch (screenCaptureInfo.ScreenCaptureType)
         {
-            screenCaptureInfo.ScreenInfo.hMonitor = FindHMonitor(screenCaptureInfo.ScreenInfo);
-            if (screenCaptureInfo.ScreenInfo.hMonitor==IntPtr.Zero)
+            case ScreenCaptureType.屏幕:
             {
-                throw new Exception("目标显示器不存在");
+                if (screenCaptureInfo.ScreenInfo.hMonitor==null || screenCaptureInfo.ScreenInfo.hMonitor ==IntPtr.Zero)
+                {
+                    screenCaptureInfo.ScreenInfo.hMonitor = FindHMonitor(screenCaptureInfo.ScreenInfo);
+                    if (screenCaptureInfo.ScreenInfo.hMonitor==IntPtr.Zero)
+                    {
+                        throw new Exception("目标显示器不存在");
+                    }
+                }
+                break;
             }
+            case ScreenCaptureType.窗口:
+            {
+                if (!User32.IsWindow(screenCaptureInfo.WindowInfo.Hwnd))
+                {
+                    var findWindow = User32.FindWindow(null,screenCaptureInfo.WindowInfo.Title);
+                    if (findWindow.IsNull)
+                    {
+                        throw new Exception("目标窗口不存在");
+                    }
+
+                    screenCaptureInfo.WindowInfo.Hwnd = findWindow.DangerousGetHandle();
+                    
+                }
+
+                User32.GetWindowRect(screenCaptureInfo.WindowInfo.Hwnd, out var rect);
+                screenCaptureInfo.WindowInfo.Rect=new Rect(0,0,rect.Width,rect.Height);
+                var monitorFromWindow = User32.MonitorFromWindow(screenCaptureInfo.WindowInfo.Hwnd,User32.MonitorFlags.MONITOR_DEFAULTTONEAREST);
+                screenCaptureInfo.ScreenInfo.hMonitor = monitorFromWindow.DangerousGetHandle();
+                break;
+            }
+                
         }
+       
         var factory2 = ActivationFactory.Get(typeof(GraphicsCaptureItem).FullName);
         var interop = factory2.AsInterface<IGraphicsCaptureItemInterop>();
-        var itemPointer = interop.CreateForMonitor(screenCaptureInfo.ScreenInfo.hMonitor, GraphicsCaptureItemGuid);
+        IntPtr itemPointer = IntPtr.Zero;
+        switch (screenCaptureInfo.ScreenCaptureType)
+        {
+            case ScreenCaptureType.屏幕:
+            {
+               itemPointer= interop.CreateForMonitor(screenCaptureInfo.ScreenInfo.hMonitor, GraphicsCaptureItemGuid);
+                break;
+            }
+            case ScreenCaptureType.窗口:
+            {
+                
+                itemPointer= interop.CreateForWindow(screenCaptureInfo.WindowInfo.Hwnd, GraphicsCaptureItemGuid);
+                break;
+            }
+                
+        }
         var item = MarshalInterface<GraphicsCaptureItem>.FromAbi(itemPointer);
         var dxgi = new DXGI(new DefaultNativeContext("dxgi"));
 
@@ -375,6 +420,9 @@ public class ScreenCaptureByWGC : IScreenCapture
             immediateContext->CopyResource(stagingResource, bitmap);
             if (immediateContext->Map(stagingResource, 0, Map.Read, 0, &mappedSubresource) != 0)
                 throw new Exception("Failed to map staging texture");
+            
+            //更新窗口的Size数据
+            screenCaptureInfo.WindowInfo.Rect = new Rect(0,0,item.Size.Width, item.Size.Height);
             var bytesSpan = CaptureTool.GetBytesSpan(mappedSubresource,adapterForMonitor.Item2,ref screenCaptureInfo);
            
             return new ScreenCaptureResult()

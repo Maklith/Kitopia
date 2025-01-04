@@ -25,6 +25,16 @@ public class KitopiaEx : IPlugin
         Kitopia.ToolTipConverters.TryAdd(typeof(ScreenCaptureInfo), info =>
         {
             var screenCaptureInfo = (ScreenCaptureInfo)info;
+            if (screenCaptureInfo.ScreenCaptureType == ScreenCaptureType.屏幕)
+            {
+                return
+                    $"显示器:{screenCaptureInfo.ScreenInfo.hMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
+            }
+            if (screenCaptureInfo.ScreenCaptureType == ScreenCaptureType.窗口)
+            {
+                return
+                    $"窗口:{screenCaptureInfo.WindowInfo.Title}";
+            }
             return
                 $"显示器:{screenCaptureInfo.ScreenInfo.hMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
         });
@@ -32,8 +42,18 @@ public class KitopiaEx : IPlugin
         {
             var screenCaptureResult = (ScreenCaptureResult)e;
             var screenCaptureInfo = screenCaptureResult.Info;
+            if (screenCaptureInfo.ScreenCaptureType == ScreenCaptureType.屏幕)
+            {
+                return
+                    $"显示器:{screenCaptureInfo.ScreenInfo.hMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
+            }
+            if (screenCaptureInfo.ScreenCaptureType == ScreenCaptureType.窗口)
+            {
+                return
+                    $"窗口:{screenCaptureInfo.WindowInfo.Title}";
+            }
             return
-                $"显示器:{screenCaptureInfo.ScreenInfo.hMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}\nByte数据:{(screenCaptureResult.Bytes is null?"不存在":"存在")}\nBitmap数据:{(screenCaptureResult.Source is null?"不存在":"存在")}";
+                $"起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}\nByte数据:{(screenCaptureResult.Bytes is null?"不存在":"存在")}\nBitmap数据:{(screenCaptureResult.Source is null?"不存在":"存在")}";
         });
         Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureInfo), new ScreenCaptureInfoCustomScenarioValueSerializer());
     }
