@@ -486,9 +486,14 @@ public partial class CustomScenario : ObservableRecipient
             }
             catch (Exception e)
             {
-                Log.Debug(e);
-                ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
+                Log.Error("错误",e);
+                if (e.InnerException is not null)
+                {
+                    ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
+                        $"情景{Name}出现错误\n{e.InnerException?.Message}");
+                }else ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
                     $"情景{Name}出现错误\n{e.Message}");
+               
                 Task.Run(() => { Stop(true); });
 
                 valid = false;

@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
 using Windows.Graphics;
@@ -55,6 +56,9 @@ public class ScreenCaptureByWGC : IScreenCapture
     }
     public const uint WS_POPUP = 0x80000000; // 弹出窗口样式
     public const uint WS_CHILD = 0x40000000; // 子窗口样式
+    private const int WS_EX_TOOLWINDOW = 0x00000080; // 工具窗口
+    private const int WS_EX_APPWINDOW = 0x00040000; // 应用窗口
+    const int WS_EX_NOREDIRECTIONBITMAP = 0x00200000;
     public List<WindowInfo> GetAllWindowInfo()
     {
         var screenCaptureInfos = new List<WindowInfo>();
@@ -79,8 +83,13 @@ public class ScreenCaptureByWGC : IScreenCapture
             {
                 continue;
             }
-            int style = User32.GetWindowLong(currentHwnd,User32.WindowLongFlags.GWL_STYLE);
-            if ( (style & WS_CHILD) != 0)
+            int style1= User32.GetWindowLong(currentHwnd,User32.WindowLongFlags.GWL_STYLE);
+            if ( (style1 & (uint) User32.WindowStyles.WS_POPUP) != 0)
+            {
+                continue;
+            }
+            int style2 = User32.GetWindowLong(currentHwnd,User32.WindowLongFlags.GWL_EXSTYLE);
+            if ( (style2 & (int) User32.WindowStylesEx.WS_EX_NOACTIVATE) != 0||(style2 & (int) User32.WindowStylesEx.WS_EX_TOOLWINDOW) != 0)
             {
                 continue;
             }
@@ -88,6 +97,17 @@ public class ScreenCaptureByWGC : IScreenCapture
             {
                 continue;
             }
+
+            User32.GetWindowDisplayAffinity(currentHwnd, out var affinity);
+            if (affinity!= User32.WindowDisplayAffinity.WDA_NONE)
+            {
+                continue;
+            }
+            User32.GetWindowThreadProcessId(currentHwnd,out var id);
+            
+            var s = Process.GetProcessById((int)id).ProcessName;
+            
+
 
             // 获取窗口标题
             StringBuilder stringBuilder = new StringBuilder(100);
@@ -102,6 +122,7 @@ public class ScreenCaptureByWGC : IScreenCapture
             screenCaptureInfos.Add(new WindowInfo()
             {
                 Title = title,
+                ModuleFileName = s,
                 Hwnd = currentHwnd.DangerousGetHandle(),
                 Rect = new Rect(rect.X, rect.Y, rect.Width, rect.Height),
                 ZIndex = zIndex
@@ -281,23 +302,27 @@ public class ScreenCaptureByWGC : IScreenCapture
             }
             case ScreenCaptureType.窗口:
             {
-                if (!User32.IsWindow(screenCaptureInfo.WindowInfo.Hwnd))
+                var allWindowInfo = GetAllWindowInfo();
+                if (allWindowInfo.Any(e=>e.Hwnd==screenCaptureInfo.WindowInfo.Hwnd&&e.Title==screenCaptureInfo.WindowInfo.Title&&e.ModuleFileName==screenCaptureInfo.WindowInfo.ModuleFileName))
                 {
-                    var findWindow = User32.FindWindow(null,screenCaptureInfo.WindowInfo.Title);
-                    if (findWindow.IsNull)
-                    {
-                        throw new Exception("目标窗口不存在");
-                    }
-
-                    screenCaptureInfo.WindowInfo.Hwnd = findWindow.DangerousGetHandle();
-                    
+                    var monitorFromWindow = User32.MonitorFromWindow(screenCaptureInfo.WindowInfo.Hwnd,User32.MonitorFlags.MONITOR_DEFAULTTONEAREST);
+                    screenCaptureInfo.ScreenInfo.hMonitor = monitorFromWindow.DangerousGetHandle();
+                    break;
                 }
-
-                User32.GetWindowRect(screenCaptureInfo.WindowInfo.Hwnd, out var rect);
-                screenCaptureInfo.WindowInfo.Rect=new Rect(0,0,rect.Width,rect.Height);
-                var monitorFromWindow = User32.MonitorFromWindow(screenCaptureInfo.WindowInfo.Hwnd,User32.MonitorFlags.MONITOR_DEFAULTTONEAREST);
-                screenCaptureInfo.ScreenInfo.hMonitor = monitorFromWindow.DangerousGetHandle();
-                break;
+                else  if (allWindowInfo.Any(e=>e.Title==screenCaptureInfo.WindowInfo.Title&&e.ModuleFileName==screenCaptureInfo.WindowInfo.ModuleFileName))
+                {
+                    screenCaptureInfo.WindowInfo=allWindowInfo.First(e=>e.Title==screenCaptureInfo.WindowInfo.Title&&e.ModuleFileName==screenCaptureInfo.WindowInfo.ModuleFileName);
+                    var monitorFromWindow = User32.MonitorFromWindow(screenCaptureInfo.WindowInfo.Hwnd,User32.MonitorFlags.MONITOR_DEFAULTTONEAREST);
+                    screenCaptureInfo.ScreenInfo.hMonitor = monitorFromWindow.DangerousGetHandle();
+                    break;
+                }else  if (allWindowInfo.Any(e=>e.ModuleFileName==screenCaptureInfo.WindowInfo.ModuleFileName))
+                {
+                    screenCaptureInfo.WindowInfo=allWindowInfo.First(e=>e.ModuleFileName==screenCaptureInfo.WindowInfo.ModuleFileName);
+                    var monitorFromWindow = User32.MonitorFromWindow(screenCaptureInfo.WindowInfo.Hwnd,User32.MonitorFlags.MONITOR_DEFAULTTONEAREST);
+                    screenCaptureInfo.ScreenInfo.hMonitor = monitorFromWindow.DangerousGetHandle();
+                    break;
+                }
+                throw new Exception("目标窗口不存在");
             }
                 
         }

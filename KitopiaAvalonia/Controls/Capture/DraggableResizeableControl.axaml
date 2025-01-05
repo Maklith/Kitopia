@@ -1,6 +1,7 @@
 ﻿<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:capture="clr-namespace:KitopiaAvalonia.Controls.Capture">
+        xmlns:capture="clr-namespace:KitopiaAvalonia.Controls.Capture"
+        xmlns:screenCaptureWindow="clr-namespace:KitopiaAvalonia.Converter.ScreenCaptureWindow">
     <Design.PreviewWith>
         <capture:DraggableResizeableControl Width="200" Height="200" />
     </Design.PreviewWith>
@@ -11,8 +12,11 @@
             <ControlTemplate>
                 <Panel>
 
+                    <Panel.Resources>
+                        <screenCaptureWindow:SizeToIntegerStringConverter x:Key="SizeToIntegerStringConverter" />
+                    </Panel.Resources>
                     <ContentPresenter Name="Presenter" Content="{TemplateBinding Content}" />
-                    <TextBlock Text="{Binding #Presenter.Bounds.Size}" IsVisible="{TemplateBinding IsSelected}" />
+                    <TextBlock Text="{Binding #Presenter.Bounds.Size,Converter={StaticResource SizeToIntegerStringConverter}}" IsVisible="{TemplateBinding IsSelected}" />
                     <Border BorderThickness="2" Name="ResizeSizeBoxBorder" IsVisible="{TemplateBinding IsSelected}"
                             Width="{Binding #Presenter.Bounds.Width}" Height="{Binding #Presenter.Bounds.Height}">
                         <Border.BorderBrush>

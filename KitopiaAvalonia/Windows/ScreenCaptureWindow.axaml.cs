@@ -266,6 +266,12 @@ public partial class ScreenCaptureWindow : Window
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        var position = e.GetPosition(this);
+        if (Math.Pow(position.Y-_startPoint.Y,2)+ Math.Pow(position.X-_startPoint.X,2)<100)
+        {
+            return;
+        }
+        
         if (e.GetCurrentPoint(this)
                 .Properties.IsLeftButtonPressed && Selecting)
         {
@@ -310,6 +316,7 @@ public partial class ScreenCaptureWindow : Window
                                                                   positionY >= e.Rect.Y && positionY <= e.Rect.Y + e.Rect.Height).OrderBy(e=>e.ZIndex).ToList();
             if (firstOrDefault.Count()==0)
             {
+                _currentWindowInfo = new WindowInfo();
                 _startPoint = new Point(0, 0);
                 SelectBox._dragTransform.X = 0;
                 SelectBox._dragTransform.Y = 0;
