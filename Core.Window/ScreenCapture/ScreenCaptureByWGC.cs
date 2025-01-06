@@ -256,10 +256,12 @@ public class ScreenCaptureByWGC : IScreenCapture
     public static (ComPtr<IDXGIAdapter1>,OutputDesc1) GetAdapterForMonitor(ComPtr<IDXGIFactory1> factory,IntPtr hMonitor)
     {
         ComPtr<IDXGIAdapter1> adapter = null;
-        while (factory.EnumAdapters1(0, ref adapter) == 0)
+        uint i = 0;
+        while (factory.EnumAdapters1(i, ref adapter) == 0)
         {
+            uint j = 0;
             ComPtr<IDXGIOutput> output = null;
-            while (adapter.EnumOutputs(0, ref output  ) == 0)
+            while (adapter.EnumOutputs(j, ref output  ) == 0)
             {
                 OutputDesc desc = new OutputDesc();
                 output.GetDesc(ref desc);
@@ -276,9 +278,12 @@ public class ScreenCaptureByWGC : IScreenCapture
                 {
                     output.Release();
                 }
+
+                j++;
             }
 
             adapter.Release();
+            i++;
         }
 
         throw new InvalidOperationException("No adapter found for the given monitor.");
