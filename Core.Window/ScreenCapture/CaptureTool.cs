@@ -64,8 +64,8 @@ public static class CaptureTool
                     outputDesc.WhitePoint[1]
                 ],
                 [
-                    .640f, .330f, .300f, .600f, .150f, .060f, outputDesc.WhitePoint[0],
-                    outputDesc.WhitePoint[1]
+                    .640f, .330f, .300f, .600f, .150f, .060f, .3127f,
+                    .3290f
                 ]
             );
             var span = new ReadOnlySpan<Half>(mappedSubresource.PData,

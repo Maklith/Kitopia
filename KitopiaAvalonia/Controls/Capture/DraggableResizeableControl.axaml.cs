@@ -300,11 +300,9 @@ public class DraggableResizeableControl : CaptureToolBase
 
     private void UpdateCursor(string cursor)
     {
-        if (!Cursor.ToString().Equals(cursor))
-        {
-            Cursor?.Dispose();
-            Cursor = new Cursor(Enum.Parse<StandardCursorType>(cursor));
-        }
+        if (Cursor == null || Cursor.ToString().Equals(cursor)) return;
+        Cursor?.Dispose();
+        Cursor = new Cursor(Enum.Parse<StandardCursorType>(cursor));
     }
 
     #endregion

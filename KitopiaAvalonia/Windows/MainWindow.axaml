@@ -12,6 +12,7 @@
               xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
               xmlns:converter="clr-namespace:KitopiaAvalonia.Converter"
               Icon="/Assets/icon.png"
+              WindowState="Minimized"
               IsTitleBarVisible="True"
               Title="Kitopia">
 

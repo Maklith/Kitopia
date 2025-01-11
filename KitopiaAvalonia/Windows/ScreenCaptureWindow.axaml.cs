@@ -228,8 +228,6 @@ public partial class ScreenCaptureWindow : Window
                 .Properties.IsLeftButtonPressed && !IsSelected)
         {
             Selecting = true;
-            X.IsVisible = false;
-            Y.IsVisible = false;
             SelectBox.IsVisible = true;
             Cursor?.Dispose();
             Cursor = new Cursor(StandardCursorType.BottomRightCorner);
@@ -259,8 +257,6 @@ public partial class ScreenCaptureWindow : Window
     {
         base.OnPointerExited(e);
         PointerOver = false;
-        X.IsVisible = false;
-        Y.IsVisible = false;
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
@@ -337,11 +333,6 @@ public partial class ScreenCaptureWindow : Window
             }
             SelectBox.IsVisible = true;
             UpdateSelectBox();
-        }
-        else
-        {
-            X.IsVisible = false;
-            Y.IsVisible = false;
         }
     }
 
@@ -784,6 +775,7 @@ public partial class ScreenCaptureWindow : Window
             GeometryCombineMode = GeometryCombineMode.Exclude
         };
         Rectangle.Clip = combinedGeometry;
+        Rectangle.InvalidateVisual();
     }
 
     private void UpdateToolBar()

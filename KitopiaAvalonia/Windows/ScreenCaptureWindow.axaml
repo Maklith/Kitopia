@@ -157,9 +157,7 @@
 
         </Border>
 
-
-        <Line ZIndex="2" Name="X" Fill="WhiteSmoke" Stroke="WhiteSmoke" StrokeThickness="1.5" IsVisible="False" />
-        <Line ZIndex="2" Name="Y" Fill="WhiteSmoke" Stroke="WhiteSmoke" StrokeThickness="1.5" IsVisible="False" />
+        
 
     </Canvas>
 </Window>
