@@ -25,6 +25,7 @@ using PluginCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using Ursa.Controls;
 using Point = Avalonia.Point;
 using Rect = PluginCore.Rect;
 using Rectangle = SixLabors.ImageSharp.Rectangle;
@@ -154,13 +155,18 @@ public partial class ScreenCaptureWindow : Window
     {
         base.OnOpened(e);
         SelectBox.LocationOrSizeChanged += LocationOrSizeChanged;
+        StrokeWidth.ValueChanged += StrokeWidthOnValueChanged;
+        ColorPicker.ColorChanged += ColorPickerOnColorChanged;
     }
+
+   
 
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
         SelectBox.LocationOrSizeChanged -= LocationOrSizeChanged;
-
+        StrokeWidth.ValueChanged -= StrokeWidthOnValueChanged;
+        ColorPicker.ColorChanged -= ColorPickerOnColorChanged;
         renderTargetBitmap?.Dispose();
         MosaicImage.OpacityMask = null;
         if (selectBytesMode&&!Finish)
@@ -168,8 +174,52 @@ public partial class ScreenCaptureWindow : Window
             selectBytesModeCancelAction.Invoke();
         }
     }
+    private void ColorPickerOnColorChanged(object? sender, ColorChangedEventArgs e)
+    {
+        switch (Now截图工具)
+        {
+            case DraggableArrowControl draggableArrowControl:
+                draggableArrowControl.Stroke = new SolidColorBrush(e.NewColor);
+                draggableArrowControl.Fill = new SolidColorBrush(e.NewColor);
+                break;
+            case DraggableResizeableControl draggableResizeableControl:
+                ((Shape)draggableResizeableControl.Content).Stroke = new SolidColorBrush(e.NewColor);
+                break;
+            case PenCaptureTool penCaptureTool:
+                penCaptureTool.Stroke =  new SolidColorBrush(e.NewColor);
+                break;
+            case TextCaptureTool textCaptureTool:
+                textCaptureTool.Foreground =  new SolidColorBrush(e.NewColor);
+                break;
+           
+        }
+    }
+    private void StrokeWidthOnValueChanged(object? sender, ValueChangedEventArgs<int> valueChangedEventArgs)
+    {
+        switch (Now截图工具)
+        {
+            case DraggableArrowControl draggableArrowControl:
+                draggableArrowControl.StrokeThickness = (double)valueChangedEventArgs.NewValue;
+                draggableArrowControl.ArrowSize = new Size(8 * draggableArrowControl.StrokeThickness, 8 * draggableArrowControl.StrokeThickness);
+                break;
+            case DraggableResizeableControl draggableResizeableControl:
+                ((Shape)draggableResizeableControl.Content).StrokeThickness = (double)valueChangedEventArgs.NewValue;
+                break;
+            case PenCaptureTool penCaptureTool:
+                penCaptureTool.StrokeThickness = (double)valueChangedEventArgs.NewValue;
+                break;
+            case TextCaptureTool textCaptureTool:
+                textCaptureTool.FontSize = (double)(13 + valueChangedEventArgs.NewValue);
+                break;
+           
+        }
 
-
+        if (NowTool==截图工具.马赛克)
+        {
+            MosaicCanvas.StrokeThickness = (double)(5 + valueChangedEventArgs.NewValue);
+            renderTargetBitmap?.Render(MosaicCanvas);
+        }
+    }
     protected void LocationOrSizeChanged(object? sender, LocationOrSizeChangedEventArgs locationOrSizeChangedEventArgs)
     {
         UpdateSelectBox();
@@ -482,7 +532,7 @@ public partial class ScreenCaptureWindow : Window
                                         source.Height, 4);
                                     var writeableBitmap2 = new WriteableBitmap(
                                         new PixelSize(source.Width, source.Height),
-                                        new Vector(96, 96), PixelFormat.Rgba8888);
+                                        new Vector(96, 96), PixelFormat.Bgra8888);
                                     using (var l = writeableBitmap2.Lock())
                                     {
                                         for (var r = 0; r < source.Height; r++)
@@ -511,7 +561,7 @@ public partial class ScreenCaptureWindow : Window
                     MosaicCanvas.Points.Add(position);
                     MosaicCanvas.StrokeThickness = (double)(5 + StrokeWidth.Value);
                     Adding截图工具 = true;
-
+                    
                     break;
                 }
             }

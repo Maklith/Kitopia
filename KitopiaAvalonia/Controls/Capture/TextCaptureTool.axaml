@@ -10,10 +10,18 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Panel>
-                    <TextBlock Text="{TemplateBinding Text}" />
-                    <TextBox ZIndex="1"
-                             Text="{Binding RelativeSource={RelativeSource TemplatedParent},Path=Text,Mode=TwoWay}"
-                             IsVisible="{TemplateBinding IsSelected}" />
+                    <Panel.Styles>
+                        <Style Selector="Panel:pointerover">
+                            <Setter Property="Background">
+                                <SolidColorBrush Color="Gray" Opacity="0.1"></SolidColorBrush>
+                            </Setter>
+                        </Style>
+                    </Panel.Styles>
+                    <Panel.Background>
+                        <SolidColorBrush Color="White" Opacity="0.01"></SolidColorBrush>
+                    </Panel.Background>                   
+                    <TextBox ZIndex="1"  Theme="{StaticResource LooklessTextBox}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
+                             Text="{TemplateBinding Text}"/>
                 </Panel>
 
             </ControlTemplate>
