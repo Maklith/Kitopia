@@ -356,8 +356,8 @@ public partial class ScreenCaptureWindow : Window
             var currentPoint = e.GetCurrentPoint(this);
             var screenInfoWidth = Bounds.Width/_screenCaptureInfo.ScreenInfo.Width;
             var screenInfoHeight =Bounds.Height/_screenCaptureInfo.ScreenInfo.Height;
-            var positionY = currentPoint.Position.Y/screenInfoWidth;
-            var positionX = currentPoint.Position.X/screenInfoHeight;
+            var positionY = currentPoint.Position.Y/screenInfoWidth+Position.Y;
+            var positionX = currentPoint.Position.X/screenInfoHeight+Position.X;
             var firstOrDefault = _windowInfos.Where(e => positionX >= e.Rect.X && positionX <= e.Rect.X + e.Rect.Width &&
                                                                   positionY >= e.Rect.Y && positionY <= e.Rect.Y + e.Rect.Height).OrderBy(e=>e.ZIndex).ToList();
             if (firstOrDefault.Count()==0)
@@ -375,7 +375,9 @@ public partial class ScreenCaptureWindow : Window
                 
                 var windowInfo = firstOrDefault.FirstOrDefault();
                 _currentWindowInfo=windowInfo;
-                _startPoint=new Point(windowInfo.Rect.X*screenInfoWidth,windowInfo.Rect.Y*screenInfoHeight);
+                var rectX = windowInfo.Rect.X-Position.X;
+                var rectY = windowInfo.Rect.Y-Position.Y;
+                _startPoint=new Point(rectX*screenInfoWidth,rectY*screenInfoHeight);
                 SelectBox._dragTransform.X = _startPoint.X;
                 SelectBox._dragTransform.Y = _startPoint.Y;
                 SelectBox.Width = windowInfo.Rect.Width*screenInfoWidth;

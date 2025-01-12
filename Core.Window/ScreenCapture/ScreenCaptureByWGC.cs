@@ -110,28 +110,32 @@ public class ScreenCaptureByWGC : IScreenCapture
                 continue;
             }
             // 获取窗口的位置和大小
-            User32.GetWindowRect(currentHwnd, out var rect);
+            User32.GetWindowRect(currentHwnd, out var clientRect);
             
-            User32.GetClientRect(currentHwnd, out RECT clientRect);
+            //User32.GetClientRect(currentHwnd, out RECT clientRect);
+            var hMonitor =  User32.MonitorFromWindow(currentHwnd,  User32.MonitorFlags.MONITOR_DEFAULTTONEAREST);
 
-            // 将客户端区域左上角和右下角转换为屏幕坐标
-            POINT clientTopLeft = new POINT { X = clientRect.Left, Y = clientRect.Top };
-            POINT clientBottomRight = new POINT { X = clientRect.Right, Y = clientRect.Bottom };
+            // 获取监视器信息（包括屏幕工作区域）
+            User32.MONITORINFO monitorInfo = new User32.MONITORINFO { cbSize = (uint)Marshal.SizeOf(typeof(User32.MONITORINFO)) };
+            User32.GetMonitorInfo(hMonitor, ref monitorInfo);
 
-            User32.ClientToScreen(currentHwnd, ref clientTopLeft);
-            User32.ClientToScreen(currentHwnd, ref clientBottomRight);
-
-            int clientWidth = clientBottomRight.X - clientTopLeft.X;
-            int clientHeight = clientBottomRight.Y - clientTopLeft.Y;
+            RECT screenRect = monitorInfo.rcWork;
             
-            screenCaptureInfos.Add(new WindowInfo()
+            // 计算窗口与屏幕的可见区域交集
+            RECT visibleRect = IntersectRects(clientRect, screenRect);
+
+            if (visibleRect.Width > 0 && visibleRect.Height > 0)
             {
-                Title = title,
-                ModuleFileName = s,
-                Hwnd = currentHwnd.DangerousGetHandle(),
-                Rect = new Rect( clientTopLeft.X, clientTopLeft.Y, clientWidth, clientHeight),
-                ZIndex = zIndex
-            });
+                screenCaptureInfos.Add(new WindowInfo()
+                {
+                    Title = title,
+                    ModuleFileName = s,
+                    Hwnd = currentHwnd.DangerousGetHandle(),
+                    Rect = new Rect( visibleRect.X, visibleRect.Y, visibleRect.Width, visibleRect.Height),
+                    ZIndex = zIndex
+                });
+            }
+           
         }
 
         // 添加到结果列表
@@ -142,7 +146,24 @@ public class ScreenCaptureByWGC : IScreenCapture
       
         return screenCaptureInfos;
     }
+    static RECT IntersectRects(RECT rect1, RECT rect2)
+    {
+        RECT result = new RECT
+        {
+            Left = Math.Max(rect1.Left, rect2.Left),
+            Top = Math.Max(rect1.Top, rect2.Top),
+            Right = Math.Min(rect1.Right, rect2.Right),
+            Bottom = Math.Min(rect1.Bottom, rect2.Bottom)
+        };
 
+        // 如果没有交集
+        if (result.Right < result.Left || result.Bottom < result.Top)
+        {
+            result = new RECT { Left = 0, Top = 0, Right = 0, Bottom = 0 };
+        }
+
+        return result;
+    }
     public ScreenCaptureInfo GetScreenCaptureInfoByIndex(int index)
     {
         return default;
