@@ -88,7 +88,7 @@ public class KitopiaConfig : ConfigBase
 
 
     [ConfigFieldCategory("截图")] [ConfigField("截图直接复制到剪贴板", "截图直接复制到剪贴板,不显示工具栏", 0xE61C, ConfigFieldType.布尔)]
-    public bool 截图直接复制到剪贴板 = true;
+    public bool 截图直接复制到剪贴板 = false;
 
     [ConfigField("截图方法", "使用特定的截图方法,某些情况下截图失败请尝试切换", 0xE61C, ConfigFieldType.自定义选项, action: "截图方法列表")]
     public string 截图方法 = "WGC";

@@ -62,14 +62,6 @@ public class ScreenCaptureByWGC : IScreenCapture
     public List<WindowInfo> GetAllWindowInfo()
     {
         var screenCaptureInfos = new List<WindowInfo>();
-        uint i = 0;
-        
-        
-            
-
-            
-        // 按 Z-Order 遍历窗口
-           
         HWND currentHwnd = User32.GetTopWindow(IntPtr.Zero);
         int zIndex = 0;
 
@@ -119,12 +111,25 @@ public class ScreenCaptureByWGC : IScreenCapture
             }
             // 获取窗口的位置和大小
             User32.GetWindowRect(currentHwnd, out var rect);
+            
+            User32.GetClientRect(currentHwnd, out RECT clientRect);
+
+            // 将客户端区域左上角和右下角转换为屏幕坐标
+            POINT clientTopLeft = new POINT { X = clientRect.Left, Y = clientRect.Top };
+            POINT clientBottomRight = new POINT { X = clientRect.Right, Y = clientRect.Bottom };
+
+            User32.ClientToScreen(currentHwnd, ref clientTopLeft);
+            User32.ClientToScreen(currentHwnd, ref clientBottomRight);
+
+            int clientWidth = clientBottomRight.X - clientTopLeft.X;
+            int clientHeight = clientBottomRight.Y - clientTopLeft.Y;
+            
             screenCaptureInfos.Add(new WindowInfo()
             {
                 Title = title,
                 ModuleFileName = s,
                 Hwnd = currentHwnd.DangerousGetHandle(),
-                Rect = new Rect(rect.X, rect.Y, rect.Width, rect.Height),
+                Rect = new Rect( clientTopLeft.X, clientTopLeft.Y, clientWidth, clientHeight),
                 ZIndex = zIndex
             });
         }
