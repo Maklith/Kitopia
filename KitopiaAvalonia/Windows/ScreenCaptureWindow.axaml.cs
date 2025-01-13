@@ -307,6 +307,10 @@ public partial class ScreenCaptureWindow : Window
     {
         base.OnPointerExited(e);
         PointerOver = false;
+        SelectBox.Width = 0;
+        SelectBox.Height = 0;
+        SelectBox.IsVisible = false;
+        UpdateSelectBox();
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
