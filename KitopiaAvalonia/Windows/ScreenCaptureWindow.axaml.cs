@@ -307,6 +307,10 @@ public partial class ScreenCaptureWindow : Window
     {
         base.OnPointerExited(e);
         PointerOver = false;
+        if (IsSelected)
+        {
+           return; 
+        }
         SelectBox.Width = 0;
         SelectBox.Height = 0;
         SelectBox.IsVisible = false;
