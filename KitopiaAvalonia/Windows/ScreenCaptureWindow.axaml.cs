@@ -15,6 +15,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
+using Core.SDKs;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Tools.ImageTools;
@@ -951,19 +952,24 @@ public partial class ScreenCaptureWindow : Window
                 {
                     byte[] d = new byte[cropH*cropW*4];
                     clone.CopyPixelDataTo(d);
-                    selectBytesModeAction.Invoke(new ScreenCaptureResult()
+                    Task.Run(() =>
                     {
-                        Info = new ScreenCaptureInfo()
+                        selectBytesModeAction.Invoke(new ScreenCaptureResult()
                         {
+                            Info = new ScreenCaptureInfo()
+                            {
                             
-                            X =   Math.Max((int)dragTransformX, 0),
-                            Y =   Math.Max((int)dragTransformY, 0),
-                            Width = cropW,
-                            Height = cropH,
-                            ScreenInfo = _screenCaptureInfo.ScreenInfo
-                        },
-                        Bytes = d
+                                X =   Math.Max((int)dragTransformX, 0),
+                                Y =   Math.Max((int)dragTransformY, 0),
+                                Width = cropW,
+                                Height = cropH,
+                                ScreenInfo = _screenCaptureInfo.ScreenInfo
+                            },
+                            Bytes = d
+                        });
+                        clone.Dispose();
                     });
+                   
                 }
                 else
                 {
@@ -972,7 +978,6 @@ public partial class ScreenCaptureWindow : Window
                         .SetImageAsync(clone)
                         .ContinueWith((e) => clone.Dispose());
                 }
-               
                 bitmap.Dispose();
                 renderTargetBitmap.Dispose();
             }
@@ -1219,5 +1224,16 @@ public partial class ScreenCaptureWindow : Window
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+    }
+
+    private void ExButton_OnClick(object? sender, RoutedEventArgs e)
+    {
+        selectBytesMode = true;
+        var screenCaptureExMethod = (ScreenCaptureExMethod)(((Control)sender).DataContext);
+        selectBytesModeAction=e=>
+        {
+            screenCaptureExMethod.Action.Invoke(e);
+        };
+        FinnishCapture();
     }
 }

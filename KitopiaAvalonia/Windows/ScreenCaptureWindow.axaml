@@ -6,6 +6,8 @@
         xmlns:controls1="clr-namespace:KitopiaAvalonia.Controls"
         xmlns:capture="clr-namespace:KitopiaAvalonia.Controls.Capture"
         xmlns:u="https://irihi.tech/ursa"
+        xmlns:plugin="clr-namespace:Core.SDKs.Services.Plugin;assembly=Core"
+        xmlns:sdKs="clr-namespace:Core.SDKs;assembly=Core"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="KitopiaAvalonia.Windows.ScreenCaptureWindow"
         Title="ScreenCaptureWindow">
@@ -109,7 +111,19 @@
                                             Height="24"
                                             FontFamily="{StaticResource FluentFont}" Glyph="&#xf8e6;" FontSize="24" />
                     </Button>
-                    <Button BorderThickness="1" ToolTip.Tip="拓展功能" Width="32" Height="32" Padding="1" />
+                    <ItemsControl ItemsSource="{Binding Source={x:Static plugin:PluginOverall.AllScreenCaptureExMethods}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="sdKs:ScreenCaptureExMethod">
+                                <Button BorderThickness="1" ToolTip.Tip="{Binding Description}" Width="32" Height="32"
+                                        Padding="1,3,0,0"
+                                        Click="ExButton_OnClick">
+                                    <controls1:FontIcon VerticalAlignment="Center" HorizontalAlignment="Center" Width="24"
+                                                        Height="24"
+                                                        FontFamily="{StaticResource FluentFont}" Glyph="{Binding  Symbol,Converter={StaticResource IntToIconSymbol}}" FontSize="24" />
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                     <Line Height="32" Width="1" Stroke="{DynamicResource SemiColorText2}"
                           StrokeThickness="1"
                           StartPoint="0.5,0"

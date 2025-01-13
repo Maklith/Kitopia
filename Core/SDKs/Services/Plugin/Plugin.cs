@@ -88,6 +88,7 @@ public class Plugin
         ScenarioMethodCategoryGroup pluginMainScenarioMethodCategoryGroup = new();
 
         List<Func<string, SearchViewItem?>> searchViews = new();
+        List<ScreenCaptureExMethod> captureActions = new();
         PluginInfo = pluginInfo;
         foreach (var type in t)
             if (type.GetInterface("IPlugin") != null)
@@ -155,10 +156,26 @@ public class Plugin
 
                         return (SearchViewItem)invoke;
                     });
+                if (methodInfo.GetCustomAttribute<CaptureAttribute>() is { } captureAttribute )
+                {
+                    captureActions.Add(new ScreenCaptureExMethod()
+                    {
+                        Action = e =>
+                        {
+                            methodInfo.Invoke(
+                                ServiceProvider!.GetService(methodInfo.DeclaringType!),
+                                new object?[] { e });
+                        },
+                        Description = captureAttribute.Description,
+                        Symbol = captureAttribute.Symbol
+                    });
+                }
             }
         }
 
         PluginOverall.SearchActions.Add(PluginInfo.ToPlgString(), searchViews);
+            
+        PluginOverall.ScreenCaptureExMethods.Add(PluginInfo.ToPlgString(), captureActions);
     }
 
     public Assembly? _dll => _plugin.Assembly;
