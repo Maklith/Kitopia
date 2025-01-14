@@ -196,9 +196,22 @@ public partial class AdaptiveTextBox : TextBlock
      // FocusableProperty.OverrideDefaultValue<AdaptiveTextBox>(false);
     }
 
+    protected override void OnInitialized()
+    {
+      base.OnInitialized();
+      
+    }
+
     protected override void OnLoaded(RoutedEventArgs e)
     {
+     
+     
       base.OnLoaded(e);
+    }
+
+    public override void ApplyTemplate()
+    {
+      base.ApplyTemplate();
       Focusable = false;
       
       double width = Math.Abs(BottomRight.X - TopLeft.X);
@@ -214,7 +227,25 @@ public partial class AdaptiveTextBox : TextBlock
 
 
       Foreground = new SolidColorBrush(Colors.White);
-      this.FontSize = height /1.5; 
+      double targetSize = height / 1.5;
+      
+      var availableSize = new Size(double.PositiveInfinity, double.PositiveInfinity);
+      var textBlock = new TextBlock
+      {
+        Text = Text,
+        FontSize =  targetSize
+      
+      };
+      // 测量 TextBlock
+      textBlock.Measure(availableSize);
+      while (textBlock.DesiredSize.Width>width)
+      {
+        targetSize -=1;
+        textBlock.FontSize = targetSize;
+        textBlock.Measure(availableSize);
+      }
+
+      this.FontSize = targetSize;
     }
 
     public event EventHandler<RoutedEventArgs>? CopyingToClipboard

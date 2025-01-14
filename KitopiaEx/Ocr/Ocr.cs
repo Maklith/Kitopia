@@ -58,7 +58,7 @@ public class Ocr
                 EPoint = new Point(rect.Left + rect.Width, rect.Top + rect.Height),
                 Text = predictText
             });
-            //Console.WriteLine(predictText);
+            //Console.WriteLine(predictText+" "+rect.Left + " " + rect.Top + " " + rect.Width + " " + rect.Height);
         }
 
         return ocrResults;

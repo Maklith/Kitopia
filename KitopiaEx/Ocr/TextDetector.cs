@@ -146,7 +146,7 @@ namespace KitopiaEx.Ocr
             // 将原图复制到新图像的中心位置
             Cv2.CopyMakeBorder(dstImg, resizedImgWithPadding, 0, tarH - dstImg.Rows, 0, tarW  - dstImg.Cols, BorderTypes.Isolated, new Scalar(255, 255, 255));
             return resizedImgWithPadding;
-           // Cv2.Threshold(dstImg,dstImg,127,255,ThresholdTypes.Binary);
+           // 
             
            
         }

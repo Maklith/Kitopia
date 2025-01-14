@@ -125,30 +125,32 @@ namespace KitopiaEx.Ocr
         {
            
             int w = srcImg.Cols;
-            
+            int h = srcImg.Rows;
             int tarW = (int)(w / 32) * 32;
+            
             if (tarW < w)
             {
                 tarW += 32; // Adjust to the next multiple of 32
             }
-
+            int tarH = (int)(h / 48) * 48;
+            
+            if (tarH < h)
+            {
+                tarH += 48; // Adjust to the next multiple of 32
+            }
             // Convert to grayscale
            // var grayImg = new Mat();
            // Cv2.CvtColor(srcImg, grayImg, ColorConversionCodes.RGBA2GRAY);
 
             // Create a new image with white padding
 // Force height to 48 without scaling the width
-            int tarH = 48;
+          
 
             // Create a new image with white padding
-            var paddedImg = new Mat(tarH, w, MatType.CV_8UC3, new Scalar(255, 255, 255));
-
-            // Resize the original image to the target height while keeping the width unchanged
-            var resizedImg = new Mat();
-            Cv2.Resize(srcImg, resizedImg, new OpenCvSharp.Size(w, tarH));
-            // Copy the original image to the center of the new image
-            Cv2.CopyMakeBorder(resizedImg, paddedImg, 0, 0, 0, tarW - srcImg.Cols, BorderTypes.Isolated, new Scalar(255, 255, 255));
-
+            var paddedImg = new Mat(tarH, tarW, MatType.CV_8UC3, new Scalar(255, 255, 255));
+            Cv2.CopyMakeBorder(srcImg, paddedImg, 0, tarH-srcImg.Rows, 0, tarW - srcImg.Cols, BorderTypes.Isolated, new Scalar(255, 255, 255));
+            Cv2.Resize(paddedImg,paddedImg,new Size(tarW*(48.0/tarH),48));
+           // Cv2.Threshold(paddedImg,paddedImg,127,255,ThresholdTypes.Binary);
             return paddedImg;
         }
 
