@@ -13,39 +13,20 @@ namespace KitopiaEx.Ocr
     {
         private InferenceSession _session;
         private List<string> input_names;
-        private List<string> output_names;
         private List<int[]> output_node_dims;
         private List<string> alphabet;
-        private int inpHeight = 48;
-        private int inpWidth = 320;
-        private List<float> input_image_;
-        private List<int> preb_label;
-
+        SessionOptions sessionOptions;
         public TextRecognizer(string modelpath,string recWorldDictPath)
         {
-            var sessionOptions = new SessionOptions();
+            sessionOptions = new SessionOptions();
             sessionOptions.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_BASIC;
-
             _session = new InferenceSession(modelpath, sessionOptions);
-
             input_names = new List<string>();
-            output_names = new List<string>();
-
-            this.input_image_ = new List<float>();
-
             output_node_dims = new List<int[]>();
-           
-
             foreach (var name in this._session.InputMetadata.Keys)
             {
                 this.input_names.Add(name);
             }
-
-            foreach (var name in this._session.OutputMetadata.Keys)
-            {
-                this.output_names.Add(name);
-            }
-
             foreach (var value in this._session.OutputMetadata.Values)
             {
                 this.output_node_dims.Add(value.Dimensions);
@@ -69,7 +50,7 @@ namespace KitopiaEx.Ocr
             var normalize = Normalize(dstimg);
 
             int[] input_shape_ = new int[] { 1, 3, dstimg.Rows, dstimg.Width };
-
+            dstimg.Dispose();
             var input_tensor_ = new DenseTensor<float>(normalize, input_shape_);
 
             var ort_inputs = new List<NamedOnnxValue>
@@ -176,6 +157,7 @@ namespace KitopiaEx.Ocr
 
         public void Dispose()
         {
+            sessionOptions.Dispose();
             _session.Dispose();
         }
     }

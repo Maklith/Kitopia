@@ -45,6 +45,7 @@ public class Ocr
         {
             (Mat, Rect) textimg = _textDetector.GetRotateCropImage(textDetectorDstImg, point2Fse);
             var predictText = _textRecognizer.PredictText(textimg.Item1);
+            textimg.Item1.Dispose();
             if (string.IsNullOrWhiteSpace(predictText))
             {
                 continue;
@@ -58,6 +59,7 @@ public class Ocr
                 EPoint = new Point(rect.Left + rect.Width, rect.Top + rect.Height),
                 Text = predictText
             });
+           
             //Console.WriteLine(predictText+" "+rect.Left + " " + rect.Top + " " + rect.Width + " " + rect.Height);
         }
 

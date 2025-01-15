@@ -14,11 +14,9 @@ namespace KitopiaEx.Ocr
         private string modelPath;
         private SessionOptions sessionOptions;
         private InferenceSession _session;
-        private List<string> inputNames;
-        
         private int shortSize = 736;
         private float shortSideThresh = 3.0f;
-
+        public Mat dstImg;
         public TextDetector(string modelpath, SessionOptions opts = null)
         {
             this.unclipRatio = 1.6f;
@@ -29,20 +27,9 @@ namespace KitopiaEx.Ocr
             this.sessionOptions.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_BASIC;
 
             this._session = new InferenceSession(this.modelPath, this.sessionOptions);
-            this.inputNames = new List<string>();
-         
-            
-
-            //智能
-            foreach (var name in this._session.InputMetadata.Keys)
-            {
-                this.inputNames.Add(name);
-            }
-
-          
         }
 
-        public Mat dstImg { set; get; }
+       
         public List<Point2f[]> Detect(Mat srcImg)
         {
             
@@ -58,7 +45,7 @@ namespace KitopiaEx.Ocr
             var inputTensor = new DenseTensor<float>(normalize, inputShape);
             var inputs = new List<NamedOnnxValue>
             {
-                NamedOnnxValue.CreateFromTensor(this.inputNames[0], inputTensor)
+                NamedOnnxValue.CreateFromTensor(_session.InputMetadata.Keys.First(), inputTensor)
             };
 
             //2. 推理
@@ -77,8 +64,7 @@ namespace KitopiaEx.Ocr
                 }
             }
             OpenCvSharp.Point[][] contours;
-            HierarchyIndex[] hierarchy;
-            Cv2.FindContours(binary, out contours, out hierarchy, RetrievalModes.List, ContourApproximationModes.ApproxTC89L1);
+            Cv2.FindContours(binary, out contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxTC89L1);
             
             var results = new List<Point2f[]>();
 
@@ -110,7 +96,8 @@ namespace KitopiaEx.Ocr
                     continue;
                 results.Add(box.Points());
             }
-
+            
+            binary.Dispose();
             return results;
         }
         
@@ -124,12 +111,12 @@ namespace KitopiaEx.Ocr
             int tarW = w;
 
             // 计算目标高度和宽度，确保是32的倍数
-            tarH = (int)(h / 32) * 32;
+            tarH = h / 32 * 32;
             if (tarH < h)
             {
                 tarH += 32; // 如果刚好是32的倍数，则需要再加32
             }
-            tarW = (int)(w / 32) * 32;
+            tarW = w / 32 * 32;
             if (tarW < w)
             {
                 tarW += 32; // 如果刚好是32的倍数，则需要再加32
@@ -145,8 +132,9 @@ namespace KitopiaEx.Ocr
 
             // 将原图复制到新图像的中心位置
             Cv2.CopyMakeBorder(dstImg, resizedImgWithPadding, 0, tarH - dstImg.Rows, 0, tarW  - dstImg.Cols, BorderTypes.Isolated, new Scalar(255, 255, 255));
+            dstImg.Dispose();
             return resizedImgWithPadding;
-           // 
+            // 
             
            
         }
@@ -171,34 +159,6 @@ namespace KitopiaEx.Ocr
             return inputImage;
         }
         
-
-        //计算轮廓分值 20240416未完全理解
-        // TODO 注意返回值的归一化
-        private float ContourScore(Mat binary, OpenCvSharp.Point[] contour)
-        {
-            //1. 获取轮廓点的外接矩形
-            Rect rect = Cv2.BoundingRect(contour);
-            int xmin = Math.Max(rect.X, 0);
-            int xmax = Math.Min(rect.X + rect.Width, binary.Cols - 1);
-            int ymin = Math.Max(rect.Y, 0);
-            int ymax = Math.Min(rect.Y + rect.Height, binary.Rows - 1);
-
-            //2. 填充外接矩形内，由轮廓点围成的多边形
-            Mat binROI = new Mat(binary, new Rect(xmin, ymin, xmax - xmin + 1, ymax - ymin + 1));
-            Mat mask = Mat.Zeros(new OpenCvSharp.Size(xmax - xmin + 1, ymax - ymin + 1), MatType.CV_8U);
-            var roiContour = contour.Select(p => new OpenCvSharp.Point(p.X - xmin, p.Y - ymin)).ToList();
-            Cv2.FillPoly(mask, new List<List<OpenCvSharp.Point>> { roiContour },(Scalar)1); // 1
-            
-            //3. 计算填充多边形区域的均值 
-
-            Scalar mean = Cv2.Mean(binROI, mask);
-
-            return (float)mean.Val0/255.0f;
-
-        }
-
-        // 未理解该函数的意义 20240416
-        // 或许可参考 DBNet后处理unclip()函数转C++  https://www.jianshu.com/p/0227c40b0736  
         private Point2f[] Unclip(Point2f[] inPoly)
         {
             var outPoly = new Point2f[4];
@@ -243,9 +203,9 @@ namespace KitopiaEx.Ocr
                 }
                 else
                 {
-                    float denom = a.X * (float)(d.Y - c.Y) + b.X * (float)(c.Y - d.Y) +
-                                  d.X * (float)(b.Y - a.Y) + c.X * (float)(a.Y - b.Y);
-                    float num = a.X * (float)(d.Y - c.Y) + c.X * (float)(a.Y - d.Y) + d.X * (float)(c.Y - a.Y);
+                    float denom = a.X * (d.Y - c.Y) + b.X * (c.Y - d.Y) +
+                                  d.X * (b.Y - a.Y) + c.X * (a.Y - b.Y);
+                    float num = a.X * (d.Y - c.Y) + c.X * (a.Y - d.Y) + d.X * (c.Y - a.Y);
                     float s = num / denom;
 
                     pt.X = a.X + s * (b.X - a.X);
@@ -257,8 +217,7 @@ namespace KitopiaEx.Ocr
                 
             return outPoly;
         }
-
-        //基于vertices围成的外接矩形，似乎没有作用
+        
         public (Mat,Rect) GetRotateCropImage(Mat frame, Point2f[] vertices)
         {
             for (int i = 0; i < vertices.Length; i++)
@@ -275,6 +234,7 @@ namespace KitopiaEx.Ocr
         {
             sessionOptions.Dispose();
             _session.Dispose();
+            
         }
     }
 

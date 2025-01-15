@@ -2,7 +2,7 @@
 
 namespace KitopiaEx.Ocr;
 
-public class OcrResult
+public struct OcrResult
 {
     public Point SPoint { get; set; }
     public Point EPoint { get; set; }
