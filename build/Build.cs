@@ -157,7 +157,7 @@ class Build : NukeBuild
 
     Target PackDebug => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
-        .DependsOn(CreateRelease)
+        .After(CreateRelease)
         .Executes(() =>
         {
             var rootDirectory = RootDirectory / "buildTest";
@@ -179,7 +179,7 @@ class Build : NukeBuild
 
     Target Pack => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
-        .DependsOn(CreateRelease)
+        .After(CreateRelease)
         .Executes(() =>
             {
                 var rootDirectory = RootDirectory / "Publish";
@@ -225,7 +225,7 @@ class Build : NukeBuild
 
     Target PackSelf => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
-        .DependsOn(CreateRelease)
+        .After(CreateRelease)
         .Executes(() =>
             {
                 var rootDirectory_self = RootDirectory / "Publish_SelfContained";
@@ -283,7 +283,6 @@ class Build : NukeBuild
 
     });
     Target PrepareNative=>_=>_
-        .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
         .DependsOn(PreparePackInstallerGithub)
         .DependsOn(Pack)
         .Executes(() =>
@@ -338,8 +337,7 @@ class Build : NukeBuild
         });
     Target PackInstaller => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
-        
-        .DependsOn(CreateRelease)
+        .After(CreateRelease)
         .DependsOn(BuildNativeInstaller)
         .Executes((() =>
         {
