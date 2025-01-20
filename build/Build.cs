@@ -25,6 +25,7 @@ using Project = Nuke.Common.ProjectModel.Project;
 [GitHubActions(
     "continuous",
     GitHubActionsImage.WindowsLatest,
+    
     On = new[] { GitHubActionsTrigger.Push },
     ImportSecrets = new[] { nameof(GitHubToken) },
     InvokedTargets = new[] { nameof(Clean) })]
@@ -267,13 +268,6 @@ class Build : NukeBuild
         );
     Target PreparePackInstallerGithub => _ => _.Executes(() =>
     {
-        GitTasks.Git("config --system --unset credential.helper");
-        GitTasks.Git("config --system http.sslverify false");
-        GitTasks.Git("clone http://github.com/MakesYT/ModernInstaller.git --single-branch --depth 1",
-            RootDirectory,new Dictionary<string, string>()
-            {
-                {"GIT_CLONE_PROTECTION_ACTIVE","false"}
-            });
         var directoryInfo = new DirectoryInfo(RootDirectory / "build"/"InstallerAssets");
         foreach (var enumerateFile in directoryInfo.EnumerateFiles())
         {
