@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -10,8 +13,12 @@ using Nuke.Common.ProjectModel;
 using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.Git;
 using Nuke.Common.Tools.GitHub;
+using Nuke.Common.Tools.GitVersion;
+using Nuke.Common.Utilities;
 using Octokit;
 using Serilog;
+using SharpCompress.Archives;
+using SharpCompress.Archives.SevenZip;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 using Project = Nuke.Common.ProjectModel.Project;
 
@@ -258,11 +265,99 @@ class Build : NukeBuild
                     .Wait();
             }
         );
+    Target PreparePackInstallerGithub => _ => _.Executes(() =>
+    {
+        
+        GitTasks.Git("clone https://github.com/MakesYT/ModernInstaller.git --single-branch --depth 1",
+            RootDirectory,new Dictionary<string, string>()
+            {
+                {"GIT_CLONE_PROTECTION_ACTIVE","false"}
+            });
+        var directoryInfo = new DirectoryInfo(RootDirectory / "build"/"InstallerAssets");
+        foreach (var enumerateFile in directoryInfo.EnumerateFiles())
+        {
+            File.Copy(enumerateFile.FullName,RootDirectory/"ModernInstaller"/"Assets"/enumerateFile.Name,true);
+        }
+        File.Copy(RootDirectory / "Kitopia" + AvaloniaProject.GetProperty("Version") +
+                  "_WithoutContained.zip",RootDirectory/"ModernInstaller"/"Assets"/"App.zip",true);
+        
+      
 
+    });
+    Target PrepareNative=>_=>_
+        .DependsOn(PreparePackInstallerGithub)
+        .DependsOn(Pack)
+        .Executes(() =>
+        {
+            if (!File.Exists(RootDirectory/"ModernInstaller"/"Natives"/"Windows-x86"/"av_libglesv2.lib"))
+            {
+                using var sevenZipArchive = SevenZipArchive.Open(RootDirectory/"ModernInstaller"/"Natives"/"Windows-x86"/"Windows-x86.7z");
+                sevenZipArchive.ExtractToDirectory(RootDirectory/"ModernInstaller"/"Natives"/"Windows-x86");
+            }
+        });
+    public static Guid uuid = Guid.NewGuid();
+    Target BuildNativeUninstaller => _ => _
+       
+        .DependsOn(PrepareNative)
+        .Executes(() =>
+        {
+            File.WriteAllText($"ModernInstaller{Path.DirectorySeparatorChar}Assets{Path.DirectorySeparatorChar}ApplicationUUID",uuid.ToString());
+            DotNetTasks.DotNetPublish(c => new DotNetPublishSettings()
+                .SetProject($"ModernInstaller{Path.DirectorySeparatorChar}ModernInstaller.Uninstaller")
+                .SetOutput(RootDirectory/"ModernInstaller" / "Publish" )
+                .SetFramework("net9.0-windows")
+                .SetRuntime("win-x86")
+                .SetConfiguration("Release")
+                .SetSelfContained(true)
+                .SetPublishSingleFile(true)
+                
+            );
+        });
+    Target PrepareBuildNativeInstaller => _ => _
+        .DependsOn(BuildNativeUninstaller)
+        .Executes(() =>
+        {
+            File.Copy(RootDirectory /"ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe",RootDirectory / "Assets" / "ModernInstaller.Uninstaller.exe",true);
+        });
+    Target BuildNativeInstaller => _ => _
+        
+        .DependsOn(PrepareBuildNativeInstaller)
+        .Executes(() =>
+        {
+            DotNetTasks.DotNetPublish(c => new DotNetPublishSettings()
+                //.SetProject("AvaloniaApplication1")
+                .SetProject($"ModernInstaller{Path.DirectorySeparatorChar}ModernInstaller")
+                .SetOutput(RootDirectory /"ModernInstaller" / "Publish" )
+                .SetFramework("net9.0-windows")
+                .SetRuntime("win-x86")
+                .SetConfiguration("Release")
+                .SetSelfContained(true)
+                .SetPublishSingleFile(true)
+                
+            );
+        });
+    Target PackInstaller => _ => _
+        .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
+        
+        .DependsOn(CreateRelease)
+        .DependsOn(BuildNativeInstaller)
+        .Executes((() =>
+        {
+            var moderninstallerExe = RootDirectory /"ModernInstaller" / "Publish" / "ModernInstaller.exe";
+            var assetUpload_self = new ReleaseAssetUpload
+            {
+                FileName = "Kitopia"+AvaloniaProject.GetProperty("Version") + "_Installer.exe",
+                ContentType = "application/octet-stream",
+                RawData = File.OpenRead(moderninstallerExe)
+            };
+            _gitHubClient.Repository.Release.UploadAsset(release, assetUpload_self)
+                .Wait();
+        }));
     Target Clean => _ => _
         .DependsOn(PackDebug)
         .DependsOn(Pack)
         .DependsOn(PackSelf)
+        .DependsOn(PackInstaller)
         .Executes(() =>
         {
         });

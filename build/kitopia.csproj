@@ -13,6 +13,7 @@
 
     <ItemGroup>
         <PackageReference Include="Nuke.Common" Version="8.1.4"/>
+        <PackageReference Include="SharpCompress" Version="0.39.0" />
     </ItemGroup>
 
 </Project>
