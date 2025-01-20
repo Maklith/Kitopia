@@ -268,7 +268,7 @@ class Build : NukeBuild
     Target PreparePackInstallerGithub => _ => _.Executes(() =>
     {
         
-        GitTasks.Git("clone https://github.com/MakesYT/ModernInstaller.git --single-branch --depth 1",
+        GitTasks.Git("clone http://github.com/MakesYT/ModernInstaller.git --single-branch --depth 1",
             RootDirectory,new Dictionary<string, string>()
             {
                 {"GIT_CLONE_PROTECTION_ACTIVE","false"}
