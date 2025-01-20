@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using Nuke.Common;
 using Nuke.Common.CI.GitHubActions;
+using Nuke.Common.Execution;
 using Nuke.Common.Git;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
@@ -51,7 +52,7 @@ class Build : NukeBuild
                 .SetProjectFile(AvaloniaProject.Path)
                 .SetRuntime("win-x64"));
             DotNetRestore(c => new DotNetRestoreSettings()
-                .SetProjectFile("KitopiaEx")
+                .SetProjectFile( RootDirectory/"KitopiaEx"/"KitopiaEx.csproj")
                 .SetRuntime("win-x64"));
         });
 
@@ -60,7 +61,7 @@ class Build : NukeBuild
         .Executes(() =>
         {
             DotNetBuild(c => new DotNetBuildSettings()
-                .SetProjectFile("KitopiaEx")
+                .SetProjectFile( RootDirectory/"KitopiaEx"/"KitopiaEx.csproj")
                 .SetOutputDirectory(RootDirectory / "buildTest" / "plugins" / "KitopiaEx")
                 .SetRuntime("win-x64"));
             DotNetBuild(c => new DotNetBuildSettings()
@@ -159,6 +160,7 @@ class Build : NukeBuild
 
     Target PackDebug => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
+        .DependsOn(CreateRelease)
         .After(CreateRelease)
         .Executes(() =>
         {
@@ -182,6 +184,7 @@ class Build : NukeBuild
     Target Pack => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
         .After(CreateRelease)
+        .DependsOn(CreateRelease)
         .Executes(() =>
             {
                 var rootDirectory = RootDirectory / "Publish";
@@ -228,6 +231,7 @@ class Build : NukeBuild
     Target PackSelf => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
         .After(CreateRelease)
+        .DependsOn(CreateRelease)
         .Executes(() =>
             {
                 var rootDirectory_self = RootDirectory / "Publish_SelfContained";
@@ -345,6 +349,7 @@ class Build : NukeBuild
         .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
         .OnlyWhenDynamic(() => FinishedTargets.Contains(BuildNativeInstaller))
         .After(CreateRelease)
+        .DependsOn(CreateRelease)
         .DependsOn(BuildNativeInstaller)
         .Executes((() =>
         {
