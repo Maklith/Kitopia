@@ -266,7 +266,9 @@ class Build : NukeBuild
                     .Wait();
             }
         );
-    Target PreparePackInstallerGithub => _ => _.Executes(() =>
+    Target PreparePackInstallerGithub => _ => _
+        .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
+        .Executes(() =>
     {
         var directoryInfo = new DirectoryInfo(RootDirectory / "build"/"InstallerAssets");
         foreach (var enumerateFile in directoryInfo.EnumerateFiles())

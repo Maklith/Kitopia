@@ -1,8 +1,8 @@
 {
   "DisplayIcon": "",
   "DisplayName": "Kitopia",
-  "DisplayVersion": "1.0.0",
+  "DisplayVersion": "0.0.2.099",
   "Publisher": "MakesYT",
   "CanExecutePath": "KitopiaAvalonia.exe",
-  "Is64": false
+  "Is64": true
 }
