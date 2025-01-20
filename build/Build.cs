@@ -269,7 +269,8 @@ class Build : NukeBuild
     Target PreparePackInstallerGithub => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
         .Executes(() =>
-    {
+        {
+            Directory.CreateDirectory(RootDirectory / "ModernInstaller" / "Assets");
         var directoryInfo = new DirectoryInfo(RootDirectory / "build"/"InstallerAssets");
         foreach (var enumerateFile in directoryInfo.EnumerateFiles())
         {
@@ -282,6 +283,7 @@ class Build : NukeBuild
 
     });
     Target PrepareNative=>_=>_
+        .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
         .DependsOn(PreparePackInstallerGithub)
         .DependsOn(Pack)
         .Executes(() =>
@@ -298,6 +300,7 @@ class Build : NukeBuild
         .DependsOn(PrepareNative)
         .Executes(() =>
         {
+            
             File.WriteAllText($"ModernInstaller{Path.DirectorySeparatorChar}Assets{Path.DirectorySeparatorChar}ApplicationUUID",uuid.ToString());
             DotNetTasks.DotNetPublish(c => new DotNetPublishSettings()
                 .SetProject($"ModernInstaller{Path.DirectorySeparatorChar}ModernInstaller.Uninstaller")
