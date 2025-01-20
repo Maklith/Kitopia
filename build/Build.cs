@@ -267,7 +267,8 @@ class Build : NukeBuild
         );
     Target PreparePackInstallerGithub => _ => _.Executes(() =>
     {
-        
+        GitTasks.Git("config --system --unset credential.helper");
+        GitTasks.Git("config --system http.sslverify false");
         GitTasks.Git("clone http://github.com/MakesYT/ModernInstaller.git --single-branch --depth 1",
             RootDirectory,new Dictionary<string, string>()
             {
