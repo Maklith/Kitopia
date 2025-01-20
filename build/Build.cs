@@ -75,7 +75,9 @@ class Build : NukeBuild
     GitHubClient _gitHubClient;
     Release release;
 
-    Target CreateRelease => _ => _.OnlyWhenDynamic(() =>
+    Target CreateRelease => _ => _
+        .DependsOn(CompileWindowsX64)
+        .OnlyWhenDynamic(() =>
     {
         this._gitHubClient = new GitHubClient(new ProductHeaderValue("Kitopia"))
         {
@@ -91,7 +93,7 @@ class Build : NukeBuild
         if (readOnlyList.Any(e => e.Name == AvaloniaProject.GetProperty("Version"))) return false;
 
         return true;
-    }).DependsOn(CompileWindowsX64).Executes(() =>
+    }).Executes(() =>
     {
         var body = new StringBuilder();
         var gitRepository = GitRepository.FromUrl("https://github.com/MakesYT/Kitopia");
@@ -267,7 +269,9 @@ class Build : NukeBuild
             }
         );
     Target PreparePackInstallerGithub => _ => _
-        .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
+        
+        .After(Pack)
+        .OnlyWhenDynamic(() => FinishedTargets.Contains(Pack))
         .Executes(() =>
         {
             Directory.CreateDirectory(RootDirectory / "ModernInstaller" / "Assets");
@@ -283,8 +287,9 @@ class Build : NukeBuild
 
     });
     Target PrepareNative=>_=>_
+        .OnlyWhenDynamic(() => FinishedTargets.Contains(PreparePackInstallerGithub))
         .DependsOn(PreparePackInstallerGithub)
-        .DependsOn(Pack)
+        
         .Executes(() =>
         {
             if (!File.Exists(RootDirectory/"ModernInstaller"/"Natives"/"Windows-x86"/"av_libglesv2.lib"))
@@ -295,7 +300,7 @@ class Build : NukeBuild
         });
     public static Guid uuid = Guid.NewGuid();
     Target BuildNativeUninstaller => _ => _
-       
+        .OnlyWhenDynamic(() => FinishedTargets.Contains(PrepareNative))
         .DependsOn(PrepareNative)
         .Executes(() =>
         {
@@ -313,13 +318,14 @@ class Build : NukeBuild
             );
         });
     Target PrepareBuildNativeInstaller => _ => _
+        .OnlyWhenDynamic(() => FinishedTargets.Contains(BuildNativeUninstaller))
         .DependsOn(BuildNativeUninstaller)
         .Executes(() =>
         {
             File.Copy(RootDirectory /"ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe",RootDirectory / "Assets" / "ModernInstaller.Uninstaller.exe",true);
         });
     Target BuildNativeInstaller => _ => _
-        
+        .OnlyWhenDynamic(() => FinishedTargets.Contains(PrepareBuildNativeInstaller))
         .DependsOn(PrepareBuildNativeInstaller)
         .Executes(() =>
         {
@@ -337,6 +343,7 @@ class Build : NukeBuild
         });
     Target PackInstaller => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
+        .OnlyWhenDynamic(() => FinishedTargets.Contains(BuildNativeInstaller))
         .After(CreateRelease)
         .DependsOn(BuildNativeInstaller)
         .Executes((() =>
