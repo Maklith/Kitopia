@@ -269,7 +269,8 @@ public class Plugin
         Log.Debug($"卸载插件:{PluginInfo.ToPlgString()}");
         ConfigManger.RemoveConfig($"{PluginInfo.ToPlgString()}");
 
-        PluginOverall.SearchActions.Remove($"{PluginInfo.ToPlgString()}");
+        PluginOverall.SearchActions.Remove(PluginInfo.ToPlgString());
+        PluginOverall.ScreenCaptureExMethods.Remove(PluginInfo.ToPlgString());
         ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.RemoveMethodsByPluginName(PluginInfo.ToPlgString());
         var keyValuePairs = CustomScenarioGloble.Triggers.Where(e => e.Value.PluginInfo == PluginInfo.ToPlgString());
         foreach (var keyValuePair in keyValuePairs) CustomScenarioGloble.Triggers.Remove(keyValuePair.Key);
