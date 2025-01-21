@@ -15,6 +15,7 @@ using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.Git;
 using Nuke.Common.Tools.GitHub;
 using Nuke.Common.Tools.GitVersion;
+using Nuke.Common.Tools.PowerShell;
 using Nuke.Common.Utilities;
 using Octokit;
 using Serilog;
@@ -327,6 +328,7 @@ class Build : NukeBuild
         .Executes(() =>
         {
             File.Copy(RootDirectory /"ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe",RootDirectory / "Assets" / "ModernInstaller.Uninstaller.exe",true);
+            PowerShellTasks.PowerShell($"ModernInstaller{Path.DirectorySeparatorChar}build{Path.DirectorySeparatorChar}upx.exe --force --lzma {RootDirectory /"ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe"} ");
         });
     Target BuildNativeInstaller => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(PrepareBuildNativeInstaller))
@@ -354,6 +356,7 @@ class Build : NukeBuild
         .Executes((() =>
         {
             var moderninstallerExe = RootDirectory /"ModernInstaller" / "Publish" / "ModernInstaller.exe";
+            PowerShellTasks.PowerShell($"ModernInstaller{Path.DirectorySeparatorChar}build{Path.DirectorySeparatorChar}upx.exe --force --lzma {moderninstallerExe} ");
             var assetUpload_self = new ReleaseAssetUpload
             {
                 FileName = "Kitopia"+AvaloniaProject.GetProperty("Version") + "_Installer.exe",
