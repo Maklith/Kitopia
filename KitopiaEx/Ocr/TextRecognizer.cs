@@ -64,7 +64,7 @@ namespace KitopiaEx.Ocr
 
             int dimension = this.output_node_dims[0][2];  //输出维度
             int characters = outputs0.Length / dimension;
-
+            List<float> confidences = new List<float>(characters);
             List<int>  labels = new List<int>(characters);
             for (int c=0;c<characters;c++)
             {
@@ -80,18 +80,19 @@ namespace KitopiaEx.Ocr
                     }
                 }
                 labels.Add(one_label_idx);
+                confidences.Add(max_data);
             }
             
 
             List<int> no_repeat_blank_label = new List<int>();
             for (int elementIndex = 0; elementIndex < characters; ++elementIndex)
             {
-                if (labels[elementIndex] != 0 && !(elementIndex > 0 && labels[elementIndex - 1] == labels[elementIndex]))
+                if (labels[elementIndex] != 0 && !(elementIndex > 0 && labels[elementIndex - 1] == labels[elementIndex])&&
+                    confidences[elementIndex] >= 0.5)
                 {
                     no_repeat_blank_label.Add(labels[elementIndex] - 1);
                 }
             }
-
             int len_s = no_repeat_blank_label.Count;
             StringBuilder plate_text = new StringBuilder();
             for (int i = 0; i < len_s; i++)
@@ -99,6 +100,9 @@ namespace KitopiaEx.Ocr
                 plate_text.Append(alphabet[no_repeat_blank_label[i]]);
             }
 
+            //Console.WriteLine($"{plate_text} {string.Join(", ", confidences)}");
+            labels.Clear();
+            confidences.Clear();
             return plate_text.ToString();
         }
 
