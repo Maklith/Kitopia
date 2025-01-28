@@ -310,7 +310,8 @@ class Build : NukeBuild
         .Executes(() =>
         {
             
-            File.WriteAllText($"ModernInstaller{Path.DirectorySeparatorChar}Assets{Path.DirectorySeparatorChar}ApplicationUUID",uuid.ToString());
+            //File.WriteAllText($"ModernInstaller{Path.DirectorySeparatorChar}Assets{Path.DirectorySeparatorChar}ApplicationUUID",uuid.ToString());
+            
             DotNetTasks.DotNetPublish(c => new DotNetPublishSettings()
                 .SetProject($"ModernInstaller{Path.DirectorySeparatorChar}ModernInstaller.Uninstaller")
                 .SetOutput(RootDirectory/"ModernInstaller" / "Publish" )
