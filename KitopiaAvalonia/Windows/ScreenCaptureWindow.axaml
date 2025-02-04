@@ -123,6 +123,11 @@
                                 </Button>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"></StackPanel>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                     </ItemsControl>
                     <Line Height="32" Width="1" Stroke="{DynamicResource SemiColorText2}"
                           StrokeThickness="1"
