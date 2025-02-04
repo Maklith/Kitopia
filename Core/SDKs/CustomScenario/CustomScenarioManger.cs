@@ -70,9 +70,18 @@ public static class CustomScenarioManger
         Log.Debug($"加载情景信息完成共{CustomScenarios.Count}情景被识别");
     }
 
+    public static void UnloadAll()
+    {
+        foreach (var customScenario in CustomScenarios)
+        {
+            customScenario.UnRegisterHotKey();
+        }
+            
+        CustomScenarios.Clear();
+    }
     public static void Reload()
     {
-        CustomScenarios.Clear();
+        UnloadAll();
         LoadAll();
     }
 

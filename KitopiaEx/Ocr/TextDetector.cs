@@ -55,7 +55,7 @@ namespace KitopiaEx.Ocr
                             binary.Set<byte>(y, x, (byte)(span[y * dstImg.Cols + x] > 0 ? 255:0));
                         }
                     }
-                    binary.SaveImage(@"C:\Users\liaom\Downloads\1.png");
+                    
                     OpenCvSharp.Point[][] contours;
                     Cv2.FindContours(binary, out contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxTC89L1);
             

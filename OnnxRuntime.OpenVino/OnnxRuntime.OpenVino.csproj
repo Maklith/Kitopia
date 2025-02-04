@@ -3,8 +3,13 @@
     <PropertyGroup>
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
         <EnableDynamicLoading>true</EnableDynamicLoading>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+        <AppendTargetFrameworkToOutputPath>output</AppendTargetFrameworkToOutputPath>
+        <OutputPath>..\KitopiaAvalonia\bin\x64\Debug\net9.0-windows10.0.19041.0\plugins\3_1_kitopiaonnxruntimeopenvino\</OutputPath>
+
     </PropertyGroup>
 
     <ItemGroup>

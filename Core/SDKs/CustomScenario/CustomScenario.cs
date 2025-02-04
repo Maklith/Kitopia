@@ -137,6 +137,12 @@ public partial class CustomScenario : ObservableRecipient
         
     }
 
+    public void UnRegisterHotKey()
+    {
+        HotKeyManager.HotKetImpl.DeleteCompletely(RunHotKey.UUID);
+        HotKeyManager.HotKetImpl.DeleteCompletely(StopHotKey.UUID);
+    }
+
 
     private void OnInputValueOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
     {
