@@ -17,6 +17,7 @@ using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Services.MQTT;
+using Core.SDKs.Services.Onnx;
 using Core.SDKs.Services.Plugin;
 using Core.ViewModel;
 using Core.ViewModel.Pages;
@@ -32,6 +33,7 @@ using KitopiaAvalonia.Windows;
 using log4net;
 using log4net.Config;
 using PluginCore;
+using PluginCore.Onnx;
 using HotKeyManager = Core.SDKs.HotKey.HotKeyManager;
 using ScreenCaptureWindow = KitopiaAvalonia.Services.ScreenCaptureWindow;
 
@@ -104,6 +106,7 @@ internal class Program
         services.AddTransient<IPluginToolService, PluginToolService>();
 
         services.AddTransient<INavigationPageService, NavigationPageService>();
+        services.AddSingleton<IInferenceSessionManager, InferenceSessionManager>();
         #if WINDOWS
         services.AddTransient<IHotKetImpl, HotKeyImpl>();
         services.AddTransient<IScreenCaptureManager, ScreenCaptureManager>();
@@ -154,6 +157,11 @@ internal class Program
         services.AddTransient<MarketPageViewModel>();
         services.AddKeyedTransient<UserControl, MarketPage>("MarketPage",
             (e, _) => new MarketPage() { DataContext = e.GetService<MarketPageViewModel>() });
+        services.AddTransient<OnnxModelManagerPageViewModel>();
+        services.AddKeyedTransient<UserControl, OnnxModelManagerPage>("OnnxModelManagerPage",
+            (e, _) => new OnnxModelManagerPage() { DataContext = e.GetService<OnnxModelManagerPageViewModel>() });
+
+        
         services.AddSingleton<SettingPage>(e => new SettingPage());
 
         return services.BuildServiceProvider();

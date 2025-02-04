@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.ML.OnnxRuntime;
-using Microsoft.ML.OnnxRuntime.Tensors;
+using System.Runtime.InteropServices;
 using OpenCvSharp;
+using PluginCore;
+using PluginCore.Onnx;
+using Rect = OpenCvSharp.Rect;
 
 namespace KitopiaEx.Ocr
 {
@@ -11,94 +13,90 @@ namespace KitopiaEx.Ocr
     {
         private float unclipRatio;
         private int maxCandidates;
-        private string modelPath;
-        private SessionOptions sessionOptions;
-        private InferenceSession _session;
+        private IInferenceSession _session;
         private int shortSize = 736;
         private float shortSideThresh = 3.0f;
         public Mat dstImg;
-        public TextDetector(string modelpath, SessionOptions opts = null)
+        public TextDetector()
         {
             this.unclipRatio = 1.6f;
             this.maxCandidates = 1000;
-
-            this.modelPath = modelpath;
-            this.sessionOptions = new SessionOptions();
-            this.sessionOptions.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_BASIC;
-
-            this._session = new InferenceSession(this.modelPath, this.sessionOptions);
+            this._session = Kitopia.InferenceSessionManager.GetSession("paddleocrdet");
         }
 
        
         public List<Point2f[]> Detect(Mat srcImg)
         {
-            
-            int h = srcImg.Rows;
-            int w = srcImg.Cols;
-
-            //0. 图像预处理 尺寸调整  归一化
-            dstImg = this.Preprocess(srcImg);
-            var normalize = this.Normalize(dstImg);
-           
-            //1. 构建输入张量
-            int[] inputShape = { 1, 3, dstImg.Rows, dstImg.Cols };
-            var inputTensor = new DenseTensor<float>(normalize, inputShape);
-            var inputs = new List<NamedOnnxValue>
+            unsafe
             {
-                NamedOnnxValue.CreateFromTensor(_session.InputMetadata.Keys.First(), inputTensor)
-            };
-
-            //2. 推理
-            var outputs = this._session.Run(inputs);
-
-            //3. 输出值解码
-            var floatArray = outputs[0].AsTensor<float>();
-
-            Mat binary = new Mat(dstImg.Rows, dstImg.Cols, MatType.CV_8UC1);
+                int h = srcImg.Rows;
+                int w = srcImg.Cols;
+                //0. 图像预处理 尺寸调整  归一化
+                dstImg = this.Preprocess(srcImg);
+                var normalize = this.Normalize(dstImg);
             
-            for (int y = 0; y < dstImg.Rows; y++)
-            {
-                for (int x = 0; x < dstImg.Cols; x++)
+                List<(string, Memory<int>, Memory<float>)> inputs2 = new List<(string, Memory<int>, Memory<float>)>()
                 {
-                    binary.Set<byte>(y, x, (byte)(floatArray.GetValue(y * dstImg.Cols + x) > 0 ? 255:0));
-                }
-            }
-            OpenCvSharp.Point[][] contours;
-            Cv2.FindContours(binary, out contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxTC89L1);
-            
-            var results = new List<Point2f[]>();
+                    (_session.InputNames.First(), new[] { 1, 3, dstImg.Rows, dstImg.Cols }, normalize)
+                };
+                //2. 推理
+                var outputs = this._session.Infer(inputs2);
 
-            foreach (var contour in contours)
-            {
-                var box = Cv2.MinAreaRect(contour);
-                float shortSide = Math.Min(box.Size.Width, box.Size.Height);
-                if (shortSide < this.shortSideThresh)
-                    continue;
-                bool swapSize = box.Size.Width < box.Size.Height || Math.Abs(box.Angle) >= 60.0f;
-                if (swapSize)
+                //3. 输出值解码
+                ReadOnlySpan<float> span = outputs.Span;
+                fixed (float* ptr = &span.GetPinnableReference())
                 {
-                    (box.Size.Width, box.Size.Height) = (box.Size.Height, box.Size.Width);
-
-                    if (box.Angle < 0)
-                    {
-                        box.Angle += 90;
-                    }
-                    else if (box.Angle > 0)
-                    {
-                        box.Angle -= 90;
-                    }
-                }
-                var oUnclip = this.Unclip(box.Points());
-
-                box = Cv2.MinAreaRect(oUnclip);
-                shortSide = Math.Min(box.Size.Width, box.Size.Height);
-                if (shortSide < this.shortSideThresh+2.0f)
-                    continue;
-                results.Add(box.Points());
-            }
+                    Mat binary = new Mat(dstImg.Rows, dstImg.Cols, MatType.CV_8UC1);
             
-            binary.Dispose();
-            return results;
+                    for (int y = 0; y < dstImg.Rows; y++)
+                    {
+                        for (int x = 0; x < dstImg.Cols; x++)
+                        {
+                            binary.Set<byte>(y, x, (byte)(span[y * dstImg.Cols + x] > 0 ? 255:0));
+                        }
+                    }
+                    binary.SaveImage(@"C:\Users\liaom\Downloads\1.png");
+                    OpenCvSharp.Point[][] contours;
+                    Cv2.FindContours(binary, out contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxTC89L1);
+            
+                    var results = new List<Point2f[]>();
+
+                    foreach (var contour in contours)
+                    {
+                        var box = Cv2.MinAreaRect(contour);
+                        float shortSide = Math.Min(box.Size.Width, box.Size.Height);
+                        if (shortSide < this.shortSideThresh)
+                            continue;
+                        bool swapSize = box.Size.Width < box.Size.Height || Math.Abs(box.Angle) >= 60.0f;
+                        if (swapSize)
+                        {
+                            (box.Size.Width, box.Size.Height) = (box.Size.Height, box.Size.Width);
+
+                            if (box.Angle < 0)
+                            {
+                                box.Angle += 90;
+                            }
+                            else if (box.Angle > 0)
+                            {
+                                box.Angle -= 90;
+                            }
+                        }
+                        var oUnclip = this.Unclip(box.Points());
+
+                        box = Cv2.MinAreaRect(oUnclip);
+                        shortSide = Math.Min(box.Size.Width, box.Size.Height);
+                        if (shortSide < this.shortSideThresh+2.0f)
+                            continue;
+                        results.Add(box.Points());
+                    }
+            
+                    binary.Dispose();
+                    return results;
+                }
+                
+            
+                
+            }
         }
         
         //
@@ -232,7 +230,7 @@ namespace KitopiaEx.Ocr
 
         public void Dispose()
         {
-            sessionOptions.Dispose();
+            
             _session.Dispose();
             
         }

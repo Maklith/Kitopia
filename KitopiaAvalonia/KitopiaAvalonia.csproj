@@ -55,6 +55,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="Avalonia.Controls.DataGrid" Version="$(AvaloniaVersion)" />
         <PackageReference Condition="$(DefineConstants.Contains(ENABLE_XAML_HOT_RELOAD))" Include="Avalonia.Markup.Xaml.Loader" Version="$(AvaloniaVersion)"/>
         <PackageReference Include="Avalonia.ReactiveUI" Version="$(AvaloniaVersion)"/>
         <PackageReference Condition="$(DefineConstants.Contains(ENABLE_XAML_HOT_RELOAD))" Include="HotAvalonia" Version="2.1.0" />
@@ -74,6 +75,7 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
         <PackageReference Include="Semi.Avalonia" Version="11.2.1.2" />
         <PackageReference Include="Semi.Avalonia.ColorPicker" Version="11.2.1.2" />
+        <PackageReference Include="Semi.Avalonia.DataGrid" Version="11.2.1.4" />
         <PackageReference Include="System.Drawing.Common" Version="9.0.0-rc.2.24474.1"/>
     </ItemGroup>
     <ItemGroup>
@@ -108,6 +110,10 @@
         <Compile Update="Controls\DialogOvercover.axaml.cs">
             <DependentUpon>DialogWindow.axaml</DependentUpon>
             <SubType>Code</SubType>
+        </Compile>
+        <Compile Update="Pages\OnnxModelManagerPage.axaml.cs">
+          <DependentUpon>OnnxModelManagerPage.axaml</DependentUpon>
+          <SubType>Code</SubType>
         </Compile>
     </ItemGroup>
     <ItemGroup>

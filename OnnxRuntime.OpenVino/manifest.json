@@ -1,0 +1,18 @@
+{
+  "Id": 3,
+  "AuthorName": "Kitopia",
+  "AuthorId": 1,
+  "Name": "Onnx NPU推理环境",
+  "NameSign": "kitopiaonnxruntimeopenvino",
+  "IsPublic": true,
+  "Version": "1.0.0",
+  "VersionId": 1,
+  "Description": "官方拓展插件,提供OpenVino推理环境",
+  "Main": "OnnxRuntime.OpenVino.dll",
+  "SupportSystems": [
+    "Windows"
+  ],
+  "Dependencies": {
+    "Kitopia": "^0.0.0"
+  }
+}

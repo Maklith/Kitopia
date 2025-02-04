@@ -3,34 +3,21 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using Microsoft.ML.OnnxRuntime;
-using Microsoft.ML.OnnxRuntime.Tensors;
 using OpenCvSharp;
+using PluginCore;
+using PluginCore.Onnx;
 
 namespace KitopiaEx.Ocr 
 {
     internal class TextRecognizer : IDisposable
     {
-        private InferenceSession _session;
-        private List<string> input_names;
-        private List<int[]> output_node_dims;
+        private IInferenceSession _session;
         private List<string> alphabet;
-        SessionOptions sessionOptions;
-        public TextRecognizer(string modelpath,string recWorldDictPath)
+       
+        public TextRecognizer(string recWorldDictPath)
         {
-            sessionOptions = new SessionOptions();
-            sessionOptions.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_BASIC;
-            _session = new InferenceSession(modelpath, sessionOptions);
-            input_names = new List<string>();
-            output_node_dims = new List<int[]>();
-            foreach (var name in this._session.InputMetadata.Keys)
-            {
-                this.input_names.Add(name);
-            }
-            foreach (var value in this._session.OutputMetadata.Values)
-            {
-                this.output_node_dims.Add(value.Dimensions);
-            }
+          
+            this._session = Kitopia.InferenceSessionManager.GetSession("paddleocrrec");
 
             using (StreamReader sr = new StreamReader(recWorldDictPath))
             {
@@ -49,20 +36,18 @@ namespace KitopiaEx.Ocr
             Mat dstimg = Preprocess(cv_image);
             var normalize = Normalize(dstimg);
 
-            int[] input_shape_ = new int[] { 1, 3, dstimg.Rows, dstimg.Width };
-            dstimg.Dispose();
-            var input_tensor_ = new DenseTensor<float>(normalize, input_shape_);
-
-            var ort_inputs = new List<NamedOnnxValue>
+            
+            
+           
+            List<(string, Memory<int>, Memory<float>)> inputs2 = new List<(string, Memory<int>, Memory<float>)>()
             {
-                NamedOnnxValue.CreateFromTensor<float>(input_names[0], input_tensor_)
+                (_session.InputNames.First(), new[] { 1, 3,dstimg.Rows, dstimg.Width }, normalize)
             };
+            dstimg.Dispose();
 
-            var ort_outputs = _session.Run(ort_inputs);
-
-            float[] outputs0 = ort_outputs[0].AsTensor<float>().ToArray<float>();
-
-            int dimension = this.output_node_dims[0][2];  //输出维度
+            var outputs0 = _session.Infer(inputs2).Span;
+            
+            int dimension = _session.OutputShape[0][2];  //输出维度
             int characters = outputs0.Length / dimension;
             List<float> confidences = new List<float>(characters);
             List<int>  labels = new List<int>(characters);
@@ -161,7 +146,7 @@ namespace KitopiaEx.Ocr
 
         public void Dispose()
         {
-            sessionOptions.Dispose();
+            
             _session.Dispose();
         }
     }

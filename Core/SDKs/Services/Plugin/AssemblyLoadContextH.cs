@@ -1,6 +1,7 @@
 ﻿#region
 
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -26,7 +27,6 @@ public class AssemblyLoadContextH : AssemblyLoadContext
     {
         _resolver = new AssemblyDependencyResolver(pluginPath);
         _assembly = LoadFromAssemblyPath(pluginPath);
-
         Unloading += (sender) =>
         {
             // AppDomain.CurrentDomain.GetAssemblies()
@@ -61,9 +61,17 @@ public class AssemblyLoadContextH : AssemblyLoadContext
         var assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
         if (assemblyPath != null)
         {
+            log.Debug(assemblyPath);
             if (assemblyPath.EndsWith("WinRT.Runtime.dll") || assemblyPath.EndsWith("Microsoft.Windows.SDK.NET.dll") ||
                 AppDomain.CurrentDomain.GetAssemblies().Any(x => x.GetName().FullName == assemblyName.FullName))
+            {
+                if (assemblyPath.EndsWith("Microsoft.ML.OnnxRuntime.dll"))
+                {
+                    return LoadFromAssemblyPath(assemblyPath);
+                }
                 return null;
+            }
+               
 
             return LoadFromAssemblyPath(assemblyPath);
         }

@@ -1,0 +1,18 @@
+{
+  "Id": 1,
+  "AuthorName": "Kitopia",
+  "AuthorId": 1,
+  "Name": "Onnx GPU推理环境",
+  "NameSign": "kitopiaonnxruntimegpu",
+  "IsPublic": true,
+  "Version": "1.0.0",
+  "VersionId": 1,
+  "Description": "官方拓展插件,提供GPU推理环境",
+  "Main": "OnnxRuntime.Gpu.Win.dll",
+  "SupportSystems": [
+    "Windows"
+  ],
+  "Dependencies": {
+    "Kitopia": "^0.0.0"
+  }
+}

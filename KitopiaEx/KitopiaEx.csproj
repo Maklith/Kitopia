@@ -6,6 +6,7 @@
         <EnableDynamicLoading>true</EnableDynamicLoading>
         <AssemblyName>KitopiaEx</AssemblyName>
         <RootNamespace>KitopiaEx</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
         <AppendTargetFrameworkToOutputPath>output</AppendTargetFrameworkToOutputPath>
@@ -28,8 +29,6 @@
 
 
     <ItemGroup>
-        <PackageReference Include="LG.Microsoft.ML.OnnxTransformer" Version="1.6.0.4" />
-        <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.20.1" />
         <PackageReference Include="OpenCvSharp4" Version="4.10.0.20241108" />
         <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.10.0.20241108" />
         <PackageReference Include="SharpHook" Version="5.3.7"/>

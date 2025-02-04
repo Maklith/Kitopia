@@ -1,0 +1,44 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:plugin="clr-namespace:Core.ViewModel.Pages.plugin;assembly=Core"
+             xmlns:pluginManagerPage1="clr-namespace:KitopiaAvalonia.Converter.PluginManagerPage;assembly=Core"
+             xmlns:plugin1="clr-namespace:Core.SDKs.Services.Plugin;assembly=Core"
+             xmlns:pages="clr-namespace:Core.ViewModel.Pages;assembly=Core"
+             xmlns:sdKs="clr-namespace:Core.SDKs;assembly=PluginCore"
+             xmlns:onnx="clr-namespace:PluginCore.Onnx;assembly=PluginCore"
+             xmlns:onnxModelManagerPage="clr-namespace:KitopiaAvalonia.Converter.OnnxModelManagerPage"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="pages:OnnxModelManagerPageViewModel"
+             x:Class="KitopiaAvalonia.Pages.OnnxModelManagerPage">
+
+    <UserControl.Resources>
+
+        <pluginManagerPage1:IconCtr x:Key="IconCtr" />
+    </UserControl.Resources>
+    <Panel>
+        <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
+        <Grid RowDefinitions="Auto,*" Margin="42">
+            <TextBlock Margin="0" FontSize="18" FontWeight="Bold" Text="插件列表" />
+            <DataGrid Grid.Row="1" ItemsSource="{Binding Source={x:Static plugin1:PluginOverall.AllOnnxModelInfos}}" 
+                      CanUserReorderColumns="True"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="True"
+                      HeadersVisibility="All"
+                      IsReadOnly="True">
+
+                <DataGrid.Resources>
+                    <onnxModelManagerPage:PluginStrToPluginName x:Key="PluginStrToPluginName" />
+                </DataGrid.Resources>
+                <DataGrid.Columns >
+                    <DataGridTextColumn  x:DataType="onnx:OnnxModelInfoWrapper" Binding="{Binding Model.Name}" Header="模型名称"></DataGridTextColumn>
+                    <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper" Binding="{Binding Model.Description}" Header="模型描述"></DataGridTextColumn>
+                    <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper" Binding="{Binding PluginStr,Converter={StaticResource PluginStrToPluginName},Mode=OneWay}" Header="模型来源"></DataGridTextColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+        </Grid>
+    </Panel>
+
+</UserControl>

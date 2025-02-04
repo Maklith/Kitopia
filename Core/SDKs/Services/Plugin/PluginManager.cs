@@ -12,6 +12,7 @@ using log4net;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PluginCore;
+using PluginCore.Onnx;
 using SixLabors.ImageSharp;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
@@ -36,7 +37,7 @@ public class PluginManager
         PluginCore.Kitopia._i18n = CustomScenarioGloble._i18n;
         PluginCore.Kitopia.ToolTipConverters = CustomScenarioGloble.ToolTipConverters;
         PluginCore.Kitopia.JsonConverters = CustomScenarioGloble.JsonConverters;
-        
+        PluginCore.Kitopia.InferenceSessionManager = ServiceManager.Services.GetService<IInferenceSessionManager>();
         Load(true);
     }
 
@@ -316,7 +317,11 @@ public class PluginManager
                     if (ConfigManger.Config.EnabledPluginInfos.Any(e => e.ToPlgString() == serialize.ToPlgString()))
                     {
                         serialize.IsEnabled = true;
-                        Task.Run(() => { Plugin.Load(serialize); }).Wait();
+                        if (!PluginManager.EnablePlugin.ContainsKey(serialize.ToPlgString())){
+                            Task.Run(() => { Plugin.Load(serialize); }).Wait();
+                        }
+                        
+                        
                     }
                 }
             }

@@ -63,6 +63,13 @@ public partial class MainWindowViewModel : ObservableRecipient
             Key = "Hotkey",
             MenuIconGlyph = "\uf4b9",
             MenuIconFilledGlyph = "\uf4c3"
+        },
+        new MenuItemViewModel
+        {
+            MenuHeader = "模型列表",
+            Key = "OnnxModelManagerPage",
+            MenuIconGlyph = "\uf02d",
+            MenuIconFilledGlyph = "\uf02d"  
         }
     };
 
