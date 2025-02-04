@@ -106,7 +106,7 @@ internal class Program
         services.AddTransient<IPluginToolService, PluginToolService>();
 
         services.AddTransient<INavigationPageService, NavigationPageService>();
-        services.AddSingleton<IInferenceSessionManager, InferenceSessionManager>();
+        services.AddTransient<IInferenceSessionManager, InferenceSessionManager>();
         #if WINDOWS
         services.AddTransient<IHotKetImpl, HotKeyImpl>();
         services.AddTransient<IScreenCaptureManager, ScreenCaptureManager>();

@@ -182,7 +182,7 @@ public class Plugin
                             }
                             catch (Exception exception)
                             {
-                                ServiceManager.Services.GetService<IToastService>().Show("执行截图扩展方法时出现错误",exception.Message);
+                                ServiceManager.Services.GetService<IToastService>().Show("执行截图扩展方法时出现错误",exception.InnerException?.Message ?? exception.Message);
                                 Log.Error("错误",exception);
                             }
                         },

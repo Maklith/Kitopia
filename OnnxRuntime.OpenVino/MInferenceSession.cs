@@ -8,19 +8,19 @@ namespace OnnxRuntime.Gpu.Win;
 
 public class MInferenceSession : IInferenceSession
 {
-    public TargetDevice Device => TargetDevice.GPU;
+    public TargetDevice Device => TargetDevice.NPU;
     private InferenceSession? _inferenceSession;
     public void InitSession(string modelPath)
     {
         var sessionOptions = new SessionOptions();
-        sessionOptions.AppendExecutionProvider_CUDA();
+        sessionOptions.AppendExecutionProvider_OpenVINO("NPU");
         _inferenceSession= new InferenceSession(modelPath, sessionOptions);
     }
 
     public void InitSession(byte[] modelData)
     {
         var sessionOptions = new SessionOptions();
-        sessionOptions.AppendExecutionProvider_CUDA();
+        sessionOptions.AppendExecutionProvider_OpenVINO("NPU");
         _inferenceSession= new InferenceSession(modelData, sessionOptions);
     }
 

@@ -16,12 +16,32 @@
     <UserControl.Resources>
 
         <pluginManagerPage1:IconCtr x:Key="IconCtr" />
+        <onnxModelManagerPage:ModelInfoToRuntimeChangerCtr x:Key="ModelInfoToRuntimeChangerCtr" />
+        <onnxModelManagerPage:OnnxModelInfoWrapperToHelper x:Key="OnnxModelInfoWrapperToHelper" />
     </UserControl.Resources>
     <Panel>
         <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
-        <Grid RowDefinitions="Auto,*" Margin="42">
-            <TextBlock Margin="0" FontSize="18" FontWeight="Bold" Text="插件列表" />
-            <DataGrid Grid.Row="1" ItemsSource="{Binding Source={x:Static plugin1:PluginOverall.AllOnnxModelInfos}}" 
+        <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="42">
+            <TextBlock Margin="0" FontSize="18" FontWeight="Bold" Text="推理环境" />
+            <ScrollViewer Grid.Row="1" PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Source={x:Static plugin1:PluginOverall.AllTargetDevices} }">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="onnx:TargetDevice">
+                            <Button Margin="0,0,5,0" ClickMode="Press" VerticalAlignment="Center" Content="{Binding  }"
+                                    Height="38" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <!-- 使用 WrapPanel 实现子项横向排列 -->
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </ScrollViewer>
+            <TextBlock Grid.Row="2" Margin="0" FontSize="18" FontWeight="Bold" Text="模型列表" />
+            <DataGrid Grid.Row="3" ItemsSource="{Binding Source={x:Static plugin1:PluginOverall.AllOnnxModelInfos}}"
                       CanUserReorderColumns="True"
                       CanUserResizeColumns="True"
                       CanUserSortColumns="True"
@@ -31,10 +51,54 @@
                 <DataGrid.Resources>
                     <onnxModelManagerPage:PluginStrToPluginName x:Key="PluginStrToPluginName" />
                 </DataGrid.Resources>
-                <DataGrid.Columns >
-                    <DataGridTextColumn  x:DataType="onnx:OnnxModelInfoWrapper" Binding="{Binding Model.Name}" Header="模型名称"></DataGridTextColumn>
-                    <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper" Binding="{Binding Model.Description}" Header="模型描述"></DataGridTextColumn>
-                    <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper" Binding="{Binding PluginStr,Converter={StaticResource PluginStrToPluginName},Mode=OneWay}" Header="模型来源"></DataGridTextColumn>
+                <DataGrid.Columns>
+                    <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper" Binding="{Binding Model.Name}"
+                                        Header="模型名称">
+                    </DataGridTextColumn>
+                    <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper" Binding="{Binding Model.Description}"
+                                        Header="模型描述">
+                    </DataGridTextColumn>
+                    <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper"
+                                        Binding="{Binding PluginStr,Converter={StaticResource PluginStrToPluginName},Mode=OneWay}"
+                                        Header="模型来源">
+                    </DataGridTextColumn>
+                    <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="推理环境">
+                        <DataTemplate x:DataType="onnx:OnnxModelInfoWrapper">
+
+                            <Border Theme="{DynamicResource RadioButtonGroupBorder}">
+                                <ItemsControl
+                                    ItemsSource="{Binding  Converter={StaticResource OnnxModelInfoWrapperToHelper} }">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="pages:OnnxModelRuntimeChangerHelper">
+                                            <RadioButton Theme="{DynamicResource ButtonRadioButton}"
+                                                         Name="{Binding TargetDevice}"
+                                                         Click="R_OnClick"
+                                                         Content="{Binding TargetDevice }">
+                                                <CheckBox.IsChecked>
+                                                    <MultiBinding Mode="OneWay"
+                                                                  Converter="{StaticResource ModelInfoToRuntimeChangerCtr}">
+                                                        <MultiBinding.Bindings>
+                                                            <Binding
+                                                                Path="CurrentDevice" />
+                                                            <Binding
+                                                                Path="TargetDevice" />
+
+                                                        </MultiBinding.Bindings>
+                                                    </MultiBinding>
+                                                </CheckBox.IsChecked>
+                                            </RadioButton>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </Border>
+
+                        </DataTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
 

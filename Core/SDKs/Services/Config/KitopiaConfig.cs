@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Config;
+using PluginCore.Onnx;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable FieldCanBeMadeReadOnly.Global
@@ -18,6 +19,8 @@ public class KitopiaConfig : ConfigBase
 {
     private static ILog log = LogManager.GetLogger("KitopiaConfig");
     public List<string> alwayShows = new();
+    
+    public Dictionary<string,TargetDevice> OnnxTargetDevices = new();
 
     [ConfigFieldCategory("基本")] [ConfigField<ThemeEnum>("主题选择", "跟随系统,深色还是浅色?", 0xf33c)]
     public ThemeEnum themeChoice = ThemeEnum.跟随系统;
