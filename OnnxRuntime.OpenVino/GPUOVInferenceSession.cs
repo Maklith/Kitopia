@@ -1,26 +1,25 @@
 ﻿using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
-using PluginCore;
 using PluginCore.Onnx;
 
-namespace OnnxRuntime.Gpu.Win;
+namespace OnnxRuntime.OpenVino;
 
 
-public class MInferenceSession : IInferenceSession
+public class GPUOVInferenceSession : IInferenceSession
 {
-    public TargetDevice Device => TargetDevice.NPU;
+    public string Device => "GPU(OpenVino)";
     private InferenceSession? _inferenceSession;
     public void InitSession(string modelPath)
     {
         var sessionOptions = new SessionOptions();
-        sessionOptions.AppendExecutionProvider_OpenVINO("NPU");
+        sessionOptions.AppendExecutionProvider_OpenVINO("GPU");
         _inferenceSession= new InferenceSession(modelPath, sessionOptions);
     }
 
     public void InitSession(byte[] modelData)
     {
         var sessionOptions = new SessionOptions();
-        sessionOptions.AppendExecutionProvider_OpenVINO("NPU");
+        sessionOptions.AppendExecutionProvider_OpenVINO("GPU");
         _inferenceSession= new InferenceSession(modelData, sessionOptions);
     }
 

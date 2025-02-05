@@ -7,7 +7,7 @@ namespace OnnxRuntime.CPU;
 
 public class MInferenceSession : IInferenceSession
 {
-    public TargetDevice Device => TargetDevice.CPU;
+    public string Device => "CPU";
     private InferenceSession? _inferenceSession;
     public void InitSession(string modelPath)
     {

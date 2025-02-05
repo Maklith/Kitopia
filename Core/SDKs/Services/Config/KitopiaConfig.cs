@@ -20,7 +20,7 @@ public class KitopiaConfig : ConfigBase
     private static ILog log = LogManager.GetLogger("KitopiaConfig");
     public List<string> alwayShows = new();
     
-    public Dictionary<string,TargetDevice> OnnxTargetDevices = new();
+    public Dictionary<string,string> OnnxTargetDevices = new();
 
     [ConfigFieldCategory("基本")] [ConfigField<ThemeEnum>("主题选择", "跟随系统,深色还是浅色?", 0xf33c)]
     public ThemeEnum themeChoice = ThemeEnum.跟随系统;

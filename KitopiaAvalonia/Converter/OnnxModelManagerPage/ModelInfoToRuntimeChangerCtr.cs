@@ -21,7 +21,7 @@ public class ModelInfoToRuntimeChangerCtr : IMultiValueConverter
 
     public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (values[0] is not TargetDevice||values[1] is not TargetDevice )
+        if (values[0] is not string||values[1] is not string )
         {
             return false;
         }

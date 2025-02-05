@@ -9,6 +9,7 @@
              xmlns:sdKs="clr-namespace:Core.SDKs;assembly=PluginCore"
              xmlns:onnx="clr-namespace:PluginCore.Onnx;assembly=PluginCore"
              xmlns:onnxModelManagerPage="clr-namespace:KitopiaAvalonia.Converter.OnnxModelManagerPage"
+             xmlns:system="clr-namespace:System;assembly=System.Runtime"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="pages:OnnxModelManagerPageViewModel"
              x:Class="KitopiaAvalonia.Pages.OnnxModelManagerPage">
@@ -27,7 +28,7 @@
                           VerticalScrollBarVisibility="Disabled">
                 <ItemsControl ItemsSource="{Binding Source={x:Static plugin1:PluginOverall.AllTargetDevices} }">
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="onnx:TargetDevice">
+                        <DataTemplate DataType="system:String">
                             <Button Margin="0,0,5,0" ClickMode="Press" VerticalAlignment="Center" Content="{Binding  }"
                                     Height="38" />
                         </DataTemplate>

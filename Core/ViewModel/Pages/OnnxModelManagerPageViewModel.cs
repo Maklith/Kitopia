@@ -7,11 +7,11 @@ namespace Core.ViewModel.Pages;
 
 public partial class OnnxModelRuntimeChangerHelper : ObservableObject
 {
-   public TargetDevice TargetDevice { get; set; }
+   public string TargetDevice { get; set; }
    [ObservableProperty]
-   public TargetDevice currentDevice;
+   public string currentDevice;
 
-   partial void OnCurrentDeviceChanged(TargetDevice value)
+   partial void OnCurrentDeviceChanged(string value)
    {
       if (OnnxModelInfoWrapper is null)
       {

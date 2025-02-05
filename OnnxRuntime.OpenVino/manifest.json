@@ -2,7 +2,7 @@
   "Id": 3,
   "AuthorName": "Kitopia",
   "AuthorId": 1,
-  "Name": "Onnx NPU推理环境",
+  "Name": "Onnx OpenVino推理环境",
   "NameSign": "kitopiaonnxruntimeopenvino",
   "IsPublic": true,
   "Version": "1.0.0",

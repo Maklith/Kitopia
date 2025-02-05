@@ -13,7 +13,7 @@ public class InferenceSessionManager: IInferenceSessionManager
             return null;
         var target= ConfigManger.Config.OnnxTargetDevices.ContainsKey(onnxModelInfoWrapper.Model.SignName)
             ? ConfigManger.Config.OnnxTargetDevices[onnxModelInfoWrapper.Model.SignName]
-            : TargetDevice.CPU;
+            : "CPU";
         if (!PluginOverall.OnnxRuntimes.ContainsKey(target))
         {
             throw new Exception($"目标推理环境{target}不存在");

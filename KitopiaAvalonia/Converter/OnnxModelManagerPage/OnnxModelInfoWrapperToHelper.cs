@@ -22,7 +22,7 @@ public class OnnxModelInfoWrapperToHelper : IValueConverter
         {
             CurrentDevice = ConfigManger.Config.OnnxTargetDevices.ContainsKey(wrapper.Model.SignName)
                 ? ConfigManger.Config.OnnxTargetDevices[wrapper.Model.SignName]
-                : TargetDevice.CPU,
+                : "CPU",
             TargetDevice = e,
             OnnxModelInfoWrapper = wrapper
         }).ToList();
