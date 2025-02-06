@@ -1,5 +1,6 @@
 ﻿using System;
 using KitopiaEx.CustomScenarioValueSerializer;
+using KitopiaEx.ImagePin;
 using KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
 using KitopiaEx.Ocr;
 using Microsoft.Extensions.DependencyInjection;
@@ -70,11 +71,14 @@ public class KitopiaEx : IPlugin
         services.AddSingleton<ImageTools>();
         services.AddSingleton<SearchItemEx>();
         services.AddSingleton<ClipboardEx>();
-        services.AddSingleton<ImageTools>();
+        
         services.AddTransient<ScreenCaptureInfoSelfConnector>();
         services.AddSingleton<KeyboardSimulation>();
         services.AddSingleton<ScreenCaptureNode>();
         services.AddTransient<Ocr.Ocr>();
+
+        services.AddTransient<ScreenCaptureEx>();
+        services.AddTransient<ImagePin.ImagePin>();
         return services.BuildServiceProvider();
     }
 }

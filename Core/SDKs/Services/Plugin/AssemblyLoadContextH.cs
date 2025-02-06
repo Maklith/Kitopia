@@ -61,14 +61,9 @@ public class AssemblyLoadContextH : AssemblyLoadContext
         var assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
         if (assemblyPath != null)
         {
-            log.Debug(assemblyPath);
-            if (assemblyPath.EndsWith("WinRT.Runtime.dll") || assemblyPath.EndsWith("Microsoft.Windows.SDK.NET.dll") ||
-                AppDomain.CurrentDomain.GetAssemblies().Any(x => x.GetName().FullName == assemblyName.FullName))
+            
+            if (assemblyPath.EndsWith("WinRT.Runtime.dll") || assemblyPath.EndsWith("Microsoft.Windows.SDK.NET.dll")|| assemblyPath.EndsWith("PluginCore.dll")|| assemblyPath.EndsWith("Pinyin.NET.dll") )
             {
-                if (assemblyPath.EndsWith("Microsoft.ML.OnnxRuntime.dll"))
-                {
-                    return LoadFromAssemblyPath(assemblyPath);
-                }
                 return null;
             }
                

@@ -277,53 +277,60 @@ public class PluginManager
             }
 
 
-            if (File.Exists($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}manifest.json"))
+            try
             {
-                var readAllText =
-                    File.ReadAllText($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}manifest.json");
-                var serialize = JsonSerializer.Deserialize<PluginInfo>(readAllText);
-                if (serialize != null)
+                if (File.Exists($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}manifest.json"))
                 {
-                    AllPluginInfos.Add(serialize);
-                    serialize.FullPath = $"{directoryInfo.FullName}{Path.DirectorySeparatorChar}{serialize.Main}";
-                    serialize.Path = $"{directoryInfo.FullName}{Path.DirectorySeparatorChar}";
-                    serialize.IsEnabled = false;
-                    var (item1, versionCheckResults) =
-                        CheckDependencies(previewList, serialize.Dependencies,
-                            ConfigManger.Config.EnabledPluginInfos.Any(e =>
-                                e.ToPlgString() == serialize.ToPlgString()));
-                    if (!item1)
+                    var readAllText =
+                        File.ReadAllText($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}manifest.json");
+                    var serialize = JsonSerializer.Deserialize<PluginInfo>(readAllText);
+                    if (serialize != null)
                     {
-                        var stringBuilder = new StringBuilder();
-                        foreach (var (key, value) in versionCheckResults)
-                            stringBuilder.AppendLine($"{key} {value.ToString()}");
-
-                        Log.Error($"加载插件{serialize.Name}时插件错误,缺失依赖\n {stringBuilder}");
-                        var dialog = new DialogContent()
+                        AllPluginInfos.Add(serialize);
+                        serialize.FullPath = $"{directoryInfo.FullName}{Path.DirectorySeparatorChar}{serialize.Main}";
+                        serialize.Path = $"{directoryInfo.FullName}{Path.DirectorySeparatorChar}";
+                        serialize.IsEnabled = false;
+                        var (item1, versionCheckResults) =
+                            CheckDependencies(previewList, serialize.Dependencies,
+                                ConfigManger.Config.EnabledPluginInfos.Any(e =>
+                                    e.ToPlgString() == serialize.ToPlgString()));
+                        if (!item1)
                         {
-                            Title = $"加载插件{serialize.Name}时插件错误",
-                            Content = stringBuilder,
-                            CloseButtonText = "我知道了"
-                        };
-                        ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(
-                            null,
-                            dialog);
-                        continue;
-                    }
+                            var stringBuilder = new StringBuilder();
+                            foreach (var (key, value) in versionCheckResults)
+                                stringBuilder.AppendLine($"{key} {value.ToString()}");
 
-                    if (serialize.UpdateTargetVersion == 0) serialize.UpdateTargetVersion = serialize.VersionId;
-                    if (serialize.UpdateTargetVersion != serialize.VersionId) DownloadPluginOnline(serialize).Wait();
-                    Log.Debug($"加载插件{serialize.Name}信息成功");
-                    if (ConfigManger.Config.EnabledPluginInfos.Any(e => e.ToPlgString() == serialize.ToPlgString()))
-                    {
-                        serialize.IsEnabled = true;
-                        if (!PluginManager.EnablePlugin.ContainsKey(serialize.ToPlgString())){
-                            Task.Run(() => { Plugin.Load(serialize); }).Wait();
+                            Log.Error($"加载插件{serialize.Name}时插件错误,缺失依赖\n {stringBuilder}");
+                            var dialog = new DialogContent()
+                            {
+                                Title = $"加载插件{serialize.Name}时插件错误",
+                                Content = stringBuilder,
+                                CloseButtonText = "我知道了"
+                            };
+                            ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(
+                                null,
+                                dialog);
+                            continue;
                         }
+
+                        if (serialize.UpdateTargetVersion == 0) serialize.UpdateTargetVersion = serialize.VersionId;
+                        if (serialize.UpdateTargetVersion != serialize.VersionId) DownloadPluginOnline(serialize).Wait();
+                        Log.Debug($"加载插件{serialize.Name}信息成功");
+                        if (ConfigManger.Config.EnabledPluginInfos.Any(e => e.ToPlgString() == serialize.ToPlgString()))
+                        {
+                            serialize.IsEnabled = true;
+                            if (!EnablePlugin.ContainsKey(serialize.ToPlgString())){
+                                Task.Run(() => { Plugin.Load(serialize); }).Wait();
+                            }
                         
                         
+                        }
                     }
                 }
+            }
+            catch (Exception e)
+            {
+                Log.Error("错误", e);
             }
         }
 

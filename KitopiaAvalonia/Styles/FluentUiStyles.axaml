@@ -6,6 +6,7 @@
     <FontWeight x:Key="ButtonDefaultFontWeight">Bold</FontWeight>
     <FontWeight x:Key="ExpanderHeaderFontWeight">Bold</FontWeight>
     <FontWeight x:Key="TextBlockTitleFontWeight">600</FontWeight>
+    <Thickness x:Key="ButtonDefaultPadding">12 6</Thickness>
     <ControlTheme x:Key="{x:Type ToolTip}" TargetType="ToolTip">
         <Setter Property="Foreground" Value="{DynamicResource ToolTipForeground}" />
         <Setter Property="Background" Value="{DynamicResource ToolTipBackground}" />
