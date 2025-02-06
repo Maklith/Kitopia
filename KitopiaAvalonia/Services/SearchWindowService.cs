@@ -16,7 +16,7 @@ public class SearchWindowService : ISearchWindowService
         {
             var searchWindow = ServiceManager.Services.GetService<SearchWindow>();
             {
-                ServiceManager.Services.GetService<SearchWindowViewModel>()!.CheckClipboard();
+                ServiceManager.Services.GetService<SearchWindowViewModel>()!.LoadLast();
                 searchWindow.Show();
                 Task.Run(() =>
                 {

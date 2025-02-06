@@ -436,6 +436,9 @@ public partial class AppTools
                         var fileType = FileType.文件;
                         switch (fileInfo.Extension)
                         {
+                            case ".exe":
+                                fileType = FileType.应用程序;
+                                break;
                             case ".pdf":
                                 fileType = FileType.PDF文档;
                                 break;

@@ -140,11 +140,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
             Log.Debug("没有读取剪贴板授权");
             return;
         }
-
-        if (Items.Count > 0 && (Items[0].FileType == FileType.剪贴板图像 || Items[0]
-                .ItemDisplayName.StartsWith("打开")))
-            Items.RemoveAt(0);
-
         var data = ServiceProviderServiceExtensions.GetService<IClipboardService>(ServiceManager.Services)!
             .HasText();
         try
@@ -202,8 +197,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AppSolverA(a, fileInfo.FullName);
             foreach (var (key, value) in a)
             {
-                
-                value.ItemDisplayName = $"打开文件: {fileInfo.Name} ?";
+                value.ItemDisplayName = value.FileType == FileType.应用程序 ? $"运行程序: {fileInfo.Name} ?" : $"打开文件: {fileInfo.Name} ?";
 
                 Items.Insert(0, value);
                 //GetIconInItemsAsync(value);
@@ -228,7 +222,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         }
     }
 
-    private void LoadLast()
+    public void LoadLast()
     {
         if (!string.IsNullOrEmpty(Search)) return;
 
