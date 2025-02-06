@@ -97,6 +97,7 @@
                             Width="24"
                             Height="24"
                             FontSize="24"
+                            IsFilled="{Binding IsSelected}"
                             Foreground="{DynamicResource SemiColorText0}"
                             GlyphFilled="{Binding MenuIconFilledGlyph}"
                             Glyph="{Binding MenuIconGlyph }" />
@@ -114,6 +115,7 @@
                             Width="24"
                             Height="24"
                             FontSize="24"
+                            IsFilled="{Binding SettingPage}"
                             FontWeight="Normal"
                             GlyphFilled="&#xf6b3;"
                             Glyph="&#xf6aa;" />

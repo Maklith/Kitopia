@@ -19,10 +19,13 @@ public partial class MainWindowViewModel : ObservableRecipient
     {
         WeakReferenceMessenger.Default.Register<MainWindowViewModel, PageChangeEventArgs>(this, OnNavigation);
     }
+    [ObservableProperty]
+    private bool _settingPage = false;
 
     private void OnNavigation(MainWindowViewModel recipient, PageChangeEventArgs message)
     {
         Content = message.Key;
+        SettingPage = message.Key == "Setting";
     }
 
     [ObservableProperty] private object? _content;
@@ -68,8 +71,8 @@ public partial class MainWindowViewModel : ObservableRecipient
         {
             MenuHeader = "模型列表",
             Key = "OnnxModelManagerPage",
-            MenuIconGlyph = "\uf02d",
-            MenuIconFilledGlyph = "\uf02d"  
+            MenuIconGlyph = "\uf83b",
+            MenuIconFilledGlyph = "\uf853"  
         }
     };
 
@@ -96,7 +99,7 @@ public class PageChangeEventArgs
     public string Key { get; set; }
 }
 
-public class MenuItemViewModel
+public partial class MenuItemViewModel : ObservableObject
 {
     public string MenuHeader { get; set; }
     public string MenuIconGlyph { get; set; }
@@ -104,11 +107,18 @@ public class MenuItemViewModel
 
     public string Key { get; set; }
     public bool IsSeparator { get; set; }
+    
     public ObservableCollection<MenuItemViewModel> Children { get; set; } = new();
     public ICommand ActivateCommand { get; set; }
 
+    [ObservableProperty]
+    private bool _isSelected = false;
     public MenuItemViewModel()
     {
+        WeakReferenceMessenger.Default.Register<PageChangeEventArgs>(this,((recipient, message) =>
+        {
+            IsSelected=message.Key==Key;
+        }));
         ActivateCommand = new RelayCommand(OnActivate);
     }
 
@@ -116,5 +126,6 @@ public class MenuItemViewModel
     {
         if (IsSeparator) return;
         WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs(Key));
+        
     }
 }
