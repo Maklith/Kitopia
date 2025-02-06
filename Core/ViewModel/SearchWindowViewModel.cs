@@ -156,22 +156,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 if (text.StartsWith("\"")) text = text.Replace("\"", "");
 
                 //检测路径
-                if (text.Contains("\\") || text.Contains("/"))
-                {
-                    Log.Debug("检测路径");
-                    ConcurrentDictionary<string, SearchViewItem> a = new();
-                    ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AppSolverA(a, text);
-                    foreach (var (key, value) in a)
-                    {
-                        if (value.FileType == FileType.文件夹)
-                            value.ItemDisplayName = $"打开文件夹: {value.ItemDisplayName} ?";
-                        else
-                            value.ItemDisplayName = $"打开文件: {value.ItemDisplayName} ?";
-
-                        Items.Insert(0, value);
-                        //GetIconInItemsAsync(value);
-                    }
-                }
+                CheckIsPath(text);
             }
         }
         catch (Exception e)
@@ -203,6 +188,43 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
 
             Items.RemoveAt(0);
+        }
+    }
+
+    private void CheckIsPath(string text)
+    {
+
+        if (Path.HasExtension(text) && File.Exists(text))
+        {
+            var fileInfo = new FileInfo(text);
+            Log.Debug($"检测路径{fileInfo.FullName}");
+            ConcurrentDictionary<string, SearchViewItem> a = new();
+            ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AppSolverA(a, fileInfo.FullName);
+            foreach (var (key, value) in a)
+            {
+                
+                value.ItemDisplayName = $"打开文件: {fileInfo.Name} ?";
+
+                Items.Insert(0, value);
+                //GetIconInItemsAsync(value);
+            }
+        }
+        else if (Directory.Exists(text))
+        {
+            var directoryInfo = new DirectoryInfo(text);
+            Log.Debug($"检测路径{directoryInfo.FullName}");
+            ConcurrentDictionary<string, SearchViewItem> a = new();
+            ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AppSolverA(a, directoryInfo.FullName);
+            
+            foreach (var (key, value) in a)
+            {
+                
+                value.ItemDisplayName = $"打开文件夹: {directoryInfo.Name} ?";
+                
+
+                Items.Insert(0, value);
+                //GetIconInItemsAsync(value);
+            }
         }
     }
 
@@ -483,27 +505,12 @@ public partial class SearchWindowViewModel : ObservableRecipient
             {
                 if (originalValue.StartsWith("\"")) originalValue = originalValue.Replace("\"", "");
 
-                if ((Path.HasExtension(originalValue) && File.Exists(originalValue)) || Directory.Exists(originalValue))
-                {
-                    //检测路径
-                    if (originalValue.Contains("\\") || originalValue.Contains("/"))
-                    {
-                        Log.Debug("检测路径");
-                        ConcurrentDictionary<string, SearchViewItem> a = new();
-                        ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AppSolverA(a, originalValue);
-                        foreach (var (key, value) in a)
-                        {
-                            if (value.FileType == FileType.文件夹)
-                                value.ItemDisplayName = $"打开文件夹: {value.ItemDisplayName} ?";
-                            else
-                                value.ItemDisplayName = $"打开文件: {value.ItemDisplayName} ?";
-
-                            Items.Insert(0, value);
-                            //GetIconInItemsAsync(value);
-                        }
-                    }
-                }
-                else
+                
+                
+                //检测路径
+                CheckIsPath(originalValue);
+                
+                
                 {
                     {
                         Log.Debug("无搜索项目,添加网页搜索");
