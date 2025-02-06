@@ -19,6 +19,7 @@
         <pluginManagerPage1:IconCtr x:Key="IconCtr" />
         <onnxModelManagerPage:ModelInfoToRuntimeChangerCtr x:Key="ModelInfoToRuntimeChangerCtr" />
         <onnxModelManagerPage:OnnxModelInfoWrapperToHelper x:Key="OnnxModelInfoWrapperToHelper" />
+        <onnxModelManagerPage:OnnxModelInfoWrapperToModelSizeCtr x:Key="OnnxModelInfoWrapperToModelSizeCtr" />
     </UserControl.Resources>
     <Panel>
         <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
@@ -100,6 +101,10 @@
 
                         </DataTemplate>
                     </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="模型大小" Binding="{Binding Converter={StaticResource OnnxModelInfoWrapperToModelSizeCtr} }"
+                                         CanUserReorder="True" CanUserSort="True" CustomSortComparer="{x:Static onnxModelManagerPage:DataGridModelSizeComparer.Default }">
+                        
+                    </DataGridTextColumn>
                 </DataGrid.Columns>
             </DataGrid>
 
