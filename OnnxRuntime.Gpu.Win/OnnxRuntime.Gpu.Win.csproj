@@ -5,6 +5,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <EnableDynamicLoading>true</EnableDynamicLoading>
         <Nullable>enable</Nullable>
+        <PublishTrimmed>true</PublishTrimmed>
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
         <AppendTargetFrameworkToOutputPath>output</AppendTargetFrameworkToOutputPath>
@@ -13,7 +14,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\PluginCore\PluginCore.csproj" />
+        <ProjectReference Include="..\PluginCore\PluginCore.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
     </ItemGroup>
 
     <ItemGroup>
