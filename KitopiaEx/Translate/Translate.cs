@@ -55,6 +55,7 @@ public class Translate
                 }
             
             }
+            httpClient.Dispose();
             return result;
         }
         catch (Exception e)

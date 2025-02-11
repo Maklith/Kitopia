@@ -56,7 +56,7 @@ public partial class SearchWindow : Window
 
     private void w_Deactivated(object? sender, EventArgs eventArgs)
     {
-        IsVisible = false;
+        //IsVisible = false;
     }
 
 

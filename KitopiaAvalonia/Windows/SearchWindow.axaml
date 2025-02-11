@@ -112,11 +112,12 @@
                     <Style
                         Selector="ListBoxItem:selected > Button#Item /template/ ContentPresenter#PART_ContentPresenter">
                         <Setter Property="Background" Value="{DynamicResource SemiColorTertiaryLightPointerover}" />
-                        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorText2 }" />
+                        
+                        
                     </Style>
 
                     <Style Selector="ListBoxItem">
-                        <Setter Property="Padding" Value="0,3,0,3" />
+                        <Setter Property="Margin" Value="0,3,0,3" />
                         <Setter Property="Template">
                             <ControlTemplate x:DataType="pluginCore:SearchViewItem">
 
@@ -126,9 +127,8 @@
                                         Name="Item"
                                         Command="{Binding  $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).OpenFileCommand}"
                                         CommandParameter="{Binding .}"
-                                        BorderBrush="{DynamicResource SemiColorBorder}"
-                                        BorderThickness="1"
-                                        Background="{DynamicResource SemiColorFill0}">
+                                        Background="Transparent"
+                                        >
                                     <Button.ContextFlyout>
                                         <MenuFlyout>
                                             <!-- ReSharper disable once Xaml.RedundantResource -->
@@ -189,13 +189,14 @@
                                                 <Run />
                                             </TextBlock>
                                             <TextBlock VerticalAlignment="Top" Margin="0"
-                                                       Foreground="{DynamicResource SemiColorText0}"
+                                                       Foreground="{DynamicResource SemiColorText1}"
+                                                       FontWeight="Normal"
                                                        Text="{Binding Path=FileType}" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="3" Orientation="Horizontal" Focusable="False"
                                                     HorizontalAlignment="Right">
                                             <Button KeyboardNavigation.TabNavigation="None"
-                                                    Theme="{DynamicResource OutlineButton}"
+                                                    Theme="{DynamicResource BorderlessButton}"
                                                     ToolTip.Tip="以管理员身份运行" Background="{x:Null}"
                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='RunAsAdmin'}"
                                                     Command="{Binding $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
@@ -205,7 +206,7 @@
                                                                     Glyph="&#xF0B2;" />
                                             </Button>
                                             <Button KeyboardNavigation.TabNavigation="None"
-                                                    Theme="{DynamicResource OutlineButton}"
+                                                    Theme="{DynamicResource BorderlessButton}"
                                                     ToolTip.Tip="打开文件所在文件夹" Background="{x:Null}"
                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Folder'}"
                                                     Command="{Binding $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).OpenFolderCommand}"
@@ -215,7 +216,7 @@
                                                                     Glyph="&#xF419;" />
                                             </Button>
                                             <Button KeyboardNavigation.TabNavigation="None"
-                                                    Theme="{DynamicResource OutlineButton}"
+                                                    Theme="{DynamicResource BorderlessButton}"
                                                     ToolTip.Tip="在终端中打开文件夹/文件所在文件夹" Background="{x:Null}"
                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Console'}"
                                                     Command="{Binding $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
@@ -226,7 +227,7 @@
                                                                     Glyph="&#xEE6F;" />
                                             </Button>
                                             <Button KeyboardNavigation.TabNavigation="None"
-                                                    Theme="{DynamicResource OutlineButton}"
+                                                    Theme="{DynamicResource BorderlessButton}"
                                                     ToolTip.Tip="{Binding IsStared,Converter={StaticResource StarBoolToText},ConverterParameter='Star'}"
                                                     Background="{x:Null}"
                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Star'}"
