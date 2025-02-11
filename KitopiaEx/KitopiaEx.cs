@@ -79,6 +79,9 @@ public class KitopiaEx : IPlugin
 
         services.AddTransient<ScreenCaptureEx>();
         services.AddTransient<ImagePin.ImagePin>();
-        return services.BuildServiceProvider();
+        services.AddTransient<Translate.Translate>();
+        var buildServiceProvider = services.BuildServiceProvider();
+        ServiceProvider = buildServiceProvider;
+        return buildServiceProvider;
     }
 }
