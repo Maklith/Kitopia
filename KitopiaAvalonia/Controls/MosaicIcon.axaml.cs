@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Timers;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 
@@ -8,17 +10,19 @@ namespace KitopiaAvalonia.Controls;
 
 public class MosaicIcon : Control
 {
-    private readonly DispatcherTimer _timer;
+    private Timer _timer;
 
     public MosaicIcon()
     {
-        _timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Render, Tick);
+        _timer = new Timer(TimeSpan.FromSeconds(1));
+        _timer.AutoReset = true;
+        _timer.Elapsed += Tick;
     }
 
     private void Tick(object? sender, EventArgs e)
     {
         // 每次计时器触发时，执行无效化
-        InvalidateVisual();
+        Dispatcher.UIThread.InvokeAsync(InvalidateVisual);
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -26,21 +30,31 @@ public class MosaicIcon : Control
         base.OnAttachedToVisualTree(e);
         _timer.Start();
     }
+    
 
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnUnloaded(RoutedEventArgs e)
     {
         _timer.Stop();
-        base.OnDetachedFromVisualTree(e);
+        _timer.Elapsed -= Tick;
+        _timer.Dispose();
+        Console.WriteLine(1);
+        base.OnUnloaded(e);
     }
 
+    private IBrush? _brush;
     public override void Render(DrawingContext context)
     {
-        base.Render(context);
+        
 
         // 设置绘制马赛克的颜色
         //var brush = new SolidColorBrush(Color.Parse("#0078D7"));
-        Application.Current.Styles.TryGetResource("SemiColorText0", null, out var brush);
-        var pen = new Pen((IBrush?)brush, 2d);
+        if (_brush is null)
+        {
+            Application.Current!.Styles.TryGetResource("SemiColorText0", null, out var brush);
+            _brush = (IBrush?)brush;
+        }
+        
+        var pen = new Pen(_brush, 2d);
 
         // 计算每个像素方块的大小
         var blockSize = Math.Min(Bounds.Width, Bounds.Height) / 2; // 假设图标由8x8的格子组成
@@ -53,7 +67,7 @@ public class MosaicIcon : Control
             {
                 var rect = new Rect(x * blockSize, y * blockSize, blockSize, blockSize);
                 // 填充方块
-                context.FillRectangle((IBrush)brush, rect);
+                context.FillRectangle(_brush, rect);
                 // 绘制方块边框
                 context.DrawRectangle(pen, rect);
             }

@@ -88,7 +88,7 @@ public partial class ScreenCaptureWindow : Window
 
                     Close();
                     WeakReferenceMessenger.Default.Unregister<string>(this);
-                    GC.Collect(2,GCCollectionMode.Aggressive,true);
+                    GC.Collect(2,GCCollectionMode.Optimized,false);
                     break;
                 }
                 case "Selected":
@@ -164,16 +164,19 @@ public partial class ScreenCaptureWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        base.OnClosed(e);
+       
         SelectBox.LocationOrSizeChanged -= LocationOrSizeChanged;
         StrokeWidth.ValueChanged -= StrokeWidthOnValueChanged;
         ColorPicker.ColorChanged -= ColorPickerOnColorChanged;
         renderTargetBitmap?.Dispose();
         MosaicImage.OpacityMask = null;
+        
         if (selectBytesMode&&!Finish)
         {
             selectBytesModeCancelAction.Invoke();
         }
+        
+        base.OnClosed(e);
     }
     private void ColorPickerOnColorChanged(object? sender, ColorChangedEventArgs e)
     {
