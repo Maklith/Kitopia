@@ -53,8 +53,9 @@
             <StackPanel DockPanel.Dock="Top" Margin="0,0,0,5" Spacing="5">
                 <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" IsTabStop="False"
                          Watermark="搜索..." AcceptsReturn="False" KeyDown="tx_KeyDown"
+                         
                          Name="tx"
-                         AcceptsTab="False" FontSize="32"
+                         AcceptsTab="False" FontSize="27"
                          Text="{Binding Search}">
 
                     <TextBox.InnerLeftContent>
