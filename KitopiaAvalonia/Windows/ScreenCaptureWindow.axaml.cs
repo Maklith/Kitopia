@@ -895,6 +895,8 @@ public partial class ScreenCaptureWindow : Window
             else if (dragTransformY > 0)
                 cropH = (int)selectBoxHeight;
             else cropH = (int)selectBoxHeight + (int)dragTransformY;
+            var x = Math.Max((int)dragTransformX, 0);
+            var y = Math.Max((int)dragTransformY, 0);
             if (selectMode)
             {
                 if (_currentWindowInfo.Hwnd != IntPtr.Zero)
@@ -907,8 +909,8 @@ public partial class ScreenCaptureWindow : Window
                 {
                     selectModeAction.Invoke(new ScreenCaptureInfo()
                     {
-                        X = Math.Max((int)dragTransformX, 0),
-                        Y = Math.Max((int)dragTransformY, 0),
+                        X = x,
+                        Y = y,
                         Width = cropW,
                         Height = cropH,
                         ScreenInfo = _screenCaptureInfo.ScreenInfo
@@ -934,27 +936,18 @@ public partial class ScreenCaptureWindow : Window
                 content.Width = bitmap.PixelSize.Width;
                 content.Height = bitmap.PixelSize.Height;
                 renderTargetBitmap.Render(content);
-                var boundsHeight = (int)(bitmap.PixelSize.Width * bitmap.PixelSize.Height * 4);
-                var ptr = Marshal.AllocHGlobal(boundsHeight);
-                renderTargetBitmap.CopyPixels(new PixelRect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height),
+                var bufferSize = cropW * cropH * 4;
+                var ptr = Marshal.AllocHGlobal(bufferSize);
+                renderTargetBitmap.CopyPixels(new PixelRect(x, y, cropW, cropH),
                     ptr,
-                    boundsHeight,
-                    (((int)bitmap.PixelSize.Width * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3
+                    bufferSize,
+                    (((int)cropW * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3
                 );
-                var ys = new byte[boundsHeight];
-                Marshal.Copy(ptr, ys, 0, boundsHeight);
+                var ys = new byte[bufferSize];
+                Marshal.Copy(ptr, ys, 0, bufferSize);
                 Marshal.FreeHGlobal(ptr);
-                var image = SixLabors.ImageSharp.Image.LoadPixelData<Bgra32>(ys, bitmap.PixelSize.Width,
-                    bitmap.PixelSize.Height);
-                //image.SaveAsPng("1.png");
-                var clone = image.Clone(e => e.Crop(new Rectangle(
-                    Math.Max((int)dragTransformX, 0), Math.Max((int)dragTransformY, 0),
-                    cropW, cropH)));
-                image.Dispose();
                 if (selectBytesMode)
                 {
-                    byte[] d = new byte[cropH*cropW*4];
-                    clone.CopyPixelDataTo(d);
                     Task.Run(() =>
                     {
                         selectBytesModeAction.Invoke(new ScreenCaptureResult()
@@ -962,15 +955,17 @@ public partial class ScreenCaptureWindow : Window
                             Info = new ScreenCaptureInfo()
                             {
                             
-                                X =   Math.Max((int)dragTransformX, 0),
-                                Y =   Math.Max((int)dragTransformY, 0),
+                                X =   x,
+                                Y =  y,
                                 Width = cropW,
                                 Height = cropH,
                                 ScreenInfo = _screenCaptureInfo.ScreenInfo
                             },
-                            Bytes = d
+                            Bytes = ys
                         });
-                        clone.Dispose();
+                    }).ContinueWith((e) =>
+                    {
+                        GC.Collect(2,GCCollectionMode.Optimized);
                     });
                    
                 }
@@ -978,8 +973,22 @@ public partial class ScreenCaptureWindow : Window
                 {
                    
                     ServiceManager.Services.GetService<IClipboardService>()
-                        .SetImageAsync(clone)
-                        .ContinueWith((e) => clone.Dispose());
+                        .SetImageAsync(new ScreenCaptureResult()
+                        {
+                            Info = new ScreenCaptureInfo()
+                            {
+                            
+                                X =   x,
+                                Y =  y,
+                                Width = cropW,
+                                Height = cropH,
+                                ScreenInfo = _screenCaptureInfo.ScreenInfo
+                            },
+                            Bytes = ys
+                        }).ContinueWith((e) =>
+                        {
+                            GC.Collect(2,GCCollectionMode.Optimized);
+                        });
                 }
                 bitmap.Dispose();
                 renderTargetBitmap.Dispose();

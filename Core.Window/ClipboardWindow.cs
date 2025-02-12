@@ -9,6 +9,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Core.SDKs.Services;
+using PluginCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
@@ -224,7 +225,23 @@ public class ClipboardWindow : IClipboardService
         thread.Start();
         return await tcs.Task;
     }
-
+    [STAThread]
+    public async Task<bool> SetImageAsync(ScreenCaptureResult screenCaptureResult)
+    {
+        var tcs = new TaskCompletionSource<bool>();
+        var thread = new Thread(() =>
+        {
+            var bitmapSource = BitmapSource.Create(
+                screenCaptureResult.Info.Width, screenCaptureResult.Info.Height,
+                96, 96,
+                PixelFormats.Bgra32, null,
+                screenCaptureResult.Bytes,  (((int)screenCaptureResult.Info.Width * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3);
+            Clipboard.SetImage(bitmapSource);
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return await tcs.Task;
+    }
     private static T BytesToStructure<T>(byte[] bytes)
     {
         var size = Marshal.SizeOf(typeof(T));
