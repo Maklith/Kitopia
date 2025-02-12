@@ -3,11 +3,13 @@
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading.RateLimiting;
 using Core.SDKs.CustomScenario;
 using KitopiaAvalonia.Tools;
 using log4net;
 using PluginCore;
 using Polly;
+using Polly.RateLimiting;
 using Polly.Retry;
 using Vanara.PInvoke;
 using Size = System.Drawing.Size;
@@ -18,7 +20,13 @@ namespace Core.Window;
 
 internal class IconTools
 {
-    private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder().AddRetry(
+    private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
+        .AddConcurrencyLimiter(new ConcurrencyLimiterOptions()
+        {
+            PermitLimit = 1,
+            QueueLimit = Int32.MaxValue
+        })
+        .AddRetry(
         new RetryStrategyOptions()
         {
             ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>

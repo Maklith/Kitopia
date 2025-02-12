@@ -37,7 +37,6 @@ public class MosaicIcon : Control
         _timer.Stop();
         _timer.Elapsed -= Tick;
         _timer.Dispose();
-        Console.WriteLine(1);
         base.OnUnloaded(e);
     }
 
