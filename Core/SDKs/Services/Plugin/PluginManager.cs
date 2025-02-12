@@ -316,8 +316,10 @@ public class PluginManager
                         if (serialize.UpdateTargetVersion == 0) serialize.UpdateTargetVersion = serialize.VersionId;
                         if (serialize.UpdateTargetVersion != serialize.VersionId) DownloadPluginOnline(serialize).Wait();
                         Log.Debug($"加载插件{serialize.Name}信息成功");
-                        if (ConfigManger.Config.EnabledPluginInfos.Any(e => e.ToPlgString() == serialize.ToPlgString()))
+                        if (ConfigManger.Config.EnabledPluginInfos.FirstOrDefault(e => e.ToPlgString() == serialize.ToPlgString()) is { } pluginInfo)
                         {
+                            ConfigManger.Config.EnabledPluginInfos.Remove(pluginInfo);
+                            ConfigManger.Config.EnabledPluginInfos.Add(serialize);
                             serialize.IsEnabled = true;
                             if (!EnablePlugin.ContainsKey(serialize.ToPlgString())){
                                 Task.Run(() => { Plugin.Load(serialize); }).Wait();

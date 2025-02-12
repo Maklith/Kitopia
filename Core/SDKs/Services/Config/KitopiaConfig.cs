@@ -54,7 +54,25 @@ public class KitopiaConfig : ConfigBase
 
 
     public List<string> customCollections = new();
-    public List<PluginInfo> EnabledPluginInfos = new();
+
+    public List<PluginInfo> EnabledPluginInfos = new()
+    {
+        new PluginInfo()
+        {
+            Id=7,
+            AuthorName= "Kitopia",
+            AuthorId= 1,
+            NameSign= "kitopiaex",
+        },
+        new PluginInfo()
+        {
+            Id=2,
+            AuthorName= "Kitopia",
+            AuthorId= 1,
+            NameSign= "kitopiaonnxruntimecpu",
+        },
+        
+    };
 
     public List<string> errorLnk = new();
     public string everythingOnlyKey = "";
