@@ -46,7 +46,7 @@
     </Window.Resources>
     <Panel VerticalAlignment="Stretch">
         <Panel.Background>
-            <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.65" />
+            <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.55" />
         </Panel.Background>
 
         <DockPanel Margin="10" VerticalAlignment="Stretch">
