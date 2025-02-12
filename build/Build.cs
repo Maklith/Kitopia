@@ -55,19 +55,34 @@ class Build : NukeBuild
             DotNetRestore(c => new DotNetRestoreSettings()
                 .SetProjectFile( RootDirectory/"KitopiaEx"/"KitopiaEx.csproj")
                 .SetRuntime("win-x64"));
+            DotNetRestore(c => new DotNetRestoreSettings()
+                .SetProjectFile( RootDirectory/"OnnxRuntime.CPU"/"OnnxRuntime.CPU.csproj")
+                .SetRuntime("win-x64"));
+            DotNetRestore(c => new DotNetRestoreSettings()
+                .SetProjectFile( RootDirectory/"OnnxRuntime.Gpu.Win"/"OnnxRuntime.Gpu.Win.csproj")
+                .SetRuntime("win-x64"));
+            DotNetRestore(c => new DotNetRestoreSettings()
+                .SetProjectFile( RootDirectory/"OnnxRuntime.OpenVino"/"OnnxRuntime.OpenVino.csproj")
+                .SetRuntime("win-x64"));
         });
 
     Target CompileWindowsX64 => _ => _
         .DependsOn(Restore)
         .Executes(() =>
         {
+            var rootDirectory = RootDirectory / "buildTest";
+            rootDirectory.DeleteDirectory();
             DotNetBuild(c => new DotNetBuildSettings()
                 .SetProjectFile( RootDirectory/"KitopiaEx"/"KitopiaEx.csproj")
-                .SetOutputDirectory(RootDirectory / "buildTest" / "plugins" / "KitopiaEx")
+                .SetOutputDirectory(rootDirectory / "plugins" / "7_1_kitopiaex")
+                .SetRuntime("win-x64"));
+            DotNetBuild(c => new DotNetBuildSettings()
+                .SetProjectFile( RootDirectory/"OnnxRuntime.CPU"/"OnnxRuntime.CPU.csproj")
+                .SetOutputDirectory(rootDirectory / "plugins" / "2_1_kitopiaonnxruntimecpu")
                 .SetRuntime("win-x64"));
             DotNetBuild(c => new DotNetBuildSettings()
                 .SetProjectFile(AvaloniaProject.Path)
-                .SetOutputDirectory(RootDirectory / "buildTest")
+                .SetOutputDirectory(rootDirectory)
                 .SetRuntime("win-x64")
                 .SetFramework("net9.0-windows10.0.19041.0")
                 .SetConfiguration("Release")
@@ -192,7 +207,15 @@ class Build : NukeBuild
                 rootDirectory.DeleteDirectory();
                 DotNetPublish(c => new DotNetPublishSettings()
                     .SetProject("KitopiaEx")
-                    .SetOutput(RootDirectory / "Publish" / "plugins" / "KitopiaEx")
+                    .SetOutput(RootDirectory / "Publish" / "plugins" / "7_1_kitopiaex")
+                    .SetRuntime("win-x64")
+                    .SetFramework("net9.0")
+                    .SetConfiguration("Release")
+                    .SetSelfContained(false)
+                );
+                DotNetPublish(c => new DotNetPublishSettings()
+                    .SetProject("OnnxRuntime.CPU")
+                    .SetOutput(RootDirectory / "Publish" / "plugins" / "2_1_kitopiaonnxruntimecpu")
                     .SetRuntime("win-x64")
                     .SetFramework("net9.0")
                     .SetConfiguration("Release")
@@ -240,7 +263,15 @@ class Build : NukeBuild
                 DotNetPublish(c => new DotNetPublishSettings()
                     .SetProject("KitopiaEx")
                     .SetOutput(RootDirectory / "Publish_SelfContained" / "plugins" /
-                               "KitopiaEx")
+                               "7_1_kitopiaex")
+                    .SetRuntime("win-x64")
+                    .SetFramework("net9.0")
+                    .SetConfiguration("Release")
+                    .SetSelfContained(true)
+                );
+                DotNetPublish(c => new DotNetPublishSettings()
+                    .SetProject("OnnxRuntime.CPU")
+                    .SetOutput(RootDirectory / "Publish" / "plugins" / "2_1_kitopiaonnxruntimecpu")
                     .SetRuntime("win-x64")
                     .SetFramework("net9.0")
                     .SetConfiguration("Release")

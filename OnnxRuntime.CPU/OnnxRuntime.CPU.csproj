@@ -11,9 +11,16 @@
         <OutputPath>..\KitopiaAvalonia\bin\x64\Debug\net9.0-windows10.0.19041.0\plugins\2_1_kitopiaonnxruntimecpu\</OutputPath>
 
     </PropertyGroup>
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+        <DebugType>none</DebugType>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
 
+    </PropertyGroup>
     <ItemGroup>
       <None Update="manifest.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="avatar.png">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
     </ItemGroup>
