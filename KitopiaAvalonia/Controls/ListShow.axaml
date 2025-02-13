@@ -47,11 +47,12 @@
                                         <Button Name="Button"
                                                 ToolTip.Tip="删除"
                                                 HorizontalAlignment="Right"
+                                                Background="Transparent"
                                                 Command="{Binding $parent[controls:ListShow].DelCommand}"
-                                                Padding="3,0,3,0"
+                                                Padding="6,0,6,0"
                                                 CommandParameter="{ReflectionBinding}" Margin="3">
 
-                                            <controls:FontIcon FontSize="24" HorizontalAlignment="Center"
+                                            <controls:FontIcon FontSize="16" HorizontalAlignment="Center"
                                                                VerticalAlignment="Center"
                                                                Glyph="&#xf36a;" />
                                         </Button>

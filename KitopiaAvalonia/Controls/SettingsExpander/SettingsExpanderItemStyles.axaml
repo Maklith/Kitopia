@@ -73,11 +73,13 @@
                                 <ContentPresenter Content="{TemplateBinding Content}"
                                                   ContentTemplate="{TemplateBinding ContentTemplate}"
                                                   Name="ContentPresenter"
+                                                  FontSize="15"
                                                   IsVisible="False" />
 
                                 <TextBlock Text="{TemplateBinding Description}"
                                            TextWrapping="Wrap"
-                                           Foreground="{DynamicResource SemiColorText0}"
+                                           Foreground="{DynamicResource SemiColorText2}"
+                                           FontSize="13"
                                            Name="DescriptionText"
                                            IsVisible="False" />
                             </StackPanel>
