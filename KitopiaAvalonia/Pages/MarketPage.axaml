@@ -12,91 +12,96 @@
     </UserControl.Resources>
     <Panel>
         <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
+
         <Grid RowDefinitions="Auto,*" Margin="42">
             <TextBlock Margin="0" FontSize="18" FontWeight="Bold" Text="插件列表" />
-            <ItemsControl Grid.Row="1" ItemsSource="{Binding Plugins}" Margin="0,10,0,0">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" Width="300"
-                                CornerRadius="{DynamicResource RadiusCardCornerRadius}"
-                                Height="200">
-                            <Panel>
-                                <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
-                                      ColumnDefinitions="80,*"
-                                      RowDefinitions="*,48">
-                                    <Image Grid.Column="0" HorizontalAlignment="Center" Margin="0,15,0,0"
-                                           VerticalAlignment="Top" Focusable="False" Width="64"
-                                           Source="{Binding Icon,
+            <ScrollViewer Grid.Row="1" Margin="0,10,0,0">
+                <ItemsControl ItemsSource="{Binding Plugins}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Theme="{DynamicResource CardBorder1}" Width="300"
+                                    CornerRadius="{DynamicResource RadiusCardCornerRadius}"
+                                    Height="185">
+                                <Panel>
+                                    <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                                          ColumnDefinitions="80,*"
+                                          RowDefinitions="*,48">
+                                        <Image Grid.Column="0" HorizontalAlignment="Center" Margin="0,15,0,0"
+                                               VerticalAlignment="Top" Focusable="False" Width="64"
+                                               Source="{Binding Icon,
                                                 Converter={StaticResource IconCtr},
                                                 ConverterParameter={Binding .}}"
-                                           Height="64" />
-                                    <StackPanel Grid.Column="1" Margin="0,15,0,5" VerticalAlignment="Top" Spacing="5"
-                                                HorizontalAlignment="Stretch">
-                                        <Button VerticalAlignment="Center"
-                                                HorizontalAlignment="Left"
-                                                Theme="{DynamicResource BorderlessButton}" Padding="0"
-                                                MinHeight="0"
-                                                Content="{Binding Name}"
-                                                FontWeight="Normal" FontSize="18"
-                                                Foreground="{DynamicResource DefaultForeground}"
-                                                Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).ShowPluginDetailCommand}"
-                                                CommandParameter="{Binding $self}" />
-                                        <ItemsControl ItemsSource="{Binding SupportSystems}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="x:String">
-                                                    <Label Theme="{StaticResource TagLabel}" Content="{Binding .}"
-                                                           Classes="Ghost Cyan" />
-                                                </DataTemplate>
+                                               Height="64" />
+                                        <StackPanel Grid.Column="1" Margin="0,15,0,5" VerticalAlignment="Top"
+                                                    Spacing="5"
+                                                    HorizontalAlignment="Stretch">
+                                            <Button VerticalAlignment="Center"
+                                                    HorizontalAlignment="Left"
+                                                    Theme="{DynamicResource BorderlessButton}" Padding="0"
+                                                    MinHeight="0"
+                                                    Content="{Binding Name}"
+                                                    FontWeight="Normal" FontSize="18"
+                                                    Foreground="{DynamicResource DefaultForeground}"
+                                                    Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).ShowPluginDetailCommand}"
+                                                    CommandParameter="{Binding $self}" />
+                                            <ItemsControl ItemsSource="{Binding SupportSystems}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="x:String">
+                                                        <Label Theme="{StaticResource TagLabel}" Content="{Binding .}"
+                                                               Classes="Ghost Cyan" />
+                                                    </DataTemplate>
 
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                        <StackPanel Orientation="Horizontal" Spacing="5">
-                                            <TextBlock VerticalAlignment="Top"
-                                                       Text="{Binding LastVersion}" />
-                                            <TextBlock VerticalAlignment="Top"
-                                                       Text="{Binding AuthorName}" />
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <TextBlock VerticalAlignment="Top"
+                                                           Text="{Binding LastVersion}" />
+                                                <TextBlock VerticalAlignment="Top"
+                                                           Text="{Binding AuthorName}" />
+                                            </StackPanel>
+                                            <ScrollViewer IsHitTestVisible="False"
+                                                          VerticalAlignment="Stretch"
+                                                          HorizontalAlignment="Stretch"
+                                                          HorizontalScrollBarVisibility="Hidden">
+                                                <TextBlock VerticalAlignment="Center"
+                                                           MaxWidth="{Binding $parent.Bounds.Width}"
+                                                           TextWrapping="Wrap"
+                                                           Text="{Binding DescriptionShort}" />
+                                            </ScrollViewer>
+
+
                                         </StackPanel>
-                                        <ScrollViewer IsHitTestVisible="False"
-                                                      VerticalAlignment="Stretch"
-                                                      HorizontalAlignment="Stretch"
-                                                      HorizontalScrollBarVisibility="Hidden">
-                                            <TextBlock VerticalAlignment="Center"
-                                                       MaxWidth="{Binding $parent.Bounds.Width}"
-                                                       TextWrapping="Wrap"
-                                                       Text="{Binding DescriptionShort}" />
-                                        </ScrollViewer>
+                                        <StackPanel Grid.Column="0" Margin="5,0,5,0" Spacing="5" Grid.ColumnSpan="2"
+                                                    Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button IsEnabled="{Binding !InLocal}"
+                                                    Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).DownloadPluginCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <Button.Styles>
+                                                    <Style Selector="Button[IsEnabled=True]">
+                                                        <Setter Property="Content" Value="下载" />
+                                                    </Style>
+                                                    <Style Selector="Button[IsEnabled=False]">
+                                                        <Setter Property="Content" Value="已安装" />
+                                                    </Style>
+                                                </Button.Styles>
+                                            </Button>
+                                        </StackPanel>
 
+                                    </Grid>
+                                </Panel>
 
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="0" Margin="5,0,5,0" Spacing="5" Grid.ColumnSpan="2"
-                                                Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <Button IsEnabled="{Binding !InLocal}"
-                                                Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).DownloadPluginCommand}"
-                                                CommandParameter="{Binding}">
-                                            <Button.Styles>
-                                                <Style Selector="Button[IsEnabled=True]">
-                                                    <Setter Property="Content" Value="下载" />
-                                                </Style>
-                                                <Style Selector="Button[IsEnabled=False]">
-                                                    <Setter Property="Content" Value="已安装" />
-                                                </Style>
-                                            </Button.Styles>
-                                        </Button>
-                                    </StackPanel>
+                            </Border>
 
-                                </Grid>
-                            </Panel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
 
-                        </Border>
-
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
 
         </Grid>
     </Panel>

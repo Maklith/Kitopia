@@ -22,7 +22,7 @@
                 ItemsSource="{Binding  KeyModels}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="pluginCore:HotKeyModel">
-                        <Border BorderBrush="LightGray" BorderThickness="1" CornerRadius="4">
+                        <Border Theme="{DynamicResource CardBorder1}" CornerRadius="4">
                             <StackPanel HorizontalAlignment="Center" Margin="5,0,5,5">
                                 <TextBlock Margin="0,5,0,0" Foreground="{DynamicResource SemiColorText0}"
                                            Text="{Binding SignName,Converter={StaticResource HotKeySignNameToStringCtr}}" />

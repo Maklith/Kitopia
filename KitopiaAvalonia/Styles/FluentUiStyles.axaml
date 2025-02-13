@@ -50,4 +50,13 @@
             <Setter Property="Opacity" Value="1" />
         </Style>
     </ControlTheme>
+    <ControlTheme x:Key="CardBorder1" TargetType="Border">
+       
+        
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusCardCornerRadius}" />
+        <Setter Property="Background" Value="{DynamicResource KSemiColorBackground4}"/>
+        
+        <Setter Property="BoxShadow" Value="{DynamicResource BorderCardBoxShadow}" />
+<Setter Property="Margin" Value="{DynamicResource ThicknessCardMargin}" />
+    </ControlTheme>
 </ResourceDictionary>

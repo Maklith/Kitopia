@@ -12,6 +12,10 @@
     <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
     <Application.Resources>
         <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceInclude x:Key="Default" Source="Styles/Light.axaml" />
+                <ResourceInclude x:Key="Dark" Source="Styles/Dark.axaml" />
+            </ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="Styles/Icons.axaml" />
                 <ResourceInclude Source="Styles/FluentUiStyles.axaml" />

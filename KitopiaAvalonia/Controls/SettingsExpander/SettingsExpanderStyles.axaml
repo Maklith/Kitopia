@@ -31,19 +31,15 @@
     <ControlTheme x:Key="SettingsExpanderToggleButtonStyle" TargetType="ToggleButton">
         <!-- <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" /> -->
         <Setter Property="Margin"> 3</Setter>
-        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
         <Setter Property="CornerRadius"> 5</Setter>
-        <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="BackgroundSizing" Value="InnerBorderEdge" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Border Name="Root"
+                <Border Name="Root" Theme="{DynamicResource CardBorder1}"
                         Background="{TemplateBinding Background}"
-                        BorderBrush="{TemplateBinding BorderBrush}"
-                        BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}"
                         Padding="{TemplateBinding Padding}"
                         BackgroundSizing="{TemplateBinding BackgroundSizing}">
@@ -109,34 +105,34 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="MinHeight" Value="{DynamicResource SettingsExpanderMinHeight}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
-        <Setter Property="BorderThickness" Value="1" />
+        
         <Setter Property="Template">
             <ControlTemplate>
-                <StackPanel>
-                    <ToggleButton Name="ToggleButton"
-                                  MinHeight="{TemplateBinding MinHeight}"
-                                  IsEnabled="{TemplateBinding IsEnabled}"
-                                  IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}"
-                                  Content="{TemplateBinding Header}"
-                                  Theme="{StaticResource SettingsExpanderToggleButtonStyle}" />
-
-                    <Border Name="ExpanderContent"
-                            Margin="3,0,3,0"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            IsVisible="False"
-                            BackgroundSizing="InnerBorderEdge">
-                        <ContentPresenter Name="PART_ContentPresenter"
-                                          Margin="{TemplateBinding Padding}"
-                                          IsVisible="{TemplateBinding IsExpanded}"
-                                          ContentTemplate="{TemplateBinding ContentTemplate}"
-                                          Content="{TemplateBinding Content}"
-                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-                    </Border>
-                </StackPanel>
+                <Border Theme="{DynamicResource CardBorder1}">
+                    <StackPanel>
+                                        <ToggleButton Name="ToggleButton"
+                                                      MinHeight="{TemplateBinding MinHeight}"
+                                                      IsEnabled="{TemplateBinding IsEnabled}"
+                                                      IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}"
+                                                      Content="{TemplateBinding Header}"
+                                                      Theme="{StaticResource SettingsExpanderToggleButtonStyle}" />
+                    
+                                        <Border Name="ExpanderContent"
+                                                Margin="3,0,3,0"
+                                               
+                                                IsVisible="False"
+                                                BackgroundSizing="InnerBorderEdge">
+                                            <ContentPresenter Name="PART_ContentPresenter"
+                                                              Margin="{TemplateBinding Padding}"
+                                                              IsVisible="{TemplateBinding IsExpanded}"
+                                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                              Content="{TemplateBinding Content}"
+                                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                        </Border>
+                                    </StackPanel>
+                </Border>
+                
             </ControlTemplate>
         </Setter>
 
@@ -147,8 +143,7 @@
 
     <ControlTheme x:Key="{x:Type settingsExpander:SettingsExpander}" TargetType="settingsExpander:SettingsExpander">
         <Setter Property="Background" Value="{DynamicResource SemiBackground4Color}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource SemiBackground0Color}" />
-        <Setter Property="BorderThickness" Value="1" />
+        
         <Setter Property="Margin" Value="3,0,3,0" />
         <Setter Property="Padding" Value="{DynamicResource SettingsExpanderPadding}" />
         <Setter Property="MinHeight" Value="{DynamicResource SettingsExpanderMinHeight}" />
