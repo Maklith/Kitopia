@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.RateLimiting;
+using System.Xml;
 using Core.SDKs.CustomScenario;
 using KitopiaAvalonia.Tools;
 using log4net;
@@ -27,19 +28,18 @@ internal class IconTools
             QueueLimit = Int32.MaxValue
         })
         .AddRetry(
-        new RetryStrategyOptions()
-        {
-            ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
+            new RetryStrategyOptions()
             {
-                log.Error("错误", exception);
-                return true;
-            }),
-            Delay = TimeSpan.FromSeconds(1),
-            MaxRetryAttempts = 5,
-            BackoffType = DelayBackoffType.Linear,
-            UseJitter = true
-        }).Build();
-
+                ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
+                {
+                    log.Error("错误", exception);
+                    return true;
+                }),
+                Delay = TimeSpan.FromSeconds(1),
+                MaxRetryAttempts = 5,
+                BackoffType = DelayBackoffType.Linear,
+                UseJitter = true
+            }).Build();
     private const uint SHGFI_ICON = 0x100;
     private const uint SHGFI_LARGEICON = 0x0;
     private const uint SHGFI_SMALLICON = 0x000000001;
@@ -68,7 +68,7 @@ internal class IconTools
         IntPtr hIcon //A handle to the icon to be destroyed. The icon must not be in use.
     );
 
-    private static Icon? GetIconBase(string path, string cacheKey, bool mscFile = false)
+    private static Icon? GetIconBase(string path, string cacheKey)
     {
         switch (Path.GetExtension(path))
         {
@@ -92,6 +92,49 @@ internal class IconTools
                 {
                     goto retry;
                 }
+            }
+            case ".msc":
+            {
+                
+                
+                var index = 0;
+                string dllPath;
+                var xd = new XmlDocument();
+                xd.Load(path); //加载xml文档
+                var rootNode = xd.SelectSingleNode("MMC_ConsoleFile"); //得到xml文档的根节点
+                var BinaryStorage = rootNode.SelectSingleNode("VisualAttributes").SelectSingleNode("Icon");
+                index = int.Parse(((XmlElement)BinaryStorage).GetAttribute("Index"));
+                dllPath = ((XmlElement)BinaryStorage).GetAttribute("File");
+
+                dllPath = Environment.SystemDirectory + "\\" + dllPath.Split("\\").Last();
+                path = dllPath;
+                if (cacheKey.Contains("taskschd.msc"))
+                {
+                    index += 1;
+                }
+
+                var iconTotalCount = PrivateExtractIcons(dllPath, index, 0, 0, null!, null!, 0, 0);
+
+                //用于接收获取到的图标指针
+                var hIcons = new IntPtr[iconTotalCount];
+                //对应的图标id
+                var ids = new int[iconTotalCount];
+                //成功获取到的图标个数
+                var successCount = PrivateExtractIcons((string)dllPath, index, 48, 48, hIcons, ids, iconTotalCount, 0);
+                for (var i = 0; i < successCount; i++)
+                {
+                    //指针为空，跳过
+                    if (hIcons[i] == IntPtr.Zero)
+                    {
+                        continue;
+                    }
+
+                    var icon = Icon.FromHandle(hIcons[i]);
+
+                    return icon;
+                }
+                
+                break;
             }
         }
 
