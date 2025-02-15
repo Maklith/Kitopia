@@ -33,6 +33,7 @@ public class PluginManager
     {
         PluginCore.Kitopia.ISearchItemTool =
             (ISearchItemTool)ServiceManager.Services.GetService(typeof(ISearchItemTool))!;
+        PluginCore.Kitopia.IClipboardService = ServiceManager.Services.GetService<IClipboardService>();
         PluginCore.Kitopia.IToastService = (IToastService)ServiceManager.Services.GetService(typeof(IToastService))!;
         PluginCore.Kitopia._i18n = CustomScenarioGloble._i18n;
         PluginCore.Kitopia.ToolTipConverters = CustomScenarioGloble.ToolTipConverters;
