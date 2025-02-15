@@ -874,7 +874,7 @@
                                                                     <StackPanel Margin="10,0,0,0"
                                                                         Orientation="Horizontal"
                                                                         VerticalAlignment="Center"
-                                                                        HorizontalAlignment="Right">
+                                                                        HorizontalAlignment="Left">
                                                                         <TextBlock
                                                                             VerticalAlignment="Center"
 
@@ -1295,7 +1295,7 @@
                                                         <StackPanel Margin="10,0,0,0"
                                                                     Orientation="Horizontal"
                                                                     VerticalAlignment="Center"
-                                                                    HorizontalAlignment="Right">
+                                                                    HorizontalAlignment="Left">
                                                             <TextBlock
                                                                 VerticalAlignment="Center"
 

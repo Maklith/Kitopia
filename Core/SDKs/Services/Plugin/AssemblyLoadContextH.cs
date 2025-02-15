@@ -62,7 +62,9 @@ public class AssemblyLoadContextH : AssemblyLoadContext
         if (assemblyPath != null)
         {
             
-            if (assemblyPath.EndsWith("WinRT.Runtime.dll") || assemblyPath.EndsWith("Microsoft.Windows.SDK.NET.dll")|| assemblyPath.EndsWith("PluginCore.dll")|| assemblyPath.EndsWith("Pinyin.NET.dll") )
+            if (assemblyPath.EndsWith("WinRT.Runtime.dll") || assemblyPath.EndsWith("Microsoft.Windows.SDK.NET.dll")|| 
+                assemblyPath.EndsWith("PluginCore.dll")|| assemblyPath.EndsWith("Pinyin.NET.dll")||
+                assemblyPath.EndsWith("Microsoft.Extensions.Logging.Abstractions.dll")||assemblyPath.EndsWith("Microsoft.Extensions.DependencyInjection.Abstractions.dll"))
             {
                 return null;
             }

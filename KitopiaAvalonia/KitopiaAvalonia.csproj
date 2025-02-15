@@ -72,7 +72,6 @@
         <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="1.8.0" />
         <PackageReference Include="log4net" Version="2.0.17"/>
         <PackageReference Include="Markdown.Avalonia" Version="11.0.3-a1"/>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
         <PackageReference Include="Semi.Avalonia" Version="11.2.1.4" />
         <PackageReference Include="Semi.Avalonia.ColorPicker" Version="11.2.1.4" />
         <PackageReference Include="Semi.Avalonia.DataGrid" Version="11.2.1.4" />

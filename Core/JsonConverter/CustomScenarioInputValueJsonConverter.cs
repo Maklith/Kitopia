@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Core.SDKs.CustomScenario;
@@ -85,6 +86,19 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                                 IsSelf = isSelf
                             };
                         }
+                        else if(realType.IsEnum)
+                        {
+
+                            var o = Enum.ToObject(realType, reader.GetInt32());
+                            reader.Read();
+                            return new CustomScenarioValue
+                            {
+                                Type = type,
+                                RealType = realType,
+                                Value = o,
+                                IsSelf = isSelf
+                            };
+                        }
                         else if (isSelf)
                         {
                             throw new CustomScenarioLoadFromJsonException(
@@ -132,6 +146,10 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
             var jsonConverter = CustomScenarioGloble.JsonConverters[value.RealType];
             var serialize = jsonConverter.Serialize(value.Value);
             writer.WriteStringValue(serialize);
+        }
+        else if(value.RealType.IsEnum)
+        {
+            writer.WriteNumberValue((int)(value.Value));
         }
         else if (value.IsSelf)
         {

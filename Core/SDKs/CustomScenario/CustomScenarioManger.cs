@@ -124,19 +124,7 @@ public static class CustomScenarioManger
                     connectorItem.PluginInputConnector = instance as INodeInputConnector;
                     return;
                 }
-
-                foreach (var keyValuePair in PluginManager.EnablePlugin)
-                    if (keyValuePair.Value.GetType(connectorItem.InputObject.RealType) is { } a)
-                    {
-                        if (a.BaseType.FullName == "System.Enum")
-                        {
-                            connectorItem.InputObject.Value = Enum.Parse(a, connectorItem.InputObject.ToString());
-                            break;
-                        }
-
-                        connectorItem.InputObject.Value = Convert.ChangeType(connectorItem.InputObject.Value, a);
-                        break;
-                    }
+                
             }
 
             foreach (var deserializeObjectNode in deserializeObject.nodes)
