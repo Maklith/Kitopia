@@ -54,6 +54,13 @@ public partial class PluginInfoUiHelper : ObservableObject,IDisposable
             }
         });
     }
+
+    ~PluginInfoUiHelper()
+    {
+        Dispose();
+    }
+
+    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
     public PluginBaseInfo PluginBaseInfo { get; init; }
     
     private Bitmap? _icon;
@@ -63,7 +70,11 @@ public partial class PluginInfoUiHelper : ObservableObject,IDisposable
         {
             if (_icon is null)
             {
-                ResiliencePipeline.ExecuteAsync(GetIcon);
+                if (_cancellationTokenSource.IsCancellationRequested)
+                {
+                    return null;
+                }
+                ResiliencePipeline.ExecuteAsync(GetIcon,_cancellationTokenSource.Token);
             }
             return _icon;
         }
@@ -139,7 +150,11 @@ public partial class PluginInfoUiHelper : ObservableObject,IDisposable
         {
             if (_authorName is null)
             {
-                ResiliencePipeline.ExecuteAsync(GetAuthorName);
+                if (_cancellationTokenSource.IsCancellationRequested)
+                {
+                    return null;
+                }
+                ResiliencePipeline.ExecuteAsync(GetAuthorName,_cancellationTokenSource.Token);
             }
             return _authorName;
         }
@@ -153,6 +168,8 @@ public partial class PluginInfoUiHelper : ObservableObject,IDisposable
     public string CanUpdateVersion{ get; init; }
     public void Dispose()
     {
+        _cancellationTokenSource.Cancel();
+        _cancellationTokenSource.Dispose();
         Icon?.Dispose();
     }
 }
