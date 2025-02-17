@@ -17,6 +17,7 @@ using Core.SDKs.Services.Plugin;
 using Core.SDKs.Tools;
 using Core.SDKs.Tools.Ex;
 using log4net;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
 #endregion
@@ -319,32 +320,18 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
         foreach (var connectorItem in scenarioMethodNode.Input)
         {
-            var plugin = PluginManager.EnablePlugin
-                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.Type.Assembly)
-                .Value;
-            if (plugin is not null)
-                Scenario.PluginUsedCount.DelOrDecrease(scenarioMethodNode.ScenarioMethod.PluginInfo!.ToPlgString());
-
-            var plugin2 = PluginManager.EnablePlugin
-                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.RealType.Assembly)
-                .Value;
-            if (plugin2 is not null)
-                Scenario.PluginUsedCount.DelOrDecrease(scenarioMethodNode.ScenarioMethod.PluginInfo!.ToPlgString());
+            var plugin = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.Type);
+            if (plugin is not null) Scenario.PluginUsedCount.DelOrDecrease(plugin.Value.ToPlgString());
+            var plugin2 = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.RealType);
+            if (plugin2 is not null) Scenario.PluginUsedCount.DelOrDecrease(plugin2.Value.ToPlgString());
         }
 
         foreach (var connectorItem in scenarioMethodNode.Output)
         {
-            var plugin = PluginManager.EnablePlugin
-                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.Type.Assembly)
-                .Value;
-            if (plugin is not null)
-                Scenario.PluginUsedCount.DelOrDecrease(scenarioMethodNode.ScenarioMethod.PluginInfo!.ToPlgString());
-
-            var plugin2 = PluginManager.EnablePlugin
-                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.RealType.Assembly)
-                .Value;
-            if (plugin2 is not null)
-                Scenario.PluginUsedCount.DelOrDecrease(scenarioMethodNode.ScenarioMethod.PluginInfo!.ToPlgString());
+            var plugin = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.Type);
+            if (plugin is not null) Scenario.PluginUsedCount.DelOrDecrease(plugin.Value.ToPlgString());
+            var plugin2 = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.RealType);
+            if (plugin2 is not null) Scenario.PluginUsedCount.DelOrDecrease(plugin2.Value.ToPlgString());
         }
 
         Scenario.nodes.Remove(scenarioMethodNode);

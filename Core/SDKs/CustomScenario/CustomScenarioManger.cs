@@ -177,7 +177,7 @@ public static class CustomScenarioManger
                                 return;
                             }
 
-                            var downloadPluginOnline = await PluginManager.DownloadPluginOnline(onlinePluginInfo);
+                            var downloadPluginOnline = await PluginManager.DownloadPluginAndEnable(onlinePluginInfo.Id,onlinePluginInfo.NameSign,onlinePluginInfo.LastVersionId);
 
                             if (downloadPluginOnline)
                                 ServiceManager.Services.GetService<IToastService>()
@@ -193,10 +193,10 @@ public static class CustomScenarioManger
                 }
                 case CustomScenarioLoadFromJsonFailedType.插件未启用:
                 {
-                    var pluginByPlgStr = PluginManager.GetPluginByPlgStr(e1.PluginName);
+                    var pluginByPlgStr = PluginManager.GetPluginLocalInfoByPlgStr(e1.PluginName);
 
                     var content =
-                        $"对应文件\n{fileInfo.FullName}\n情景所需的插件未启用\n需要插件{pluginByPlgStr.Name}(ID:{pluginByPlgStr.Id})";
+                        $"对应文件\n{fileInfo.FullName}\n情景所需的插件未启用\n需要插件{pluginByPlgStr.PluginBaseInfo.Name}(ID:{pluginByPlgStr.PluginBaseInfo.Id})";
 
                     var dialog = new DialogContent()
                     {
@@ -204,7 +204,7 @@ public static class CustomScenarioManger
                         Content = content,
                         PrimaryButtonText = "启用该插件",
                         CloseButtonText = "我知道了",
-                        PrimaryAction = () => { PluginManager.EnablePluginByInfo(pluginByPlgStr); }
+                        PrimaryAction = () => { PluginManager.EnablePlugin(pluginByPlgStr); }
                     };
                     ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
                         dialog);

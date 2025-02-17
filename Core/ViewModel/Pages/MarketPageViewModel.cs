@@ -13,7 +13,6 @@ using Avalonia.Styling;
 using AvaloniaEdit.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Core.AvaloniaControl.PluginManagerPage;
 using Core.SDKs;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
@@ -24,6 +23,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PluginCore;
 using SixLabors.ImageSharp;
+using Ursa.Controls;
 using Bitmap = Avalonia.Media.Imaging.Bitmap;
 using Image = SixLabors.ImageSharp.Image;
 using JsonSerializer = System.Text.Json.JsonSerializer;
@@ -31,37 +31,21 @@ using Point = Avalonia.Point;
 
 namespace Core.ViewModel.Pages;
 
-public class ApiResponse
-{
-    public bool flag { get; set; }
-    public List<OnlinePluginInfo> data { get; set; }
-}
 
-public partial class OnlinePluginInfo : ObservableObject
+
+public partial class OnlinePluginInfo 
 {
+    internal class ApiResponse
+    {
+        public bool flag { get; set; }
+        public List<OnlinePluginInfo> data { get; set; }
+    }
     public int Id { set; get; }
 
-    public string AuthorName
-    {
-        set => throw new NotImplementedException();
-        get
-        {
-            var request = new HttpRequestMessage()
-            {
-                RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/user/baseInfo"),
-                Method = HttpMethod.Get
-            };
-            request.Headers.Add("id", AuthorId.ToString());
-            var async = PluginManager._httpClient.SendAsync(request).GetAwaiter().GetResult();
-            var stringAsync = async.Content.ReadAsStringAsync().Result;
-            var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
-
-            return deserializeObject["data"]["userName"].ToString();
-        }
-    }
+   
 
     public int AuthorId { set; get; }
-    [ObservableProperty] public Bitmap? _icon;
+    
 
     public string Name { set; get; }
     public string NameSign { set; get; }
@@ -73,17 +57,7 @@ public partial class OnlinePluginInfo : ObservableObject
     public string DescriptionShort { set; get; }
     public string Description { set; get; }
     public List<string> SupportSystems { set; get; }
-
-    public bool InLocal
-    {
-        get { return PluginManager.AllPluginInfos.Any(x => x.NameSign == NameSign); }
-    }
-
-    public void Upadate()
-    {
-        OnPropertyChanged(nameof(InLocal));
-    }
-
+    
     public string ToPlgString()
     {
         return $"{Id}_{AuthorId}_{NameSign}";
@@ -93,11 +67,22 @@ public partial class OnlinePluginInfo : ObservableObject
     {
         return ToPlgString();
     }
+
+    public PluginBaseInfo ToPluginBaseInfo()
+    {
+        return new PluginBaseInfo()
+        {
+            Id = Id,
+            AuthorId = AuthorId,
+            Name = Name,
+            NameSign = NameSign
+        };
+    }
 }
 
 public partial class MarketPageViewModel : ObservableObject
 {
-    [ObservableProperty] private ObservableCollection<OnlinePluginInfo> _plugins = new();
+    [ObservableProperty] private ObservableCollection<PluginInfoUiHelper> _plugins = new();
 
     public MarketPageViewModel()
     {
@@ -117,16 +102,20 @@ public partial class MarketPageViewModel : ObservableObject
         {
             PropertyNameCaseInsensitive = true
         };
-        var apiResponse = JsonSerializer.Deserialize<ApiResponse>(stringAsync, options);
+        var apiResponse = JsonSerializer.Deserialize<OnlinePluginInfo.ApiResponse>(stringAsync, options);
         if (apiResponse != null && apiResponse.data != null)
             for (var i = 0; i < apiResponse.data.Count; i++)
-                Plugins.Add(apiResponse.data[i]);
+                Plugins.Add(new PluginInfoUiHelper()
+                {
+                    PluginBaseInfo = apiResponse.data[i].ToPluginBaseInfo(),
+                    OnlinePluginInfo = apiResponse.data[i]
+                });
     }
 
     [RelayCommand]
     private async Task<bool> DownloadPlugin(OnlinePluginInfo plugin)
     {
-        return await PluginManager.DownloadPluginOnline(plugin);
+        return await PluginManager.DownloadPluginOnline(plugin.Id,plugin.NameSign,plugin.LastVersionId);
     }
 
     [RelayCommand]
@@ -184,7 +173,7 @@ public partial class MarketPageViewModel : ObservableObject
                 });
             }
 
-            var pluginDetail = new AvaloniaControl.MarketPage.PluginDetail();
+            /*var pluginDetail = new AvaloniaControl.MarketPage.PluginDetail();
             pluginDetail.DataContext = pluginInfo;
             pluginDetail.Content = stackPanel;
             var dialog = new DialogContent()
@@ -192,10 +181,25 @@ public partial class MarketPageViewModel : ObservableObject
                 Content = pluginDetail,
                 Title = "插件详细信息"
             };
-
-
+            var options = new OverlayDialogOptions()
+            {
+                FullScreen = FullScreen,
+                HorizontalAnchor = HorizontalAnchor,
+                VerticalAnchor = VerticalAnchor,
+                HorizontalOffset = HorizontalOffset,
+                VerticalOffset = VerticalOffset,
+                Title = Title,
+                CanLightDismiss = CanLightDismiss,
+                CanDragMove = CanDragMove,
+                IsCloseButtonVisible = IsCloseButtonVisible,
+                CanResize = CanResize,
+            };
+            if (IsModal)
+            {
+                await OverlayDialog.ShowCustomModal<PluginDetail, OnlinePluginInfo, object>(pluginDetail, dialogHostId, options: options);
+            }
             ServiceManager.Services!.GetService<IContentDialog>()!.ShowDialogAsync(childOfType,
-                dialog, true);
+                dialog, true);*/
         }
     }
 }

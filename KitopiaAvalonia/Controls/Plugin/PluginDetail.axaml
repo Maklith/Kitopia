@@ -7,26 +7,26 @@
              xmlns:pages="clr-namespace:Core.ViewModel.Pages"
              xmlns:pluginManagerPage111="clr-namespace:Core.AvaloniaControl.MarketPage"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:DataType="pages:OnlinePluginInfo"
+             
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch"
              HorizontalContentAlignment="Stretch"
              VerticalContentAlignment="Stretch"
              x:Class="Core.AvaloniaControl.MarketPage.PluginDetail">
     <UserControl.Resources>
-        <pluginManagerPage111:IconCtr x:Key="IconCtr" />
+       
     </UserControl.Resources>
-    <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
+    <!--<Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
             CornerRadius="{DynamicResource RadiusCardCornerRadius}"
             HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch" x:DataType="pages:OnlinePluginInfo">
+            VerticalAlignment="Stretch" >
         <Panel>
             <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
-                  ColumnDefinitions="80,*" x:DataType="pages:OnlinePluginInfo"
+                  ColumnDefinitions="80,*" 
 
                   RowDefinitions="*,48">
                 <Image Grid.Column="0" HorizontalAlignment="Center" Margin="0,15,0,0"
-                       VerticalAlignment="Top" Focusable="False" Width="64" x:DataType="pages:OnlinePluginInfo"
+                       VerticalAlignment="Top" Focusable="False" Width="64" 
                        Source="{Binding Icon,Converter={StaticResource IconCtr},ConverterParameter={Binding .}}"
                        Height="64" />
                 <StackPanel Grid.Column="1" Margin="0,15,0,5" VerticalAlignment="Top" Spacing="5"
@@ -74,5 +74,5 @@
 
         </Panel>
 
-    </Border>
+    </Border>-->
 </UserControl>

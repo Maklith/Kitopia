@@ -7,9 +7,6 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="pages:MarketPageViewModel"
              x:Class="KitopiaAvalonia.Pages.MarketPage">
-    <UserControl.Resources>
-        <marketPage:IconCtr x:Key="IconCtr" />
-    </UserControl.Resources>
     <Panel>
         <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
 
@@ -33,9 +30,7 @@
                                           RowDefinitions="*,48">
                                         <Image Grid.Column="0" HorizontalAlignment="Center" Margin="0,15,0,0"
                                                VerticalAlignment="Top" Focusable="False" Width="64"
-                                               Source="{Binding Icon,
-                                                Converter={StaticResource IconCtr},
-                                                ConverterParameter={Binding .}}"
+                                               Source="{Binding Icon}"
                                                Height="64" />
                                         <StackPanel Grid.Column="1" Margin="0,15,0,5" VerticalAlignment="Top"
                                                     Spacing="5"
@@ -44,12 +39,12 @@
                                                     HorizontalAlignment="Left"
                                                     Theme="{DynamicResource BorderlessButton}" Padding="0"
                                                     MinHeight="0"
-                                                    Content="{Binding Name}"
+                                                    Content="{Binding PluginBaseInfo.Name}"
                                                     FontWeight="Normal" FontSize="18"
                                                     Foreground="{DynamicResource DefaultForeground}"
                                                     Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).ShowPluginDetailCommand}"
                                                     CommandParameter="{Binding $self}" />
-                                            <ItemsControl ItemsSource="{Binding SupportSystems}">
+                                            <ItemsControl ItemsSource="{Binding OnlinePluginInfo.SupportSystems}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="x:String">
                                                         <Label Theme="{StaticResource TagLabel}" Content="{Binding .}"
@@ -60,7 +55,7 @@
                                             </ItemsControl>
                                             <StackPanel Orientation="Horizontal" Spacing="5">
                                                 <TextBlock VerticalAlignment="Top"
-                                                           Text="{Binding LastVersion}" />
+                                                           Text="{Binding OnlinePluginInfo.LastVersion}" />
                                                 <TextBlock VerticalAlignment="Top"
                                                            Text="{Binding AuthorName}" />
                                             </StackPanel>
@@ -71,7 +66,7 @@
                                                 <TextBlock VerticalAlignment="Center"
                                                            MaxWidth="{Binding $parent.Bounds.Width}"
                                                            TextWrapping="Wrap"
-                                                           Text="{Binding DescriptionShort}" />
+                                                           Text="{Binding OnlinePluginInfo.DescriptionShort}" />
                                             </ScrollViewer>
 
 

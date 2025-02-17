@@ -24,6 +24,7 @@ public class Plugin
     private static readonly ILog Log = LogManager.GetLogger(nameof(Plugin));
 
     private AssemblyLoadContextH? _plugin;
+    private IPlugin _pluginService;
 
     public IServiceProvider? ServiceProvider;
 
@@ -79,7 +80,7 @@ public class Plugin
             });
     }
 
-    public Plugin(PluginInfo pluginInfo)
+    public Plugin(PluginLocalInfo pluginInfo)
     {
         _plugin = new AssemblyLoadContextH(pluginInfo.FullPath, pluginInfo.FullPath.Split(Path.DirectorySeparatorChar)
             .Last() + "_plugin");
@@ -102,13 +103,14 @@ public class Plugin
                     .Invoke(null, null);
 
                 var service = ServiceProvider.GetService(type);
-                ((IPlugin)service).OnEnabled(ServiceProvider);
+                _pluginService = ((IPlugin)service);
+                _pluginService.OnEnabled(ServiceProvider);
                 break;
             }
 
         ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.Childrens.Add(PluginInfo.ToPlgString(),
             pluginMainScenarioMethodCategoryGroup);
-        pluginMainScenarioMethodCategoryGroup.Name = PluginInfo.Name;
+        pluginMainScenarioMethodCategoryGroup.Name = PluginInfo.PluginBaseInfo.Name;
 
         foreach (var type in t)
         {
@@ -217,7 +219,7 @@ public class Plugin
 
     public Assembly? _dll => _plugin.Assembly;
 
-    public PluginInfo PluginInfo { set; get; }
+    public PluginLocalInfo PluginInfo { set; get; }
 
 
     public Type? GetType(string typeName)
@@ -281,24 +283,17 @@ public class Plugin
 
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void UnloadByPluginInfo(string pluginInfoEx, out WeakReference weakReference)
+    internal static void UnloadByPluginInfo(string pluginInfoEx, out WeakReference weakReference)
     {
-        if (PluginManager.EnablePlugin.ContainsKey(pluginInfoEx))
+        var plugin = PluginManager.GetPlugin(pluginInfoEx);
+        if (plugin is not null)
         {
-            PluginManager.EnablePlugin[pluginInfoEx]
-                .Unload(out weakReference);
+            plugin.Unload(out weakReference);
 
             return;
         }
 
         weakReference = new WeakReference(null);
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void Load(PluginInfo pluginInfoEx)
-    {
-        PluginManager.EnablePlugin.Add(pluginInfoEx.ToPlgString(),
-            new Plugin(pluginInfoEx));
     }
 
     public void Unload(out WeakReference weakReference)
@@ -317,7 +312,9 @@ public class Plugin
 
 
         CustomScenarioManger.UnloadByPlugStr(PluginInfo.ToPlgString());
-
+            
+        _pluginService.OnDisabled();
+        _pluginService = null;
         PluginInfo = null;
         ServiceProvider = null;
 

@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using Core.SDKs.Services.Config;
@@ -40,7 +41,7 @@ public partial class PluginDetail : UserControl
         base.OnAttachedToVisualTree(e);
         if (DataContext is not OnlinePluginInfo pluginInfo) return;
 
-        Task.Run(async () =>
+        /*Task.Run(async () =>
         {
             var request = new HttpRequestMessage()
             {
@@ -53,6 +54,6 @@ public partial class PluginDetail : UserControl
             var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
             var list = deserializeObject["data"]["description"].ToString();
             await Dispatcher.UIThread.InvokeAsync(() => { SetValue(MarkdownProperty, list); });
-        });
+        });*/
     }
 }

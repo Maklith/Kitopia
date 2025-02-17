@@ -55,7 +55,7 @@
                 </TextBlock.IsVisible>
             </TextBlock>
 
-            <Border Grid.Column="2" Padding="6" >
+            <Border Grid.Column="2" Padding="6">
                 <AutoCompleteBox Name="SearchBox"
                                  MaxWidth="500"
                                  Watermark="Search">
@@ -68,8 +68,9 @@
         </Grid>
     </u:UrsaWindow.TitleBarContent>
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,*" Margin="5,40,5,5" ColumnSpan="5">
-        <Border Grid.Row="1" Grid.Column="0" Padding="1" VerticalAlignment="Stretch" Theme="{DynamicResource CardBorder1}">
-            
+        <Border Grid.Row="1" Grid.Column="0" Padding="1" VerticalAlignment="Stretch"
+                Theme="{DynamicResource CardBorder1}">
+
             <u:NavMenu Name="NavView"
                        IsHorizontalCollapsed="True"
                        CanToggle="False"
@@ -126,10 +127,15 @@
             </u:NavMenu>
         </Border>
         <Border Grid.Row="1" Grid.Column="1" Padding="3" Theme="{DynamicResource CardBorder1}">
-            <ContentPresenter 
-                                      Content="{Binding Content,Converter={StaticResource ViewLocator}}" />
+            <Panel>
+                <ContentPresenter
+                    Content="{Binding Content,Converter={StaticResource ViewLocator}}" />
+                <u:OverlayDialogHost HostId="LocalHost">
+                    
+                </u:OverlayDialogHost>
+            </Panel>
         </Border>
-        
+
 
     </Grid>
 

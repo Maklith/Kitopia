@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:plugin="clr-namespace:Core.ViewModel.Pages.plugin;assembly=Core"
-             xmlns:pluginManagerPage1="clr-namespace:KitopiaAvalonia.Converter.PluginManagerPage;assembly=Core"
+            
              xmlns:plugin1="clr-namespace:Core.SDKs.Services.Plugin;assembly=Core"
              xmlns:pages="clr-namespace:Core.ViewModel.Pages;assembly=Core"
              xmlns:sdKs="clr-namespace:Core.SDKs;assembly=PluginCore"
@@ -16,7 +16,7 @@
 
     <UserControl.Resources>
 
-        <pluginManagerPage1:IconCtr x:Key="IconCtr" />
+      
         <onnxModelManagerPage:ModelInfoToRuntimeChangerCtr x:Key="ModelInfoToRuntimeChangerCtr" />
         <onnxModelManagerPage:OnnxModelInfoWrapperToHelper x:Key="OnnxModelInfoWrapperToHelper" />
         <onnxModelManagerPage:OnnxModelInfoWrapperToModelSizeCtr x:Key="OnnxModelInfoWrapperToModelSizeCtr" />

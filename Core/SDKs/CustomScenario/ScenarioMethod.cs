@@ -18,7 +18,7 @@ public class ScenarioMethod
     {
     }
 
-    public ScenarioMethod(MethodInfo method, PluginInfo pluginInfo, ScenarioMethodAttribute attribute,
+    public ScenarioMethod(MethodInfo method, PluginLocalInfo pluginInfo, ScenarioMethodAttribute attribute,
         ScenarioMethodType type, IServiceProvider serviceProvider)
     {
         Method = method;
@@ -43,7 +43,7 @@ public class ScenarioMethod
     public string ValueName { get; set; }
     [JsonIgnore] public Type ValueDataType { get; set; }
     [JsonIgnore] public MethodInfo Method { get; set; }
-    public PluginInfo? PluginInfo { get; set; }
+    public PluginLocalInfo? PluginInfo { get; set; }
 
     [JsonConverter(typeof(ScenarioMethodAttributeJsonCtr))]
     public ScenarioMethodAttribute Attribute { get; set; }

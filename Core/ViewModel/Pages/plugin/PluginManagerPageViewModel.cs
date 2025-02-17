@@ -15,7 +15,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Core.AvaloniaControl.PluginManagerPage;
+
 using Core.SDKs;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
@@ -34,15 +34,20 @@ using Path = System.IO.Path;
 
 namespace Core.ViewModel.Pages.plugin;
 
+ 
 public partial class PluginManagerPageViewModel : ObservableRecipient
 {
     private static readonly ILog Log = LogManager.GetLogger(nameof(PluginManagerPageViewModel));
     private readonly TaskScheduler _scheduler = TaskScheduler.FromCurrentSynchronizationContext();
-    public ObservableCollection<PluginInfo> Items => PluginManager.AllPluginInfos;
+    public ObservableCollection<PluginInfoUiHelper> Items => new ObservableCollection<PluginInfoUiHelper>(PluginManager.GetPluginLocalInfos().Select(e=>new PluginInfoUiHelper()
+    {
+        PluginBaseInfo = e.PluginBaseInfo,
+        PluginLocalInfo = e
+    }).ToList());
 
     public PluginManagerPageViewModel()
     {
-        PluginManager.CheckAllUpdate();
+       // PluginManager.CheckAllUpdate();
     }
 
     [RelayCommand]
@@ -52,58 +57,47 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     }
 
     [RelayCommand]
-    private void Delete(PluginInfo pluginInfoEx)
+    private void Delete(PluginInfoUiHelper pluginInfoEx)
     {
-        PluginManager.DeletePlugin(pluginInfoEx);
+        PluginManager.DeletePlugin(pluginInfoEx.PluginLocalInfo);
     }
 
     [RelayCommand]
-    public void Switch(PluginInfo pluginInfoEx)
+    public void Switch(PluginInfoUiHelper pluginInfoUi)
     {
+        var pluginInfoEx = pluginInfoUi.PluginLocalInfo;
+        Log.Debug(pluginInfoEx.IsEnabled);
         if (pluginInfoEx.IsEnabled)
             //卸载插件
             PluginManager.UnloadPlugin(pluginInfoEx);
         else
             //加载插件
             //Plugin.NewPlugin(pluginInfoEx.Path, out var weakReference);
-            PluginManager.EnablePluginByInfo(pluginInfoEx);
+            PluginManager.EnablePlugin(pluginInfoEx);
+        
+        Log.Debug(pluginInfoEx.IsEnabled);
     }
 
     [RelayCommand]
-    public async Task Update(PluginInfo pluginInfoEx)
+    public async Task Update(PluginInfoUiHelper pluginInfoEx)
     {
-        var httpResponseMessage = PluginManager._httpClient
-            .GetAsync($"{ConfigManger.ApiUrl}/api/plugin/{pluginInfoEx.Id}").Result;
-        var httpContent = httpResponseMessage.Content.ReadAsStringAsync().Result;
-        var deserializeObject = (JObject)JsonConvert.DeserializeObject(httpContent);
-        pluginInfoEx.UpdateTargetVersion = deserializeObject["data"]["lastVersionId"].ToObject<int>();
-
-        PluginManager.UnloadPlugin(pluginInfoEx);
-
-        if (!pluginInfoEx.UnloadFailed)
-        {
-            await PluginManager.DownloadPluginOnline(pluginInfoEx);
-            var pluginInfoEx2 =
-                PluginManager.AllPluginInfos.FirstOrDefault(e => e.ToPlgString() == pluginInfoEx.ToPlgString());
-            if (pluginInfoEx2 is null) return;
-            PluginManager.EnablePluginByInfo(pluginInfoEx);
-        }
+        await PluginManager.Update(pluginInfoEx.PluginBaseInfo.Id, pluginInfoEx.PluginBaseInfo.NameSign);
     }
 
 
     [RelayCommand]
-    public void ToPluginSettingPage(PluginInfo pluginInfoEx)
+    public void ToPluginSettingPage(PluginInfoUiHelper pluginInfoEx)
     {
-        if (!pluginInfoEx.IsEnabled) return;
+        if (!pluginInfoEx.PluginLocalInfo.IsEnabled) return;
 
         ((INavigationPageService)ServiceManager.Services!.GetService(typeof(INavigationPageService))).Navigate(
-            $"PluginSettingSelectPage_{pluginInfoEx.ToPlgString()}");
+            $"PluginSettingSelectPage_{pluginInfoEx.PluginLocalInfo.ToPlgString()}");
     }
 
     [RelayCommand]
     private async Task ShowPluginVersionInfo(Control control)
     {
-        if (control.DataContext is PluginInfo pluginInfo)
+        /*if (control.DataContext is PluginInfo pluginInfo)
         {
             var request = new HttpRequestMessage()
             {
@@ -150,13 +144,13 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
 
             ServiceManager.Services!.GetService<IContentDialog>()!.ShowDialogAsync(childOfType,
                 dialog, true);
-        }
+        }*/
     }
 
     [RelayCommand]
     private async Task ShowPluginDetail(Control control)
     {
-        if (control.DataContext is PluginInfo pluginInfo)
+        /*if (control.DataContext is PluginInfo pluginInfo)
         {
             var stackPanel = new StackPanel();
             stackPanel.Spacing = 4;
@@ -220,6 +214,6 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
 
             ServiceManager.Services!.GetService<IContentDialog>()!.ShowDialogAsync(childOfType,
                 dialog, true);
-        }
+        }*/
     }
 }

@@ -155,7 +155,7 @@ public class MqttManager
                         break;
                     }
 
-                    PluginManager.DownloadPluginOnline(onlinePluginInfo,
+                    PluginManager.DownloadPluginOnline(onlinePluginInfo.Id,onlinePluginInfo.NameSign,
                         int.Parse(jObject["pluginVersionInt"].ToString()));
                     ServiceManager.Services.GetService<IToastService>().Show("来自URL的操作",
                         $"下载安装插件{onlinePluginInfo.Name}ID:{jObject["pluginVersionInt"]}成功");

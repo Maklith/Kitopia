@@ -55,16 +55,16 @@ public class KitopiaConfig : ConfigBase
 
     public List<string> customCollections = new();
 
-    public List<PluginInfo> EnabledPluginInfos = new()
+    public List<PluginBaseInfo> EnabledPluginInfos = new()
     {
-        new PluginInfo()
+        new PluginBaseInfo()
         {
             Id=7,
             AuthorName= "Kitopia",
             AuthorId= 1,
             NameSign= "kitopiaex",
         },
-        new PluginInfo()
+        new PluginBaseInfo()
         {
             Id=2,
             AuthorName= "Kitopia",

@@ -271,15 +271,11 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 isPluginInputConnector = connectorItem.isPluginInputConnector,
                 PluginInputConnector = connectorItem.PluginInputConnector
             });
-            var plugin = PluginManager.EnablePlugin
-                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.Type.Assembly)
-                .Value;
-            if (plugin is not null) pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
-
-            var plugin2 = PluginManager.EnablePlugin
-                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.RealType.Assembly)
-                .Value;
-            if (plugin2 is not null) pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
+            
+            var plugin = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.Type);
+            if (plugin is not null) pluginUsedCount.AddOrIncrease(plugin.Value.ToPlgString());
+            var plugin2 = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.RealType);
+            if (plugin2 is not null) pluginUsedCount.AddOrIncrease(plugin2.Value.ToPlgString());
         }
 
         ObservableCollection<ConnectorItem> output = new();
@@ -310,15 +306,10 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 connectorItem1.Interfaces = interfaces;
             }
 
-            var plugin = PluginManager.EnablePlugin
-                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.Type.Assembly)
-                .Value;
-            if (plugin is not null) pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
-
-            var plugin2 = PluginManager.EnablePlugin
-                .FirstOrDefault((e) => e.Value._dll == connectorItem.InputObject.RealType.Assembly)
-                .Value;
-            if (plugin2 is not null) pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
+            var plugin = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.Type);
+            if (plugin is not null) pluginUsedCount.AddOrIncrease(plugin.Value.ToPlgString());
+            var plugin2 = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.RealType);
+            if (plugin2 is not null) pluginUsedCount.AddOrIncrease(plugin2.Value.ToPlgString());
 
             output.Add(connectorItem1);
         }

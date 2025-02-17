@@ -13,7 +13,7 @@ public class OnnxModelInfoWrapperToModelSizeCtr : IValueConverter
     {
         if (value is OnnxModelInfoWrapper onnxModelInfoWrapper)
         {
-            var path = PluginManager.GetPluginByPlgStr(onnxModelInfoWrapper.PluginStr).Path;
+            var path = PluginManager.GetPluginLocalInfoByPlgStr(onnxModelInfoWrapper.PluginStr).Path;
             var fileInfo = new FileInfo($"{path}{onnxModelInfoWrapper.Model.ModelPath}");
             if (fileInfo.Exists)
             {

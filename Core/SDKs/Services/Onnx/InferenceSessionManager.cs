@@ -19,7 +19,7 @@ public class InferenceSessionManager: IInferenceSessionManager
             throw new Exception($"目标推理环境{target}不存在");
         }
         var onnxRuntime = PluginOverall.OnnxRuntimes[target].Invoke();
-        var path = PluginManager.GetPluginByPlgStr(onnxModelInfoWrapper.PluginStr).Path;
+        var path = PluginManager.GetPluginLocalInfoByPlgStr(onnxModelInfoWrapper.PluginStr).Path;
         onnxRuntime.InitSession($"{path}{onnxModelInfoWrapper.Model.ModelPath}");
         return onnxRuntime;
     }

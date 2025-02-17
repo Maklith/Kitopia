@@ -24,7 +24,7 @@ public static class ConfigManger
     public static Version Version = new("1.0.0");
     public static string ApiUrl = "https://api.kitopia.top:5111";
     public static Dictionary<string, ConfigBase> Configs = new();
-    public static KitopiaConfig? Config => Configs["KitopiaConfig"] as KitopiaConfig ?? null;
+    public static KitopiaConfig Config => (KitopiaConfig)Configs["KitopiaConfig"] ;
     private static readonly ILog log = LogManager.GetLogger(nameof(ConfigManger));
     private static readonly Dictionary<HotKeyModel, (object, FieldInfo)> hotkeysMappings = new();
 

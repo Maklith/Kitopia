@@ -13,18 +13,18 @@ public class ScenarioMethodJsonCtr : JsonConverter<ScenarioMethod>
         var scenario = JsonSerializer.Deserialize<ScenarioMethod>(ref reader, options)!;
         if (scenario.IsFromPlugin)
         {
-            if (!PluginManager.EnablePlugin.ContainsKey(scenario.PluginInfo!.ToPlgString()))
+            
+            if (PluginManager.GetPluginLocalInfoOnlyOnEnableByPlgStr(scenario.PluginInfo!.ToPlgString()) is null )
             {
-                if (PluginManager.AllPluginInfos.Any(e => e.ToPlgString() == scenario.PluginInfo!.ToPlgString()))
+                if (PluginManager.GetPluginLocalInfoByPlgStr(scenario.PluginInfo!.ToPlgString()) is not null )
                     throw new CustomScenarioLoadFromJsonException(CustomScenarioLoadFromJsonFailedType.插件未启用,
                         scenario.PluginInfo.ToPlgString(), null);
                 throw new CustomScenarioLoadFromJsonException(CustomScenarioLoadFromJsonFailedType.插件未找到,
                     scenario.PluginInfo.ToPlgString(), null);
             }
 
-            scenario.ServiceProvider = PluginManager.EnablePlugin[scenario.PluginInfo!.ToPlgString()].ServiceProvider!;
-            scenario.Method = PluginManager.EnablePlugin[scenario.PluginInfo.ToPlgString()]
-                .GetMethod(scenario._methodAbsolutelyName);
+            scenario.ServiceProvider = PluginManager.GetServiceProvider(scenario.PluginInfo!.ToPlgString());
+            scenario.Method = PluginManager.GetMethodInfo(scenario.PluginInfo!.ToPlgString(), scenario._methodAbsolutelyName);
         }
 
         return scenario;

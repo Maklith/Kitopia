@@ -12,7 +12,7 @@ public class PluginStrToPluginName:IValueConverter
     {
         if (value is string plgStr)
         {
-            return PluginManager.GetPluginByPlgStr(plgStr)?.Name;
+            return PluginManager.GetPluginLocalInfoByPlgStr(plgStr)?.PluginBaseInfo.Name;
         }
 
         return null;

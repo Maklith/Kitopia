@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using KitopiaEx.CustomScenarioValueSerializer;
 using KitopiaEx.ImagePin;
 using KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
@@ -62,6 +63,8 @@ public class KitopiaEx : IPlugin
     public void OnDisabled()
     {
         Kitopia.JsonConverters.Remove(typeof(ScreenCaptureInfo));
+        Kitopia.ToolTipConverters.Remove(typeof(ScreenCaptureInfo));
+        Kitopia.ToolTipConverters.Remove(typeof(ScreenCaptureResult));
     }
 
     public static IServiceProvider GetServiceProvider()
