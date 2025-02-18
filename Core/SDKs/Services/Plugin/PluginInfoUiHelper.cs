@@ -68,13 +68,18 @@ public partial class PluginInfoUiHelper : ObservableObject,IDisposable
     {
         get
         {
+            
             if (_icon is null)
             {
-                if (_cancellationTokenSource.IsCancellationRequested)
+                lock (_cancellationTokenSource)
                 {
-                    return null;
+                    if (_cancellationTokenSource.IsCancellationRequested)
+                    {
+                        return null;
+                    }
+                    ResiliencePipeline.ExecuteAsync(GetIcon,_cancellationTokenSource.Token);
                 }
-                ResiliencePipeline.ExecuteAsync(GetIcon,_cancellationTokenSource.Token);
+               
             }
             return _icon;
         }
@@ -150,11 +155,15 @@ public partial class PluginInfoUiHelper : ObservableObject,IDisposable
         {
             if (_authorName is null)
             {
-                if (_cancellationTokenSource.IsCancellationRequested)
+                lock (_cancellationTokenSource)
                 {
-                    return null;
+                    if (_cancellationTokenSource.IsCancellationRequested)
+                    {
+                        return null;
+                    }
+                    ResiliencePipeline.ExecuteAsync(GetAuthorName,_cancellationTokenSource.Token);
                 }
-                ResiliencePipeline.ExecuteAsync(GetAuthorName,_cancellationTokenSource.Token);
+                
             }
             return _authorName;
         }
