@@ -51,8 +51,11 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("允许程序调用Everything索引的文件类型", "设置Everything检索的文件类型,注意已索引的项目仅当重启软件后消失", 0xf8cb, ConfigFieldType.字符串列表支持添加)]
     public ObservableCollection<string> everythingSearchExtensions =
         ["*.docx", "*.doc", "*.xls", "*.xlsx", "*.pdf", "*.ppt", "*.pptx"];
-
-
+    
+    [ConfigField("调用Everything直接搜索文件前缀", "如果搜索内容直接以该前缀开始,直接调用Everything而不是程序内置索引", 0xf8cb, ConfigFieldType.字符串)]
+    public string everythingSearchPreString = "@";
+    [ConfigField("调用Everything直接搜索文件最大数量", "设置调用Everything直接搜索文件最大数量", 0xf8cb, ConfigFieldType.整数, null, 1000, 5, 5)]
+    public int everythingSearchMaxCount =50;
     public List<string> customCollections = new();
 
     public List<PluginBaseInfo> EnabledPluginInfos = new()

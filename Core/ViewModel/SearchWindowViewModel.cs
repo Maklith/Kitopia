@@ -15,7 +15,6 @@ using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Plugin;
 using Core.SDKs.Tools;
 using log4net;
-using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;
 using PluginCore;
 using Math = Core.SDKs.Tools.Math;
@@ -74,7 +73,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
     public void AddCollection(string search)
     {
-        ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AppSolverA(_collection, search, false);
+        ServiceManager.Services.GetService<IAppToolService>()!.AppSolverA(_collection, search, false);
     }
 
     public void ReloadApps(bool logging = false)
@@ -82,8 +81,8 @@ public partial class SearchWindowViewModel : ObservableRecipient
         if (_reloading) return;
 
         _reloading = true;
-        ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.DelNullFile(_collection);
-        ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.GetAllApps(_collection, logging,
+        ServiceManager.Services.GetService<IAppToolService>()!.DelNullFile(_collection);
+        ServiceManager.Services.GetService<IAppToolService>()!.GetAllApps(_collection, logging,
             ConfigManger.Config.useEverything);
 
         if (ConfigManger.Config.useEverything && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -91,15 +90,15 @@ public partial class SearchWindowViewModel : ObservableRecipient
             Log.Debug("everything检测");
 
 
-            var service = ServiceProviderServiceExtensions.GetService<IEverythingService>(ServiceManager.Services)!;
-            EverythingIsOk = service.isRun();
+            var service = ServiceManager.Services.GetService<IEverythingService>()!;
+            EverythingIsOk = service.IsRun();
 
             if (!EverythingIsOk.Value)
-                ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AutoStartEverything(_collection, () =>
+                ServiceManager.Services.GetService<IAppToolService>()!.AutoStartEverything(_collection, () =>
                 {
                     Thread.Sleep(1500);
-                    var everythingService = ServiceProviderServiceExtensions.GetService<IEverythingService>(ServiceManager.Services)!;
-                    EverythingIsOk = everythingService.isRun();
+                    var everythingService = ServiceManager.Services.GetService<IEverythingService>()!;
+                    EverythingIsOk = everythingService.IsRun();
                 });
         }
 
@@ -110,7 +109,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             var keys = new List<List<string>>();
             foreach (var key in scenario.Keys) keys.Add([key]);
 
-            keys.AddRange(ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)
+            keys.AddRange(ServiceManager.Services.GetService<IAppToolService>()
                 .GetPinyin(scenario.Name)
                 .Keys);
             var viewItem1 = new SearchViewItem()
@@ -140,13 +139,13 @@ public partial class SearchWindowViewModel : ObservableRecipient
             Log.Debug("没有读取剪贴板授权");
             return;
         }
-        var data = ServiceProviderServiceExtensions.GetService<IClipboardService>(ServiceManager.Services)!
+        var data = ServiceManager.Services.GetService<IClipboardService>()!
             .HasText();
         try
         {
             if (data)
             {
-                var text = ServiceProviderServiceExtensions.GetService<IClipboardService>(ServiceManager.Services)!
+                var text = ServiceManager.Services.GetService<IClipboardService>()!
                     .GetText();
                 if (text.StartsWith("\"")) text = text.Replace("\"", "");
 
@@ -159,7 +158,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         }
 
 
-        if (ServiceProviderServiceExtensions.GetService<IClipboardService>(ServiceManager.Services!)!.HasImage())
+        if (ServiceManager.Services.GetService<IClipboardService>()!.HasImage())
         {
             Log.Debug("剪贴板有图像信息");
 
@@ -194,7 +193,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             var fileInfo = new FileInfo(text);
             Log.Debug($"检测路径{fileInfo.FullName}");
             ConcurrentDictionary<string, SearchViewItem> a = new();
-            ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AppSolverA(a, fileInfo.FullName);
+            ServiceManager.Services.GetService<IAppToolService>()!.AppSolverA(a, fileInfo.FullName);
             foreach (var (key, value) in a)
             {
                 value.ItemDisplayName = value.FileType == FileType.应用程序 ? $"运行程序: {fileInfo.Name} ?" : $"打开文件: {fileInfo.Name} ?";
@@ -208,7 +207,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             var directoryInfo = new DirectoryInfo(text);
             Log.Debug($"检测路径{directoryInfo.FullName}");
             ConcurrentDictionary<string, SearchViewItem> a = new();
-            ServiceProviderServiceExtensions.GetService<IAppToolService>(ServiceManager.Services)!.AppSolverA(a, directoryInfo.FullName);
+            ServiceManager.Services.GetService<IAppToolService>()!.AppSolverA(a, directoryInfo.FullName);
             
             foreach (var (key, value) in a)
             {
@@ -384,127 +383,75 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
             #endregion
 
-
-            #region 从文件索引检索并排序
-
-            var filtered = _pinyinSearcher.Search(value)
-                .ToList();
-            /*foreach (var item in CustomScenarioManger.CustomScenarios)
+            if (originalValue.StartsWith(ConfigManger.Config.everythingSearchPreString)&&originalValue.Length>ConfigManger.Config.everythingSearchPreString.Length)
             {
-                if (item.IsHaveInputValue&& !nowInSelectMode)
-                {
-                    continue;
-                }
-                var onlyKey = $"CustomScenario:{item.UUID}";
-                int weight = 0;
-                foreach (var key in item.Keys)
-                {
-                    if (string.IsNullOrEmpty(key))
-                    {
-                        continue;
-                    }
-
-                    if (key.Contains(value))
-                    {
-                        weight += 2;
-                    }
-
-                    if (key.StartsWith(value))
-                    {
-                        weight += 5;
-                    }
-
-                    if (key.Equals(value, StringComparison.Ordinal))
-                    {
-                        weight += 10;
-                    }
-                }
-
-                if (onlyKey == lastItem.OnlyKey)
-                {
-                    weight -= 4;
-                }
-
-                if (weight > 0)
-                {
-                    var viewItem1 = new SearchViewItem()
-                    {
-                        ItemDisplayName = $"执行自定义情景:{item.Name}",
-                        FileType = FileType.自定义情景,
-                        OnlyKey = onlyKey,
-                        Icon = null,
-                        IconSymbol = 0xF78B,
-                        IsVisible = true
-                    };
-
-                    filtered.Add(new SearchResults<SearchViewItem>
-                    {
-                        Source = viewItem1,
-                        Weight = weight
-                    });
-                }
-            }*/
-
-            var sorted = filtered.OrderByDescending(x => x.Weight)
-                .ToList();
-
-            #endregion
-
-
-            var count = 0; // 计数器变量
-            const int limit = 100; // 限制次数
-            Dictionary<SearchViewItem, int> nowHasLastOpens = new();
-
-            for (var i = sorted.Count - 1; i >= 0; i--)
-                if (ConfigManger.Config.lastOpens.TryGetValue(sorted[i].Source.OnlyKey, out var open))
-                {
-                    nowHasLastOpens.Add((SearchViewItem)sorted[i].Source, (int)sorted[i].Weight);
-                    sorted.RemoveAt(i);
-                }
-
-            var sortedDict = nowHasLastOpens.OrderByDescending(p => p.Value)
-                .ToDictionary(p => p.Key, p => p.Value);
-            foreach (var (searchViewItem, i) in sortedDict)
-            {
-                //Log.Debug("添加搜索结果" + searchViewItem.OnlyKey);
-                if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
-
-
-                count++;
-                Items.Add(searchViewItem); // 添加元素
+                var useEverythingSearch = ServiceManager.Services.GetService<IAppToolService>().
+                    UseEverythingSearch(originalValue.Remove(0,ConfigManger.Config.everythingSearchPreString.Length),ConfigManger.Config.everythingSearchMaxCount);
+                Items.AddRange(useEverythingSearch);
             }
+            else {
+                #region 从文件索引检索并排序
+
+            
+                var filtered = _pinyinSearcher.Search(value)
+                    .ToList();
+
+                var sorted = filtered.OrderByDescending(x => x.Weight)
+                    .ToList();
+
+                #endregion
 
 
-            foreach (var x in sorted)
-            {
-                if (count >= limit) // 如果达到了限制
-                    break; // 跳出循环
+                var count = 0; // 计数器变量
+                const int limit = 100; // 限制次数
+                Dictionary<SearchViewItem, int> nowHasLastOpens = new();
 
-                var searchViewItem = (SearchViewItem)x.Source;
+                for (var i = sorted.Count - 1; i >= 0; i--)
+                    if (ConfigManger.Config.lastOpens.TryGetValue(sorted[i].Source.OnlyKey, out var open))
+                    {
+                        nowHasLastOpens.Add((SearchViewItem)sorted[i].Source, (int)sorted[i].Weight);
+                        sorted.RemoveAt(i);
+                    }
+
+                var sortedDict = nowHasLastOpens.OrderByDescending(p => p.Value)
+                    .ToDictionary(p => p.Key, p => p.Value);
+                foreach (var (searchViewItem, i) in sortedDict)
                 {
-                    //Log.Debug("添加搜索结果" + x.Item.OnlyKey);
-
-
+                    //Log.Debug("添加搜索结果" + searchViewItem.OnlyKey);
                     if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
 
+
+                    count++;
                     Items.Add(searchViewItem); // 添加元素
-                    searchViewItem.Notify();
-                    count++; // 计数器加一
                 }
+
+
+                foreach (var x in sorted)
+                {
+                    if (count >= limit) // 如果达到了限制
+                        break; // 跳出循环
+
+                    var searchViewItem = (SearchViewItem)x.Source;
+                    {
+                        //Log.Debug("添加搜索结果" + x.Item.OnlyKey);
+
+
+                        if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
+
+                        Items.Add(searchViewItem); // 添加元素
+                        searchViewItem.Notify();
+                        count++; // 计数器加一
+                    }
+                }
+                //Items.RaiseListChangedEvents = true;
             }
-            //Items.RaiseListChangedEvents = true;
 
 
             if (Items.Count <= pluginItem)
             {
                 if (originalValue.StartsWith("\"")) originalValue = originalValue.Replace("\"", "");
-
-                
-                
                 //检测路径
                 CheckIsPath(originalValue);
-                
-                
                 {
                     {
                         Log.Debug("无搜索项目,添加网页搜索");
@@ -648,7 +595,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 return;
             }
 
-            ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.OpenFile(item);
+            ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item);
         });
         Search = "";
     }
@@ -657,27 +604,27 @@ public partial class SearchWindowViewModel : ObservableRecipient
     private void IgnoreItem(SearchViewItem searchViewItem)
     {
         Dispatcher.UIThread.InvokeAsync(() => { Items.Remove(searchViewItem); });
-        ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.IgnoreItem(searchViewItem);
+        ServiceManager.Services.GetService<ISearchItemTool>()!.IgnoreItem(searchViewItem);
     }
 
     [RelayCommand]
     private void OpenFolder(object searchViewItem)
     {
         Search = "";
-        ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.OpenFolder((SearchViewItem?)searchViewItem);
+        ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFolder((SearchViewItem?)searchViewItem);
     }
 
     [RelayCommand]
     private void RunAsAdmin(object searchViewItem)
     {
         Search = "";
-        ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.RunAsAdmin((SearchViewItem?)searchViewItem);
+        ServiceManager.Services.GetService<ISearchItemTool>()!.RunAsAdmin((SearchViewItem?)searchViewItem);
     }
 
     [RelayCommand]
     private void Star(SearchViewItem item)
     {
-        ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.Star(item);
+        ServiceManager.Services.GetService<ISearchItemTool>()!.Star(item);
     }
 
     [RelayCommand]
@@ -687,14 +634,14 @@ public partial class SearchWindowViewModel : ObservableRecipient
         Log.Debug("添加常驻" + item.OnlyKey);
         //Items.ResetItem(index);
 
-        ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.Pin(item);
+        ServiceManager.Services.GetService<ISearchItemTool>()!.Pin(item);
     }
 
     [RelayCommand]
     private void OpenFolderInTerminal(object searchViewItem)
     {
         Search = "";
-        ServiceProviderServiceExtensions.GetService<ISearchItemTool>(ServiceManager.Services)!.OpenFolderInTerminal((SearchViewItem?)searchViewItem);
+        ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFolderInTerminal((SearchViewItem?)searchViewItem);
     }
 
     

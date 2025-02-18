@@ -4,5 +4,5 @@ namespace Core.SDKs.Services;
 
 public interface IEverythingService
 {
-    public bool isRun();
+    public bool IsRun();
 }

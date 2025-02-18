@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
+using Core.Window.Everything;
 using Pinyin.NET;
 using PluginCore;
 
@@ -28,6 +29,12 @@ public class AppToolService : IAppToolService
     public void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> _collection, Action action)
     {
         AppTools.AutoStartEverything(_collection, action);
+    }
+
+    public IEnumerable<SearchViewItem> UseEverythingSearch(string s,int limit=50)
+    {
+
+        return EverythingTools.Search(s,limit);
     }
 
     public void GetIconByItem(SearchViewItem item)

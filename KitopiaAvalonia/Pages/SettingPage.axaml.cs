@@ -124,13 +124,14 @@ public partial class SettingPage : UserControl
                         }
                         case ConfigFieldType.整数:
                         {
+                            var value = (int)selectedValue;
                             var textBox = new NumericIntUpDown()
                             {
-                                Value = (int)selectedValue,
+                                Value = value,
                                 Maximum = configField.MaxValue,
-                                Minimum = configField.MinValue
+                                Minimum = configField.MinValue,
+                                Step = configField.Step
                             };
-
                             disposables.Add(
                                 textBox.GetObservable(NumericIntUpDown.ValueProperty)
                                     .Subscribe((d) =>

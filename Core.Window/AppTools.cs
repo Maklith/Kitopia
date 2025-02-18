@@ -47,7 +47,7 @@ public partial class AppTools
             if (collection.TryGetValue(ConfigManger.Config.everythingOnlyKey, out var searchViewItem))
             {
                 var isRun = ServiceManager.Services.GetService<IEverythingService>()
-                    .isRun();
+                    .IsRun();
 
 
                 if (!isRun)
@@ -202,7 +202,7 @@ public partial class AppTools
         if (useEverything)
         {
             List<string> filePaths = new();
-            Tools.main(filePaths);
+            EverythingTools.Index(filePaths);
             foreach (var filePath in filePaths) AppSolverA(collection, filePath, logging: logging);
 
             filePaths.Clear();
@@ -490,24 +490,12 @@ public partial class AppTools
             });
         }
     }
-
-    [GeneratedRegex("[\u4e00-\u9fa5]")]
-    private static partial Regex ChineseRegex();
-
+    
     // 使用const或readonly修饰符来声明pattern字符串
     internal static PinyinItem NameSolver(string name)
     {
         return _pinyinProcessor.GetPinyin(name, true);
     }
 
-    private static void AddUtil(List<string> keys, string name)
-    {
-        if (string.IsNullOrEmpty(name) || name.Length <= 1) return;
-
-
-        if (!keys.Contains(name)) keys.Add(name);
-    }
-
-    [GeneratedRegex("[^A-Z]")]
-    private static partial Regex MyRegex();
+   
 }
