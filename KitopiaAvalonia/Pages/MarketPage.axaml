@@ -3,7 +3,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:Core.ViewModel.Pages;assembly=Core"
-             xmlns:marketPage="using:Core.AvaloniaControl.MarketPage"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="pages:MarketPageViewModel"
              x:Class="KitopiaAvalonia.Pages.MarketPage">
@@ -43,7 +42,7 @@
                                                     FontWeight="Normal" FontSize="18"
                                                     Foreground="{DynamicResource DefaultForeground}"
                                                     Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).ShowPluginDetailCommand}"
-                                                    CommandParameter="{Binding $self}" />
+                                                    CommandParameter="{Binding }" />
                                             <ItemsControl ItemsSource="{Binding OnlinePluginInfo.SupportSystems}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="x:String">

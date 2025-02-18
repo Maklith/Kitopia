@@ -1,4 +1,5 @@
 ﻿
+using System.ComponentModel.DataAnnotations;
 using System.Threading.RateLimiting;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,6 +22,24 @@ public class PluginStateChanged
     {
         PluginSignName = pluginSignName;
     }
+}
+
+public struct VersionDetail
+{
+    /*
+     "id": 1,
+			"pluginId": 7,
+			"versionInt": 1,
+			"version": "1.0.0",
+			"detail": "第一个版本",
+			"isAvailable": true
+     */
+    public int Id { get; set; }
+    public int PluginId { get; set; }
+    public int VersionInt { get; set; }
+    public string Version { get; set; }
+    public string Detail { get; set; }
+    public bool IsAvailable { get; set; }
 }
 public partial class PluginInfoUiHelper : ObservableObject,IDisposable
 {
@@ -68,7 +87,6 @@ public partial class PluginInfoUiHelper : ObservableObject,IDisposable
     {
         get
         {
-            
             if (_icon is null)
             {
                 lock (_cancellationTokenSource)
@@ -147,8 +165,8 @@ public partial class PluginInfoUiHelper : ObservableObject,IDisposable
         AuthorName=deserializeObject["data"]["userName"].ToString();
     }
 
-    private string _authorName;
-    public string AuthorName
+    private string? _authorName;
+    public string? AuthorName
     {
         set => SetProperty(ref _authorName, value);
         get
@@ -170,15 +188,160 @@ public partial class PluginInfoUiHelper : ObservableObject,IDisposable
     }
 
     public bool InLocal => PluginManager.GetPluginLocalInfoByPlgStr(PluginBaseInfo.NameSign) is not null;
-    public PluginLocalInfo? PluginLocalInfo { get; init; }
-    public OnlinePluginInfo? OnlinePluginInfo { get; init; }
+    public PluginLocalInfo? PluginLocalInfo { get; set; }
+    public OnlinePluginInfo? OnlinePluginInfo { get; set; }
+    [Required]
+    public bool IsLocal { get; init; }
     
-    public bool CanUpdate{ get; init; }
-    public string CanUpdateVersion{ get; init; }
+    private bool? _canUpdate;
+
+    public bool? CanUpdate
+    {
+        get
+        {
+            if (_canUpdate is null)
+            
+            lock (_cancellationTokenSource)
+            {
+                if (_cancellationTokenSource.IsCancellationRequested)
+                {
+                    return false;
+                }
+                ResiliencePipeline.ExecuteAsync(CheckCanUpdate,_cancellationTokenSource.Token);
+            }
+            return _canUpdate;
+        }
+        set => SetProperty(ref _canUpdate, value);
+    }
+
+    public async ValueTask CheckCanUpdate(CancellationToken cts)
+    {
+        if (PluginLocalInfo is null)
+        {
+            PluginLocalInfo = PluginManager.GetPluginLocalInfoByPlgStr(PluginBaseInfo.NameSign);
+            if (PluginLocalInfo is null)
+            {
+                CanUpdate = false;
+                return;
+            }
+        }
+        try
+        {
+            var httpResponseMessage =await PluginManager._httpClient
+                .GetAsync($"{ConfigManger.ApiUrl}/api/plugin/{PluginBaseInfo.Id}");
+            var httpContent =await httpResponseMessage.Content.ReadAsStringAsync(cts);
+            var deserializeObject = (JObject)JsonConvert.DeserializeObject(httpContent);
+            var o = deserializeObject["data"];
+            if (o.Type==JTokenType.Integer)
+            {
+                CanUpdate = false;
+                return;
+            }
+            CanUpdate = o["lastVersionId"].ToObject<int>() > PluginLocalInfo.PluginBaseInfo.VersionId;
+            CanUpdateVersion = o["lastVersion"].ToString();
+            CanUpdateVersionId = o["lastVersionId"].ToObject<int>();
+        }
+        catch (Exception e)
+        {
+            CanUpdate = false;
+        }
+    }
+    [ObservableProperty]
+    private string _canUpdateVersion;
+    [ObservableProperty]
+    private int _canUpdateVersionId;
     public void Dispose()
     {
         _cancellationTokenSource.Cancel();
         _cancellationTokenSource.Dispose();
         Icon?.Dispose();
+    }
+
+    public string DescriptionShort =>
+        IsLocal ? PluginLocalInfo.PluginBaseInfo.Description : OnlinePluginInfo.DescriptionShort;
+    public string Version =>
+        IsLocal ? PluginLocalInfo.PluginBaseInfo.Version : OnlinePluginInfo.LastVersion;
+    public int VersionId =>
+        IsLocal ? PluginLocalInfo.PluginBaseInfo.VersionId : OnlinePluginInfo.LastVersionId;
+    private string? _description;
+    public string? Description
+    {
+        get
+        {
+            if (_description is null)
+            {
+                lock (_cancellationTokenSource)
+                {
+                    if (_cancellationTokenSource.IsCancellationRequested)
+                    {
+                        return null;
+                    }
+                    ResiliencePipeline.ExecuteAsync(GetDescription,_cancellationTokenSource.Token);
+                }
+            }
+            
+            return _description;
+        }
+        set => SetProperty(ref _description, value);
+    }
+
+    private async ValueTask GetDescription(CancellationToken cts)
+    {
+        if (IsLocal&& OnlinePluginInfo is null)
+        {
+            OnlinePluginInfo =await PluginManager.GetOnlinePluginInfo(PluginBaseInfo.Id, true);
+        }
+
+        if (OnlinePluginInfo is null)
+        {
+            Description= "该插件远端未找到";
+            return;
+        }
+
+        Description= OnlinePluginInfo.Description;
+    }
+    
+    private List<VersionDetail>? _versionDetails;
+    public List<VersionDetail>? VersionDetails
+    {
+        get
+        {
+            if (_versionDetails is null)
+            {
+                lock (_cancellationTokenSource)
+                {
+                    if (_cancellationTokenSource.IsCancellationRequested)
+                    {
+                        return null;
+                    }
+                    ResiliencePipeline.ExecuteAsync(GetVersionDetails,_cancellationTokenSource.Token);
+                }
+            }
+           
+            return _versionDetails;
+        }
+        set => SetProperty(ref _versionDetails, value);
+    }
+
+    private async ValueTask GetVersionDetails(CancellationToken cts)
+    {
+        var httpResponseMessage =await PluginManager._httpClient
+            .GetAsync($"{ConfigManger.ApiUrl}/api/plugin/{PluginBaseInfo.Id}", cts);
+        var httpContent =await httpResponseMessage.Content.ReadAsStringAsync(cts);
+        var deserializeObject2 = (JObject)JsonConvert.DeserializeObject(httpContent);
+        var o = deserializeObject2["data"];
+        var request = new HttpRequestMessage()
+        {
+            RequestUri =
+                new Uri($"{ConfigManger.ApiUrl}/api/plugin/detail/{PluginBaseInfo.Id}/{o["lastVersionId"].ToObject<int>()}"),
+            Method = HttpMethod.Get
+        };
+        request.Headers.Add("AllBeforeThisVersion", true.ToString());
+        var sendAsync = await PluginManager._httpClient.SendAsync(request, cts);
+        var stringAsync = await sendAsync.Content.ReadAsStringAsync(cts);
+        var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
+        var list = deserializeObject["data"].ToObject<List<VersionDetail>>();
+        list.Reverse();
+        VersionDetails = list;
     }
 }

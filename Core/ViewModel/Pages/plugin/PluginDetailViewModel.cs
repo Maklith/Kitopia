@@ -17,11 +17,12 @@ public partial class PluginDetailViewModel : ObservableObject
     [ObservableProperty] private bool _remote = false;
     [ObservableProperty] private bool _loading = true;
     private bool avatarLocalFirst = true;
-    public OnlinePluginInfo? PluginInfo;
-    public PluginDetailViewModel(string pluginStr)
+    [ObservableProperty]
+    public PluginInfoUiHelper? _pluginInfo;
+    public PluginDetailViewModel(PluginInfoUiHelper pluginStr)
     {
-        PluginStr = pluginStr;
-        Task.Run(GetInfo);
+        PluginInfo = pluginStr;
+            //Task.Run(GetInfo);
     }
 
     private async Task GetInfo()
@@ -33,10 +34,9 @@ public partial class PluginDetailViewModel : ObservableObject
     {
         var request = new HttpRequestMessage()
         {
-            RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/plugin/onlinePluginInfo"),
+            RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/plugin/{PluginStr}"),
             Method = HttpMethod.Get
         };
-        request.Headers.Add("pluginSignName", PluginStr);
         var async =await PluginManager._httpClient.SendAsync(request);
         var stringAsync =await async.Content.ReadAsStringAsync();
         var options = new JsonSerializerOptions
@@ -46,15 +46,17 @@ public partial class PluginDetailViewModel : ObservableObject
         var apiResponse = JsonSerializer.Deserialize<ApiResponse>(stringAsync, options);
         if (apiResponse is { data: not null })
         {
-            PluginInfo = apiResponse.data;
+            PluginInfo = new PluginInfoUiHelper()
+            {
+                PluginBaseInfo = apiResponse.data.ToPluginBaseInfo(),
+                OnlinePluginInfo = apiResponse.data,
+                IsLocal = false
+            };
             Remote = true;
             
         }
           
     }
 
-    private async Task GetAvatar()
-    {
-        
-    }
+   
 }

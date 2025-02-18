@@ -43,7 +43,7 @@
                                                 FontWeight="Normal" FontSize="18"
                                                 Foreground="{DynamicResource DefaultForeground}"
                                                 Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ShowPluginDetailCommand}"
-                                                CommandParameter="{Binding $self}" />
+                                                CommandParameter="{Binding }" />
                                         <StackPanel Orientation="Horizontal" Spacing="5">
                                             <TextBlock VerticalAlignment="Top"
                                                        Text="{Binding PluginBaseInfo.Version}" />

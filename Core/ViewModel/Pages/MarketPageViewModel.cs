@@ -17,6 +17,8 @@ using Core.SDKs;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Plugin;
+using Core.UiControls.Plugin;
+using Core.ViewModel.Pages.plugin;
 using KitopiaAvalonia.Tools;
 using Markdown.Avalonia.Full;
 using Newtonsoft.Json;
@@ -108,7 +110,8 @@ public partial class MarketPageViewModel : ObservableObject
                 Plugins.Add(new PluginInfoUiHelper()
                 {
                     PluginBaseInfo = apiResponse.data[i].ToPluginBaseInfo(),
-                    OnlinePluginInfo = apiResponse.data[i]
+                    OnlinePluginInfo = apiResponse.data[i],
+                    IsLocal = false
                 });
     }
 
@@ -119,87 +122,13 @@ public partial class MarketPageViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task ShowPluginDetail(Control control)
+    private async Task ShowPluginDetail(PluginInfoUiHelper pluginInfoUiHelper)
     {
-        if (control.DataContext is OnlinePluginInfo pluginInfo)
+        var overlayDialogOptions = new OverlayDialogOptions()
         {
-            var stackPanel = new StackPanel();
-            stackPanel.Spacing = 4;
-
-            var request = new HttpRequestMessage()
-            {
-                RequestUri =
-                    new Uri($"{ConfigManger.ApiUrl}/api/plugin/detail/{pluginInfo.Id}/{pluginInfo.LastVersionId}"),
-                Method = HttpMethod.Get
-            };
-            request.Headers.Add("AllBeforeThisVersion", true.ToString());
-            var sendAsync = await PluginManager._httpClient.SendAsync(request);
-            var stringAsync = await sendAsync.Content.ReadAsStringAsync();
-            var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
-            var list = deserializeObject["data"].ToObject<List<JObject>>();
-
-            Application.Current.Styles.TryGetResource("TitleLabel", null, out var h1);
-            Application.Current.Styles.TryGetResource("SemiColorBorder", null, out var semiColorBorder);
-            var semiColorBorder2 = semiColorBorder as SolidColorBrush;
-            var controlTheme = h1 as ControlTheme;
-            var childOfType = control.GetParentOfType<Window>().GetChildOfType<ContentPresenter>("DialogOvercover");
-            stackPanel.Children.Add(new Label()
-            {
-                Classes = { "H2" },
-                Theme = controlTheme,
-                Content = "版本说明"
-            });
-            stackPanel.Children.Add(new Line()
-            {
-                Stroke = semiColorBorder2,
-                EndPoint = new Point(childOfType.Bounds.Width, 0)
-            });
-            for (var i = 0; i < list.Count; i++)
-            {
-                stackPanel.Children.Add(new Label()
-                {
-                    Classes = { "H3" },
-                    Theme = controlTheme,
-                    Content = list[i]["version"]
-                });
-                stackPanel.Children.Add(new Line()
-                {
-                    Stroke = semiColorBorder2,
-                    EndPoint = new Point(childOfType.Bounds.Width, 0)
-                });
-                stackPanel.Children.Add(new MarkdownScrollViewer()
-                {
-                    Markdown = list[i]["detail"].ToString()
-                });
-            }
-
-            /*var pluginDetail = new AvaloniaControl.MarketPage.PluginDetail();
-            pluginDetail.DataContext = pluginInfo;
-            pluginDetail.Content = stackPanel;
-            var dialog = new DialogContent()
-            {
-                Content = pluginDetail,
-                Title = "插件详细信息"
-            };
-            var options = new OverlayDialogOptions()
-            {
-                FullScreen = FullScreen,
-                HorizontalAnchor = HorizontalAnchor,
-                VerticalAnchor = VerticalAnchor,
-                HorizontalOffset = HorizontalOffset,
-                VerticalOffset = VerticalOffset,
-                Title = Title,
-                CanLightDismiss = CanLightDismiss,
-                CanDragMove = CanDragMove,
-                IsCloseButtonVisible = IsCloseButtonVisible,
-                CanResize = CanResize,
-            };
-            if (IsModal)
-            {
-                await OverlayDialog.ShowCustomModal<PluginDetail, OnlinePluginInfo, object>(pluginDetail, dialogHostId, options: options);
-            }
-            ServiceManager.Services!.GetService<IContentDialog>()!.ShowDialogAsync(childOfType,
-                dialog, true);*/
-        }
+            CanLightDismiss = true,
+            
+        };
+        await OverlayDialog.ShowCustomModal<PluginDetail, PluginDetailViewModel, object>(new PluginDetailViewModel(pluginInfoUiHelper), "LocalHost",overlayDialogOptions);
     }
 }

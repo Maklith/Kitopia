@@ -21,6 +21,7 @@ using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Plugin;
+using Core.UiControls.Plugin;
 using KitopiaAvalonia.Tools;
 using log4net;
 using Markdown.Avalonia.Full;
@@ -28,6 +29,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PluginCore;
+using Ursa.Controls;
 using Path = System.IO.Path;
 
 #endregion
@@ -42,7 +44,8 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     public ObservableCollection<PluginInfoUiHelper> Items => new ObservableCollection<PluginInfoUiHelper>(PluginManager.GetPluginLocalInfos().Select(e=>new PluginInfoUiHelper()
     {
         PluginBaseInfo = e.PluginBaseInfo,
-        PluginLocalInfo = e
+        PluginLocalInfo = e,
+        IsLocal = true
     }).ToList());
 
     public PluginManagerPageViewModel()
@@ -97,123 +100,15 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     [RelayCommand]
     private async Task ShowPluginVersionInfo(Control control)
     {
-        /*if (control.DataContext is PluginInfo pluginInfo)
-        {
-            var request = new HttpRequestMessage()
-            {
-                RequestUri =
-                    new Uri($"{ConfigManger.ApiUrl}/api/plugin/detail/{pluginInfo.Id}/{pluginInfo.CanUpdateVersionId}"),
-                Method = HttpMethod.Get
-            };
-            request.Headers.Add("AllBeforeThisVersion", true.ToString());
-            var sendAsync = await PluginManager._httpClient.SendAsync(request);
-            var stringAsync = await sendAsync.Content.ReadAsStringAsync();
-            var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
-            var list = deserializeObject["data"].ToObject<List<JObject>>();
-            var stackPanel = new StackPanel();
-            stackPanel.Spacing = 4;
-            Application.Current.Styles.TryGetResource("TitleLabel", null, out var h1);
-            Application.Current.Styles.TryGetResource("SemiColorBorder", null, out var semiColorBorder);
-            var semiColorBorder2 = semiColorBorder as SolidColorBrush;
-            var controlTheme = h1 as ControlTheme;
-            var childOfType = control.GetParentOfType<Window>().GetChildOfType<ContentPresenter>("DialogOvercover");
-            for (var i = 0; i < list.Count; i++)
-            {
-                stackPanel.Children.Add(new Label()
-                {
-                    Classes = { "H3" },
-                    Theme = controlTheme,
-                    Content = list[i]["version"]
-                });
-                stackPanel.Children.Add(new Line()
-                {
-                    Stroke = semiColorBorder2,
-                    EndPoint = new Point(childOfType.Bounds.Width, 0)
-                });
-                stackPanel.Children.Add(new MarkdownScrollViewer()
-                {
-                    Markdown = list[i]["detail"].ToString()
-                });
-            }
-
-            var dialog = new DialogContent()
-            {
-                Content = stackPanel,
-                Title = "版本详细信息"
-            };
-
-            ServiceManager.Services!.GetService<IContentDialog>()!.ShowDialogAsync(childOfType,
-                dialog, true);
-        }*/
     }
 
     [RelayCommand]
-    private async Task ShowPluginDetail(Control control)
+    private async Task ShowPluginDetail(PluginInfoUiHelper pluginInfoUiHelper)
     {
-        /*if (control.DataContext is PluginInfo pluginInfo)
+        var overlayDialogOptions = new OverlayDialogOptions()
         {
-            var stackPanel = new StackPanel();
-            stackPanel.Spacing = 4;
-
-            var request = new HttpRequestMessage()
-            {
-                RequestUri =
-                    new Uri($"{ConfigManger.ApiUrl}/api/plugin/detail/{pluginInfo.Id}/{pluginInfo.CanUpdateVersionId}"),
-                Method = HttpMethod.Get
-            };
-            request.Headers.Add("AllBeforeThisVersion", true.ToString());
-            var sendAsync = await PluginManager._httpClient.SendAsync(request);
-            var stringAsync = await sendAsync.Content.ReadAsStringAsync();
-            var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
-            var list = deserializeObject["data"].ToObject<List<JObject>>();
-
-            Application.Current.Styles.TryGetResource("TitleLabel", null, out var h1);
-            Application.Current.Styles.TryGetResource("SemiColorBorder", null, out var semiColorBorder);
-            var semiColorBorder2 = semiColorBorder as SolidColorBrush;
-            var controlTheme = h1 as ControlTheme;
-            var childOfType = control.GetParentOfType<Window>().GetChildOfType<ContentPresenter>("DialogOvercover");
-            stackPanel.Children.Add(new Label()
-            {
-                Classes = { "H2" },
-                Theme = controlTheme,
-                Content = "版本说明"
-            });
-            stackPanel.Children.Add(new Line()
-            {
-                Stroke = semiColorBorder2,
-                EndPoint = new Point(childOfType.Bounds.Width, 0)
-            });
-            for (var i = 0; i < list.Count; i++)
-            {
-                stackPanel.Children.Add(new Label()
-                {
-                    Classes = { "H3" },
-                    Theme = controlTheme,
-                    Content = list[i]["version"]
-                });
-                stackPanel.Children.Add(new Line()
-                {
-                    Stroke = semiColorBorder2,
-                    EndPoint = new Point(childOfType.Bounds.Width, 0)
-                });
-                stackPanel.Children.Add(new MarkdownScrollViewer()
-                {
-                    Markdown = list[i]["detail"].ToString()
-                });
-            }
-
-            var pluginDetail = new PluginDetail();
-            pluginDetail.DataContext = pluginInfo;
-            pluginDetail.Content = stackPanel;
-            var dialog = new DialogContent()
-            {
-                Content = pluginDetail,
-                Title = "插件详细信息"
-            };
-
-
-            ServiceManager.Services!.GetService<IContentDialog>()!.ShowDialogAsync(childOfType,
-                dialog, true);
-        }*/
+            CanLightDismiss = true
+        };
+        await OverlayDialog.ShowCustomModal<PluginDetail, PluginDetailViewModel, object>(new PluginDetailViewModel(pluginInfoUiHelper), "LocalHost",overlayDialogOptions);
     }
 }

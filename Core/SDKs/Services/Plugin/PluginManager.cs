@@ -497,30 +497,6 @@ public class PluginManager
         }
     }
 
-    /*public static async Task CheckAllUpdate()
-    {
-        await Parallel.ForAsync(0, AllPluginInfos.Count, (i, token) =>
-        {
-            try
-            {
-                var httpResponseMessage = _httpClient
-                    .GetAsync($"{ConfigManger.ApiUrl}/api/plugin/{AllPluginInfos[i].PluginBaseInfo.Id}").Result;
-                var httpContent = httpResponseMessage.Content.ReadAsStringAsync().Result;
-                var deserializeObject = (JObject)JsonConvert.DeserializeObject(httpContent);
-                var o = deserializeObject["data"];
-                AllPluginInfos[i].CanUpdata = o["lastVersionId"].ToObject<int>() > AllPluginInfos[i].PluginBaseInfo.VersionId;
-                AllPluginInfos[i].CanUpdateVersion = o["lastVersion"].ToString();
-                AllPluginInfos[i].CanUpdateVersionId = o["lastVersionId"].ToObject<int>();
-            }
-            catch (Exception e)
-            {
-                AllPluginInfos[i].CanUpdata = false;
-            }
-
-            return ValueTask.CompletedTask;
-        });
-    }*/
-
     public static async Task<bool> DownloadPluginAndEnable(int pluginId,string pluginSign, int? targetVersionId = null,
         string? targetVersion = null)
     {

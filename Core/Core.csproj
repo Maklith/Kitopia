@@ -57,6 +57,7 @@
 
     <ItemGroup>
         <Folder Include="SDKs\Msgs\"/>
+        <Folder Include="UiControls\" />
     </ItemGroup>
 
 
@@ -79,6 +80,11 @@
             <DependentUpon>PluginDetail.axaml</DependentUpon>
             <SubType>Code</SubType>
         </Compile>
+    </ItemGroup>
+
+
+    <ItemGroup>
+      <AdditionalFiles Include="UiControls\Plugin\PluginDetail.axaml" />
     </ItemGroup>
 
 </Project>

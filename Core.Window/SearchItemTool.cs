@@ -91,7 +91,7 @@ public class SearchItemTool : ISearchItemTool
                         var thread = new Thread(() =>
                         {
                             var remove = searchViewItem.ItemDisplayName.Remove(0, 1);
-                            Clipboard.SetText(remove);
+                            ServiceManager.Services.GetService<IClipboardService>()!.SetText(remove);
                             ServiceManager.Services.GetService<IToastService>()!.Show("Kitopia",
                                 $"计算结果{remove}已经复制到剪贴板");
                         });
