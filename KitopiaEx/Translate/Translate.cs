@@ -39,9 +39,10 @@ public class Translate
     public IEnumerable<OcrResult> TranslateOcrResults(IEnumerable<OcrResult> dResult,[SelfInput]TranslateLang translateLang, CancellationToken ct)
     {
         List<OcrResult> result = new List<OcrResult>();
+        HttpClient httpClient = new HttpClient();
         try
         {
-            HttpClient httpClient = new HttpClient();
+            
             httpClient.DefaultRequestHeaders.Add("User-Agent","KitopiaEx/1.1.0");
             var s = httpClient.GetStringAsync("https://edge.microsoft.com/translate/auth").Result;
             httpClient.Dispose();
@@ -71,10 +72,6 @@ public class Translate
                 {
                     result.Add(item);
                 }
-                finally
-                {
-                    httpClient.Dispose();
-                }
             
             }
             httpClient.Dispose();
@@ -83,6 +80,9 @@ public class Translate
         catch (Exception e)
         {
             return dResult;
+        }finally
+        {
+            httpClient.Dispose();
         }
     }
     
