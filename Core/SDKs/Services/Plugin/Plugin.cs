@@ -158,8 +158,7 @@ public class Plugin
                         scenarioMethodInfo.GenerateNode());
                 }
 
-                if (methodInfo.GetCustomAttributes(typeof(SearchMethod))
-                    .Any()) //搜索的切入方法
+                if (methodInfo.GetCustomAttribute<SearchMethod>() is { }) //搜索的切入方法
                     searchViews.Add(e =>
                     {
                         var invoke = methodInfo.Invoke(
