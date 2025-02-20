@@ -72,7 +72,7 @@ public class SearchItemTool : ISearchItemTool
                             .Show(searchViewItem.OnlyKey);
                         break;
                     case FileType.自定义:
-                        searchViewItem.Action?.Invoke(searchViewItem);
+                        searchViewItem.Action?.Invoke(searchViewItem,inputValues[0] as string);
                         break;
                     case FileType.命令:
                     {

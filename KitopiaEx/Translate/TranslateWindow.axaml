@@ -1,0 +1,41 @@
+﻿<u:UrsaWindow xmlns="https://github.com/avaloniaui"
+            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+            xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+            xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+            xmlns:u="https://irihi.tech/ursa"
+            xmlns:translate="clr-namespace:KitopiaEx.Translate"
+            mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+            x:Class="KitopiaEx.Translate.TranslateWindow"
+            IsManagedResizerVisible="False"
+            IsFullScreenButtonVisible="False"
+            IsMinimizeButtonVisible="False"
+            IsRestoreButtonVisible="False"
+            BorderBrush="Transparent"
+            x:DataType="translate:TranslateWindowViewModel"
+            
+            Width="600" Height="370"
+            WindowStartupLocation="CenterScreen"
+            Title="TranslateWindow">
+    <u:UrsaWindow.TitleBarContent>
+        
+    </u:UrsaWindow.TitleBarContent>
+    <Grid RowDefinitions="*,40,*" Margin="15,30,15,15" >
+        <TextBox  Classes="ClearButton TextArea" VerticalAlignment="Stretch" VerticalContentAlignment="Top" 
+                  TextWrapping="Wrap" Text="{Binding SourceText}"></TextBox>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+           
+            <u:EnumSelector
+                Width="150"
+                EnumType="translate:SourceTranslateLang"
+                Value="{Binding SourceTranslateLang}" />
+            <TextBlock Text="->" VerticalAlignment="Center" Margin="10,0,10,0"></TextBlock>
+            <u:EnumSelector
+                Width="150"
+                EnumType="translate:TargetTranslateLang"
+                Value="{Binding TargetTranslateLang}" />
+            <Button Content="翻译" Command="{Binding TryTranslateCommand}"></Button>
+        </StackPanel>
+        <TextBox Grid.Row="2"  Classes="ClearButton TextArea" VerticalAlignment="Stretch" VerticalContentAlignment="Top" 
+                 TextWrapping="Wrap" Text="{Binding TargetText}"></TextBox>
+    </Grid>
+</u:UrsaWindow>

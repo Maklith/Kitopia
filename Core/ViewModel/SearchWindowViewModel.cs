@@ -357,7 +357,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 value.IndexOfAny(operators) > -1)
                 try
                 {
-                    var e = Math.Evaluate(value.Remove(0, 1));
+                    var e = Math.Evaluate(value);
                     Items.Add(new SearchViewItem
                     {
                         ItemDisplayName = "=" + e,
@@ -585,6 +585,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     [RelayCommand]
     public void OpenFile(SearchViewItem? item)
     {
+        var s = Search;
         Task.Run(() =>
         {
             if (NowInSelectMode)
@@ -595,7 +596,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 return;
             }
 
-            ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item);
+            ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item,s);
         });
         Search = "";
     }
