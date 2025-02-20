@@ -59,4 +59,8 @@ public partial class TranslateWindowViewModel : ObservableObject
             TargetText = e.Message;
         }
     }
+    ~TranslateWindowViewModel()
+    {
+        httpClient.Dispose();
+    }
 }
