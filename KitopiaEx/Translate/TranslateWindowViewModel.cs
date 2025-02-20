@@ -27,9 +27,6 @@ public partial class TranslateWindowViewModel : ObservableObject
         token = httpClient.GetStringAsync("https://edge.microsoft.com/translate/auth").Result;
         httpClient.Dispose();
         httpClient = new HttpClient();
-        httpClient.BaseAddress =
-            new Uri(
-                $"https://api-edge.cognitive.microsofttranslator.com/translate?from=&to={Translate.TranslateLangToName(TargetTranslateLang)}&api-version=3.0&includeSentenceLength=true");
         httpClient.DefaultRequestHeaders.Add("authorization",$"Bearer {token}");
         httpClient.DefaultRequestHeaders.Add("User-Agent","KitopiaEx/1.1.0");
     }
@@ -43,7 +40,7 @@ public partial class TranslateWindowViewModel : ObservableObject
         });
         var content = new StringContent(jsonArray.ToJsonString(), Encoding.UTF8, "application/json");
 
-        var text =await httpClient.PostAsync("",content).Result.Content.ReadAsStringAsync();
+        var text =await httpClient.PostAsync(new Uri($"https://api-edge.cognitive.microsofttranslator.com/translate?from=&to={Translate.TranslateLangToName(TargetTranslateLang)}&api-version=3.0&includeSentenceLength=true"),content).Result.Content.ReadAsStringAsync();
 
 
         try
