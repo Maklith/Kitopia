@@ -29,116 +29,34 @@ public class Translate
             _ => throw new ArgumentOutOfRangeException(nameof(lang), lang, null)
         };
     }
-    [ScenarioMethod("翻译文字提取结果", $"{nameof(dResult)}=文字识别结果数据",$"{nameof(translateLang)}=目标语言", "return=文字识别结果数据")]
-    public IEnumerable<OcrResult> TranslateOcrResults(IEnumerable<OcrResult> dResult,[SelfInput]TargetTranslateLang translateLang, CancellationToken ct)
+    [ScenarioMethod("翻译文字提取结果", $"{nameof(dResult)}=文字识别结果数据",$"{nameof(sourceTranslateLang)}=源语言",$"{nameof(translateLang)}=目标语言", "return=文字识别结果数据")]
+    public IEnumerable<OcrResult> TranslateOcrResults(IEnumerable<OcrResult> dResult,[SelfInput]SourceTranslateLang sourceTranslateLang,[SelfInput]TargetTranslateLang translateLang, CancellationToken ct)
     {
         List<OcrResult> result = new List<OcrResult>();
-        HttpClient httpClient = new HttpClient();
-        try
+        
+        
+        foreach (var item in dResult)
         {
-            
-            httpClient.DefaultRequestHeaders.Add("User-Agent","KitopiaEx/1.1.0");
-            var s = httpClient.GetStringAsync("https://edge.microsoft.com/translate/auth").Result;
-            httpClient.Dispose();
-            httpClient = new HttpClient();
-            httpClient.BaseAddress =
-                new Uri(
-                 $"https://api-edge.cognitive.microsofttranslator.com/translate?from=&to={TranslateLangToName(translateLang)}&api-version=3.0&includeSentenceLength=true");
-            httpClient.DefaultRequestHeaders.Add("authorization",$"Bearer {s}");
-            httpClient.DefaultRequestHeaders.Add("User-Agent","KitopiaEx/1.1.0");
-            foreach (var item in dResult)
-            {
-                var jsonArray = new JsonArray();
-                jsonArray.Add(new JsonObject
-                {
-                    ["Text"] = item.Text
-                });
-                var content = new StringContent(jsonArray.ToJsonString(), Encoding.UTF8, "application/json");
-
-                var text = httpClient.PostAsync("",content,ct).Result.Content.ReadAsStringAsync(ct).Result;
-
-
-                try
-                {
-                    using var doc = JsonDocument.Parse(text);
-                    var text2 = doc.RootElement[0]
-                        .GetProperty("translations")[0]
-                        .GetProperty("text")
-                        .GetString();
-                    result.Add(item with { Text = text2 });
-                }
-                catch (Exception e)
-                {
-                    result.Add(item);
-                }
-            
-            }
-            httpClient.Dispose();
-            return result;
+                
+            result.Add(item with { Text = TranslateApi.GetTranslation(item.Text,sourceTranslateLang,translateLang).Result });
         }
-        catch (Exception e)
-        {
-            return dResult;
-        }finally
-        {
-            httpClient.Dispose();
-        }
+
+        return result;
     }
     
     [ScenarioMethod("翻译文字", $"{nameof(dResult)}=文字识别结果数据",$"{nameof(translateLang)}=目标语言", "return=文字识别结果数据")]
-    public string TranslateOcrResults(string dResult,[SelfInput]TargetTranslateLang translateLang, CancellationToken ct)
+    public string TranslateOcrResults(string dResult,[SelfInput]SourceTranslateLang sourceTranslateLang,[SelfInput]TargetTranslateLang translateLang, CancellationToken ct)
     {
-        List<OcrResult> result = new List<OcrResult>();
-        try
-        {
-            HttpClient httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("User-Agent","KitopiaEx/1.1.0");
-            var s = httpClient.GetStringAsync("https://edge.microsoft.com/translate/auth").Result;
-            httpClient.Dispose();
-            httpClient = new HttpClient();
-            httpClient.BaseAddress =
-                new Uri(
-                    $"https://api-edge.cognitive.microsofttranslator.com/translate?from=&to={TranslateLangToName(translateLang)}&api-version=3.0&includeSentenceLength=true");
-            httpClient.DefaultRequestHeaders.Add("authorization",$"Bearer {s}");
-            httpClient.DefaultRequestHeaders.Add("User-Agent","KitopiaEx/1.1.0");
+        return TranslateApi.GetTranslation(dResult,sourceTranslateLang,translateLang).Result;
             
-            var content = new StringContent($$"""[{"Text":"{{dResult}}"}]""", Encoding.UTF8, "application/json");
-
-            var text = httpClient.PostAsync("",content,ct).Result.Content.ReadAsStringAsync(ct).Result;
-
-
-            try
-            {
-                using var doc = JsonDocument.Parse(text);
-                var text2 = doc.RootElement[0]
-                    .GetProperty("translations")[0]
-                    .GetProperty("text")
-                    .GetString();
-                return text2;
-            }
-            catch (Exception e)
-            {
-                return dResult;
-            }
-            finally
-            {
-                httpClient.Dispose();
-            }
-            
-            
-            return dResult;
-        }
-        catch (Exception e)
-        {
-            return dResult;
-        }
+        
     }
     [Capture("翻译",0xf834)]
     public void TranslateImgCapture(ScreenCaptureResult dResult)
     {
         var service = KitopiaEx.ServiceProvider.GetService<Ocr.Ocr>()!;
         var ocrResults = service.OcrImg(dResult, CancellationToken.None);
-        ocrResults = TranslateOcrResults(ocrResults, TargetTranslateLang.简体中文,CancellationToken.None);
+        ocrResults = TranslateOcrResults(ocrResults, SourceTranslateLang.自动检测,TargetTranslateLang.简体中文,CancellationToken.None);
         service.OcrResultShow(dResult, ocrResults, CancellationToken.None);
     }
     

@@ -19,45 +19,15 @@ public partial class TranslateWindowViewModel : ObservableObject
     private string _targetText = string.Empty;
     [ObservableProperty]
     private TargetTranslateLang _targetTranslateLang  =TargetTranslateLang.简体中文 ;
-    HttpClient httpClient = new HttpClient();
-    string token=String.Empty;
+    
     public TranslateWindowViewModel()
     {
-        httpClient.DefaultRequestHeaders.Add("User-Agent","KitopiaEx/1.1.0");
-        token = httpClient.GetStringAsync("https://edge.microsoft.com/translate/auth").Result;
-        httpClient.Dispose();
-        httpClient = new HttpClient();
-        httpClient.DefaultRequestHeaders.Add("authorization",$"Bearer {token}");
-        httpClient.DefaultRequestHeaders.Add("User-Agent","KitopiaEx/1.1.0");
+       
     }
     [RelayCommand]
     private async Task TryTranslate()
     {
-        var jsonArray = new JsonArray();
-        jsonArray.Add(new JsonObject
-        {
-            ["Text"] = SourceText
-        });
-        var content = new StringContent(jsonArray.ToJsonString(), Encoding.UTF8, "application/json");
-
-        var text =await httpClient.PostAsync(new Uri($"https://api-edge.cognitive.microsofttranslator.com/translate?from=&to={Translate.TranslateLangToName(TargetTranslateLang)}&api-version=3.0&includeSentenceLength=true"),content).Result.Content.ReadAsStringAsync();
-
-
-        try
-        {
-            using var doc = JsonDocument.Parse(text);
-            var text2 = doc.RootElement[0]
-                .GetProperty("translations")[0]
-                .GetProperty("text")
-                .GetString();
-            TargetText = text2;
-        }catch (Exception e)
-        {
-            TargetText = e.Message;
-        }
+        TargetText=await TranslateApi.GetTranslation(SourceText, SourceTranslateLang, TargetTranslateLang);
     }
-    ~TranslateWindowViewModel()
-    {
-        httpClient.Dispose();
-    }
+   
 }
