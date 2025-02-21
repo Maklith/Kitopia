@@ -149,8 +149,15 @@ public class Plugin
             {
                 if (methodInfo.GetCustomAttribute<ScenarioMethodAttribute>() is { } scenarioMethodAttribute) //情景的可用节点
                 {
-                    if (methodInfo.GetParameters()[^1].ParameterType.FullName !=
-                        "System.Threading.CancellationToken") continue;
+                    var parameterInfos = methodInfo.GetParameters();
+                    if (parameterInfos.Length==0)
+                    {
+                        continue;
+                    }
+                    var parameterTypeFullName = parameterInfos[^1].ParameterType.FullName;
+                    if (parameterTypeFullName !=
+                        "System.Threading.CancellationToken"&&!
+                        parameterTypeFullName.StartsWith("System.Nullable`1[[System.Threading.CancellationToken,")) continue;
 
                     var scenarioMethodInfo = new ScenarioMethod(methodInfo, PluginInfo, scenarioMethodAttribute,
                         ScenarioMethodType.插件方法, ServiceProvider);

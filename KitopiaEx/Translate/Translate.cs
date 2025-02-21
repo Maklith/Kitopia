@@ -18,17 +18,6 @@ namespace KitopiaEx.Translate;
 
 public class Translate
 {
-    public static string TranslateLangToName(TargetTranslateLang lang)
-    {
-        return lang switch
-        {
-            TargetTranslateLang.简体中文 => "zh-Hans",
-            TargetTranslateLang.繁體中文 => "zh-Hant",
-            TargetTranslateLang.English => "en",
-            TargetTranslateLang.日本語 => "ja",
-            _ => throw new ArgumentOutOfRangeException(nameof(lang), lang, null)
-        };
-    }
     [ScenarioMethod("翻译文字提取结果", $"{nameof(dResult)}=文字识别结果数据",$"{nameof(sourceTranslateLang)}=源语言",$"{nameof(translateLang)}=目标语言", "return=文字识别结果数据")]
     public IEnumerable<OcrResult> TranslateOcrResults(IEnumerable<OcrResult> dResult,[SelfInput]SourceTranslateLang sourceTranslateLang,[SelfInput]TargetTranslateLang translateLang, CancellationToken ct)
     {
@@ -44,8 +33,8 @@ public class Translate
         return result;
     }
     
-    [ScenarioMethod("翻译文字", $"{nameof(dResult)}=文字识别结果数据",$"{nameof(translateLang)}=目标语言", "return=文字识别结果数据")]
-    public string TranslateOcrResults(string dResult,[SelfInput]SourceTranslateLang sourceTranslateLang,[SelfInput]TargetTranslateLang translateLang, CancellationToken ct)
+    [ScenarioMethod("翻译文字", $"{nameof(dResult)}=文字识别结果数据",$"{nameof(sourceTranslateLang)}=源语言",$"{nameof(translateLang)}=目标语言", "return=文字识别结果数据")]
+    public string TranslateOcrResults(string dResult,[SelfInput]SourceTranslateLang sourceTranslateLang,[SelfInput]TargetTranslateLang translateLang, CancellationToken? ct=null)
     {
         return TranslateApi.GetTranslation(dResult,sourceTranslateLang,translateLang).Result;
             

@@ -114,9 +114,10 @@ public class ScenarioMethod
             {
                 var parameterInfo = Method.GetParameters()[index];
                 if (parameterInfo.ParameterType.FullName == "System.Threading.CancellationToken") continue;
-
+                if (parameterInfo.ParameterType.FullName.StartsWith("System.Nullable`1[[System.Threading.CancellationToken,")) continue;
                 var IsSelf = parameterInfo.GetCustomAttributes(typeof(SelfInput))
                     .Any();
+                object? defaultValue = parameterInfo.DefaultValue;
 
                 if (parameterInfo.ParameterType.GetCustomAttribute(typeof(AutoUnbox)) is not null)
                 {
@@ -139,6 +140,7 @@ public class ScenarioMethod
                             {
                                 Type = memberInfo.PropertyType,
                                 IsSelf = IsSelf,
+                                Value = defaultValue
                             },
                             
                             AutoUnboxIndex = autoUnboxIndex,
@@ -156,6 +158,7 @@ public class ScenarioMethod
                         {
                             Type = parameterInfo.ParameterType,
                             IsSelf = IsSelf,
+                            Value = defaultValue
                         },
 
                         
