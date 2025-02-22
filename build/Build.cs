@@ -74,11 +74,11 @@ class Build : NukeBuild
             rootDirectory.DeleteDirectory();
             DotNetBuild(c => new DotNetBuildSettings()
                 .SetProjectFile( RootDirectory/"KitopiaEx"/"KitopiaEx.csproj")
-                .SetOutputDirectory(rootDirectory / "plugins" / "7_1_kitopiaex")
+                .SetOutputDirectory(rootDirectory / "plugins" / "kitopiaex")
                 .SetRuntime("win-x64"));
             DotNetBuild(c => new DotNetBuildSettings()
                 .SetProjectFile( RootDirectory/"OnnxRuntime.CPU"/"OnnxRuntime.CPU.csproj")
-                .SetOutputDirectory(rootDirectory / "plugins" / "2_1_kitopiaonnxruntimecpu")
+                .SetOutputDirectory(rootDirectory / "plugins" / "kitopiaonnxruntimecpu")
                 .SetRuntime("win-x64"));
             DotNetBuild(c => new DotNetBuildSettings()
                 .SetProjectFile(AvaloniaProject.Path)
@@ -207,7 +207,7 @@ class Build : NukeBuild
                 rootDirectory.DeleteDirectory();
                 DotNetPublish(c => new DotNetPublishSettings()
                     .SetProject("KitopiaEx")
-                    .SetOutput(RootDirectory / "Publish" / "plugins" / "7_1_kitopiaex")
+                    .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaex")
                     .SetRuntime("win-x64")
                     .SetFramework("net9.0")
                     .SetConfiguration("Release")
@@ -215,7 +215,7 @@ class Build : NukeBuild
                 );
                 DotNetPublish(c => new DotNetPublishSettings()
                     .SetProject("OnnxRuntime.CPU")
-                    .SetOutput(RootDirectory / "Publish" / "plugins" / "2_1_kitopiaonnxruntimecpu")
+                    .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaonnxruntimecpu")
                     .SetRuntime("win-x64")
                     .SetFramework("net9.0")
                     .SetConfiguration("Release")
@@ -263,7 +263,7 @@ class Build : NukeBuild
                 DotNetPublish(c => new DotNetPublishSettings()
                     .SetProject("KitopiaEx")
                     .SetOutput(RootDirectory / "Publish_SelfContained" / "plugins" /
-                               "7_1_kitopiaex")
+                               "kitopiaex")
                     .SetRuntime("win-x64")
                     .SetFramework("net9.0")
                     .SetConfiguration("Release")
@@ -271,7 +271,7 @@ class Build : NukeBuild
                 );
                 DotNetPublish(c => new DotNetPublishSettings()
                     .SetProject("OnnxRuntime.CPU")
-                    .SetOutput(RootDirectory / "Publish" / "plugins" / "2_1_kitopiaonnxruntimecpu")
+                    .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaonnxruntimecpu")
                     .SetRuntime("win-x64")
                     .SetFramework("net9.0")
                     .SetConfiguration("Release")
