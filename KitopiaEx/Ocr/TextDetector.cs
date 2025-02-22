@@ -121,10 +121,10 @@ namespace KitopiaEx.Ocr
             }
 
             var dstImg = new Mat();
-            Cv2.CvtColor(srcMat, dstImg, ColorConversionCodes.RGBA2GRAY);
+            Cv2.CvtColor(srcMat, dstImg, ColorConversionCodes.BGRA2GRAY);
 
             // 创建一个新的图像，用于填充白色背景
-            var resizedImgWithPadding = new Mat(tarH, tarW, MatType.CV_8UC3, new Scalar(255, 255, 255));
+            var resizedImgWithPadding = new Mat(tarH, tarW, MatType.CV_8UC3);
 
             // 计算原图在新图像中的位置
 
@@ -148,9 +148,9 @@ namespace KitopiaEx.Ocr
                 {
                     Vec3b pix = img.Get<Vec3b>(i, j);
                     //由于在上一步中未进行 BGR2RGB ,此处进行
-                    inputImage[i*col+j+2]=(pix[0] / 255.0f - 0.485f) / 0.229f;
+                    inputImage[i*col+j]=(pix[0] / 255.0f - 0.485f) / 0.229f;
                     inputImage[i*col+j+1]=(pix[1] / 255.0f -  0.456f) / 0.224f;
-                    inputImage[i*col+j]=(pix[2] / 255.0f -0.406f ) / 0.225f;
+                    inputImage[i*col+j+2]=(pix[2] / 255.0f -0.406f ) / 0.225f;
                         
                 }
             }

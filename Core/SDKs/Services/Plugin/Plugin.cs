@@ -206,6 +206,7 @@ public class Plugin
                     var value = propertyInfo.GetValue(ServiceProvider!.GetService(propertyInfo.DeclaringType!));
                     if (value is OnnxModelInfo onnxModelInfo)
                     {
+                        onnxModelInfo.ModelPath= $"{pluginInfo.Path}{onnxModelInfo.ModelPath}";
                         onnxModelInfos.Add(new()
                         {
                             Model = onnxModelInfo,

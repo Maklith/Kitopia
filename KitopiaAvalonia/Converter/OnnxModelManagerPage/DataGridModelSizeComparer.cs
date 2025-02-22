@@ -13,10 +13,20 @@ public class DataGridModelSizeComparer : IComparer
     {
         if (x is OnnxModelInfoWrapper onnxModelInfoWrapper &&y is OnnxModelInfoWrapper onnxModelInfoWrapper2)
         {
-            var path = PluginManager.GetPluginLocalInfoByPlgStr(onnxModelInfoWrapper.PluginStr).Path;
-            var fileInfo = new FileInfo($"{path}{onnxModelInfoWrapper.Model.ModelPath}");
-            var path2 = PluginManager.GetPluginLocalInfoByPlgStr(onnxModelInfoWrapper2.PluginStr).Path;
-            var fileInfo2 = new FileInfo($"{path2}{onnxModelInfoWrapper2.Model.ModelPath}");
+            var fileInfo = new FileInfo(onnxModelInfoWrapper.Model.ModelPath);
+            var fileInfo2 = new FileInfo(onnxModelInfoWrapper2.Model.ModelPath);
+            if (!fileInfo2.Exists&&!fileInfo.Exists)
+            {
+                return 0;
+            }
+            if (!fileInfo2.Exists)
+            {
+                return 1;
+            }
+            if (!fileInfo.Exists)
+            {
+                return -1;
+            }
             if (fileInfo.Length> fileInfo2.Length)
             {
                 return 1;

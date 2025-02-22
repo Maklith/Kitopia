@@ -11,10 +11,9 @@ public class OnnxModelInfoWrapperToModelSizeCtr : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is OnnxModelInfoWrapper onnxModelInfoWrapper)
+        if (value is string modelPath)
         {
-            var path = PluginManager.GetPluginLocalInfoByPlgStr(onnxModelInfoWrapper.PluginStr).Path;
-            var fileInfo = new FileInfo($"{path}{onnxModelInfoWrapper.Model.ModelPath}");
+            var fileInfo = new FileInfo(modelPath);
             if (fileInfo.Exists)
             {
                 if (fileInfo.Length>1024*1024 * 1024)  
@@ -32,7 +31,7 @@ public class OnnxModelInfoWrapperToModelSizeCtr : IValueConverter
             }
         }
 
-        return "0B";
+        return "未下载";
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

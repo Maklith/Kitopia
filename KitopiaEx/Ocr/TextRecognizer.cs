@@ -16,8 +16,13 @@ namespace KitopiaEx.Ocr
        
         public TextRecognizer(string recWorldDictPath)
         {
-          
-            this._session = Kitopia.InferenceSessionManager.GetSession("paddleocrrec");
+            if (Config.INSTANCE.UseServerOcrRecModel)
+            {
+                this._session = Kitopia.InferenceSessionManager.GetSession("paddleocrrecserver");
+            }else
+            {
+                this._session = Kitopia.InferenceSessionManager.GetSession("paddleocrrec");
+            }
 
             using (StreamReader sr = new StreamReader(recWorldDictPath))
             {
@@ -73,7 +78,7 @@ namespace KitopiaEx.Ocr
             for (int elementIndex = 0; elementIndex < characters; ++elementIndex)
             {
                 if (labels[elementIndex] != 0 && !(elementIndex > 0 && labels[elementIndex - 1] == labels[elementIndex])&&
-                    confidences[elementIndex] >= 0.5)
+                    confidences[elementIndex] >= 0.4)
                 {
                     no_repeat_blank_label.Add(labels[elementIndex] - 1);
                 }
@@ -126,6 +131,7 @@ namespace KitopiaEx.Ocr
 
         private float[]  Normalize(Mat img)
         {
+            //img.SaveImage("1.png");
             int row = img.Rows;
             int col = img.Cols;
             float[] inputImage = new float[row*col*3];
@@ -135,9 +141,9 @@ namespace KitopiaEx.Ocr
                 {
                     Vec3b pix = img.Get<Vec3b>(i, j);
                     //由于在上一步中未进行 BGR2RGB ,此处进行
-                    inputImage[i*col+j+2]=(pix[0] /  255.0f -0.5f) / 0.5f;
+                    inputImage[i*col+j]=(pix[0] /  255.0f -0.5f) / 0.5f;
                     inputImage[i*col+j+1]=(pix[1] / 255.0f -0.5f) / 0.5f;
-                    inputImage[i*col+j]=(pix[2] /  255.0f -0.5f) / 0.5f;
+                    inputImage[i*col+j+2]=(pix[2] /  255.0f -0.5f) / 0.5f;
                         
                 }
             }

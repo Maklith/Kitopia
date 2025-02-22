@@ -16,11 +16,14 @@ public class InferenceSessionManager: IInferenceSessionManager
             : "CPU";
         if (!PluginOverall.OnnxRuntimes.ContainsKey(target))
         {
-            throw new Exception($"目标推理环境{target}不存在");
+            throw new Exception($"目标推理环境'{target}'不存在");
         }
         var onnxRuntime = PluginOverall.OnnxRuntimes[target].Invoke();
-        var path = PluginManager.GetPluginLocalInfoByPlgStr(onnxModelInfoWrapper.PluginStr).Path;
-        onnxRuntime.InitSession($"{path}{onnxModelInfoWrapper.Model.ModelPath}");
+        if (!File.Exists(onnxModelInfoWrapper.Model.ModelPath))
+        {
+            throw new Exception($"模型'{onnxModelInfoWrapper.Model.Name}'不存在,请先下载");
+        }
+        onnxRuntime.InitSession(onnxModelInfoWrapper.Model.ModelPath);
         return onnxRuntime;
     }
 }

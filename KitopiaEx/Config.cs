@@ -18,6 +18,10 @@ public class Config : ConfigBase
     public string TranslatePreString = "f";
     [ConfigField("翻译功能最短显示字数", "如果搜索内容字数超过该值,显示翻译功能", 0xf8cb, ConfigFieldType.整数, null, 1000, 5, 5)]
     public int TranslateMinCount =20;
+    
+    [ConfigFieldCategory("文字识别")] 
+    [ConfigField("使用服务器版Ocr模型", "使用服务器版Ocr模型,提供更好的识别效果", 0xf8cb, ConfigFieldType.布尔)]
+    public bool UseServerOcrRecModel = false;
     public override void AfterLoad()
     {
         base.AfterLoad();

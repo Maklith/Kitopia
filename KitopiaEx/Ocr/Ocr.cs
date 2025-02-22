@@ -1,13 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using CommunityToolkit.Mvvm.Input;
 using Core.SDKs;
 using OpenCvSharp;
 using PluginCore;
@@ -29,7 +33,7 @@ public class Ocr
     {
         ModelPath = "Ocr\\ocr_det.onnx",
         Name = "文字检测",
-        Description = " 文字检测模型",
+        Description = "文字检测模型",
         SignName = "paddleocrdet",
         
     };
@@ -39,10 +43,70 @@ public class Ocr
     {
         ModelPath = "Ocr\\ocr_rec.onnx",
         Name = "文字识别",
-        Description = " 文字识别模型",
+        Description = "文字识别模型",
         SignName = "paddleocrrec",
     };
-    
+    [OnnxModelInfo]
+    public OnnxModelInfo OcrRecServerModel { get; } = new OnnxModelInfo()
+    {
+        ModelPath = "Ocr\\ocr_rec_server.onnx",
+        Name = "文字识别服务器版",
+        Description = "参数量更大的文字识别模型",
+        SignName = "paddleocrrecserver",
+        CanDownload = true
+    };
+
+    public Ocr()
+    {
+        OcrRecServerModel.DownloadCommand=new AsyncRelayCommand<OnnxModelInfo>(DownloadCommand);
+    }
+
+    private async Task DownloadCommand(OnnxModelInfo? obj)
+    {
+        switch (obj.SignName)
+        {
+            case "paddleocrrecserver":
+            {
+                obj.IsDownloading = true;
+                obj.IsIndeterminate = true;
+                using var httpClient = new HttpClient();
+                var response = await httpClient.GetAsync("https://hf-mirror.com/deepghs/paddleocr/resolve/main/rec/ch_PP-OCRv4_server_rec/model.onnx",
+                    HttpCompletionOption.ResponseHeadersRead);
+                if (response.IsSuccessStatusCode)
+                {
+                    obj.IsIndeterminate = false;
+                    var readAsStreamAsync = await response.Content.ReadAsStreamAsync();
+                    var contentLength = response.Content.Headers.ContentLength;
+                    await using (var fileStream = File.Create($"{obj.ModelPath}.tmp"))
+                    {
+                        int length = 1024*16;
+                        byte[] buffer = new byte[length];
+                        int bytesRead = 0;
+                        int totalBytesRead = 0;
+                        while ((bytesRead = await readAsStreamAsync.ReadAsync(buffer, 0, length)) > 0)
+                        {
+                            await fileStream.WriteAsync(buffer, 0, bytesRead);
+                            totalBytesRead += bytesRead;
+                            if (contentLength != null)
+                                obj.Progress = (float)(totalBytesRead) * 100 / contentLength.Value;
+                        }
+
+                        
+                    }
+                    File.Move($"{obj.ModelPath}.tmp", obj.ModelPath, true);
+                    obj.IsDownloading = false;
+                    obj.NotifyNeedDownload();
+                }
+                else
+                {
+                    obj.IsDownloading = false;
+                    obj.CanDownload = false;
+                }
+                break;
+            }
+        }
+    }
+
     [ScenarioMethod("文字提取", $"{nameof(dResult)}=截图数据","return=文字识别结果数据")]
     public IEnumerable<OcrResult> OcrImg(ScreenCaptureResult dResult, CancellationToken ct)
     {
