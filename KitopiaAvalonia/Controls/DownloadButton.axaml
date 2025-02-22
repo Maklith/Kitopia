@@ -28,11 +28,15 @@
             </Button>
         </Panel>
         <StackPanel Orientation="Horizontal" IsVisible="{Binding IsDownloading}" VerticalAlignment="Center" Margin="15,0,15,0">
-            <ProgressBar IsIndeterminate="{Binding IsIndeterminate}" 
+            <ProgressBar IsIndeterminate="{Binding IsIndeterminate}"  
                          Value="{Binding Progress}"
                          
             ></ProgressBar>
-            <TextBlock Text="{Binding Progress,StringFormat='{}{0:f2}%' }"></TextBlock>
+            <TextBlock VerticalAlignment="Center" Text="{Binding Progress,StringFormat='{}{0:f2}%' }"></TextBlock>
+            <Button Command="{Binding CancelCommand}" 
+                    CommandParameter="{Binding }">
+                取消
+            </Button>
         </StackPanel>
        
     </Panel>

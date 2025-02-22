@@ -59,51 +59,77 @@ public class Ocr
     public Ocr()
     {
         OcrRecServerModel.DownloadCommand=new AsyncRelayCommand<OnnxModelInfo>(DownloadCommand);
+        OcrRecServerModel.CancelCommand=new AsyncRelayCommand<OnnxModelInfo>(CancelCommand);
+    }
+
+    private async Task CancelCommand(OnnxModelInfo? arg)
+    {
+       await arg._cancellationTokenSource.CancelAsync();
     }
 
     private async Task DownloadCommand(OnnxModelInfo? obj)
     {
-        switch (obj.SignName)
+        try
         {
-            case "paddleocrrecserver":
+            switch (obj.SignName)
             {
-                obj.IsDownloading = true;
-                obj.IsIndeterminate = true;
-                using var httpClient = new HttpClient();
-                var response = await httpClient.GetAsync("https://hf-mirror.com/deepghs/paddleocr/resolve/main/rec/ch_PP-OCRv4_server_rec/model.onnx",
-                    HttpCompletionOption.ResponseHeadersRead);
-                if (response.IsSuccessStatusCode)
+                case "paddleocrrecserver":
                 {
-                    obj.IsIndeterminate = false;
-                    var readAsStreamAsync = await response.Content.ReadAsStreamAsync();
-                    var contentLength = response.Content.Headers.ContentLength;
-                    await using (var fileStream = File.Create($"{obj.ModelPath}.tmp"))
+                    obj.IsDownloading = true;
+                    obj.IsIndeterminate = true;
+                    if (obj._cancellationTokenSource is null || obj._cancellationTokenSource.IsCancellationRequested)
                     {
-                        int length = 1024*16;
-                        byte[] buffer = new byte[length];
-                        int bytesRead = 0;
-                        int totalBytesRead = 0;
-                        while ((bytesRead = await readAsStreamAsync.ReadAsync(buffer, 0, length)) > 0)
+                        obj._cancellationTokenSource = new CancellationTokenSource();
+                    }
+                    using var httpClient = new HttpClient();
+                    var response = await httpClient.GetAsync("https://hf-mirror.com/deepghs/paddleocr/resolve/main/rec/ch_PP-OCRv4_server_rec/model.onnx",
+                        HttpCompletionOption.ResponseHeadersRead, obj._cancellationTokenSource.Token);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        obj.IsIndeterminate = false;
+                        var readAsStreamAsync = await response.Content.ReadAsStreamAsync(obj._cancellationTokenSource.Token);
+                        var contentLength = response.Content.Headers.ContentLength;
+                        await using (var fileStream = File.Create($"{obj.ModelPath}.tmp"))
                         {
-                            await fileStream.WriteAsync(buffer, 0, bytesRead);
-                            totalBytesRead += bytesRead;
-                            if (contentLength != null)
-                                obj.Progress = (float)(totalBytesRead) * 100 / contentLength.Value;
-                        }
+                            int length = 1024*16;
+                            byte[] buffer = new byte[length];
+                            int bytesRead = 0;
+                            int totalBytesRead = 0;
+                            while ((bytesRead = await readAsStreamAsync.ReadAsync(buffer, 0, length, obj._cancellationTokenSource.Token)) > 0)
+                            {
+                                await fileStream.WriteAsync(buffer, 0, bytesRead, obj._cancellationTokenSource.Token);
+                                totalBytesRead += bytesRead;
+                                if (contentLength != null)
+                                    obj.Progress = (float)(totalBytesRead) * 100 / contentLength.Value;
+                            }
 
                         
+                        }
+
+                        if (!obj._cancellationTokenSource.Token.IsCancellationRequested)
+                        {
+                            File.Move($"{obj.ModelPath}.tmp", obj.ModelPath, true);
+                            obj.IsDownloading = false;
+                            obj.NotifyNeedDownload();
+                        }
+                        else
+                        {
+                            obj.IsDownloading = false;
+                        }
+                    
                     }
-                    File.Move($"{obj.ModelPath}.tmp", obj.ModelPath, true);
-                    obj.IsDownloading = false;
-                    obj.NotifyNeedDownload();
+                    else
+                    {
+                        obj.IsDownloading = false;
+                        obj.CanDownload = false;
+                    }
+                    break;
                 }
-                else
-                {
-                    obj.IsDownloading = false;
-                    obj.CanDownload = false;
-                }
-                break;
             }
+        }
+        catch (Exception e)
+        {
+            obj.IsDownloading = false;
         }
     }
 
