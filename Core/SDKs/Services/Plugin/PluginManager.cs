@@ -111,9 +111,9 @@ public class PluginManager
         return AllPluginInfos;
     }
 
-    public static Plugin? GetPlugin(string plgStr)
+    public static Dictionary<string,Plugin> GetEnablePlugins()
     {
-        return EnablePlugins.TryGetValue(plgStr, out var value) ? value : null;
+        return EnablePlugins;
     }
 
     public static IServiceProvider GetServiceProvider(string plgStr)
@@ -168,22 +168,43 @@ public class PluginManager
         EnablePlugin(pluginInfoEx);
         return true;
     }
-    public static void UnloadPlugin(PluginLocalInfo pluginInfoEx, bool reloadPluginAndCustomScenarion = true)
+    public static async Task<bool> UnloadPlugin(PluginLocalInfo pluginInfoEx, bool reloadPluginAndCustomScenarion = true)
     {
-        Plugin.UnloadByPluginInfo(pluginInfoEx.ToPlgString(), out var weakReference);
-        EnablePlugins.Remove(pluginInfoEx.ToPlgString());
-        
-        ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.ToPlgString() == pluginInfoEx.ToPlgString());
-        ConfigManger.Save();
-
-        for (var i = 0; i < 15; i++)
+        WeakReference? weakReference=null;
+        await Task.Run(() =>
         {
-            GC.Collect(2, GCCollectionMode.Aggressive);
-            GC.WaitForPendingFinalizers();
-            Task.Delay(10).Wait();
+            Plugin.UnloadByPluginInfo(pluginInfoEx.ToPlgString(), out weakReference);
+            EnablePlugins.Remove(pluginInfoEx.ToPlgString());
+
+            ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.ToPlgString() == pluginInfoEx.ToPlgString());
+            ConfigManger.Save();
+
+            for (var i = 0; i < 30; i++)
+            {
+                GC.Collect(2, GCCollectionMode.Aggressive);
+                GC.WaitForPendingFinalizers();
+                Task.Delay(50).Wait();
+                if (!weakReference.IsAlive) break;
+            }
+        });
+        if (weakReference is null)
+        {
+            return false;
         }
 
-        if (weakReference.IsAlive) pluginInfoEx.UnloadFailed = true;
+        if (weakReference.IsAlive)
+        {
+            pluginInfoEx.UnloadFailed = true;
+            Task.Run((() =>
+            {
+                while (weakReference.IsAlive)
+                {
+                    Task.Delay(1000);
+                }
+
+                pluginInfoEx.UnloadFailed = false;
+            }));
+        }
         
         // Items.ResetBindings();
         if (reloadPluginAndCustomScenarion)
@@ -191,8 +212,9 @@ public class PluginManager
             WeakReferenceMessenger.Default.Send(
                 new PluginStateChanged(pluginInfoEx.PluginBaseInfo.NameSign));
             Reload();
-            CustomScenarioManger.Reload();
+           CustomScenarioManger.Reload();
         }
+        return false;
     }
 
     public static void Reload()
@@ -332,7 +354,7 @@ public class PluginManager
 
         foreach (var directoryInfo in pluginsDirectoryInfo.EnumerateDirectories())
         {
-            if (File.Exists($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}.remove"))
+            if (init&&File.Exists($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}.remove"))
             {
                 try
                 {
@@ -390,7 +412,7 @@ public class PluginManager
                             continue;
                         }
                         Log.Debug($"加载插件{pluginBaseInfo.Name}信息成功");
-                        if (File.Exists($"{info.Path}.update"))
+                        if (init&&File.Exists($"{info.Path}.update"))
                         {
                             var allText = File.ReadAllText($"{info.Path}.update");
                             if (int.TryParse(allText, out var versionId))
@@ -500,8 +522,12 @@ public class PluginManager
     public static async Task<bool> DownloadPluginAndEnable(int pluginId,string pluginSign, int? targetVersionId = null,
         string? targetVersion = null)
     {
-        await DownloadPluginOnline( pluginId, pluginSign, targetVersionId, targetVersion);
-        return EnablePlugin(pluginSign);
+        var downloadPluginOnline = await DownloadPluginOnline( pluginId, pluginSign, targetVersionId, targetVersion);
+        if (downloadPluginOnline)
+        {
+            return EnablePlugin(pluginSign);
+        }
+        return false;
     }
 
     private static async Task<bool> DownloadPlugin(int id, object versionId, string plugin)

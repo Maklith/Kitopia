@@ -5,14 +5,15 @@
              xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
              xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:DataType="pluginCore:IDownloadButtonViewModel"
              x:Class="KitopiaAvalonia.Controls.DownloadButton">
+    <UserControl.Template>
+        <ControlTemplate>
     <Panel>
-        <Panel IsVisible="{Binding !IsDownloading}">
-            <Button Command="{Binding DownloadCommand}" 
-                    CommandParameter="{Binding }"
-                    IsVisible="{Binding NeedDownload}" 
-                    IsEnabled="{Binding CanDownload}">
+        <Panel IsVisible="{Binding !IsDownloading, RelativeSource={RelativeSource TemplatedParent}}">
+            <Button Command="{TemplateBinding DownloadCommand}" 
+                    CommandParameter="{TemplateBinding DataContext}"
+                    IsVisible="{TemplateBinding NeedDownload}" 
+                    IsEnabled="{TemplateBinding CanDownload}">
                 <Button.Styles>
                     <Style Selector="Button[IsEnabled=True]">
                         <Setter Property="Content">下载</Setter>
@@ -22,24 +23,25 @@
                     </Style>
                 </Button.Styles>
             </Button>
-            <Button IsVisible="{Binding !NeedDownload}" 
+            <Button IsVisible="{Binding !NeedDownload, RelativeSource={RelativeSource TemplatedParent}}" 
                     IsEnabled="False">
                 已下载
             </Button>
         </Panel>
-        <StackPanel Orientation="Horizontal" IsVisible="{Binding IsDownloading}" VerticalAlignment="Center" Margin="15,0,15,0">
-            <ProgressBar IsIndeterminate="{Binding IsIndeterminate}"  
-                         Value="{Binding Progress}"
+        <StackPanel Orientation="Horizontal" IsVisible="{TemplateBinding IsDownloading}" VerticalAlignment="Center" Margin="15,0,15,0">
+            <ProgressBar IsIndeterminate="{TemplateBinding IsIndeterminate}"  
+                         Value="{TemplateBinding Progress}"
                          
             ></ProgressBar>
-            <TextBlock VerticalAlignment="Center" Text="{Binding Progress,StringFormat='{}{0:f2}%' }"></TextBlock>
-            <Button Command="{Binding CancelCommand}" 
-                    CommandParameter="{Binding }">
+            <TextBlock VerticalAlignment="Center" Text="{Binding  Path=Progress,StringFormat='{}{0:f2}%', RelativeSource={RelativeSource TemplatedParent} }"></TextBlock>
+            <Button Command="{TemplateBinding CancelCommand}" 
+                    CommandParameter="{TemplateBinding DataContext}">
                 取消
             </Button>
         </StackPanel>
        
     </Panel>
     
-    
+        </ControlTemplate>
+    </UserControl.Template>
 </UserControl>

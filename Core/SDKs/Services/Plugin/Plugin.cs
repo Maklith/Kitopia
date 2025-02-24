@@ -92,6 +92,7 @@ public class Plugin
         List<Func<string, SearchViewItem?>> searchViews = new();
         List<ScreenCaptureExMethod> captureActions = new();
         List<OnnxModelInfoWrapper> onnxModelInfos = new();
+        Dictionary<string,Func<IInferenceSession>> onnxRuntimes = new();
         PluginInfo = pluginInfo;
         foreach (var type in t)
             if (type.GetInterface("IPlugin") != null)
@@ -134,10 +135,9 @@ public class Plugin
             if (typeof(IInferenceSession).IsAssignableFrom(type))
             {
                 var inferenceSession = (IInferenceSession)ServiceProvider.GetService(type);
-                if (!PluginOverall.OnnxRuntimes.ContainsKey(inferenceSession.Device))
-                {
-                    PluginOverall.OnnxRuntimes.Add(inferenceSession.Device, (() => (IInferenceSession)ServiceProvider.GetService(type)));
-                }
+                
+                onnxRuntimes.Add(inferenceSession.Device, (() => (IInferenceSession)ServiceProvider.GetService(type)));
+                
             }
 
             var scenarioMethodCategoryGroup = pluginMainScenarioMethodCategoryGroup;
@@ -222,6 +222,7 @@ public class Plugin
         PluginOverall.ScreenCaptureExMethods.Add(PluginInfo.ToPlgString(), captureActions);
             
         PluginOverall.OnnxModelInfos.Add(PluginInfo.ToPlgString(), onnxModelInfos);
+        PluginOverall.OnnxRuntimes.Add(PluginInfo.ToPlgString(), onnxRuntimes);
     }
 
     public Assembly? _dll => _plugin.Assembly;
@@ -292,7 +293,7 @@ public class Plugin
     [MethodImpl(MethodImplOptions.NoInlining)]
     internal static void UnloadByPluginInfo(string pluginInfoEx, out WeakReference weakReference)
     {
-        var plugin = PluginManager.GetPlugin(pluginInfoEx);
+        var plugin = PluginManager.GetEnablePlugins().TryGetValue(pluginInfoEx, out var value) ? value : null;
         if (plugin is not null)
         {
             plugin.Unload(out weakReference);
@@ -311,6 +312,7 @@ public class Plugin
         PluginOverall.SearchActions.Remove(PluginInfo.ToPlgString());
         PluginOverall.ScreenCaptureExMethods.Remove(PluginInfo.ToPlgString());
         PluginOverall.OnnxModelInfos.Remove(PluginInfo.ToPlgString());
+        PluginOverall.OnnxRuntimes.Remove(PluginInfo.ToPlgString());
         ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.RemoveMethodsByPluginName(PluginInfo.ToPlgString());
         var keyValuePairs = CustomScenarioGloble.Triggers.Where(e => e.Value.PluginInfo == PluginInfo.ToPlgString());
         foreach (var keyValuePair in keyValuePairs) CustomScenarioGloble.Triggers.Remove(keyValuePair.Key);

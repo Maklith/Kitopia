@@ -111,7 +111,16 @@
                     </DataGridTemplateColumn>
                     <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="下载模型">
                         <DataTemplate x:DataType="onnx:OnnxModelInfoWrapper">
-                            <controls:DownloadButton DataContext="{Binding Model }"/>
+                            <controls:DownloadButton DataContext="{Binding Model}"
+                                NeedDownload="{Binding NeedDownload}"
+                                                        CanDownload="{Binding CanDownload}"
+                                                        IsDownloading="{Binding IsDownloading}"
+                                                        IsIndeterminate="{Binding IsIndeterminate}"
+                                                        Progress="{Binding Progress}"
+                                                        DownloadCommand="{Binding DownloadCommand}"
+                                                        CancelCommand="{Binding CancelCommand}"
+                                                        
+                                                     />
                         </DataTemplate>
                     </DataGridTemplateColumn>
                 </DataGrid.Columns>

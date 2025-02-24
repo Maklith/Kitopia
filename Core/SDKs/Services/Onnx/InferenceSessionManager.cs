@@ -14,11 +14,12 @@ public class InferenceSessionManager: IInferenceSessionManager
         var target= ConfigManger.Config.OnnxTargetDevices.ContainsKey(onnxModelInfoWrapper.Model.SignName)
             ? ConfigManger.Config.OnnxTargetDevices[onnxModelInfoWrapper.Model.SignName]
             : "CPU";
-        if (!PluginOverall.OnnxRuntimes.ContainsKey(target))
+        var runtime = PluginOverall.GetOnnxRuntime(target);
+        if (runtime is null)
         {
             throw new Exception($"目标推理环境'{target}'不存在");
         }
-        var onnxRuntime = PluginOverall.OnnxRuntimes[target].Invoke();
+        var onnxRuntime = runtime.Invoke();
         if (!File.Exists(onnxModelInfoWrapper.Model.ModelPath))
         {
             throw new Exception($"模型'{onnxModelInfoWrapper.Model.Name}'不存在,请先下载");

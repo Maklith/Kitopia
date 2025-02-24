@@ -36,7 +36,7 @@ public partial class App : Application
 
     public override void Initialize()
     {
-        this.EnableHotReload();
+       // this.EnableHotReload();
         AvaloniaXamlLoader.Load(this);
     }
 

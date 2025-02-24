@@ -66,13 +66,13 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     }
 
     [RelayCommand]
-    public void Switch(PluginInfoUiHelper pluginInfoUi)
+    public async Task Switch(PluginInfoUiHelper pluginInfoUi)
     {
         var pluginInfoEx = pluginInfoUi.PluginLocalInfo;
         Log.Debug(pluginInfoEx.IsEnabled);
         if (pluginInfoEx.IsEnabled)
             //卸载插件
-            PluginManager.UnloadPlugin(pluginInfoEx);
+            await PluginManager.UnloadPlugin(pluginInfoEx);
         else
             //加载插件
             //Plugin.NewPlugin(pluginInfoEx.Path, out var weakReference);
