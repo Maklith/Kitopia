@@ -5,10 +5,11 @@ using System.Collections.ObjectModel;
 using System.IO.Compression;
 using System.Reflection;
 using System.Text;
-using AvaloniaEdit.Utils;
+
 using CommunityToolkit.Mvvm.Messaging;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.Services.Config;
+using Core.SDKs.Services.Onnx;
 using Core.ViewModel.Pages;
 using log4net;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,12 +38,12 @@ public class PluginManager
     {
         PluginCore.Kitopia.ISearchItemTool =
             (ISearchItemTool)ServiceManager.Services.GetService(typeof(ISearchItemTool))!;
-        PluginCore.Kitopia.IClipboardService = ServiceExtensions.GetService<IClipboardService>(ServiceManager.Services);
+        PluginCore.Kitopia.IClipboardService =ServiceManager.Services.GetService<IClipboardService>()!;
         PluginCore.Kitopia.IToastService = (IToastService)ServiceManager.Services.GetService(typeof(IToastService))!;
         PluginCore.Kitopia._i18n = CustomScenarioGloble._i18n;
         PluginCore.Kitopia.ToolTipConverters = CustomScenarioGloble.ToolTipConverters;
         PluginCore.Kitopia.JsonConverters = CustomScenarioGloble.JsonConverters;
-        PluginCore.Kitopia.InferenceSessionManager = ServiceExtensions.GetService<IInferenceSessionManager>(ServiceManager.Services);
+        PluginCore.Kitopia.InferenceSessionManager = ServiceManager.Services.GetService<InferenceSessionManager>()!;
         Load(true);
     }
 
@@ -144,6 +145,10 @@ public class PluginManager
 
     public static void EnablePlugin(PluginLocalInfo pluginInfoEx)
     {
+        if (EnablePlugins.ContainsKey(pluginInfoEx.ToPlgString()))
+        {
+            return;
+        }
         EnablePluginWithoutReloadOthers(pluginInfoEx);
         CustomScenarioManger.ReCheck(true);
         WeakReferenceMessenger.Default.Send(
@@ -151,6 +156,11 @@ public class PluginManager
     }
     public static void EnablePluginWithoutReloadOthers(PluginLocalInfo pluginInfoEx)
     {
+        if (EnablePlugins.ContainsKey(pluginInfoEx.ToPlgString()))
+        {
+            return;
+        }
+        
         EnablePlugins.Add(pluginInfoEx.ToPlgString(),
             new Plugin(pluginInfoEx));
         ConfigManger.Config.EnabledPluginInfos.Add(pluginInfoEx.PluginBaseInfo);
@@ -265,7 +275,7 @@ public class PluginManager
                     var onlinePluginInfo = await GetOnlinePluginInfo(pluginSignName);
                     if (onlinePluginInfo is null)
                     {
-                        ServiceExtensions.GetService<IToastService>(ServiceManager.Services)
+                        ServiceManager.Services.GetService<IToastService>()
                             .Show("自动下载插件失败", $"未找到ID:{pluginSignName}的插件");
                         canLoad = false;
                         results.TryAdd(pluginSignName, VersionCheckResult.依赖远端不存在);
@@ -277,12 +287,12 @@ public class PluginManager
 
                     if (downloadPluginOnline)
                     {
-                        ServiceExtensions.GetService<IToastService>(ServiceManager.Services)
+                        ServiceManager.Services.GetService<IToastService>()
                             .Show("自动下载插件成功", $"已自动下载并启用{onlinePluginInfo.Name}");
                     }
                     else
                     {
-                        ServiceExtensions.GetService<IToastService>(ServiceManager.Services)
+                        ServiceManager.Services.GetService<IToastService>()
                             .Show("自动下载插件失败", $"下载ID:{pluginSignName}的插件时遇到错误");
                         results.TryAdd(pluginSignName, VersionCheckResult.依赖下载失败);
                     }
@@ -608,7 +618,7 @@ public class PluginManager
             {
                 return false;
             }
-            UnloadPlugin(pluginLocalInfoByPlgStr);
+            await UnloadPlugin(pluginLocalInfoByPlgStr);
 
             if (pluginLocalInfoByPlgStr.UnloadFailed)
             {
@@ -616,8 +626,12 @@ public class PluginManager
             }
             else
             {
-                await PluginManager.DownloadPluginAndEnable(pluginLocalInfoByPlgStr.PluginBaseInfo.Id,
+                var downloadPluginAndEnable = await PluginManager.DownloadPluginAndEnable(pluginLocalInfoByPlgStr.PluginBaseInfo.Id,
                     pluginLocalInfoByPlgStr.PluginBaseInfo.NameSign, targetVersionId);
+                if (!downloadPluginAndEnable)
+                {
+                    ServiceManager.Services.GetService<IToastService>()!.Show("更新插件失败", $"更新插件{pluginLocalInfoByPlgStr.PluginBaseInfo.Name}失败");
+                }
             }
         }
         catch (Exception e)
