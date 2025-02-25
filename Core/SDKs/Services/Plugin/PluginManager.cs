@@ -429,6 +429,15 @@ public class PluginManager
                             {
                                 DownloadPluginOnline(pluginBaseInfo.Id,pluginBaseInfo.NameSign,versionId).Wait();
                             }
+
+                            try
+                            {
+                                File.Delete($"{info.Path}.update");
+                            }
+                            catch (Exception e)
+                            {
+                                Log.Error("错误",e);
+                            }
                         }
                         if (ConfigManger.Config.EnabledPluginInfos.Any(e => e.ToPlgString() == pluginBaseInfo.ToPlgString()))
                         {
