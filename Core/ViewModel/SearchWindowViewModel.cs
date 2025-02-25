@@ -67,8 +67,12 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
     public SearchWindowViewModel()
     {
-        ReloadApps(false);
-        LoadLast();
+        
+        Task.Run((() =>
+        {
+            ReloadApps(false);
+            LoadLast();
+        }));
     }
 
     public void AddCollection(string search)
@@ -80,27 +84,14 @@ public partial class SearchWindowViewModel : ObservableRecipient
     {
         if (_reloading) return;
 
+        
         _reloading = true;
+        CheckEverything();
         ServiceManager.Services.GetService<IAppToolService>()!.DelNullFile(_collection);
         ServiceManager.Services.GetService<IAppToolService>()!.GetAllApps(_collection, logging,
             ConfigManger.Config.useEverything);
 
-        if (ConfigManger.Config.useEverything && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            Log.Debug("everything检测");
-
-
-            var service = ServiceManager.Services.GetService<IEverythingService>()!;
-            EverythingIsOk = service.IsRun();
-
-            if (!EverythingIsOk.Value)
-                ServiceManager.Services.GetService<IAppToolService>()!.AutoStartEverything(_collection, () =>
-                {
-                    Thread.Sleep(1500);
-                    var everythingService = ServiceManager.Services.GetService<IEverythingService>()!;
-                    EverythingIsOk = everythingService.IsRun();
-                });
-        }
+       
 
         foreach (var scenario in CustomScenarioManger.CustomScenarios)
         {
@@ -129,6 +120,26 @@ public partial class SearchWindowViewModel : ObservableRecipient
         }
 
         _reloading = false;
+    }
+
+    private void CheckEverything()
+    {
+        if (ConfigManger.Config.useEverything && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            Log.Debug("everything检测");
+
+
+            var service = ServiceManager.Services.GetService<IEverythingService>()!;
+            EverythingIsOk = service.IsRun();
+
+            if (!EverythingIsOk.Value)
+                ServiceManager.Services.GetService<IAppToolService>()!.AutoStartEverything(_collection, () =>
+                {
+                    Thread.Sleep(1500);
+                    var everythingService = ServiceManager.Services.GetService<IEverythingService>()!;
+                    EverythingIsOk = everythingService.IsRun();
+                });
+        }
     }
 
 
