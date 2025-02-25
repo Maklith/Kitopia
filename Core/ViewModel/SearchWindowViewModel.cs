@@ -330,11 +330,11 @@ public partial class SearchWindowViewModel : ObservableRecipient
             Items.Clear();
 
             if (Search is null) return;
-
+ 
             #endregion
 
             var originalValue = Search;
-            value = Search.ToLowerInvariant();
+            value = Search.Split(" ").First().ToLowerInvariant();
             var pluginItem = 0;
             foreach (var searchAction in PluginOverall.SearchActions)
             foreach (var func in searchAction.Value)
@@ -552,6 +552,14 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     };
                     Items.Insert(0, item);
                 }
+            var strings = Search.Split(" ", StringSplitOptions.RemoveEmptyEntries); 
+            if (strings.Length > 1)
+            {
+                for (var index = 1; index < strings.Length; index++)
+                {
+                    ReSearch(strings[index]);
+                }
+            }
             FileTypes.Clear();
             var fileTypes = Items.GroupBy(e=>e.FileType).Select(e=>e.Key);
             foreach (var fileType in fileTypes)
@@ -564,16 +572,27 @@ public partial class SearchWindowViewModel : ObservableRecipient
             }
             ShowItems = Items;
             ShowFileTypeFilter = FileTypes.Count > 0;
+            
+           
         });
     }
 
+    private PinyinSearcher<SearchViewItem>? _pinyinReSearcher;
     private void ReSearch(string value)
     {
-        for (var index = Items.Count - 1; index >= 0; index--)
+        if (_pinyinReSearcher is null)
         {
-            var searchViewItem = Items[index];
-            if (!searchViewItem.PinyinItem.Keys!.Any(e => e.Contains(value))) Items.RemoveAt(index);
+            _pinyinReSearcher = new PinyinSearcher<SearchViewItem>(Items,
+                nameof(SearchViewItem.PinyinItem), false);
         }
+
+        var searchResultsEnumerable = _pinyinReSearcher.Search(value)
+            .OrderByDescending(x => x.Weight)
+            .ToList();
+        Items.Clear();
+        foreach (var searchResults in searchResultsEnumerable)
+            Items.Add(searchResults.Source);
+        
     }
 
     public void SetSelectMode(bool flag, Action<SearchViewItem> action)
