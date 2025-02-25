@@ -345,6 +345,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             #endregion
 
             var originalValue = Search;
+            var lowerOriginalValue = Search.ToLowerInvariant();
             value = Search.Split(" ").First().ToLowerInvariant();
             var pluginItem = 0;
             foreach (var searchAction in PluginOverall.SearchActions)
@@ -455,6 +456,15 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     }
                 }
                 //Items.RaiseListChangedEvents = true;
+                var strings = Search.Split(" ", StringSplitOptions.RemoveEmptyEntries); 
+                if (strings.Length > 1)
+                {
+                    for (var index = 1; index < strings.Length; index++)
+                    {
+                        ReSearch(strings[index]);
+                    }
+                }
+                
             }
 
 
@@ -467,10 +477,10 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     {
                         Log.Debug("无搜索项目,添加网页搜索");
 
-                        if (value.Contains(".") || value.Contains("file://"))
+                        if (lowerOriginalValue.Contains(".") || lowerOriginalValue.Contains("file://"))
                         {
-                            var temp = value;
-                            if (!temp.StartsWith("http") && !value.Contains("file://"))
+                            var temp = lowerOriginalValue;
+                            if (!temp.StartsWith("http") && !lowerOriginalValue.Contains("file://"))
                             {
                                 temp = "https://" + temp;
                                 var viewItem = new SearchViewItem
@@ -483,7 +493,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                                     IsVisible = true
                                 };
                                 Items.Add(viewItem);
-                                temp = "http://" + value;
+                                temp = "http://" + lowerOriginalValue;
                                 var viewItem1 = new SearchViewItem
                                 {
                                     ItemDisplayName = "打开网页:" + temp,
@@ -495,13 +505,13 @@ public partial class SearchWindowViewModel : ObservableRecipient
                                 };
                                 Items.Add(viewItem1);
                             }
-                            else if (value.Contains("file://"))
+                            else if (lowerOriginalValue.Contains("file://"))
                             {
                                 var viewItem1 = new SearchViewItem
                                 {
-                                    ItemDisplayName = "打开路径:" + value,
+                                    ItemDisplayName = "打开路径:" + lowerOriginalValue,
                                     FileType = FileType.URL,
-                                    OnlyKey = value,
+                                    OnlyKey = lowerOriginalValue,
                                     Icon = null,
                                     IconSymbol = 62555,
                                     IsVisible = true
@@ -512,9 +522,9 @@ public partial class SearchWindowViewModel : ObservableRecipient
                             {
                                 var viewItem1 = new SearchViewItem
                                 {
-                                    ItemDisplayName = "打开网页:" + value,
+                                    ItemDisplayName = "打开网页:" + lowerOriginalValue,
                                     FileType = FileType.URL,
-                                    OnlyKey = value,
+                                    OnlyKey = lowerOriginalValue,
                                     Icon = null,
                                     IconSymbol = 62555,
                                     IsVisible = true
@@ -525,9 +535,9 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
                         var searchViewItem3 = new SearchViewItem
                         {
-                            ItemDisplayName = "将内容添加至便签" + value,
+                            ItemDisplayName = "将内容添加至便签" + originalValue,
                             FileType = FileType.便签,
-                            OnlyKey = value,
+                            OnlyKey = originalValue,
                             Icon = null,
                             IconSymbol = 0xF6EC,
                             IsVisible = true
@@ -535,9 +545,9 @@ public partial class SearchWindowViewModel : ObservableRecipient
                         Items.Add(searchViewItem3);
                         var searchViewItem = new SearchViewItem
                         {
-                            ItemDisplayName = "在网页中搜索" + value,
+                            ItemDisplayName = "在网页中搜索" + originalValue,
                             FileType = FileType.URL,
-                            OnlyKey = "https://www.bing.com/search?q=" + value,
+                            OnlyKey = "https://www.bing.com/search?q=" + originalValue,
                             Icon = null,
                             IconSymbol = 62555,
                             IsVisible = true
@@ -546,31 +556,22 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     }
                 }
             }
-
-            var first = value.Split(" ")
-                .First();
+            
             foreach (var se in knownCommand)
-                if (se.Equals(first))
+                if (se.Equals(value))
                 {
                     var item = new SearchViewItem
                     {
-                        ItemDisplayName = "执行命令:" + value,
+                        ItemDisplayName = "执行命令:" + originalValue,
                         FileType = FileType.命令,
-                        OnlyKey = value,
+                        OnlyKey = originalValue,
                         Icon = null,
                         IconSymbol = 61039,
                         IsVisible = true
                     };
                     Items.Insert(0, item);
                 }
-            var strings = Search.Split(" ", StringSplitOptions.RemoveEmptyEntries); 
-            if (strings.Length > 1)
-            {
-                for (var index = 1; index < strings.Length; index++)
-                {
-                    ReSearch(strings[index]);
-                }
-            }
+           
             FileTypes.Clear();
             var fileTypes = Items.GroupBy(e=>e.FileType).Select(e=>e.Key);
             foreach (var fileType in fileTypes)
