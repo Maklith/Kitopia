@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System.Buffers;
+using System.Collections;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -421,7 +422,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                 }
             }
 
-            captureAllScreenInfo.Bytes = null;
+            ArrayPool<byte>.Shared.Return(captureAllScreenInfo.Bytes);
             captureAllScreenInfo.Source = writeableBitmap;
             screenCaptureResults.Push(captureAllScreenInfo);
         }

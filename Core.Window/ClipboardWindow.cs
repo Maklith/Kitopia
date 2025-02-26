@@ -113,54 +113,7 @@ public class ClipboardWindow : IClipboardService
         thread.Start();
         tcs.Task.Wait();
         return writeableBitmap;
-        // var writeableBitmap = new WriteableBitmap();
-        // bitmapSource.CopyPixels();
-        try
-        {
-            if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
-            {
-                byte[] result = [];
-                Dispatcher.UIThread.Invoke(() =>
-                {
-                    result = appLifetime.MainWindow.Clipboard.GetDataAsync("Unknown_Format_2")
-                        .WaitAsync(TimeSpan.FromSeconds(1))
-                        .GetAwaiter()
-                        .GetResult() as byte[];
-                });
-                var imgInfo = new byte[Marshal.SizeOf<Gdi32.BITMAPINFO>()];
-                var img = new byte[result.Length - Marshal.SizeOf<Gdi32.BITMAPINFO>() + 4];
-                Array.Copy(result, 40, img, 0, img.Length);
-                Array.Copy(result, 0, imgInfo, 0, imgInfo.Length);
-                var info = BytesToStructure<Gdi32.BITMAPINFO>(imgInfo);
-                var configuration = Configuration.Default;
-                configuration.PreferContiguousImageBuffers = true;
-
-                var image = Image.LoadPixelData<Rgba32>(configuration, img, info.bmiHeader.biWidth,
-                    info.bmiHeader.biHeight);
-                image.Mutate(x => x.Flip(FlipMode.Vertical));
-                if (!image.DangerousTryGetSinglePixelMemory(out var memory))
-                    throw new Exception(
-                        "This can only happen with multi-GB images or when PreferContiguousImageBuffers is not set to true.");
-
-                using (var pinHandle = memory.Pin())
-                {
-                    unsafe
-                    {
-                        var pixelFormat = PixelFormat.Bgra8888;
-                        var bitmap1 = new Bitmap(pixelFormat, AlphaFormat.Unpremul, (IntPtr)pinHandle.Pointer,
-                            new PixelSize(info.bmiHeader.biWidth, info.bmiHeader.biHeight), new Vector(96, 96),
-                            ((info.bmiHeader.biWidth * pixelFormat.BitsPerPixel + 31) & ~31) >> 3);
-                        return bitmap1;
-                    }
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            return null;
-        }
-
-        return null;
+        
     }
 
     public bool SetImage(Bitmap image)

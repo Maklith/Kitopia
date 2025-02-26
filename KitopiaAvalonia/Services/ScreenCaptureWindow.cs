@@ -20,8 +20,8 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
         var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBitmap();
         while (results.TryPop(out var result))
         {
-            var window = new Windows.ScreenCaptureWindow(result.Info);
-            window.Image.Source = result.Source;
+            var window = new Windows.ScreenCaptureWindow(result);
+            
             window.Show();
         }
 
@@ -33,8 +33,8 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
         var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBitmap();
         while (results.TryPop(out var result))
         {
-            var window = new Windows.ScreenCaptureWindow(result.Info);
-            window.Image.Source = result.Source;
+            var window = new Windows.ScreenCaptureWindow(result);
+            
             window.SetToSelectMode(action.Invoke);
             window.Show();
         }
@@ -50,8 +50,8 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
             Lock @lock = new Lock();
             while (results.TryPop(out var result))
             {
-                var window = new Windows.ScreenCaptureWindow(result.Info);
-                window.Image.Source = result.Source;
+                var window = new Windows.ScreenCaptureWindow(result);
+               
                 window.SetToSelectBytesMode(action.Invoke, (() =>
                 {
                     lock (@lock)

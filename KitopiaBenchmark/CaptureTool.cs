@@ -1,9 +1,10 @@
 ﻿using System.Buffers;
+using Core.Window;
 using PluginCore;
 using Silk.NET.Direct3D11;
 using Silk.NET.DXGI;
 
-namespace Core.Window;
+namespace KitopiaBenchmark;
 
 public static class CaptureTool
 {
@@ -30,7 +31,7 @@ public static class CaptureTool
         // 结果数组：区域宽 * 区域高 * 4（RGBA）
         int regionWidth = endX - startX;
         int regionHeight = endY - startY;
-        byte[] result =ArrayPool<byte>.Shared.Rent(regionWidth * regionHeight * 4);
+        byte[] result = new byte[regionWidth * regionHeight * 4];
         if (!outputDesc.ColorSpace.ToString().EndsWith("2020"))
         {
             var span = new ReadOnlySpan<uint>(mappedSubresource.PData,

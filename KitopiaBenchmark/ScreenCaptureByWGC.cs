@@ -21,9 +21,9 @@ using IDirect3DSurface = Windows.Graphics.DirectX.Direct3D11.IDirect3DSurface;
 using IInspectable = WinRT.IInspectable;
 using Rect = PluginCore.Rect;
 
-namespace Core.Window;
+namespace KitopiaBenchmark;
 
-public class ScreenCaptureByWGC : IScreenCapture
+public class ScreenCaptureByWGCWithoutPool : IScreenCapture
 {
     public List<ScreenCaptureInfo> GetAllScreenInfo()
     {
@@ -261,7 +261,7 @@ public class ScreenCaptureByWGC : IScreenCapture
             }
         }
 
-        ArrayPool<byte>.Shared.Return(captureAllScreenInfo.Bytes);
+        captureAllScreenInfo.Bytes = null;
         captureAllScreenInfo.Source = writeableBitmap;
         return captureAllScreenInfo;
     }

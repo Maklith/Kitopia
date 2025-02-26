@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -51,12 +52,13 @@ public partial class ScreenCaptureWindow : Window
     private bool Finish = false;
     private List<WindowInfo> _windowInfos;
     private WindowInfo _currentWindowInfo;
-    public ScreenCaptureWindow(ScreenCaptureInfo screenCaptureInfo)
+    public ScreenCaptureWindow(ScreenCaptureResult screenCaptureResult)
     {
         InitializeComponent();
         _windowInfos = ServiceManager.Services.GetService<IScreenCaptureManager>()!.GetAllWindowInfo();
-        _screenCaptureInfo = screenCaptureInfo;
-        Position = new PixelPoint(screenCaptureInfo.ScreenInfo.X, screenCaptureInfo.ScreenInfo.Y);
+        _screenCaptureInfo = screenCaptureResult.Info;
+        Image.Source = screenCaptureResult.Source;
+        Position = new PixelPoint(screenCaptureResult.Info.ScreenInfo.X, screenCaptureResult.Info.ScreenInfo.Y);
         WindowState = WindowState.FullScreen;
         SystemDecorations = SystemDecorations.None;
         Background = new SolidColorBrush(Colors.Black);
@@ -943,7 +945,7 @@ public partial class ScreenCaptureWindow : Window
                     bufferSize,
                     (((int)cropW * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3
                 );
-                var ys = new byte[bufferSize];
+                var ys =ArrayPool<byte>.Shared.Rent(bufferSize);
                 Marshal.Copy(ptr, ys, 0, bufferSize);
                 Marshal.FreeHGlobal(ptr);
                 if (selectBytesMode)
@@ -965,6 +967,7 @@ public partial class ScreenCaptureWindow : Window
                         });
                     }).ContinueWith((e) =>
                     {
+                        ArrayPool<byte>.Shared.Return(ys);
                         GC.Collect(2,GCCollectionMode.Optimized);
                     });
                    
@@ -987,6 +990,7 @@ public partial class ScreenCaptureWindow : Window
                             Bytes = ys
                         }).ContinueWith((e) =>
                         {
+                            ArrayPool<byte>.Shared.Return(ys);
                             GC.Collect(2,GCCollectionMode.Optimized);
                         });
                 }
