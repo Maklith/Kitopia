@@ -32,7 +32,7 @@ public  class CustomScenarioManger
             //设置当前线程最高优先级
             Thread.CurrentThread.Priority = ThreadPriority.Highest;
             StringBuilder sb = new();
-            sb.AppendLine($"触发器{e}被触发\n以下情景被执行:");
+            
             foreach (var customScenario in CustomScenarios)
                 if (customScenario.AutoTriggers.Contains(e))
                 {
@@ -43,9 +43,17 @@ public  class CustomScenarioManger
                         customScenario.Run();
                 }
 
-            Log.Information(sb.ToString());
-            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
-                sb.ToString());
+            if (sb.Length!=0)
+            {
+                sb.Insert(0, $"情景触发器\"{e}\"触发了以下情景:\n");
+                Log.Information(sb.ToString());
+                ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
+                    sb.ToString());
+            }else
+            {
+                Log.Information($"情景触发器\"{e}\"没有触发情景");
+            }
+           
         });
 
 
