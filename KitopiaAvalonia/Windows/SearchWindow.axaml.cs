@@ -12,7 +12,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Core.SDKs.Services;
 using Core.ViewModel;
 using KitopiaAvalonia.Tools;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
@@ -20,7 +20,7 @@ namespace KitopiaAvalonia.Windows;
 
 public partial class SearchWindow : Window
 {
-    private static readonly ILog log = LogManager.GetLogger(nameof(SearchWindow));
+    
 
     public SearchWindow()
     {

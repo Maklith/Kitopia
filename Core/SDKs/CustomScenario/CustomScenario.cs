@@ -12,9 +12,10 @@ using Core.SDKs.CustomType;
 using Core.SDKs.HotKey;
 using Core.SDKs.Services;
 using Core.SDKs.Tools;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using Serilog;
 
 #endregion
 
@@ -22,7 +23,7 @@ namespace Core.SDKs.CustomScenario;
 
 public partial class CustomScenario : ObservableRecipient
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(CustomScenario));
+    private static ILogger Log =   LogManager.Logger.ForContext<CustomScenario>();
     [property:JsonIgnore][JsonIgnore][ObservableProperty] private Bitmap? _icon;
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> _autoTriggers = new();
     private CancellationTokenSource _cancellationTokenSource = new();

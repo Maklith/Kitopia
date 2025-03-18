@@ -6,12 +6,13 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.SDKs.Services.Config;
 using Core.ViewModel.Pages;
-using log4net;
+
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PluginCore;
 using Polly;
 using Polly.Retry;
+using Serilog;
 
 namespace Core.SDKs.Services.Plugin;
 
@@ -43,7 +44,7 @@ public struct VersionDetail
 }
 public partial class PluginInfoUiHelper : ObservableObject,IDisposable
 {
-    private static readonly ILog log = LogManager.GetLogger(nameof(PluginInfoUiHelper));
+    private static ILogger Log =   LogManager.Logger.ForContext<PluginInfoUiHelper>();
     private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
         .AddConcurrencyLimiter(new ConcurrencyLimiterOptions()
         {
@@ -55,7 +56,7 @@ public partial class PluginInfoUiHelper : ObservableObject,IDisposable
             {
                 ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
                 {
-                    log.Error("错误", exception);
+                    Log.Error("错误", exception);
                     return true;
                 }),
                 Delay = TimeSpan.FromSeconds(1),

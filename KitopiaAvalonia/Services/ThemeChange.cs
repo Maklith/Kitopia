@@ -5,7 +5,7 @@ using Avalonia;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Core.SDKs.Services;
-using log4net;
+using Serilog;
 
 #endregion
 
@@ -13,11 +13,11 @@ namespace Kitopia.Services;
 
 public class ThemeChange : IThemeChange
 {
-    private static readonly ILog log = LogManager.GetLogger(nameof(ThemeChange));
+    private static ILogger Log =   LogManager.Logger.ForContext<ThemeChange>();
 
     public void changeTo(string name)
     {
-        log.Debug(nameof(ThemeChange) + "的接口" + nameof(changeTo) + "被调用");
+        Log.Debug(nameof(ThemeChange) + "的接口" + nameof(changeTo) + "被调用");
 
         Dispatcher.UIThread.Post(() =>
         {
@@ -36,18 +36,18 @@ public class ThemeChange : IThemeChange
 
     public void changeAnother()
     {
-        log.Debug(nameof(ThemeChange) + "的接口" + nameof(changeAnother) + "被调用");
+        Log.Debug(nameof(ThemeChange) + "的接口" + nameof(changeAnother) + "被调用");
         throw new NotImplementedException();
     }
 
     public void followSys(bool follow)
     {
-        log.Debug(nameof(ThemeChange) + "的接口" + nameof(follow) + "被调用");
+        Log.Debug(nameof(ThemeChange) + "的接口" + nameof(follow) + "被调用");
     }
 
     public bool isDark()
     {
-        log.Debug(nameof(ThemeChange) + "的接口" + nameof(isDark) + "被调用");
+        Log.Debug(nameof(ThemeChange) + "的接口" + nameof(isDark) + "被调用");
 
         return Application.Current.RequestedThemeVariant == ThemeVariant.Dark;
     }

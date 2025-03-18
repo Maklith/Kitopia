@@ -5,13 +5,14 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using AvaloniaEdit.Utils;
 using Core.SDKs.Services.Plugin;
-using log4net;
+
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Protocol;
 using MQTTnet.Server;
 using Newtonsoft.Json.Linq;
 using PluginCore;
+using Serilog;
 
 namespace Core.SDKs.Services.MQTT;
 
@@ -23,7 +24,7 @@ public enum MqttMsgType
 
 public class MqttManager
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(MqttManager));
+    private static ILogger Log =   LogManager.Logger.ForContext<MqttManager>();
     public static MqttServer Server;
     private static FileStream fileStream;
 

@@ -7,13 +7,14 @@ using Core.JsonConverter;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.HotKey;
 using Core.SDKs.Services.Config;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Attribute.Scenario;
 using PluginCore.Config;
 using PluginCore.Onnx;
+using Serilog;
 
 #endregion
 
@@ -21,7 +22,7 @@ namespace Core.SDKs.Services.Plugin;
 
 public class Plugin
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(Plugin));
+    private static ILogger Log =   LogManager.Logger.ForContext<Plugin>();
 
     private AssemblyLoadContextH? _plugin;
     private IPlugin _pluginService;
@@ -53,8 +54,7 @@ public class Plugin
         }
         catch (Exception e)
         {
-            Log.Error(e);
-            Log.Error("配置文件加载失败");
+            Log.Error(e, "配置文件加载失败");
         }
 
         configBase.GetType()

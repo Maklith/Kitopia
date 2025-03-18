@@ -9,10 +9,11 @@ using Core.SDKs;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Core.Window.Everything;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;
 using PluginCore;
+using Serilog;
 using Vanara.PInvoke;
 using Vanara.Windows.Shell;
 using File = System.IO.File;
@@ -23,7 +24,7 @@ namespace Core.Window;
 
 public partial class AppTools
 {
-    private static readonly ILog log = LogManager.GetLogger(nameof(AppTools));
+    private static ILogger Log =   LogManager.Logger.ForContext<AppTools>();
     private static readonly List<string> ErrorLnkList = new();
 
     //Console.WriteLine();
@@ -82,7 +83,7 @@ public partial class AppTools
 
                                 Thread.Sleep(200);
                                 File.Delete(TempFileName);
-                                log.Debug("创建Everything的noUAC任务计划完成");
+                                Log.Debug("创建Everything的noUAC任务计划完成");
                                 Shell32.ShellExecute(IntPtr.Zero, "open",
                                     $"{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.lnk",
                                     "", "",
@@ -91,7 +92,7 @@ public partial class AppTools
                             },
                             CloseAction = () =>
                             {
-                                log.Debug("关闭自动启动Everything功能");
+                                Log.Debug("关闭自动启动Everything功能");
                                 ConfigManger.Config.autoStartEverything = false;
                                 ConfigManger.Save();
                             }
@@ -143,11 +144,11 @@ public partial class AppTools
     internal static void GetAllApps(ConcurrentDictionary<string, SearchViewItem> collection,
         bool logging = false, bool useEverything = false)
     {
-        log.Debug("索引全部软件及收藏项目");
+        Log.Debug("索引全部软件及收藏项目");
 
 
         UwpTools.GetAll(collection);
-        log.Debug("索引全部软件及收藏项目UWP");
+        Log.Debug("索引全部软件及收藏项目UWP");
 
         // 创建一个空的文件路径集合
 
@@ -215,7 +216,7 @@ public partial class AppTools
             var c = new StringBuilder("检测到多个无效的快捷方式\n需要Kitopia帮你清理吗?(该功能每个错误快捷方式只提示一次)\n以下为无效的快捷方式列表:\n");
             foreach (var s in ErrorLnkList) c.AppendLine(s);
 
-            log.Debug(c.ToString());
+            Log.Debug(c.ToString());
             var dialog = new DialogContent()
             {
                 Title = $"Kitopia建议",
@@ -226,14 +227,14 @@ public partial class AppTools
                 {
                     foreach (var s in ErrorLnkList)
                     {
-                        log.Debug($"删除无效快捷方式:{s}");
+                        Log.Debug($"删除无效快捷方式:{s}");
                         try
                         {
                             File.Delete(s);
                         }
                         catch (Exception)
                         {
-                            log.Debug($"添加无效快捷方式记录:{s}");
+                            Log.Debug($"添加无效快捷方式记录:{s}");
                             ConfigManger.Config.errorLnk.Add(s);
                             ConfigManger.Save();
                         }
@@ -245,12 +246,12 @@ public partial class AppTools
                 {
                     foreach (var s in ErrorLnkList)
                     {
-                        log.Debug($"添加无效快捷方式记录:{s}");
+                        Log.Debug($"添加无效快捷方式记录:{s}");
                         ConfigManger.Config.errorLnk.Add(s);
                         ConfigManger.Save();
                     }
 
-                    log.Debug("取消删除无效快捷方式");
+                    Log.Debug("取消删除无效快捷方式");
                     ErrorLnkList.Clear();
                 }
             };
@@ -262,7 +263,7 @@ public partial class AppTools
     internal static void AppSolverA(ConcurrentDictionary<string, SearchViewItem> collection, string file,
         bool star = false, bool logging = false)
     {
-        //log.Debug(Thread.CurrentThread.ManagedThreadId);
+        //Log.Debug(Thread.CurrentThread.ManagedThreadId);
 
         var localizedName = file.Split("\\")
             .Last();
@@ -341,7 +342,7 @@ public partial class AppTools
                     var fullName = refFileInfo.FullName;
                     if (ConfigManger.Config.ignoreItems.Contains(fullName))
                     {
-                        log.Debug($"忽略索引:{fullName}");
+                        Log.Debug($"忽略索引:{fullName}");
                         return;
                     }
 
@@ -351,7 +352,7 @@ public partial class AppTools
                     }
                     else
                     {
-                        log.Debug($"无效索引:\n{file}\n目标位置:{fullName}");
+                        Log.Debug($"无效索引:\n{file}\n目标位置:{fullName}");
                         if (!ErrorLnkList.Contains(file) && !ConfigManger.Config.errorLnk.Contains(file))
                             ErrorLnkList.Add(file);
 
@@ -377,11 +378,11 @@ public partial class AppTools
                             });
                         }
 
-                        //log.Debug($"完成索引:{file}");
+                        //Log.Debug($"完成索引:{file}");
                     }
                     else
                     {
-                        // log.Debug($"不符合要求跳过索引:{file}");
+                        // Log.Debug($"不符合要求跳过索引:{file}");
                     }
 
                     break;
@@ -402,7 +403,7 @@ public partial class AppTools
 
                     if (ConfigManger.Config.ignoreItems.Contains(onlyKey))
                     {
-                        log.Debug($"忽略索引:{onlyKey}");
+                        Log.Debug($"忽略索引:{onlyKey}");
                         return;
                     }
 

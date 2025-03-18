@@ -2,12 +2,13 @@
 using System.Text.Json.Serialization;
 using Avalonia.Threading;
 using Core.SDKs.HotKey;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Config;
 using PluginCore.Onnx;
+using Serilog;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable FieldCanBeMadeReadOnly.Global
@@ -17,7 +18,7 @@ namespace Core.SDKs.Services.Config;
 [ConfigName("Kitopia主配置文件")]
 public class KitopiaConfig : ConfigBase
 {
-    private static ILog log = LogManager.GetLogger("KitopiaConfig");
+    private static ILogger Log =   LogManager.Logger.ForContext<KitopiaConfig>();
     public List<string> alwayShows = new();
     
     public Dictionary<string,string> OnnxTargetDevices = new();
@@ -130,7 +131,7 @@ public class KitopiaConfig : ConfigBase
     {
         invokes.Add("screenShotHotKeyAction", new Action<HotKeyModel>(e =>
         {
-            log.Debug("截图热键被触发");
+            Log.Debug("截图热键被触发");
             
             Dispatcher.UIThread.InvokeAsync(() =>
                 {
@@ -141,7 +142,7 @@ public class KitopiaConfig : ConfigBase
                 {
                     if (e.IsFaulted)
                     {
-                        log.Error(e.Exception);
+                        Log.Error(e.Exception,"");
                         ServiceManager.Services.GetService<IErrorWindow>()!.ShowErrorWindow(
                             "截图失败", e.Exception.Message + e.Exception.StackTrace);
                     }
@@ -149,12 +150,12 @@ public class KitopiaConfig : ConfigBase
         }));
         invokes.Add("mouseHotkeyAction", new Action<HotKeyModel>(e =>
         {
-            log.Debug("鼠标快捷菜单快捷键触发");
+            Log.Debug("鼠标快捷菜单快捷键触发");
             ServiceManager.Services.GetService<IMouseQuickWindowService>()!.Open();
         }));
         invokes.Add("searchHotKeyAction", new Action<HotKeyModel>(e =>
         {
-            log.Debug("显示搜索框热键被触发");
+            Log.Debug("显示搜索框热键被触发");
             ServiceManager.Services.GetService<ISearchWindowService>()!.ShowOrHiddenSearchWindow();
         }));
         invokes.Add("截图方法列表",

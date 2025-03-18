@@ -70,17 +70,11 @@
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2"/>
         <PackageReference Include="Irihi.Ursa" Version="1.8.0" />
         <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="1.8.0" />
-        <PackageReference Include="log4net" Version="2.0.17"/>
         <PackageReference Include="Markdown.Avalonia" Version="11.0.3-a1"/>
         <PackageReference Include="Semi.Avalonia" Version="11.2.1.4" />
         <PackageReference Include="Semi.Avalonia.ColorPicker" Version="11.2.1.4" />
         <PackageReference Include="Semi.Avalonia.DataGrid" Version="11.2.1.4" />
         <PackageReference Include="System.Drawing.Common" Version="9.0.0-rc.2.24474.1"/>
-    </ItemGroup>
-    <ItemGroup>
-        <EmbeddedResource Include="log4net.config">
-            <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-        </EmbeddedResource>
     </ItemGroup>
     <ItemGroup>
         <Compile Update="Windows\DialogWindow.axaml.cs">

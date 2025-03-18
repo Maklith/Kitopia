@@ -11,12 +11,13 @@ using Core.SDKs.CustomScenario;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Onnx;
 using Core.ViewModel.Pages;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PluginCore;
 using PluginCore.Onnx;
+using Serilog;
 using SixLabors.ImageSharp;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
@@ -27,8 +28,7 @@ namespace Core.SDKs.Services.Plugin;
 
 public class PluginManager
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(PluginManager));
-
+    private static ILogger Log =   LogManager.Logger.ForContext<PluginManager>();
     private static readonly ObservableCollection<PluginLocalInfo> AllPluginInfos = new();
     private static readonly Dictionary<string, Plugin> EnablePlugins = new();
 
@@ -44,6 +44,7 @@ public class PluginManager
         PluginCore.Kitopia.ToolTipConverters = CustomScenarioGloble.ToolTipConverters;
         PluginCore.Kitopia.JsonConverters = CustomScenarioGloble.JsonConverters;
         PluginCore.Kitopia.InferenceSessionManager = ServiceManager.Services.GetService<IInferenceSessionManager>()!;
+        PluginCore.Kitopia.Logger = LogManager.Logger;
         Load(true);
     }
 

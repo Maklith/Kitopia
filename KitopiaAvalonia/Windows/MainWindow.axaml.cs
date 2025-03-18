@@ -13,7 +13,7 @@ using Core.SDKs.Services.Config;
 using Core.SDKs.Services.MQTT;
 using Core.SDKs.Services.Plugin;
 using Core.ViewModel;
-using log4net;
+using Serilog;
 using Ursa.Controls;
 using HotKeyManager = Core.SDKs.HotKey.HotKeyManager;
 
@@ -21,7 +21,7 @@ namespace KitopiaAvalonia;
 
 public partial class MainWindow : UrsaWindow
 {
-    private static readonly ILog log = LogManager.GetLogger(nameof(MainWindow));
+    private static ILogger Log =   LogManager.Logger.ForContext<MainWindow>();
 
     public MainWindow()
     {
@@ -30,7 +30,7 @@ public partial class MainWindow : UrsaWindow
         Dispatcher.UIThread.UnhandledException += (sender, e) =>
         {
             e.Handled = true;
-            log.Fatal(e.Exception);
+            Log.Fatal(e.Exception,"");
         };
         Opened += FirstOpenEventHandler;
 

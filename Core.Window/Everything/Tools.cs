@@ -5,9 +5,9 @@ using System.Collections.Concurrent;
 using System.Text;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
-using log4net;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using Serilog;
 
 #endregion
 
@@ -15,7 +15,7 @@ namespace Core.Window.Everything;
 
 public class EverythingTools
 {
-    private static readonly ILog Log = LogManager.GetLogger("EverythingTools");
+    private static ILogger Log =   LogManager.Logger.ForContext<EverythingTools>();
     public static bool IsRun()
     {
         if (IntPtr.Size == 8)

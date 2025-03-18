@@ -8,7 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Plugin;
-using log4net;
+
 using PluginCore;
 using PluginCore.Attribute;
 
@@ -24,7 +24,7 @@ public struct PluginSettingItem
 
 public partial class PluginSettingViewModel : ObservableRecipient
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(PluginSettingViewModel));
+    
     [ObservableProperty] private ObservableCollection<PluginSettingItem> _settingItems = new();
     [ObservableProperty] private string _pluginName = string.Empty;
 

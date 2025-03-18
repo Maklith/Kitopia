@@ -14,9 +14,10 @@ using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Plugin;
 using Core.SDKs.Tools;
-using log4net;
+
 using Pinyin.NET;
 using PluginCore;
+using Serilog;
 using Math = Core.SDKs.Tools.Math;
 
 #endregion
@@ -30,7 +31,7 @@ public class FileTypeFilter
 }
 public partial class SearchWindowViewModel : ObservableRecipient
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(SearchWindowViewModel));
+    private static ILogger Log =   LogManager.Logger.ForContext<SearchWindowViewModel>();
     private static readonly List<SearchViewItem> TempList = new(1000);
     
     
@@ -72,7 +73,11 @@ public partial class SearchWindowViewModel : ObservableRecipient
         {
             ReloadApps(false);
             LoadLast();
-        }));
+        })).ContinueWith(e =>
+        {
+            
+            Log.Error(e.Exception,"");
+        });
     }
 
     public void AddCollection(string search)

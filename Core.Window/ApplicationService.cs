@@ -2,17 +2,18 @@
 using Avalonia;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
-using log4net;
+
 using Microsoft.Win32;
 using PluginCore;
+using Serilog;
 using Vanara.PInvoke;
 
 namespace Core.Window;
 
 public class ApplicationService : IApplicationService
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(ApplicationService));
-
+    
+    private static ILogger Log = LogManager.Logger.ForContext<ApplicationService>();
     public void Init()
     {
         InitUrlProtocol();
@@ -87,12 +88,12 @@ public class ApplicationService : IApplicationService
                 {
                     if (Equals(registry.GetValue("Kitopia"), $"\"{strName}\""))
                     {
-                        Log.Info("开机自启配置已存在");
+                        Log.Information("开机自启配置已存在");
                         return true;
                     }
                 }
 
-                Log.Info("用户确认启用开机自启");
+                Log.Information("用户确认启用开机自启");
                 try
                 {
                     registry.SetValue("Kitopia", $"\"{strName}\""); //设置该子项的新的“键值对”
@@ -125,8 +126,7 @@ public class ApplicationService : IApplicationService
         }
         catch (Exception e)
         {
-            Log.Error("开机自启设置失败");
-            Log.Error(e.StackTrace);
+            Log.Error(e,"开机自启设置失败");
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))).Show("开机自启",
                 "开机自启设置失败");
             return false;

@@ -1,13 +1,13 @@
 ﻿using Avalonia;
 using Core.SDKs.Services;
-using log4net;
+
 using Vanara.PInvoke;
 
 namespace Core.Window;
 
 public class WindowToolServiceWindow : IWindowTool
 {
-    private static readonly ILog log = LogManager.GetLogger(nameof(WindowToolServiceWindow));
+    
 
     public void SetForegroundWindow(IntPtr hWnd)
     {

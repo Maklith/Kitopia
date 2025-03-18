@@ -3,9 +3,11 @@
 using System.Collections.Concurrent;
 using System.IO;
 using System.Xml;
+using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
-using log4net;
+
 using PluginCore;
+using Serilog;
 using Vanara.Extensions;
 using Vanara.PInvoke;
 using Vanara.Windows.Shell;
@@ -14,10 +16,10 @@ using Vanara.Windows.Shell;
 
 namespace Core.Window;
 
-internal static class UwpTools
+internal  class UwpTools
 {
     private static HashSet<string> errorUWPs = new();
-    private static readonly ILog Log = LogManager.GetLogger(nameof(UwpTools));
+    private static ILogger Log =   LogManager.Logger.ForContext<UwpTools>();
 
     private static XmlNode? GetApplicationNode(XmlNode node)
     {

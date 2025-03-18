@@ -1,6 +1,6 @@
 ﻿#region
 
-using log4net;
+
 using Timer = System.Timers.Timer;
 
 #endregion
@@ -9,7 +9,7 @@ namespace Core.SDKs.Tools;
 
 public class DelayAction
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(DelayAction));
+    
     private readonly object _lock1 = new();
     private bool _needDelay = false;
     private Timer? _timerDbc;

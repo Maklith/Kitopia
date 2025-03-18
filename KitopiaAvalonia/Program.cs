@@ -30,10 +30,10 @@ using Kitopia.Services;
 using KitopiaAvalonia.Pages;
 using KitopiaAvalonia.Services;
 using KitopiaAvalonia.Windows;
-using log4net;
-using log4net.Config;
+
 using PluginCore;
 using PluginCore.Onnx;
+using Serilog;
 using HotKeyManager = Core.SDKs.HotKey.HotKeyManager;
 using ScreenCaptureWindow = KitopiaAvalonia.Services.ScreenCaptureWindow;
 
@@ -41,7 +41,7 @@ namespace KitopiaAvalonia;
 
 internal class Program
 {
-    private static readonly ILog log = LogManager.GetLogger(nameof(Program));
+    private static ILogger Log =   LogManager.Logger.ForContext<Program>();
 
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
@@ -49,22 +49,19 @@ internal class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        var logConfigStream = assembly.GetManifestResourceStream("KitopiaAvalonia.log4net.config")!;
-
-        XmlConfigurator.Configure(logConfigStream);
+       
         try
         {
             // RxApp.DefaultExceptionHandler = new MyCoolObservableExceptionHandler();
-            TaskScheduler.UnobservedTaskException += (sender, eventArgs) => { log.Error("错误", eventArgs.Exception); };
+            TaskScheduler.UnobservedTaskException += (sender, eventArgs) => { Log.Error("错误", eventArgs.Exception); };
 
             AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
             {
-                log.Fatal("错误", (Exception)e.ExceptionObject);
+                Log.Fatal("错误", (Exception)e.ExceptionObject);
             };
             AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
             {
-                log.Info("程序退出");
+                Log.Information("程序退出");
                 ServiceManager.Services.GetService<IToastService>().Unregister();
             };
             Task.Run(async () =>
@@ -78,7 +75,7 @@ internal class Program
         }
         catch (Exception e)
         {
-            log.Fatal(e);
+            Log.Fatal(e,"");
             Environment.Exit(0);
         }
         finally
@@ -171,7 +168,7 @@ internal class Program
     {
         // 定义日志文件的目录
         var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-        log.Debug($"检查日志目录:{logDirectory}");
+        Log.Debug($"检查日志目录:{logDirectory}");
         // 定义要保留的日志文件的时间范围，这里是一周
         var timeSpan = TimeSpan.FromDays(2);
 
@@ -189,24 +186,24 @@ internal class Program
             // 如果差值大于要保留的时间范围，就删除该日志文件
             if (currentDate - logFile.LastWriteTime > timeSpan)
             {
-                log.Debug($"删除日志文件:{logFile.FullName}");
+                Log.Debug($"删除日志文件:{logFile.FullName}");
                 logFile.Delete();
             }
     }
 
     public static void OnStartup(string[] arg)
     {
-        log.Info("启动");
+        Log.Information("启动");
         ServiceManager.Services = ConfigureServices();
 
         CheckAndDeleteLogFiles();
 
         MqttManager.Init().Wait();
-        log.Info("MQTT初始化完成");
+        Log.Information("MQTT初始化完成");
         HotKeyManager.Init();
-        log.Debug("注册热键管理器完成");
+        Log.Debug("注册热键管理器完成");
         ConfigManger.Init();
-        log.Info("配置文件初始化完成");
+        Log.Information("配置文件初始化完成");
         if (ConfigManger.Config.mouseCapture) HotKeyManager.HotKetImpl.StartHook();
         ServiceManager.Services.GetService<IToastService>().Init();
 
@@ -237,19 +234,19 @@ internal class Program
             }
         }
 
-        log.Info("主题初始化完成");
+        Log.Information("主题初始化完成");
 
         PluginManager.Init();
-        log.Info("插件管理器初始化完成");
+        Log.Information("插件管理器初始化完成");
         CustomScenarioManger.Init();
-        log.Info("场景管理器初始化完成");
+        Log.Information("场景管理器初始化完成");
 
 
         ServicePointManager.DefaultConnectionLimit = 10240;
 
         if (ConfigManger.Config.autoStart)
         {
-            log.Info("设置开机自启");
+            Log.Information("设置开机自启");
             ServiceManager.Services.GetService<IApplicationService>()
                 .ChangeAutoStart(true);
         }

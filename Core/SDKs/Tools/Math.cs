@@ -1,11 +1,11 @@
 ﻿using System.Text.RegularExpressions;
-using log4net;
+
 
 namespace Core.SDKs.Tools;
 
 public static class Math
 {
-    private static readonly ILog log = LogManager.GetLogger(nameof(Math));
+    
 
     // 评估一个复杂数学表达式，返回一个decimal类型的值
     public static decimal Evaluate(string expression)

@@ -6,17 +6,18 @@ using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Core.ViewModel;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using Serilog;
 using Vanara.PInvoke;
 
 namespace Core.Window;
 
 public class SearchItemTool : ISearchItemTool
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(SearchItemTool));
-
+    
+    private static ILogger Log =   LogManager.Logger.ForContext<SearchItemTool>();
     public void OpenFile(SearchViewItem? searchViewItem, params object[] inputValues)
     {
         if (searchViewItem is null) return;

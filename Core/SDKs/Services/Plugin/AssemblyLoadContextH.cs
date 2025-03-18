@@ -10,8 +10,9 @@ using System.Text.Unicode;
 using Avalonia;
 using Core.JsonConverter;
 using Core.SDKs.Services.Config;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 
 #endregion
 
@@ -21,7 +22,7 @@ public class AssemblyLoadContextH : AssemblyLoadContext
 {
     private readonly AssemblyDependencyResolver _resolver;
     private Assembly _assembly;
-    private static readonly ILog log = LogManager.GetLogger(nameof(AssemblyLoadContextH));
+    private static ILogger Log =   LogManager.Logger.ForContext<AssemblyLoadContextH>();
 
     public AssemblyLoadContextH(string pluginPath, string name) : base(isCollectible: true, name: name)
     {
@@ -47,7 +48,7 @@ public class AssemblyLoadContextH : AssemblyLoadContext
 
             };
             _assembly = null;
-            log.Info($"Unloading {sender.Assemblies.First()}");
+            Log.Information($"Unloading {sender.Assemblies.First()}");
             AvaloniaPropertyRegistry.Instance.UnregisterByModule(sender.Assemblies.First()
                 .DefinedTypes);
             ServiceManager.Services.GetService<IPluginToolService>()!.RequestUninstallPlugin(pluginPath);

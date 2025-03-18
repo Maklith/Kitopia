@@ -6,12 +6,14 @@ using System.Runtime.InteropServices;
 using System.Threading.RateLimiting;
 using System.Xml;
 using Core.SDKs.CustomScenario;
+using Core.SDKs.Services;
 using KitopiaAvalonia.Tools;
-using log4net;
+
 using PluginCore;
 using Polly;
 using Polly.RateLimiting;
 using Polly.Retry;
+using Serilog;
 using Vanara.PInvoke;
 using Size = System.Drawing.Size;
 
@@ -21,6 +23,7 @@ namespace Core.Window;
 
 internal class IconTools
 {
+    private static ILogger Log =   LogManager.Logger.ForContext<IconTools>();
     private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
         .AddConcurrencyLimiter(new ConcurrencyLimiterOptions()
         {
@@ -32,7 +35,7 @@ internal class IconTools
             {
                 ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
                 {
-                    log.Error("错误", exception);
+                    Log.Error("错误", exception);
                     return true;
                 }),
                 Delay = TimeSpan.FromSeconds(1),
@@ -45,7 +48,7 @@ internal class IconTools
     private const uint SHGFI_SMALLICON = 0x000000001;
     private const uint SHGFI_USEFILEATTRIBUTES = 0x000000010;
     private const uint SHGFI_OPENICON = 0x000000002;
-    private static readonly ILog log = LogManager.GetLogger(nameof(IconTools));
+    
     private static readonly Dictionary<string, Avalonia.Media.Imaging.Bitmap> _icons = new(250);
 
 

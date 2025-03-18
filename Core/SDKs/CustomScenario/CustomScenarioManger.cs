@@ -11,18 +11,19 @@ using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Plugin;
 using Core.ViewModel;
 using KitopiaEx;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;
 using PluginCore;
+using Serilog;
 
 namespace Core.SDKs.CustomScenario;
 
-public static class CustomScenarioManger
+public  class CustomScenarioManger
 {
     public static ObservableCollection<CustomScenario> CustomScenarios = new();
-
-    private static readonly ILog Log = LogManager.GetLogger(nameof(CustomScenarioManger));
+    private static ILogger Log =   LogManager.Logger.ForContext<CustomScenarioManger>();
+    
 
     public static void Init()
     {
@@ -42,7 +43,7 @@ public static class CustomScenarioManger
                         customScenario.Run();
                 }
 
-            Log.Info(sb.ToString());
+            Log.Information(sb.ToString());
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
                 sb.ToString());
         });

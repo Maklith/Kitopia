@@ -7,7 +7,7 @@ using Core.SDKs;
 using Core.SDKs.HotKey;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Ursa.Controls;
@@ -16,7 +16,7 @@ namespace KitopiaAvalonia.Windows;
 
 public partial class HotKeyEditorWindow : UrsaWindow
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(HotKeyEditorWindow));
+    
     private HotKeyModel? _hotKeyModel;
     private bool isFinnish;
     private EKey? selectedKey;

@@ -16,7 +16,7 @@ using Core.SDKs.Services;
 using Core.SDKs.Services.Plugin;
 using Core.SDKs.Tools;
 using Core.SDKs.Tools.Ex;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
@@ -26,7 +26,7 @@ namespace Core.ViewModel.TaskEditor;
 
 public partial class TaskEditorViewModel : ObservableRecipient
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(TaskEditorViewModel));
+    
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCustomScenarioCommand))]

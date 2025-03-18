@@ -23,12 +23,13 @@ using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Plugin;
 using Core.UiControls.Plugin;
 using KitopiaAvalonia.Tools;
-using log4net;
+
 using Markdown.Avalonia.Full;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PluginCore;
+using Serilog;
 using Ursa.Controls;
 using Path = System.IO.Path;
 
@@ -39,7 +40,7 @@ namespace Core.ViewModel.Pages.plugin;
  
 public partial class PluginManagerPageViewModel : ObservableRecipient
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(PluginManagerPageViewModel));
+    private static ILogger Log =   LogManager.Logger.ForContext<PluginManagerPageViewModel>();
     private readonly TaskScheduler _scheduler = TaskScheduler.FromCurrentSynchronizationContext();
     public ObservableCollection<PluginInfoUiHelper> Items => new ObservableCollection<PluginInfoUiHelper>(PluginManager.GetPluginLocalInfos().Select(e=>new PluginInfoUiHelper()
     {
@@ -69,7 +70,7 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     public async Task Switch(PluginInfoUiHelper pluginInfoUi)
     {
         var pluginInfoEx = pluginInfoUi.PluginLocalInfo;
-        Log.Debug(pluginInfoEx.IsEnabled);
+        Log.Debug(pluginInfoEx.IsEnabled.ToString());
         if (pluginInfoEx.IsEnabled)
             //卸载插件
             await PluginManager.UnloadPlugin(pluginInfoEx);
@@ -78,7 +79,7 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
             //Plugin.NewPlugin(pluginInfoEx.Path, out var weakReference);
             PluginManager.EnablePlugin(pluginInfoEx);
         
-        Log.Debug(pluginInfoEx.IsEnabled);
+        Log.Debug(pluginInfoEx.IsEnabled.ToString());
     }
 
     [RelayCommand]

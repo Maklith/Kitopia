@@ -9,23 +9,25 @@ using CommunityToolkit.Mvvm.Messaging;
 using Core.JsonConverter;
 using Core.SDKs.HotKey;
 using Core.ViewModel;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Config;
+using Serilog;
 
 #endregion
 
 namespace Core.SDKs.Services.Config;
 
-public static class ConfigManger
+public class ConfigManger
 {
+    private static ILogger Log =   LogManager.Logger.ForContext<ConfigManger>();
     public static Version Version = new("1.0.0");
     public static string ApiUrl = "https://api.kitopia.top:5111";
     public static Dictionary<string, ConfigBase> Configs = new();
     public static KitopiaConfig Config => (KitopiaConfig)Configs["KitopiaConfig"] ;
-    private static readonly ILog log = LogManager.GetLogger(nameof(ConfigManger));
+    
     private static readonly Dictionary<HotKeyModel, (object, FieldInfo)> hotkeysMappings = new();
 
     public static JsonSerializerOptions DefaultOptions = new()
@@ -64,8 +66,7 @@ public static class ConfigManger
             }
             catch (Exception e)
             {
-                log.Error(e);
-                log.Error("配置文件加载失败");
+                Log.Error(e,"配置文件加载失败");
             }
         }
 

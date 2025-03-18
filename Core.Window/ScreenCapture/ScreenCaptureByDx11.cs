@@ -13,9 +13,10 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Core.SDKs.Services;
 using Core.SDKs.Tools.ImageTools;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using Serilog;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
 using Silk.NET.Direct3D11;
@@ -42,8 +43,8 @@ public class ScreenCaptureByDx11 : IScreenCapture
 {
     private static readonly Lazy<Configuration> Lazy = new(CreateDefaultInstance);
     public static Configuration Configuration => Lazy.Value;
-    private static readonly ILog log = LogManager.GetLogger(nameof(ScreenCaptureByDx11));
-
+    
+    private static ILogger Log =   LogManager.Logger.ForContext<ScreenCaptureByDx11>();
     private static Configuration CreateDefaultInstance()
     {
         return new Configuration(
@@ -216,7 +217,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                     }
                     catch (Exception e)
                     {
-                        log.Error("错误", e);
+                        Log.Error("错误", e);
                     }
                     finally
                     {
@@ -375,7 +376,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
                 }
                 catch (Exception e)
                 {
-                    log.Error("错误", e);
+                    Log.Error("错误", e);
                 }
                 finally
                 {

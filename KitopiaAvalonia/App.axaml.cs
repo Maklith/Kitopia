@@ -19,7 +19,7 @@ using Kitopia.Services;
 using KitopiaAvalonia.Pages;
 using KitopiaAvalonia.Services;
 using KitopiaAvalonia.Windows;
-using log4net;
+
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using ScreenCaptureWindow = KitopiaAvalonia.Services.ScreenCaptureWindow;
@@ -32,7 +32,7 @@ namespace KitopiaAvalonia;
 
 public partial class App : Application
 {
-    private static readonly ILog log = LogManager.GetLogger("App");
+    
 
     public override void Initialize()
     {
