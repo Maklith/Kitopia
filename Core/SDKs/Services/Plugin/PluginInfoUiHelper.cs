@@ -56,8 +56,8 @@ public partial class PluginInfoUiHelper : ObservableObject,IDisposable
             {
                 ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
                 {
-                    Log.Error("错误", exception);
-                    return true;
+                    Log.Error(exception,"错误" );
+                    return false;
                 }),
                 Delay = TimeSpan.FromSeconds(1),
                 MaxRetryAttempts = 5,

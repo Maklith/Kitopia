@@ -53,11 +53,11 @@ internal class Program
         try
         {
             // RxApp.DefaultExceptionHandler = new MyCoolObservableExceptionHandler();
-            TaskScheduler.UnobservedTaskException += (sender, eventArgs) => { Log.Error("错误", eventArgs.Exception); };
+            TaskScheduler.UnobservedTaskException += (sender, eventArgs) => { Log.Error(eventArgs.Exception,"错误"); };
 
             AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
             {
-                Log.Fatal("错误", (Exception)e.ExceptionObject);
+                Log.Fatal( (Exception)e.ExceptionObject,"错误");
             };
             AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
             {

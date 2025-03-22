@@ -15,7 +15,7 @@ namespace Core.Window.Everything;
 
 public class EverythingTools
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<EverythingTools>();
+    private static ILogger Log =  LogManager.Logger.ForContext<EverythingTools>();
     public static bool IsRun()
     {
         if (IntPtr.Size == 8)
