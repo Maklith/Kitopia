@@ -279,7 +279,6 @@ internal class Program
             BitmapInterpolationMode = BitmapInterpolationMode.HighQuality
         });
         buildAvaloniaApp.LogToTrace();
-
         return buildAvaloniaApp;
     }
 }

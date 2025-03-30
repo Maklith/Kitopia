@@ -14,6 +14,7 @@ using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using Avalonia.Media.TextFormatting.Unicode;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.Utilities;
 
 namespace KitopiaEx.Ocr;
@@ -189,11 +190,21 @@ public partial class AdaptiveTextBox : TextBlock
 
     static AdaptiveTextBox()
     {
-      InputElement.FocusableProperty.OverrideDefaultValue(typeof (AdaptiveTextBox), true);
-      Visual.AffectsRender<AdaptiveTextBox>((AvaloniaProperty) AdaptiveTextBox.SelectionStartProperty, (AvaloniaProperty) AdaptiveTextBox.SelectionEndProperty, (AvaloniaProperty) AdaptiveTextBox.SelectionBrushProperty);
-      BackgroundProperty.OverrideDefaultValue<AdaptiveTextBox>(new SolidColorBrush(Colors.Gray, 0.7d));
-      ForegroundProperty.OverrideDefaultValue<AdaptiveTextBox>(new SolidColorBrush(Colors.White));
-     // FocusableProperty.OverrideDefaultValue<AdaptiveTextBox>(false);
+      Dispatcher.UIThread.InvokeAsync(() =>
+      {
+        InputElement.FocusableProperty.OverrideDefaultValue(typeof(AdaptiveTextBox), true);
+        Visual.AffectsRender<AdaptiveTextBox>((AvaloniaProperty)AdaptiveTextBox.SelectionStartProperty,
+          (AvaloniaProperty)AdaptiveTextBox.SelectionEndProperty,
+          (AvaloniaProperty)AdaptiveTextBox.SelectionBrushProperty);
+        BackgroundProperty.OverrideDefaultValue<AdaptiveTextBox>(new SolidColorBrush(Colors.Gray, 0.7d));
+        ForegroundProperty.OverrideDefaultValue<AdaptiveTextBox>(new SolidColorBrush(Colors.White));
+      });
+      // FocusableProperty.OverrideDefaultValue<AdaptiveTextBox>(false);
+    }
+
+    public AdaptiveTextBox()
+    {
+      
     }
 
     protected override void OnInitialized()
