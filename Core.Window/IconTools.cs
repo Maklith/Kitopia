@@ -35,7 +35,7 @@ internal class IconTools
             {
                 ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
                 {
-                    Log.Error("错误", exception);
+                    Log.Error(exception,"错误");
                     return true;
                 }),
                 Delay = TimeSpan.FromSeconds(1),

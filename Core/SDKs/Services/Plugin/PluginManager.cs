@@ -373,7 +373,7 @@ public class PluginManager
                 }
                 catch (Exception e)
                 {
-                    Log.Error("错误", e);
+                    Log.Error(e,"错误");
                 }
 
                 continue;

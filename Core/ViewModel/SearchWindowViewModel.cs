@@ -75,8 +75,11 @@ public partial class SearchWindowViewModel : ObservableRecipient
             LoadLast();
         })).ContinueWith(e =>
         {
-            
-            Log.Error(e.Exception,"");
+            if (e.Exception is not null)
+            {
+                 Log.Error(e.Exception,"");
+            }
+           
         });
     }
 
