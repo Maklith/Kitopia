@@ -74,17 +74,17 @@
 
                           IsVisible="{Binding NowInSelectMode}"
                           CanClose="False" />
-                <Border IsVisible="{Binding ShowFileTypeFilter}" Theme="{DynamicResource RadioButtonGroupBorder}" Height="38">
+                <Border IsVisible="{Binding ShowFileTypeFilter}" Theme="{DynamicResource RadioButtonGroupBorder}" Height="44">
                     <Border.Styles>
                         <Style Selector="RadioButton">
                             <Setter Property="Theme" Value="{DynamicResource ButtonRadioButton}" />
                         </Style>
                     </Border.Styles>
-                    <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <ScrollViewer  PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center" VerticalAlignment="Center">
                         <ItemsControl ItemsSource="{Binding FileTypes}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="viewModel:FileTypeFilter">
-                                    <ToggleButton Margin="0,0,5,0" ClickMode="Press"  IsCheckedChanged="ToggleButton_OnIsCheckedChanged"   VerticalAlignment="Center" Content="{Binding  FileType}" Height="38" IsChecked="{Binding IsChecked}" />
+                                    <ToggleButton Margin="3,0,3,0" ClickMode="Press"  IsCheckedChanged="ToggleButton_OnIsCheckedChanged"   VerticalAlignment="Center" Content="{Binding  FileType}" Height="38" IsChecked="{Binding IsChecked}" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                             <ItemsControl.ItemsPanel>
@@ -128,7 +128,7 @@
                                         Name="Item"
                                         Command="{Binding  $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).OpenFileCommand}"
                                         CommandParameter="{Binding .}"
-                                        Background="Transparent"
+                                        
                                         >
                                     <Button.ContextFlyout>
                                         <MenuFlyout>

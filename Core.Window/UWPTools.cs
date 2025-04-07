@@ -45,7 +45,14 @@ internal  class UwpTools
         Parallel.ForEach(ppinternalAppCs.ToIEnum<FirewallApi.INET_FIREWALL_APP_CONTAINER>(
             (int)pdwNuminternalAppCs), options, file =>
         {
-            if (!errorUWPs.Contains(file.displayName)) AppContainerAnalyse(file, items);
+            try
+            {
+                if (!errorUWPs.Contains(file.displayName)) AppContainerAnalyse(file, items);
+            }
+            catch (Exception e)
+            {
+                Log.Error(e,"UWP索引时出现错误");
+            }
         });
     }
 
