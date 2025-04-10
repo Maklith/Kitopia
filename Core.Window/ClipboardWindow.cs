@@ -2,6 +2,7 @@
 using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading.RateLimiting;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using Avalonia;
@@ -10,6 +11,9 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using Core.SDKs.Services;
 using PluginCore;
+using Polly;
+using Polly.Retry;
+using Serilog;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
@@ -28,6 +32,7 @@ namespace Core.Window;
 
 public class ClipboardWindow : IClipboardService
 {
+    private static ILogger Log =   LogManager.Logger.ForContext<ClipboardWindow>();
     public bool HasText()
     {
         try
@@ -149,7 +154,25 @@ public class ClipboardWindow : IClipboardService
 
         return true;
     }
-
+    private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
+        .AddConcurrencyLimiter(new ConcurrencyLimiterOptions()
+        {
+            PermitLimit = 1,
+            QueueLimit = Int32.MaxValue
+        })
+        .AddRetry(
+            new RetryStrategyOptions()
+            {
+                ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
+                {
+                    Log.Error(exception,"错误");
+                    return true;
+                }),
+                Delay = TimeSpan.FromSeconds(1),
+                MaxRetryAttempts = 5,
+                BackoffType = DelayBackoffType.Linear,
+                UseJitter = true
+            }).Build();
     [STAThread]
     public async Task<bool> SetImageAsync(Image image)
     {
@@ -181,19 +204,37 @@ public class ClipboardWindow : IClipboardService
     [STAThread]
     public async Task<bool> SetImageAsync(ScreenCaptureResult screenCaptureResult)
     {
-        var tcs = new TaskCompletionSource<bool>();
-        var thread = new Thread(() =>
+        var executeAsync = await ResiliencePipeline.ExecuteAsync(async (e) =>
         {
-            var bitmapSource = BitmapSource.Create(
-                screenCaptureResult.Info.Width, screenCaptureResult.Info.Height,
-                96, 96,
-                PixelFormats.Bgra32, null,
-                screenCaptureResult.Bytes,  (((int)screenCaptureResult.Info.Width * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3);
-            Clipboard.SetImage(bitmapSource);
+            var tcs = new TaskCompletionSource<bool>();
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    Log.Information("设置剪贴板图片");
+                    var bitmapSource = BitmapSource.Create(
+                        screenCaptureResult.Info.Width, screenCaptureResult.Info.Height,
+                        96, 96,
+                        PixelFormats.Bgra32, null,
+                        screenCaptureResult.Bytes,  (((int)screenCaptureResult.Info.Width * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3);
+                    Clipboard.SetImage(bitmapSource);
+                    tcs.SetResult(true); // 仅在成功时设置
+                }
+                catch (Exception exception)
+                {
+                    Log.Error(exception, "设置剪贴板图片失败");
+                    tcs.SetResult(false); // 失败时设置
+                }
+            });
+
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.IsBackground = true; // 确保线程自动回收
+            thread.Start();
+            return await tcs.Task;
         });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        return await tcs.Task;
+
+
+        return executeAsync;
     }
     private static T BytesToStructure<T>(byte[] bytes)
     {

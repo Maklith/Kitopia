@@ -975,7 +975,7 @@ public partial class ScreenCaptureWindow : Window
                 else
                 {
                    
-                    ServiceManager.Services.GetService<IClipboardService>()
+                    ServiceManager.Services.GetService<IClipboardService>()!
                         .SetImageAsync(new ScreenCaptureResult()
                         {
                             Info = new ScreenCaptureInfo()
