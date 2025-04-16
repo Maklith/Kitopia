@@ -27,8 +27,8 @@
 
     <ItemGroup>
         <ProjectReference Include="..\PluginCore\PluginCore.csproj">
-            <Private>false</Private>
-            <ExcludeAssets>runtime</ExcludeAssets>
+            <PrivateAssets>runtime</PrivateAssets>
+            <ExcludeAssets>runtime;native</ExcludeAssets>
         </ProjectReference>
     </ItemGroup>
 

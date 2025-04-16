@@ -1,6 +1,0 @@
-﻿<component name="ProjectRunConfigurationManager">
-    <configuration default="false" name="发布64" type="CompoundRunConfigurationType">
-        <toRun name="KitopiaEX64" type="DotNetFolderPublish"/>
-        <method v="2"/>
-    </configuration>
-</component>

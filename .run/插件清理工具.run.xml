@@ -1,8 +1,0 @@
-﻿<component name="ProjectRunConfigurationManager">
-    <configuration default="false" name="插件清理工具" type="DotNetFolderPublish" factoryName="Publish to folder">
-        <riderPublish configuration="Release" delete_existing_files="true" platform="Any CPU" runtime="Portable"
-                      target_folder="$PROJECT_DIR$/发布/PlugCleanTool" target_framework="net8.0"
-                      uuid_high="-3015560349018011263" uuid_low="-7158780525928652599"/>
-        <method v="2"/>
-    </configuration>
-</component>

@@ -250,6 +250,43 @@ class Build : NukeBuild
                     .Wait();
             }
         );
+Target Pack2 => _ => _
+        .Executes(() =>
+            {
+                var rootDirectory = RootDirectory / "Publish";
+                rootDirectory.DeleteDirectory();
+                DotNetPublish(c => new DotNetPublishSettings()
+                    .SetProject("KitopiaEx")
+                    .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaex")
+                    .SetRuntime("win-x64")
+                    .SetFramework("net9.0")
+                    .SetConfiguration("Release")
+                    .SetSelfContained(false)
+                );
+                DotNetPublish(c => new DotNetPublishSettings()
+                    .SetProject("OnnxRuntime.CPU")
+                    .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaonnxruntimecpu")
+                    .SetRuntime("win-x64")
+                    .SetFramework("net9.0")
+                    .SetConfiguration("Release")
+                    .SetSelfContained(false)
+                );
+                DotNetPublish(c => new DotNetPublishSettings()
+                    .SetProject(AvaloniaProject.Name)
+                    .SetOutput(RootDirectory / "Publish")
+                    .SetPublishSingleFile(true)
+                    .SetRuntime("win-x64")
+                    .SetFramework("net9.0-windows10.0.19041.0")
+                    .SetConfiguration("Release")
+                    .SetSelfContained(false)
+                );
+                foreach (var absolutePath in rootDirectory.GetFiles())
+                    if (absolutePath.Extension is ".pdb" or ".xml")
+                        absolutePath.DeleteFile();
+                
+            }
+        );
+
 
 
     Target PackSelf => _ => _
