@@ -437,7 +437,7 @@ public class PluginManager
                             }
                             catch (Exception e)
                             {
-                                Log.Error("错误",e);
+                                Log.Error(e,"错误");
                             }
                         }
                         if (ConfigManger.Config.EnabledPluginInfos.Any(e => e.ToPlgString() == pluginBaseInfo.ToPlgString()))
@@ -462,7 +462,7 @@ public class PluginManager
             }
             catch (Exception e)
             {
-                Log.Error("错误", e);
+                Log.Error(e,"错误");
             }
         }
 
@@ -534,7 +534,7 @@ public class PluginManager
         }
         catch (Exception e)
         {
-            Log.Error("错误", e);
+            Log.Error(e,"错误");
             return null;
         }
     }
@@ -587,7 +587,7 @@ public class PluginManager
         }
         catch (Exception e)
         {
-            Log.Error("错误", e);
+            Log.Error(e,"错误");
             return false;
         }
 
@@ -646,7 +646,7 @@ public class PluginManager
         }
         catch (Exception e)
         {
-            Log.Error("错误",e);
+            Log.Error(e,"错误");
             return false;
         }
         return false;

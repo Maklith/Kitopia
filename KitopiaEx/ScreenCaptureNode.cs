@@ -58,22 +58,13 @@ public class ScreenCaptureNode
     public void SaveImage(
         ScreenCaptureResult captureResult, CancellationToken ct)
     {
-        if (captureResult.Source is null && captureResult.Bytes is not null)
-        {
-            var captureScreenBitmap = ServiceManager.Services.GetService<IScreenCaptureManager>().CaptureScreenBitmap(captureResult);
-            var ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0);
-            var timeStamp = Convert.ToInt64(ts.TotalMilliseconds);
-            var f = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Downloads\\Kitopia" +
-                    timeStamp + ".png";
-            captureScreenBitmap.Source.Save(f);
-            captureScreenBitmap.Source.Dispose();
-        }else if (captureResult.Source is not null)
+        if (captureResult.Source is not null)
         {
             var ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0);
             var timeStamp = Convert.ToInt64(ts.TotalMilliseconds);
             var f = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Downloads\\Kitopia" +
                     timeStamp + ".png";
-            captureResult.Source.Save(f);
+            captureResult.Source.SaveImage(f);
         }
         else
         {

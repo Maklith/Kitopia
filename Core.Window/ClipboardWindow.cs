@@ -211,14 +211,23 @@ public class ClipboardWindow : IClipboardService
             {
                 try
                 {
-                    Log.Information("设置剪贴板图片");
-                    var bitmapSource = BitmapSource.Create(
-                        screenCaptureResult.Info.Width, screenCaptureResult.Info.Height,
-                        96, 96,
-                        PixelFormats.Bgra32, null,
-                        screenCaptureResult.Bytes,  (((int)screenCaptureResult.Info.Width * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3);
-                    Clipboard.SetImage(bitmapSource);
-                    tcs.SetResult(true); // 仅在成功时设置
+                    unsafe
+                    {
+                        int channels = screenCaptureResult.Source.Channels(); // 3或4
+                        int stride = (screenCaptureResult.Source.Width * channels + 3) & ~3; // 对齐后的步长
+                        int bufferSize = stride * screenCaptureResult.Source.Height;
+                        Log.Information("设置剪贴板图片");
+                        var bitmapSource = new System.Windows.Media.Imaging.WriteableBitmap(screenCaptureResult.Source.Width,screenCaptureResult.Source.Height,96,96,PixelFormats.Bgra32, null);
+                        bitmapSource.Lock();
+                       
+
+                        bitmapSource.WritePixels(new Int32Rect(0,0,screenCaptureResult.Source.Width,screenCaptureResult.Source.Height),
+                           (IntPtr) screenCaptureResult.Source.DataPointer,
+                           bufferSize, stride);
+                        bitmapSource.Unlock();
+                        Clipboard.SetImage(bitmapSource);
+                        tcs.SetResult(true); // 仅在成功时设置
+                    }
                 }
                 catch (Exception exception)
                 {

@@ -23,7 +23,9 @@ using Core.SDKs.Tools.ImageTools;
 using KitopiaAvalonia.Controls.Capture;
 using KitopiaAvalonia.SDKs;
 using Microsoft.Extensions.DependencyInjection;
+using OpenCvSharp;
 using PluginCore;
+using PluginCore.ExMethod;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
@@ -32,6 +34,7 @@ using Point = Avalonia.Point;
 using Rect = PluginCore.Rect;
 using Rectangle = SixLabors.ImageSharp.Rectangle;
 using Size = Avalonia.Size;
+using Window = Avalonia.Controls.Window;
 
 namespace KitopiaAvalonia.Windows;
 
@@ -57,7 +60,7 @@ public partial class ScreenCaptureWindow : Window
         InitializeComponent();
         _windowInfos = ServiceManager.Services.GetService<IScreenCaptureManager>()!.GetAllWindowInfo();
         _screenCaptureInfo = screenCaptureResult.Info;
-        Image.Source = screenCaptureResult.Source;
+        Image.Source = screenCaptureResult.Source.ToAWriteableBitmap();
         Position = new PixelPoint(screenCaptureResult.Info.ScreenInfo.X, screenCaptureResult.Info.ScreenInfo.Y);
         WindowState = WindowState.FullScreen;
         SystemDecorations = SystemDecorations.None;
@@ -90,7 +93,6 @@ public partial class ScreenCaptureWindow : Window
 
                     Close();
                     WeakReferenceMessenger.Default.Unregister<string>(this);
-                    GC.Collect(2,GCCollectionMode.Optimized,false);
                     break;
                 }
                 case "Selected":
@@ -919,83 +921,77 @@ public partial class ScreenCaptureWindow : Window
                     });
                 }
             } else{
-                foreach (var canvasChild in Canvas.Children)
-                    if (canvasChild is CaptureToolBase draggableResizeableControl)
-                        draggableResizeableControl.IsSelected = false;
-                SelectBox.IsSelected = false;
-                ToolBar.IsVisible = false;
-                var renderTargetBitmap =
-                    new RenderTargetBitmap(new PixelSize(bitmap.PixelSize.Width, bitmap.PixelSize.Height),
-                        new Vector(96, 96));
+                unsafe
+                {
+                    foreach (var canvasChild in Canvas.Children)
+                        if (canvasChild is CaptureToolBase draggableResizeableControl)
+                            draggableResizeableControl.IsSelected = false;
+                    SelectBox.IsSelected = false;
+                    ToolBar.IsVisible = false;
+                    var renderTargetBitmap =
+                        new RenderTargetBitmap(new PixelSize(bitmap.PixelSize.Width, bitmap.PixelSize.Height),
+                            new Vector(96, 96));
                 
-                var content = (Control)Content;
-                var transformGroup = new TransformGroup();
-                var scaleTransform = new ScaleTransform(bitmap.PixelSize.Width / Bounds.Width,
-                    bitmap.PixelSize.Height / Bounds.Height);
-                transformGroup.Children.Add(scaleTransform);
-                transformGroup.Children.Add(new TranslateTransform(0, 0));
-                content.RenderTransform = transformGroup;
-                content.Width = bitmap.PixelSize.Width;
-                content.Height = bitmap.PixelSize.Height;
-                renderTargetBitmap.Render(content);
-                var bufferSize = cropW * cropH * 4;
-                var ptr = Marshal.AllocHGlobal(bufferSize);
-                renderTargetBitmap.CopyPixels(new PixelRect(x, y, cropW, cropH),
-                    ptr,
-                    bufferSize,
-                    (((int)cropW * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3
-                );
-                var ys =ArrayPool<byte>.Shared.Rent(bufferSize);
-                Marshal.Copy(ptr, ys, 0, bufferSize);
-                Marshal.FreeHGlobal(ptr);
-                if (selectBytesMode)
-                {
-                    Task.Run(() =>
-                    {
-                        selectBytesModeAction.Invoke(new ScreenCaptureResult()
-                        {
-                            Info = new ScreenCaptureInfo()
-                            {
-                            
-                                X =   x,
-                                Y =  y,
-                                Width = cropW,
-                                Height = cropH,
-                                ScreenInfo = _screenCaptureInfo.ScreenInfo
-                            },
-                            Bytes = ys
-                        });
-                    }).ContinueWith((e) =>
-                    {
-                        ArrayPool<byte>.Shared.Return(ys);
-                        GC.Collect(2,GCCollectionMode.Optimized);
-                    });
+                    var content = (Control)Content;
+                    var transformGroup = new TransformGroup();
+                    var scaleTransform = new ScaleTransform(bitmap.PixelSize.Width / Bounds.Width,
+                        bitmap.PixelSize.Height / Bounds.Height);
+                    transformGroup.Children.Add(scaleTransform);
+                    transformGroup.Children.Add(new TranslateTransform(0, 0));
+                    content.RenderTransform = transformGroup;
+                    content.Width = bitmap.PixelSize.Width;
+                    content.Height = bitmap.PixelSize.Height;
+                    renderTargetBitmap.Render(content);
+                  
                    
-                }
-                else
-                {
-                   
-                    ServiceManager.Services.GetService<IClipboardService>()!
-                        .SetImageAsync(new ScreenCaptureResult()
+                    var mat = new Mat(cropH, cropW, MatType.CV_8UC4);
+                
+                    renderTargetBitmap.CopyPixels(new PixelRect(x, y, cropW, cropH),
+                        (IntPtr)mat.DataPointer,
+                        cropW* cropH*4,
+                        (((int)cropW * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3
+                    );
+                    if (selectBytesMode)
+                    {
+                        Task.Run(() =>
                         {
-                            Info = new ScreenCaptureInfo()
+                            selectBytesModeAction.Invoke(new ScreenCaptureResult()
                             {
+                                Info = new ScreenCaptureInfo()
+                                {
                             
-                                X =   x,
-                                Y =  y,
-                                Width = cropW,
-                                Height = cropH,
-                                ScreenInfo = _screenCaptureInfo.ScreenInfo
-                            },
-                            Bytes = ys
-                        }).ContinueWith((e) =>
-                        {
-                            ArrayPool<byte>.Shared.Return(ys);
-                            GC.Collect(2,GCCollectionMode.Optimized);
+                                    X =   x,
+                                    Y =  y,
+                                    Width = cropW,
+                                    Height = cropH,
+                                    ScreenInfo = _screenCaptureInfo.ScreenInfo
+                                },
+                               Source = mat
+                            });
                         });
+                   
+                    }
+                    else
+                    {
+                   
+                        ServiceManager.Services.GetService<IClipboardService>()!
+                            .SetImageAsync(new ScreenCaptureResult()
+                            {
+                                Info = new ScreenCaptureInfo()
+                                {
+                            
+                                    X =   x,
+                                    Y =  y,
+                                    Width = cropW,
+                                    Height = cropH,
+                                    ScreenInfo = _screenCaptureInfo.ScreenInfo
+                                },
+                                Source = mat
+                            });
+                    }
+                    bitmap.Dispose();
+                    renderTargetBitmap.Dispose();
                 }
-                bitmap.Dispose();
-                renderTargetBitmap.Dispose();
             }
         }
         Finish = true;

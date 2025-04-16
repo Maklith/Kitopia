@@ -136,7 +136,7 @@ public class Ocr
     [ScenarioMethod("文字提取", $"{nameof(dResult)}=截图数据","return=文字识别结果数据")]
     public IEnumerable<OcrResult> OcrImg(ScreenCaptureResult dResult, CancellationToken ct)
     {
-        if (dResult.Bytes is null)
+        if (dResult.Source is null)
         {
             throw new Exception("无图像数据");
         }
@@ -147,9 +147,8 @@ public class Ocr
 
         using TextDetector _textDetector = new TextDetector();
         using TextRecognizer _textRecognizer = new TextRecognizer($"{callingAssembly}\\Ocr\\rec_word_dict.txt");
-        using Mat img = Mat.FromPixelData(dResult.Info.Height, dResult.Info.Width, MatType.CV_8UC4, dResult.Bytes);
-        //img.SaveImage($"{callingAssembly}\\1.png");
-        var detect = _textDetector.Detect(img);
+       
+        var detect = _textDetector.Detect(dResult.Source);
         using var textDetectorDstImg = _textDetector.dstImg;
        
         foreach (var point2Fse in detect)
@@ -188,10 +187,11 @@ public class Ocr
                 new Vector(96, 96), PixelFormat.Bgra8888);
             using (var l = writeableBitmap.Lock())
             {
-                for (var r = 0; r < dResult.Info.Height; r++)
-                    Marshal.Copy(dResult.Bytes, r * dResult.Info.Width * 4,
-                        new IntPtr(l.Address.ToInt64() + r * l.RowBytes),
-                        dResult.Info.Width * 4);
+                unsafe
+                {
+                    Buffer.MemoryCopy(dResult.Source.DataPointer,(void*)l.Address,dResult.Info.Height * dResult.Info.Width * 4,dResult.Info.Height * dResult.Info.Width * 4);
+                    
+                }
             }
 
             ocrResultShowWindow.Image.Source = writeableBitmap;

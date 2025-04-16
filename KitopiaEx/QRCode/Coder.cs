@@ -11,13 +11,18 @@ public class Coder
     [ScenarioMethod("识别QRCode", $"{nameof(captureResult)}=图像数据","return=QRCode识别结果")]
     public string QRCodeDecode(ScreenCaptureResult captureResult, CancellationToken ct)
     {
-        var mat=Mat.FromPixelData(captureResult.Info.Height,captureResult.Info.Width,MatType.CV_8UC4,captureResult.Bytes);
         var qrCodeDetector = new QRCodeDetector();
-        var detectAndDecode = qrCodeDetector.DetectAndDecode(mat, out var result);
-        if (result.Length==0)
+        if (captureResult.Source == null)
         {
             return string.Empty;
         }
+
+        var detectAndDecode = qrCodeDetector.DetectAndDecode(captureResult.Source, out var result);
+        if (result.Length == 0)
+        {
+            return string.Empty;
+        }
+
         return detectAndDecode;
     }
     [Capture("识别二维码",0xf635)]

@@ -8,6 +8,7 @@ using Windows.Graphics.Capture;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using OpenCvSharp;
 using PluginCore;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
@@ -220,51 +221,18 @@ public class ScreenCaptureByWGC : IScreenCapture
         IntPtr GetInterface([In] ref Guid iid);
     };
 
-    public Stack<ScreenCaptureResult> CaptureAllScreenBitmap()
-    {
-        var screenCaptureResults = new Stack<ScreenCaptureResult>();
-        var captureAllScreenBytes = CaptureAllScreenBytes();
-        while (captureAllScreenBytes.TryPop(out var captureAllScreenInfo))
-        {
-            screenCaptureResults.Push(CaptureScreenBitmap(captureAllScreenInfo));
-        }
-
-        return screenCaptureResults;
-    }
-
-    public Stack<ScreenCaptureResult> CaptureAllScreenBytes()
+    public Stack<ScreenCaptureResult> CaptureAllScreenMat()
     {
         var screenCaptureResults = new Stack<ScreenCaptureResult>();
         foreach (var screenCaptureInfo in GetAllScreenInfo())
         {
-            screenCaptureResults.Push(CaptureScreenBytes(screenCaptureInfo)); 
+            screenCaptureResults.Push(CaptureScreenMat(screenCaptureInfo)); 
         }
 
         return screenCaptureResults;
     }
 
-    public ScreenCaptureResult CaptureScreenBitmap(ScreenCaptureResult captureAllScreenInfo)
-    {
-        var writeableBitmap = new WriteableBitmap(
-            new PixelSize(captureAllScreenInfo.Info.Width, captureAllScreenInfo.Info.Height),
-            new Vector(96, 96), PixelFormat.Bgra8888 );
-        using (var l = writeableBitmap.Lock())
-        {
-            unsafe
-            {
-                var destinationSizeInBytes = captureAllScreenInfo.Info.Width * 4 * captureAllScreenInfo.Info.Height;
-                fixed (byte* srcPtr = captureAllScreenInfo.Bytes)
-                {
-                    Buffer.MemoryCopy(srcPtr,(void*)l.Address,destinationSizeInBytes,destinationSizeInBytes);
-                }
-                
-            }
-        }
-
-        ArrayPool<byte>.Shared.Return(captureAllScreenInfo.Bytes);
-        captureAllScreenInfo.Source = writeableBitmap;
-        return captureAllScreenInfo;
-    }
+   
 
     public IntPtr FindHMonitor(ScreenInfo screenInfo)
     {
@@ -316,7 +284,7 @@ public class ScreenCaptureByWGC : IScreenCapture
         throw new InvalidOperationException("No adapter found for the given monitor.");
     }
     
-    public unsafe ScreenCaptureResult CaptureScreenBytes(ScreenCaptureInfo screenCaptureInfo)
+    public unsafe ScreenCaptureResult CaptureScreenMat(ScreenCaptureInfo screenCaptureInfo)
     {
         switch (screenCaptureInfo.ScreenCaptureType)
         {
@@ -480,12 +448,13 @@ public class ScreenCaptureByWGC : IScreenCapture
             
             //更新窗口的Size数据
             screenCaptureInfo.WindowInfo.Rect = new Rect(0,0,item.Size.Width, item.Size.Height);
-            var bytesSpan = CaptureTool.GetBytesSpan(mappedSubresource,adapterForMonitor.Item2,ref screenCaptureInfo);
-           
+            
+            var re = CaptureTool.GetMat(mappedSubresource,adapterForMonitor.Item2,ref screenCaptureInfo);
+            
             return new ScreenCaptureResult()
             {
                 Info = screenCaptureInfo,
-                Bytes = bytesSpan
+                Source = re,
             };
         }
         finally

@@ -110,48 +110,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
         return default;
     }
 
-    public Stack<ScreenCaptureResult> CaptureAllScreenBitmap()
-    {
-        var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>();
-        switch (ConfigManger.Config.截图方法)
-        {
-            case "Directx11":
-            {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByDx11));
-                if (firstOrDefault is null)
-                {
-                    ConfigManger.Config.截图方法 = "自动";
-                    return new Stack<ScreenCaptureResult>();
-                }
-
-                return firstOrDefault.CaptureAllScreenBitmap();
-            }
-
-            case "WGC":
-            {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWGC));
-                if (firstOrDefault is null)
-                {
-                    ConfigManger.Config.截图方法 = "自动";
-                    return new Stack<ScreenCaptureResult>();
-                }
-
-                return firstOrDefault.CaptureAllScreenBitmap();
-            }
-            default:
-            {
-                foreach (var screenCapture in screenCaptures)
-                {
-                    var screenCaptureInfos = screenCapture.CaptureAllScreenBitmap();
-                    if (screenCaptureInfos.Count > 0) return screenCaptureInfos;
-                }
-
-                break;
-            }
-        }
-
-        return null;
-    }
+   
 
     public Stack<ScreenCaptureResult> CaptureAllScreenBytes()
     {
@@ -167,7 +126,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
                     return new Stack<ScreenCaptureResult>();
                 }
 
-                return firstOrDefault.CaptureAllScreenBytes();
+                return firstOrDefault.CaptureAllScreenMat();
             }
 
             case "WGC":
@@ -179,13 +138,13 @@ public class ScreenCaptureManager : IScreenCaptureManager
                     return new Stack<ScreenCaptureResult>();
                 }
 
-                return firstOrDefault.CaptureAllScreenBytes();
+                return firstOrDefault.CaptureAllScreenMat();
             }
             default:
             {
                 foreach (var screenCapture in screenCaptures)
                 {
-                    var screenCaptureInfos = screenCapture.CaptureAllScreenBytes();
+                    var screenCaptureInfos = screenCapture.CaptureAllScreenMat();
                     if (screenCaptureInfos.Count > 0) return screenCaptureInfos;
                 }
 
@@ -195,48 +154,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
 
         return null;
     }
-
-    public ScreenCaptureResult CaptureScreenBitmap(ScreenCaptureResult captureAllScreenInfo)
-    {
-        var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>();
-        switch (ConfigManger.Config.截图方法)
-        {
-            case "Directx11":
-            {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByDx11));
-                if (firstOrDefault is null)
-                {
-                    ConfigManger.Config.截图方法 = "自动";
-                    return new ScreenCaptureResult();
-                }
-
-                return firstOrDefault.CaptureScreenBitmap(captureAllScreenInfo);
-            }
-
-            case "WGC":
-            {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWGC));
-                if (firstOrDefault is null)
-                {
-                    ConfigManger.Config.截图方法 = "自动";
-                    return new ScreenCaptureResult();
-                }
-
-                return firstOrDefault.CaptureScreenBitmap(captureAllScreenInfo);
-            }
-            default:
-            {
-                foreach (var screenCapture in screenCaptures)
-                {
-                    var screenCaptureInfos = screenCapture.CaptureScreenBitmap(captureAllScreenInfo);
-                    return screenCaptureInfos;
-                }
-
-                break;
-            }
-        }
-        return default;
-    }
+    
 
     public ScreenCaptureResult CaptureScreenBytes(ScreenCaptureInfo screenCaptureInfo)
     {
@@ -252,7 +170,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
                     return new ScreenCaptureResult();
                 }
 
-                return firstOrDefault.CaptureScreenBytes(screenCaptureInfo);
+                return firstOrDefault.CaptureScreenMat(screenCaptureInfo);
             }
 
             case "WGC":
@@ -264,13 +182,13 @@ public class ScreenCaptureManager : IScreenCaptureManager
                     return new ScreenCaptureResult();
                 }
 
-                return firstOrDefault.CaptureScreenBytes(screenCaptureInfo);
+                return firstOrDefault.CaptureScreenMat(screenCaptureInfo);
             }
             default:
             {
                 foreach (var screenCapture in screenCaptures)
                 {
-                    var screenCaptureInfos = screenCapture.CaptureScreenBytes(screenCaptureInfo);
+                    var screenCaptureInfos = screenCapture.CaptureScreenMat(screenCaptureInfo);
                     return screenCaptureInfos;
                 }
 

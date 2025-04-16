@@ -55,7 +55,7 @@ public class KitopiaEx : IPlugin
                     $"窗口:{screenCaptureInfo.WindowInfo.Title}";
             }
             return
-                $"起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}\nByte数据:{(screenCaptureResult.Bytes is null?"不存在":"存在")}\nBitmap数据:{(screenCaptureResult.Source is null?"不存在":"存在")}";
+                $"起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}\nBitmap数据:{(screenCaptureResult.Source is null?"不存在":"存在")}";
         });
         Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureInfo), new ScreenCaptureInfoCustomScenarioValueSerializer());
     }

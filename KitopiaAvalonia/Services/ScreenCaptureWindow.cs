@@ -17,11 +17,11 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
 {
     public void CaptureScreen()
     {
-        var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBitmap();
+        var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBytes();
         while (results.TryPop(out var result))
         {
             var window = new Windows.ScreenCaptureWindow(result);
-            
+            result.Source.Dispose();
             window.Show();
         }
 
@@ -30,11 +30,11 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
 
     public void RequestUserSelectScreenInfo(Action<ScreenCaptureInfo> action)
     {
-        var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBitmap();
+        var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBytes();
         while (results.TryPop(out var result))
         {
             var window = new Windows.ScreenCaptureWindow(result);
-            
+            result.Source.Dispose();
             window.SetToSelectMode(action.Invoke);
             window.Show();
         }
@@ -44,14 +44,14 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
     {
         Dispatcher.UIThread.Invoke(() =>
         {
-            var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBitmap();
+            var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBytes();
             int count = results.Count;
             int cancelCount = 0;
             Lock @lock = new Lock();
             while (results.TryPop(out var result))
             {
                 var window = new Windows.ScreenCaptureWindow(result);
-               
+                result.Source.Dispose();
                 window.SetToSelectBytesMode(action.Invoke, (() =>
                 {
                     lock (@lock)

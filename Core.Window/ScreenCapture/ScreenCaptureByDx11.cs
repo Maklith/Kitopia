@@ -15,6 +15,7 @@ using Core.SDKs.Services;
 using Core.SDKs.Tools.ImageTools;
 
 using Microsoft.Extensions.DependencyInjection;
+using OpenCvSharp;
 using PluginCore;
 using Serilog;
 using Silk.NET.Core.Contexts;
@@ -262,7 +263,7 @@ public class ScreenCaptureByDx11 : IScreenCapture
         public ID3D11DeviceContext* immediateContext;
     }
 
-    public unsafe Stack<ScreenCaptureResult> CaptureAllScreenBytes()
+    public unsafe Stack<ScreenCaptureResult> CaptureAllScreenMat()
     {
         var screenCaptureResults = new Stack<ScreenCaptureResult>();
         Dx11Helper(intPtr =>
@@ -363,14 +364,13 @@ public class ScreenCaptureByDx11 : IScreenCapture
                         X = desc.DesktopCoordinates.Min.X,
                         Y = desc.DesktopCoordinates.Min.Y
                     };
-                    var re = CaptureTool.GetBytesSpan(mappedSubresource, outputDesc,ref screenCaptureInfo);
+                    var re = CaptureTool.GetMat(mappedSubresource, outputDesc,ref screenCaptureInfo);
                     intPtr.immediateContext->Unmap(stagingResource, 0);
                     outputDuplication->ReleaseFrame();
-
-                   
+                    
                     screenCaptureResults.Push(new ScreenCaptureResult()
                     {
-                        Bytes = re,
+                        Source = re,
                         Info = screenCaptureInfo
                     });
                 }
@@ -400,43 +400,9 @@ public class ScreenCaptureByDx11 : IScreenCapture
         });
         return screenCaptureResults;
     }
+    
 
-    public Stack<ScreenCaptureResult> CaptureAllScreenBitmap()
-    {
-        var screenCaptureResults = new Stack<ScreenCaptureResult>();
-        var captureAllScreenBytes = CaptureAllScreenBytes();
-        while (captureAllScreenBytes.TryPop(out var captureAllScreenInfo))
-        {
-            var writeableBitmap = new WriteableBitmap(
-                new PixelSize(captureAllScreenInfo.Info.Width, captureAllScreenInfo.Info.Height),
-                new Vector(96, 96), PixelFormat.Rgba8888);
-            using (var l = writeableBitmap.Lock())
-            {
-                unsafe
-                {
-                    var destinationSizeInBytes = captureAllScreenInfo.Info.Width * 4 * captureAllScreenInfo.Info.Height;
-                    fixed (byte* srcPtr = captureAllScreenInfo.Bytes)
-                    {
-                        Buffer.MemoryCopy(srcPtr,(void*)l.Address,destinationSizeInBytes,destinationSizeInBytes);
-                    }
-                
-                }
-            }
-
-            ArrayPool<byte>.Shared.Return(captureAllScreenInfo.Bytes);
-            captureAllScreenInfo.Source = writeableBitmap;
-            screenCaptureResults.Push(captureAllScreenInfo);
-        }
-
-        return screenCaptureResults;
-    }
-
-    public ScreenCaptureResult CaptureScreenBitmap(ScreenCaptureResult captureAllScreenInfo)
-    {
-        return default;
-    }
-
-    public ScreenCaptureResult CaptureScreenBytes(ScreenCaptureInfo screenCaptureInfo)
+    public ScreenCaptureResult CaptureScreenMat(ScreenCaptureInfo screenCaptureInfo)
     {
         return default;
     }
