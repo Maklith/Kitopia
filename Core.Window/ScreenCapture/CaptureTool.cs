@@ -70,7 +70,7 @@ public static class CaptureTool
             mat/=1.749199854809259f;
             
             Cv2.Transform(mat, mat, Mat.FromArray(matrix));
-            Cv2.Normalize(mat, mat, 0, 1, NormTypes.MinMax);
+            
             mat *= 255;
             mat.ConvertTo(mat, MatType.CV_8UC3);
             Cv2.CvtColor(mat, mat, ColorConversionCodes.RGB2BGRA);

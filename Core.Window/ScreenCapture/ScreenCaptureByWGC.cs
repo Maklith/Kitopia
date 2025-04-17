@@ -73,7 +73,7 @@ public class ScreenCaptureByWGC : IScreenCapture
             zIndex++;
             currentHwnd = User32.GetWindow(currentHwnd, User32.GetWindowCmd.GW_HWNDNEXT);
             // 忽略有父窗口的和不可见的窗口
-            if (!User32.GetParent(currentHwnd).IsNull || !User32.IsWindowVisible(currentHwnd))
+            if (!User32.IsWindowVisible(currentHwnd))
             {
                 continue;
             }
@@ -83,7 +83,7 @@ public class ScreenCaptureByWGC : IScreenCapture
                 continue;
             }
             int style2 = User32.GetWindowLong(currentHwnd,User32.WindowLongFlags.GWL_EXSTYLE);
-            if ( (style2 & (int) User32.WindowStylesEx.WS_EX_NOACTIVATE) != 0||(style2 & (int) User32.WindowStylesEx.WS_EX_TOOLWINDOW) != 0)
+            if ( (style2 & (int) User32.WindowStylesEx.WS_EX_NOACTIVATE) != 0)
             {
                 continue;
             }

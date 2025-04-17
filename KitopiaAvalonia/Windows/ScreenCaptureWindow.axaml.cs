@@ -309,6 +309,7 @@ public partial class ScreenCaptureWindow : Window
     {
         base.OnPointerEntered(e);
         PointerOver = true;
+        SelectWindow(e);
     }
 
     protected override void OnPointerExited(PointerEventArgs e)
@@ -366,6 +367,11 @@ public partial class ScreenCaptureWindow : Window
             UpdateSelectBox();
         }
 
+        SelectWindow(e);
+    }
+
+    private void SelectWindow(PointerEventArgs e)
+    {
         if (ShowAlignLine)
         {
             
@@ -375,7 +381,7 @@ public partial class ScreenCaptureWindow : Window
             var positionY = currentPoint.Position.Y/screenInfoWidth+Position.Y;
             var positionX = currentPoint.Position.X/screenInfoHeight+Position.X;
             var firstOrDefault = _windowInfos.Where(e => positionX >= e.Rect.X && positionX <= e.Rect.X + e.Rect.Width &&
-                                                                  positionY >= e.Rect.Y && positionY <= e.Rect.Y + e.Rect.Height).OrderBy(e=>e.ZIndex).ToList();
+                                                         positionY >= e.Rect.Y && positionY <= e.Rect.Y + e.Rect.Height).OrderBy(e=>e.ZIndex).ToList();
             if (firstOrDefault.Count()==0)
             {
                 _currentWindowInfo = new WindowInfo();
