@@ -24,8 +24,12 @@ public class ScreenCaptureEx
 
             var imagePin = new ImagePin();
             imagePin.Image.Source = dResult.Source.ToAWriteableBitmap();
-            imagePin.Width = dResult.Info.Width;
-            imagePin.Height = dResult.Info.Height;
+            var scaleX=1920f/dResult.Info.ScreenInfo.Width;
+            var scaleY=1080f/dResult.Info.ScreenInfo.Height;
+            
+            imagePin.Position=(new PixelPoint(dResult.Info.X,dResult.Info.Y));
+            imagePin.Width = dResult.Info.Width/imagePin.DesktopScaling;
+            imagePin.Height = dResult.Info.Height/imagePin.DesktopScaling;
             imagePin.Show();
         }));
     }

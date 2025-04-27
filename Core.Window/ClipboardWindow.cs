@@ -225,7 +225,9 @@ public class ClipboardWindow : IClipboardService
                            (IntPtr) screenCaptureResult.Source.DataPointer,
                            bufferSize, stride);
                         bitmapSource.Unlock();
+                        
                         Clipboard.SetImage(bitmapSource);
+                        Clipboard.Flush();
                         tcs.SetResult(true); // 仅在成功时设置
                     }
                 }

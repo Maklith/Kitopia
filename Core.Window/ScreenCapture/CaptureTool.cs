@@ -1,6 +1,9 @@
 ﻿using System.Runtime.InteropServices;
+using Core.SDKs.Services;
+using Core.SDKs.Services.Config;
 using OpenCvSharp;
 using PluginCore;
+using Serilog;
 using Silk.NET.Direct3D11;
 using Silk.NET.DXGI;
 
@@ -8,6 +11,7 @@ namespace Core.Window;
 
 public static class CaptureTool
 {
+    private static ILogger Log =   LogManager.Logger.ForContext("SourceContext",typeof(CaptureTool));
     public static unsafe Mat GetMat(MappedSubresource mappedSubresource, OutputDesc1 outputDesc,ref ScreenCaptureInfo screenCaptureInfo)
     {
         var sizeX = outputDesc.DesktopCoordinates.Size.X;
@@ -50,6 +54,7 @@ public static class CaptureTool
             Buffer.MemoryCopy((void*)mappedSubresource.PData,mat.DataPointer,
                 endY * endX * 8, endX * endY * 8);
             mat.ConvertTo(mat, MatType.CV_32FC4);
+            //var vec4F = mat.Get<Vec4f>(2);
             Cv2.CvtColor(mat, mat, ColorConversionCodes.RGBA2RGB);
             
             var matrix = ColorSpaceCtr.CtrColorSpace([
@@ -66,11 +71,14 @@ public static class CaptureTool
                     .640f, .330f, .300f, .600f, .150f, .060f, .3127f, .3290f
                 ]
             );
-            Cv2.Log(new Scalar(1,1,1)+mat, mat);
-            mat/=1.749199854809259f;
+           
+           
+           
             
             Cv2.Transform(mat, mat, Mat.FromArray(matrix));
-            
+            Cv2.Log(new Scalar(1,1,1)+mat, mat);
+            mat/=1.749199854809259f;
+            //Cv2.Normalize(mat, mat, 0, 1, NormTypes.MinMax);
             mat *= 255;
             mat.ConvertTo(mat, MatType.CV_8UC3);
             Cv2.CvtColor(mat, mat, ColorConversionCodes.RGB2BGRA);
