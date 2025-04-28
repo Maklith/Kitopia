@@ -52,6 +52,7 @@ internal  class UwpTools
             catch (Exception e)
             {
                 Log.Error(e,"UWP索引时出现错误");
+                errorUWPs.Add(file.displayName);
             }
         });
     }

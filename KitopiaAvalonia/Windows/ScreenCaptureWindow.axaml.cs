@@ -882,6 +882,7 @@ public partial class ScreenCaptureWindow : Window
     private void SaveToClipboard_Click(object? sender, RoutedEventArgs e)
     {
         FinnishCapture();
+        
         Close();
     }
 
@@ -993,7 +994,10 @@ public partial class ScreenCaptureWindow : Window
                                     ScreenInfo = _screenCaptureInfo.ScreenInfo
                                 },
                                 Source = mat
-                            });
+                            }).ContinueWith((e =>
+                            {
+                                mat.Dispose();
+                            }));
                     }
                     bitmap.Dispose();
                     renderTargetBitmap.Dispose();
@@ -1251,7 +1255,9 @@ public partial class ScreenCaptureWindow : Window
         selectBytesModeAction=e=>
         {
             screenCaptureExMethod.Action.Invoke(e);
+            e.Source?.Dispose();
         };
         FinnishCapture();
+        
     }
 }
