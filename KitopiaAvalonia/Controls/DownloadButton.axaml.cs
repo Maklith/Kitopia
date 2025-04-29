@@ -1,22 +1,13 @@
 ﻿using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Markup.Xaml;
 
 namespace KitopiaAvalonia.Controls;
 
-public partial class DownloadButton : UserControl
+public partial class DownloadButton : TemplatedControl
 {
-    /*
-     * public bool NeedDownload { get;  }
-    public bool CanDownload { get;  }
-    public ICommand DownloadCommand { get; }
-    
-    public ICommand CancelCommand { get; }
-    public bool IsIndeterminate { get;  }
-    public bool IsDownloading { get;  }
-    public double Progress { get;  }
-     */
     public static readonly AvaloniaProperty<bool> NeedDownloadProperty =
         AvaloniaProperty.Register<DownloadButton, bool>(nameof(NeedDownload), true);
     public static readonly AvaloniaProperty<bool> CanDownloadProperty =
@@ -68,10 +59,5 @@ public partial class DownloadButton : UserControl
         get => (double)GetValue(ProgressProperty);
         set => SetValue(ProgressProperty, value);
     }
-        
     
-    public DownloadButton()
-    {
-        InitializeComponent();
-    }
 }

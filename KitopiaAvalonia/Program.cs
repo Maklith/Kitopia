@@ -62,6 +62,7 @@ internal class Program
             AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
             {
                 Log.Information("程序退出");
+                LogManager.Logger.Dispose();
                 ServiceManager.Services.GetService<IToastService>().Unregister();
             };
             Task.Run(async () =>
@@ -196,7 +197,7 @@ internal class Program
         Log.Information("启动");
         ServiceManager.Services = ConfigureServices();
 
-        CheckAndDeleteLogFiles();
+        //CheckAndDeleteLogFiles();
 
         MqttManager.Init().Wait();
         Log.Information("MQTT初始化完成");
