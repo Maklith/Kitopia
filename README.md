@@ -2,7 +2,8 @@
 # Kitopia Open-source, free, plugin-based, node-oriented tool collection.
 > 注意:仍在开发中可能包含一定的错误  
 > Note: Still under development may contain certain bugs
-# 查看 [Wiki](https://kitopiaorg.github.io/)
-# View [Wiki](https://kitopiaorg.github.io/)
+## 
+# 查看 [DeepWiki](https://deepwiki.com/MakesYT/Kitopia) [Wiki](https://kitopiaorg.github.io/)
+# View [DeepWiki](https://deepwiki.com/MakesYT/Kitopia) [Wiki](https://kitopiaorg.github.io/)
 ### 已知问题
 ### Known Issues
