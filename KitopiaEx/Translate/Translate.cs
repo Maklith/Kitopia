@@ -40,14 +40,7 @@ public class Translate
             
         
     }
-    [Capture("翻译",0xf834)]
-    public void TranslateImgCapture(ScreenCaptureResult dResult)
-    {
-        var service = KitopiaEx.ServiceProvider.GetService<Ocr.Ocr>()!;
-        var ocrResults = service.OcrImg(dResult, CancellationToken.None);
-        ocrResults = TranslateOcrResults(ocrResults, SourceTranslateLang.自动检测,TargetTranslateLang.简体中文,CancellationToken.None);
-        service.OcrResultShow(dResult, ocrResults, CancellationToken.None);
-    }
+    
     
     [SearchMethod]
     public SearchViewItem? TranslateSearch(string search)

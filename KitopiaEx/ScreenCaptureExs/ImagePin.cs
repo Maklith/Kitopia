@@ -1,15 +1,13 @@
 ﻿using System;
 using Avalonia;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.Threading;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.ExMethod;
 
-namespace KitopiaEx.ImagePin;
+namespace KitopiaEx.ScreenCaptureExs;
 
-public class ScreenCaptureEx
+public class ImagePin
 {
     [Capture("置顶图片", 0xf602)]
     public void Pin(ScreenCaptureResult dResult)
@@ -22,11 +20,13 @@ public class ScreenCaptureEx
         Dispatcher.UIThread.Invoke((() =>
         {
 
-            var imagePin = new ImagePin();
-            imagePin.Image.Source = dResult.Source.ToAWriteableBitmap();
-            var scaleX=1920f/dResult.Info.ScreenInfo.Width;
-            var scaleY=1080f/dResult.Info.ScreenInfo.Height;
-            
+            var imagePin = new global::KitopiaEx.ImagePin.ImagePin
+            {
+                Image =
+                {
+                    Source = dResult.Source.ToAWriteableBitmap()
+                }
+            };
             imagePin.Position=(new PixelPoint(dResult.Info.X,dResult.Info.Y));
             imagePin.Width = dResult.Info.Width/imagePin.DesktopScaling;
             imagePin.Height = dResult.Info.Height/imagePin.DesktopScaling;

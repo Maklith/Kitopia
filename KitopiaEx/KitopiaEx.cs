@@ -71,19 +71,25 @@ public class KitopiaEx : IPlugin
     {
         var services = new ServiceCollection();
         services.AddSingleton<KitopiaEx>();
-        services.AddSingleton<ImageTools>();
+       
         services.AddSingleton<SearchItemEx>();
-        services.AddSingleton<ClipboardEx>();
+      
+        
         
         services.AddTransient<ScreenCaptureInfoSelfConnector>();
         services.AddSingleton<KeyboardSimulation>();
         services.AddSingleton<ScreenCaptureNode>();
         services.AddTransient<Ocr.Ocr>();
 
-        services.AddTransient<ScreenCaptureEx>();
+        
         services.AddTransient<ImagePin.ImagePin>();
         services.AddTransient<Translate.Translate>();
         services.AddTransient<QRCode.Coder>();
+
+        services.AddTransient<ScreenCaptureExs.Ocr>();
+        services.AddTransient<ScreenCaptureExs.ImagePin>();
+        services.AddTransient<ScreenCaptureExs.QRCode>();
+        services.AddTransient<ScreenCaptureExs.Translate>();
         var buildServiceProvider = services.BuildServiceProvider();
         ServiceProvider = buildServiceProvider;
         return buildServiceProvider;

@@ -201,10 +201,5 @@ public class Ocr
        
     }
 
-    [Capture("文字识别",0xEA72)]
-    public void OcrImgCapture(ScreenCaptureResult dResult)
-    {
-        var ocrResults = OcrImg(dResult, CancellationToken.None);
-        OcrResultShow(dResult, ocrResults, CancellationToken.None);
-    }
+  
 }
