@@ -25,7 +25,6 @@ public class Config : ConfigBase
     public override void AfterLoad()
     {
         base.AfterLoad();
-        var a = this;
         INSTANCE = (Config)Instance;
         Instance.ConfigChanged += (sender, args) =>
         {
