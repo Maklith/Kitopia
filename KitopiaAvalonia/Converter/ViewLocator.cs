@@ -7,6 +7,7 @@ using Core.SDKs.Services.Config;
 using Core.ViewModel.Pages.plugin;
 using KitopiaAvalonia.Pages;
 using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 
 namespace KitopiaAvalonia.Converter;
 

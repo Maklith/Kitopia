@@ -5,6 +5,7 @@ using Core.SDKs.Services;
 using Core.ViewModel;
 using KitopiaAvalonia.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 
 namespace KitopiaAvalonia.Services;
 

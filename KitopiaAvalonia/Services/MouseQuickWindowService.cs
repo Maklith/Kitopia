@@ -2,6 +2,7 @@
 using Core.SDKs.Services;
 using KitopiaAvalonia.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 
 namespace KitopiaAvalonia.Services;
 

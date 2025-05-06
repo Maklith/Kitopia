@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using PluginCore;
 
 namespace Core.SDKs.CustomScenario.CustomScenarioValueSerializer;
 

@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Core.SDKs;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
+using PluginCore;
 
 namespace Core.ViewModel.Pages.customScenario;
 

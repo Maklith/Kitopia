@@ -10,8 +10,6 @@ using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Plugin;
 using Core.ViewModel;
-using KitopiaEx;
-
 using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;
 using PluginCore;

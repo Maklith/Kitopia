@@ -1,5 +1,6 @@
 ﻿using Core.SDKs.Services;
 using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 
 namespace Core.SDKs.HotKey;
 

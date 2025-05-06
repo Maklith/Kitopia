@@ -12,6 +12,7 @@ using Core.JsonConverter;
 using Core.SDKs.Services.Config;
 
 using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 using Serilog;
 
 #endregion

@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 
 namespace Core.ViewModel;
 
