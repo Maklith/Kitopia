@@ -3,7 +3,7 @@
                     xmlns:customScenario="clr-namespace:Core.SDKs.CustomScenario;assembly=PluginCore"
                     xmlns:screenCaptureInfoSelfConnector="clr-namespace:KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector"
                     xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore">
-    <DataTemplate x:Key="Template" DataType="customScenario:IConnectorItem">
+    <DataTemplate x:Key="Template">
         <Button x:DataType="screenCaptureInfoSelfConnector:ScreenCaptureInfoSelfConnector" Height="60" Width="200"
                 Command="{Binding GetScreenCaptureInfoCommand }">
             <Button.Resources>
