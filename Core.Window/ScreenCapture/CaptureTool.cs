@@ -50,13 +50,15 @@ public static class CaptureTool
         }
         else
         {
-            var mat = new Mat(endY, endX,MatType.MakeType(7,4));
+            var mat = new Mat(outputDesc.DesktopCoordinates.Size.Y, outputDesc.DesktopCoordinates.Size.X,MatType.MakeType(7,4));
+            var destinationSizeInBytes = outputDesc.DesktopCoordinates.Size.Y* outputDesc.DesktopCoordinates.Size.X * 8;
             Buffer.MemoryCopy((void*)mappedSubresource.PData,mat.DataPointer,
-                endY * endX * 8, endX * endY * 8);
+                destinationSizeInBytes, destinationSizeInBytes);
+            
             mat.ConvertTo(mat, MatType.CV_32FC4);
             //var vec4F = mat.Get<Vec4f>(2);
             Cv2.CvtColor(mat, mat, ColorConversionCodes.RGBA2RGB);
-            
+            mat = mat[startY,endY,startX,endX];
             var matrix = ColorSpaceCtr.CtrColorSpace([
                     outputDesc.RedPrimary[0],
                     outputDesc.RedPrimary[1],
