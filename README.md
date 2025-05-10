@@ -3,7 +3,7 @@
 > 注意:仍在开发中可能包含一定的错误  
 > Note: Still under development may contain certain bugs
 ## 
-# 查看 [DeepWiki](https://deepwiki.com/MakesYT/Kitopia) [Wiki](https://kitopiaorg.github.io/)
-# View [DeepWiki](https://deepwiki.com/MakesYT/Kitopia) [Wiki](https://kitopiaorg.github.io/)
+# 查看 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/MakesYT/Kitopia) [Wiki](https://kitopiaorg.github.io/)
+# View [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/MakesYT/Kitopia) [Wiki](https://kitopiaorg.github.io/)
 ### 已知问题
 ### Known Issues
