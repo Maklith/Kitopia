@@ -14,6 +14,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using PluginCore.ExMethod;
 using Rect = Avalonia.Rect;
 
 namespace KitopiaEx.Ocr;
