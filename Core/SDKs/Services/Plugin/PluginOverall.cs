@@ -29,11 +29,13 @@ public class PluginOverall
     {
         SearchWindowInputDataIdentifies["Kitopia"] = new List<Func<string, IEnumerable<InputData>>>()
         {
-            (s =>new PathIdentifier().IdentifyInputData(s) )
+            (s =>new PathIdentifier().IdentifyInputData(s) ),
+            (s => new ImageIdentifier().IdentifyInputData(s)),
         };
         SearchWindowInputDataAnalyzers["Kitopia"] = new List<Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>>()
         {
-            (s => new PathAnalyzer().AnalyzeInputData(s))
+            (s => new PathAnalyzer().AnalyzeInputData(s)),
+            (s => new ImageAnalyzer().AnalyzeInputData(s))
         };
     }
         

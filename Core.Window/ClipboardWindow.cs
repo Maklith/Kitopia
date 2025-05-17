@@ -10,6 +10,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Core.SDKs.Services;
+using OpenCvSharp;
 using PluginCore;
 using Polly;
 using Polly.Retry;
@@ -26,6 +27,7 @@ using Rectangle = System.Drawing.Rectangle;
 using Vector = Avalonia.Vector;
 using Clipboard = System.Windows.Clipboard;
 using DataFormats = Avalonia.Input.DataFormats;
+using Size = OpenCvSharp.Size;
 using WriteableBitmap = Avalonia.Media.Imaging.WriteableBitmap;
 
 namespace Core.Window;
@@ -97,19 +99,16 @@ public class ClipboardWindow : IClipboardService
     }
 
     [STAThread]
-    public Bitmap? GetImage()
+    public Mat? GetImage()
     {
-        WriteableBitmap? writeableBitmap = null;
+        Mat? writeableBitmap = null;
         var tcs = new TaskCompletionSource<bool>();
         var thread = new Thread(() =>
         {
             var bitmapSource = Clipboard.GetImage();
-            writeableBitmap = new WriteableBitmap(new PixelSize(bitmapSource.PixelWidth, bitmapSource.PixelHeight),
-                new Vector(96, 96));
-
-            using var lockedFramebuffer = writeableBitmap.Lock();
-
-            bitmapSource.CopyPixels(new Int32Rect(), lockedFramebuffer.Address,
+            writeableBitmap = new Mat(new Size(bitmapSource.PixelWidth, bitmapSource.PixelHeight),
+                MatType.CV_8UC4);
+            bitmapSource.CopyPixels(new Int32Rect(), writeableBitmap.Data,
                 bitmapSource.PixelWidth * bitmapSource.PixelHeight * 4,
                 ((bitmapSource.PixelWidth * bitmapSource.Format.BitsPerPixel + 31) & ~31) >> 3);
             tcs.SetResult(true);
@@ -121,28 +120,16 @@ public class ClipboardWindow : IClipboardService
         
     }
 
-    public bool SetImage(Bitmap image)
+    public bool SetImage(Mat image)
     {
         try
         {
             var data2 = new DataObject();
-            var memoryStream = new MemoryStream();
-            image.Save(memoryStream, 100);
-            var bitmap = new System.Drawing.Bitmap(memoryStream);
-
-            var bitmapData = bitmap.LockBits(
-                new Rectangle(0, 0, bitmap.Width, bitmap.Height),
-                ImageLockMode.ReadOnly, bitmap.PixelFormat);
-
             var bitmapSource = BitmapSource.Create(
-                bitmapData.Width, bitmapData.Height,
-                bitmap.HorizontalResolution, bitmap.VerticalResolution,
-                PixelFormats.Bgr24, null,
-                bitmapData.Scan0, bitmapData.Stride * bitmapData.Height, bitmapData.Stride);
-
-            bitmap.UnlockBits(bitmapData);
-            bitmap.Dispose();
-
+                image.Width, image.Height,
+                96, 96,
+                PixelFormats.Bgra32, null,
+                image.Data,(int)(image.DataEnd-image.Data), ((image.Width * PixelFormat.Bgra8888.BitsPerPixel + 31) & ~31) >> 3);
             data2.SetImage(bitmapSource);
             Ole32.OleSetClipboard(data2);
         }

@@ -117,6 +117,7 @@ internal class Program
         services.AddTransient<IClipboardService, ClipboardWindow>();
         services.AddTransient<IWindowTool, WindowToolServiceWindow>();
         services.AddTransient<IApplicationService, ApplicationService>();
+        services.AddTransient<IImageTool, ImageTool>();
         #endif
 
         #if LINUX

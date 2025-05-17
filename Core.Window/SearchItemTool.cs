@@ -26,33 +26,6 @@ public class SearchItemTool : ISearchItemTool
         Log.Debug("打开指定内容" + searchViewItem.OnlyKey);
         switch (searchViewItem.OnlyKey)
         {
-            case "ClipboardImageData":
-            {
-                try
-                {
-                    var bitmap = ServiceManager.Services!.GetService<IClipboardService>()!
-                        .GetImage();
-                    var ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0);
-                    var timeStamp = Convert.ToInt64(ts.TotalMilliseconds);
-                    var f = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Downloads\\Kitopia" +
-                            timeStamp + ".png";
-
-                    bitmap.Save(f);
-
-                    bitmap.Dispose();
-                    Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + f, "",
-                        ShowWindowCommand.SW_NORMAL);
-                }
-                catch (Exception e)
-                {
-                    Log.Error("剪贴板图片保存失败");
-                    ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!)
-                        .Show("剪贴板", "剪贴板图片保存失败");
-                    return;
-                }
-
-                return;
-            }
             case "Math": break;
             default:
             {
