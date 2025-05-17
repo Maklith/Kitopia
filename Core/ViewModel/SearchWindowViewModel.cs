@@ -29,6 +29,7 @@ public class FileTypeFilter
     public FileType FileType { get; set; }
     public bool IsChecked{ get; set; }
 }
+
 public partial class SearchWindowViewModel : ObservableRecipient
 {
     private static ILogger Log =   LogManager.Logger.ForContext<SearchWindowViewModel>();
@@ -46,6 +47,9 @@ public partial class SearchWindowViewModel : ObservableRecipient
     [ObservableProperty] private bool? _everythingIsOk = true;
     [ObservableProperty] private ObservableCollection<SearchViewItem> _items = new(TempList); 
     [ObservableProperty] private ObservableCollection<SearchViewItem> _showItems; //搜索界面显示的软件
+    [ObservableProperty] public bool showInputData;
+    
+    [ObservableProperty] private ObservableCollection<InputData> _inputDatas = new();
     private PinyinSearcher<SearchViewItem> _pinyinSearcher;
 
     private bool _reloading = false;
@@ -83,11 +87,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         });
     }
 
-    public void AddCollection(string search)
-    {
-        ServiceManager.Services.GetService<IAppToolService>()!.AppSolverA(_collection, search, false);
-    }
-
+   
     public void ReloadApps(bool logging = false)
     {
         if (_reloading) return;
@@ -150,96 +150,9 @@ public partial class SearchWindowViewModel : ObservableRecipient
         }
     }
 
+    
 
-    public void CheckClipboard()
-    {
-        if (!ConfigManger.Config.canReadClipboard)
-        {
-            Log.Debug("没有读取剪贴板授权");
-            return;
-        }
-        var data = ServiceManager.Services.GetService<IClipboardService>()!
-            .HasText();
-        try
-        {
-            if (data)
-            {
-                var text = ServiceManager.Services.GetService<IClipboardService>()!
-                    .GetText();
-                if (text.StartsWith("\"")) text = text.Replace("\"", "");
-
-                //检测路径
-                CheckIsPath(text);
-            }
-        }
-        catch (Exception e)
-        {
-        }
-
-
-        if (ServiceManager.Services.GetService<IClipboardService>()!.HasImage())
-        {
-            Log.Debug("剪贴板有图像信息");
-
-
-            if (Items.Any(items => items.FileType == FileType.剪贴板图像)) return;
-
-            Items.Insert(0, new SearchViewItem()
-            {
-                ItemDisplayName = "保存剪贴板图像?",
-                FileType = FileType.剪贴板图像,
-                IconSymbol = 0xE357,
-                OnlyKey = "ClipboardImageData",
-                Icon = null,
-                IsVisible = true
-            });
-        }
-        else if (Items.Count > 0 && Items.First()
-                     .FileType == FileType.剪贴板图像)
-        {
-            Log.Debug("剪贴板没有图像信息,但第一项是图片信息删除");
-
-
-            Items.RemoveAt(0);
-        }
-    }
-
-    private void CheckIsPath(string text)
-    {
-
-        if (Path.HasExtension(text) && File.Exists(text))
-        {
-            var fileInfo = new FileInfo(text);
-            Log.Debug($"检测路径{fileInfo.FullName}");
-            ConcurrentDictionary<string, SearchViewItem> a = new();
-            ServiceManager.Services.GetService<IAppToolService>()!.AppSolverA(a, fileInfo.FullName);
-            foreach (var (key, value) in a)
-            {
-                value.ItemDisplayName = value.FileType == FileType.应用程序 ? $"运行程序: {fileInfo.Name} ?" : $"打开文件: {fileInfo.Name} ?";
-
-                Items.Insert(0, value);
-                //GetIconInItemsAsync(value);
-            }
-        }
-        else if (Directory.Exists(text))
-        {
-            var directoryInfo = new DirectoryInfo(text);
-            Log.Debug($"检测路径{directoryInfo.FullName}");
-            ConcurrentDictionary<string, SearchViewItem> a = new();
-            ServiceManager.Services.GetService<IAppToolService>()!.AppSolverA(a, directoryInfo.FullName);
-            
-            foreach (var (key, value) in a)
-            {
-                
-                value.ItemDisplayName = $"打开文件夹: {directoryInfo.Name} ?";
-                
-
-                Items.Insert(0, value);
-                //GetIconInItemsAsync(value);
-            }
-        }
-    }
-
+  
     public void LoadLast()
     {
         if (!string.IsNullOrEmpty(Search)) return;
@@ -251,7 +164,36 @@ public partial class SearchWindowViewModel : ObservableRecipient
         foreach (var searchViewItem in Items) searchViewItem.Dispose();
 
         Items.Clear();
-        CheckClipboard();
+        
+        InputDatas.Clear();
+        foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataIdentifies)
+        {
+            foreach (var func in funcs)
+            {
+                    
+                var inputData = func.Invoke(String.Empty);
+                if (inputData != null)
+                {
+                    InputDatas.AddRange(inputData);
+                }
+            }
+        }
+        if (!ConfigManger.Config.canReadClipboard)
+        {
+            Log.Debug("没有读取剪贴板授权");
+            return;
+        }
+        ShowInputData = InputDatas.Count>0;
+        foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataAnalyzers)
+        {
+                
+            foreach (var func in funcs)
+            {
+                IEnumerable<SearchViewItem> enumerable = func.Invoke(InputDatas);
+                var searchViewItems = enumerable.ToList();
+                Items.AddRange(searchViewItems);
+            }
+        }
         var limit = 0;
         //Items.RaiseListChangedEvents = false;
         if (ConfigManger.Config.alwayShows.Any())
@@ -330,6 +272,26 @@ public partial class SearchWindowViewModel : ObservableRecipient
         //Log.Debug("搜索");
         _searchDelayAction.Debounce(ConfigManger.Config.inputSmoothingMilliseconds, _scheduler, () =>
         {
+            
+            InputDatas.Clear();
+            foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataIdentifies)
+            {
+                foreach (var func in funcs)
+                {
+                    
+                    var inputData = func.Invoke(value);
+                    if (inputData != null)
+                    {
+                        InputDatas.AddRange(inputData);
+                    }
+                }
+            }
+            InputDatas.Add(new InputData()
+            {
+                InputType = InputType.文本,
+                Data = value
+            });
+            ShowInputData = InputDatas.Count > 0;   
             //Log.Debug("搜索开始");
             if (string.IsNullOrEmpty(Search))
             {
@@ -337,7 +299,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 return;
             }
 
-            var lastItem = Items.FirstOrDefault();
+            
 
             Log.Debug("搜索变更:" + Search);
             // Items.RaiseListChangedEvents = false;
@@ -356,17 +318,17 @@ public partial class SearchWindowViewModel : ObservableRecipient
             var lowerOriginalValue = Search.ToLowerInvariant();
             value = Search.Split(" ").First().ToLowerInvariant();
             var pluginItem = 0;
-            foreach (var searchAction in PluginOverall.SearchActions)
-            foreach (var func in searchAction.Value)
+            foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataAnalyzers)
             {
-                var searchViewItem = func.Invoke(value);
-                if (searchViewItem != null)
+                
+                foreach (var func in funcs)
                 {
-                    pluginItem++;
-                    Items.Add(searchViewItem);
+                    IEnumerable<SearchViewItem> enumerable = func.Invoke(InputDatas);
+                    var searchViewItems = enumerable.ToList();
+                    Items.AddRange(searchViewItems);
+                    pluginItem+= searchViewItems.Count();
                 }
             }
-
 
             #region 数学运算
 
@@ -478,9 +440,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
             if (Items.Count <= pluginItem)
             {
-                if (originalValue.StartsWith("\"")) originalValue = originalValue.Replace("\"", "");
-                //检测路径
-                CheckIsPath(originalValue);
                 {
                     {
                         Log.Debug("无搜索项目,添加网页搜索");

@@ -10,6 +10,7 @@
         xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
         xmlns:converter1="clr-namespace:KitopiaAvalonia.Converter"
         xmlns:u="https://irihi.tech/ursa"
+        xmlns:viewModel1="clr-namespace:Core.ViewModel;assembly=PluginCore"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="KitopiaAvalonia.Windows.SearchWindow"
         x:DataType="viewModel:SearchWindowViewModel"
@@ -51,6 +52,30 @@
 
         <DockPanel Margin="10" VerticalAlignment="Stretch">
             <StackPanel DockPanel.Dock="Top" Margin="0,0,0,5" Spacing="5">
+                <Border IsVisible="{Binding ShowInputData}"  Theme="{DynamicResource RadioButtonGroupBorder}" Height="30">
+                    <Border.Styles>
+                        <Style Selector="RadioButton">
+                            <Setter Property="Theme" Value="{DynamicResource ButtonRadioButton}" />
+                        </Style>
+                    </Border.Styles>
+                    <ScrollViewer  PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center" VerticalAlignment="Center">
+                        <ItemsControl ItemsSource="{Binding InputDatas}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="viewModel1:InputData">
+                                    <Button Classes="Small" Margin="3,0,3,0"   VerticalAlignment="Center" Content="{Binding  InputType}" Height="15" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <!-- 使用 WrapPanel 实现子项横向排列 -->
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </ScrollViewer>
+       
+
+                </Border>
                 <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" IsTabStop="False"
                          Watermark="搜索..." AcceptsReturn="False" KeyDown="tx_KeyDown"
                          

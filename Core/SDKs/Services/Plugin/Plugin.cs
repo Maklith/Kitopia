@@ -7,13 +7,14 @@ using Core.JsonConverter;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.HotKey;
 using Core.SDKs.Services.Config;
-
+using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Attribute.Scenario;
 using PluginCore.Config;
 using PluginCore.Onnx;
+using PluginCore.SearchWindow.InputDataAnalyzer;
 using Serilog;
 
 #endregion
@@ -89,9 +90,11 @@ public class Plugin
         //Dictionary<string, (MethodInfo, object)> methodInfos = new();
         ScenarioMethodCategoryGroup pluginMainScenarioMethodCategoryGroup = new();
 
-        List<Func<string, SearchViewItem?>> searchViews = new();
+       
         List<ScreenCaptureExMethod> captureActions = new();
         List<OnnxModelInfoWrapper> onnxModelInfos = new();
+        List<Func<string, IEnumerable<InputData>>> inputDataIdentifier = new();
+        List<Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>> inputDataAnalyzerActions = new();
         Dictionary<string,Func<IInferenceSession>> onnxRuntimes = new();
         PluginInfo = pluginInfo;
         foreach (var type in t)
@@ -139,6 +142,19 @@ public class Plugin
                 onnxRuntimes.Add(inferenceSession.Device, (() => (IInferenceSession)ServiceProvider.GetService(type)));
                 
             }
+            if (typeof(IInputDataAnalyzer).IsAssignableFrom(type))
+            {
+                var inferenceSession = (IInputDataAnalyzer)ServiceProvider.GetService(type);
+                inputDataAnalyzerActions.Add( 
+                    inputData => inferenceSession.AnalyzeInputData(inputData));
+            }
+            if (typeof(IInputDataIdentifier).IsAssignableFrom(type))
+            {
+                var inferenceSession = (IInputDataIdentifier)ServiceProvider.GetService(type);
+                inputDataIdentifier.Add(
+                    filePath => inferenceSession.IdentifyInputData(filePath));
+            }
+            
 
             var scenarioMethodCategoryGroup = pluginMainScenarioMethodCategoryGroup;
             if (type.GetCustomAttribute<ScenarioMethodCategoryAttribute>() is { } scenarioMethodCategoryAttribute)
@@ -164,17 +180,7 @@ public class Plugin
                     scenarioMethodCategoryGroup.Methods.Add(scenarioMethodInfo.MethodTitle,
                         scenarioMethodInfo.GenerateNode());
                 }
-
-                if (methodInfo.GetCustomAttribute<SearchMethod>() is { }) //搜索的切入方法
-                    searchViews.Add(e =>
-                    {
-                        var invoke = methodInfo.Invoke(
-                            ServiceProvider!.GetService(methodInfo.DeclaringType!),
-                            new object?[] { e });
-                        if (invoke is null) return null;
-
-                        return (SearchViewItem)invoke;
-                    });
+                
                 if (methodInfo.GetCustomAttribute<CaptureAttribute>() is { } captureAttribute )
                 {
                     captureActions.Add(new ScreenCaptureExMethod()
@@ -216,13 +222,14 @@ public class Plugin
                 }
             }
         }
-
-        PluginOverall.SearchActions.Add(PluginInfo.ToPlgString(), searchViews);
+        
             
         PluginOverall.ScreenCaptureExMethods.Add(PluginInfo.ToPlgString(), captureActions);
             
         PluginOverall.OnnxModelInfos.Add(PluginInfo.ToPlgString(), onnxModelInfos);
         PluginOverall.OnnxRuntimes.Add(PluginInfo.ToPlgString(), onnxRuntimes);
+        PluginOverall.SearchWindowInputDataIdentifies.Add(PluginInfo.ToPlgString(), inputDataIdentifier);
+        PluginOverall.SearchWindowInputDataAnalyzers.Add(PluginInfo.ToPlgString(), inputDataAnalyzerActions);
     }
 
     public Assembly? _dll => _plugin.Assembly;
@@ -309,10 +316,11 @@ public class Plugin
         Log.Debug($"卸载插件:{PluginInfo.ToPlgString()}");
         ConfigManger.RemoveConfig($"{PluginInfo.ToPlgString()}");
 
-        PluginOverall.SearchActions.Remove(PluginInfo.ToPlgString());
         PluginOverall.ScreenCaptureExMethods.Remove(PluginInfo.ToPlgString());
         PluginOverall.OnnxModelInfos.Remove(PluginInfo.ToPlgString());
         PluginOverall.OnnxRuntimes.Remove(PluginInfo.ToPlgString());
+        PluginOverall.SearchWindowInputDataIdentifies.Remove(PluginInfo.ToPlgString());
+        PluginOverall.SearchWindowInputDataAnalyzers.Remove(PluginInfo.ToPlgString());
         ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.RemoveMethodsByPluginName(PluginInfo.ToPlgString());
         var keyValuePairs = CustomScenarioGloble.Triggers.Where(e => e.Value.PluginInfo == PluginInfo.ToPlgString());
         foreach (var keyValuePair in keyValuePairs) CustomScenarioGloble.Triggers.Remove(keyValuePair.Key);

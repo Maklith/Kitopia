@@ -42,40 +42,4 @@ public class Translate
     }
     
     
-    [SearchMethod]
-    public SearchViewItem? TranslateSearch(string search)
-    {
-        if (search.StartsWith(Config.INSTANCE.TranslatePreString) || search.Length > Config.INSTANCE.TranslateMinCount)
-        {
-            return new SearchViewItem()
-            {
-                ItemDisplayName = "翻译",
-                FileType = FileType.自定义,
-                IconSymbol = 0xf834,
-                Action = (e,s) =>
-                {
-                    
-                    if (s.StartsWith(Config.INSTANCE.TranslatePreString))
-                    {
-                        s = search.Substring(Config.INSTANCE.TranslatePreString.Length);
-                    }
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        var translateWindowViewModel = new TranslateWindowViewModel()
-                        {
-                            SourceText = s
-                        };
-                        var translateWindow = new TranslateWindow()
-                        {
-                            DataContext = translateWindowViewModel
-                        };
-                        translateWindow.Show();
-                    });
-
-                }
-            };
-        }
-
-        return null;
-    }
 }
