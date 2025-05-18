@@ -60,12 +60,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
     [ObservableProperty] private int? _selectedIndex = -1;
 
-    private string[] knownCommand =
-    [
-        "cmd", "powershell", "wsl", "bash", "ping", "ipconfig", "nslookup", "tracert", "netstat", "arp", "route",
-        "telnet", "ftp", "ssh", "scp", "sftp", "rsync", "nmap", "nc", "curl", "wget", "git", "svn", "hg", "docker",
-        "docker-compose", "kubectl", "helm", "minikube"
-    ];
+   
 
     [ObservableProperty] private bool nowInSelectMode = false;
     private Action<SearchViewItem?>? selectAction;
@@ -330,41 +325,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 }
             }
 
-            #region 数学运算
-
-            var operators = new[] { '*', '+', '-', '/', '^' };
-            var pattern = @"[\u4e00-\u9fa5a-zA-Z]+";
-            if (Regex.Match(value, pattern, RegexOptions.NonBacktracking)
-                    .Value == "" &&
-                value.IndexOfAny(operators) > -1)
-                try
-                {
-                    var e = Math.Evaluate(value);
-                    Items.Add(new SearchViewItem
-                    {
-                        ItemDisplayName = "=" + e,
-                        FileType = FileType.数学运算,
-                        OnlyKey = value,
-                        Icon = null,
-                        IconSymbol = 61547,
-                        IsVisible = true
-                    });
-                }
-                catch (Exception)
-                {
-                    Items.Add(new SearchViewItem
-                    {
-                        ItemDisplayName = "错误的表达式",
-                        FileType = FileType.数学运算,
-                        OnlyKey = value,
-                        Icon = null,
-                        IconSymbol = 61547,
-                        IsVisible = true
-                    });
-                }
-
-            #endregion
-
+         
             if (originalValue.StartsWith(ConfigManger.Config.everythingSearchPreString)&&originalValue.Length>ConfigManger.Config.everythingSearchPreString.Length)
             {
                 var useEverythingSearch = ServiceManager.Services.GetService<IAppToolService>().
@@ -524,20 +485,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 }
             }
             
-            foreach (var se in knownCommand)
-                if (se.Equals(value))
-                {
-                    var item = new SearchViewItem
-                    {
-                        ItemDisplayName = "执行命令:" + originalValue,
-                        FileType = FileType.命令,
-                        OnlyKey = originalValue,
-                        Icon = null,
-                        IconSymbol = 61039,
-                        IsVisible = true
-                    };
-                    Items.Insert(0, item);
-                }
+            
            
             FileTypes.Clear();
             var fileTypes = Items.GroupBy(e=>e.FileType).Select(e=>e.Key);

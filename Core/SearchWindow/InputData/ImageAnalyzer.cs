@@ -20,7 +20,7 @@ public class ImageAnalyzer : IInputDataAnalyzer
                 {
                     yield return new SearchViewItem()
                     {
-                        ItemDisplayName = "剪贴板图像",
+                        ItemDisplayName = "保存剪贴板图像?",
                         FileType = FileType.自定义,
                         IconSymbol = 0xE357,
                         Icon = null,
