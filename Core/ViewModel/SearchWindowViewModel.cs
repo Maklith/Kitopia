@@ -160,35 +160,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
         Items.Clear();
         
-        InputDatas.Clear();
-        foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataIdentifies)
-        {
-            foreach (var func in funcs)
-            {
-                    
-                var inputData = func.Invoke(String.Empty);
-                if (inputData != null)
-                {
-                    InputDatas.AddRange(inputData);
-                }
-            }
-        }
-        if (!ConfigManger.Config.canReadClipboard)
-        {
-            Log.Debug("没有读取剪贴板授权");
-            return;
-        }
-        ShowInputData = InputDatas.Count>0;
-        foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataAnalyzers)
-        {
-                
-            foreach (var func in funcs)
-            {
-                IEnumerable<SearchViewItem> enumerable = func.Invoke(InputDatas);
-                var searchViewItems = enumerable.ToList();
-                Items.AddRange(searchViewItems);
-            }
-        }
         var limit = 0;
         //Items.RaiseListChangedEvents = false;
         if (ConfigManger.Config.alwayShows.Any())
@@ -255,8 +226,48 @@ public partial class SearchWindowViewModel : ObservableRecipient
         ShowItems = Items;
         FileTypes.Clear();
         ShowFileTypeFilter = FileTypes.Count > 0;
+        
     }
 
+    public void ProcessInputData(string? value)
+    {
+        InputDatas.Clear();
+        foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataIdentifies)
+        {
+            foreach (var func in funcs)
+            {
+                    
+                var inputData = func.Invoke(value);
+                if (inputData != null)
+                {
+                    InputDatas.AddRange(inputData);
+                }
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            InputDatas.Add(new InputData()
+            {
+                InputType = InputType.文本,
+                Data = value
+            });
+        }
+        
+        ShowInputData = InputDatas.Count > 0;   
+        foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataAnalyzers)
+        {
+                
+            foreach (var func in funcs)
+            {
+                IEnumerable<SearchViewItem> enumerable = func.Invoke(InputDatas);
+                foreach (var searchViewItem in enumerable)
+                {
+                    Items.Insert(0,searchViewItem);
+                }
+            }
+        }
+    }
     // ReSharper disable once RedundantAssignment
     partial void OnSearchChanged(string? value)
     {
@@ -268,32 +279,16 @@ public partial class SearchWindowViewModel : ObservableRecipient
         _searchDelayAction.Debounce(ConfigManger.Config.inputSmoothingMilliseconds, _scheduler, () =>
         {
             
-            InputDatas.Clear();
-            foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataIdentifies)
-            {
-                foreach (var func in funcs)
-                {
-                    
-                    var inputData = func.Invoke(value);
-                    if (inputData != null)
-                    {
-                        InputDatas.AddRange(inputData);
-                    }
-                }
-            }
-            InputDatas.Add(new InputData()
-            {
-                InputType = InputType.文本,
-                Data = value
-            });
-            ShowInputData = InputDatas.Count > 0;   
+            
+            
             //Log.Debug("搜索开始");
             if (string.IsNullOrEmpty(Search))
             {
                 LoadLast();
+                ProcessInputData(null);
                 return;
             }
-
+           
             
 
             Log.Debug("搜索变更:" + Search);
@@ -308,22 +303,14 @@ public partial class SearchWindowViewModel : ObservableRecipient
             if (Search is null) return;
  
             #endregion
+            
+            ProcessInputData(value);
 
             var originalValue = Search;
             var lowerOriginalValue = Search.ToLowerInvariant();
             value = Search.Split(" ").First().ToLowerInvariant();
             var pluginItem = 0;
-            foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataAnalyzers)
-            {
-                
-                foreach (var func in funcs)
-                {
-                    IEnumerable<SearchViewItem> enumerable = func.Invoke(InputDatas);
-                    var searchViewItems = enumerable.ToList();
-                    Items.AddRange(searchViewItems);
-                    pluginItem+= searchViewItems.Count();
-                }
-            }
+            
 
          
             if (originalValue.StartsWith(ConfigManger.Config.everythingSearchPreString)&&originalValue.Length>ConfigManger.Config.everythingSearchPreString.Length)

@@ -26,6 +26,10 @@ public class PathIdentifier : IInputDataIdentifier
 
     private static IEnumerable<ViewModel.InputData> PathChecker(string? text)
     {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+           yield break;
+        }
         if (text.StartsWith("\"")) text = text.Remove(0,1);
         if (text.EndsWith("\"")) text = text.Remove(text.Length - 1, 1);
         if (Path.HasExtension(text) && File.Exists(text))
