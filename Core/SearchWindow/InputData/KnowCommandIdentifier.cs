@@ -13,7 +13,7 @@ public class KnowCommandIdentifier : IInputDataIdentifier
     public IEnumerable<ViewModel.InputData> IdentifyInputData(string? value)
     {
         foreach (var se in knownCommand)
-            if (value.StartsWith(se,StringComparison.OrdinalIgnoreCase))
+            if ( !string.IsNullOrWhiteSpace(value) && value.StartsWith(se,StringComparison.OrdinalIgnoreCase))
             {
                 yield return new ViewModel.InputData()
                 {
