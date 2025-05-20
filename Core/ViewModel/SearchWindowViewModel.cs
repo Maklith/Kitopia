@@ -395,63 +395,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 {
                     {
                         Log.Debug("无搜索项目,添加网页搜索");
-
-                        if (lowerOriginalValue.Contains(".") || lowerOriginalValue.Contains("file://"))
-                        {
-                            var temp = lowerOriginalValue;
-                            if (!temp.StartsWith("http") && !lowerOriginalValue.Contains("file://"))
-                            {
-                                temp = "https://" + temp;
-                                var viewItem = new SearchViewItem
-                                {
-                                    ItemDisplayName = "打开网页:" + temp,
-                                    FileType = FileType.URL,
-                                    OnlyKey = temp,
-                                    Icon = null,
-                                    IconSymbol = 62555,
-                                    IsVisible = true
-                                };
-                                Items.Add(viewItem);
-                                temp = "http://" + lowerOriginalValue;
-                                var viewItem1 = new SearchViewItem
-                                {
-                                    ItemDisplayName = "打开网页:" + temp,
-                                    FileType = FileType.URL,
-                                    OnlyKey = temp,
-                                    Icon = null,
-                                    IconSymbol = 62555,
-                                    IsVisible = true
-                                };
-                                Items.Add(viewItem1);
-                            }
-                            else if (lowerOriginalValue.Contains("file://"))
-                            {
-                                var viewItem1 = new SearchViewItem
-                                {
-                                    ItemDisplayName = "打开路径:" + lowerOriginalValue,
-                                    FileType = FileType.URL,
-                                    OnlyKey = lowerOriginalValue,
-                                    Icon = null,
-                                    IconSymbol = 62555,
-                                    IsVisible = true
-                                };
-                                Items.Add(viewItem1);
-                            }
-                            else
-                            {
-                                var viewItem1 = new SearchViewItem
-                                {
-                                    ItemDisplayName = "打开网页:" + lowerOriginalValue,
-                                    FileType = FileType.URL,
-                                    OnlyKey = lowerOriginalValue,
-                                    Icon = null,
-                                    IconSymbol = 62555,
-                                    IsVisible = true
-                                };
-                                Items.Add(viewItem1);
-                            }
-                        }
-
                         var searchViewItem3 = new SearchViewItem
                         {
                             ItemDisplayName = "将内容添加至便签" + originalValue,

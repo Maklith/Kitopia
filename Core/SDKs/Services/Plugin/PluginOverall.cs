@@ -33,6 +33,7 @@ public class PluginOverall
             (s => new ImageIdentifier().IdentifyInputData(s)),
             (s => new MathIdentifier().IdentifyInputData(s)),
             (s => new KnowCommandIdentifier().IdentifyInputData(s)),
+            (s => new UrlIdentifier().IdentifyInputData(s)),
         };
         SearchWindowInputDataAnalyzers["Kitopia"] = new List<Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>>()
         {
@@ -40,6 +41,7 @@ public class PluginOverall
             (s => new ImageAnalyzer().AnalyzeInputData(s)),
             (s => new MathAnalyzer().AnalyzeInputData(s)),  
             (s => new KnowCommandAnalyzer().AnalyzeInputData(s)),
+            (s => new UrlAnalyzer().AnalyzeInputData(s)),
         };
     }
         
