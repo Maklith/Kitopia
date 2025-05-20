@@ -198,7 +198,6 @@
                                                ConverterParameter={Binding .}}" />
                                         <controls1:FontIcon Height="48" Width="48" FontSize="48" Grid.Column="1"
                                                             FontFamily="{StaticResource FluentFont}"
-                                                            IsVisible="{Binding IconSymbol,Converter={StaticResource SymbolToVisible}}"
                                                             Glyph="{Binding IconSymbol,Converter={StaticResource IntToIconSymbol}}" />
 
 

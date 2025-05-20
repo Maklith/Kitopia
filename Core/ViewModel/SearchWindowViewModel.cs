@@ -229,8 +229,18 @@ public partial class SearchWindowViewModel : ObservableRecipient
         
     }
 
-    public void ProcessInputData(string? value)
+    private int _inputDataAnalyzersItemsCount = 0;
+    public void ProcessInputData(string? value,bool cleanLastResult=false)
     {
+        if (cleanLastResult)
+        {
+            for (int index = 0; index < _inputDataAnalyzersItemsCount; index++)
+            {
+                Items.RemoveAt(0);
+            }
+            
+        }
+        _inputDataAnalyzersItemsCount = 0;
         InputDatas.Clear();
         foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataIdentifies)
         {
@@ -263,6 +273,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 IEnumerable<SearchViewItem> enumerable = func.Invoke(InputDatas);
                 foreach (var searchViewItem in enumerable)
                 {
+                    _inputDataAnalyzersItemsCount ++ ;
                     Items.Insert(0,searchViewItem);
                 }
             }
@@ -278,9 +289,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
         //Log.Debug("搜索");
         _searchDelayAction.Debounce(ConfigManger.Config.inputSmoothingMilliseconds, _scheduler, () =>
         {
-            
-            
-            
             //Log.Debug("搜索开始");
             if (string.IsNullOrEmpty(Search))
             {
@@ -288,12 +296,8 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 ProcessInputData(null);
                 return;
             }
-           
-            
-
             Log.Debug("搜索变更:" + Search);
             // Items.RaiseListChangedEvents = false;
-
             #region 清除上次搜索结果
 
             foreach (var searchViewItem in Items) searchViewItem.Dispose();
