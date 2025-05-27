@@ -32,15 +32,28 @@ public class Plugin
 
     public void AddConfig(string key, ConfigBase configBase)
     {
+        void SerializeConfigToFile(FileInfo fileInfo)
+        {
+            var j = JsonSerializer.Serialize(configBase, configBase.GetType(), ConfigManger.DefaultOptions);
+            File.WriteAllText(fileInfo.FullName, j);
+        }
+        bool retryFlag = false;
+        retry:
+        
         var configF =
             new FileInfo($"{AppDomain.CurrentDomain.BaseDirectory}configs{Path.DirectorySeparatorChar}{key}.json");
         if (!configF.Exists)
         {
-            var j = JsonSerializer.Serialize(configBase, configBase.GetType(), ConfigManger.DefaultOptions);
-            File.WriteAllText(configF.FullName, j);
+            SerializeConfigToFile(configF);
         }
 
         var json = File.ReadAllText(configF.FullName);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            SerializeConfigToFile(configF);
+            ServiceManager.Services.GetService<IToastService>().Show("警告", $"{configF.Name}配置文件加载失败，已还原到最初配置");
+
+        }
         try
         {
             var deserializeObject =
@@ -56,8 +69,21 @@ public class Plugin
         catch (Exception e)
         {
             Log.Error(e, "配置文件加载失败");
+            
+            SerializeConfigToFile(configF);
+            
+            if (!retryFlag)
+            {
+                retryFlag = true;
+                goto retry;
+            }
+            ServiceManager.Services.GetService<IToastService>().Show("错误", $"{configF.Name}配置文件加载失败，请检查配置文件内容是否正确");
         }
 
+        if (retryFlag)
+        {
+            ServiceManager.Services.GetService<IToastService>().Show("警告", $"{configF.Name}配置文件加载失败，已还原到最初配置");
+        }
         configBase.GetType()
             .GetFields(BindingFlags.Instance | BindingFlags.Public)
             .ToList()
@@ -173,7 +199,7 @@ public class Plugin
                     var parameterTypeFullName = parameterInfos[^1].ParameterType.FullName;
                     if (parameterTypeFullName !=
                         "System.Threading.CancellationToken"&&!
-                        parameterTypeFullName.StartsWith("System.Nullable`1[[System.Threading.CancellationToken,")) continue;
+                            parameterTypeFullName.StartsWith("System.Nullable`1[[System.Threading.CancellationToken,")) continue;
 
                     var scenarioMethodInfo = new ScenarioMethod(methodInfo, PluginInfo, scenarioMethodAttribute,
                         ScenarioMethodType.插件方法, ServiceProvider);
