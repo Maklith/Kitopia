@@ -39,14 +39,14 @@ namespace KitopiaEx.Ocr
         public string PredictText(Mat cv_image)
         {
             Mat dstimg = Preprocess(cv_image);
-            var normalize = Normalize(dstimg);
+            Cv2.Normalize(dstimg, dstimg, 0, 1, NormTypes.MinMax, MatType.CV_32F);
 
             
             
            
             List<(string, Memory<int>, Memory<float>)> inputs2 = new List<(string, Memory<int>, Memory<float>)>()
             {
-                (_session.InputNames.First(), new[] { 1, 3,dstimg.Rows, dstimg.Width }, normalize)
+                (_session.InputNames.First(), new[] { 1, 3,dstimg.Rows, dstimg.Width }, OnnxInputDataTool.InputTensor(dstimg, 1 * 3 * dstimg.Width * dstimg.Height))
             };
             dstimg.Dispose();
 
@@ -126,29 +126,9 @@ namespace KitopiaEx.Ocr
             Cv2.CopyMakeBorder(srcImg, paddedImg, 0, tarH-srcImg.Rows, 0, tarW - srcImg.Cols, BorderTypes.Isolated, new Scalar(255, 255, 255));
             Cv2.Resize(paddedImg,paddedImg,new Size(tarW*(48.0/tarH),48));
            // Cv2.Threshold(paddedImg,paddedImg,127,255,ThresholdTypes.Binary);
-            return paddedImg;
+            return paddedImg;    
         }
-
-        private float[]  Normalize(Mat img)
-        {
-            //img.SaveImage("1.png");
-            int row = img.Rows;
-            int col = img.Cols;
-            float[] inputImage = new float[row*col*3];
-            for (int i = 0; i < row; i++)
-            {
-                for (int j = 0; j < col; j++)
-                {
-                    Vec3b pix = img.Get<Vec3b>(i, j);
-                    //由于在上一步中未进行 BGR2RGB ,此处进行
-                    inputImage[i*col+j]=(pix[0] /  255.0f -0.5f) / 0.5f;
-                    inputImage[i*col+j+1]=(pix[1] / 255.0f -0.5f) / 0.5f;
-                    inputImage[i*col+j+2]=(pix[2] /  255.0f -0.5f) / 0.5f;
-                        
-                }
-            }
-            return inputImage;
-        }
+        
 
         public void Dispose()
         {

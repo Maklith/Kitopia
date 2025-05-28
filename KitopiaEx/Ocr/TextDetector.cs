@@ -33,11 +33,13 @@ namespace KitopiaEx.Ocr
                 int w = srcImg.Cols;
                 //0. 图像预处理 尺寸调整  归一化
                 dstImg = this.Preprocess(srcImg);
-                var normalize = this.Normalize(dstImg);
-            
+                var clone = dstImg.Clone();
+                Cv2.Normalize(clone, clone, 0, 1, NormTypes.MinMax, MatType.CV_32F);
+                clone.Add(new Scalar(-0.485, -0.456, -0.406));
+                clone.Mul(new Scalar(1 / 0.229, 1 / 0.224, 1 / 0.225));
                 List<(string, Memory<int>, Memory<float>)> inputs2 = new List<(string, Memory<int>, Memory<float>)>()
                 {
-                    (_session.InputNames.First(), new[] { 1, 3, dstImg.Rows, dstImg.Cols }, normalize)
+                    (_session.InputNames.First(), new[] { 1, 3, dstImg.Rows, dstImg.Cols }, OnnxInputDataTool.InputTensor(clone, 1 * 3 * dstImg.Rows * dstImg.Cols))
                 };
                 //2. 推理
                 var outputs = this._session.Infer(inputs2);
@@ -46,16 +48,9 @@ namespace KitopiaEx.Ocr
                 ReadOnlySpan<float> span = outputs.Span;
                 fixed (float* ptr = &span.GetPinnableReference())
                 {
-                    Mat binary = new Mat(dstImg.Rows, dstImg.Cols, MatType.CV_8UC1);
-            
-                    for (int y = 0; y < dstImg.Rows; y++)
-                    {
-                        for (int x = 0; x < dstImg.Cols; x++)
-                        {
-                            binary.Set<byte>(y, x, (byte)(span[y * dstImg.Cols + x] > 0 ? 255:0));
-                        }
-                    }
-                    
+                    Mat binary = Mat.FromPixelData(dstImg.Rows, dstImg.Cols, MatType.CV_32FC1,(IntPtr)ptr);
+                    binary.ConvertTo(binary, MatType.CV_8UC1, 255.0);
+                    binary.Threshold(0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);  
                     OpenCvSharp.Point[][] contours;
                     Cv2.FindContours(binary, out contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxTC89L1);
             
@@ -121,7 +116,7 @@ namespace KitopiaEx.Ocr
             }
 
             var dstImg = new Mat();
-            Cv2.CvtColor(srcMat, dstImg, ColorConversionCodes.BGRA2GRAY);
+            Cv2.CvtColor(srcMat, dstImg, ColorConversionCodes.BGRA2BGR);
 
             // 创建一个新的图像，用于填充白色背景
             var resizedImgWithPadding = new Mat(tarH, tarW, MatType.CV_8UC3);
@@ -135,26 +130,6 @@ namespace KitopiaEx.Ocr
             // 
             
            
-        }
-
-        private float[]  Normalize(Mat img)
-        {
-            int row = img.Rows;
-            int col = img.Cols;
-            float[] inputImage = new float[row*col*3];
-            for (int i = 0; i < row; i++)
-            {
-                for (int j = 0; j < col; j++)
-                {
-                    Vec3b pix = img.Get<Vec3b>(i, j);
-                    //由于在上一步中未进行 BGR2RGB ,此处进行
-                    inputImage[i*col+j]=(pix[0] / 255.0f - 0.485f) / 0.229f;
-                    inputImage[i*col+j+1]=(pix[1] / 255.0f -  0.456f) / 0.224f;
-                    inputImage[i*col+j+2]=(pix[2] / 255.0f -0.406f ) / 0.225f;
-                        
-                }
-            }
-            return inputImage;
         }
         
         private Point2f[] Unclip(Point2f[] inPoly)
