@@ -61,7 +61,8 @@ public class EnumToVisibilityConverter : IValueConverter
             {
                 switch ((FileType)value)
                 {
-                    case FileType.文件: return true;
+                    case FileType.应用程序 :
+                    case FileType.文件:
                     case FileType.文件夹: return true;
                     default: return false;
                 }

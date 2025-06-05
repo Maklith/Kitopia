@@ -220,7 +220,7 @@ public class SearchItemTool : ISearchItemTool
         if (item is null) return;
 
         var collection = ServiceManager.Services.GetService<SearchWindowViewModel>()!._collection;
-        Log.Debug("添加/移除收藏" + item.OnlyKey);
+        Log.Information("添加/移除收藏" + item.OnlyKey);
         item.IsStared = !item.IsStared;
         if (ConfigManger.Config!.customCollections.Contains(item.OnlyKey))
             ConfigManger.Config.customCollections.Remove(item.OnlyKey);

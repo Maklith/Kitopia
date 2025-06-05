@@ -57,7 +57,8 @@ public class KitopiaConfig : ConfigBase
     public string everythingSearchPreString = "@";
     [ConfigField("调用Everything直接搜索文件最大数量", "设置调用Everything直接搜索文件最大数量", 0xf8cb, ConfigFieldType.整数, null, 1000, 5, 5)]
     public int everythingSearchMaxCount =50;
-    public List<string> customCollections = new();
+    
+    
 
     public List<PluginBaseInfo> EnabledPluginInfos = new()
     {
@@ -81,7 +82,8 @@ public class KitopiaConfig : ConfigBase
     public List<string> errorLnk = new();
     public string everythingOnlyKey = "";
 
-
+    [ConfigField("收藏项", "添加指定的文件或文件夹到搜索", 0xF2D7, ConfigFieldType.字符串列表)]
+    public List<string> customCollections = new();
     [ConfigField("忽略项", "忽略指定的文件或文件夹", 0xF2D7, ConfigFieldType.字符串列表)]
     public ObservableCollection<string> ignoreItems = new();
 
