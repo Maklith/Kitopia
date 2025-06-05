@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -30,6 +31,26 @@ public partial class SearchWindow : Window
         #if DEBUG
         Topmost = false;
         #endif
+        dataGrid.PropertyChanged += (sender, args) =>
+        {
+            if (args.Property == ListBox.ItemsSourceProperty)
+            {
+                if (args.NewValue is not null)
+                {
+                    ((INotifyCollectionChanged)args.NewValue).CollectionChanged+= (o, e) =>
+                    {
+                        if (e.Action == NotifyCollectionChangedAction.Add)
+                        {
+                            // 如果是添加新项，自动选中第一项
+                            if (dataGrid.Items.Count > 0)
+                            {
+                                dataGrid.SelectedItem = dataGrid.Items[0];
+                            }
+                        }
+                    };
+                }
+            }
+        };
     }
 
     public override void Show()
@@ -53,7 +74,7 @@ public partial class SearchWindow : Window
             Position = new PixelPoint((int)((size.Width - Width) / 2), size.Height / 4);
         }
     }
-
+    
     private void w_Deactivated(object? sender, EventArgs eventArgs)
     {
         IsVisible = false;
@@ -63,6 +84,7 @@ public partial class SearchWindow : Window
     private void w_Activated(object sender, EventArgs e)
     {
         Focus();
+        tx.Focus();
     }
 
     private void tx_KeyDown(object? sender, KeyEventArgs e)
