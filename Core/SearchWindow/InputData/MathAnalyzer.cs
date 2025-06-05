@@ -8,6 +8,7 @@ namespace Core.SearchWindow.InputData;
 
 public class MathAnalyzer : IInputDataAnalyzer
 {
+    public IInputDataAnalyzeTimeFlags AnalyzeTimeFlags => IInputDataAnalyzeTimeFlags.搜索时;
     public IEnumerable<SearchViewItem> AnalyzeInputData(IEnumerable<ViewModel.InputData> inputDatas)
     {
         foreach (var inputData in inputDatas)

@@ -2,6 +2,7 @@
 
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Avalonia.Threading;
@@ -17,6 +18,7 @@ using Core.SDKs.Tools;
 
 using Pinyin.NET;
 using PluginCore;
+using PluginCore.SearchWindow.InputDataAnalyzer;
 using Serilog;
 using Math = Core.SDKs.Tools.Math;
 
@@ -76,7 +78,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         {
             if (e.Exception is not null)
             {
-                 Log.Error(e.Exception,"");
+                Log.Error(e.Exception,"");
             }
            
         });
@@ -148,7 +150,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     
 
   
-    public void LoadLast()
+    public void LoadLast() 
     {
         if (!string.IsNullOrEmpty(Search)) return;
 
@@ -229,18 +231,21 @@ public partial class SearchWindowViewModel : ObservableRecipient
         
     }
 
-    private int _inputDataAnalyzersItemsCount = 0;
-    public void ProcessInputData(string? value,bool cleanLastResult=false)
+    
+    public void ProcessInputData(string? value,IInputDataAnalyzeTimeFlags nowTimeFlags)
     {
-        if (cleanLastResult)
+        if (Items.LastOrDefault(e=>e.FileType== FileType.自定义) is { } last)
         {
-            for (int index = 0; index < _inputDataAnalyzersItemsCount; index++)
+            var indexOf = Items.IndexOf(last);
+            if (indexOf >= 0)
             {
-                Items.RemoveAt(0);
+                for (var i = indexOf; i >= 0; i--)
+                {
+                    Items[i].Dispose();
+                    Items.RemoveAt(i);
+                }
             }
-            
         }
-        _inputDataAnalyzersItemsCount = 0;
         InputDatas.Clear();
         foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataIdentifies)
         {
@@ -270,10 +275,14 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 
             foreach (var func in funcs)
             {
-                IEnumerable<SearchViewItem> enumerable = func.Invoke(InputDatas);
+                var inputDataAnalyzeTimeFlags = func.Item1.Invoke();
+                if ( (inputDataAnalyzeTimeFlags & nowTimeFlags) == 0)
+                {
+                    continue; // 如果当前时间标志不匹配，则跳过
+                }
+                IEnumerable<SearchViewItem> enumerable = func.Item2.Invoke(InputDatas);
                 foreach (var searchViewItem in enumerable)
                 {
-                    _inputDataAnalyzersItemsCount ++ ;
                     Items.Insert(0,searchViewItem);
                 }
             }
@@ -293,7 +302,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             if (string.IsNullOrEmpty(Search))
             {
                 LoadLast();
-                ProcessInputData(null);
+                ProcessInputData(null, IInputDataAnalyzeTimeFlags.搜索前);
                 return;
             }
             Log.Debug("搜索变更:" + Search);
@@ -308,7 +317,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
  
             #endregion
             
-            ProcessInputData(value);
+            ProcessInputData(value,IInputDataAnalyzeTimeFlags.搜索时);
 
             var originalValue = Search;
             var lowerOriginalValue = Search.ToLowerInvariant();

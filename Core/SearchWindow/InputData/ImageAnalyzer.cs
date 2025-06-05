@@ -9,6 +9,9 @@ namespace Core.SearchWindow.InputData;
 
 public class ImageAnalyzer : IInputDataAnalyzer
 {
+
+    public IInputDataAnalyzeTimeFlags AnalyzeTimeFlags => IInputDataAnalyzeTimeFlags.搜索前| IInputDataAnalyzeTimeFlags.仅有搜索内容打开时;
+
     public IEnumerable<SearchViewItem> AnalyzeInputData(IEnumerable<ViewModel.InputData> inputDatas)
     {
         foreach (var inputData in inputDatas)

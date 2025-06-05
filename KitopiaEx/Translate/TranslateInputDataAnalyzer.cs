@@ -8,6 +8,7 @@ namespace KitopiaEx.Translate;
 
 public class TranslateInputDataAnalyzer : IInputDataAnalyzer
 {
+    public IInputDataAnalyzeTimeFlags AnalyzeTimeFlags => IInputDataAnalyzeTimeFlags.搜索时;
     public IEnumerable<SearchViewItem> AnalyzeInputData(IEnumerable<InputData> inputDatas)
     {
         foreach (var inputData in inputDatas)
