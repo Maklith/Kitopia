@@ -11,7 +11,7 @@ public class PluginOverall
     public static readonly Dictionary<string, List<ScreenCaptureExMethod>> ScreenCaptureExMethods = new();
     public static readonly Dictionary<string,List<OnnxModelInfoWrapper>> OnnxModelInfos = new();
     public static readonly Dictionary<string,Dictionary<string,Func<IInferenceSession>>> OnnxRuntimes = new();
-    public static readonly Dictionary<string, List<Func<string, IEnumerable<InputData>>>> SearchWindowInputDataIdentifies = new();
+    public static readonly Dictionary<string, List<Func<IInputDataAnalyzeTimeFlags,string, IEnumerable<InputData>>>> SearchWindowInputDataIdentifies = new();
     public static readonly Dictionary<string,  List<(Func<IInputDataAnalyzeTimeFlags>,Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>)>> SearchWindowInputDataAnalyzers = new();
     
     public static List<OnnxModelInfoWrapper> AllOnnxModelInfos =>
@@ -28,13 +28,13 @@ public class PluginOverall
 
     static PluginOverall()
     {
-        SearchWindowInputDataIdentifies["Kitopia"] = new List<Func<string, IEnumerable<InputData>>>()
+        SearchWindowInputDataIdentifies["Kitopia"] = new List<Func<IInputDataAnalyzeTimeFlags,string, IEnumerable<InputData>>>()
         {
-            (s =>new PathIdentifier().IdentifyInputData(s) ),
-            (s => new ImageIdentifier().IdentifyInputData(s)),
-            (s => new MathIdentifier().IdentifyInputData(s)),
-            (s => new KnowCommandIdentifier().IdentifyInputData(s)),
-            (s => new UrlIdentifier().IdentifyInputData(s)),
+            ((flags, s) =>new PathIdentifier().IdentifyInputData(flags,s) ),
+            ((flags, s) => new ImageIdentifier().IdentifyInputData(flags,s)),
+            ((flags, s) => new MathIdentifier().IdentifyInputData(flags,s)),
+            ((flags, s) => new KnowCommandIdentifier().IdentifyInputData(flags,s)),
+            ((flags, s) => new UrlIdentifier().IdentifyInputData(flags,s)),
         };
         var pathAnalyzer = new PathAnalyzer();
         var imageAnalyzer = new ImageAnalyzer();

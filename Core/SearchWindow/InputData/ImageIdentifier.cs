@@ -3,6 +3,7 @@ using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
+using PluginCore.SearchWindow.InputDataAnalyzer;
 using Serilog;
 
 namespace Core.SearchWindow.InputData;
@@ -10,7 +11,7 @@ namespace Core.SearchWindow.InputData;
 public class ImageIdentifier : IInputDataIdentifier
 {
     private static ILogger Log =   LogManager.Logger.ForContext<ImageIdentifier>();
-    public IEnumerable<ViewModel.InputData> IdentifyInputData(string? s)
+    public IEnumerable<ViewModel.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? s)
     {
         if (ServiceManager.Services.GetService<IClipboardService>()!.HasImage())
         {

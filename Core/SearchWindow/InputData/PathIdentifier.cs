@@ -3,6 +3,7 @@ using Core.SDKs.Services;
 using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using PluginCore.SearchWindow.InputDataAnalyzer;
 using Serilog;
 
 namespace Core.SearchWindow.InputData;
@@ -10,18 +11,24 @@ namespace Core.SearchWindow.InputData;
 public class PathIdentifier : IInputDataIdentifier
 {
     private static ILogger Log =   LogManager.Logger.ForContext<SearchWindowViewModel>();
-    public IEnumerable<Core.ViewModel.InputData> IdentifyInputData(string? text)
+    public IEnumerable<Core.ViewModel.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? text)
     {
         foreach (var inputData in PathChecker(text)) yield return inputData;
-        
-        var data = ServiceManager.Services.GetService<IClipboardService>()!
-            .HasText();
-        if (data)
+
+        if (analyzeTimeFlags.HasFlag(IInputDataAnalyzeTimeFlags.仅有搜索内容打开时)||
+            analyzeTimeFlags.HasFlag(IInputDataAnalyzeTimeFlags.搜索前))
         {
-            var text2 = ServiceManager.Services.GetService<IClipboardService>()!
-                .GetText();
-            foreach (var inputData in PathChecker(text2)) yield return inputData;
+            var data = ServiceManager.Services.GetService<IClipboardService>()!
+                .HasText();
+            if (data)
+            {
+                var text2 = ServiceManager.Services.GetService<IClipboardService>()!
+                    .GetText();
+                foreach (var inputData in PathChecker(text2)) yield return inputData;
+            }
         }
+        
+       
     }
 
     private static IEnumerable<ViewModel.InputData> PathChecker(string? text)

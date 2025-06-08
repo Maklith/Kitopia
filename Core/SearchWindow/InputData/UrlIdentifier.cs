@@ -2,23 +2,29 @@
 using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using PluginCore.SearchWindow.InputDataAnalyzer;
 
 namespace Core.SearchWindow.InputData;
 
 public partial class UrlIdentifier: IInputDataIdentifier
 {
     
-    public IEnumerable<ViewModel.InputData> IdentifyInputData(string? s)
+    public IEnumerable<ViewModel.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? s)
     {
         foreach (var inputData in MatchAndReturnUrlData(s)) yield return inputData;
-        var data = ServiceManager.Services.GetService<IClipboardService>()!
-            .HasText();
-        if (data)
+        if (analyzeTimeFlags.HasFlag(IInputDataAnalyzeTimeFlags.仅有搜索内容打开时) ||
+            analyzeTimeFlags.HasFlag(IInputDataAnalyzeTimeFlags.搜索前))
         {
-            var text2 = ServiceManager.Services.GetService<IClipboardService>()!
-                .GetText();
-            foreach (var inputData in MatchAndReturnUrlData(text2)) yield return inputData;
+            var data = ServiceManager.Services.GetService<IClipboardService>()!
+                .HasText();
+            if (data)
+            {
+                var text2 = ServiceManager.Services.GetService<IClipboardService>()!
+                    .GetText();
+                foreach (var inputData in MatchAndReturnUrlData(text2)) yield return inputData;
+            }
         }
+        
     }
 
     private static IEnumerable<ViewModel.InputData> MatchAndReturnUrlData(string? s)

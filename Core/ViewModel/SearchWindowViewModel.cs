@@ -252,7 +252,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             foreach (var func in funcs)
             {
                     
-                var inputData = func.Invoke(value);
+                var inputData = func.Invoke(nowTimeFlags,value);
                 if (inputData != null)
                 {
                     InputDatas.AddRange(inputData);

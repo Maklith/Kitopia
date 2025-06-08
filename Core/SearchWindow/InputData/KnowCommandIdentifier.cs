@@ -1,4 +1,5 @@
 ﻿using Core.ViewModel;
+using PluginCore.SearchWindow.InputDataAnalyzer;
 
 namespace Core.SearchWindow.InputData;
 
@@ -10,7 +11,7 @@ public class KnowCommandIdentifier : IInputDataIdentifier
         "telnet", "ftp", "ssh", "scp", "sftp", "rsync", "nmap", "nc", "curl", "wget", "git", "svn", "hg", "docker",
         "docker-compose", "kubectl", "helm", "minikube"
     ];
-    public IEnumerable<ViewModel.InputData> IdentifyInputData(string? value)
+    public IEnumerable<ViewModel.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? value)
     {
         foreach (var se in knownCommand)
             if ( !string.IsNullOrWhiteSpace(value) && value.StartsWith(se,StringComparison.OrdinalIgnoreCase))

@@ -119,7 +119,7 @@ public class Plugin
        
         List<ScreenCaptureExMethod> captureActions = new();
         List<OnnxModelInfoWrapper> onnxModelInfos = new();
-        List<Func<string, IEnumerable<InputData>>> inputDataIdentifier = new();
+        List<Func<IInputDataAnalyzeTimeFlags,string, IEnumerable<InputData>>> inputDataIdentifier = new();
         List< (Func<IInputDataAnalyzeTimeFlags>,Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>)> inputDataAnalyzerActions = new();
         Dictionary<string,Func<IInferenceSession>> onnxRuntimes = new();
         PluginInfo = pluginInfo;
@@ -177,8 +177,7 @@ public class Plugin
             if (typeof(IInputDataIdentifier).IsAssignableFrom(type))
             {
                 var inferenceSession = (IInputDataIdentifier)ServiceProvider.GetService(type);
-                inputDataIdentifier.Add(
-                    filePath => inferenceSession.IdentifyInputData(filePath));
+                inputDataIdentifier.Add((timeFlag, filePath) => inferenceSession.IdentifyInputData(timeFlag,filePath));
             }
             
 
