@@ -334,12 +334,11 @@ public class ScreenCaptureByWGC : IScreenCapture
         {
             case ScreenCaptureType.屏幕:
             {
-               itemPointer= interop.CreateForMonitor(screenCaptureInfo.ScreenInfo.hMonitor, GraphicsCaptureItemGuid);
+                itemPointer= interop.CreateForMonitor(screenCaptureInfo.ScreenInfo.hMonitor, GraphicsCaptureItemGuid);
                 break;
             }
             case ScreenCaptureType.窗口:
             {
-                
                 itemPointer= interop.CreateForWindow(screenCaptureInfo.WindowInfo.Hwnd, GraphicsCaptureItemGuid);
                 break;
             }
@@ -347,7 +346,7 @@ public class ScreenCaptureByWGC : IScreenCapture
         }
         var item = MarshalInterface<GraphicsCaptureItem>.FromAbi(itemPointer);
         var dxgi = new DXGI(new DefaultNativeContext("dxgi"));
-
+        
         ComPtr<IDXGIAdapter1> adapter1 = null;
         ID3D11DeviceContext* context = null;
         ID3D11DeviceContext* immediateContext = null;
@@ -414,6 +413,7 @@ public class ScreenCaptureByWGC : IScreenCapture
             
             session.IsCursorCaptureEnabled = false;
             session.StartCapture( );
+            
             while ((direct3D11CaptureFrame = framePool.TryGetNextFrame()) == null)
             {
             }
@@ -429,7 +429,7 @@ public class ScreenCaptureByWGC : IScreenCapture
                 Format = adapterForMonitor.Item2.ColorSpace.ToString().EndsWith("2020")
                     ? Format.FormatR16G16B16A16Float
                     : Format.FormatR8G8B8A8Unorm,
-                Width =  (uint)item.Size.Width,
+                Width =  (uint)(item.Size.Width),
                 Height = (uint)item.Size.Height,
                 MiscFlags = (uint)ResourceMiscFlag.None,
                 MipLevels = 1,
@@ -448,9 +448,16 @@ public class ScreenCaptureByWGC : IScreenCapture
             
             //更新窗口的Size数据
             screenCaptureInfo.WindowInfo.Rect = new Rect(0,0,item.Size.Width, item.Size.Height);
-            
+            screenCaptureInfo.ScreenInfo.Height =item.Size.Height;
+            screenCaptureInfo.ScreenInfo.Width =item.Size.Width;
             var re = CaptureTool.GetMat(mappedSubresource,adapterForMonitor.Item2,ref screenCaptureInfo);
-            
+            if (screenCaptureInfo.ScreenCaptureType==ScreenCaptureType.窗口)
+            {
+                screenCaptureInfo.X = 0;
+                screenCaptureInfo.Y = 0;
+            }
+            screenCaptureInfo.Width = re.Width;
+            screenCaptureInfo.Height = re.Height;
             return new ScreenCaptureResult()
             {
                 Info = screenCaptureInfo,

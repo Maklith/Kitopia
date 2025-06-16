@@ -17,6 +17,7 @@ using OpenCvSharp;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Attribute.Scenario;
+using PluginCore.ExMethod;
 using PluginCore.Onnx;
 using SharpHook;
 using SharpHook.Native;
@@ -179,22 +180,11 @@ public class Ocr
     [ScenarioMethod("文字提取结果显示", $"{nameof(dResult)}=截图数据",$"{nameof(ocrResults)}=文字识别结果数据")]
     public void OcrResultShow(ScreenCaptureResult dResult,IEnumerable<OcrResult> ocrResults, CancellationToken ct)
     {
+       
         Dispatcher.UIThread.Invoke((() =>
         {
             var ocrResultShowWindow = new OcrResultShowWindow();
-            var writeableBitmap = new WriteableBitmap(
-                new PixelSize(dResult.Info.Width, dResult.Info.Height),
-                new Vector(96, 96), PixelFormat.Bgra8888);
-            using (var l = writeableBitmap.Lock())
-            {
-                unsafe
-                {
-                    Buffer.MemoryCopy(dResult.Source.DataPointer,(void*)l.Address,dResult.Info.Height * dResult.Info.Width * 4,dResult.Info.Height * dResult.Info.Width * 4);
-                    
-                }
-            }
-
-            ocrResultShowWindow.Image.Source = writeableBitmap;
+            ocrResultShowWindow.Image.Source = dResult.Source.ToAWriteableBitmap();
             ocrResultShowWindow.ItemsControl.ItemsSource = ocrResults;
             ocrResultShowWindow.Show();
         }));

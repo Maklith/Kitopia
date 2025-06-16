@@ -25,17 +25,6 @@ public class ScreenCaptureManager : IScreenCaptureManager
         var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>();
         switch (ConfigManger.Config.截图方法)
         {
-            case "Directx11":
-            {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByDx11));
-                if (firstOrDefault is null)
-                {
-                    ConfigManger.Config.截图方法 = "自动";
-                    return new List<ScreenCaptureInfo>();
-                }
-
-                return firstOrDefault.GetAllScreenInfo();
-            }
 
             case "WGC":
             {
@@ -67,17 +56,6 @@ public class ScreenCaptureManager : IScreenCaptureManager
         var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>();
         switch (ConfigManger.Config.截图方法)
         {
-            case "Directx11":
-            {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByDx11));
-                if (firstOrDefault is null)
-                {
-                    ConfigManger.Config.截图方法 = "自动";
-                    return new List<WindowInfo>();
-                }
-
-                return firstOrDefault.GetAllWindowInfo();
-            }
 
             case "WGC":
             {
@@ -117,17 +95,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
         var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>();
         switch (ConfigManger.Config.截图方法)
         {
-            case "Directx11":
-            {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByDx11));
-                if (firstOrDefault is null)
-                {
-                    ConfigManger.Config.截图方法 = "自动";
-                    return new Stack<ScreenCaptureResult>();
-                }
-
-                return firstOrDefault.CaptureAllScreenMat();
-            }
+            
 
             case "WGC":
             {
@@ -161,17 +129,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
         var screenCaptures = ServiceManager.Services.GetServices<IScreenCapture>();
         switch (ConfigManger.Config.截图方法)
         {
-            case "Directx11":
-            {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByDx11));
-                if (firstOrDefault is null)
-                {
-                    ConfigManger.Config.截图方法 = "自动";
-                    return new ScreenCaptureResult();
-                }
-
-                return firstOrDefault.CaptureScreenMat(screenCaptureInfo);
-            }
+          
 
             case "WGC":
             {
