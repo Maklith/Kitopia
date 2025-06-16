@@ -11,6 +11,7 @@
         xmlns:converter1="clr-namespace:KitopiaAvalonia.Converter"
         xmlns:u="https://irihi.tech/ursa"
         xmlns:viewModel1="clr-namespace:Core.ViewModel;assembly=PluginCore"
+        xmlns:inputData="clr-namespace:PluginCore.SearchWindow.InputData;assembly=PluginCore"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="KitopiaAvalonia.Windows.SearchWindow"
         x:DataType="viewModel:SearchWindowViewModel"
@@ -61,7 +62,7 @@
                     <ScrollViewer  PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center" VerticalAlignment="Center">
                         <ItemsControl ItemsSource="{Binding InputDatas}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="viewModel1:InputData">
+                                <DataTemplate DataType="inputData:InputData">
                                     <Button Classes="Small" Margin="3,0,3,0"   VerticalAlignment="Center" Content="{Binding  InputType}" Height="15" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

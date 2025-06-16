@@ -11,13 +11,13 @@ namespace Core.SearchWindow.InputData;
 public class ImageIdentifier : IInputDataIdentifier
 {
     private static ILogger Log =   LogManager.Logger.ForContext<ImageIdentifier>();
-    public IEnumerable<ViewModel.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? s)
+    public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? s)
     {
         if (ServiceManager.Services.GetService<IClipboardService>()!.HasImage())
         {
             Log.Debug("剪贴板有图像信息");
             var image = ServiceManager.Services.GetService<IClipboardService>()!.GetImage();
-            var identifyInputData = new ViewModel.InputData()
+            var identifyInputData = new PluginCore.SearchWindow.InputData.InputData()
             {
                 InputType = InputType.图像,
                 Data = image,

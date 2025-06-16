@@ -11,7 +11,7 @@ namespace Core.SearchWindow.InputData;
 public class PathIdentifier : IInputDataIdentifier
 {
     private static ILogger Log =   LogManager.Logger.ForContext<SearchWindowViewModel>();
-    public IEnumerable<Core.ViewModel.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? text)
+    public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? text)
     {
         foreach (var inputData in PathChecker(text)) yield return inputData;
 
@@ -31,7 +31,7 @@ public class PathIdentifier : IInputDataIdentifier
        
     }
 
-    private static IEnumerable<ViewModel.InputData> PathChecker(string? text)
+    private static IEnumerable<PluginCore.SearchWindow.InputData.InputData> PathChecker(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -43,13 +43,13 @@ public class PathIdentifier : IInputDataIdentifier
         {
             var fileInfo = new FileInfo(text);
             Log.Debug($"检测路径{fileInfo.FullName}");
-            yield return new ViewModel.InputData()
+            yield return new PluginCore.SearchWindow.InputData.InputData()
             {
                 InputType = InputType.文件,
                 Data = fileInfo.FullName
             };
             if (fileInfo.Directory?.FullName != null)
-                yield return new ViewModel.InputData()
+                yield return new PluginCore.SearchWindow.InputData.InputData()
                 {
                     InputType = InputType.目录,
                     Data = fileInfo.Directory?.FullName
@@ -59,7 +59,7 @@ public class PathIdentifier : IInputDataIdentifier
         {
             var directoryInfo = new DirectoryInfo(text);
             Log.Debug($"检测路径{directoryInfo.FullName}");
-            yield return new ViewModel.InputData()
+            yield return new PluginCore.SearchWindow.InputData.InputData()
             {
                 InputType = InputType.目录,
                 Data = directoryInfo.FullName

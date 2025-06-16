@@ -6,6 +6,7 @@ using PluginCore;
 using Serilog;
 using Silk.NET.Direct3D11;
 using Silk.NET.DXGI;
+using Vanara.PInvoke;
 
 namespace Core.Window;
 
@@ -78,16 +79,56 @@ public static class CaptureTool
            
             
             Cv2.Transform(mat, mat, Mat.FromArray(matrix));
+            
+           //Cv2.Divide(mat, mat + new Scalar(1,1,1), mat); // Reinhard: output = input/(input+1)
+            
             Cv2.Log(new Scalar(1,1,1)+mat, mat);
+            
+            
             mat/=1.749199854809259f;
+            
+            //ApplySrgbGamma(mat, mat);
             //Cv2.Normalize(mat, mat, 0, 1, NormTypes.MinMax);
-            mat *= 255;
-            mat.ConvertTo(mat, MatType.CV_8UC3);
+            // mat *= 255;
+            //Cv2.Pow(mat, outputDesc.MaxLuminance/80, mat);
+            // User32.QueryDisplayConfig(User32.QDC.QDC_ONLY_ACTIVE_PATHS,
+            //     out Gdi32.DISPLAYCONFIG_PATH_INFO[] pathArray,
+            //     out Gdi32.DISPLAYCONFIG_MODE_INFO[] modeInfoArray,
+            //     out Gdi32.DISPLAYCONFIG_TOPOLOGY_ID currentTopologyId
+            //  );
+            //mat.ConvertTo(mat, MatType.CV_8UC3);
+            
+            mat.ConvertTo(mat, MatType.CV_8UC4, 255.0);
             Cv2.CvtColor(mat, mat, ColorConversionCodes.RGB2BGRA);
+            
             return mat;
 
         }
 
         return new Mat();
+    }
+    
+    private static void ApplySrgbGamma(Mat linear, Mat output)
+    {
+        // 精确sRGB OETF转换
+        linear.ConvertTo(linear, MatType.CV_32FC3);
+        output.Create(linear.Size(), MatType.CV_32FC3);
+    
+        for (int y = 0; y < linear.Rows; y++)
+        {
+            for (int x = 0; x < linear.Cols; x++)
+            {
+                Vec3f v = linear.At<Vec3f>(y, x);
+                for (int c = 0; c < 3; c++)
+                {
+                    float val = v[c];
+                    if (val <= 0.0031308f)
+                        v[c] = 12.92f * val;
+                    else
+                        v[c] = 1.055f * MathF.Pow(val, 1.0f/2.4f) - 0.055f;
+                }
+                output.Set(y, x, v);
+            }
+        }
     }
 }

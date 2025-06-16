@@ -14,6 +14,7 @@ using Core.SDKs.Services;
 using Core.SDKs.Tools;
 
 using Microsoft.Extensions.DependencyInjection;
+using OpenCvSharp.Flann;
 using PluginCore;
 using Serilog;
 
@@ -23,6 +24,8 @@ namespace Core.SDKs.CustomScenario;
 
 public partial class CustomScenario : ObservableRecipient
 {
+    
+    public event EventHandler Saved ;
     private static ILogger Log =   LogManager.Logger.ForContext<CustomScenario>();
     [property:JsonIgnore][JsonIgnore][ObservableProperty] private Bitmap? _icon;
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> _autoTriggers = new();
@@ -40,6 +43,10 @@ public partial class CustomScenario : ObservableRecipient
     private Dictionary<ScenarioMethodNode, Thread?> _tickTasks = new();
     private TickUtil? _tickUtil;
 
+    internal void NotifySaved()
+    {
+        Saved?.Invoke(this, EventArgs.Empty);
+    }
     /// <summary>
     ///     手动执行
     /// </summary>

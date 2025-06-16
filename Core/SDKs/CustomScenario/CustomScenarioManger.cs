@@ -268,32 +268,7 @@ public  class CustomScenarioManger
 
             scenario.InitHotKey();
         }
-
-
-        var onlyKey = $"{nameof(CustomScenario)}:{scenario.UUID}";
-
-        var keys = new List<List<string>>();
-        foreach (var key in scenario.Keys) keys.Add([key]);
-
-        keys.AddRange(ServiceManager.Services.GetService<IAppToolService>()
-            .GetPinyin(scenario.Name)
-            .Keys);
-        var viewItem1 = new SearchViewItem()
-        {
-            ItemDisplayName = "执行自定义情景:" + scenario.Name,
-            FileType = FileType.自定义情景,
-            OnlyKey = onlyKey,
-            PinyinItem = new PinyinItem()
-            {
-                Keys = keys
-            },
-            Icon = null,
-            IconSymbol = 0xF78B,
-            IsVisible = true
-        };
-        ((SearchWindowViewModel)ServiceManager.Services.GetService(typeof(SearchWindowViewModel))!)
-            ._collection.TryAdd(onlyKey, viewItem1);
-
+        
 
         var configF = new FileInfo(AppDomain.CurrentDomain.BaseDirectory +
                                    $"customScenarios{Path.DirectorySeparatorChar}{scenario.UUID}.json");
@@ -302,7 +277,9 @@ public  class CustomScenarioManger
         {
             var j = JsonSerializer.Serialize(scenario, ConfigManger.DefaultOptions);
             File.WriteAllText(configF.FullName, j);
+            scenario.NotifySaved();
         }
+        
         catch (CustomScenarioLoadFromJsonException e)
         {
             Log.Error("情景保存失败",e);
@@ -339,8 +316,6 @@ public  class CustomScenarioManger
         
         scenario.Dispose();
         if (CustomScenarios.Contains(scenario)) CustomScenarios.Remove(scenario);
-        ((SearchWindowViewModel)ServiceManager.Services.GetService(typeof(SearchWindowViewModel))!)
-            ._collection.TryRemove($"{nameof(CustomScenario)}:{scenario.UUID}", out _);
         ConfigManger.Save();
         if (deleteFile)
             File.Delete(

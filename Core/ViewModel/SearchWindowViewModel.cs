@@ -18,6 +18,7 @@ using Core.SDKs.Tools;
 
 using Pinyin.NET;
 using PluginCore;
+using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 using Serilog;
 using Math = Core.SDKs.Tools.Math;
@@ -95,34 +96,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         ServiceManager.Services.GetService<IAppToolService>()!.DelNullFile(_collection);
         ServiceManager.Services.GetService<IAppToolService>()!.GetAllApps(_collection, logging,
             ConfigManger.Config.useEverything);
-
-       
-
-        foreach (var scenario in CustomScenarioManger.CustomScenarios)
-        {
-            var onlyKey = $"{nameof(CustomScenario)}:{scenario.UUID}";
-
-            var keys = new List<List<string>>();
-            foreach (var key in scenario.Keys) keys.Add([key]);
-
-            keys.AddRange(ServiceManager.Services.GetService<IAppToolService>()
-                .GetPinyin(scenario.Name)
-                .Keys);
-            var viewItem1 = new SearchViewItem()
-            {
-                ItemDisplayName = "执行自定义情景:" + scenario.Name,
-                FileType = FileType.自定义情景,
-                OnlyKey = onlyKey,
-                PinyinItem = new PinyinItem()
-                {
-                    Keys = keys
-                },
-                Icon = null,
-                IconSymbol = 0xF78B,
-                IsVisible = true
-            };
-            _collection.TryAdd(onlyKey, viewItem1);
-        }
+        
 
         _reloading = false;
     }

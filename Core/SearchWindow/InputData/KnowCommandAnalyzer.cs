@@ -9,7 +9,7 @@ public class KnowCommandAnalyzer : IInputDataAnalyzer
 
     public IInputDataAnalyzeTimeFlags AnalyzeTimeFlags => IInputDataAnalyzeTimeFlags.搜索时;
 
-    public IEnumerable<SearchViewItem> AnalyzeInputData(IEnumerable<ViewModel.InputData> inputDatas)
+    public IEnumerable<SearchViewItem> AnalyzeInputData(IEnumerable<PluginCore.SearchWindow.InputData.InputData> inputDatas)
     {
         foreach (var inputData in inputDatas)
         {

@@ -9,7 +9,7 @@ namespace Core.SearchWindow.InputData;
 public partial class UrlIdentifier: IInputDataIdentifier
 {
     
-    public IEnumerable<ViewModel.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? s)
+    public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? s)
     {
         foreach (var inputData in MatchAndReturnUrlData(s)) yield return inputData;
         if (analyzeTimeFlags.HasFlag(IInputDataAnalyzeTimeFlags.仅有搜索内容打开时) ||
@@ -27,7 +27,7 @@ public partial class UrlIdentifier: IInputDataIdentifier
         
     }
 
-    private static IEnumerable<ViewModel.InputData> MatchAndReturnUrlData(string? s)
+    private static IEnumerable<PluginCore.SearchWindow.InputData.InputData> MatchAndReturnUrlData(string? s)
     {
         if (s is null)
         {
@@ -35,7 +35,7 @@ public partial class UrlIdentifier: IInputDataIdentifier
         }
         if (DomainRegex().IsMatch(s) || UrlRegex().IsMatch(s))
         {
-            yield return new ViewModel.InputData()
+            yield return new PluginCore.SearchWindow.InputData.InputData()
             {
                 InputType = InputType.网址,
                 Data = s
@@ -44,7 +44,7 @@ public partial class UrlIdentifier: IInputDataIdentifier
 
         if (Uri.TryCreate(s, UriKind.Absolute, out var uri))
         {
-            yield return new ViewModel.InputData()
+            yield return new PluginCore.SearchWindow.InputData.InputData()
             {
                 InputType = InputType.网址,
                 Data = uri.ToString()

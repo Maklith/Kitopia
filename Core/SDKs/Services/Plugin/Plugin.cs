@@ -14,6 +14,7 @@ using PluginCore.Attribute;
 using PluginCore.Attribute.Scenario;
 using PluginCore.Config;
 using PluginCore.Onnx;
+using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 using Serilog;
 

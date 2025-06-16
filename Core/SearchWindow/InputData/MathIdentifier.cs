@@ -6,7 +6,7 @@ namespace Core.SearchWindow.InputData;
 
 public class MathIdentifier : IInputDataIdentifier
 {
-    public IEnumerable<ViewModel.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? s)
+    public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? s)
     {
         var operators = new[] { '*', '+', '-', '/', '^' };
         var pattern = @"[\u4e00-\u9fa5a-zA-Z]+";
@@ -14,7 +14,7 @@ public class MathIdentifier : IInputDataIdentifier
             Regex.Match(s, pattern, RegexOptions.NonBacktracking)
                 .Value == "" &&
             s.IndexOfAny(operators) > -1)
-            yield return new ViewModel.InputData()
+            yield return new PluginCore.SearchWindow.InputData.InputData()
             {
                 InputType = InputType.数学表达式,
                 Data = s

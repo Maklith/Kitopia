@@ -2,6 +2,7 @@
 using Core.ViewModel;
 using PluginCore;
 using PluginCore.Onnx;
+using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 
 namespace Core.SDKs.Services.Plugin;
@@ -28,26 +29,36 @@ public class PluginOverall
 
     static PluginOverall()
     {
+        var customScenarioIdentifier = new CustomScenarioIdentifier();
+        var urlIdentifier = new UrlIdentifier();
+        var knowCommandIdentifier = new KnowCommandIdentifier();
+        var mathIdentifier = new MathIdentifier();
+        var imageIdentifier = new ImageIdentifier();
+        var pathIdentifier = new PathIdentifier();
         SearchWindowInputDataIdentifies["Kitopia"] = new List<Func<IInputDataAnalyzeTimeFlags,string, IEnumerable<InputData>>>()
         {
-            ((flags, s) =>new PathIdentifier().IdentifyInputData(flags,s) ),
-            ((flags, s) => new ImageIdentifier().IdentifyInputData(flags,s)),
-            ((flags, s) => new MathIdentifier().IdentifyInputData(flags,s)),
-            ((flags, s) => new KnowCommandIdentifier().IdentifyInputData(flags,s)),
-            ((flags, s) => new UrlIdentifier().IdentifyInputData(flags,s)),
+            ((flags, s) => pathIdentifier.IdentifyInputData(flags, s)),
+            ((flags, s) => imageIdentifier.IdentifyInputData(flags, s)),
+            ((flags, s) => mathIdentifier.IdentifyInputData(flags, s)),
+            ((flags, s) => knowCommandIdentifier.IdentifyInputData(flags, s)),
+            ((flags, s) => urlIdentifier.IdentifyInputData(flags, s)),
+            ((flags, s) => customScenarioIdentifier.IdentifyInputData(flags, s))
         };
         var pathAnalyzer = new PathAnalyzer();
         var imageAnalyzer = new ImageAnalyzer();
         var mathAnalyzer = new MathAnalyzer();
+        
         var knowCommandAnalyzer = new KnowCommandAnalyzer();
         var urlAnalyzer = new UrlAnalyzer();
+        var customScenarioAnalyzer = new CustomScenarioAnalyzer();
         SearchWindowInputDataAnalyzers["Kitopia"] =
         [
             (() => pathAnalyzer.AnalyzeTimeFlags, s => pathAnalyzer.AnalyzeInputData(s)),
             (() => imageAnalyzer.AnalyzeTimeFlags, s => imageAnalyzer.AnalyzeInputData(s)),
             (() => mathAnalyzer.AnalyzeTimeFlags, s => mathAnalyzer.AnalyzeInputData(s)),
             (() => knowCommandAnalyzer.AnalyzeTimeFlags, s => knowCommandAnalyzer.AnalyzeInputData(s)),
-            (() => urlAnalyzer.AnalyzeTimeFlags, s => urlAnalyzer.AnalyzeInputData(s))
+            (() => urlAnalyzer.AnalyzeTimeFlags, s => urlAnalyzer.AnalyzeInputData(s)),
+            (() => customScenarioAnalyzer.AnalyzeTimeFlags, s => customScenarioAnalyzer.AnalyzeInputData(s))
         ];
     }
         
