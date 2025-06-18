@@ -54,31 +54,18 @@ public partial class ScenarioMethodNode : ObservableRecipient
                     if (parameterInfo.ParameterType.GetCustomAttribute(typeof(AutoUnbox)) is not null)
                     {
                         var autoUnboxIndex = Input[index].AutoUnboxIndex;
-                        var parameterList = new List<object>();
-                        List<Type> parameterTypesList = new();
-                        while (Input.Count >= index && Input[index].AutoUnboxIndex == autoUnboxIndex)
+                        var instance = parameterInfo.ParameterType.GetConstructor([])
+                            ?.Invoke([]);
+                        if (instance is null)
+                            return false;
+                        
+                        while (Input.Count > index && Input[index].AutoUnboxIndex == autoUnboxIndex)
                         {
                             var item = Input[index].InputObject;
-                            if (item != null)
-                            {
-                                parameterList.Add(item);
-                                parameterTypesList.Add(item.GetType());
-                            }
-                            else
-                            {
-                                return false;
-                            }
-
+                            parameterInfo.ParameterType.GetProperty(Input[index].AutoUnboxPropertyName).SetValue(instance,item.Value);  
                             index++;
                         }
-
-                        var instance = parameterInfo.ParameterType.GetConstructor(parameterTypesList.ToArray())
-                            ?.Invoke(parameterList.ToArray());
-                        if (instance != null)
-                            list.Add(instance);
-                        else
-                            return false;
-
+                        list.Add(instance);
                         continue;
                     }
 
@@ -264,7 +251,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                     IsSelf = connectorItem.InputObject.IsSelf,
                 },
                 AutoUnboxIndex = connectorItem.AutoUnboxIndex,
-                
+                AutoUnboxPropertyName = connectorItem.AutoUnboxPropertyName,
                 SelfInputAble = connectorItem.SelfInputAble,
                 IsOut = connectorItem.IsOut,
                 isPluginInputConnector = connectorItem.isPluginInputConnector,
@@ -293,7 +280,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 },
 
                 AutoUnboxIndex = connectorItem.AutoUnboxIndex,
-
+                AutoUnboxPropertyName = connectorItem.AutoUnboxPropertyName,
                 IsConnected = connectorItem.IsConnected,
                 IsOut = connectorItem.IsOut
             };

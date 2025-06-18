@@ -511,7 +511,7 @@ public partial class CustomScenario : ObservableRecipient
             }
             catch (Exception e)
             {
-                Log.Error("错误",e);
+                Log.Error(e,"错误");
                 ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
                     e.InnerException is not null
                         ? $"情景{Name}出现错误\n{e.InnerException?.Message}"

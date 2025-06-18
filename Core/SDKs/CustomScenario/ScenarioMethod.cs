@@ -9,6 +9,7 @@ using Core.SDKs.Tools;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Attribute.Scenario;
+using PluginCore.CustomScenario.Attribute.Scenario;
 
 namespace Core.SDKs.CustomScenario;
 
@@ -125,6 +126,10 @@ public class ScenarioMethod
                     var type = parameterInfo.ParameterType;
                     foreach (var memberInfo in type.GetProperties())
                     {
+                        if (memberInfo.GetCustomAttribute(typeof(AutoUnboxProperty)) is  null)
+                        {
+                            continue;
+                        }
                         List<string>? interfaces = null;
                         if (!memberInfo.PropertyType.FullName.StartsWith("System."))
                         {
@@ -144,6 +149,7 @@ public class ScenarioMethod
                             },
                             
                             AutoUnboxIndex = autoUnboxIndex,
+                            AutoUnboxPropertyName = memberInfo.Name,
                             Interfaces = interfaces,
                             Title = Attribute.GetParameterName(memberInfo.Name),
                         });
@@ -209,6 +215,10 @@ public class ScenarioMethod
                     var type = Method.ReturnParameter.ParameterType;
                     foreach (var memberInfo in type.GetProperties())
                     {
+                        if (memberInfo.GetCustomAttribute(typeof(AutoUnboxProperty)) is  null)
+                        {
+                            continue;
+                        }
                         List<string>? interfaces = null;
                         if (!memberInfo.PropertyType.FullName.StartsWith("System."))
                         {
@@ -226,6 +236,7 @@ public class ScenarioMethod
                             },
 
                             AutoUnboxIndex = autoUnboxIndex,
+                            AutoUnboxPropertyName = memberInfo.Name,
                             Interfaces = interfaces,
                             Title = Attribute.GetParameterName(memberInfo.Name),
                             IsOut = true

@@ -30,6 +30,7 @@ public partial class ConnectorItem : ObservableRecipient
     public bool SelfInputAble { get; set; } = true;
 
     public int AutoUnboxIndex { get; set; }
+    public string AutoUnboxPropertyName { get; set; } = string.Empty;
 
     
 
