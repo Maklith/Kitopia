@@ -84,6 +84,22 @@ public partial class TaskEditor : UrsaWindow
                                 .GenerateNode();
                             break;
                         }
+                        case "TempSet":
+                        {
+                            var keyValuePair = (KeyValuePair<string, object>)borderDataContext;
+                            pointItem = new ScenarioMethod(ScenarioMethodType.临时变量设置)
+                                    { ValueName = keyValuePair.Key}
+                                .GenerateNode();
+                            break;
+                        }
+                        case "TempGet":
+                        {
+                            var keyValuePair = (KeyValuePair<string, object>)borderDataContext;
+                            pointItem = new ScenarioMethod(ScenarioMethodType.临时变量获取)
+                                    { ValueName = keyValuePair.Key }
+                                .GenerateNode();
+                            break;
+                        }
                     }
 
                     var data = new DataObject();

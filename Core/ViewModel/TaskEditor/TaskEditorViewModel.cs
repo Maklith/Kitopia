@@ -600,6 +600,37 @@ public partial class TaskEditorViewModel : ObservableRecipient
     }
 
     #endregion
+    
+    #region 临时变量
+
+    [NotifyPropertyChangedFor(nameof(tempValueCanAdd))]
+    [NotifyCanExecuteChangedFor(nameof(AddTempValueCommand))]
+    [ObservableProperty]
+    private string? _tempValueValue = string.Empty;
+    
+    private bool tempValueCanAdd => !string.IsNullOrEmpty(_tempValueValue);
+
+    [RelayCommand(CanExecute = nameof(tempValueCanAdd))]
+    private void AddTempValue()
+    {
+        if (Scenario.TempValue.ContainsKey(TempValueValue)) return;
+
+
+        Scenario.TempValue.Add(TempValueValue, null);
+        OnPropertyChanged(CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.TempValue);
+        TempValueValue = null;
+        IsModified = true;
+    }
+
+    [RelayCommand]
+    private void DelTempValue(string key)
+    {
+        if (Scenario.TempValue.ContainsKey(key)) Scenario.TempValue.Remove(key);
+
+        IsModified = true;
+    }
+
+    #endregion
 
     #region 入参
 

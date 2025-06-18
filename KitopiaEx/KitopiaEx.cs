@@ -92,7 +92,7 @@ public class KitopiaEx : IPlugin
         services.AddTransient<ScreenCaptureExs.QRCode>();
         services.AddTransient<ScreenCaptureExs.Translate>();
         
-        services.AddTransient<Test1>();
+        services.AddTransient<ImagePinEx>();
         
         var buildServiceProvider = services.BuildServiceProvider();
         ServiceProvider = buildServiceProvider;

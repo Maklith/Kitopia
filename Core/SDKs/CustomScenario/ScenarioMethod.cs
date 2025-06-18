@@ -574,6 +574,90 @@ public class ScenarioMethod
                     pointItem.Output = outItems;
                     break;
                 }
+                case ScenarioMethodType.临时变量设置:
+                {
+                    pointItem.Title = $"{ValueName}";
+                    ObservableCollection<ConnectorItem> inpItems = new();
+                    inpItems.Add(new ConnectorItem()
+                    {
+                        Source = pointItem,
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = typeof(NodeConnectorClass)
+                        },
+
+                        Title = "流输入",
+                        
+                    });
+                    inpItems.Add(new ConnectorItem()
+                    {
+                        Source = pointItem,
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = typeof(object)
+                        },
+
+                        Title = "设置",
+                        
+                    });
+                    pointItem.Input = inpItems;
+                    ObservableCollection<ConnectorItem> outItems = new();
+                    outItems.Add(new ConnectorItem()
+                    {
+                        Source = pointItem,
+                        IsOut = true,
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = typeof(NodeConnectorClass)
+                        },
+                        Title = "流输出",
+                       
+                    });
+                    pointItem.Output = outItems;
+                    break;
+                }
+                case ScenarioMethodType.临时变量获取:
+                {
+                    pointItem.Title = $"{ValueName}";
+                    ObservableCollection<ConnectorItem> inpItems = new();
+                    inpItems.Add(new ConnectorItem()
+                    {
+                        Source = pointItem,
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = typeof(NodeConnectorClass)
+                        },
+                        Title = "流输入",
+                        
+                    });
+                    pointItem.Input = inpItems;
+                    ObservableCollection<ConnectorItem> outItems = new();
+                    outItems.Add(new ConnectorItem()
+                    {
+                        Source = pointItem,
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = typeof(NodeConnectorClass)
+                        },
+                        IsOut = true,
+                        Title = "流输出",
+                        
+                    });
+                    outItems.Add(new ConnectorItem()
+                    {
+                        Source = pointItem,
+                        InputObject = new CustomScenarioValue()
+                        {
+                            Type = typeof(object)
+                        },
+
+                        Title = "获取",
+                        IsOut = true,
+                       
+                    });
+                    pointItem.Output = outItems;
+                    break;
+                }   
                 case ScenarioMethodType.打开运行本地项目:
                 {
                     pointItem.Title = "打开/运行本地项目";
@@ -622,6 +706,7 @@ public class ScenarioMethod
                     break;
                 }
             }
+            
         }
 
 

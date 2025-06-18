@@ -39,7 +39,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
     public ScenarioMethod ScenarioMethod { get; set; }
 
     public bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
-        ObservableDictionary<string, CustomScenarioValue> values)
+        ObservableDictionary<string, CustomScenarioValue> values,ObservableDictionary<string, object> tempValues)
     {
         DateTime start = DateTime.Now;
         //生成本节点所有数据
@@ -156,6 +156,20 @@ public partial class ScenarioMethodNode : ObservableRecipient
             {
                 if (values.ContainsKey(ScenarioMethod.ValueName))
                     Output[1].InputObject.Value = values[ScenarioMethod.ValueName].Value;
+
+                break;
+            }
+            case ScenarioMethodType.临时变量设置:
+            {
+                if (tempValues.ContainsKey(ScenarioMethod.ValueName))
+                    tempValues[ScenarioMethod.ValueName] = Input[1].InputObject.Value!;
+
+                break;
+            }
+            case ScenarioMethodType.临时变量获取:
+            {
+                if (tempValues.ContainsKey(ScenarioMethod.ValueName))
+                    Output[1].InputObject.Value = tempValues[ScenarioMethod.ValueName];
 
                 break;
             }

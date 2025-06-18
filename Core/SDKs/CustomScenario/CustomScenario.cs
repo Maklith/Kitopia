@@ -55,7 +55,7 @@ public partial class CustomScenario : ObservableRecipient
     [JsonIgnore] [ObservableProperty] private bool hasInit = true;
     [JsonIgnore] [ObservableProperty] private string? initError;
     [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> inputValue = new();
-
+    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, object> tempValue = new();
     private bool InTick;
 
     [JsonIgnore] [ObservableProperty] private bool isHaveInputValue = false;
@@ -495,7 +495,7 @@ public partial class CustomScenario : ObservableRecipient
             try
             {
                 Log.Debug($"执行节点:{nowScenarioMethodNode.Title}");
-                bool invoke = nowScenarioMethodNode.Invoke(cancellationToken, connections, Values);
+                bool invoke = nowScenarioMethodNode.Invoke(cancellationToken, connections, Values,TempValue);
                 if (!invoke)
                 {
                     //如果执行失败

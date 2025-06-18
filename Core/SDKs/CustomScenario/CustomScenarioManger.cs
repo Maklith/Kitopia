@@ -268,7 +268,10 @@ public  class CustomScenarioManger
 
             scenario.InitHotKey();
         }
-        
+        foreach (var tempValueKey in scenario.TempValue.Keys)
+        {
+            scenario.TempValue[tempValueKey] = null;
+        }
 
         var configF = new FileInfo(AppDomain.CurrentDomain.BaseDirectory +
                                    $"customScenarios{Path.DirectorySeparatorChar}{scenario.UUID}.json");
