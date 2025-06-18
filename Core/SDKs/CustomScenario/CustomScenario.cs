@@ -495,8 +495,19 @@ public partial class CustomScenario : ObservableRecipient
             try
             {
                 Log.Debug($"执行节点:{nowScenarioMethodNode.Title}");
-                nowScenarioMethodNode.Invoke(cancellationToken, connections, Values);
-                Log.Debug($"执行节点完成:{nowScenarioMethodNode.Title}");
+                bool invoke = nowScenarioMethodNode.Invoke(cancellationToken, connections, Values);
+                if (!invoke)
+                {
+                    //如果执行失败
+                    valid = false;
+                    nowScenarioMethodNode.Status = S节点状态.错误;
+                    Log.Debug($"执行节点失败:{nowScenarioMethodNode.Title}");
+                }
+                else
+                {
+                    Log.Debug($"执行节点完成:{nowScenarioMethodNode.Title}");
+
+                }
             }
             catch (Exception e)
             {
