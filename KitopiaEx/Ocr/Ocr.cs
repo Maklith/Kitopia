@@ -190,6 +190,68 @@ public class Ocr
         }));
        
     }
+    [ScenarioMethod("获取文字提取结果显示实例")]
+    public OcrResultShowWindow OcrResultShowIn(CancellationToken ct)
+    {
+        OcrResultShowWindow ocrResultShowWindow =null;
+        ct.Register(() =>
+        {
+            Dispatcher.UIThread.InvokeAsync((() =>
+            {
+                ocrResultShowWindow.Close();
+            }));
+           
+        });
+        Dispatcher.UIThread.Invoke((() =>
+        {
+            ocrResultShowWindow = new OcrResultShowWindow();
+            ocrResultShowWindow.Show();
+            
+        }));
+        return ocrResultShowWindow; 
+    }
+    [ScenarioMethod("设置文字提取结果", $"{nameof(screenCapture)}=截图数据",$"{nameof(ocrResults)}=文字识别结果数据")]
+    public void SetOcrResultShowWindowData(OcrResultShowWindow imagePin, ScreenCaptureResult screenCapture,IEnumerable<OcrResult> ocrResults, CancellationToken ct)
+    {
+        if (imagePin == null) return;
+        Dispatcher.UIThread.Invoke((() =>
+        {
+            if (imagePin.Image.Source is null  )
+            {
+                imagePin.Image.Source =screenCapture.Source.ToAWriteableBitmap();
+            }
+            else if (imagePin.Image.Source is WriteableBitmap writeableBitmap)
+            {
+                if (writeableBitmap.Size.Width!= screenCapture.Source.Width ||
+                    writeableBitmap.Size.Height!= screenCapture.Source.Height)
+                {
+                    imagePin.Image.Source =screenCapture.Source.ToAWriteableBitmap();
+                }
+                else
+                {
+                    if (!screenCapture.Source.IsContinuous())
+                    {
+                        screenCapture.Source= screenCapture.Source.Clone();
+                    }
+                    using (var l = writeableBitmap.Lock())
+                    {
+                        unsafe
+                        {
+                            var destinationSizeInBytes = screenCapture.Source.Width * 4 * screenCapture.Source.Height;
 
-  
+                            Buffer.MemoryCopy(screenCapture.Source.DataPointer, (void*)l.Address,
+                                destinationSizeInBytes, destinationSizeInBytes);
+
+
+                        }
+                    }
+                    imagePin.Image.InvalidateVisual();
+                }
+                
+            }
+            imagePin.ItemsControl.ItemsSource = ocrResults;
+            imagePin.UpdateImageScale();
+
+        }));
+    }
 }

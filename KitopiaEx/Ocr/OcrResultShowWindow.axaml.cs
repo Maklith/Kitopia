@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
@@ -15,11 +16,12 @@ using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.ExMethod;
+using Ursa.Controls;
 using Rect = Avalonia.Rect;
 
 namespace KitopiaEx.Ocr;
 
-public partial class OcrResultShowWindow : Window
+public partial class OcrResultShowWindow : UrsaWindow
 {
     private ScaleTransform _scaleTransform;
     public OcrResultShowWindow()
@@ -29,13 +31,42 @@ public partial class OcrResultShowWindow : Window
         
         
         ItemsControl.RenderTransform = _scaleTransform;
+        _scaleTransform.ScaleX = 1d;
+        _scaleTransform.ScaleY = 1d;
+        ItemsControl.RenderTransformOrigin = new RelativePoint(0, 0, RelativeUnit.Absolute);
         Image.SizeChanged += OnSizeChanged;
+        Image.PropertyChanged += (sender, args) =>
+        {
+            if (args.Property == Image.SourceProperty)
+            {
+                if (Image.Source is not null)
+                {
+                    ItemsControl.Width = Image.Source.Size.Width;
+                    ItemsControl.Height = Image.Source.Size.Height;
+                    double scale = Image.Bounds.Size.Width / Image.Source.Size.Width;
+                    _scaleTransform.ScaleX = scale;
+                    _scaleTransform.ScaleY = scale;
+                }
+            }
+        };
     }
    
-
+    public void UpdateImageScale()
+    {
+        ItemsControl.Width = Image.Source.Size.Width;
+        ItemsControl.Height = Image.Source.Size.Height;
+        double scale = Image.Bounds.Size.Width / Image.Source.Size.Width;
+        _scaleTransform.ScaleX = scale;
+        _scaleTransform.ScaleY = scale;
+    }
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        
+        if (Image.Source is null)
+        {
+            return;
+        }
         ItemsControl.Width = Image.Source.Size.Width;
         ItemsControl.Height =Image.Source.Size.Height;
         double scale = Image.Bounds.Size.Width / Image.Source.Size.Width;
@@ -43,8 +74,7 @@ public partial class OcrResultShowWindow : Window
         _scaleTransform.ScaleY = scale;
         
         
-        ItemsControl.RenderTransform = _scaleTransform;
-        ItemsControl.RenderTransformOrigin = new RelativePoint(0, 0, RelativeUnit.Absolute);
+      
         
     }
 
@@ -229,5 +259,10 @@ public partial class OcrResultShowWindow : Window
 
     private void InputElement_OnPointerExited(object? sender, PointerEventArgs e)
     {
+    }
+    
+    private void Button_OnClick(object? sender, RoutedEventArgs e)
+    {
+        Topmost = !Topmost;
     }
 }
