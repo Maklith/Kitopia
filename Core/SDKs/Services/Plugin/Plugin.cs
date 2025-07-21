@@ -139,8 +139,7 @@ public class Plugin
                 break;
             }
 
-        ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.Childrens.Add(PluginInfo.ToPlgString(),
-            pluginMainScenarioMethodCategoryGroup);
+       
         pluginMainScenarioMethodCategoryGroup.Name = PluginInfo.PluginBaseInfo.Name;
 
         foreach (var type in t)
@@ -256,6 +255,12 @@ public class Plugin
         PluginOverall.OnnxRuntimes.Add(PluginInfo.ToPlgString(), onnxRuntimes);
         PluginOverall.SearchWindowInputDataIdentifies.Add(PluginInfo.ToPlgString(), inputDataIdentifier);
         PluginOverall.SearchWindowInputDataAnalyzers.Add(PluginInfo.ToPlgString(), inputDataAnalyzerActions);
+
+        if (pluginMainScenarioMethodCategoryGroup.Childrens.Count!=0)
+        {
+            ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.Childrens.Add(PluginInfo.ToPlgString(),
+                pluginMainScenarioMethodCategoryGroup);
+        }
     }
 
     public Assembly? _dll => _plugin.Assembly;
