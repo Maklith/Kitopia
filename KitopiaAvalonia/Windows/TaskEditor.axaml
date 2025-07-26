@@ -67,8 +67,9 @@
                 Command="{Binding AddNodesCommand}" />
         <!-- 左边部分 -->
         <Border x:Name="border" Grid.Column="0" Padding="0,0,0,0" Margin="0">
-            <ScrollViewer Margin="0" ScrollViewer.VerticalScrollBarVisibility="Auto" VerticalSnapPointsType="Mandatory">
-                <ListBox x:Name="ListBox" Margin="3,0,0,0">
+            
+                <ListBox x:Name="ListBox" Margin="3,0,0,0" ScrollViewer.VerticalSnapPointsAlignment="Center"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.VerticalSnapPointsType="MandatorySingle">
 
                     <ListBox.ItemContainerTheme>
                         <ControlTheme TargetType="ListBoxItem">
@@ -1423,7 +1424,7 @@
 
 
                 </ListBox>
-            </ScrollViewer>
+            
 
         </Border>
         <!-- 拖动部分 -->

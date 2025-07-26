@@ -40,10 +40,17 @@ namespace KitopiaAvalonia.Windows;
 
 public partial class ScreenCaptureWindow : Window
 {
-    private bool IsSelected = false;
-    private bool Selecting = false;
-    private bool PointerOver = false;
+    private enum SelectionState
+    {
+        None,
+        WindowSelecting,
+        MoveSelecting,
+        Selected
+    }
+    
+    private SelectionState NowSelectionState = SelectionState.None;
     private Point _startPoint;
+    private Point _pointerStartPoint;
     public Stack<ScreenCaptureRedoInfo> redoStack = new();
     private List<CaptureToolBase> tools = new();
     private bool selectMode = false;
@@ -97,7 +104,7 @@ public partial class ScreenCaptureWindow : Window
                 }
                 case "Selected":
                 {
-                    IsSelected = true;
+                    NowSelectionState = SelectionState.Selected;
                     Cursor?.Dispose();
                     Cursor = Cursor.Default;
 
@@ -121,7 +128,7 @@ public partial class ScreenCaptureWindow : Window
         this.selectBytesModeCancelAction = selectBytesModeCancelAction;
     }
 
-    private bool ShowAlignLine => !IsSelected && PointerOver && !Selecting;
+    private bool ShowAlignLine => NowSelectionState==SelectionState.Selected;
 
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -237,7 +244,18 @@ public partial class ScreenCaptureWindow : Window
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Key == Key.Escape) WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");
+        if (e.Key == Key.Escape)
+        {
+            if (NowSelectionState==SelectionState.Selected)
+            {
+                if (Redo())
+                {
+                    return;
+                }
+                WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");
+            }
+            WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");
+        }
 
         if (e.Key == Key.B) WindowState = WindowState.Maximized;
 
@@ -252,44 +270,53 @@ public partial class ScreenCaptureWindow : Window
 
     private void CompletedSelection()
     {
-        if (Selecting)
+        if (NowSelectionState==SelectionState.Selected)
         {
-            Selecting = false;
-            if (SelectBox.Height < 10) SelectBox.Height = 10;
-
-            if (SelectBox.Width < 10) SelectBox.Width = 10;
-
-            SelectBox.IsVisible = true;
-            IsSelected = true;
-            if (!Cursor.ToString()
-                    .Equals("Default"))
-            {
-                Cursor?.Dispose();
-                Cursor = Cursor.Default;
-            }
-
-            WeakReferenceMessenger.Default.Send<string, string>("Selected", "ScreenCapture");
-            UpdateSelectBox();
-
-            if (ConfigManger.Config.截图直接复制到剪贴板|| selectBytesMode|| selectMode)
-                FinnishCapture();
-            else
-                UpdateToolBar();
+            return;
         }
+        if (NowSelectionState==SelectionState.MoveSelecting)
+        {
+            _startPoint = _pointerStartPoint;
+        }
+        NowSelectionState = SelectionState.Selected;
+        if (SelectBox.Height < 10) SelectBox.Height = 10;
+
+        if (SelectBox.Width < 10) SelectBox.Width = 10;
+
+        SelectBox.IsVisible = true;
+        if (Cursor!=null&&!Cursor.ToString()
+                .Equals("Default"))
+        {
+            Cursor?.Dispose();
+            Cursor = Cursor.Default;
+        }
+
+        WeakReferenceMessenger.Default.Send<string, string>("Selected", "ScreenCapture");
+        UpdateSelectBox();
+
+        if (ConfigManger.Config.截图直接复制到剪贴板|| selectBytesMode|| selectMode)
+            FinnishCapture();
+        else
+            UpdateToolBar();
+        
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-
-        if (e.GetCurrentPoint(this)
-                .Properties.IsLeftButtonPressed && !IsSelected)
+        if (NowSelectionState==SelectionState.Selected)
         {
-            Selecting = true;
+            return;
+        }
+        if (e.GetCurrentPoint(this)
+            .Properties.IsLeftButtonPressed )
+        {
+            NowSelectionState = SelectionState.WindowSelecting;
             SelectBox.IsVisible = true;
             Cursor?.Dispose();
             Cursor = new Cursor(StandardCursorType.BottomRightCorner);
             _startPoint = e.GetPosition(this);
+            _pointerStartPoint = e.GetPosition(this);
             e.Pointer.Capture(this);
             //endPoint = e.GetPosition(this);
         }
@@ -299,27 +326,43 @@ public partial class ScreenCaptureWindow : Window
     {
         base.OnPointerReleased(e);
         if (e.InitialPressMouseButton == MouseButton.Right)
-            if (!IsSelected)
+            if (NowSelectionState==SelectionState.None)
                 WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");
-
-        if (Selecting) CompletedSelection();
+        if (NowSelectionState==SelectionState.Selected)
+        {
+            return;
+        }
+        CompletedSelection();
     }
 
     protected override void OnPointerEntered(PointerEventArgs e)
     {
         base.OnPointerEntered(e);
-        PointerOver = true;
-        SelectWindow(e);
+        if (NowSelectionState==SelectionState.Selected)
+        {
+            return;
+        }
+        NowSelectionState = SelectionState.WindowSelecting;
+        if (NowSelectionState==SelectionState.WindowSelecting)
+        {
+            SelectWindow(e);
+        }
     }
 
     protected override void OnPointerExited(PointerEventArgs e)
     {
         base.OnPointerExited(e);
-        PointerOver = false;
-        if (IsSelected)
+        
+        if (NowSelectionState!=SelectionState.None)
         {
-           return; 
+            return; 
         }
+
+        if (NowSelectionState!=SelectionState.Selected)
+        {
+            NowSelectionState = SelectionState.None;
+        }
+        
         SelectBox.Width = 0;
         SelectBox.Height = 0;
         SelectBox.IsVisible = false;
@@ -328,86 +371,101 @@ public partial class ScreenCaptureWindow : Window
 
     protected override void OnPointerMoved(PointerEventArgs e)
     {
+       
         base.OnPointerMoved(e);
-        var position = e.GetPosition(this);
-        if (Math.Pow(position.Y-_startPoint.Y,2)+ Math.Pow(position.X-_startPoint.X,2)<100)
+        if (NowSelectionState== SelectionState.Selected)
         {
             return;
         }
-        
-        if (e.GetCurrentPoint(this)
-                .Properties.IsLeftButtonPressed && Selecting)
+
+        if (NowSelectionState== SelectionState.None)
         {
-            var selectBoxHeight = e.GetPosition(this)
-                .Y - _startPoint.Y;
-            var selectBoxWidth = e.GetPosition(this)
-                .X - _startPoint.X;
-            if (selectBoxHeight < 0)
+            NowSelectionState = SelectionState.WindowSelecting;
+        }
+        var position = e.GetPosition(this);
+        
+        if (e.Properties.IsLeftButtonPressed&&NowSelectionState is SelectionState.WindowSelecting
+                                            &&Math.Pow(position.Y-_startPoint.Y,2)+ Math.Pow(position.X-_startPoint.X,2)>1300)
+        {
+            NowSelectionState = SelectionState.MoveSelecting;
+            _startPoint = _pointerStartPoint;
+        }
+        
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            if (NowSelectionState==SelectionState.MoveSelecting)
             {
-                SelectBox.Height = -selectBoxHeight;
-                SelectBox._dragTransform.Y = _startPoint.Y + selectBoxHeight;
-            }
-            else
-            {
-                SelectBox.Height = selectBoxHeight;
-                SelectBox._dragTransform.Y = _startPoint.Y;
+                var selectBoxHeight = e.GetPosition(this)
+                    .Y - _startPoint.Y;
+                var selectBoxWidth = e.GetPosition(this)
+                    .X - _startPoint.X;
+                if (selectBoxHeight < 0)
+                {
+                    SelectBox.Height = -selectBoxHeight;
+                    SelectBox._dragTransform.Y = _startPoint.Y + selectBoxHeight;
+                }
+                else
+                {
+                    SelectBox.Height = selectBoxHeight;
+                    SelectBox._dragTransform.Y = _startPoint.Y;
+                }
+
+                if (selectBoxWidth < 0)
+                {
+                    SelectBox.Width = -selectBoxWidth;
+                    SelectBox._dragTransform.X = _startPoint.X + selectBoxWidth;
+                }
+                else
+                {
+                    SelectBox.Width = selectBoxWidth;
+                    SelectBox._dragTransform.X = _startPoint.X;
+                }
+                _currentWindowInfo=new WindowInfo();
+                UpdateSelectBox();
             }
 
-            if (selectBoxWidth < 0)
-            {
-                SelectBox.Width = -selectBoxWidth;
-                SelectBox._dragTransform.X = _startPoint.X + selectBoxWidth;
-            }
-            else
-            {
-                SelectBox.Width = selectBoxWidth;
-                SelectBox._dragTransform.X = _startPoint.X;
-            }
-            _currentWindowInfo=new WindowInfo();
-            UpdateSelectBox();
+           
+        } 
+        if (NowSelectionState==SelectionState.WindowSelecting)
+        {
+            SelectWindow(e);
         }
 
-        SelectWindow(e);
+        
     }
 
     private void SelectWindow(PointerEventArgs e)
     {
-        if (ShowAlignLine)
+        var currentPoint = e.GetCurrentPoint(this);
+        var screenInfoWidth = Bounds.Width/_screenCaptureInfo.ScreenInfo.Width;
+        var screenInfoHeight =Bounds.Height/_screenCaptureInfo.ScreenInfo.Height;
+        var positionY = currentPoint.Position.Y/screenInfoWidth+Position.Y;
+        var positionX = currentPoint.Position.X/screenInfoHeight+Position.X;
+        var firstOrDefault = _windowInfos.Where(e => positionX >= e.Rect.X && positionX <= e.Rect.X + e.Rect.Width &&
+                                                     positionY >= e.Rect.Y && positionY <= e.Rect.Y + e.Rect.Height).OrderBy(e=>e.ZIndex).ToList();
+        if (firstOrDefault.Count()==0)
         {
-            
-            var currentPoint = e.GetCurrentPoint(this);
-            var screenInfoWidth = Bounds.Width/_screenCaptureInfo.ScreenInfo.Width;
-            var screenInfoHeight =Bounds.Height/_screenCaptureInfo.ScreenInfo.Height;
-            var positionY = currentPoint.Position.Y/screenInfoWidth+Position.Y;
-            var positionX = currentPoint.Position.X/screenInfoHeight+Position.X;
-            var firstOrDefault = _windowInfos.Where(e => positionX >= e.Rect.X && positionX <= e.Rect.X + e.Rect.Width &&
-                                                         positionY >= e.Rect.Y && positionY <= e.Rect.Y + e.Rect.Height).OrderBy(e=>e.ZIndex).ToList();
-            if (firstOrDefault.Count()==0)
-            {
-                _currentWindowInfo = new WindowInfo();
-                _startPoint = new Point(0, 0);
-                SelectBox._dragTransform.X = 0;
-                SelectBox._dragTransform.Y = 0;
-                SelectBox.Width = this.Bounds.Width;
-                SelectBox.Height = this.Bounds.Height;
-               
-            }
-            else
-            {
-                
-                var windowInfo = firstOrDefault.FirstOrDefault();
-                _currentWindowInfo=windowInfo;
-                var rectX = windowInfo.Rect.X-Position.X;
-                var rectY = windowInfo.Rect.Y-Position.Y;
-                _startPoint=new Point(rectX*screenInfoWidth,rectY*screenInfoHeight);
-                SelectBox._dragTransform.X = _startPoint.X;
-                SelectBox._dragTransform.Y = _startPoint.Y;
-                SelectBox.Width = windowInfo.Rect.Width*screenInfoWidth;
-                SelectBox.Height = windowInfo.Rect.Height*screenInfoHeight;
-            }
-            SelectBox.IsVisible = true;
-            UpdateSelectBox();
+            _currentWindowInfo = new WindowInfo();
+            _startPoint = new Point(0, 0);
+            SelectBox._dragTransform.X = 0;
+            SelectBox._dragTransform.Y = 0;
+            SelectBox.Width = this.Bounds.Width;
+            SelectBox.Height = this.Bounds.Height;
         }
+        else
+        {
+            var windowInfo = firstOrDefault.FirstOrDefault();
+            _currentWindowInfo=windowInfo;
+            var rectX = windowInfo.Rect.X-Position.X;
+            var rectY = windowInfo.Rect.Y-Position.Y;
+            _startPoint=new Point(rectX*screenInfoWidth,rectY*screenInfoHeight);
+            SelectBox._dragTransform.X = _startPoint.X;
+            SelectBox._dragTransform.Y = _startPoint.Y;
+            SelectBox.Width = windowInfo.Rect.Width*screenInfoWidth;
+            SelectBox.Height = windowInfo.Rect.Height*screenInfoHeight;
+        }
+        SelectBox.IsVisible = true;
+        UpdateSelectBox();
     }
 
     public 截图工具 NowTool = 截图工具.无;
@@ -599,7 +657,7 @@ public partial class ScreenCaptureWindow : Window
 
     private void SelectBox_OnPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (IsSelected)
+        if (NowSelectionState==SelectionState.Selected)
         {
             if (!(StrokeWidth.Value > 1)) StrokeWidth.Value = 1;
 
@@ -838,7 +896,7 @@ public partial class ScreenCaptureWindow : Window
         };
         var selectionRect = new RectangleGeometry
         {
-            Rect = new Avalonia.Rect(new Point(SelectBox._dragTransform.X, SelectBox._dragTransform.Y), SelectBox.DesiredSize)
+            Rect = new Avalonia.Rect(SelectBox._dragTransform.X, SelectBox._dragTransform.Y, SelectBox.Width,SelectBox.Height)
         };
 
 
@@ -848,8 +906,10 @@ public partial class ScreenCaptureWindow : Window
             Geometry2 = selectionRect,
             GeometryCombineMode = GeometryCombineMode.Exclude
         };
+        
         Rectangle.Clip = combinedGeometry;
         Rectangle.InvalidateVisual();
+        //Console.WriteLine("SelectBox: " + SelectBox._dragTransform.X + ", " + SelectBox._dragTransform.Y + ", " + SelectBox.Width + ", " + SelectBox.Height);
     }
 
     private void UpdateToolBar()
@@ -869,7 +929,7 @@ public partial class ScreenCaptureWindow : Window
 
     private void Rectangle_OnPointerEntered(object? sender, PointerEventArgs e)
     {
-        if (IsSelected)
+        if (NowSelectionState==SelectionState.Selected)
             if (!Cursor.ToString()
                     .Equals("Default"))
             {
@@ -973,7 +1033,7 @@ public partial class ScreenCaptureWindow : Window
                                     Height = cropH,
                                     ScreenInfo = _screenCaptureInfo.ScreenInfo
                                 },
-                               Source = mat
+                                Source = mat
                             });
                         });
                    
@@ -1140,7 +1200,13 @@ public partial class ScreenCaptureWindow : Window
 
     private void RedoButton_OnClick(object? sender, RoutedEventArgs e)
     {
+        Redo();
+    }
+
+    private bool Redo()
+    {
         if (redoStack.TryPop(out var item))
+        {
             switch (item.EditType)
             {
                 case ScreenCaptureEditType.添加:
@@ -1246,6 +1312,11 @@ public partial class ScreenCaptureWindow : Window
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+
+            return true;
+        }
+
+        return false;
     }
 
     private void ExButton_OnClick(object? sender, RoutedEventArgs e)
