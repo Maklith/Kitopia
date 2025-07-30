@@ -36,42 +36,42 @@
 
     <ItemGroup>
         <PackageReference Include="HotAvalonia" Version="3.0.0" PrivateAssets="All" Publish="True" />
-        <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)"/>
-        <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)"/>
+        <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+        <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="$(AvaloniaVersion)"/>
-        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2"/>
-        <PackageReference Include="Markdown.Avalonia" Version="11.0.3-a1"/>
+        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="$(AvaloniaVersion)" />
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+        <PackageReference Include="Markdown.Avalonia" Version="11.0.3-a1" />
         <PackageReference Include="Microsoft.Extensions.Resilience" Version="9.2.0" />
-        <PackageReference Include="MQTTnet" Version="4.3.6.1152"/>
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
+        <PackageReference Include="MQTTnet" Version="4.3.6.1152" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
         <PackageReference Include="Polly" Version="8.5.2" />
         <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.0" />
         <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-        <PackageReference Include="SharpHook" Version="5.3.8"/>
-        <PackageReference Include="SharpHook.Reactive" Version="5.3.8"/>
-        <PackageReference Include="Silk.NET.Direct3D11" Version="2.21.0"/>
-        <PackageReference Include="SixLabors.ImageSharp" Version="3.1.7"/>
-        <PackageReference Include="System.Drawing.Common" Version="9.0.0-rc.2.24474.1"/>
-        <PackageReference Include="System.Management" Version="9.0.0-rc.2.24473.5"/>
-        <PackageReference Include="System.Runtime.InteropServices" Version="4.3.0"/>
+        <PackageReference Include="SharpHook" Version="5.3.8" />
+        <PackageReference Include="SharpHook.Reactive" Version="5.3.8" />
+        <PackageReference Include="Silk.NET.Direct3D11" Version="2.21.0" />
+        <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
+        <PackageReference Include="System.Drawing.Common" Version="9.0.0-rc.2.24474.1" />
+        <PackageReference Include="System.Management" Version="9.0.0-rc.2.24473.5" />
+        <PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="SDKs\Msgs\"/>
+        <Folder Include="SDKs\Msgs\" />
         <Folder Include="UiControls\" />
     </ItemGroup>
 
 
     <ItemGroup>
-        <ProjectReference Include="..\PinyinM.NET\Pinyin.NET\Pinyin.NET.csproj"/>
-        <ProjectReference Include="..\PluginCore\PluginCore.csproj"/>
+        <ProjectReference Include="..\PinyinM.NET\Pinyin.NET\Pinyin.NET.csproj" />
+        <ProjectReference Include="..\PluginCore\PluginCore.csproj" />
     </ItemGroup>
 
 
     <ItemGroup>
-        <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions"/>
+        <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
         <Reference Include="screen_capture_lite_csharp">
             <HintPath>DLLs\screen_capture_lite_csharp.dll</HintPath>
         </Reference>
