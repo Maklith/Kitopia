@@ -256,6 +256,16 @@ public  class CustomScenarioManger
             };
             ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
                 dialog);
+            CustomScenarios.Add(new CustomScenario()
+            {
+                Name = fileInfo.Name,
+                UUID = fileInfoName,
+                IsRunning = false,
+                HasInit = false,
+                InitError = "加载失败疑似文件已损坏",
+                IsActive = false,
+                 
+            });
         }
     }
 
