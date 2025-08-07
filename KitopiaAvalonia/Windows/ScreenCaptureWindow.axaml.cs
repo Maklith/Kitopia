@@ -26,13 +26,11 @@ using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
 using PluginCore.ExMethod;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+
 using Ursa.Controls;
 using Point = Avalonia.Point;
 using Rect = PluginCore.Rect;
-using Rectangle = SixLabors.ImageSharp.Rectangle;
+
 using Size = Avalonia.Size;
 using Window = Avalonia.Controls.Window;
 

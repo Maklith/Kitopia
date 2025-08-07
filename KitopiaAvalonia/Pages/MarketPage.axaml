@@ -74,7 +74,7 @@
                                                     Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
                                             <Button IsEnabled="{Binding !InLocal}"
                                                     Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).DownloadPluginCommand}"
-                                                    CommandParameter="{Binding}">
+                                                    CommandParameter="{Binding OnlinePluginInfo}">
                                                 <Button.Styles>
                                                     <Style Selector="Button[IsEnabled=True]">
                                                         <Setter Property="Content" Value="下载" />

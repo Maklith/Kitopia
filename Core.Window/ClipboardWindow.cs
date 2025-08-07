@@ -15,9 +15,7 @@ using PluginCore;
 using Polly;
 using Polly.Retry;
 using Serilog;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+
 using Vanara.PInvoke;
 using Application = Avalonia.Application;
 using Bitmap = Avalonia.Media.Imaging.Bitmap;
@@ -160,34 +158,6 @@ public class ClipboardWindow : IClipboardService
                 BackoffType = DelayBackoffType.Linear,
                 UseJitter = true
             }).Build();
-    [STAThread]
-    public async Task<bool> SetImageAsync(Image image)
-    {
-        var tcs = new TaskCompletionSource<bool>();
-        var thread = new Thread(() =>
-        {
-            var memoryStream = new MemoryStream();
-
-            image.SaveAsBmp(memoryStream);
-            var bitmap = new System.Drawing.Bitmap(memoryStream);
-
-            var bitmapData = bitmap.LockBits(
-                new Rectangle(0, 0, bitmap.Width, bitmap.Height),
-                ImageLockMode.ReadOnly, bitmap.PixelFormat);
-            var bitmapSource = BitmapSource.Create(
-                bitmapData.Width, bitmapData.Height,
-                bitmap.HorizontalResolution, bitmap.VerticalResolution,
-                PixelFormats.Bgr24, null,
-                bitmapData.Scan0, bitmapData.Stride * bitmapData.Height, bitmapData.Stride);
-
-            bitmap.UnlockBits(bitmapData);
-            bitmap.Dispose();
-            Clipboard.SetImage(bitmapSource);
-        });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        return await tcs.Task;
-    }
     [STAThread]
     public async Task<bool> SetImageAsync(ScreenCaptureResult screenCaptureResult)
     {

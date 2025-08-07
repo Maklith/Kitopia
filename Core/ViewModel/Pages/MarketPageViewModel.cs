@@ -24,10 +24,10 @@ using Markdown.Avalonia.Full;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PluginCore;
-using SixLabors.ImageSharp;
+
 using Ursa.Controls;
 using Bitmap = Avalonia.Media.Imaging.Bitmap;
-using Image = SixLabors.ImageSharp.Image;
+
 using JsonSerializer = System.Text.Json.JsonSerializer;
 using Point = Avalonia.Point;
 

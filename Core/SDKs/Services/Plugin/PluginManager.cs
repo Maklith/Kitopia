@@ -2,6 +2,7 @@
 
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using System.Drawing;
 using System.IO.Compression;
 using System.Reflection;
 using System.Text;
@@ -18,7 +19,7 @@ using Newtonsoft.Json.Linq;
 using PluginCore;
 using PluginCore.Onnx;
 using Serilog;
-using SixLabors.ImageSharp;
+
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 #endregion
@@ -497,13 +498,13 @@ public class PluginManager
             var pluginsDirectoryInfo =
                 new DirectoryInfo(pluginInfoEx.Path);
             pluginsDirectoryInfo.Delete(true);
-            Task.Run(Reload);
+            //Task.Run(Reload);
         }
         else
         {
             File.Create(
                 $"{pluginInfoEx.Path}.remove");
-            Task.Run(Reload);
+            //Task.Run(Reload);
         }
 
         Reload();
@@ -578,9 +579,22 @@ public class PluginManager
             var sendAsync = await _httpClient.SendAsync(request);
             var stringAsync = await sendAsync.Content.ReadAsStringAsync();
             var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
-            using var image = Image.Load(deserializeObject["data"].ToObject<byte[]>());
-            await image.SaveAsPngAsync(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins", plugin,
-                "avatar.png"));
+            byte[] arr = deserializeObject["data"].ToObject<byte[]>();//将指定的字符串（它将二进制数据编码为 Base64 数字）转换为等效的 8 位无符号整数数组。
+            using (MemoryStream ms = new MemoryStream(arr))
+            {
+                var filename = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins", plugin,
+                    "avatar.png");
+                var directoryname = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins", plugin);
+                Bitmap bmp = new Bitmap(ms,true);//加载图像
+                
+                if (!Directory.Exists(directoryname))//判断保存目录是否存在
+                {
+                    Directory.CreateDirectory(directoryname);
+                }
+                bmp.Save(filename, System.Drawing.Imaging.ImageFormat.Png);//将图片以JPEG格式保存在指定目录(可以选择其他图片格式)
+                ms.Close();//关闭流并释放
+                
+            }
 
 
             Reload();
