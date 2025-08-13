@@ -9,26 +9,41 @@
         <!-- Set Defaults -->
         <Setter Property="Template">
             <ControlTemplate>
-                <controls:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xF604;" GlyphFilled="&#xF60C;"
-                                   IsFilled="{TemplateBinding IsChecked}"
-                                   Name="Icon" FontSize="24" RenderTransform="rotate(0)">
-                    <controls:FontIcon.Transitions>
-                        <Transitions>
-                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" />
-                        </Transitions>
-                    </controls:FontIcon.Transitions>
-                </controls:FontIcon>
+                <Panel>
+                    <Panel.Background>
+                        <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.05" />
+                    </Panel.Background>
+                    <controls:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xF604;" GlyphFilled="&#xF60C;"
+                                       IsFilled="{TemplateBinding IsChecked}"
+                                       Name="Icon" FontSize="24">
+                    </controls:FontIcon>
+                </Panel>
+
             </ControlTemplate>
         </Setter>
     </Style>
+    <Style Selector="controls|PinButton[IsChecked=False] /template/ controls|FontIcon#Icon">
+        <Setter Property="RenderTransform" Value="rotate(0deg)" />
+        <Setter Property="Transitions">
+
+        </Setter>
+    </Style>
     <Style Selector="controls|PinButton[IsChecked=True] /template/ controls|FontIcon#Icon">
-
         <Setter Property="RenderTransform" Value="rotate(-45deg)" />
+        <Setter Property="Transitions">
 
+        </Setter>
     </Style>
     <Style Selector="controls|PinButton:pointerover[IsChecked=False] /template/ controls|FontIcon#Icon">
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" />
+            </Transitions>
+        </Setter>
         <Setter Property="RenderTransform" Value="rotate(-45deg)" />
-
+        <Setter Property="Glyph" Value="&#xF602;" />
+        
     </Style>
+
 
 </Styles>
