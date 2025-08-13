@@ -1469,7 +1469,9 @@
                         <DataTemplate DataType="{x:Type customScenario:ConnectionItem}">
                             <Grid>
                                 <controls2:Connection Source="{Binding Source.Anchor}" Focusable="True"
-                                                     
+                                                      SplitCommand="{Binding SplitConnectionCommand }"
+                                                      
+                                                      
                                                       Target="{Binding Target.Anchor}">
                                     <controls2:Connection.ContextFlyout>
                                         <MenuFlyout>
@@ -1511,7 +1513,27 @@
 
                         </DataTemplate>
                     </controls2:NodifyEditor.PendingConnectionTemplate>
-                    <controls2:NodifyEditor.ItemTemplate>
+                    <controls2:NodifyEditor.DataTemplates>
+                        <DataTemplate DataType="customScenario:KnotNodeViewModel">
+                            <controls2:KnotNode
+                                Location="{Binding Location,Mode=TwoWay}"
+                                Content="{Binding Connector}">
+                                <controls2:KnotNode.ContentTemplate>
+                                    <DataTemplate DataType="customScenario:ConnectorItem">
+                                        <controls2:Connector
+                                            VerticalAlignment="Center"
+                                            IsConnected="{Binding IsConnected}"
+                                            Anchor="{Binding Anchor, Mode=OneWayToSource}">
+                                            <controls2:Connector.BorderBrush>
+                                                <SolidColorBrush
+                                                    Color="{DynamicResource SemiBlue5Color}"
+                                                    Opacity="0.5" />
+                                            </controls2:Connector.BorderBrush>
+                                        </controls2:Connector>
+                                    </DataTemplate>
+                                </controls2:KnotNode.ContentTemplate>
+                            </controls2:KnotNode>
+                        </DataTemplate>
                         <DataTemplate DataType="{x:Type customScenario:ScenarioMethodNode}">
                             <controls2:Node
                                 Classes.Status0="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=0}"
@@ -1820,7 +1842,7 @@
                             </controls2:Node>
 
                         </DataTemplate>
-                    </controls2:NodifyEditor.ItemTemplate>
+                    </controls2:NodifyEditor.DataTemplates>
 
                 </controls2:NodifyEditor>
 

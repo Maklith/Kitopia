@@ -402,6 +402,10 @@ public partial class TaskEditorViewModel : ObservableRecipient
     public void Load(CustomScenario customScenario)
     {
         Scenario = customScenario;
+        foreach (var scenarioConnection in Scenario.connections)
+        {
+            scenarioConnection.Init(SplitConnection);
+        }
     }
 
     [RelayCommand]
@@ -479,7 +483,9 @@ public partial class TaskEditorViewModel : ObservableRecipient
             }
 
         IsModified = true;
-        Scenario.connections.Add(new ConnectionItem(source, target));
+        var connectionItem = new ConnectionItem(source, target);
+        connectionItem.Init(SplitConnection);
+        Scenario.connections.Add(connectionItem);
         ToFirstVerify();
         //OnPropertyChanged(nameof(Connections));
     }

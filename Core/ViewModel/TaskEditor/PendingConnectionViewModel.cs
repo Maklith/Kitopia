@@ -87,10 +87,11 @@ public partial class PendingConnectionViewModel : ObservableRecipient
 
         if (target == Source || target.Source == Source.Source) return;
 
-        if (Source.InputObject.RealType.FullName != target.InputObject.RealType.FullName &&
-            !(target.InputObject.RealType.IsAssignableFrom(Source.InputObject.RealType) ||
-              Source.InputObject.RealType.FullName == "System.Object" ||
-              target.InputObject.RealType.FullName == "System.Object"))
+        if (Source.InputObject?.RealType.FullName != target.InputObject?.RealType.FullName &&
+            target.InputObject != null &&
+            !(target.InputObject.RealType.IsAssignableFrom(Source.InputObject?.RealType) ||
+              Source.InputObject?.RealType.FullName == "System.Object" ||
+              target.InputObject?.RealType.FullName == "System.Object"))
             return;
 
         if (Source.IsOut != target.IsOut)
