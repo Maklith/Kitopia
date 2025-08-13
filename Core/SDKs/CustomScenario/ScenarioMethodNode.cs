@@ -22,23 +22,65 @@ public enum S节点状态
     错误,
     初步验证
 }
-
-public partial class ScenarioMethodNode : ObservableRecipient
+[JsonDerivedType(typeof(ScenarioNodeBase), typeDiscriminator:"base")]
+[JsonDerivedType(typeof(ScenarioMethodNode), typeDiscriminator:"ScenarioMethodNode")]
+[JsonDerivedType(typeof(KnotNodeViewModel), typeDiscriminator:"KnotNode")]
+public partial class ScenarioNodeBase: ObservableRecipient
 {
+    [ObservableProperty] private string _title;
+    [ObservableProperty] private S节点状态 status = S节点状态.未验证;
     [property: JsonConverter(typeof(PointJsonConverter))]
     [JsonConverter(typeof(PointJsonConverter))]
     [ObservableProperty]
     private Point _location;
 
-    [ObservableProperty] private string _title;
+    public virtual bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
+        ObservableDictionary<string, CustomScenarioValue> values, ObservableDictionary<string, object> tempValues)
+    {
+        return false;
+    }
+    public virtual IEnumerable<ScenarioNodeBase> GetForwardNodes(
+        ObservableCollection<ConnectionItem> connections)
+    {
+        yield break;
+    }
+    public virtual IEnumerable<ScenarioNodeBase> GetBackwardNodes(
+        ObservableCollection<ConnectionItem> connections)
+    {
+        yield break;
+    }
+    public virtual bool InputDataIsEnough(ObservableCollection<ConnectionItem> connections)
+    {
+        return false;
+    }
+    public virtual bool IsUsed(ObservableCollection<ConnectionItem> connections)
+    {
+        return false;
+    }
+    public virtual void ResetData()
+    {
+       
+    }
+    public virtual void ConnectorInit()
+    {
+        
+    }
+}
+
+public partial class KnotNodeViewModel : ScenarioNodeBase
+{
+    [ObservableProperty] private ConnectorItem connector = new();
+}
+public partial class ScenarioMethodNode :ScenarioNodeBase
+{
     [ObservableProperty] private ObservableCollection<ConnectorItem> input = new();
     [ObservableProperty] private ObservableCollection<ConnectorItem> output = new();
-    [ObservableProperty] private S节点状态 status = S节点状态.未验证;
+    
     [JsonIgnore][property:JsonIgnore][ObservableProperty] private TimeSpan _invokeTime = TimeSpan.Zero;
     [JsonConverter(typeof(ScenarioMethodJsonCtr))]
     public ScenarioMethod ScenarioMethod { get; set; }
 
-    public bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
+    public override bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
         ObservableDictionary<string, CustomScenarioValue> values,ObservableDictionary<string, object> tempValues)
     {
         DateTime start = DateTime.Now;
@@ -239,7 +281,7 @@ public partial class ScenarioMethodNode : ObservableRecipient
         return true;
     }
 
-    public ScenarioMethodNode Copy(Dictionary<string, int> pluginUsedCount)
+    public ScenarioMethodNode Copy()
     {
         var item = new ScenarioMethodNode
         {
@@ -247,7 +289,6 @@ public partial class ScenarioMethodNode : ObservableRecipient
             ScenarioMethod = ScenarioMethod,
             Location = new Point(Location.X, Location.Y)
         };
-        if (ScenarioMethod.IsFromPlugin) pluginUsedCount.AddOrIncrease(ScenarioMethod.PluginInfo!.ToPlgString());
 
         ObservableCollection<ConnectorItem> input = new();
         foreach (var connectorItem in Input)
@@ -271,11 +312,6 @@ public partial class ScenarioMethodNode : ObservableRecipient
                 isPluginInputConnector = connectorItem.isPluginInputConnector,
                 PluginInputConnector = connectorItem.PluginInputConnector
             });
-            
-            var plugin = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.Type);
-            if (plugin is not null) pluginUsedCount.AddOrIncrease(plugin.Value.ToPlgString());
-            var plugin2 = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.RealType);
-            if (plugin2 is not null) pluginUsedCount.AddOrIncrease(plugin2.Value.ToPlgString());
         }
 
         ObservableCollection<ConnectorItem> output = new();
@@ -305,12 +341,6 @@ public partial class ScenarioMethodNode : ObservableRecipient
 
                 connectorItem1.Interfaces = interfaces;
             }
-
-            var plugin = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.Type);
-            if (plugin is not null) pluginUsedCount.AddOrIncrease(plugin.Value.ToPlgString());
-            var plugin2 = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.RealType);
-            if (plugin2 is not null) pluginUsedCount.AddOrIncrease(plugin2.Value.ToPlgString());
-
             output.Add(connectorItem1);
         }
 
@@ -318,4 +348,102 @@ public partial class ScenarioMethodNode : ObservableRecipient
         item.Output = output;
         return item;
     }
+    public override IEnumerable<ScenarioNodeBase> GetForwardNodes(
+        ObservableCollection<ConnectionItem> connections)
+    {
+        foreach (var connectorItem in Output)
+        {
+            foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections))
+            {
+                yield return sourceSource;
+            }
+        }
+    }
+    
+    public override IEnumerable<ScenarioNodeBase> GetBackwardNodes(
+        ObservableCollection<ConnectionItem> connections)
+    {
+        foreach (var connectorItem in Input)
+        {
+            foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections)){
+                yield return sourceSource;
+            }
+        }
+    }
+    public override bool InputDataIsEnough(ObservableCollection<ConnectionItem> connections)
+    {
+        foreach (var connectorItem in Input)
+        {
+            if (!connectorItem.IsConnected)
+            {
+                if (connectorItem.InputObject.Type.FullName != "PluginCore.NodeConnectorClass")
+                {
+                    //当前节点有一个输入参数不存在,验证失败
+                    if (!connectorItem.InputObject.IsSelf)
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    connectorItem.IsNotUsed = true;
+                }
+            }
+            else if (connectorItem.InputObject.Type.FullName == "PluginCore.NodeConnectorClass")
+            {
+                connectorItem.IsNotUsed = false;
+            }
+        }
+        return true;
+    }
+    
+    public override bool IsUsed(ObservableCollection<ConnectionItem> connections)
+    {
+        var isNotUsed = Input.All(connectorItem => !connectorItem.IsConnected);
+
+        if (Output.Any(connectorItem => connectorItem.IsConnected))
+            isNotUsed = false;
+        return !isNotUsed;
+    }
+    public override void ResetData()
+    {
+        foreach (var connectorItem in Output) connectorItem.InputObject.Value = null;
+
+        foreach (var connectorItem in Input)
+            if (!connectorItem.InputObject.IsSelf)
+                connectorItem.InputObject.Value = null;
+        
+        Status = S节点状态.未验证;
+    }
+
+    public override void ConnectorInit()
+    {
+        foreach (var connectorItem in Input) ConnectorInit(connectorItem);
+
+        foreach (var connectorItem in Output) ConnectorInit(connectorItem);
+    }
+
+    public void ConnectorInit(ConnectorItem connectorItem)
+    {
+        if (connectorItem.InputObject.RealType == typeof(NodeConnectorClass)) return;
+
+        if (connectorItem.InputObject is null) return;
+        if (connectorItem.isPluginInputConnector)
+        {
+            var instance = Activator.CreateInstance(connectorItem.InputObject.Type);
+            instance.GetType().GetProperty("Value").SetValue(instance, new ObservableValue()
+            {
+                Value = new CustomScenarioValue()
+                {
+                    Type = connectorItem.InputObject.Type,
+                    RealType = connectorItem.InputObject.RealType,
+                    Value = connectorItem.InputObject.Value
+                }
+            });
+            connectorItem.PluginInputConnector = instance as INodeInputConnector;
+            return;
+        }
+                
+    }
+    
 }

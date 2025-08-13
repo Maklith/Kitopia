@@ -39,7 +39,7 @@ public partial class ConnectorItem : ObservableRecipient
 
     public List<string>? Interfaces { get; set; }
 
-    public ScenarioMethodNode Source { get; set; }
+    public ScenarioNodeBase Source { get; set; }
 
     public IEnumerable<ConnectorItem> GetSourceOrNextConnectorItems(
         ObservableCollection<ConnectionItem> connectionItems)
@@ -52,7 +52,7 @@ public partial class ConnectorItem : ObservableRecipient
             .Select(e => e.Source);
     }
 
-    public IEnumerable<ScenarioMethodNode> GetSourceOrNextPointItems(
+    public IEnumerable<ScenarioNodeBase> GetSourceOrNextPointItems(
         ObservableCollection<ConnectionItem> connectionItems)
     {
         if (IsOut)

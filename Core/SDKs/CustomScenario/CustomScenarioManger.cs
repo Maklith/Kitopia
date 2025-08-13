@@ -103,42 +103,16 @@ public  class CustomScenarioManger
             var deserializeObject = JsonSerializer.Deserialize<CustomScenario>(json, ConfigManger.DefaultOptions);
 
             deserializeObject.OnDeserialized();
-
-            foreach (var node in deserializeObject.nodes)
-                if (!node.ScenarioMethod.IsFromPlugin)
-                    continue;
+            
 
             deserializeObject.HasInit = true;
             deserializeObject.IsRunning = false;
 
-            void ConnectorInit(ConnectorItem connectorItem)
-            {
-                if (connectorItem.InputObject.RealType == typeof(NodeConnectorClass)) return;
-
-                if (connectorItem.InputObject is null) return;
-                if (connectorItem.isPluginInputConnector)
-                {
-                    var instance = Activator.CreateInstance(connectorItem.InputObject.Type);
-                    instance.GetType().GetProperty("Value").SetValue(instance, new ObservableValue()
-                    {
-                        Value = new CustomScenarioValue()
-                        {
-                            Type = connectorItem.InputObject.Type,
-                            RealType = connectorItem.InputObject.RealType,
-                            Value = connectorItem.InputObject.Value
-                        }
-                    });
-                    connectorItem.PluginInputConnector = instance as INodeInputConnector;
-                    return;
-                }
-                
-            }
+            
 
             foreach (var deserializeObjectNode in deserializeObject.nodes)
             {
-                foreach (var connectorItem in deserializeObjectNode.Input) ConnectorInit(connectorItem);
-
-                foreach (var connectorItem in deserializeObjectNode.Output) ConnectorInit(connectorItem);
+                deserializeObjectNode.ConnectorInit();
             }
             deserializeObject.InitHotKey();
             CustomScenarios.Add(deserializeObject);
@@ -337,17 +311,17 @@ public  class CustomScenarioManger
         
     }
 
-    public static void UnloadByPlugStr(string plugStr)
+    public static void UnloadWhichUseThePlugin(string plugStr)
     {
-        for (var i = CustomScenarios.Count - 1; i >= 0; i--)
-            if (CustomScenarios[i]
-                .PluginUsedCount.ContainsKey(plugStr))
-            {
-                var customScenario = CustomScenarios[i];
-                CustomScenarios.RemoveAt(i);
-                Remove(customScenario, false);
-                customScenario = null;
-            }
+        // for (var i = CustomScenarios.Count - 1; i >= 0; i--)
+        //     if (CustomScenarios[i]
+        //         .PluginUsedCount.ContainsKey(plugStr))
+        //     {
+        //         var customScenario = CustomScenarios[i];
+        //         CustomScenarios.RemoveAt(i);
+        //         Remove(customScenario, false);
+        //         customScenario = null;
+        //     }
     }
 
     public static void Reload(CustomScenario scenario)

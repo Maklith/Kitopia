@@ -279,7 +279,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
     private void AddNodes(ScenarioMethodNode scenarioMethodNode)
     {
         IsModified = true;
-        var methodNode = scenarioMethodNode.Copy(Scenario.PluginUsedCount);
+        var methodNode = scenarioMethodNode.Copy();
 
         Scenario.nodes.Add(methodNode);
     }
@@ -290,13 +290,13 @@ public partial class TaskEditorViewModel : ObservableRecipient
         IsModified = true;
         if (Scenario.nodes.IndexOf(scenarioMethodNode) is 0 or 1) return;
 
-        var methodNode = scenarioMethodNode.Copy(Scenario.PluginUsedCount);
+        var methodNode = scenarioMethodNode.Copy();
         methodNode.Location = new Point(scenarioMethodNode.Location.X + 50, scenarioMethodNode.Location.Y + 50);
         Scenario.nodes.Add(methodNode);
     }
 
     [RelayCommand]
-    private void DelNode(ScenarioMethodNode scenarioMethodNode)
+    private void DelNode(ScenarioNodeBase scenarioMethodNode)
     {
         IsModified = true;
         var indexOf = Scenario.nodes.IndexOf(scenarioMethodNode);
@@ -314,26 +314,6 @@ public partial class TaskEditorViewModel : ObservableRecipient
             if (Scenario.connections.All(e => e.Target != connectionItem.Target))
                 connectionItem.Target.IsConnected = false;
         }
-
-        if (scenarioMethodNode.ScenarioMethod.IsFromPlugin)
-            Scenario.PluginUsedCount.DelOrDecrease(scenarioMethodNode.ScenarioMethod.PluginInfo!.ToPlgString());
-
-        foreach (var connectorItem in scenarioMethodNode.Input)
-        {
-            var plugin = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.Type);
-            if (plugin is not null) Scenario.PluginUsedCount.DelOrDecrease(plugin.Value.ToPlgString());
-            var plugin2 = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.RealType);
-            if (plugin2 is not null) Scenario.PluginUsedCount.DelOrDecrease(plugin2.Value.ToPlgString());
-        }
-
-        foreach (var connectorItem in scenarioMethodNode.Output)
-        {
-            var plugin = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.Type);
-            if (plugin is not null) Scenario.PluginUsedCount.DelOrDecrease(plugin.Value.ToPlgString());
-            var plugin2 = ServiceManager.Services.GetService<IPluginManger>()!.GetPluginInfo( connectorItem.InputObject.RealType);
-            if (plugin2 is not null) Scenario.PluginUsedCount.DelOrDecrease(plugin2.Value.ToPlgString());
-        }
-
         Scenario.nodes.Remove(scenarioMethodNode);
     }
 
@@ -391,25 +371,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
     {
         for (var i = Scenario.nodes.Count - 1; i >= 2; i--)
         {
-            var toRemove = true;
-
-            foreach (var connectorItem in Scenario.nodes[i].Input)
-                if (connectorItem.IsConnected)
-                {
-                    toRemove = false;
-                    break;
-                }
-
-            if (!toRemove) continue;
-
-            foreach (var connectorItem in Scenario.nodes[i].Output)
-                if (connectorItem.IsConnected)
-                {
-                    toRemove = false;
-                    break;
-                }
-
-            if (toRemove)
+            if (!Scenario.nodes[i].IsUsed(Scenario.connections))
             {
                 IsModified = true;
                 DelNode(Scenario.nodes[i]);
@@ -668,6 +630,21 @@ public partial class TaskEditorViewModel : ObservableRecipient
     }
 
     #endregion
+
+    public void SplitConnection(ConnectionItem connection, Point location)
+    {
+        var knot = new KnotNodeViewModel
+        {
+            Location = location,
+            Connector = new ConnectorItem()
+        };
+        _scenario.nodes.Add(knot);
+
+        Connect(connection.Source, knot.Connector);
+        Connect(knot.Connector, connection.Target);
+
+        _scenario.connections.Remove(connection);
+    }
 }
 
 public class CustomScenarioValueTuple

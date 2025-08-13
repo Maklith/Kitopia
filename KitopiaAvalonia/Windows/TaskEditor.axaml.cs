@@ -16,6 +16,8 @@ using Core.ViewModel.TaskEditor;
 using Core.Window;
 using KitopiaAvalonia.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using NodifyM.Avalonia.Events;
+using NodifyM.Avalonia.ViewModelBase;
 using PluginCore;
 using Ursa.Controls;
 using Vanara.PInvoke;
@@ -148,5 +150,14 @@ public partial class TaskEditor : UrsaWindow
     private void NodifyEditor_DragLeave(object sender, DragEventArgs e)
     {
         //throw new System.NotImplementedException();
+    }
+
+    public void BaseConnection_OnSplit(object sender, ConnectionEventArgs e)
+    {
+        if (e.Connection is ConnectionItem connection)
+        {
+            var vm = (TaskEditorViewModel)DataContext;
+            vm.SplitConnection(connection,e.SplitLocation);
+        }
     }
 }

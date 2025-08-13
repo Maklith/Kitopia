@@ -1469,6 +1469,7 @@
                         <DataTemplate DataType="{x:Type customScenario:ConnectionItem}">
                             <Grid>
                                 <controls2:Connection Source="{Binding Source.Anchor}" Focusable="True"
+                                                     
                                                       Target="{Binding Target.Anchor}">
                                     <controls2:Connection.ContextFlyout>
                                         <MenuFlyout>

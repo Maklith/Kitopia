@@ -8,6 +8,7 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Core.JsonConverter;
 using Core.SDKs.CustomType;
 using Core.SDKs.HotKey;
 using Core.SDKs.Services;
@@ -32,15 +33,15 @@ public partial class CustomScenario : ObservableRecipient
     private CancellationTokenSource _cancellationTokenSource = new();
 
     [JsonIgnore] [ObservableProperty] private string _description = "";
-    private Dictionary<ScenarioMethodNode, Thread?> _initTasks = new();
+    private Dictionary<ScenarioNodeBase, Thread?> _initTasks = new();
 
     [JsonIgnore] [ObservableProperty] private bool _isRunning = false;
 
     [JsonIgnore] [ObservableProperty] private DateTime _lastRun;
 
     [JsonIgnore] [ObservableProperty] private string _name = "情景";
-    public Dictionary<string, int> PluginUsedCount = new();
-    private Dictionary<ScenarioMethodNode, Thread?> _tickTasks = new();
+    
+    private Dictionary<ScenarioNodeBase, Thread?> _tickTasks = new();
     private TickUtil? _tickUtil;
 
     internal void NotifySaved()
@@ -154,7 +155,7 @@ public partial class CustomScenario : ObservableRecipient
 
     private void OnInputValueOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
     {
-        var outputs = nodes.First()
+        var outputs = ((ScenarioMethodNode)nodes.First())
             .Output;
         for (var i = outputs.Count - 1; i >= 1; i--) outputs.RemoveAt(i);
 
@@ -182,8 +183,9 @@ public partial class CustomScenario : ObservableRecipient
 
     public string UUID { get; init; } = Guid.NewGuid()
         .ToString();
-
-    public ObservableCollection<ScenarioMethodNode> nodes { get; set; } = new();
+  
+    
+    public ObservableCollection<ScenarioNodeBase> nodes { get; set; } = new();
 
     public ObservableCollection<ConnectionItem> connections { get; set; } = new();
 
@@ -246,28 +248,17 @@ public partial class CustomScenario : ObservableRecipient
         {
             foreach (var pointItem in nodes)
             {
-                foreach (var connectorItem in pointItem.Output) connectorItem.InputObject.Value = null;
-
-                foreach (var connectorItem in pointItem.Input)
-                    if (!connectorItem.InputObject.IsSelf)
-                        connectorItem.InputObject.Value = null;
+                pointItem.ResetData();
             }
 
             for (var i = 0; i < inputValues.Length; i++)
-                nodes[0]
-                    .Output[i + 1].InputObject.Value = inputValues[i];
+                ((ScenarioMethodNode)nodes[0])!
+                    .Output[i + 1].InputObject!.Value = inputValues[i];
         }
 
         for (var i = nodes.Count - 1; i >= 1; i--)
         {
-            var toRemove = nodes[i]
-                .Input.All(connectorItem => !connectorItem.IsConnected);
-
-            if (nodes[i]
-                .Output.Any(connectorItem => connectorItem.IsConnected))
-                toRemove = false;
-
-            if (toRemove) nodes[i].Status = S节点状态.未验证;
+            if (!nodes[i].IsUsed(connections)) nodes[i].Status = S节点状态.未验证;
         }
 
         try
@@ -304,9 +295,8 @@ public partial class CustomScenario : ObservableRecipient
 
                     if (_cancellationTokenSource.IsCancellationRequested) return;
 
-                    var connectionItem = connections.FirstOrDefault((e) => e.Source == nodes[1]
-                        .Output[0]);
-                    if (connectionItem == null || onExit)
+                    var connectionItem = nodes[1].GetForwardNodes(connections);
+                    if (!connectionItem.Any() || onExit)
                     {
                         //当没有tick时直接结束
                         if (notRealTime) _cancellationTokenSource.Cancel();
@@ -410,71 +400,41 @@ public partial class CustomScenario : ObservableRecipient
             Log.Debug($"情景\'{Name}\'被用户停止");
         }
     }
+    
 
-    private void MakeSourcePointState(ConnectorItem targetConnectorItem, ScenarioMethodNode scenarioMethodNode)
-    {
-        foreach (var connectionItem in connections.Where(e => e.Target == targetConnectorItem))
-            if (connectionItem.Source.Source == scenarioMethodNode)
-                connectionItem.Source.Source.Status = S节点状态.已验证;
-            else
-                connectionItem.Source.Source.Status = S节点状态.未验证;
-    }
-
-    private void ParsePointItem(Dictionary<ScenarioMethodNode, Thread?> threads,
-        ScenarioMethodNode nowScenarioMethodNode, bool onlyForward,
+    private void ParsePointItem(Dictionary<ScenarioNodeBase, Thread?> threads,
+        ScenarioNodeBase nowScenarioMethodNode, bool onlyBackward,
         bool notRealTime,
         CancellationToken cancellationToken)
     {
         Log.Debug($"解析节点:{nowScenarioMethodNode.Title}");
         var valid = true;
         List<Thread> sourceDataTask = new();
-
-        foreach (var connectorItem in nowScenarioMethodNode.Input)
+        valid = nowScenarioMethodNode.InputDataIsEnough(connections);
+        if (!valid)
         {
-            if (!connectorItem.IsConnected)
+            goto finnish;
+        }
+        foreach ( var sourceSource in nowScenarioMethodNode.GetBackwardNodes(connections))
+            lock (threads)
             {
-                if (connectorItem.InputObject.Type.FullName != "PluginCore.NodeConnectorClass")
+                if (threads.TryGetValue(sourceSource, out var task1))
                 {
-                    //当前节点有一个输入参数不存在,验证失败
-                    if (!connectorItem.InputObject.IsSelf)
-                    {
-                        valid = false;
-                        break;
-                    }
+                    if (task1 is not null) sourceDataTask.Add(task1);
                 }
                 else
                 {
-                    connectorItem.IsNotUsed = true;
+                    var task = new Thread(() =>
+                    {
+                        ParsePointItem(threads, sourceSource, true, notRealTime, cancellationToken);
+                    });
+
+                    // Log.Debug(sourceSource.Title);
+                    threads.Add(sourceSource, task);
+                    sourceDataTask.Add(task);
+                    task.Start();
                 }
             }
-            else if (connectorItem.InputObject.Type.FullName == "PluginCore.NodeConnectorClass")
-            {
-                connectorItem.IsNotUsed = false;
-            }
-
-
-            //这是连接当前节点的节点
-            foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections))
-                lock (threads)
-                {
-                    if (threads.TryGetValue(sourceSource, out var task1))
-                    {
-                        if (task1 is not null) sourceDataTask.Add(task1);
-                    }
-                    else
-                    {
-                        var task = new Thread(() =>
-                        {
-                            ParsePointItem(threads, sourceSource, true, notRealTime, cancellationToken);
-                        });
-
-                        // Log.Debug(sourceSource.Title);
-                        threads.Add(sourceSource, task);
-                        sourceDataTask.Add(task);
-                        task.Start();
-                    }
-                }
-        }
         //源数据全部生成
 
         foreach (var thread in sourceDataTask) thread.Join();
@@ -535,10 +495,9 @@ public partial class CustomScenario : ObservableRecipient
             nowScenarioMethodNode.Status = S节点状态.错误;
             Log.Debug($"解析节点失败:{nowScenarioMethodNode.Title}");
         }
-        if (!onlyForward)
-            foreach (var outputConnector in nowScenarioMethodNode.Output)
-            foreach (var nextPointItem in outputConnector.GetSourceOrNextPointItems(connections)
-                         .Where(_ => !outputConnector.IsNotUsed))
+        if (!onlyBackward)
+            foreach (var nextPointItem in nowScenarioMethodNode.GetForwardNodes(connections))
+            {
                 lock (threads)
                 {
                     if (threads.ContainsKey(nextPointItem)) return;
@@ -551,6 +510,8 @@ public partial class CustomScenario : ObservableRecipient
                     threads.Add(nextPointItem, task);
                     task.Start();
                 }
+            }
+                
 
       
     }

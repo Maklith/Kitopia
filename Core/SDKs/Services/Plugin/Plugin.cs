@@ -359,7 +359,7 @@ public class Plugin
         keyValuePairs = null;
 
 
-        CustomScenarioManger.UnloadByPlugStr(PluginInfo.ToPlgString());
+        CustomScenarioManger.UnloadWhichUseThePlugin(PluginInfo.ToPlgString());
             
         _pluginService.OnDisabled();
         _pluginService = null;
