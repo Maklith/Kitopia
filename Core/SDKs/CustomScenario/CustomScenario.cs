@@ -515,7 +515,14 @@ public partial class CustomScenario : ObservableRecipient
 
       
     }
-
+    public bool IsUseThePlugin(string plugStr)
+    {
+        var pluginManger = ServiceManager.Services.GetService<IPluginManger>()!;
+        
+        return nodes.Any(e=>e.IsUseThePlugin(plugStr))||
+               InputValue.Any(e=> pluginManger.IsTypeFromThePlugin(e.Value.Type, plugStr)||pluginManger.IsTypeFromThePlugin(e.Value.RealType, plugStr)) ||
+               Values.Any(e=> pluginManger.IsTypeFromThePlugin(e.Value.Type, plugStr)||pluginManger.IsTypeFromThePlugin(e.Value.RealType, plugStr));
+    }
 
     public void OnDeserialized() //反序列化时hotkeys的默认值会被添加,需要先清空
     {

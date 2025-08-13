@@ -65,6 +65,11 @@ public partial class ScenarioNodeBase: ObservableRecipient
     {
         
     }
+
+    public virtual bool IsUseThePlugin(string plugStr)
+    {
+        return false;
+    }
 }
 
 public partial class KnotNodeViewModel : ScenarioNodeBase
@@ -444,6 +449,13 @@ public partial class ScenarioMethodNode :ScenarioNodeBase
             return;
         }
                 
+    }
+    public override bool IsUseThePlugin(string plugStr)
+    {
+        var pluginManger = ServiceManager.Services.GetService<IPluginManger>()!;
+        return (ScenarioMethod.PluginInfo?.ToPlgString() == plugStr||
+                Input.Any(e=>pluginManger.IsTypeFromThePlugin(e.InputObject?.RealType, plugStr)||pluginManger.IsTypeFromThePlugin(e.InputObject?.Type, plugStr))||
+                Output.Any(e=>pluginManger.IsTypeFromThePlugin(e.InputObject?.RealType, plugStr)||pluginManger.IsTypeFromThePlugin(e.InputObject?.Type, plugStr)));
     }
     
 }

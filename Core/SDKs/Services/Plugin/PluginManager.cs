@@ -108,6 +108,16 @@ public class PluginManager
         }
         return firstOrDefault.Value.PluginInfo.PluginBaseInfo;
     }
+    public static bool IsTypeFromThePlugin(Type type, string pluginName)
+    {
+        
+        var firstOrDefault = PluginManager.EnablePlugins.FirstOrDefault((e) => e.Key == pluginName);
+        if (firstOrDefault.Value is null)
+        {
+            return false;
+        }
+        return firstOrDefault.Value.IsPluginAssembly(type.Assembly);
+    }
 
     public static IEnumerable<PluginLocalInfo> GetPluginLocalInfos()
     {
@@ -211,7 +221,7 @@ public class PluginManager
             {
                 while (weakReference.IsAlive)
                 {
-                    Task.Delay(1000);
+                    Thread.Sleep(1000);
                 }
 
                 pluginInfoEx.UnloadFailed = false;

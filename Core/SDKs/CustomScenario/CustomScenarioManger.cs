@@ -313,15 +313,15 @@ public  class CustomScenarioManger
 
     public static void UnloadWhichUseThePlugin(string plugStr)
     {
-        // for (var i = CustomScenarios.Count - 1; i >= 0; i--)
-        //     if (CustomScenarios[i]
-        //         .PluginUsedCount.ContainsKey(plugStr))
-        //     {
-        //         var customScenario = CustomScenarios[i];
-        //         CustomScenarios.RemoveAt(i);
-        //         Remove(customScenario, false);
-        //         customScenario = null;
-        //     }
+        
+        for (var i = CustomScenarios.Count - 1; i >= 0; i--)
+            if (CustomScenarios[i].IsUseThePlugin(plugStr))
+            {
+                var customScenario = CustomScenarios[i];
+                CustomScenarios.RemoveAt(i);
+                Remove(customScenario, false);
+                customScenario = null;
+            }
     }
 
     public static void Reload(CustomScenario scenario)

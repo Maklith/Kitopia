@@ -19,4 +19,13 @@ public class PluginMangerService : IPluginManger
         if (firstOrDefault is null) return null;
         return firstOrDefault.Value;
     }
+
+    public bool IsTypeFromThePlugin(Type type, string pluginName)
+    {
+        if (type is null) return false;
+        if (string.IsNullOrEmpty(pluginName)) return false;
+
+        // Check if the type is from the specified plugin
+       return PluginManager.IsTypeFromThePlugin(type, pluginName);
+    }
 }
