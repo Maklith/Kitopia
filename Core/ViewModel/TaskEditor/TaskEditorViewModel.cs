@@ -8,17 +8,20 @@ using Avalonia.Controls.Presenters;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel.__Internals;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Core.CustomScenario;
 using Core.SDKs;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
-using Core.SDKs.Services.Plugin;
-using Core.SDKs.Tools;
-using Core.SDKs.Tools.Ex;
-
-using Microsoft.Extensions.DependencyInjection;
+using Core.Services;
+using Core.Utils;
 using PluginCore;
+using ConnectorItem = Core.CustomScenario.ConnectorItem;
+using KnotNodeViewModel = Core.CustomScenario.KnotNodeViewModel;
+using ScenarioMethodNode = Core.CustomScenario.ScenarioMethodNode;
+using ScenarioNodeBase = Core.CustomScenario.ScenarioNodeBase;
 
 #endregion
 
@@ -26,8 +29,6 @@ namespace Core.ViewModel.TaskEditor;
 
 public partial class TaskEditorViewModel : ObservableRecipient
 {
-    
-
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCustomScenarioCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveAndQuitCustomScenarioCommand))]
@@ -47,7 +48,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         }
     }
 
-    [ObservableProperty] private CustomScenario _scenario = new() { IsActive = true };
+    [ObservableProperty] private CustomScenario.CustomScenario _scenario = new() { IsActive = true };
 
     private Window _window;
 
@@ -65,11 +66,11 @@ public partial class TaskEditorViewModel : ObservableRecipient
             {
                 ConnectorType = ConnectorType.Output,
                 Source = nodify2,
-                InputObject = new CustomScenarioValue()
+                InputObject = new CustomScenarioValue
                 {
                     Type = typeof(NodeConnectorClass)
                 },
-                
+
                 Title = "开始"
             }
         };
@@ -86,7 +87,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
             {
                 ConnectorType = ConnectorType.Output,
                 Source = nodify3,
-                InputObject = new CustomScenarioValue()
+                InputObject = new CustomScenarioValue
                 {
                     Type = typeof(NodeConnectorClass)
                 },
@@ -160,12 +161,12 @@ public partial class TaskEditorViewModel : ObservableRecipient
                             e.ScenarioMethodNode.Output.Add(new ConnectorItem
                             {
                                 Source = e.ScenarioMethodNode,
-                                InputObject = new CustomScenarioValue()
+                                InputObject = new CustomScenarioValue
                                 {
                                     Type = typeof(NodeConnectorClass)
                                 },
                                 Title = "流输出",
-                                ConnectorType = ConnectorType.Output,
+                                ConnectorType = ConnectorType.Output
                             });
                         }
                 }
@@ -188,7 +189,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                         e.ScenarioMethodNode.Input.Add(new ConnectorItem
                                         {
                                             Source = e.ScenarioMethodNode,
-                                            InputObject = new CustomScenarioValue()
+                                            InputObject = new CustomScenarioValue
                                             {
                                                 Type = value.GetType()
                                             },
@@ -199,7 +200,6 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                     {
                                         e.ScenarioMethodNode.Input[index + 2].Title = key;
                                         e.ScenarioMethodNode.Input[index + 2].InputObject.Value = value.GetType();
-                                        
                                     }
                                 }
 
@@ -313,6 +313,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
             if (Scenario.connections.All(e => e.Target != connectionItem.Target))
                 connectionItem.Target.IsConnected = false;
         }
+
         Scenario.nodes.Remove(scenarioMethodNode);
     }
 
@@ -344,7 +345,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
     private void SaveAndQuitCustomScenario(Window window)
     {
         CleanUnusedNode();
-        var dialog = new DialogContent()
+        var dialog = new DialogContent
         {
             Content = "是否确定保存并退出",
             Title = "保存并退出?",
@@ -369,13 +370,11 @@ public partial class TaskEditorViewModel : ObservableRecipient
     private void CleanUnusedNode()
     {
         for (var i = Scenario.nodes.Count - 1; i >= 2; i--)
-        {
             if (!Scenario.nodes[i].IsUsed(Scenario.connections))
             {
                 IsModified = true;
                 DelNode(Scenario.nodes[i]);
             }
-        }
     }
 
     [RelayCommand]
@@ -398,13 +397,10 @@ public partial class TaskEditorViewModel : ObservableRecipient
     }
 
 
-    public void Load(CustomScenario customScenario)
+    public void Load(CustomScenario.CustomScenario customScenario)
     {
         Scenario = customScenario;
-        foreach (var scenarioConnection in Scenario.connections)
-        {
-            scenarioConnection.Init(SplitConnection);
-        }
+        foreach (var scenarioConnection in Scenario.connections) scenarioConnection.Init(SplitConnection);
     }
 
     [RelayCommand]
@@ -420,7 +416,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         {
             e.Cancel = true;
             Scenario.Stop();
-            var dialog = new DialogContent()
+            var dialog = new DialogContent
             {
                 Content = "是否确定不保存退出",
                 Title = "不保存退出?",
@@ -456,7 +452,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         }
     }
 
-    public void Connect(ConnectorItem source, ConnectorItem target,bool toFirstVerify=true)
+    public void Connect(ConnectorItem source, ConnectorItem target, bool toFirstVerify = true)
     {
         if (source.IsConnected)
             if (Scenario.connections
@@ -485,25 +481,25 @@ public partial class TaskEditorViewModel : ObservableRecipient
         var connectionItem = new ConnectionItem(source, target);
         connectionItem.Init(SplitConnection);
         Scenario.connections.Add(connectionItem);
-        if (toFirstVerify)
-        {
-            ToFirstVerify();
-        }
-        
+        if (toFirstVerify) ToFirstVerify();
+
         //OnPropertyChanged(nameof(Connections));
     }
 
     [RelayCommand]
     public async Task ChangeIcon(Control control)
     {
-        var openFilePickerAsync = await TopLevel.GetTopLevel(control).StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions()
-        {
-            FileTypeFilter = new[] { new FilePickerFileType("图像") { Patterns = new[] { "*.png","*.jpg","*.ico" } } },
-        });
+        var openFilePickerAsync = await TopLevel.GetTopLevel(control).StorageProvider.OpenFilePickerAsync(
+            new FilePickerOpenOptions
+            {
+                FileTypeFilter = new[]
+                    { new FilePickerFileType("图像") { Patterns = new[] { "*.png", "*.jpg", "*.ico" } } }
+            });
 
         if (openFilePickerAsync.Count > 0)
         {
-            var path = $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{Scenario.UUID}.png";
+            var path =
+                $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{Scenario.UUID}.png";
             var fileStream = File.OpenWrite(path);
             var openReadAsync = await openFilePickerAsync[0].OpenReadAsync();
             await openReadAsync.CopyToAsync(fileStream);
@@ -516,14 +512,14 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
     #region 自定义关键词
 
-    [RelayCommand()]
+    [RelayCommand]
     private void DelKey(string key)
     {
         Scenario.Keys.Remove(key);
         IsModified = true;
     }
 
-    [RelayCommand()]
+    [RelayCommand]
     private void AddKey(string key)
     {
         if (Scenario.Keys.Contains(key)) return;
@@ -556,7 +552,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
 
         Scenario.Values.Add(ValueValue, new CustomScenarioValue(ValueType.Type, null));
-        OnPropertyChanged(CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs
+        OnPropertyChanged(__KnownINotifyPropertyChangedArgs
             .InputValue);
         ValueValue = null;
         IsModified = true;
@@ -571,14 +567,14 @@ public partial class TaskEditorViewModel : ObservableRecipient
     }
 
     #endregion
-    
+
     #region 临时变量
 
     [NotifyPropertyChangedFor(nameof(tempValueCanAdd))]
     [NotifyCanExecuteChangedFor(nameof(AddTempValueCommand))]
     [ObservableProperty]
     private string? _tempValueValue = string.Empty;
-    
+
     private bool tempValueCanAdd => !string.IsNullOrEmpty(_tempValueValue);
 
     [RelayCommand(CanExecute = nameof(tempValueCanAdd))]
@@ -588,7 +584,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
 
         Scenario.TempValue.Add(TempValueValue, null);
-        OnPropertyChanged(CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.TempValue);
+        OnPropertyChanged(__KnownINotifyPropertyChangedArgs.TempValue);
         TempValueValue = null;
         IsModified = true;
     }
@@ -624,7 +620,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
 
         Scenario.InputValue.Add(InputValueValue, new CustomScenarioValue(InputValueType.Type, null));
-        OnPropertyChanged(CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs
+        OnPropertyChanged(__KnownINotifyPropertyChangedArgs
             .InputValue);
         InputValueValue = null;
         IsModified = true;
@@ -646,22 +642,22 @@ public partial class TaskEditorViewModel : ObservableRecipient
         {
             Location = location
         };
-        knot.Connector = new ConnectorItem()
+        knot.Connector = new ConnectorItem
         {
             ConnectorType = ConnectorType.Both,
             Source = knot,
-            InputObject = new CustomScenarioValue()
+            InputObject = new CustomScenarioValue
             {
                 Type = typeof(object),
                 RealType = typeof(object),
                 Value = null
-            },
+            }
         };
-        
+
         _scenario.nodes.Add(knot);
 
-        Connect(connection.Source, knot.Connector,false);
-        Connect(knot.Connector, connection.Target,false);
+        Connect(connection.Source, knot.Connector, false);
+        Connect(knot.Connector, connection.Target, false);
         DelConnection(connection);
     }
 }

@@ -2,9 +2,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:KitopiaAvalonia.Controls"
 
-        xmlns:searchWindow="clr-namespace:Kitopia.Converter.SearchWindow"
-        xmlns:converter="clr-namespace:Kitopia.Converter"
-        xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore">
+        xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
+        xmlns:searchWindow="clr-namespace:KitopiaAvalonia.Converter.SearchWindow"
+        xmlns:converter="clr-namespace:KitopiaAvalonia.Converter">
 
     <Design.PreviewWith>
         <controls:SearchItemShow />

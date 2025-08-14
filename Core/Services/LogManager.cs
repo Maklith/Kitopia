@@ -2,19 +2,21 @@
 using Serilog.Core;
 using Serilog.Events;
 
-namespace Core.SDKs.Services;
+namespace Core.Services;
 
 public static class LogManager
 {
-    public static readonly Logger Logger =new LoggerConfiguration()
+    public static readonly Logger Logger = new LoggerConfiguration()
         .WriteTo.File($"{AppDomain.CurrentDomain.BaseDirectory}logs{Path.DirectorySeparatorChar}info.txt",
-            rollingInterval: RollingInterval.Day,restrictedToMinimumLevel: LogEventLevel.Information,
-            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}][{SourceContext}] {Message:lj}{NewLine}{Exception}")
-        .WriteTo.File($"{AppDomain.CurrentDomain.BaseDirectory}logs{Path.DirectorySeparatorChar}debug.txt", 
-            rollingInterval: RollingInterval.Day,restrictedToMinimumLevel: LogEventLevel.Debug ,
-            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}][{SourceContext}] {Message:lj}{NewLine}{Exception}")
-
-        .WriteTo.Console(outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}][{SourceContext}] {Message:lj}{NewLine}{Exception}")
+            rollingInterval: RollingInterval.Day, restrictedToMinimumLevel: LogEventLevel.Information,
+            outputTemplate:
+            "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}][{SourceContext}] {Message:lj}{NewLine}{Exception}")
+        .WriteTo.File($"{AppDomain.CurrentDomain.BaseDirectory}logs{Path.DirectorySeparatorChar}debug.txt",
+            rollingInterval: RollingInterval.Day, restrictedToMinimumLevel: LogEventLevel.Debug,
+            outputTemplate:
+            "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}][{SourceContext}] {Message:lj}{NewLine}{Exception}")
+        .WriteTo.Console(
+            outputTemplate:
+            "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}][{SourceContext}] {Message:lj}{NewLine}{Exception}")
         .CreateLogger();
-    
 }

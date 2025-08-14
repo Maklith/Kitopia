@@ -1,13 +1,12 @@
 ﻿using System;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.VisualTree;
+using Core.Utils;
 using KitopiaAvalonia.SDKs;
-using KitopiaAvalonia.Tools;
 using KitopiaAvalonia.Windows;
 
 namespace KitopiaAvalonia.Controls.Capture;
@@ -59,7 +58,7 @@ public class TextCaptureTool : CaptureToolBase
             {
                 if (result.Type != 截图工具.文本)
                 {
-                    this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo()
+                    this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
                     {
                         EditType = ScreenCaptureEditType.调整大小,
                         Target = this,
@@ -73,7 +72,7 @@ public class TextCaptureTool : CaptureToolBase
             }
             else
             {
-                this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo()
+                this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
                 {
                     EditType = ScreenCaptureEditType.调整大小,
                     Target = this,

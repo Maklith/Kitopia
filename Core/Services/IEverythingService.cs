@@ -1,6 +1,4 @@
-﻿using PluginCore;
-
-namespace Core.SDKs.Services;
+﻿namespace Core.Services;
 
 public interface IEverythingService
 {

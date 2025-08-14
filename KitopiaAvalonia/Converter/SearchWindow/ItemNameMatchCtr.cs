@@ -7,7 +7,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Media;
 using PluginCore;
 
-namespace Kitopia.Converter.SearchWindow;
+namespace KitopiaAvalonia.Converter.SearchWindow;
 
 public class ItemNameMatchCtr : IValueConverter
 {
@@ -20,7 +20,7 @@ public class ItemNameMatchCtr : IValueConverter
         InlineCollection list = new();
         if (str.PinyinItem == null || str.PinyinItem.CharMatchResults == null || str.PinyinItem.SplitWords == null ||
             str.PinyinItem.CharMatchResults.Length == 0 ||
-            str.PinyinItem.CharMatchResults.Length  != str.PinyinItem.SplitWords.Length
+            str.PinyinItem.CharMatchResults.Length != str.PinyinItem.SplitWords.Length
            )
         {
             list.Add(new Run(str.ItemDisplayName));

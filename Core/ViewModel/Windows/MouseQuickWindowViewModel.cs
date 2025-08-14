@@ -2,12 +2,12 @@
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
+using Core.Services;
+using Core.Services.Config;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
-namespace Core.ViewModel;
+namespace Core.ViewModel.Windows;
 
 public struct SelectedItem
 {
@@ -29,10 +29,9 @@ public partial class MouseQuickWindowViewModel : ObservableRecipient
                     configMouseQuickItem, out var item))
                 Items.Add(item);
 
-        if (Items.Count() < 9)
+        if (Enumerable.Count<SearchViewItem>(Items) < 9)
             //for (var i = 0; i < 12; i++)
-        {
-            Items.Add(new SearchViewItem()
+            Items.Add(new SearchViewItem
             {
                 ItemDisplayName = "添加",
                 FileType = FileType.None,
@@ -41,7 +40,6 @@ public partial class MouseQuickWindowViewModel : ObservableRecipient
                 Icon = null,
                 IsVisible = true
             });
-        }
     }
 
     [RelayCommand]

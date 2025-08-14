@@ -16,7 +16,9 @@
                         <screenCaptureWindow:SizeToIntegerStringConverter x:Key="SizeToIntegerStringConverter" />
                     </Panel.Resources>
                     <ContentPresenter Name="Presenter" Content="{TemplateBinding Content}" />
-                    <TextBlock Text="{Binding #Presenter.Bounds.Size,Converter={StaticResource SizeToIntegerStringConverter}}" IsVisible="{TemplateBinding IsSelected}" />
+                    <TextBlock
+                        Text="{Binding #Presenter.Bounds.Size,Converter={StaticResource SizeToIntegerStringConverter}}"
+                        IsVisible="{TemplateBinding IsSelected}" />
                     <Border BorderThickness="2" Name="ResizeSizeBoxBorder" IsVisible="{TemplateBinding IsSelected}"
                             Width="{Binding #Presenter.Bounds.Width}" Height="{Binding #Presenter.Bounds.Height}">
                         <Border.BorderBrush>

@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Linq;
-using Core.SDKs.CustomScenario;
-using Core.SDKs.Services.Plugin;
+using Core.Services.Plugin;
 using PluginCore;
 
 namespace KitopiaAvalonia.Services;
@@ -26,6 +24,6 @@ public class PluginMangerService : IPluginManger
         if (string.IsNullOrEmpty(pluginName)) return false;
 
         // Check if the type is from the specified plugin
-       return PluginManager.IsTypeFromThePlugin(type, pluginName);
+        return PluginManager.IsTypeFromThePlugin(type, pluginName);
     }
 }

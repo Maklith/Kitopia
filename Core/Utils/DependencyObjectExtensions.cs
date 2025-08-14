@@ -1,9 +1,8 @@
-﻿using System.Collections.Generic;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 
-namespace KitopiaAvalonia.Tools;
+namespace Core.Utils;
 
 public static class DependencyObjectExtensions
 {

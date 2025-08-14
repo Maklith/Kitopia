@@ -4,7 +4,7 @@ using Avalonia.Data.Converters;
 using PluginCore;
 using Vanara.Windows.Shell;
 
-namespace Kitopia.Converter;
+namespace KitopiaAvalonia.Converter;
 
 public class MouseQuickItemCanRemoveCtr : IValueConverter
 {

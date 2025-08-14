@@ -1,4 +1,4 @@
-﻿namespace KitopiaAvalonia.Windows;
+﻿namespace KitopiaAvalonia.SDKs;
 
 public enum 截图工具
 {

@@ -2,7 +2,7 @@
 using System.Text.Json.Serialization;
 using PluginCore.Attribute;
 
-namespace Core.SDKs.Services.Config;
+namespace Core.Infrastructure.JsonConverter;
 
 public class ScenarioMethodAttributeJsonCtr : JsonConverter<ScenarioMethodAttribute>
 {

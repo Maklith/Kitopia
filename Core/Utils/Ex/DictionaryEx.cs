@@ -1,4 +1,4 @@
-﻿namespace Core.SDKs.Tools.Ex;
+﻿namespace Core.Utils.Ex;
 
 public static class DictionaryEx
 {

@@ -1,12 +1,11 @@
 ﻿#region
 
-using System.Threading.Tasks;
-using System.Windows.Threading;
 using Windows.Data.Xml.Dom;
 using Windows.UI.Notifications;
-using Core.SDKs.Services;
+using Core.Services;
 using PluginCore;
 using Serilog;
+using WinRT;
 
 #endregion
 
@@ -14,12 +13,12 @@ namespace KitopiaAvalonia.Services;
 
 public class ToastService : IToastService
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<ToastService>();
+    private static ILogger Log = LogManager.Logger.ForContext<ToastService>();
     private ToastNotifier _toastNotifier;
 
     public void Init()
     {
-        WinRT.ComWrappersSupport.InitializeComWrappers();
+        ComWrappersSupport.InitializeComWrappers();
         var toastNotificationManagerForUser = ToastNotificationManager.GetDefault();
         _toastNotifier = toastNotificationManagerForUser.CreateToastNotifier("Kitopia");
     }

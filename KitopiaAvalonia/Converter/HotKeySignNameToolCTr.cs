@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Data.Converters;
 
-namespace Kitopia.Converter;
+namespace KitopiaAvalonia.Converter;
 
 public class HotKeySignNameToolCTr : IMultiValueConverter
 {

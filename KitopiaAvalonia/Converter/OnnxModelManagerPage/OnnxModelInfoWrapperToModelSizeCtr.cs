@@ -2,8 +2,6 @@
 using System.Globalization;
 using System.IO;
 using Avalonia.Data.Converters;
-using Core.SDKs.Services.Plugin;
-using PluginCore.Onnx;
 
 namespace KitopiaAvalonia.Converter.OnnxModelManagerPage;
 
@@ -16,18 +14,12 @@ public class OnnxModelInfoWrapperToModelSizeCtr : IValueConverter
             var fileInfo = new FileInfo(modelPath);
             if (fileInfo.Exists)
             {
-                if (fileInfo.Length>1024*1024 * 1024)  
-                {
+                if (fileInfo.Length > 1024 * 1024 * 1024)
                     return $"{Math.Round((double)fileInfo.Length / (1024 * 1024 * 1024), 2)}GB";
-                }else if (fileInfo.Length > 1024 * 1024)
-                {
+                else if (fileInfo.Length > 1024 * 1024)
                     return $"{Math.Round((double)fileInfo.Length / (1024 * 1024), 2)}MB";
-                }
                 else
-                {
                     return $"{Math.Round((double)fileInfo.Length / 1024, 2)}KB";
-                }
-                
             }
         }
 

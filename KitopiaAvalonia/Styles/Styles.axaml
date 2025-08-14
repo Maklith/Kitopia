@@ -29,5 +29,5 @@
     <Style Selector=":is(ListBox).draggableVirtualizing > :is(ListBoxItem):pressed">
         <Setter Property="ZIndex" Value="1" />
     </Style>
-    
+
 </Styles>

@@ -1,8 +1,7 @@
-﻿using Core.SDKs.Services;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
-namespace Core.SDKs.HotKey;
+namespace Core.Services.HotKey;
 
 public class HotKeyManager
 {

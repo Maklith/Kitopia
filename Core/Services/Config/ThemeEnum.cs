@@ -1,4 +1,4 @@
-﻿namespace Core.SDKs.Services.Config;
+﻿namespace Core.Services.Config;
 
 public enum ThemeEnum
 {

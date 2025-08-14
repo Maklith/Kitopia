@@ -1,5 +1,5 @@
 ﻿using Avalonia.Threading;
-using Core.SDKs.Services;
+using Core.Services;
 using KitopiaAvalonia.Windows;
 
 namespace KitopiaAvalonia.Services;

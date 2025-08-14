@@ -4,11 +4,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using Vanara.Windows.Shell;
 
 #endregion
 
-namespace Kitopia.Converter.TaskEditor;
+namespace KitopiaAvalonia.Converter.TaskEditor;
 
 public class IfNullVisibilityHidden : IValueConverter
 

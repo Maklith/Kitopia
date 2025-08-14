@@ -5,15 +5,15 @@ using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Markup.Xaml.MarkupExtensions;
-using Core.SDKs.CustomScenario;
-using Core.SDKs.Services;
+using Core.CustomScenario;
+using Core.Services;
 using Core.ViewModel.TaskEditor;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
 #endregion
 
-namespace Kitopia.Converter.SearchWindow;
+namespace KitopiaAvalonia.Converter.SearchWindow;
 
 public partial class PathToImageConverter : IValueConverter
 {
@@ -35,7 +35,7 @@ public partial class PathToImageConverter : IValueConverter
             switch (searchViewItem.FileType)
             {
                 case FileType.命令:
-                
+
                 case FileType.便签:
                 case FileType.数学运算:
                 case FileType.剪贴板图像:
@@ -88,6 +88,7 @@ public partial class PathToImageConverter : IValueConverter
                 return null;
             }
         }
+
         if (dataContext is CustomScenario customScenario1)
         {
             if (customScenario1 is { Icon: null })

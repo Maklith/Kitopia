@@ -8,27 +8,25 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.JsonConverter;
-using Core.SDKs.CustomType;
-using Core.SDKs.HotKey;
-using Core.SDKs.Services;
-using Core.SDKs.Tools;
-
+using Core.Services;
+using Core.Services.HotKey;
+using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
-using OpenCvSharp.Flann;
 using PluginCore;
 using Serilog;
 
 #endregion
 
-namespace Core.SDKs.CustomScenario;
+namespace Core.CustomScenario;
 
 public partial class CustomScenario : ObservableRecipient
 {
-    
-    public event EventHandler Saved ;
-    private static ILogger Log =   LogManager.Logger.ForContext<CustomScenario>();
-    [property:JsonIgnore][JsonIgnore][ObservableProperty] private Bitmap? _icon;
+    public event EventHandler Saved;
+    private static ILogger Log = LogManager.Logger.ForContext<CustomScenario>();
+
+    [property: JsonIgnore] [JsonIgnore] [ObservableProperty]
+    private Bitmap? _icon;
+
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> _autoTriggers = new();
     private CancellationTokenSource _cancellationTokenSource = new();
 
@@ -40,7 +38,7 @@ public partial class CustomScenario : ObservableRecipient
     [JsonIgnore] [ObservableProperty] private DateTime _lastRun;
 
     [JsonIgnore] [ObservableProperty] private string _name = "情景";
-    
+
     private Dictionary<ScenarioNodeBase, Thread?> _tickTasks = new();
     private TickUtil? _tickUtil;
 
@@ -48,6 +46,7 @@ public partial class CustomScenario : ObservableRecipient
     {
         Saved?.Invoke(this, EventArgs.Empty);
     }
+
     /// <summary>
     ///     手动执行
     /// </summary>
@@ -91,9 +90,9 @@ public partial class CustomScenario : ObservableRecipient
         };
         InitHotKey();
 
-        WeakReferenceMessenger.Default.Register<string,string>(this,"hotkey", (recipient, message) =>
+        WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey", (recipient, message) =>
         {
-            if (stopHotKey.UUID==message)
+            if (stopHotKey.UUID == message)
             {
                 stopHotKey = HotKeyManager.HotKetImpl.GetByUuid(message).Value;
                 CustomScenarioManger.Save(this);
@@ -112,23 +111,18 @@ public partial class CustomScenario : ObservableRecipient
     private void InitHotKeyUiCommand(HotKeyModel? hotKeyModel)
     {
         if (hotKeyModel == null) return;
-        if (hotKeyModel.Value.UUID==RunHotKey.UUID)
-        {
+        if (hotKeyModel.Value.UUID == RunHotKey.UUID)
             HotKeyManager.HotKetImpl.Add(hotKeyModel.Value, e => Run(), false);
-        }
 
         if (hotKeyModel.Value.UUID == StopHotKey.UUID)
-        {
             HotKeyManager.HotKetImpl.Add(hotKeyModel.Value, e => Stop(), false);
-        }
-
-
     }
+
     public void InitHotKey()
     {
         if (RunHotKey.IsEnabled)
             if (!HotKeyManager.HotKetImpl.Add(RunHotKey, e => Run()))
-                ServiceManager.Services.GetService<IContentDialog>()!.ShowDialogAsync(null, new DialogContent()
+                ServiceManager.Services.GetService<IContentDialog>()!.ShowDialogAsync(null, new DialogContent
                 {
                     Title = $"快捷键{RunHotKey.SignName}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
@@ -137,13 +131,12 @@ public partial class CustomScenario : ObservableRecipient
 
         if (StopHotKey.IsEnabled)
             if (!HotKeyManager.HotKetImpl.Add(StopHotKey, e => Stop()))
-                ServiceManager.Services.GetService<IContentDialog>().ShowDialogAsync(null, new DialogContent()
+                ServiceManager.Services.GetService<IContentDialog>().ShowDialogAsync(null, new DialogContent
                 {
                     Title = $"快捷键{StopHotKey.SignName}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
                     CloseButtonText = "关闭"
                 });
-        
     }
 
     public void UnRegisterHotKey()
@@ -165,7 +158,7 @@ public partial class CustomScenario : ObservableRecipient
                 {
                     ConnectorType = ConnectorType.Output,
                     Source = nodes.First(),
-                    InputObject = new CustomScenarioValue() { Type = value.GetType() },
+                    InputObject = new CustomScenarioValue { Type = value.GetType() },
                     Title = key
                 });
     }
@@ -176,15 +169,15 @@ public partial class CustomScenario : ObservableRecipient
         {
             if (s.PropertyName == nameof(IsRunning)) return;
 
-            WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg()
+            WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
                 { Type = 1, Name = nameof(e), CustomScenario = this });
         };
     }
 
     public string UUID { get; init; } = Guid.NewGuid()
         .ToString();
-  
-    
+
+
     public ObservableCollection<ScenarioNodeBase> nodes { get; set; } = new();
 
     public ObservableCollection<ConnectionItem> connections { get; set; } = new();
@@ -198,9 +191,8 @@ public partial class CustomScenario : ObservableRecipient
         }
         catch (Exception e)
         {
-          
         }
-        
+
         _tickTasks = null;
         _initTasks = null;
         nodes.Clear();
@@ -246,10 +238,7 @@ public partial class CustomScenario : ObservableRecipient
         _tickTasks.Clear();
         if (notRealTime)
         {
-            foreach (var pointItem in nodes)
-            {
-                pointItem.ResetData();
-            }
+            foreach (var pointItem in nodes) pointItem.ResetData();
 
             for (var i = 0; i < inputValues.Length; i++)
                 ((ScenarioMethodNode)nodes[0])!
@@ -257,9 +246,8 @@ public partial class CustomScenario : ObservableRecipient
         }
 
         for (var i = nodes.Count - 1; i >= 1; i--)
-        {
-            if (!nodes[i].IsUsed(connections)) nodes[i].Status = S节点状态.未验证;
-        }
+            if (!nodes[i].IsUsed(connections))
+                nodes[i].Status = S节点状态.未验证;
 
         try
         {
@@ -377,13 +365,14 @@ public partial class CustomScenario : ObservableRecipient
         {
             Console.WriteLine(e);
         }
+
         if (!inTickError)
         {
             foreach (var task in _initTasks) task.Value?.Join();
 
             foreach (var task in _tickTasks) task.Value?.Join();
         }
-      
+
 
         _initTasks.Clear();
         _tickTasks.Clear();
@@ -396,11 +385,12 @@ public partial class CustomScenario : ObservableRecipient
         }
         else
         {
-            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景", $"情景\'{Name}\'被用户停止");
+            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!)
+                .Show("情景", $"情景\'{Name}\'被用户停止");
             Log.Debug($"情景\'{Name}\'被用户停止");
         }
     }
-    
+
 
     private void ParsePointItem(Dictionary<ScenarioNodeBase, Thread?> threads,
         ScenarioNodeBase nowScenarioMethodNode, bool onlyBackward,
@@ -411,11 +401,8 @@ public partial class CustomScenario : ObservableRecipient
         var valid = true;
         List<Thread> sourceDataTask = new();
         valid = nowScenarioMethodNode.InputDataIsEnough(connections);
-        if (!valid)
-        {
-            goto finnish;
-        }
-        foreach ( var sourceSource in nowScenarioMethodNode.GetBackwardNodes(connections))
+        if (!valid) goto finnish;
+        foreach (var sourceSource in nowScenarioMethodNode.GetBackwardNodes(connections))
             lock (threads)
             {
                 if (threads.TryGetValue(sourceSource, out var task1))
@@ -455,7 +442,7 @@ public partial class CustomScenario : ObservableRecipient
             try
             {
                 Log.Debug($"执行节点:{nowScenarioMethodNode.Title}");
-                bool invoke = nowScenarioMethodNode.Invoke(cancellationToken, connections, Values,TempValue);
+                var invoke = nowScenarioMethodNode.Invoke(cancellationToken, connections, Values, TempValue);
                 if (!invoke)
                 {
                     //如果执行失败
@@ -466,12 +453,11 @@ public partial class CustomScenario : ObservableRecipient
                 else
                 {
                     Log.Debug($"执行节点完成:{nowScenarioMethodNode.Title}");
-
                 }
             }
             catch (Exception e)
             {
-                Log.Error(e,"错误");
+                Log.Error(e, "错误");
                 ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
                     e.InnerException is not null
                         ? $"情景{Name}出现错误\n{e.InnerException?.Message}"
@@ -495,9 +481,9 @@ public partial class CustomScenario : ObservableRecipient
             nowScenarioMethodNode.Status = S节点状态.错误;
             Log.Debug($"解析节点失败:{nowScenarioMethodNode.Title}");
         }
+
         if (!onlyBackward)
             foreach (var nextPointItem in nowScenarioMethodNode.GetForwardNodes(connections))
-            {
                 lock (threads)
                 {
                     if (threads.ContainsKey(nextPointItem)) return;
@@ -510,18 +496,19 @@ public partial class CustomScenario : ObservableRecipient
                     threads.Add(nextPointItem, task);
                     task.Start();
                 }
-            }
-                
-
-      
     }
+
     public bool IsUseThePlugin(string plugStr)
     {
         var pluginManger = ServiceManager.Services.GetService<IPluginManger>()!;
-        
-        return nodes.Any(e=>e.IsUseThePlugin(plugStr))||
-               InputValue.Any(e=> pluginManger.IsTypeFromThePlugin(e.Value.Type, plugStr)||pluginManger.IsTypeFromThePlugin(e.Value.RealType, plugStr)) ||
-               Values.Any(e=> pluginManger.IsTypeFromThePlugin(e.Value.Type, plugStr)||pluginManger.IsTypeFromThePlugin(e.Value.RealType, plugStr));
+
+        return nodes.Any(e => e.IsUseThePlugin(plugStr)) ||
+               Enumerable.Any<KeyValuePair<string, CustomScenarioValue>>(InputValue, e =>
+                   pluginManger.IsTypeFromThePlugin(e.Value.Type, plugStr) ||
+                   pluginManger.IsTypeFromThePlugin(e.Value.RealType, plugStr)) ||
+               Enumerable.Any<KeyValuePair<string, CustomScenarioValue>>(Values, e =>
+                   pluginManger.IsTypeFromThePlugin(e.Value.Type, plugStr) ||
+                   pluginManger.IsTypeFromThePlugin(e.Value.RealType, plugStr));
     }
 
     public void OnDeserialized() //反序列化时hotkeys的默认值会被添加,需要先清空

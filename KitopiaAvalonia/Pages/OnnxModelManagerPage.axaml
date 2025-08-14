@@ -2,22 +2,20 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:plugin="clr-namespace:Core.ViewModel.Pages.plugin;assembly=Core"
-            
-             xmlns:plugin1="clr-namespace:Core.SDKs.Services.Plugin;assembly=Core"
+
              xmlns:pages="clr-namespace:Core.ViewModel.Pages;assembly=Core"
-             xmlns:sdKs="clr-namespace:Core.SDKs;assembly=PluginCore"
              xmlns:onnx="clr-namespace:PluginCore.Onnx;assembly=PluginCore"
              xmlns:onnxModelManagerPage="clr-namespace:KitopiaAvalonia.Converter.OnnxModelManagerPage"
              xmlns:system="clr-namespace:System;assembly=System.Runtime"
              xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
+             xmlns:plugin11="clr-namespace:Core.Services.Plugin;assembly=Core"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="pages:OnnxModelManagerPageViewModel"
              x:Class="KitopiaAvalonia.Pages.OnnxModelManagerPage">
 
     <UserControl.Resources>
 
-      
+
         <onnxModelManagerPage:ModelInfoToRuntimeChangerCtr x:Key="ModelInfoToRuntimeChangerCtr" />
         <onnxModelManagerPage:OnnxModelInfoWrapperToHelper x:Key="OnnxModelInfoWrapperToHelper" />
         <onnxModelManagerPage:OnnxModelInfoWrapperToModelSizeCtr x:Key="OnnxModelInfoWrapperToModelSizeCtr" />
@@ -28,7 +26,7 @@
             <TextBlock Margin="0" FontSize="18" FontWeight="Bold" Text="推理环境" />
             <ScrollViewer Grid.Row="1" PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Disabled">
-                <ItemsControl ItemsSource="{Binding Source={x:Static plugin1:PluginOverall.AllTargetDevices} }">
+                <ItemsControl ItemsSource="{Binding Source={x:Static plugin11:PluginOverall.AllTargetDevices} }">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="system:String">
                             <Button Margin="0,0,5,0" ClickMode="Press" VerticalAlignment="Center" Content="{Binding  }"
@@ -44,7 +42,7 @@
                 </ItemsControl>
             </ScrollViewer>
             <TextBlock Grid.Row="2" Margin="0" FontSize="18" FontWeight="Bold" Text="模型列表" />
-            <DataGrid Grid.Row="3" ItemsSource="{Binding Source={x:Static plugin1:PluginOverall.AllOnnxModelInfos}}"
+            <DataGrid Grid.Row="3" ItemsSource="{Binding Source={x:Static plugin11:PluginOverall.AllOnnxModelInfos}}"
                       CanUserReorderColumns="True"
                       CanUserResizeColumns="True"
                       CanUserSortColumns="True"
@@ -56,19 +54,17 @@
                 </DataGrid.Resources>
                 <DataGrid.Columns>
                     <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper" Binding="{Binding Model.Name}"
-                                        Header="模型名称">
-                    </DataGridTextColumn>
+                                        Header="模型名称" />
                     <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper" Binding="{Binding Model.Description}"
-                                        Header="模型描述">
-                    </DataGridTextColumn>
+                                        Header="模型描述" />
                     <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper"
                                         Binding="{Binding PluginStr,Converter={StaticResource PluginStrToPluginName},Mode=OneWay}"
-                                        Header="模型来源">
-                    </DataGridTextColumn>
+                                        Header="模型来源" />
                     <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="推理环境">
                         <DataTemplate x:DataType="onnx:OnnxModelInfoWrapper">
 
-                            <Border Theme="{DynamicResource RadioButtonGroupBorder}" IsEnabled="{Binding !Model.NeedDownload}">
+                            <Border Theme="{DynamicResource RadioButtonGroupBorder}"
+                                    IsEnabled="{Binding !Model.NeedDownload}">
                                 <ItemsControl
                                     ItemsSource="{Binding  Converter={StaticResource OnnxModelInfoWrapperToHelper} }">
                                     <ItemsControl.ItemTemplate>
@@ -102,25 +98,24 @@
 
                         </DataTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="模型大小"  
-                                            CanUserReorder="True" CanUserSort="True" 
+                    <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="模型大小"
+                                            CanUserReorder="True" CanUserSort="True"
                                             CustomSortComparer="{x:Static onnxModelManagerPage:DataGridModelSizeComparer.Default }">
                         <DataTemplate x:DataType="onnx:OnnxModelInfoWrapper">
-                           <Label HorizontalAlignment="Center" VerticalAlignment="Center" Content="{Binding Model.ModelPath, Converter={StaticResource OnnxModelInfoWrapperToModelSizeCtr} }"></Label>
+                            <Label HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Content="{Binding Model.ModelPath, Converter={StaticResource OnnxModelInfoWrapperToModelSizeCtr} }" />
                         </DataTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="下载模型">
                         <DataTemplate x:DataType="onnx:OnnxModelInfoWrapper">
                             <controls:DownloadButton DataContext="{Binding Model}"
-                                NeedDownload="{Binding NeedDownload}"
-                                                        CanDownload="{Binding CanDownload}"
-                                                        IsDownloading="{Binding IsDownloading}"
-                                                        IsIndeterminate="{Binding IsIndeterminate}"
-                                                        Progress="{Binding Progress}"
-                                                        DownloadCommand="{Binding DownloadCommand}"
-                                                        CancelCommand="{Binding CancelCommand}"
-                                                        
-                                                     />
+                                                     NeedDownload="{Binding NeedDownload}"
+                                                     CanDownload="{Binding CanDownload}"
+                                                     IsDownloading="{Binding IsDownloading}"
+                                                     IsIndeterminate="{Binding IsIndeterminate}"
+                                                     Progress="{Binding Progress}"
+                                                     DownloadCommand="{Binding DownloadCommand}"
+                                                     CancelCommand="{Binding CancelCommand}" />
                         </DataTemplate>
                     </DataGridTemplateColumn>
                 </DataGrid.Columns>

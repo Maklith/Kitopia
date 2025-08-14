@@ -7,7 +7,7 @@ using Avalonia.Data.Converters;
 
 #endregion
 
-namespace Kitopia.Converter;
+namespace KitopiaAvalonia.Converter;
 
 public class DoubleHalfConverter : IMultiValueConverter
 {

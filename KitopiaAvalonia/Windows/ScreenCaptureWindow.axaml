@@ -6,8 +6,8 @@
         xmlns:controls1="clr-namespace:KitopiaAvalonia.Controls"
         xmlns:capture="clr-namespace:KitopiaAvalonia.Controls.Capture"
         xmlns:u="https://irihi.tech/ursa"
-        xmlns:plugin="clr-namespace:Core.SDKs.Services.Plugin;assembly=Core"
-        xmlns:sdKs="clr-namespace:Core.SDKs;assembly=Core"
+        xmlns:plugin1="clr-namespace:Core.Services.Plugin;assembly=Core"
+        xmlns:utils="clr-namespace:Core.Utils;assembly=Core"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="KitopiaAvalonia.Windows.ScreenCaptureWindow"
         Title="ScreenCaptureWindow">
@@ -111,21 +111,25 @@
                                             Height="24"
                                             FontFamily="{StaticResource FluentFont}" Glyph="&#xf8e6;" FontSize="24" />
                     </Button>
-                    <ItemsControl ItemsSource="{Binding Source={x:Static plugin:PluginOverall.AllScreenCaptureExMethods}}">
+                    <ItemsControl
+                        ItemsSource="{Binding Source={x:Static plugin1:PluginOverall.AllScreenCaptureExMethods}}">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="sdKs:ScreenCaptureExMethod">
+                            <DataTemplate DataType="utils:ScreenCaptureExMethod">
                                 <Button BorderThickness="1" ToolTip.Tip="{Binding Description}" Width="32" Height="32"
                                         Padding="1,3,0,0"
                                         Click="ExButton_OnClick">
-                                    <controls1:FontIcon VerticalAlignment="Center" HorizontalAlignment="Center" Width="24"
+                                    <controls1:FontIcon VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                        Width="24"
                                                         Height="24"
-                                                        FontFamily="{StaticResource FluentFont}" Glyph="{Binding  Symbol,Converter={StaticResource IntToIconSymbol}}" FontSize="24" />
+                                                        FontFamily="{StaticResource FluentFont}"
+                                                        Glyph="{Binding  Symbol,Converter={StaticResource IntToIconSymbol}}"
+                                                        FontSize="24" />
                                 </Button>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal"></StackPanel>
+                                <StackPanel Orientation="Horizontal" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
@@ -176,7 +180,6 @@
 
         </Border>
 
-        
 
     </Canvas>
 </Window>

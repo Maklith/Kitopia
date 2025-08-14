@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Media;
 using Avalonia.Threading;
 using Core.SDKs.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,34 +35,29 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
         }
     }
 
-    public void RequestUserSelectScreenBytes(Action<ScreenCaptureResult> action,Action cancle)
+    public void RequestUserSelectScreenBytes(Action<ScreenCaptureResult> action, Action cancle)
     {
         Dispatcher.UIThread.Invoke(() =>
         {
             var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBytes();
-            int count = results.Count;
-            int cancelCount = 0;
-            Lock @lock = new Lock();
+            var count = results.Count;
+            var cancelCount = 0;
+            var @lock = new Lock();
             while (results.TryPop(out var result))
             {
                 var window = new Windows.ScreenCaptureWindow(result);
                 result.Source.Dispose();
-                window.SetToSelectBytesMode(action.Invoke, (() =>
+                window.SetToSelectBytesMode(action.Invoke, () =>
                 {
                     lock (@lock)
                     {
                         cancelCount++;
-                        if (count == cancelCount)
-                        {
-                            cancle.Invoke();
-                        }
+                        if (count == cancelCount) cancle.Invoke();
                     }
-
-                }));
+                });
                 window.Show();
             }
         });
-
     }
 
     public async Task<ScreenCaptureInfo> GetScreenCaptureInfo()

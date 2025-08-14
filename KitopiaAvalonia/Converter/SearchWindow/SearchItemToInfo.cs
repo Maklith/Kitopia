@@ -9,7 +9,7 @@ using PluginCore;
 
 #endregion
 
-namespace Kitopia.Converter.SearchWindow;
+namespace KitopiaAvalonia.Converter.SearchWindow;
 
 public class SearchItemToInfo : IValueConverter
 {

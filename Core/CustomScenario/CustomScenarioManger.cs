@@ -1,27 +1,24 @@
 ﻿using System.Collections.ObjectModel;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Text.Unicode;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.SDKs.HotKey;
-using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
-using Core.SDKs.Services.Plugin;
-using Core.ViewModel;
+using Core.SDKs.CustomScenario;
+using Core.Services;
+using Core.Services.Config;
+using Core.Services.HotKey;
+using Core.Services.Plugin;
+using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
-using Pinyin.NET;
 using PluginCore;
 using Serilog;
 
-namespace Core.SDKs.CustomScenario;
+namespace Core.CustomScenario;
 
-public  class CustomScenarioManger
+public class CustomScenarioManger
 {
     public static ObservableCollection<CustomScenario> CustomScenarios = new();
-    private static ILogger Log =   LogManager.Logger.ForContext<CustomScenarioManger>();
-    
+    private static ILogger Log = LogManager.Logger.ForContext<CustomScenarioManger>();
+
 
     public static void Init()
     {
@@ -30,7 +27,7 @@ public  class CustomScenarioManger
             //设置当前线程最高优先级
             Thread.CurrentThread.Priority = ThreadPriority.Highest;
             StringBuilder sb = new();
-            
+
             foreach (var customScenario in CustomScenarios)
                 if (customScenario.AutoTriggers.Contains(e))
                 {
@@ -41,17 +38,17 @@ public  class CustomScenarioManger
                         customScenario.Run();
                 }
 
-            if (sb.Length!=0)
+            if (sb.Length != 0)
             {
                 sb.Insert(0, $"情景触发器\"{e}\"触发了以下情景:\n");
                 Log.Information(sb.ToString());
                 ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
                     sb.ToString());
-            }else
+            }
+            else
             {
                 Log.Information($"情景触发器\"{e}\"没有触发情景");
             }
-           
         });
 
 
@@ -66,26 +63,19 @@ public  class CustomScenarioManger
 
         var info = new DirectoryInfo($"{AppDomain.CurrentDomain.BaseDirectory}customScenarios");
         foreach (var fileInfo in info.GetFiles())
-        {
-            if (fileInfo.Extension==".json")
-            {
+            if (fileInfo.Extension == ".json")
                 Load(fileInfo);
-            }
-           
-            
-        }
+
         Log.Debug($"加载情景信息完成共{CustomScenarios.Count}情景被识别");
     }
 
     public static void UnloadAll()
     {
-        foreach (var customScenario in CustomScenarios)
-        {
-            customScenario.UnRegisterHotKey();
-        }
-            
+        foreach (var customScenario in CustomScenarios) customScenario.UnRegisterHotKey();
+
         CustomScenarios.Clear();
     }
+
     public static void Reload()
     {
         UnloadAll();
@@ -103,17 +93,13 @@ public  class CustomScenarioManger
             var deserializeObject = JsonSerializer.Deserialize<CustomScenario>(json, ConfigManger.DefaultOptions);
 
             deserializeObject.OnDeserialized();
-            
+
 
             deserializeObject.HasInit = true;
             deserializeObject.IsRunning = false;
 
-            
 
-            foreach (var deserializeObjectNode in deserializeObject.nodes)
-            {
-                deserializeObjectNode.ConnectorInit();
-            }
+            foreach (var deserializeObjectNode in deserializeObject.nodes) deserializeObjectNode.ConnectorInit();
             deserializeObject.InitHotKey();
             CustomScenarios.Add(deserializeObject);
         }
@@ -141,7 +127,7 @@ public  class CustomScenarioManger
                 case CustomScenarioLoadFromJsonFailedType.插件未找到:
                 {
                     var content = $"对应文件\n{fileInfo.FullName}\n情景所需的插件不存在\n需要插件\"{e1.PluginName}\"";
-                    var dialog = new DialogContent()
+                    var dialog = new DialogContent
                     {
                         Title = $"自定义情景\"{Name}\"加载失败",
                         Content = content,
@@ -158,7 +144,8 @@ public  class CustomScenarioManger
                                 return;
                             }
 
-                            var downloadPluginOnline = await PluginManager.DownloadPluginAndEnable(onlinePluginInfo.Id,onlinePluginInfo.NameSign,onlinePluginInfo.LastVersionId);
+                            var downloadPluginOnline = await PluginManager.DownloadPluginAndEnable(onlinePluginInfo.Id,
+                                onlinePluginInfo.NameSign, onlinePluginInfo.LastVersionId);
 
                             if (downloadPluginOnline)
                                 ServiceManager.Services.GetService<IToastService>()
@@ -179,7 +166,7 @@ public  class CustomScenarioManger
                     var content =
                         $"对应文件\n{fileInfo.FullName}\n情景所需的插件未启用\n需要插件{pluginByPlgStr.PluginBaseInfo.Name}(ID:{pluginByPlgStr.PluginBaseInfo.Id})";
 
-                    var dialog = new DialogContent()
+                    var dialog = new DialogContent
                     {
                         Title = $"自定义情景\"{Name}\"加载失败",
                         Content = content,
@@ -203,7 +190,7 @@ public  class CustomScenarioManger
                 {
                     var content = $"对应文件\n{fileInfo.FullName}\n情景所需{e1.PluginName}类的序列化转换器未找到\n它可能来自某个插件";
 
-                    var dialog = new DialogContent()
+                    var dialog = new DialogContent
                     {
                         Title = $"自定义情景\"{Name}\"加载失败",
                         Content = content,
@@ -219,9 +206,9 @@ public  class CustomScenarioManger
         }
         catch (Exception e)
         {
-            Log.Error("错误",e);
+            Log.Error("错误", e);
             var content = $"情景文件\n{fileInfo.FullName}\n加载失败疑似文件已损坏";
-            var dialog = new DialogContent()
+            var dialog = new DialogContent
             {
                 Title = $"自定义情景\"{fileInfo.Name}\"加载失败",
                 Content = content,
@@ -230,15 +217,14 @@ public  class CustomScenarioManger
             };
             ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
                 dialog);
-            CustomScenarios.Add(new CustomScenario()
+            CustomScenarios.Add(new CustomScenario
             {
                 Name = fileInfo.Name,
                 UUID = fileInfoName,
                 IsRunning = false,
                 HasInit = false,
                 InitError = "加载失败疑似文件已损坏",
-                IsActive = false,
-                 
+                IsActive = false
             });
         }
     }
@@ -252,10 +238,8 @@ public  class CustomScenarioManger
 
             scenario.InitHotKey();
         }
-        foreach (var tempValueKey in scenario.TempValue.Keys)
-        {
-            scenario.TempValue[tempValueKey] = null;
-        }
+
+        foreach (var tempValueKey in scenario.TempValue.Keys) scenario.TempValue[tempValueKey] = null;
 
         var configF = new FileInfo(AppDomain.CurrentDomain.BaseDirectory +
                                    $"customScenarios{Path.DirectorySeparatorChar}{scenario.UUID}.json");
@@ -266,17 +250,17 @@ public  class CustomScenarioManger
             File.WriteAllText(configF.FullName, j);
             scenario.NotifySaved();
         }
-        
+
         catch (CustomScenarioLoadFromJsonException e)
         {
-            Log.Error("情景保存失败",e);
+            Log.Error("情景保存失败", e);
             switch (e.FailedType)
             {
                 case CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到:
                 {
                     var content = $"情景'{scenario.Name}'保存失败所需{e.PluginName}类的序列化转换器未找到\n它可能来自某个插件";
 
-                    var dialog = new DialogContent()
+                    var dialog = new DialogContent
                     {
                         Title = $"自定义情景\"{scenario.Name}\"保存失败",
                         Content = content,
@@ -287,33 +271,26 @@ public  class CustomScenarioManger
                     break;
                 }
             }
-            
         }
     }
 
-  
 
     public static void Remove(CustomScenario scenario, bool deleteFile = true)
     {
-      
-
         HotKeyManager.HotKetImpl.DeleteCompletely(scenario.RunHotKey.UUID);
         HotKeyManager.HotKetImpl.DeleteCompletely(scenario.StopHotKey.UUID);
-        
-        
+
+
         scenario.Dispose();
         if (CustomScenarios.Contains(scenario)) CustomScenarios.Remove(scenario);
         ConfigManger.Save();
         if (deleteFile)
             File.Delete(
                 $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{scenario.UUID}.json");
-
-        
     }
 
     public static void UnloadWhichUseThePlugin(string plugStr)
     {
-        
         for (var i = CustomScenarios.Count - 1; i >= 0; i--)
             if (CustomScenarios[i].IsUseThePlugin(plugStr))
             {

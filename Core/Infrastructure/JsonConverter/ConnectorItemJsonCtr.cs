@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
 using Core.SDKs.CustomScenario;
-using PluginCore;
+using ConnectorItem = Core.CustomScenario.ConnectorItem;
 
 namespace Core.Infrastructure.JsonConverter;
 

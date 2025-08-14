@@ -3,11 +3,10 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using Vanara.Windows.Shell;
 
 #endregion
 
-namespace Kitopia.Converter.SearchWindow;
+namespace KitopiaAvalonia.Converter.SearchWindow;
 
 public class IfNullVisibilityHidden : IValueConverter
 

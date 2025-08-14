@@ -3,9 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:Core.ViewModel.Pages;assembly=Core"
-             xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
-             xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="KitopiaAvalonia.Pages.HomePage" x:DataType="pages:HomePageViewModel">
-  Available
+    Available
 </UserControl>

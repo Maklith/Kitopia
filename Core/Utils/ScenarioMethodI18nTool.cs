@@ -1,6 +1,4 @@
-﻿using Core.SDKs.CustomScenario;
-
-namespace Core.SDKs.Tools;
+﻿namespace Core.Utils;
 
 public class ScenarioMethodI18nTool
 {

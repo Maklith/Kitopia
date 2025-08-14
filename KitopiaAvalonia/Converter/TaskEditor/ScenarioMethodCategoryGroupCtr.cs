@@ -4,9 +4,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Data.Converters;
 using Avalonia.Markup.Xaml.MarkupExtensions;
-using Core.SDKs.CustomScenario;
+using Core.CustomScenario;
 
-namespace Kitopia.Converter.TaskEditor;
+namespace KitopiaAvalonia.Converter.TaskEditor;
 
 public class ScenarioMethodCategoryGroupCtr : IValueConverter
 {

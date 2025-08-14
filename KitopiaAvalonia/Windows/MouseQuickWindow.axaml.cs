@@ -6,21 +6,21 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Threading;
-using Core.SDKs.Services;
-using Core.ViewModel;
-
+using Core.Services;
+using Core.ViewModel.Windows;
 using PluginCore;
 using Serilog;
 using SharpHook;
 using SharpHook.Native;
 using Vanara.PInvoke;
+using MouseQuickWindowViewModel = Core.ViewModel.Windows.MouseQuickWindowViewModel;
 
 namespace KitopiaAvalonia.Windows;
 
 public partial class MouseQuickWindow : Window
 {
-    
-    private static ILogger Log =   LogManager.Logger.ForContext<MouseQuickWindow>();
+    private static ILogger Log = LogManager.Logger.ForContext<MouseQuickWindow>();
+
     public MouseQuickWindow()
     {
         InitializeComponent();
@@ -74,7 +74,7 @@ public partial class MouseQuickWindow : Window
             var s = Clipboard.GetTextAsync().Result;
             if (s != text)
             {
-                ((MouseQuickWindowViewModel)DataContext).SelectedItem = new SelectedItem()
+                ((MouseQuickWindowViewModel)DataContext).SelectedItem = new SelectedItem
                     { type = FileType.文本, obj = s };
 
                 Log.Information(s);

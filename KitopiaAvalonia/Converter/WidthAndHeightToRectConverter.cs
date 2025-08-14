@@ -4,7 +4,7 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Data.Converters;
 
-namespace Kitopia.Converter;
+namespace KitopiaAvalonia.Converter;
 
 public class WidthAndHeightToRectConverter : IMultiValueConverter
 {

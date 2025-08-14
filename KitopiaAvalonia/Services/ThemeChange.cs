@@ -4,16 +4,16 @@ using System;
 using Avalonia;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using Core.SDKs.Services;
+using Core.Services;
 using Serilog;
 
 #endregion
 
-namespace Kitopia.Services;
+namespace KitopiaAvalonia.Services;
 
 public class ThemeChange : IThemeChange
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<ThemeChange>();
+    private static ILogger Log = LogManager.Logger.ForContext<ThemeChange>();
 
     public void changeTo(string name)
     {

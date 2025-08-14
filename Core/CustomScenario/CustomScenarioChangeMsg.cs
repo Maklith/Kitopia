@@ -1,4 +1,4 @@
-﻿namespace Core.SDKs.CustomScenario;
+﻿namespace Core.CustomScenario;
 
 public class CustomScenarioChangeMsg
 {

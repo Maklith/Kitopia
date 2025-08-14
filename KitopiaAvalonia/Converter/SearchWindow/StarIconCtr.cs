@@ -3,7 +3,7 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Data.Converters;
 
-namespace Kitopia.Converter.SearchWindow;
+namespace KitopiaAvalonia.Converter.SearchWindow;
 
 public class StarIconCtr : IValueConverter
 {

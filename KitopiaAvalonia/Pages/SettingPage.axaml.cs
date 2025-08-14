@@ -11,14 +11,12 @@ using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Core.SDKs.HotKey;
-using Core.SDKs.Services.Config;
+using Core.Services.Config;
 using KitopiaAvalonia.Controls;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Config;
 using Ursa.Controls;
-using Vanara.Extensions.Reflection;
 using FontIcon = KitopiaAvalonia.Controls.FontIcon;
 using SettingsExpander = KitopiaAvalonia.Controls.SettingsExpander.SettingsExpander;
 
@@ -73,9 +71,9 @@ public partial class SettingPage : UserControl
                 var configFieldCategory = fieldInfo.GetCustomAttribute<ConfigFieldCategory>();
                 if (configFieldCategory is not null)
                 {
-                    var category = new Expander()
+                    var category = new Expander
                     {
-                        Header = new TextBlock() { Text = configFieldCategory.Category, FontSize = 16 },
+                        Header = new TextBlock { Text = configFieldCategory.Category, FontSize = 16 },
                         HorizontalAlignment = HorizontalAlignment.Stretch,
                         HorizontalContentAlignment = HorizontalAlignment.Stretch,
                         IsExpanded = true
@@ -90,13 +88,13 @@ public partial class SettingPage : UserControl
 
                 if (fieldInfo.GetCustomAttribute<ConfigField>() is { } configField)
                 {
-                    var SettingsExpander = new SettingsExpander()
+                    var SettingsExpander = new SettingsExpander
                     {
                         Header = configField.Tittle,
                         Description = configField.Description,
                         HorizontalAlignment = HorizontalAlignment.Stretch,
 
-                        IconSource = new FontIcon()
+                        IconSource = new FontIcon
                         {
                             Glyph = Convert.ToChar(configField.Symbol)
                                 .ToString()
@@ -108,7 +106,7 @@ public partial class SettingPage : UserControl
                     {
                         case ConfigFieldType.字符串:
                         {
-                            var textBox = new TextBox()
+                            var textBox = new TextBox
                             {
                                 Text = selectedValue?.ToString()
                             };
@@ -125,7 +123,7 @@ public partial class SettingPage : UserControl
                         case ConfigFieldType.整数:
                         {
                             var value = (int)selectedValue;
-                            var textBox = new NumericIntUpDown()
+                            var textBox = new NumericIntUpDown
                             {
                                 Value = value,
                                 Maximum = configField.MaxValue,
@@ -146,7 +144,7 @@ public partial class SettingPage : UserControl
                         }
                         case ConfigFieldType.整数列表:
                         {
-                            var comboBox = new ComboBox()
+                            var comboBox = new ComboBox
                             {
                                 ItemsSource = Enumerable.Range(configField.MinValue, configField.MaxValue)
                                     .Select(x => (int)x % configField.Step == 0 ? x : 0)
@@ -170,7 +168,7 @@ public partial class SettingPage : UserControl
                             var stackPanel = new StackPanel();
                             stackPanel.Orientation = Orientation.Horizontal;
                             stackPanel.VerticalAlignment = VerticalAlignment.Center;
-                            var slider = new Slider()
+                            var slider = new Slider
                             {
                                 Maximum = configField.MaxValue,
                                 Minimum = configField.MinValue,
@@ -180,7 +178,7 @@ public partial class SettingPage : UserControl
                                 Width = 160,
                                 VerticalAlignment = VerticalAlignment.Center
                             };
-                            var textBox = new TextBlock()
+                            var textBox = new TextBlock
                             {
                                 FontSize = 14,
                                 Margin = new Thickness(10, 0, 0, 0),
@@ -214,7 +212,7 @@ public partial class SettingPage : UserControl
                         }
 
                         case ConfigFieldType.浮点数:
-                            var textBox1 = new NumericDoubleUpDown()
+                            var textBox1 = new NumericDoubleUpDown
                             {
                                 Value = (double)selectedValue,
                                 Maximum = configField.MaxValue,
@@ -234,7 +232,7 @@ public partial class SettingPage : UserControl
                             break;
                         case ConfigFieldType.布尔:
                         {
-                            var toggleSwitch = new ToggleSwitch()
+                            var toggleSwitch = new ToggleSwitch
                             {
                                 IsChecked = (bool)selectedValue,
                                 FlowDirection = FlowDirection.RightToLeft,
@@ -273,11 +271,11 @@ public partial class SettingPage : UserControl
                             if (configField.GetType()
                                 .IsGenericType) //判断是不是ConfigField<Enum>
                             {
-                                Type[] typeArguments = configField.GetType()
+                                var typeArguments = configField.GetType()
                                     .GetGenericArguments();
                                 if (typeArguments[0].IsEnum)
                                 {
-                                    var comboBox = new ComboBox()
+                                    var comboBox = new ComboBox
                                     {
                                         ItemsSource = typeArguments[0]
                                             .GetEnumValues(),
@@ -303,7 +301,7 @@ public partial class SettingPage : UserControl
                                     var result = func.DynamicInvoke();
 
                                     // 确保 result 转换为 IEnumerable<T>
-                                    var comboBox = new ComboBox()
+                                    var comboBox = new ComboBox
                                     {
                                         ItemsSource = result as IEnumerable,
                                         SelectedValue = selectedValue

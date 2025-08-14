@@ -1,7 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Core.SDKs;
+using Core.Utils;
 
 namespace KitopiaAvalonia.Windows;
 

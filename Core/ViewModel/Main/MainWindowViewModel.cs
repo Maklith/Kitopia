@@ -6,14 +6,12 @@ using AvaloniaEdit.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
 using Core.Services;
 using PluginCore;
 
 #endregion
 
-namespace Core.ViewModel;
+namespace Core.ViewModel.Main;
 
 public partial class MainWindowViewModel : ObservableRecipient
 {
@@ -21,8 +19,8 @@ public partial class MainWindowViewModel : ObservableRecipient
     {
         WeakReferenceMessenger.Default.Register<MainWindowViewModel, PageChangeEventArgs>(this, OnNavigation);
     }
-    [ObservableProperty]
-    private bool _settingPage = false;
+
+    [ObservableProperty] private bool _settingPage = false;
 
     private void OnNavigation(MainWindowViewModel recipient, PageChangeEventArgs message)
     {
@@ -74,7 +72,7 @@ public partial class MainWindowViewModel : ObservableRecipient
             MenuHeader = "模型列表",
             Key = "OnnxModelManagerPage",
             MenuIconGlyph = "\uf83b",
-            MenuIconFilledGlyph = "\uf853"  
+            MenuIconFilledGlyph = "\uf853"
         }
     };
 
@@ -109,18 +107,16 @@ public partial class MenuItemViewModel : ObservableObject
 
     public string Key { get; set; }
     public bool IsSeparator { get; set; }
-    
+
     public ObservableCollection<MenuItemViewModel> Children { get; set; } = new();
     public ICommand ActivateCommand { get; set; }
 
-    [ObservableProperty]
-    private bool _isSelected = false;
+    [ObservableProperty] private bool _isSelected = false;
+
     public MenuItemViewModel()
     {
-        WeakReferenceMessenger.Default.Register<PageChangeEventArgs>(this,((recipient, message) =>
-        {
-            IsSelected=message.Key==Key;
-        }));
+        WeakReferenceMessenger.Default.Register<PageChangeEventArgs>(this,
+            (recipient, message) => { IsSelected = message.Key == Key; });
         ActivateCommand = new RelayCommand(OnActivate);
     }
 
@@ -128,6 +124,5 @@ public partial class MenuItemViewModel : ObservableObject
     {
         if (IsSeparator) return;
         WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs(Key));
-        
     }
 }

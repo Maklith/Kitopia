@@ -2,14 +2,13 @@
 using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Controls;
-using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.SDKs.CustomScenario;
+using Core.CustomScenario;
 using PluginCore;
 
-namespace Kitopia.Converter.TaskEditor;
+namespace KitopiaAvalonia.Converter.TaskEditor;
 
 public class AutoTriggersCtr : IValueConverter
 {
@@ -36,7 +35,7 @@ public class AutoTriggersCtr : IValueConverter
             var key = ((KeyValuePair<string, CustomScenarioTriggerInfo>)keyValuePair).Key;
             if (b == CustomScenario.AutoTriggers.Contains(key)) return CustomScenario;
 
-            WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg()
+            WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
                 { Type = 1, Name = key, CustomScenario = CustomScenario });
 
             if (b)

@@ -105,34 +105,34 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="MinHeight" Value="{DynamicResource SettingsExpanderMinHeight}" />
-        
+
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Theme="{DynamicResource CardBorder1}">
                     <StackPanel>
-                                        <ToggleButton Name="ToggleButton"
-                                                      MinHeight="{TemplateBinding MinHeight}"
-                                                      IsEnabled="{TemplateBinding IsEnabled}"
-                                                      IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}"
-                                                      Content="{TemplateBinding Header}"
-                                                      Theme="{StaticResource SettingsExpanderToggleButtonStyle}" />
-                    
-                                        <Border Name="ExpanderContent"
-                                                Margin="3,0,3,0"
-                                               
-                                                IsVisible="False"
-                                                BackgroundSizing="InnerBorderEdge">
-                                            <ContentPresenter Name="PART_ContentPresenter"
-                                                              Margin="{TemplateBinding Padding}"
-                                                              IsVisible="{TemplateBinding IsExpanded}"
-                                                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                              Content="{TemplateBinding Content}"
-                                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-                                        </Border>
-                                    </StackPanel>
+                        <ToggleButton Name="ToggleButton"
+                                      MinHeight="{TemplateBinding MinHeight}"
+                                      IsEnabled="{TemplateBinding IsEnabled}"
+                                      IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}"
+                                      Content="{TemplateBinding Header}"
+                                      Theme="{StaticResource SettingsExpanderToggleButtonStyle}" />
+
+                        <Border Name="ExpanderContent"
+                                Margin="3,0,3,0"
+
+                                IsVisible="False"
+                                BackgroundSizing="InnerBorderEdge">
+                            <ContentPresenter Name="PART_ContentPresenter"
+                                              Margin="{TemplateBinding Padding}"
+                                              IsVisible="{TemplateBinding IsExpanded}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              Content="{TemplateBinding Content}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                    </StackPanel>
                 </Border>
-                
+
             </ControlTemplate>
         </Setter>
 
@@ -143,7 +143,7 @@
 
     <ControlTheme x:Key="{x:Type settingsExpander:SettingsExpander}" TargetType="settingsExpander:SettingsExpander">
         <Setter Property="Background" Value="{DynamicResource SemiBackground4Color}" />
-        
+
         <Setter Property="Margin" Value="3,0,3,0" />
         <Setter Property="Padding" Value="{DynamicResource SettingsExpanderPadding}" />
         <Setter Property="MinHeight" Value="{DynamicResource SettingsExpanderMinHeight}" />

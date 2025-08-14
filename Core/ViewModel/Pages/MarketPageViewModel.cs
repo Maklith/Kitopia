@@ -1,53 +1,31 @@
 ﻿using System.Collections.ObjectModel;
-using System.Drawing;
-using System.IO.Compression;
-using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
-using Avalonia.Controls.Shapes;
-using Avalonia.Media;
-using Avalonia.Styling;
-using AvaloniaEdit.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Core.SDKs;
-using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
-using Core.SDKs.Services.Plugin;
+using Core.Services.Config;
+using Core.Services.Plugin;
 using Core.UI.UiControls.Plugin;
 using Core.ViewModel.Pages.plugin;
-using KitopiaAvalonia.Tools;
-using Markdown.Avalonia.Full;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using PluginCore;
-
 using Ursa.Controls;
-using Bitmap = Avalonia.Media.Imaging.Bitmap;
-
 using JsonSerializer = System.Text.Json.JsonSerializer;
-using Point = Avalonia.Point;
+using PluginInfoUiHelper = Core.Services.Plugin.PluginInfoUiHelper;
 
 namespace Core.ViewModel.Pages;
 
-
-
-public partial class OnlinePluginInfo 
+public partial class OnlinePluginInfo
 {
     internal class ApiResponse
     {
         public bool flag { get; set; }
         public List<OnlinePluginInfo> data { get; set; }
     }
+
     public int Id { set; get; }
 
-   
 
     public int AuthorId { set; get; }
-    
+
 
     public string Name { set; get; }
     public string NameSign { set; get; }
@@ -59,7 +37,7 @@ public partial class OnlinePluginInfo
     public string DescriptionShort { set; get; }
     public string Description { set; get; }
     public List<string> SupportSystems { set; get; }
-    
+
     public string ToPlgString()
     {
         return $"{Id}_{AuthorId}_{NameSign}";
@@ -72,7 +50,7 @@ public partial class OnlinePluginInfo
 
     public PluginBaseInfo ToPluginBaseInfo()
     {
-        return new PluginBaseInfo()
+        return new PluginBaseInfo
         {
             Id = Id,
             AuthorId = AuthorId,
@@ -107,7 +85,7 @@ public partial class MarketPageViewModel : ObservableObject
         var apiResponse = JsonSerializer.Deserialize<OnlinePluginInfo.ApiResponse>(stringAsync, options);
         if (apiResponse != null && apiResponse.data != null)
             for (var i = 0; i < apiResponse.data.Count; i++)
-                Plugins.Add(new PluginInfoUiHelper()
+                Plugins.Add(new PluginInfoUiHelper
                 {
                     PluginBaseInfo = apiResponse.data[i].ToPluginBaseInfo(),
                     OnlinePluginInfo = apiResponse.data[i],
@@ -118,17 +96,17 @@ public partial class MarketPageViewModel : ObservableObject
     [RelayCommand]
     private async Task<bool> DownloadPlugin(OnlinePluginInfo plugin)
     {
-        return await PluginManager.DownloadPluginOnline(plugin.Id,plugin.NameSign,plugin.LastVersionId);
+        return await PluginManager.DownloadPluginOnline(plugin.Id, plugin.NameSign, plugin.LastVersionId);
     }
 
     [RelayCommand]
     private async Task ShowPluginDetail(PluginInfoUiHelper pluginInfoUiHelper)
     {
-        var overlayDialogOptions = new OverlayDialogOptions()
+        var overlayDialogOptions = new OverlayDialogOptions
         {
-            CanLightDismiss = true,
-            
+            CanLightDismiss = true
         };
-        await OverlayDialog.ShowCustomModal<PluginDetail, PluginDetailViewModel, object>(new PluginDetailViewModel(pluginInfoUiHelper), "LocalHost",overlayDialogOptions);
+        await OverlayDialog.ShowCustomModal<PluginDetail, PluginDetailViewModel, object>(
+            new PluginDetailViewModel(pluginInfoUiHelper), "LocalHost", overlayDialogOptions);
     }
 }

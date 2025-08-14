@@ -6,7 +6,7 @@ using Avalonia.Data.Converters;
 
 #endregion
 
-namespace Kitopia.Converter.SearchWindow;
+namespace KitopiaAvalonia.Converter.SearchWindow;
 
 public class StarBoolToText : IValueConverter
 {

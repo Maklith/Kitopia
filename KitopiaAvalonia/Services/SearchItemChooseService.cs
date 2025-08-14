@@ -1,12 +1,11 @@
 ﻿using System;
-using Core.SDKs.Services;
-using Core.ViewModel;
+using Core.Services;
+using Core.ViewModel.Windows;
 using KitopiaAvalonia.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using Vanara.PInvoke;
 
-namespace Kitopia.Services;
+namespace KitopiaAvalonia.Services;
 
 public class SearchItemChooseService : ISearchItemChooseService
 {

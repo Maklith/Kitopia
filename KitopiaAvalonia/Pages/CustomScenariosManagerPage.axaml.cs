@@ -4,7 +4,7 @@
 
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Core.SDKs.CustomScenario;
+using Core.CustomScenario;
 
 namespace KitopiaAvalonia.Pages;
 

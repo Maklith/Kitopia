@@ -4,10 +4,9 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Threading;
-using Core.SDKs;
-using Core.SDKs.Services;
+using Core.Services;
+using Core.Utils;
 using KitopiaAvalonia.Controls;
-using KitopiaAvalonia.Windows;
 using Ursa.Controls;
 using DialogWindow = KitopiaAvalonia.Windows.DialogWindow;
 
@@ -79,7 +78,7 @@ public class ContentDialogService : IContentDialog
                          dialogContent.SecondaryButtonText is not null)
                     button = DialogButton.YesNoCancel;
 
-                var dialog = new DefaultDialogWindow()
+                var dialog = new DefaultDialogWindow
                 {
                     Title = dialogContent.Title,
                     Content = dialogContent.Content,
@@ -87,8 +86,8 @@ public class ContentDialogService : IContentDialog
                 };
                 dialog.Resources.Add("STRING_MENU_DIALOG_NO", dialogContent.CloseButtonText);
                 var result = Dialog.ShowModal<TextDialog, TextDialogViewModel>(
-                    new TextDialogViewModel() { Text = dialogContent.Content }, (Window)contentPresenter,
-                    new DialogOptions()
+                    new TextDialogViewModel { Text = dialogContent.Content }, (Window)contentPresenter,
+                    new DialogOptions
                     {
                         Title = dialogContent.Title,
                         Button = button

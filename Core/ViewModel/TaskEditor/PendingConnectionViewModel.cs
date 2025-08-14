@@ -2,7 +2,9 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Core.CustomScenario;
 using Core.SDKs.CustomScenario;
+using ConnectorItem = Core.CustomScenario.ConnectorItem;
 
 #endregion
 
@@ -33,7 +35,7 @@ public partial class PendingConnectionViewModel : ObservableRecipient
                     break;
                 }
 
-                if (Source.ConnectorType!=ConnectorType.Both&&Source.ConnectorType == con.ConnectorType)
+                if (Source.ConnectorType != ConnectorType.Both && Source.ConnectorType == con.ConnectorType)
                 {
                     PreviewText = $"错误的连接";
                     break;
@@ -93,10 +95,7 @@ public partial class PendingConnectionViewModel : ObservableRecipient
               target.InputObject?.RealType.FullName == "System.Object"))
             return;
 
-        if (Source.ConnectorType!=ConnectorType.Both&&Source.ConnectorType == target.ConnectorType)
-        {
-            return;
-        }
+        if (Source.ConnectorType != ConnectorType.Both && Source.ConnectorType == target.ConnectorType) return;
 
         switch (Source.ConnectorType)
         {
@@ -114,6 +113,5 @@ public partial class PendingConnectionViewModel : ObservableRecipient
             default:
                 throw new ArgumentOutOfRangeException();
         }
-        
     }
 }

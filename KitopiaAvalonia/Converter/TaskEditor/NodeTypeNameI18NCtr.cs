@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using Core.SDKs.CustomScenario;
-using Core.SDKs.Tools;
+using Core.CustomScenario;
 using PluginCore;
 
-namespace Kitopia.Converter.TaskEditor;
+namespace KitopiaAvalonia.Converter.TaskEditor;
 
 public class NodeTypeNameI18NCtr : IValueConverter
 {
@@ -13,10 +12,7 @@ public class NodeTypeNameI18NCtr : IValueConverter
     {
         if (value is CustomScenarioValue customScenarioInputValue)
             return CustomScenarioGloble.GetI18N(customScenarioInputValue.Type.FullName);
-        if (value is Type type)
-        {
-            return CustomScenarioGloble.GetI18N(type.FullName);
-        }
+        if (value is Type type) return CustomScenarioGloble.GetI18N(type.FullName);
         return "";
     }
 

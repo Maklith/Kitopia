@@ -1,5 +1,5 @@
 ﻿using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
+using Core.Services.Config;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 

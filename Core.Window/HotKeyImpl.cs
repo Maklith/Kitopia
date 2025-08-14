@@ -1,9 +1,10 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.SDKs.CustomType;
 using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
+using Core.Services;
+using Core.Services.Config;
+using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using SharpHook;

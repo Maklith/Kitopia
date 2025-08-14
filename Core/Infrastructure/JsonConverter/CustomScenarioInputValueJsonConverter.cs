@@ -1,7 +1,6 @@
-﻿using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+using Core.CustomScenario;
 using Core.JsonConverter;
 using Core.SDKs.CustomScenario;
 using PluginCore;
@@ -14,7 +13,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
         JsonSerializerOptions options)
     {
         object value;
-        bool isSelf = false;
+        var isSelf = false;
         Type type = null;
         Type realType = null;
         while (reader.Read())
@@ -87,9 +86,8 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                                 IsSelf = isSelf
                             };
                         }
-                        else if(realType.IsEnum)
+                        else if (realType.IsEnum)
                         {
-
                             var o = Enum.ToObject(realType, reader.GetInt32());
                             reader.Read();
                             return new CustomScenarioValue
@@ -104,11 +102,11 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                         {
                             throw new CustomScenarioLoadFromJsonException(
                                 CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, type.FullName, null);
-                        }else
+                        }
+                        else
                         {
-                           
                             reader.Read();
-                          
+
                             return new CustomScenarioValue
                             {
                                 Type = type,
@@ -148,15 +146,19 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
             var serialize = jsonConverter.Serialize(value.Value);
             writer.WriteStringValue(serialize);
         }
-        else if(value.RealType.IsEnum)
+        else if (value.RealType.IsEnum)
         {
-            writer.WriteNumberValue((int)(value.Value));
+            writer.WriteNumberValue((int)value.Value);
         }
         else if (value.IsSelf)
         {
             throw new CustomScenarioLoadFromJsonException(
                 CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, value.RealType.FullName, null);
-        }else writer.WriteNullValue();
+        }
+        else
+        {
+            writer.WriteNullValue();
+        }
 
         writer.WriteEndObject();
     }

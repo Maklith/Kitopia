@@ -1,9 +1,8 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
-using Core.SDKs.CustomScenario;
 using PluginCore;
 
-namespace Core.JsonConverter;
+namespace Core.Infrastructure.JsonConverter;
 
 public class INodeInputJsonConverter : JsonConverter<INodeInputConnector>
 {

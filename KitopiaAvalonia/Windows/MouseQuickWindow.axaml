@@ -2,14 +2,14 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:viewModel="clr-namespace:Core.ViewModel;assembly=Core"
-        xmlns:converter="clr-namespace:Kitopia.Converter"
-        xmlns:searchWindow="clr-namespace:Kitopia.Converter.SearchWindow"
 
         xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
+        xmlns:windows="clr-namespace:Core.ViewModel.Windows;assembly=Core"
+        xmlns:converter="clr-namespace:KitopiaAvalonia.Converter"
+        xmlns:searchWindow="clr-namespace:KitopiaAvalonia.Converter.SearchWindow"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="KitopiaAvalonia.Windows.MouseQuickWindow"
-        x:DataType="viewModel:MouseQuickWindowViewModel"
+        x:DataType="windows:MouseQuickWindowViewModel"
         TransparencyLevelHint="AcrylicBlur"
         Background="Transparent"
         MinWidth="300"
@@ -39,7 +39,7 @@
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Button
-                        Command="{Binding Path=$parent[Window].((viewModel:MouseQuickWindowViewModel)DataContext).ExcuteCommand}"
+                        Command="{Binding Path=$parent[Window].((windows:MouseQuickWindowViewModel)DataContext).ExcuteCommand}"
                         CommandParameter="{Binding .}" Width="80" Height="80" Padding="0" Margin="0"
                         Background="Transparent">
                         <Button.Resources>
@@ -50,7 +50,7 @@
                                 <!-- ReSharper disable once Xaml.RedundantResource -->
 
                                 <MenuItem Header="移除"
-                                          Command="{Binding $parent[Window].((viewModel:MouseQuickWindowViewModel)DataContext).RemoveCommand}"
+                                          Command="{Binding $parent[Window].((windows:MouseQuickWindowViewModel)DataContext).RemoveCommand}"
                                           IsVisible="{Binding .,Converter={StaticResource MouseQuickItemCanRemoveCtr}}"
                                           CommandParameter="{Binding .}" />
                             </MenuFlyout>

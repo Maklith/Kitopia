@@ -2,13 +2,11 @@
 using System.Text.Json.Serialization;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Messaging;
 using Core.Infrastructure.JsonConverter;
-using Core.JsonConverter;
-using Core.SDKs.Services.Config;
 using PluginCore;
 
-namespace Core.SDKs.CustomScenario;
+namespace Core.CustomScenario;
+
 public enum ConnectorType
 {
     Input,
@@ -16,6 +14,7 @@ public enum ConnectorType
     Both,
     Custom
 }
+
 public partial class ConnectorItem : ObservableRecipient
 {
     [JsonConverter(typeof(PointJsonConverter))]
@@ -30,8 +29,7 @@ public partial class ConnectorItem : ObservableRecipient
 
     [ObservableProperty] private bool _isConnected;
     [ObservableProperty] private bool _isNotUsed = false;
-    [ObservableProperty] private ConnectorType _connectorType=ConnectorType.Input;
-    
+    [ObservableProperty] private ConnectorType _connectorType = ConnectorType.Input;
 
 
     public bool SelfInputAble { get; set; } = true;
@@ -39,7 +37,6 @@ public partial class ConnectorItem : ObservableRecipient
     public int AutoUnboxIndex { get; set; }
     public string AutoUnboxPropertyName { get; set; } = string.Empty;
 
-    
 
     public string Title { get; set; }
 
@@ -49,7 +46,7 @@ public partial class ConnectorItem : ObservableRecipient
     public ScenarioNodeBase Source { get; set; }
 
     public IEnumerable<ConnectorItem> GetSourceOrNextConnectorItems(
-        ObservableCollection<ConnectionItem> connectionItems,bool source)
+        ObservableCollection<ConnectionItem> connectionItems, bool source)
     {
         if (!source)
             return connectionItems.Where((e) => e.Source == this)
@@ -60,7 +57,7 @@ public partial class ConnectorItem : ObservableRecipient
     }
 
     public IEnumerable<ScenarioNodeBase> GetSourceOrNextPointItems(
-        ObservableCollection<ConnectionItem> connectionItems,bool source)
+        ObservableCollection<ConnectionItem> connectionItems, bool source)
     {
         if (!source)
             return connectionItems.Where((e) => e.Source == this)

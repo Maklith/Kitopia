@@ -1,7 +1,7 @@
 ﻿using Core.ViewModel;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 
-namespace Core.SearchWindow.InputData;
+namespace Core.UI.SearchWindow.InputData;
 
 public class KnowCommandIdentifier : IInputDataIdentifier
 {
@@ -11,17 +11,17 @@ public class KnowCommandIdentifier : IInputDataIdentifier
         "telnet", "ftp", "ssh", "scp", "sftp", "rsync", "nmap", "nc", "curl", "wget", "git", "svn", "hg", "docker",
         "docker-compose", "kubectl", "helm", "minikube"
     ];
-    public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? value)
+
+    public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(
+        IInputDataAnalyzeTimeFlags analyzeTimeFlags, string? value)
     {
         foreach (var se in knownCommand)
-            if ( !string.IsNullOrWhiteSpace(value) && value.StartsWith(se,StringComparison.OrdinalIgnoreCase))
-            {
-                yield return new PluginCore.SearchWindow.InputData.InputData()
+            if (!string.IsNullOrWhiteSpace(value) && value.StartsWith(se, StringComparison.OrdinalIgnoreCase))
+                yield return new PluginCore.SearchWindow.InputData.InputData
                 {
                     InputType = InputType.命令,
                     Data = value
                 };
-            }
         yield break;
     }
 }

@@ -1,27 +1,24 @@
 ﻿using System.Collections.ObjectModel;
-using System.Text.Json.Serialization;
 using Avalonia.Threading;
-using Core.SDKs.HotKey;
-
+using Core.SDKs.Services;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Config;
-using PluginCore.Onnx;
 using Serilog;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable FieldCanBeMadeReadOnly.Global
 
-namespace Core.SDKs.Services.Config;
+namespace Core.Services.Config;
 
 [ConfigName("Kitopia主配置文件")]
 public class KitopiaConfig : ConfigBase
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<KitopiaConfig>();
+    private static ILogger Log = LogManager.Logger.ForContext<KitopiaConfig>();
     public List<string> alwayShows = new();
-    
-    public Dictionary<string,string> OnnxTargetDevices = new();
+
+    public Dictionary<string, string> OnnxTargetDevices = new();
 
     [ConfigFieldCategory("基本")] [ConfigField<ThemeEnum>("主题选择", "跟随系统,深色还是浅色?", 0xf33c)]
     public ThemeEnum themeChoice = ThemeEnum.跟随系统;
@@ -52,31 +49,30 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("允许程序调用Everything索引的文件类型", "设置Everything检索的文件类型,注意已索引的项目仅当重启软件后消失", 0xf8cb, ConfigFieldType.字符串列表支持添加)]
     public ObservableCollection<string> everythingSearchExtensions =
         ["*.docx", "*.doc", "*.xls", "*.xlsx", "*.pdf", "*.ppt", "*.pptx"];
-    
+
     [ConfigField("调用Everything直接搜索文件前缀", "如果搜索内容直接以该前缀开始,直接调用Everything而不是程序内置索引", 0xf8cb, ConfigFieldType.字符串)]
     public string everythingSearchPreString = "@";
+
     [ConfigField("调用Everything直接搜索文件最大数量", "设置调用Everything直接搜索文件最大数量", 0xf8cb, ConfigFieldType.整数, null, 1000, 5, 5)]
-    public int everythingSearchMaxCount =50;
-    
-    
+    public int everythingSearchMaxCount = 50;
+
 
     public List<PluginBaseInfo> EnabledPluginInfos = new()
     {
-        new PluginBaseInfo()
+        new PluginBaseInfo
         {
-            Id=7,
-            AuthorName= "Kitopia",
-            AuthorId= 1,
-            NameSign= "kitopiaex",
+            Id = 7,
+            AuthorName = "Kitopia",
+            AuthorId = 1,
+            NameSign = "kitopiaex"
         },
-        new PluginBaseInfo()
+        new PluginBaseInfo
         {
-            Id=2,
-            AuthorName= "Kitopia",
-            AuthorId= 1,
-            NameSign= "kitopiaonnxruntimecpu",
-        },
-        
+            Id = 2,
+            AuthorName = "Kitopia",
+            AuthorId = 1,
+            NameSign = "kitopiaonnxruntimecpu"
+        }
     };
 
     public List<string> errorLnk = new();
@@ -84,6 +80,7 @@ public class KitopiaConfig : ConfigBase
 
     [ConfigField("收藏项", "添加指定的文件或文件夹到搜索", 0xF2D7, ConfigFieldType.字符串列表)]
     public List<string> customCollections = new();
+
     [ConfigField("忽略项", "忽略指定的文件或文件夹", 0xF2D7, ConfigFieldType.字符串列表)]
     public ObservableCollection<string> ignoreItems = new();
 
@@ -134,7 +131,7 @@ public class KitopiaConfig : ConfigBase
         invokes.Add("screenShotHotKeyAction", new Action<HotKeyModel>(e =>
         {
             Log.Debug("截图热键被触发");
-            
+
             Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     ServiceManager.Services.GetService<IScreenCaptureWindow>()!.CaptureScreen();
@@ -144,7 +141,7 @@ public class KitopiaConfig : ConfigBase
                 {
                     if (e.IsFaulted)
                     {
-                        Log.Error(e.Exception,"");
+                        Log.Error(e.Exception, "");
                         ServiceManager.Services.GetService<IErrorWindow>()!.ShowErrorWindow(
                             "截图失败", e.Exception.Message + e.Exception.StackTrace);
                     }

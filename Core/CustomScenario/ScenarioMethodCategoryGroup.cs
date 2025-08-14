@@ -1,11 +1,10 @@
 ﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using Core.SDKs.Tools;
 using PluginCore;
 using PluginCore.Attribute.Scenario;
 
-namespace Core.SDKs.CustomScenario;
+namespace Core.CustomScenario;
 
 public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
 {
@@ -24,40 +23,38 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
         scenarioMethodCategoryGroup.Childrens.Add("基本数据类型", valueScenarioMethodCategoryGroup);
         foreach (var (key, value) in CustomScenarioGloble._baseType)
         {
-            var String = new ScenarioMethodNode()
+            var String = new ScenarioMethodNode
             {
                 ScenarioMethod = new ScenarioMethod(ScenarioMethodType.默认),
                 Title = key
             };
             ObservableCollection<ConnectorItem> StringoutItems = new()
             {
-                new ConnectorItem()
+                new ConnectorItem
                 {
                     Source = String,
-                    InputObject = new CustomScenarioValue()
+                    InputObject = new CustomScenarioValue
                     {
                         Type = value
                     },
                     Title = CustomScenarioGloble.GetI18N(value.FullName),
-                 
-                    ConnectorType = ConnectorType.Output,
+
+                    ConnectorType = ConnectorType.Output
                 }
             };
             String.Output = StringoutItems;
             ObservableCollection<ConnectorItem> StringinItems = new()
             {
-                new ConnectorItem()
+                new ConnectorItem
                 {
                     Source = String,
-                    InputObject = new CustomScenarioValue()
+                    InputObject = new CustomScenarioValue
                     {
                         Type = value,
                         Value = value.IsValueType ? Activator.CreateInstance(value) : null,
                         IsSelf = true
                     },
-                    Title = CustomScenarioGloble.GetI18N(value.FullName),
-                  
-                    
+                    Title = CustomScenarioGloble.GetI18N(value.FullName)
                 }
             };
             if (value.FullName == "System.Int32") StringinItems[0].InputObject.Value = (double)0;
@@ -106,7 +103,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
             }
             else
             {
-                var newScenarioMethodCategoryGroup = new ScenarioMethodCategoryGroup()
+                var newScenarioMethodCategoryGroup = new ScenarioMethodCategoryGroup
                 {
                     Name = se,
                     Parent = nowScenarioMethodCategoryGroup

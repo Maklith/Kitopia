@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using PluginCore;
 
-namespace Core.SDKs.CustomScenario.CustomScenarioValueSerializer;
+namespace Core.CustomScenario.CustomScenarioValueSerializer;
 
 public class BoolCustomScenarioValueSerializer : ICustomScenarioValueSerializer
 {

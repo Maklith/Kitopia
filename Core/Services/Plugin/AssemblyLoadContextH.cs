@@ -1,7 +1,6 @@
 ﻿#region
 
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -9,22 +8,20 @@ using System.Text.Json.Serialization;
 using System.Text.Unicode;
 using Avalonia;
 using Core.Infrastructure.JsonConverter;
-using Core.JsonConverter;
-using Core.SDKs.Services.Config;
-
+using Core.Services.Config;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Serilog;
 
 #endregion
 
-namespace Core.SDKs.Services.Plugin;
+namespace Core.Services.Plugin;
 
 public class AssemblyLoadContextH : AssemblyLoadContext
 {
     private readonly AssemblyDependencyResolver _resolver;
     private Assembly _assembly;
-    private static ILogger Log =   LogManager.Logger.ForContext<AssemblyLoadContextH>();
+    private static ILogger Log = LogManager.Logger.ForContext<AssemblyLoadContextH>();
 
     public AssemblyLoadContextH(string pluginPath, string name) : base(isCollectible: true, name: name)
     {
@@ -47,7 +44,6 @@ public class AssemblyLoadContextH : AssemblyLoadContext
                 ReferenceHandler = ReferenceHandler.Preserve,
                 Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
                 Converters = { new CustomScenarioInputValueJsonConverter(), new INodeInputJsonConverter() }
-
             };
             _assembly = null;
             Log.Information($"Unloading {sender.Assemblies.First()}");
@@ -64,14 +60,12 @@ public class AssemblyLoadContextH : AssemblyLoadContext
         var assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
         if (assemblyPath != null)
         {
-            
-            if (assemblyPath.EndsWith("WinRT.Runtime.dll") || assemblyPath.EndsWith("Microsoft.Windows.SDK.NET.dll")|| 
-                assemblyPath.EndsWith("PluginCore.dll")|| assemblyPath.EndsWith("Pinyin.NET.dll")||
-                assemblyPath.EndsWith("Microsoft.Extensions.Logging.Abstractions.dll")||assemblyPath.EndsWith("Microsoft.Extensions.DependencyInjection.Abstractions.dll"))
-            {
+            if (assemblyPath.EndsWith("WinRT.Runtime.dll") || assemblyPath.EndsWith("Microsoft.Windows.SDK.NET.dll") ||
+                assemblyPath.EndsWith("PluginCore.dll") || assemblyPath.EndsWith("Pinyin.NET.dll") ||
+                assemblyPath.EndsWith("Microsoft.Extensions.Logging.Abstractions.dll") ||
+                assemblyPath.EndsWith("Microsoft.Extensions.DependencyInjection.Abstractions.dll"))
                 return null;
-            }
-               
+
 
             return LoadFromAssemblyPath(assemblyPath);
         }

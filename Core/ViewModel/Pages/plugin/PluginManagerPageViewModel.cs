@@ -1,58 +1,39 @@
 ﻿#region
 
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.IO;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
-using Avalonia.Controls.Shapes;
-using Avalonia.Layout;
-using Avalonia.LogicalTree;
-using Avalonia.Markup.Xaml.MarkupExtensions;
-using Avalonia.Media;
-using Avalonia.Styling;
-using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-using Core.SDKs;
-using Core.SDKs.CustomScenario;
-using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
-using Core.SDKs.Services.Plugin;
 using Core.Services;
+using Core.Services.Plugin;
 using Core.UI.UiControls.Plugin;
-using KitopiaAvalonia.Tools;
-
-using Markdown.Avalonia.Full;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using PluginCore;
 using Serilog;
 using Ursa.Controls;
-using Path = System.IO.Path;
+using PluginInfoUiHelper = Core.Services.Plugin.PluginInfoUiHelper;
 
 #endregion
 
 namespace Core.ViewModel.Pages.plugin;
 
- 
 public partial class PluginManagerPageViewModel : ObservableRecipient
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<PluginManagerPageViewModel>();
+    private static ILogger Log = LogManager.Logger.ForContext<PluginManagerPageViewModel>();
     private readonly TaskScheduler _scheduler = TaskScheduler.FromCurrentSynchronizationContext();
-    public ObservableCollection<PluginInfoUiHelper> Items => new ObservableCollection<PluginInfoUiHelper>(PluginManager.GetPluginLocalInfos().Select(e=>new PluginInfoUiHelper()
-    {
-        PluginBaseInfo = e.PluginBaseInfo,
-        PluginLocalInfo = e,
-        IsLocal = true
-    }).ToList());
+
+    public ObservableCollection<PluginInfoUiHelper> Items => new(PluginManager.GetPluginLocalInfos().Select(e =>
+        new PluginInfoUiHelper
+        {
+            PluginBaseInfo = e.PluginBaseInfo,
+            PluginLocalInfo = e,
+            IsLocal = true
+        }).ToList());
 
     public PluginManagerPageViewModel()
     {
-       // PluginManager.CheckAllUpdate();
+        // PluginManager.CheckAllUpdate();
     }
 
     [RelayCommand]
@@ -79,7 +60,7 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
             //加载插件
             //Plugin.NewPlugin(pluginInfoEx.Path, out var weakReference);
             PluginManager.EnablePlugin(pluginInfoEx);
-        
+
         Log.Debug(pluginInfoEx.IsEnabled.ToString());
     }
 
@@ -107,10 +88,11 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     [RelayCommand]
     private async Task ShowPluginDetail(PluginInfoUiHelper pluginInfoUiHelper)
     {
-        var overlayDialogOptions = new OverlayDialogOptions()
+        var overlayDialogOptions = new OverlayDialogOptions
         {
             CanLightDismiss = true
         };
-        await OverlayDialog.ShowCustomModal<PluginDetail, PluginDetailViewModel, object>(new PluginDetailViewModel(pluginInfoUiHelper), "LocalHost",overlayDialogOptions);
+        await OverlayDialog.ShowCustomModal<PluginDetail, PluginDetailViewModel, object>(
+            new PluginDetailViewModel(pluginInfoUiHelper), "LocalHost", overlayDialogOptions);
     }
 }

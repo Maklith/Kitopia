@@ -1,7 +1,7 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.SDKs.Services;
-using Core.ViewModel;
+using Core.Services;
+using Core.ViewModel.Main;
 
 namespace KitopiaAvalonia.Services;
 

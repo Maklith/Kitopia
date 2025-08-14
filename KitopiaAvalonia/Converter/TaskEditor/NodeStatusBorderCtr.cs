@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using Core.SDKs.CustomScenario;
+using Core.CustomScenario;
 
-namespace Kitopia.Converter.TaskEditor;
+namespace KitopiaAvalonia.Converter.TaskEditor;
 
 public class NodeStatusBorderCtr : IValueConverter
 {

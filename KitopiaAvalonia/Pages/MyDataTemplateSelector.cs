@@ -5,8 +5,8 @@ using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Metadata;
-using Core.SDKs.CustomScenario;
-using KitopiaAvalonia.Tools;
+using Core.CustomScenario;
+using Core.Utils;
 
 #endregion
 

@@ -4,8 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using AvaloniaEdit.Utils;
-using Core.SDKs.Services.Plugin;
-using Core.Services;
+using Core.Services.Plugin;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Protocol;
@@ -14,7 +13,7 @@ using Newtonsoft.Json.Linq;
 using PluginCore;
 using Serilog;
 
-namespace Core.SDKs.Services.MQTT;
+namespace Core.Services.MQTT;
 
 public enum MqttMsgType
 {
@@ -24,7 +23,7 @@ public enum MqttMsgType
 
 public class MqttManager
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<MqttManager>();
+    private static ILogger Log = LogManager.Logger.ForContext<MqttManager>();
     public static MqttServer Server;
     private static FileStream fileStream;
 
@@ -156,7 +155,7 @@ public class MqttManager
                         break;
                     }
 
-                    PluginManager.DownloadPluginOnline(onlinePluginInfo.Id,onlinePluginInfo.NameSign,
+                    PluginManager.DownloadPluginOnline(onlinePluginInfo.Id, onlinePluginInfo.NameSign,
                         int.Parse(jObject["pluginVersionInt"].ToString()));
                     ServiceManager.Services.GetService<IToastService>().Show("来自URL的操作",
                         $"下载安装插件{onlinePluginInfo.Name}ID:{jObject["pluginVersionInt"]}成功");

@@ -13,15 +13,16 @@
                     <Panel.Styles>
                         <Style Selector="Panel:pointerover">
                             <Setter Property="Background">
-                                <SolidColorBrush Color="Gray" Opacity="0.1"></SolidColorBrush>
+                                <SolidColorBrush Color="Gray" Opacity="0.1" />
                             </Setter>
                         </Style>
                     </Panel.Styles>
                     <Panel.Background>
-                        <SolidColorBrush Color="White" Opacity="0.01"></SolidColorBrush>
-                    </Panel.Background>                   
-                    <TextBox ZIndex="1"  Theme="{StaticResource LooklessTextBox}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
-                             Text="{TemplateBinding Text}"/>
+                        <SolidColorBrush Color="White" Opacity="0.01" />
+                    </Panel.Background>
+                    <TextBox ZIndex="1" Theme="{StaticResource LooklessTextBox}"
+                             Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
+                             Text="{TemplateBinding Text}" />
                 </Panel>
 
             </ControlTemplate>

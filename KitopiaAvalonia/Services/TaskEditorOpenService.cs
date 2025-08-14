@@ -1,8 +1,8 @@
 ﻿#region
 
 using Avalonia.Threading;
-using Core.SDKs.CustomScenario;
-using Core.SDKs.Services;
+using Core.CustomScenario;
+using Core.Services;
 using KitopiaAvalonia.Windows;
 using PluginCore;
 

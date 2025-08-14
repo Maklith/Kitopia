@@ -1,18 +1,15 @@
 ﻿using System;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
+using Core.Utils;
 using KitopiaAvalonia.SDKs;
-using KitopiaAvalonia.Tools;
 using KitopiaAvalonia.Windows;
-using NodifyM.Avalonia.Controls;
 
 namespace KitopiaAvalonia.Controls.Capture;
 
@@ -119,7 +116,7 @@ public class DraggableArrowControl : CaptureToolBase
         if (e.GetCurrentPoint(TopLevel.GetTopLevel(this)).Properties.IsLeftButtonPressed)
         {
             e.Pointer.Capture((IInputElement?)sender);
-            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo()
+            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
             {
                 EditType = ScreenCaptureEditType.移动,
                 Target = this,
@@ -163,7 +160,7 @@ public class DraggableArrowControl : CaptureToolBase
             _isDragging = true;
             e.Pointer.Capture((IInputElement?)sender);
             _dragStartPoint = e.GetPosition(TopLevel.GetTopLevel(this));
-            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo()
+            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
             {
                 EditType = ScreenCaptureEditType.移动,
                 Target = this,
@@ -190,7 +187,7 @@ public class DraggableArrowControl : CaptureToolBase
             Source += dragDelta;
             Target += dragDelta;
 
-            RaiseEvent(new LocationOrSizeChangedEventArgs()
+            RaiseEvent(new LocationOrSizeChangedEventArgs
                 { Source = this, RoutedEvent = LocationOrSizeChangedEvent });
         }
     }

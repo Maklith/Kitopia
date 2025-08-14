@@ -3,18 +3,16 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 
-        xmlns:viewModel="clr-namespace:Core.ViewModel;assembly=Core"
-        xmlns:searchWindow="clr-namespace:Kitopia.Converter.SearchWindow"
-        xmlns:converter="clr-namespace:Kitopia.Converter"
         xmlns:controls1="clr-namespace:KitopiaAvalonia.Controls"
         xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
         xmlns:converter1="clr-namespace:KitopiaAvalonia.Converter"
         xmlns:u="https://irihi.tech/ursa"
-        xmlns:viewModel1="clr-namespace:Core.ViewModel;assembly=PluginCore"
         xmlns:inputData="clr-namespace:PluginCore.SearchWindow.InputData;assembly=PluginCore"
+        xmlns:windows="clr-namespace:Core.ViewModel.Windows;assembly=Core"
+        xmlns:searchWindow="clr-namespace:KitopiaAvalonia.Converter.SearchWindow"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="KitopiaAvalonia.Windows.SearchWindow"
-        x:DataType="viewModel:SearchWindowViewModel"
+        x:DataType="windows:SearchWindowViewModel"
         Deactivated="w_Deactivated"
         TransparencyLevelHint="AcrylicBlur"
         Background="Transparent"
@@ -41,8 +39,7 @@
         <searchWindow:PathToImageConverter x:Key="PathToImageConverter" />
         <searchWindow:SearchItemToInfo x:Key="SearchItemToInfo" />
         <searchWindow:CanIgnoreCtr x:Key="CanIgnoreCtr" />
-        <converter:IntToIconSymbol x:Key="IntToIconSymbol" />
-        <searchWindow:SymbolToVisible x:Key="SymbolToVisible" />
+        <converter1:IntToIconSymbol x:Key="IntToIconSymbol" />
         <searchWindow:ItemNameMatchCtr x:Key="ItemNameMatchCtr" />
         <converter1:ControlContentSize x:Key="ControlContentSize" />
     </Window.Resources>
@@ -53,17 +50,21 @@
 
         <DockPanel Margin="10" VerticalAlignment="Stretch">
             <StackPanel DockPanel.Dock="Top" Margin="0,0,0,5" Spacing="5">
-                <Border IsVisible="{Binding ShowInputData}"  Theme="{DynamicResource RadioButtonGroupBorder}" Height="30">
+                <Border IsVisible="{Binding ShowInputData}" Theme="{DynamicResource RadioButtonGroupBorder}"
+                        Height="30">
                     <Border.Styles>
                         <Style Selector="RadioButton">
                             <Setter Property="Theme" Value="{DynamicResource ButtonRadioButton}" />
                         </Style>
                     </Border.Styles>
-                    <ScrollViewer  PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center" VerticalAlignment="Center">
+                    <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center"
+                                  VerticalAlignment="Center">
                         <ItemsControl ItemsSource="{Binding InputDatas}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="inputData:InputData">
-                                    <Button Classes="Small" Margin="3,0,3,0"   VerticalAlignment="Center" Content="{Binding  InputType}" Height="15" />
+                                    <Button Classes="Small" Margin="3,0,3,0" VerticalAlignment="Center"
+                                            Content="{Binding  InputType}" Height="15" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                             <ItemsControl.ItemsPanel>
@@ -74,12 +75,12 @@
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
                     </ScrollViewer>
-       
+
 
                 </Border>
                 <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" IsTabStop="False"
                          Watermark="搜索..." AcceptsReturn="False" KeyDown="tx_KeyDown"
-                         
+
                          Name="tx"
                          AcceptsTab="False" FontSize="27"
                          Text="{Binding Search}">
@@ -100,17 +101,23 @@
 
                           IsVisible="{Binding NowInSelectMode}"
                           CanClose="False" />
-                <Border IsVisible="{Binding ShowFileTypeFilter}" Theme="{DynamicResource RadioButtonGroupBorder}" Height="44">
+                <Border IsVisible="{Binding ShowFileTypeFilter}" Theme="{DynamicResource RadioButtonGroupBorder}"
+                        Height="44">
                     <Border.Styles>
                         <Style Selector="RadioButton">
                             <Setter Property="Theme" Value="{DynamicResource ButtonRadioButton}" />
                         </Style>
                     </Border.Styles>
-                    <ScrollViewer  PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center" VerticalAlignment="Center">
+                    <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center"
+                                  VerticalAlignment="Center">
                         <ItemsControl ItemsSource="{Binding FileTypes}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="viewModel:FileTypeFilter">
-                                    <ToggleButton Margin="3,0,3,0" ClickMode="Press"  IsCheckedChanged="ToggleButton_OnIsCheckedChanged"   VerticalAlignment="Center" Content="{Binding  FileType}" Height="38" IsChecked="{Binding IsChecked}" />
+                                <DataTemplate DataType="windows:FileTypeFilter">
+                                    <ToggleButton Margin="3,0,3,0" ClickMode="Press"
+                                                  IsCheckedChanged="ToggleButton_OnIsCheckedChanged"
+                                                  VerticalAlignment="Center" Content="{Binding  FileType}" Height="38"
+                                                  IsChecked="{Binding IsChecked}" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                             <ItemsControl.ItemsPanel>
@@ -121,7 +128,7 @@
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
                     </ScrollViewer>
-       
+
 
                 </Border>
             </StackPanel>
@@ -139,8 +146,8 @@
                     <Style
                         Selector="ListBoxItem:selected > Button#Item /template/ ContentPresenter#PART_ContentPresenter">
                         <Setter Property="Background" Value="{DynamicResource SemiColorTertiaryLightPointerover}" />
-                        
-                        
+
+
                     </Style>
 
                     <Style Selector="ListBoxItem">
@@ -152,16 +159,14 @@
                                         HorizontalAlignment="Stretch"
                                         IsTabStop="True"
                                         Name="Item"
-                                        Command="{Binding  $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).OpenFileCommand}"
-                                        CommandParameter="{Binding .}"
-                                        
-                                        >
+                                        Command="{Binding  $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFileCommand}"
+                                        CommandParameter="{Binding .}">
                                     <Button.ContextFlyout>
                                         <MenuFlyout>
                                             <!-- ReSharper disable once Xaml.RedundantResource -->
 
                                             <MenuItem Header="忽略"
-                                                      Command="{Binding $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).IgnoreItemCommand}"
+                                                      Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IgnoreItemCommand}"
                                                       IsVisible="{Binding Path=FileType,Converter={StaticResource CanIgnoreCtr}}"
                                                       CommandParameter="{Binding .}" />
                                         </MenuFlyout>
@@ -189,7 +194,7 @@
                                                                  IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Pin'}"
                                                                  Tag="{Binding IsPined}"
                                                                  IsChecked="{Binding IsPined}"
-                                                                 Command="{Binding $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).PinCommand}"
+                                                                 Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).PinCommand}"
                                                                  CommandParameter="{Binding}" Padding="2" />
                                         </Panel>
 
@@ -225,7 +230,7 @@
                                                     Theme="{DynamicResource BorderlessButton}"
                                                     ToolTip.Tip="以管理员身份运行" Background="{x:Null}"
                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='RunAsAdmin'}"
-                                                    Command="{Binding $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
+                                                    Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
                                                     CommandParameter="{Binding  }">
                                                 <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
                                                                     FontWeight="Normal" FontSize="26"
@@ -235,7 +240,7 @@
                                                     Theme="{DynamicResource BorderlessButton}"
                                                     ToolTip.Tip="打开文件所在文件夹" Background="{x:Null}"
                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Folder'}"
-                                                    Command="{Binding $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).OpenFolderCommand}"
+                                                    Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}"
                                                     CommandParameter="{Binding}">
                                                 <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
                                                                     FontWeight="Normal" FontSize="26"
@@ -245,7 +250,7 @@
                                                     Theme="{DynamicResource BorderlessButton}"
                                                     ToolTip.Tip="在终端中打开文件夹/文件所在文件夹" Background="{x:Null}"
                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Console'}"
-                                                    Command="{Binding $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
+                                                    Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
                                                     CommandParameter="{Binding}">
                                                 <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
                                                                     FontSize="26"
@@ -257,7 +262,7 @@
                                                     ToolTip.Tip="{Binding IsStared,Converter={StaticResource StarBoolToText},ConverterParameter='Star'}"
                                                     Background="{x:Null}"
                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Star'}"
-                                                    Command="{Binding $parent[ListBox].((viewModel:SearchWindowViewModel)DataContext).StarCommand}"
+                                                    Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).StarCommand}"
                                                     CommandParameter="{Binding}">
                                                 <Button.Resources>
                                                     <searchWindow:StarIconCtr x:Key="StarIconCtr" />

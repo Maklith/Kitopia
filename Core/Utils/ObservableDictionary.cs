@@ -2,7 +2,7 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 
-namespace Core.SDKs.CustomType;
+namespace Core.Utils;
 
 public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, IList<KeyValuePair<TKey, TValue>>, IList,
     INotifyCollectionChanged,
@@ -98,7 +98,7 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
     public KeyValuePair<TKey, TValue> GetByIndex(int index)
     {
         if (index >= 0)
-            foreach (KeyValuePair<TKey, TValue> source1 in this)
+            foreach (var source1 in this)
             {
                 if (index == 0) return source1;
 
@@ -110,7 +110,7 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
 
     public new void Add(TKey key, TValue value)
     {
-        base.TryAdd(key, value);
+        TryAdd(key, value);
         OnCollectionChanged(
             new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, FindPair(key), _index));
         OnPropertyChanged("Keys");

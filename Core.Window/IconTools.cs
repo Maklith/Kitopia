@@ -7,8 +7,8 @@ using System.Threading.RateLimiting;
 using System.Xml;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
-using KitopiaAvalonia.Tools;
-
+using Core.Services;
+using Core.Utils;
 using PluginCore;
 using Polly;
 using Polly.RateLimiting;
@@ -270,7 +270,7 @@ internal class IconTools
         //
     }
 
-    internal static void GetIconByItem(CustomScenario t)
+    internal static void GetIconByItem(CustomScenario.CustomScenario t)
     {
         var path = $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{t.UUID}.png";
         if (File.Exists(path))

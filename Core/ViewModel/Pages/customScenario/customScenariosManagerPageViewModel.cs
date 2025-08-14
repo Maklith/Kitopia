@@ -2,16 +2,19 @@
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Core.CustomScenario;
 using Core.SDKs;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
+using Core.Services;
+using Core.Utils;
 using PluginCore;
 
 namespace Core.ViewModel.Pages.customScenario;
 
 public partial class CustomScenariosManagerPageViewModel : ObservableRecipient
 {
-    public ObservableCollection<CustomScenario> CustomScenarios => CustomScenarioManger.CustomScenarios;
+    public ObservableCollection<CustomScenario.CustomScenario> CustomScenarios => CustomScenarioManger.CustomScenarios;
 
     [RelayCommand]
     public void NewCustomScenarios()
@@ -20,28 +23,28 @@ public partial class CustomScenariosManagerPageViewModel : ObservableRecipient
     }
 
     [RelayCommand]
-    private void ToTaskEditPage(CustomScenario scenario)
+    private void ToTaskEditPage(CustomScenario.CustomScenario scenario)
     {
         ((ITaskEditorOpenService)ServiceManager.Services!.GetService(typeof(ITaskEditorOpenService))!).Open(
             scenario);
     }
 
     [RelayCommand]
-    private void StopCustomScenario(CustomScenario scenario)
+    private void StopCustomScenario(CustomScenario.CustomScenario scenario)
     {
         scenario.Stop();
     }
 
     [RelayCommand]
-    private void RunCustomScenario(CustomScenario scenario)
+    private void RunCustomScenario(CustomScenario.CustomScenario scenario)
     {
         scenario.Run();
     }
 
     [RelayCommand]
-    private void RemoveCustomScenario(CustomScenario scenario)
+    private void RemoveCustomScenario(CustomScenario.CustomScenario scenario)
     {
-        var dialog = new DialogContent()
+        var dialog = new DialogContent
         {
             Title = $"删除{scenario.Name}?",
             Content = "是否确定删除?\n他真的会丢失很久很久(不可恢复)",

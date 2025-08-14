@@ -1,6 +1,6 @@
 ﻿using OpenCvSharp;
 
-namespace Core.SDKs.Services;
+namespace Core.Services;
 
 public interface IImageTool
 {

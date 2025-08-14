@@ -1,4 +1,6 @@
-﻿namespace Core.SDKs.Services;
+﻿using Core.Utils;
+
+namespace Core.Services;
 
 public interface IContentDialog
 {

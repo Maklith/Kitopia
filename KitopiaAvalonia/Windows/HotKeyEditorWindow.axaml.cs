@@ -3,11 +3,10 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Win32.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.SDKs;
-using Core.SDKs.HotKey;
-using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
-
+using Core.Services;
+using Core.Services.Config;
+using Core.Services.HotKey;
+using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Ursa.Controls;
@@ -16,7 +15,6 @@ namespace KitopiaAvalonia.Windows;
 
 public partial class HotKeyEditorWindow : UrsaWindow
 {
-    
     private HotKeyModel? _hotKeyModel;
     private bool isFinnish;
     private EKey? selectedKey;
@@ -28,7 +26,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
     internal HotKeyEditorWindow()
     {
         InitializeComponent();
-        _hotKeyModel = new HotKeyModel()
+        _hotKeyModel = new HotKeyModel
         {
             IsSelectAlt = true,
             IsSelectShift = true,
@@ -180,7 +178,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
         };
         if (!HotKeyManager.HotKetImpl.Modify(hotKeyModel))
         {
-            ServiceManager.Services.GetService<IContentDialog>().ShowDialogAsync(this, new DialogContent()
+            ServiceManager.Services.GetService<IContentDialog>().ShowDialogAsync(this, new DialogContent
             {
                 Title = $"快捷键{hotKeyModel.SignName}设置失败",
                 Content = "请重新设置快捷键，按键与系统其他程序冲突",

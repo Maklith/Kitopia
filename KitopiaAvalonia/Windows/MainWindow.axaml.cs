@@ -1,27 +1,16 @@
 using System;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
-using Core.SDKs.CustomScenario;
-using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
-using Core.SDKs.Services.MQTT;
-using Core.SDKs.Services.Plugin;
-using Core.ViewModel;
+using Core.Services;
 using Serilog;
 using Ursa.Controls;
-using HotKeyManager = Core.SDKs.HotKey.HotKeyManager;
 
-namespace KitopiaAvalonia;
+namespace KitopiaAvalonia.Windows;
 
 public partial class MainWindow : UrsaWindow
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<MainWindow>();
+    private static ILogger Log = LogManager.Logger.ForContext<MainWindow>();
 
     public MainWindow()
     {
@@ -30,7 +19,7 @@ public partial class MainWindow : UrsaWindow
         Dispatcher.UIThread.UnhandledException += (sender, e) =>
         {
             e.Handled = true;
-            Log.Fatal(e.Exception,"");
+            Log.Fatal(e.Exception, "");
         };
         Opened += FirstOpenEventHandler;
 

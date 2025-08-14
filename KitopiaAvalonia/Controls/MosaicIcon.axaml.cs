@@ -30,7 +30,7 @@ public class MosaicIcon : Control
         base.OnAttachedToVisualTree(e);
         _timer.Start();
     }
-    
+
 
     protected override void OnUnloaded(RoutedEventArgs e)
     {
@@ -41,10 +41,9 @@ public class MosaicIcon : Control
     }
 
     private IBrush? _brush;
+
     public override void Render(DrawingContext context)
     {
-        
-
         // 设置绘制马赛克的颜色
         //var brush = new SolidColorBrush(Color.Parse("#0078D7"));
         if (_brush is null)
@@ -52,7 +51,7 @@ public class MosaicIcon : Control
             Application.Current!.Styles.TryGetResource("SemiColorText0", null, out var brush);
             _brush = (IBrush?)brush;
         }
-        
+
         var pen = new Pen(_brush, 2d);
 
         // 计算每个像素方块的大小

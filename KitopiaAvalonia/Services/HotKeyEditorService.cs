@@ -1,12 +1,10 @@
-﻿using Core.SDKs.HotKey;
-using Core.SDKs.Services;
-using KitopiaAvalonia;
+﻿using Core.Services;
+using Core.Services.HotKey;
 using KitopiaAvalonia.Windows;
-using Microsoft.Extensions.DependencyInjection;
 using Window = Avalonia.Controls.Window;
 using WindowStartupLocation = Avalonia.Controls.WindowStartupLocation;
 
-namespace Kitopia.Services;
+namespace KitopiaAvalonia.Services;
 
 public class HotKeyEditorService : IHotKeyEditor
 {

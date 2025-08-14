@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
+using Core.Services;
 using Core.Window.Everything;
 using Pinyin.NET;
 using PluginCore;
@@ -42,7 +43,7 @@ public class AppToolService : IAppToolService
         IconTools.GetIconByItem(item);
     }
 
-    public void GetIconByItem(CustomScenario item)
+    public void GetIconByItem(CustomScenario.CustomScenario item)
     {
         IconTools.GetIconByItem(item);
     }

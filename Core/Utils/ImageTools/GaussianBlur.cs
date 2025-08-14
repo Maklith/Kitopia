@@ -1,4 +1,4 @@
-namespace Core.SDKs.Tools.ImageTools;
+namespace Core.Utils.ImageTools;
 
 public class GaussianBlur1
 {

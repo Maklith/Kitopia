@@ -2,8 +2,7 @@
 using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
-using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
+using Core.Services.Config;
 using Core.ViewModel.Pages.plugin;
 using KitopiaAvalonia.Pages;
 using Microsoft.Extensions.DependencyInjection;

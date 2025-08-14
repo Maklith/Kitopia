@@ -3,12 +3,12 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
+using Core.Services;
+using Core.Services.Config;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
-namespace Core.ViewModel;
+namespace Core.ViewModel.Main;
 
 public partial class AppViewModel : ObservableObject
 {

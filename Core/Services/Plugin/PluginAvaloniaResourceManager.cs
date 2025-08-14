@@ -1,6 +1,6 @@
 ﻿using Avalonia.Styling;
 
-namespace Core.SDKs.Services.Plugin;
+namespace Core.Services.Plugin;
 
 public static class PluginAvaloniaResourceManager
 {

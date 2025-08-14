@@ -4,10 +4,10 @@ using Avalonia;
 using Avalonia.Controls.Primitives;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.SDKs;
-using Core.SDKs.HotKey;
-using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
+using Core.Services;
+using Core.Services.Config;
+using Core.Services.HotKey;
+using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
@@ -50,6 +50,7 @@ public class HotKeyShow : TemplatedControl
 
     public static readonly StyledProperty<ICommand> EditHotKeyProperty =
         AvaloniaProperty.Register<HotKeyShow, ICommand>(nameof(EditHotKey));
+
     public static readonly StyledProperty<ICommand> InitHotKeyProperty =
         AvaloniaProperty.Register<HotKeyShow, ICommand>(nameof(InitHotKey));
 
@@ -118,7 +119,7 @@ public class HotKeyShow : TemplatedControl
         get => (ICommand)GetValue(EditHotKeyProperty);
         private set => SetValue(EditHotKeyProperty, value);
     }
-    
+
     [Bindable(true)]
     [Category("InitHotKey")]
     public ICommand InitHotKey
@@ -187,13 +188,13 @@ public class HotKeyShow : TemplatedControl
             HotKeyManager.HotKetImpl.RequestUserModify(HotKeyModel.Value.UUID);
             return;
         }
-       
+
 
         if (!IsActivated)
         {
             if (!HotKeyManager.HotKetImpl.Modify(HotKeyModel.Value))
             {
-                ServiceManager.Services.GetService<IContentDialog>().ShowDialogAsync(null, new DialogContent()
+                ServiceManager.Services.GetService<IContentDialog>().ShowDialogAsync(null, new DialogContent
                 {
                     Title = $"快捷键{HotKeyModel.Value.SignName}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",

@@ -2,9 +2,9 @@
 using System.Globalization;
 using System.Linq;
 using Avalonia.Data.Converters;
-using Core.SDKs.CustomScenario;
+using Core.CustomScenario;
 
-namespace Kitopia.Converter;
+namespace KitopiaAvalonia.Converter;
 
 public class HotKeySignNameToStringCtr : IValueConverter
 {

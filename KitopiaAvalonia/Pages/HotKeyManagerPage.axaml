@@ -2,11 +2,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:converter="clr-namespace:Kitopia.Converter"
              xmlns:pages="clr-namespace:Core.ViewModel.Pages;assembly=Core"
              xmlns:controls1="clr-namespace:KitopiaAvalonia.Controls"
-             xmlns:hotkey="clr-namespace:Core.SDKs.HotKey;assembly=Core"
              xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
+             xmlns:converter="clr-namespace:KitopiaAvalonia.Converter"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="pages:HotKeyManagerPageViewModel"
              x:Class="KitopiaAvalonia.Pages.HotKeyManagerPage">

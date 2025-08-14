@@ -1,19 +1,16 @@
 ﻿using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using Core.SDKs.Services.Plugin;
+using Core.Services.Plugin;
 
 namespace KitopiaAvalonia.Converter.OnnxModelManagerPage;
 
-public class PluginStrToPluginName:IValueConverter
+public class PluginStrToPluginName : IValueConverter
 
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is string plgStr)
-        {
-            return PluginManager.GetPluginLocalInfoByPlgStr(plgStr)?.PluginBaseInfo.Name;
-        }
+        if (value is string plgStr) return PluginManager.GetPluginLocalInfoByPlgStr(plgStr)?.PluginBaseInfo.Name;
 
         return null;
     }

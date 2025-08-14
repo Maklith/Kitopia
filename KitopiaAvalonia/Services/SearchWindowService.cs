@@ -1,8 +1,8 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
-using Core.SDKs.Services;
-using Core.ViewModel;
+using Core.Services;
+using Core.ViewModel.Windows;
 using KitopiaAvalonia.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -19,8 +19,9 @@ public class SearchWindowService : ISearchWindowService
             var searchWindow = ServiceManager.Services.GetService<SearchWindow>();
             {
                 ServiceManager.Services.GetService<SearchWindowViewModel>()!.LoadLast();
-                ServiceManager.Services.GetService<SearchWindowViewModel>()!.ProcessInputData(null, IInputDataAnalyzeTimeFlags.仅有搜索内容打开时);
-                
+                ServiceManager.Services.GetService<SearchWindowViewModel>()!.ProcessInputData(null,
+                    IInputDataAnalyzeTimeFlags.仅有搜索内容打开时);
+
                 searchWindow.Show();
                 Task.Run(() =>
                 {

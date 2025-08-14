@@ -1,14 +1,12 @@
 ﻿#region
 
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
-using Core.SDKs.Services.Plugin;
-
+using Core.Services;
+using Core.Services.Config;
 using PluginCore;
 using PluginCore.Attribute;
 
@@ -24,7 +22,6 @@ public struct PluginSettingItem
 
 public partial class PluginSettingViewModel : ObservableRecipient
 {
-    
     [ObservableProperty] private ObservableCollection<PluginSettingItem> _settingItems = new();
     [ObservableProperty] private string _pluginName = string.Empty;
 
@@ -34,7 +31,7 @@ public partial class PluginSettingViewModel : ObservableRecipient
         SettingItems.Clear();
         foreach (var (key, value) in ConfigManger.Configs)
             if (key.StartsWith(pluginInfo))
-                SettingItems.Add(new PluginSettingItem()
+                SettingItems.Add(new PluginSettingItem
                 {
                     Title = value.GetType().GetCustomAttribute<ConfigName>()?.Name ?? value.Name,
                     Key = value.Name

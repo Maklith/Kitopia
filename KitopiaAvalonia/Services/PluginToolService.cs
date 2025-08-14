@@ -1,6 +1,6 @@
 ﻿using System;
 using Avalonia.Threading;
-using Core.SDKs.Services;
+using Core.Services;
 
 namespace KitopiaAvalonia.Services;
 

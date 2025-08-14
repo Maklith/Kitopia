@@ -3,11 +3,10 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using Vanara.Windows.Shell;
 
 #endregion
 
-namespace Kitopia.Converter;
+namespace KitopiaAvalonia.Converter;
 
 public class ReverseBoolToVisibilityConverter : IValueConverter
 {

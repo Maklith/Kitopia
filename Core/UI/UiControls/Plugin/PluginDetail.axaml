@@ -3,10 +3,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia.Tight"
-             xmlns:pages="clr-namespace:Core.ViewModel.Pages"
              xmlns:plugin="clr-namespace:Core.ViewModel.Pages.plugin;assembly=Core"
-             xmlns:pluginManagerPage1="clr-namespace:Core.UI.UiControls.Plugin"
-             xmlns:plugin1="clr-namespace:Core.SDKs.Services.Plugin"
+             xmlns:plugin11="clr-namespace:Core.Services.Plugin"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
 
              HorizontalAlignment="Stretch"
@@ -33,7 +31,7 @@
                        VerticalAlignment="Top" Focusable="False" Width="64"
                        Source="{Binding PluginInfo.Icon}"
                        Height="64" />
-                <StackPanel Grid.Column="1"  VerticalAlignment="Center"  Margin="0,15,0,5" >
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,15,0,5">
                     <TextBlock VerticalAlignment="Center"
                                HorizontalAlignment="Left"
 
@@ -62,7 +60,7 @@
 
                         <TextBlock VerticalAlignment="Top"
                                    Text="{Binding PluginInfo.AuthorName}" />
-                        
+
                     </StackPanel>
                     <TextBlock VerticalAlignment="Center"
                                MaxWidth="{Binding $parent.Bounds.Width}"
@@ -70,42 +68,42 @@
 
                                Text="{Binding PluginInfo.DescriptionShort}" />
                 </StackPanel>
-                <Line Grid.Row="1" Grid.Column="1" EndPoint="5000,0" HorizontalAlignment="Stretch" Stroke="{DynamicResource SemiColorBorder}" />
+                <Line Grid.Row="1" Grid.Column="1" EndPoint="5000,0" HorizontalAlignment="Stretch"
+                      Stroke="{DynamicResource SemiColorBorder}" />
                 <ScrollViewer Grid.Row="1" Grid.Column="1"
                               VerticalAlignment="Stretch"
                               HorizontalAlignment="Stretch"
                               HorizontalScrollBarVisibility="Hidden">
                     <StackPanel Spacing="5"
                                 HorizontalAlignment="Stretch">
-                        
-                        
+
+
                         <Expander IsExpanded="True">
                             <Expander.Header>
-                                <Label Content="详细" Theme="{DynamicResource TitleLabel}" Classes="H4"></Label>
+                                <Label Content="详细" Theme="{DynamicResource TitleLabel}" Classes="H4" />
                             </Expander.Header>
-                            <mdxaml:MarkdownScrollViewer 
-                                                                     Markdown="{Binding PluginInfo.Description}" />
+                            <mdxaml:MarkdownScrollViewer
+                                Markdown="{Binding PluginInfo.Description}" />
                         </Expander>
-                        <Expander IsExpanded="True" >
+                        <Expander IsExpanded="True">
                             <Expander.Header>
-                                <Label Content="更新日志" Theme="{DynamicResource TitleLabel}" Classes="H4"></Label>
+                                <Label Content="更新日志" Theme="{DynamicResource TitleLabel}" Classes="H4" />
                             </Expander.Header>
                             <ItemsControl ItemsSource="{Binding PluginInfo.VersionDetails}">
                                 <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="plugin1:VersionDetail">
+                                    <DataTemplate x:DataType="plugin11:VersionDetail">
                                         <StackPanel>
                                             <Label Theme="{DynamicResource TitleLabel}" Classes="H5"
                                                    Content="{Binding Version }" />
-                                            <TextBlock Text="{Binding Detail}"></TextBlock>
+                                            <TextBlock Text="{Binding Detail}" />
                                         </StackPanel>
 
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </Expander>
-                        
 
-                       
+
                     </StackPanel>
                 </ScrollViewer>
 

@@ -1,6 +1,6 @@
 ﻿using PluginCore;
 
-namespace Core.SDKs.CustomScenario.CustomScenarioValueSerializer;
+namespace Core.CustomScenario.CustomScenarioValueSerializer;
 
 public class NodeConnectorClassCustomScenarioValueSerializer : ICustomScenarioValueSerializer
 {

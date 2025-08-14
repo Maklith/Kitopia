@@ -1,4 +1,4 @@
-﻿namespace Kitopia.SDKs;
+﻿namespace KitopiaAvalonia.SDKs;
 
 public class KeyValuePairBindingTool
 {

@@ -4,29 +4,19 @@ using System;
 using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
-using Avalonia.Threading;
-using Core.SDKs.CustomScenario;
-using Core.SDKs.Services;
-using Core.ViewModel;
+using Core.CustomScenario;
 using Core.ViewModel.TaskEditor;
-using Core.Window;
-using KitopiaAvalonia.Controls;
-using Microsoft.Extensions.DependencyInjection;
 using NodifyM.Avalonia.Events;
-using NodifyM.Avalonia.ViewModelBase;
 using PluginCore;
 using Ursa.Controls;
-using Vanara.PInvoke;
 using DataObject = Avalonia.Input.DataObject;
 using DragDrop = Avalonia.Input.DragDrop;
 using DragDropEffects = Avalonia.Input.DragDropEffects;
 using DragEventArgs = Avalonia.Input.DragEventArgs;
 using Point = Avalonia.Point;
-using RoutedEventArgs = Avalonia.Interactivity.RoutedEventArgs;
 
 #endregion
 
@@ -90,7 +80,7 @@ public partial class TaskEditor : UrsaWindow
                         {
                             var keyValuePair = (KeyValuePair<string, object>)borderDataContext;
                             pointItem = new ScenarioMethod(ScenarioMethodType.临时变量设置)
-                                    { ValueName = keyValuePair.Key}
+                                    { ValueName = keyValuePair.Key }
                                 .GenerateNode();
                             break;
                         }
@@ -157,7 +147,7 @@ public partial class TaskEditor : UrsaWindow
         if (e.Connection is ConnectionItem connection)
         {
             var vm = (TaskEditorViewModel)DataContext;
-            vm.SplitConnection(connection,e.SplitLocation);
+            vm.SplitConnection(connection, e.SplitLocation);
         }
     }
 }

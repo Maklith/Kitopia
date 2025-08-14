@@ -1,4 +1,4 @@
-namespace Core.SDKs;
+namespace Core.Utils;
 
 public record DialogContent
 {

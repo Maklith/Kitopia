@@ -1,8 +1,8 @@
 ﻿using System.IO;
 using Avalonia;
 using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
 using Core.Services;
+using Core.Services.Config;
 using Microsoft.Win32;
 using PluginCore;
 using Serilog;

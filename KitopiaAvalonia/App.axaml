@@ -1,12 +1,12 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:viewModel="clr-namespace:Core.ViewModel;assembly=Core"
 
-             xmlns:converter="clr-namespace:Kitopia.Converter"
              xmlns:u-semi="https://irihi.tech/ursa/themes/semi"
              xmlns:semi="https://irihi.tech/semi"
+             xmlns:main="clr-namespace:Core.ViewModel.Main;assembly=Core"
+             xmlns:converter="clr-namespace:KitopiaAvalonia.Converter"
              x:Class="KitopiaAvalonia.App"
-             x:DataType="viewModel:AppViewModel"
+             x:DataType="main:AppViewModel"
 
              RequestedThemeVariant="Default">
     <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
@@ -46,7 +46,7 @@
         <StyleInclude Source="Controls/Capture/DraggableArrowControl.axaml" />
         <StyleInclude Source="Controls/Capture/PenCaptureTool.axaml" />
         <StyleInclude Source="Controls/Capture/TextCaptureTool.axaml" />
-        <StyleInclude Source="Controls/DownloadButton.axaml"></StyleInclude>
+        <StyleInclude Source="Controls/DownloadButton.axaml" />
 
         <StyleInclude Source="avares://NodifyM.Avalonia/Styles/ControlStyles.axaml" />
     </Application.Styles>

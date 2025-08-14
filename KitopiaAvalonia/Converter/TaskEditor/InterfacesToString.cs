@@ -8,7 +8,7 @@ using Avalonia.Data.Converters;
 
 #endregion
 
-namespace Kitopia.Converter.TaskEditor;
+namespace KitopiaAvalonia.Converter.TaskEditor;
 
 public class InterfacesToString : IValueConverter
 {

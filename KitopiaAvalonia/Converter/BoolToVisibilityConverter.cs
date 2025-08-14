@@ -7,7 +7,7 @@ using Vanara.Windows.Shell;
 
 #endregion
 
-namespace Kitopia.Converter;
+namespace KitopiaAvalonia.Converter;
 
 public class BoolToVisibilityConverter : IValueConverter
 {

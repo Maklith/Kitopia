@@ -4,11 +4,10 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using PluginCore;
-using Vanara.Windows.Shell;
 
 #endregion
 
-namespace Kitopia.Converter.SearchWindow;
+namespace KitopiaAvalonia.Converter.SearchWindow;
 
 public class EnumToVisibilityConverter : IValueConverter
 {
@@ -61,7 +60,7 @@ public class EnumToVisibilityConverter : IValueConverter
             {
                 switch ((FileType)value)
                 {
-                    case FileType.应用程序 :
+                    case FileType.应用程序:
                     case FileType.文件:
                     case FileType.文件夹: return true;
                     default: return false;

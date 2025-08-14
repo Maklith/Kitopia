@@ -1,7 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using Windows.Graphics;
 using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
+using Core.Services;
 using OpenCvSharp;
 using PluginCore;
 using Serilog;

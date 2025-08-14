@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace Core.SDKs.Tools;
+namespace Core.Utils;
 
 public class TickUtil
 {

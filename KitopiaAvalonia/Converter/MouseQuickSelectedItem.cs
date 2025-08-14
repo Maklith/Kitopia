@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using Core.ViewModel;
+using Core.ViewModel.Windows;
 using PluginCore;
 
-namespace Kitopia.Converter;
+namespace KitopiaAvalonia.Converter;
 
 public class MouseQuickSelectedItem : IValueConverter
 {

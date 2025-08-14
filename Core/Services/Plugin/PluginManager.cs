@@ -3,33 +3,31 @@
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO.Compression;
 using System.Reflection;
 using System.Text;
-
 using CommunityToolkit.Mvvm.Messaging;
+using Core.CustomScenario;
 using Core.SDKs.CustomScenario;
-using Core.SDKs.Services.Config;
-using Core.SDKs.Services.Onnx;
+using Core.Services.Config;
+using Core.Utils;
 using Core.ViewModel.Pages;
-
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using PluginCore;
 using PluginCore.Onnx;
 using Serilog;
-
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 #endregion
 
-namespace Core.SDKs.Services.Plugin;
-
+namespace Core.Services.Plugin;
 
 public class PluginManager
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<PluginManager>();
+    private static ILogger Log = LogManager.Logger.ForContext<PluginManager>();
     private static readonly ObservableCollection<PluginLocalInfo> AllPluginInfos = new();
     private static readonly Dictionary<string, Plugin> EnablePlugins = new();
 
@@ -39,7 +37,7 @@ public class PluginManager
     {
         PluginCore.Kitopia.ISearchItemTool =
             (ISearchItemTool)ServiceManager.Services.GetService(typeof(ISearchItemTool))!;
-        PluginCore.Kitopia.IClipboardService =ServiceManager.Services.GetService<IClipboardService>()!;
+        PluginCore.Kitopia.IClipboardService = ServiceManager.Services.GetService<IClipboardService>()!;
         PluginCore.Kitopia.IToastService = (IToastService)ServiceManager.Services.GetService(typeof(IToastService))!;
         PluginCore.Kitopia._i18n = CustomScenarioGloble._i18n;
         PluginCore.Kitopia.ToolTipConverters = CustomScenarioGloble.ToolTipConverters;
@@ -95,27 +93,23 @@ public class PluginManager
     {
         return AllPluginInfos.FirstOrDefault(e => e.ToPlgString() == plgStr);
     }
+
     public static PluginLocalInfo? GetPluginLocalInfoOnlyOnEnableByPlgStr(string plgStr)
     {
-        return EnablePlugins.TryGetValue(plgStr, out var value)?value.PluginInfo:null;
+        return EnablePlugins.TryGetValue(plgStr, out var value) ? value.PluginInfo : null;
     }
+
     public static PluginBaseInfo? GetPluginBaseInfoByType(Type type)
     {
-        var firstOrDefault = PluginManager.EnablePlugins.FirstOrDefault((e) => e.Value.IsPluginAssembly(type.Assembly));
-        if (firstOrDefault.Value is null)
-        {
-            return null;
-        }
+        var firstOrDefault = EnablePlugins.FirstOrDefault((e) => e.Value.IsPluginAssembly(type.Assembly));
+        if (firstOrDefault.Value is null) return null;
         return firstOrDefault.Value.PluginInfo.PluginBaseInfo;
     }
+
     public static bool IsTypeFromThePlugin(Type type, string pluginName)
     {
-        
-        var firstOrDefault = PluginManager.EnablePlugins.FirstOrDefault((e) => e.Key == pluginName);
-        if (firstOrDefault.Value is null)
-        {
-            return false;
-        }
+        var firstOrDefault = EnablePlugins.FirstOrDefault((e) => e.Key == pluginName);
+        if (firstOrDefault.Value is null) return false;
         return firstOrDefault.Value.IsPluginAssembly(type.Assembly);
     }
 
@@ -124,7 +118,7 @@ public class PluginManager
         return AllPluginInfos;
     }
 
-    public static Dictionary<string,Plugin> GetEnablePlugins()
+    public static Dictionary<string, Plugin> GetEnablePlugins()
     {
         return EnablePlugins;
     }
@@ -134,7 +128,7 @@ public class PluginManager
         return EnablePlugins[plgStr].ServiceProvider!;
     }
 
-    public static MethodInfo GetMethodInfo(string plgStr,string methodAbsolutelyName)
+    public static MethodInfo GetMethodInfo(string plgStr, string methodAbsolutelyName)
     {
         var plugin = EnablePlugins[plgStr];
         return plugin.GetMethod(methodAbsolutelyName) ??
@@ -144,12 +138,10 @@ public class PluginManager
 
     public static Type GetType(string[] strings)
     {
-        if (PluginManager.EnablePlugins.TryGetValue(strings[0], out var value))
-        {
+        if (EnablePlugins.TryGetValue(strings[0], out var value))
             return value.GetType(strings[1]) ??
                    throw new CustomScenarioLoadFromJsonException(CustomScenarioLoadFromJsonFailedType.类未找到, strings[0],
                        strings[1]);
-        }
 
         throw new CustomScenarioLoadFromJsonException(CustomScenarioLoadFromJsonFailedType.插件未找到, strings[0],
             strings[1]);
@@ -157,42 +149,35 @@ public class PluginManager
 
     public static void EnablePlugin(PluginLocalInfo pluginInfoEx)
     {
-        if (EnablePlugins.ContainsKey(pluginInfoEx.ToPlgString()))
-        {
-            return;
-        }
+        if (EnablePlugins.ContainsKey(pluginInfoEx.ToPlgString())) return;
         EnablePluginWithoutReloadOthers(pluginInfoEx);
         CustomScenarioManger.ReCheck(true);
         WeakReferenceMessenger.Default.Send(
             new PluginStateChanged(pluginInfoEx.PluginBaseInfo.NameSign));
     }
+
     public static void EnablePluginWithoutReloadOthers(PluginLocalInfo pluginInfoEx)
     {
-        if (EnablePlugins.ContainsKey(pluginInfoEx.ToPlgString()))
-        {
-            return;
-        }
-        
+        if (EnablePlugins.ContainsKey(pluginInfoEx.ToPlgString())) return;
+
         EnablePlugins.Add(pluginInfoEx.ToPlgString(),
             new Plugin(pluginInfoEx));
         ConfigManger.Config.EnabledPluginInfos.Add(pluginInfoEx.PluginBaseInfo);
         ConfigManger.Save();
-        
-        
     }
+
     public static bool EnablePlugin(string pluginSign)
     {
-        var pluginInfoEx = AllPluginInfos.FirstOrDefault(e=>e.ToPlgString()==pluginSign);
-        if (pluginInfoEx is null)
-        {
-            return false;
-        }
+        var pluginInfoEx = AllPluginInfos.FirstOrDefault(e => e.ToPlgString() == pluginSign);
+        if (pluginInfoEx is null) return false;
         EnablePlugin(pluginInfoEx);
         return true;
     }
-    public static async Task<bool> UnloadPlugin(PluginLocalInfo pluginInfoEx, bool reloadPluginAndCustomScenarion = true)
+
+    public static async Task<bool> UnloadPlugin(PluginLocalInfo pluginInfoEx,
+        bool reloadPluginAndCustomScenarion = true)
     {
-        WeakReference? weakReference=null;
+        WeakReference? weakReference = null;
         await Task.Run(() =>
         {
             Plugin.UnloadByPluginInfo(pluginInfoEx.ToPlgString(), out weakReference);
@@ -209,33 +194,28 @@ public class PluginManager
                 if (!weakReference.IsAlive) break;
             }
         });
-        if (weakReference is null)
-        {
-            return false;
-        }
+        if (weakReference is null) return false;
 
         if (weakReference.IsAlive)
         {
             pluginInfoEx.UnloadFailed = true;
-            Task.Run((() =>
+            Task.Run(() =>
             {
-                while (weakReference.IsAlive)
-                {
-                    Thread.Sleep(1000);
-                }
+                while (weakReference.IsAlive) Thread.Sleep(1000);
 
                 pluginInfoEx.UnloadFailed = false;
-            }));
+            });
         }
-        
+
         // Items.ResetBindings();
         if (reloadPluginAndCustomScenarion)
         {
             WeakReferenceMessenger.Default.Send(
                 new PluginStateChanged(pluginInfoEx.PluginBaseInfo.NameSign));
             Reload();
-           CustomScenarioManger.Reload();
+            CustomScenarioManger.Reload();
         }
+
         return false;
     }
 
@@ -283,7 +263,6 @@ public class PluginManager
                 //下载缺失依赖
                 if (previewList.All(e => e.NameSign != pluginSignName))
                 {
-                    
                     var onlinePluginInfo = await GetOnlinePluginInfo(pluginSignName);
                     if (onlinePluginInfo is null)
                     {
@@ -294,7 +273,8 @@ public class PluginManager
                         return;
                     }
 
-                    var downloadPluginOnline = await DownloadPluginAndEnable(onlinePluginInfo.Id,onlinePluginInfo.NameSign,
+                    var downloadPluginOnline = await DownloadPluginAndEnable(onlinePluginInfo.Id,
+                        onlinePluginInfo.NameSign,
                         targetVersion: verStr.Replace("^", "").Split("-")[0]);
 
                     if (downloadPluginOnline)
@@ -376,7 +356,7 @@ public class PluginManager
 
         foreach (var directoryInfo in pluginsDirectoryInfo.EnumerateDirectories())
         {
-            if (init&&File.Exists($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}.remove"))
+            if (init && File.Exists($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}.remove"))
             {
                 try
                 {
@@ -384,7 +364,7 @@ public class PluginManager
                 }
                 catch (Exception e)
                 {
-                    Log.Error(e,"错误");
+                    Log.Error(e, "错误");
                 }
 
                 continue;
@@ -402,15 +382,14 @@ public class PluginManager
                     {
                         var pluginBaseInfo = serialize.Value;
 
-                        var info = new PluginLocalInfo()
+                        var info = new PluginLocalInfo
                         {
                             PluginBaseInfo = pluginBaseInfo,
-                            FullPath =  $"{directoryInfo.FullName}{Path.DirectorySeparatorChar}{pluginBaseInfo.Main}",
-                            Path= $"{directoryInfo.FullName}{Path.DirectorySeparatorChar}",
-                            
+                            FullPath = $"{directoryInfo.FullName}{Path.DirectorySeparatorChar}{pluginBaseInfo.Main}",
+                            Path = $"{directoryInfo.FullName}{Path.DirectorySeparatorChar}"
                         };
                         AllPluginInfos.Add(info);
-                        
+
                         var (item1, versionCheckResults) =
                             CheckDependencies(previewList, pluginBaseInfo.Dependencies,
                                 ConfigManger.Config.EnabledPluginInfos.Any(e =>
@@ -422,25 +401,25 @@ public class PluginManager
                                 stringBuilder.AppendLine($"{key} {value.ToString()}");
 
                             Log.Error($"加载插件{pluginBaseInfo.Name}时插件错误,缺失依赖\n {stringBuilder}");
-                            var dialog = new DialogContent()
+                            var dialog = new DialogContent
                             {
                                 Title = $"加载插件{pluginBaseInfo.Name}时插件错误",
                                 Content = stringBuilder,
                                 CloseButtonText = "我知道了"
                             };
-                            ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(
-                                null,
-                                dialog);
+                            ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!)
+                                .ShowDialogAsync(
+                                    null,
+                                    dialog);
                             continue;
                         }
+
                         Log.Debug($"加载插件{pluginBaseInfo.Name}信息成功");
-                        if (init&&File.Exists($"{info.Path}.update"))
+                        if (init && File.Exists($"{info.Path}.update"))
                         {
                             var allText = File.ReadAllText($"{info.Path}.update");
                             if (int.TryParse(allText, out var versionId))
-                            {
-                                DownloadPluginOnline(pluginBaseInfo.Id,pluginBaseInfo.NameSign,versionId).Wait();
-                            }
+                                DownloadPluginOnline(pluginBaseInfo.Id, pluginBaseInfo.NameSign, versionId).Wait();
 
                             try
                             {
@@ -448,32 +427,33 @@ public class PluginManager
                             }
                             catch (Exception e)
                             {
-                                Log.Error(e,"错误");
+                                Log.Error(e, "错误");
                             }
                         }
-                        if (ConfigManger.Config.EnabledPluginInfos.Any(e => e.ToPlgString() == pluginBaseInfo.ToPlgString()))
+
+                        if (ConfigManger.Config.EnabledPluginInfos.Any(e =>
+                                e.ToPlgString() == pluginBaseInfo.ToPlgString()))
                         {
-                            var pluginInfo = ConfigManger.Config.EnabledPluginInfos.First(e => e.ToPlgString() == pluginBaseInfo.ToPlgString());
-                            ConfigManger.Config.EnabledPluginInfos.RemoveAll(e=>e.NameSign==pluginInfo.NameSign);
+                            var pluginInfo =
+                                ConfigManger.Config.EnabledPluginInfos.First(e =>
+                                    e.ToPlgString() == pluginBaseInfo.ToPlgString());
+                            ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.NameSign == pluginInfo.NameSign);
                             ConfigManger.Config.EnabledPluginInfos.Add(pluginBaseInfo);
-                            
-                            if (!EnablePlugins.ContainsKey(pluginBaseInfo.ToPlgString())){
+
+                            if (!EnablePlugins.ContainsKey(pluginBaseInfo.ToPlgString()))
+                            {
                                 if (init)
-                                {
-                                    Task.Run(() => { PluginManager.EnablePluginWithoutReloadOthers(info); }).Wait();
-                                    
-                                }else
-                                    Task.Run(() => { PluginManager.EnablePlugin(info); }).Wait();
+                                    Task.Run(() => { EnablePluginWithoutReloadOthers(info); }).Wait();
+                                else
+                                    Task.Run(() => { EnablePlugin(info); }).Wait();
                             }
-                        
-                        
                         }
                     }
                 }
             }
             catch (Exception e)
             {
-                Log.Error(e,"错误");
+                Log.Error(e, "错误");
             }
         }
 
@@ -487,7 +467,7 @@ public class PluginManager
 
     public static void DeletePlugin(PluginLocalInfo pluginInfoEx)
     {
-        var dialog = new DialogContent()
+        var dialog = new DialogContent
         {
             Title = $"删除{pluginInfoEx.PluginBaseInfo.Name}?",
             Content = "是否确定删除?\n他真的会丢失很久很久(不可恢复)",
@@ -521,16 +501,17 @@ public class PluginManager
         CustomScenarioManger.Reload();
     }
 
-    public static Task<OnlinePluginInfo?> GetOnlinePluginInfo(int id,bool allBeforeThisVersion = false)
+    public static Task<OnlinePluginInfo?> GetOnlinePluginInfo(int id, bool allBeforeThisVersion = false)
     {
-        return GetOnlinePluginInfo(id.ToString(),allBeforeThisVersion);
+        return GetOnlinePluginInfo(id.ToString(), allBeforeThisVersion);
     }
 
-    public static async Task<OnlinePluginInfo?> GetOnlinePluginInfo(string pluginSignName,bool allBeforeThisVersion = false)
+    public static async Task<OnlinePluginInfo?> GetOnlinePluginInfo(string pluginSignName,
+        bool allBeforeThisVersion = false)
     {
         try
         {
-            var request = new HttpRequestMessage()
+            var request = new HttpRequestMessage
             {
                 RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/plugin/{pluginSignName}"),
                 Method = HttpMethod.Get
@@ -545,19 +526,16 @@ public class PluginManager
         }
         catch (Exception e)
         {
-            Log.Error(e,"错误");
+            Log.Error(e, "错误");
             return null;
         }
     }
 
-    public static async Task<bool> DownloadPluginAndEnable(int pluginId,string pluginSign, int? targetVersionId = null,
+    public static async Task<bool> DownloadPluginAndEnable(int pluginId, string pluginSign, int? targetVersionId = null,
         string? targetVersion = null)
     {
-        var downloadPluginOnline = await DownloadPluginOnline( pluginId, pluginSign, targetVersionId, targetVersion);
-        if (downloadPluginOnline)
-        {
-            return EnablePlugin(pluginSign);
-        }
+        var downloadPluginOnline = await DownloadPluginOnline(pluginId, pluginSign, targetVersionId, targetVersion);
+        if (downloadPluginOnline) return EnablePlugin(pluginSign);
         return false;
     }
 
@@ -580,7 +558,7 @@ public class PluginManager
             zipArchive.Dispose();
             File.Delete(path);
 
-            var request = new HttpRequestMessage()
+            var request = new HttpRequestMessage
             {
                 RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/plugin/avatar"),
                 Method = HttpMethod.Get
@@ -589,21 +567,18 @@ public class PluginManager
             var sendAsync = await _httpClient.SendAsync(request);
             var stringAsync = await sendAsync.Content.ReadAsStringAsync();
             var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
-            byte[] arr = deserializeObject["data"].ToObject<byte[]>();//将指定的字符串（它将二进制数据编码为 Base64 数字）转换为等效的 8 位无符号整数数组。
-            using (MemoryStream ms = new MemoryStream(arr))
+            var arr = deserializeObject["data"].ToObject<byte[]>(); //将指定的字符串（它将二进制数据编码为 Base64 数字）转换为等效的 8 位无符号整数数组。
+            using (var ms = new MemoryStream(arr))
             {
                 var filename = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins", plugin,
                     "avatar.png");
                 var directoryname = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins", plugin);
-                Bitmap bmp = new Bitmap(ms,true);//加载图像
-                
-                if (!Directory.Exists(directoryname))//判断保存目录是否存在
-                {
+                var bmp = new Bitmap(ms, true); //加载图像
+
+                if (!Directory.Exists(directoryname)) //判断保存目录是否存在
                     Directory.CreateDirectory(directoryname);
-                }
-                bmp.Save(filename, System.Drawing.Imaging.ImageFormat.Png);//将图片以JPEG格式保存在指定目录(可以选择其他图片格式)
-                ms.Close();//关闭流并释放
-                
+                bmp.Save(filename, ImageFormat.Png); //将图片以JPEG格式保存在指定目录(可以选择其他图片格式)
+                ms.Close(); //关闭流并释放
             }
 
 
@@ -611,29 +586,26 @@ public class PluginManager
         }
         catch (Exception e)
         {
-            Log.Error(e,"错误");
+            Log.Error(e, "错误");
             return false;
         }
 
         return true;
     }
 
-    public static async Task<bool> DownloadPluginOnline(int pluginId,string pluginSign, int? targetVersionId = null,
+    public static async Task<bool> DownloadPluginOnline(int pluginId, string pluginSign, int? targetVersionId = null,
         string? targetVersion = null)
     {
         object? key = targetVersionId.HasValue ? targetVersionId.Value : targetVersion;
-        if (key is null)
-        {
-            return false;
-        }
+        if (key is null) return false;
         var downloadPlugin = await DownloadPlugin(pluginId, key, pluginSign);
         if (!downloadPlugin) return false;
-        var pluginInfoEx = AllPluginInfos.FirstOrDefault(e => e.ToPlgString() ==pluginSign);
+        var pluginInfoEx = AllPluginInfos.FirstOrDefault(e => e.ToPlgString() == pluginSign);
         if (pluginInfoEx is null) return false;
         return true;
     }
 
-    public static async Task<bool> Update(int pluginId, string pluginSign, int? targetVersionId=null)
+    public static async Task<bool> Update(int pluginId, string pluginSign, int? targetVersionId = null)
     {
         try
         {
@@ -645,13 +617,10 @@ public class PluginManager
                 var deserializeObject = (JObject)JsonConvert.DeserializeObject(httpContent);
                 targetVersionId = deserializeObject["data"]["lastVersionId"].ToObject<int>();
             }
-            
+
 
             var pluginLocalInfoByPlgStr = GetPluginLocalInfoByPlgStr(pluginSign);
-            if (pluginLocalInfoByPlgStr is null)
-            {
-                return false;
-            }
+            if (pluginLocalInfoByPlgStr is null) return false;
             await UnloadPlugin(pluginLocalInfoByPlgStr);
 
             if (pluginLocalInfoByPlgStr.UnloadFailed)
@@ -660,19 +629,19 @@ public class PluginManager
             }
             else
             {
-                var downloadPluginAndEnable = await PluginManager.DownloadPluginAndEnable(pluginLocalInfoByPlgStr.PluginBaseInfo.Id,
+                var downloadPluginAndEnable = await DownloadPluginAndEnable(pluginLocalInfoByPlgStr.PluginBaseInfo.Id,
                     pluginLocalInfoByPlgStr.PluginBaseInfo.NameSign, targetVersionId);
                 if (!downloadPluginAndEnable)
-                {
-                    ServiceManager.Services.GetService<IToastService>()!.Show("更新插件失败", $"更新插件{pluginLocalInfoByPlgStr.PluginBaseInfo.Name}失败");
-                }
+                    ServiceManager.Services.GetService<IToastService>()!.Show("更新插件失败",
+                        $"更新插件{pluginLocalInfoByPlgStr.PluginBaseInfo.Name}失败");
             }
         }
         catch (Exception e)
         {
-            Log.Error(e,"错误");
+            Log.Error(e, "错误");
             return false;
         }
+
         return false;
     }
 }

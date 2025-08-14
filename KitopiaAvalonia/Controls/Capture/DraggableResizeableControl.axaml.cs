@@ -7,8 +7,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.VisualTree;
+using Core.Utils;
 using KitopiaAvalonia.SDKs;
-using KitopiaAvalonia.Tools;
 using KitopiaAvalonia.Windows;
 
 namespace KitopiaAvalonia.Controls.Capture;
@@ -127,7 +127,7 @@ public class DraggableResizeableControl : CaptureToolBase
                 _resizeStartPoint = new Point(_dragTransform.X + Width, _resizeStartPoint.Y);
             }
 
-            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo()
+            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
             {
                 EditType = ScreenCaptureEditType.调整大小,
                 Target = this,
@@ -201,7 +201,7 @@ public class DraggableResizeableControl : CaptureToolBase
                 }
             }
 
-            RaiseEvent(new LocationOrSizeChangedEventArgs()
+            RaiseEvent(new LocationOrSizeChangedEventArgs
                 { Source = this, RoutedEvent = LocationOrSizeChangedEvent });
         }
         else
@@ -329,7 +329,7 @@ public class DraggableResizeableControl : CaptureToolBase
             e.Pointer.Capture((IInputElement?)sender);
             _isDragging = true;
             _dragStartPoint = e.GetPosition(TopLevel.GetTopLevel(this));
-            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo()
+            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
             {
                 EditType = ScreenCaptureEditType.移动,
                 Target = this,
@@ -357,7 +357,7 @@ public class DraggableResizeableControl : CaptureToolBase
             _dragTransform.X += dragDelta.X;
             _dragTransform.Y += dragDelta.Y;
 
-            RaiseEvent(new LocationOrSizeChangedEventArgs()
+            RaiseEvent(new LocationOrSizeChangedEventArgs
                 { Source = this, RoutedEvent = LocationOrSizeChangedEvent });
         }
     }

@@ -2,56 +2,51 @@
 
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
-using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using Avalonia.Threading;
 using AvaloniaEdit.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.SDKs.CustomScenario;
-using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
-using Core.SDKs.Services.Plugin;
-using Core.SDKs.Tools;
-
+using Core.Services;
+using Core.Services.Config;
+using Core.Services.Plugin;
+using Core.Utils;
 using Pinyin.NET;
 using PluginCore;
 using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 using Serilog;
-using Math = Core.SDKs.Tools.Math;
 
 #endregion
 
-namespace Core.ViewModel;
+namespace Core.ViewModel.Windows;
 
-public class FileTypeFilter 
+public class FileTypeFilter
 {
     public FileType FileType { get; set; }
-    public bool IsChecked{ get; set; }
+    public bool IsChecked { get; set; }
 }
 
 public partial class SearchWindowViewModel : ObservableRecipient
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<SearchWindowViewModel>();
+    private static ILogger Log = LogManager.Logger.ForContext<SearchWindowViewModel>();
     private static readonly List<SearchViewItem> TempList = new(1000);
-    
-    
+
+
     [ObservableProperty] private ObservableCollection<FileTypeFilter> _fileTypes = new();
 
-    [ObservableProperty] private bool showFileTypeFilter=false;
+    [ObservableProperty] private bool showFileTypeFilter = false;
     public readonly ConcurrentDictionary<string, SearchViewItem> _collection = new(); //存储本机所有软件
     private readonly TaskScheduler _scheduler = TaskScheduler.FromCurrentSynchronizationContext();
 
     private readonly DelayAction _searchDelayAction = new();
 
     [ObservableProperty] private bool? _everythingIsOk = true;
-    [ObservableProperty] private ObservableCollection<SearchViewItem> _items = new(TempList); 
+    [ObservableProperty] private ObservableCollection<SearchViewItem> _items = new(TempList);
     [ObservableProperty] private ObservableCollection<SearchViewItem> _showItems; //搜索界面显示的软件
     [ObservableProperty] public bool showInputData;
-    
+
     [ObservableProperty] private ObservableCollection<InputData> _inputDatas = new();
     private PinyinSearcher<SearchViewItem> _pinyinSearcher;
 
@@ -63,40 +58,34 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
     [ObservableProperty] private int? _selectedIndex = -1;
 
-   
 
     [ObservableProperty] private bool nowInSelectMode = false;
     private Action<SearchViewItem?>? selectAction;
 
     public SearchWindowViewModel()
     {
-        
-        Task.Run((() =>
+        Task.Run(() =>
         {
             ReloadApps(false);
             LoadLast();
-        })).ContinueWith(e =>
+        }).ContinueWith(e =>
         {
-            if (e.Exception is not null)
-            {
-                Log.Error(e.Exception,"");
-            }
-           
+            if (e.Exception is not null) Log.Error(e.Exception, "");
         });
     }
 
-   
+
     public void ReloadApps(bool logging = false)
     {
         if (_reloading) return;
 
-        
+
         _reloading = true;
         CheckEverything();
         ServiceManager.Services.GetService<IAppToolService>()!.DelNullFile(_collection);
         ServiceManager.Services.GetService<IAppToolService>()!.GetAllApps(_collection, logging,
             ConfigManger.Config.useEverything);
-        
+
 
         _reloading = false;
     }
@@ -121,10 +110,8 @@ public partial class SearchWindowViewModel : ObservableRecipient
         }
     }
 
-    
 
-  
-    public void LoadLast() 
+    public void LoadLast()
     {
         if (!string.IsNullOrEmpty(Search)) return;
 
@@ -135,7 +122,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         foreach (var searchViewItem in Items) searchViewItem.Dispose();
 
         Items.Clear();
-        
+
         var limit = 0;
         //Items.RaiseListChangedEvents = false;
         if (ConfigManger.Config.alwayShows.Any())
@@ -181,7 +168,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     Log.Debug("加载历史:" + item.OnlyKey);
 
 
-                    if (!Items.Any((e) => e.OnlyKey.Equals(item.OnlyKey)))
+                    if (!Enumerable.Any<SearchViewItem>(Items, (e) => e.OnlyKey.Equals(item.OnlyKey)))
                     {
                         Items.Add(item);
 
@@ -202,66 +189,48 @@ public partial class SearchWindowViewModel : ObservableRecipient
         ShowItems = Items;
         FileTypes.Clear();
         ShowFileTypeFilter = FileTypes.Count > 0;
-        
     }
 
-    
-    public void ProcessInputData(string? value,IInputDataAnalyzeTimeFlags nowTimeFlags)
+
+    public void ProcessInputData(string? value, IInputDataAnalyzeTimeFlags nowTimeFlags)
     {
-        if (Items.LastOrDefault(e=>e.FileType== FileType.自定义) is { } last)
+        if (Enumerable.LastOrDefault<SearchViewItem>(Items, e => e.FileType == FileType.自定义) is { } last)
         {
             var indexOf = Items.IndexOf(last);
             if (indexOf >= 0)
-            {
                 for (var i = indexOf; i >= 0; i--)
                 {
                     Items[i].Dispose();
                     Items.RemoveAt(i);
                 }
-            }
         }
+
         InputDatas.Clear();
         foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataIdentifies)
+        foreach (var func in funcs)
         {
-            foreach (var func in funcs)
-            {
-                    
-                var inputData = func.Invoke(nowTimeFlags,value);
-                if (inputData != null)
-                {
-                    InputDatas.AddRange(inputData);
-                }
-            }
+            var inputData = func.Invoke(nowTimeFlags, value);
+            if (inputData != null) ExtensionMethods.AddRange(InputDatas, inputData);
         }
 
         if (!string.IsNullOrWhiteSpace(value))
-        {
-            InputDatas.Add(new InputData()
+            InputDatas.Add(new InputData
             {
                 InputType = InputType.文本,
                 Data = value
             });
-        }
-        
-        ShowInputData = InputDatas.Count > 0;   
+
+        ShowInputData = InputDatas.Count > 0;
         foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataAnalyzers)
+        foreach (var func in funcs)
         {
-                
-            foreach (var func in funcs)
-            {
-                var inputDataAnalyzeTimeFlags = func.Item1.Invoke();
-                if ( (inputDataAnalyzeTimeFlags & nowTimeFlags) == 0)
-                {
-                    continue; // 如果当前时间标志不匹配，则跳过
-                }
-                IEnumerable<SearchViewItem> enumerable = func.Item2.Invoke(InputDatas);
-                foreach (var searchViewItem in enumerable)
-                {
-                    Items.Insert(0,searchViewItem);
-                }
-            }
+            var inputDataAnalyzeTimeFlags = func.Item1.Invoke();
+            if ((inputDataAnalyzeTimeFlags & nowTimeFlags) == 0) continue; // 如果当前时间标志不匹配，则跳过
+            var enumerable = func.Item2.Invoke(InputDatas);
+            foreach (var searchViewItem in enumerable) Items.Insert(0, searchViewItem);
         }
     }
+
     // ReSharper disable once RedundantAssignment
     partial void OnSearchChanged(string? value)
     {
@@ -279,8 +248,10 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 ProcessInputData(null, IInputDataAnalyzeTimeFlags.搜索前);
                 return;
             }
+
             Log.Debug("搜索变更:" + Search);
             // Items.RaiseListChangedEvents = false;
+
             #region 清除上次搜索结果
 
             foreach (var searchViewItem in Items) searchViewItem.Dispose();
@@ -288,28 +259,29 @@ public partial class SearchWindowViewModel : ObservableRecipient
             Items.Clear();
 
             if (Search is null) return;
- 
+
             #endregion
-            
-            ProcessInputData(value,IInputDataAnalyzeTimeFlags.搜索时);
+
+            ProcessInputData(value, IInputDataAnalyzeTimeFlags.搜索时);
 
             var originalValue = Search;
             var lowerOriginalValue = Search.ToLowerInvariant();
-            value = Search.Split(" ").First().ToLowerInvariant();
+            value = Enumerable.First<string>(Search.Split(" ")).ToLowerInvariant();
             var pluginItem = 0;
-            
 
-         
-            if (originalValue.StartsWith(ConfigManger.Config.everythingSearchPreString)&&originalValue.Length>ConfigManger.Config.everythingSearchPreString.Length)
+
+            if (originalValue.StartsWith(ConfigManger.Config.everythingSearchPreString) &&
+                originalValue.Length > ConfigManger.Config.everythingSearchPreString.Length)
             {
-                var useEverythingSearch = ServiceManager.Services.GetService<IAppToolService>().
-                    UseEverythingSearch(originalValue.Remove(0,ConfigManger.Config.everythingSearchPreString.Length),ConfigManger.Config.everythingSearchMaxCount);
-                Items.AddRange(useEverythingSearch);
+                var useEverythingSearch = ServiceManager.Services.GetService<IAppToolService>()
+                    .UseEverythingSearch(originalValue.Remove(0, ConfigManger.Config.everythingSearchPreString.Length),
+                        ConfigManger.Config.everythingSearchMaxCount);
+                ExtensionMethods.AddRange(Items, useEverythingSearch);
             }
-            else {
+            else
+            {
                 #region 从文件索引检索并排序
 
-            
                 var filtered = _pinyinSearcher.Search(value)
                     .ToList();
 
@@ -353,82 +325,71 @@ public partial class SearchWindowViewModel : ObservableRecipient
                         //Log.Debug("添加搜索结果" + x.Item.OnlyKey);
 
 
-                        if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
+                        if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey))
+                            searchViewItem.IsPined = true;
 
                         Items.Add(searchViewItem); // 添加元素
                         searchViewItem.Notify();
                         count++; // 计数器加一
                     }
                 }
+
                 //Items.RaiseListChangedEvents = true;
-                var strings = Search.Split(" ", StringSplitOptions.RemoveEmptyEntries); 
+                var strings = Search.Split(" ", StringSplitOptions.RemoveEmptyEntries);
                 if (strings.Length > 1)
-                {
                     for (var index = 1; index < strings.Length; index++)
-                    {
                         ReSearch(strings[index]);
-                    }
-                }
-                
             }
 
 
             if (Items.Count <= pluginItem)
             {
                 {
+                    Log.Debug("无搜索项目,添加网页搜索");
+                    var searchViewItem3 = new SearchViewItem
                     {
-                        Log.Debug("无搜索项目,添加网页搜索");
-                        var searchViewItem3 = new SearchViewItem
-                        {
-                            ItemDisplayName = "将内容添加至便签" + originalValue,
-                            FileType = FileType.便签,
-                            OnlyKey = originalValue,
-                            Icon = null,
-                            IconSymbol = 0xF6EC,
-                            IsVisible = true
-                        };
-                        Items.Add(searchViewItem3);
-                        var searchViewItem = new SearchViewItem
-                        {
-                            ItemDisplayName = "在网页中搜索" + originalValue,
-                            FileType = FileType.URL,
-                            OnlyKey = "https://www.bing.com/search?q=" + originalValue,
-                            Icon = null,
-                            IconSymbol = 62555,
-                            IsVisible = true
-                        };
-                        Items.Add(searchViewItem);
-                    }
+                        ItemDisplayName = "将内容添加至便签" + originalValue,
+                        FileType = FileType.便签,
+                        OnlyKey = originalValue,
+                        Icon = null,
+                        IconSymbol = 0xF6EC,
+                        IsVisible = true
+                    };
+                    Items.Add(searchViewItem3);
+                    var searchViewItem = new SearchViewItem
+                    {
+                        ItemDisplayName = "在网页中搜索" + originalValue,
+                        FileType = FileType.URL,
+                        OnlyKey = "https://www.bing.com/search?q=" + originalValue,
+                        Icon = null,
+                        IconSymbol = 62555,
+                        IsVisible = true
+                    };
+                    Items.Add(searchViewItem);
                 }
             }
-            
-            
-           
+
+
             FileTypes.Clear();
-            var fileTypes = Items.GroupBy(e=>e.FileType).Select(e=>e.Key);
+            var fileTypes = Enumerable.GroupBy<SearchViewItem, FileType>(Items, e => e.FileType).Select(e => e.Key);
             foreach (var fileType in fileTypes)
-            {
-                FileTypes.Add(new FileTypeFilter()
+                FileTypes.Add(new FileTypeFilter
                 {
                     FileType = fileType,
                     IsChecked = false
                 });
-            }
             ShowItems = Items;
             ShowFileTypeFilter = FileTypes.Count > 0;
-            
-           
         });
     }
 
     private PinyinSearcher<SearchViewItem>? _pinyinReSearcher;
+
     private void ReSearch(string value)
     {
         if (_pinyinReSearcher is null)
-        {
             _pinyinReSearcher = new PinyinSearcher<SearchViewItem>(Items,
                 nameof(SearchViewItem.PinyinItem), false);
-        }
 
         var searchResultsEnumerable = _pinyinReSearcher.Search(value)
             .OrderByDescending(x => x.Weight)
@@ -436,7 +397,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
         Items.Clear();
         foreach (var searchResults in searchResultsEnumerable)
             Items.Add(searchResults.Source);
-        
     }
 
     public void SetSelectMode(bool flag, Action<SearchViewItem> action)
@@ -459,7 +419,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 return;
             }
 
-            ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item,s);
+            ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item, s);
         });
         Search = "";
     }
@@ -508,17 +468,13 @@ public partial class SearchWindowViewModel : ObservableRecipient
         ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFolderInTerminal((SearchViewItem?)searchViewItem);
     }
 
-    
+
     public void UpdateFilter()
     {
-        if (FileTypes.All(e=>!e.IsChecked))
-        {
+        if (Enumerable.All<FileTypeFilter>(FileTypes, e => !e.IsChecked))
             ShowItems = Items;
-        }
         else
-        {
-            ShowItems = new ObservableCollection<SearchViewItem>(Items.Where(e => FileTypes.Any(e1 => e1.FileType == e.FileType && e1.IsChecked))); 
-        }
-
+            ShowItems = new ObservableCollection<SearchViewItem>(Enumerable.Where<SearchViewItem>(Items, e =>
+                Enumerable.Any<FileTypeFilter>(FileTypes, e1 => e1.FileType == e.FileType && e1.IsChecked)));
     }
 }

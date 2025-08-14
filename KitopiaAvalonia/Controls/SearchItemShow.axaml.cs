@@ -1,16 +1,13 @@
 ﻿using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
-using Core.SDKs.Services;
-using Core.ViewModel;
+using Core.ViewModel.Windows;
 using Core.Window;
 using KitopiaAvalonia.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-
 
 namespace KitopiaAvalonia.Controls;
 

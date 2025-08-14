@@ -1,15 +1,13 @@
 ﻿#region
 
-
 using Timer = System.Timers.Timer;
 
 #endregion
 
-namespace Core.SDKs.Tools;
+namespace Core.Utils;
 
 public class DelayAction
 {
-    
     private readonly object _lock1 = new();
     private bool _needDelay = false;
     private Timer? _timerDbc;

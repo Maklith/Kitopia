@@ -10,10 +10,9 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.SDKs.Services;
-using Core.ViewModel;
-using KitopiaAvalonia.Tools;
-
+using Core.Services;
+using Core.Utils;
+using Core.ViewModel.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
@@ -21,8 +20,6 @@ namespace KitopiaAvalonia.Windows;
 
 public partial class SearchWindow : Window
 {
-    
-
     public SearchWindow()
     {
         InitializeComponent();
@@ -34,22 +31,14 @@ public partial class SearchWindow : Window
         dataGrid.PropertyChanged += (sender, args) =>
         {
             if (args.Property == ListBox.ItemsSourceProperty)
-            {
                 if (args.NewValue is not null)
-                {
-                    ((INotifyCollectionChanged)args.NewValue).CollectionChanged+= (o, e) =>
+                    ((INotifyCollectionChanged)args.NewValue).CollectionChanged += (o, e) =>
                     {
                         if (e.Action == NotifyCollectionChangedAction.Add)
-                        {
                             // 如果是添加新项，自动选中第一项
                             if (dataGrid.Items.Count > 0)
-                            {
                                 dataGrid.SelectedItem = dataGrid.Items[0];
-                            }
-                        }
                     };
-                }
-            }
         };
     }
 
@@ -74,7 +63,7 @@ public partial class SearchWindow : Window
             Position = new PixelPoint((int)((size.Width - Width) / 2), size.Height / 4);
         }
     }
-    
+
     private void w_Deactivated(object? sender, EventArgs eventArgs)
     {
         IsVisible = false;
@@ -160,7 +149,7 @@ public partial class SearchWindow : Window
             var delta = pointerWheelEventArgs.Delta.Y;
 
             // 调整滚动条的横向偏移
-            scrollViewer.Offset = new Vector(scrollViewer.Offset.X - delta*20 , scrollViewer.Offset.Y);
+            scrollViewer.Offset = new Vector(scrollViewer.Offset.X - delta * 20, scrollViewer.Offset.Y);
 
             // 标记事件为已处理，防止默认的垂直滚动
             pointerWheelEventArgs.Handled = true;
@@ -169,14 +158,9 @@ public partial class SearchWindow : Window
 
     private void ToggleButton_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
     {
-        Task.Run((() =>
+        Task.Run(() =>
         {
-            Dispatcher.UIThread.InvokeAsync((() =>
-            {
-                ((SearchWindowViewModel)(DataContext)).UpdateFilter();
-            }));
-
-        }));
-
+            Dispatcher.UIThread.InvokeAsync(() => { ((SearchWindowViewModel)DataContext).UpdateFilter(); });
+        });
     }
 }

@@ -1,4 +1,4 @@
-﻿using Core.SDKs.Services;
+﻿using Core.Services;
 using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
@@ -6,26 +6,28 @@ using PluginCore;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 using Serilog;
 
-namespace Core.SearchWindow.InputData;
+namespace Core.UI.SearchWindow.InputData;
 
 public class ImageIdentifier : IInputDataIdentifier
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<ImageIdentifier>();
-    public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(IInputDataAnalyzeTimeFlags analyzeTimeFlags,string? s)
+    private static ILogger Log = LogManager.Logger.ForContext<ImageIdentifier>();
+
+    public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(
+        IInputDataAnalyzeTimeFlags analyzeTimeFlags, string? s)
     {
         if (ServiceManager.Services.GetService<IClipboardService>()!.HasImage())
         {
             Log.Debug("剪贴板有图像信息");
             var image = ServiceManager.Services.GetService<IClipboardService>()!.GetImage();
-            var identifyInputData = new PluginCore.SearchWindow.InputData.InputData()
+            var identifyInputData = new PluginCore.SearchWindow.InputData.InputData
             {
                 InputType = InputType.图像,
                 Data = image,
-                DisposeAction = ((e) =>
+                DisposeAction = (e) =>
                 {
                     var objData = e.Data as Mat;
                     objData.Dispose();
-                })
+                }
             };
             yield return identifyInputData;
             // Items.Insert(0, new SearchViewItem()
@@ -38,6 +40,7 @@ public class ImageIdentifier : IInputDataIdentifier
             //     IsVisible = true
             // });
         }
+
         yield break;
     }
 }

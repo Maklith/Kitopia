@@ -1,48 +1,44 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
-using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Windows.Graphics.Capture;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using Core.SDKs.CustomScenario;
+using Core.CustomScenario;
 using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
-using Core.SDKs.Services.MQTT;
-using Core.SDKs.Services.Onnx;
-using Core.SDKs.Services.Plugin;
 using Core.Services;
-using Core.ViewModel;
+using Core.Services.Config;
+using Core.Services.MQTT;
+using Core.Services.Onnx;
+using Core.Services.Plugin;
+using Core.ViewModel.Main;
 using Core.ViewModel.Pages;
 using Core.ViewModel.Pages.customScenario;
 using Core.ViewModel.Pages.plugin;
 using Core.ViewModel.TaskEditor;
+using Core.ViewModel.Windows;
 using Core.Window;
 using Core.Window.Everything;
-using Kitopia.Services;
 using KitopiaAvalonia.Pages;
 using KitopiaAvalonia.Services;
 using KitopiaAvalonia.Windows;
-
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Onnx;
 using Serilog;
-using HotKeyManager = Core.SDKs.HotKey.HotKeyManager;
+using HotKeyManager = Core.Services.HotKey.HotKeyManager;
 using ScreenCaptureWindow = KitopiaAvalonia.Services.ScreenCaptureWindow;
 
 namespace KitopiaAvalonia;
 
 internal class Program
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<Program>();
+    private static ILogger Log = LogManager.Logger.ForContext<Program>();
 
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
@@ -50,15 +46,14 @@ internal class Program
     [STAThread]
     public static void Main(string[] args)
     {
-       
         try
         {
             // RxApp.DefaultExceptionHandler = new MyCoolObservableExceptionHandler();
-            TaskScheduler.UnobservedTaskException += (sender, eventArgs) => { Log.Error(eventArgs.Exception,"错误"); };
+            TaskScheduler.UnobservedTaskException += (sender, eventArgs) => { Log.Error(eventArgs.Exception, "错误"); };
 
             AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
             {
-                Log.Fatal( (Exception)e.ExceptionObject,"错误");
+                Log.Fatal((Exception)e.ExceptionObject, "错误");
             };
             AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
             {
@@ -77,7 +72,7 @@ internal class Program
         }
         catch (Exception e)
         {
-            Log.Fatal(e,"");
+            Log.Fatal(e, "");
             Environment.Exit(0);
         }
         finally
@@ -127,40 +122,40 @@ internal class Program
 
 
         services.AddTransient<TaskEditorViewModel>();
-        services.AddTransient<TaskEditor>(e => new TaskEditor() { DataContext = e.GetService<TaskEditorViewModel>() });
+        services.AddTransient<TaskEditor>(e => new TaskEditor { DataContext = e.GetService<TaskEditorViewModel>() });
         services.AddSingleton<MainWindowViewModel>();
-        services.AddSingleton<MainWindow>(e => new MainWindow() { DataContext = e.GetService<MainWindowViewModel>() });
-        services.AddSingleton<SearchWindowViewModel>(e => new SearchWindowViewModel() { IsActive = true });
-        services.AddSingleton<SearchWindow>(e => new SearchWindow()
+        services.AddSingleton<MainWindow>(e => new MainWindow { DataContext = e.GetService<MainWindowViewModel>() });
+        services.AddSingleton<SearchWindowViewModel>(e => new SearchWindowViewModel { IsActive = true });
+        services.AddSingleton<SearchWindow>(e => new SearchWindow
             { DataContext = e.GetService<SearchWindowViewModel>() });
         services.AddTransient<MouseQuickWindowViewModel>();
-        services.AddTransient<MouseQuickWindow>(e => new MouseQuickWindow()
+        services.AddTransient<MouseQuickWindow>(e => new MouseQuickWindow
             { DataContext = e.GetService<MouseQuickWindowViewModel>() });
-        services.AddSingleton<HomePageViewModel>(e => new HomePageViewModel() { IsActive = true });
+        services.AddSingleton<HomePageViewModel>(e => new HomePageViewModel { IsActive = true });
         services.AddKeyedSingleton<UserControl, HomePage>("HomePage",
-            (e, _) => new HomePage() { DataContext = e.GetService<HomePageViewModel>() });
-        services.AddSingleton<CustomScenariosManagerPageViewModel>(e => new CustomScenariosManagerPageViewModel()
+            (e, _) => new HomePage { DataContext = e.GetService<HomePageViewModel>() });
+        services.AddSingleton<CustomScenariosManagerPageViewModel>(e => new CustomScenariosManagerPageViewModel
             { IsActive = true });
         services.AddKeyedSingleton<UserControl, CustomScenariosManagerPage>("CustomScenariosManagerPage",
-            (e, _) => new CustomScenariosManagerPage()
+            (e, _) => new CustomScenariosManagerPage
                 { DataContext = e.GetService<CustomScenariosManagerPageViewModel>() });
-        services.AddSingleton<HotKeyManagerPageViewModel>(e => new HotKeyManagerPageViewModel() { });
+        services.AddSingleton<HotKeyManagerPageViewModel>(e => new HotKeyManagerPageViewModel { });
         services.AddKeyedSingleton<UserControl, HotKeyManagerPage>("HotKeyManagerPage",
-            (e, _) => new HotKeyManagerPage() { DataContext = e.GetService<HotKeyManagerPageViewModel>() });
-        services.AddTransient<PluginManagerPageViewModel>(e => new PluginManagerPageViewModel() { IsActive = true });
+            (e, _) => new HotKeyManagerPage { DataContext = e.GetService<HotKeyManagerPageViewModel>() });
+        services.AddTransient<PluginManagerPageViewModel>(e => new PluginManagerPageViewModel { IsActive = true });
         services.AddKeyedTransient<UserControl, PluginManagerPage>("PluginManagerPage",
-            (e, _) => new PluginManagerPage() { DataContext = e.GetService<PluginManagerPageViewModel>() });
-        services.AddSingleton<PluginSettingViewModel>(e => new PluginSettingViewModel() { IsActive = true });
+            (e, _) => new PluginManagerPage { DataContext = e.GetService<PluginManagerPageViewModel>() });
+        services.AddSingleton<PluginSettingViewModel>(e => new PluginSettingViewModel { IsActive = true });
         services.AddKeyedSingleton<UserControl, PluginSettingSelectPage>("PluginSettingSelectPage",
-            (e, _) => new PluginSettingSelectPage() { DataContext = e.GetService<PluginSettingViewModel>() });
+            (e, _) => new PluginSettingSelectPage { DataContext = e.GetService<PluginSettingViewModel>() });
         services.AddTransient<MarketPageViewModel>();
         services.AddKeyedTransient<UserControl, MarketPage>("MarketPage",
-            (e, _) => new MarketPage() { DataContext = e.GetService<MarketPageViewModel>() });
+            (e, _) => new MarketPage { DataContext = e.GetService<MarketPageViewModel>() });
         services.AddTransient<OnnxModelManagerPageViewModel>();
         services.AddKeyedTransient<UserControl, OnnxModelManagerPage>("OnnxModelManagerPage",
-            (e, _) => new OnnxModelManagerPage() { DataContext = e.GetService<OnnxModelManagerPageViewModel>() });
+            (e, _) => new OnnxModelManagerPage { DataContext = e.GetService<OnnxModelManagerPageViewModel>() });
 
-        
+
         services.AddSingleton<SettingPage>(e => new SettingPage());
 
         return services.BuildServiceProvider();
@@ -262,19 +257,19 @@ internal class Program
     {
         var buildAvaloniaApp = AppBuilder.Configure<App>();
         buildAvaloniaApp.UsePlatformDetect();
-        buildAvaloniaApp.With(new FontManagerOptions()
+        buildAvaloniaApp.With(new FontManagerOptions
         {
             DefaultFamilyName = "avares://KitopiaAvalonia/Assets/HarmonyOS_Sans_SC_Regular.ttf#HarmonyOS Sans",
             FontFallbacks = new[]
             {
-                new FontFallback()
+                new FontFallback
                 {
                     FontFamily =
                         new FontFamily("avares://KitopiaAvalonia/Assets/HarmonyOS_Sans_SC_Regular.ttf#HarmonyOS Sans")
                 }
             }
         });
-        buildAvaloniaApp.With(new RenderOptions()
+        buildAvaloniaApp.With(new RenderOptions
         {
             TextRenderingMode = TextRenderingMode.Antialias,
             EdgeMode = EdgeMode.Antialias,

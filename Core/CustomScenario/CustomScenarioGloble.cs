@@ -1,11 +1,9 @@
-﻿using Core.SDKs.CustomScenario.CustomScenarioValueSerializer;
-using Core.SDKs.CustomType;
-using Core.SDKs.Services.Config;
-using Core.SDKs.Tools;
+﻿using Core.CustomScenario.CustomScenarioValueSerializer;
+using Core.Utils;
 using Core.ViewModel.TaskEditor;
 using PluginCore;
 
-namespace Core.SDKs.CustomScenario;
+namespace Core.CustomScenario;
 
 public class CustomScenarioGloble
 {
@@ -21,10 +19,10 @@ public class CustomScenarioGloble
 
     public static ObservableDictionary<string, CustomScenarioTriggerInfo> Triggers = new()
     {
-        { "Kitopia_SoftwareStarted", new CustomScenarioTriggerInfo() { Name = "Kitopia程序启动时" } },
+        { "Kitopia_SoftwareStarted", new CustomScenarioTriggerInfo { Name = "Kitopia程序启动时" } },
         {
             "Kitopia_SoftwareShutdown",
-            new CustomScenarioTriggerInfo() { Name = "Kitopia程序关闭时", Description = "注意该触发器不会进入Tick" }
+            new CustomScenarioTriggerInfo { Name = "Kitopia程序关闭时", Description = "注意该触发器不会进入Tick" }
         }
     };
 
@@ -45,7 +43,7 @@ public class CustomScenarioGloble
         {
             var valueTuples = new List<CustomScenarioValueTuple>();
             foreach (var keyValuePair in JsonConverters)
-                valueTuples.Add(new CustomScenarioValueTuple()
+                valueTuples.Add(new CustomScenarioValueTuple
                 {
                     Type = keyValuePair.Key,
                     Value = GetI18N(keyValuePair.Key.FullName)

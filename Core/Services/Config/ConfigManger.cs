@@ -7,29 +7,27 @@ using System.Text.Json.Serialization;
 using System.Text.Unicode;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.Infrastructure.JsonConverter;
-using Core.JsonConverter;
-using Core.SDKs.HotKey;
-using Core.Services;
-using Core.ViewModel;
-
+using Core.Services.HotKey;
+using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Config;
 using Serilog;
+using SearchWindowViewModel = Core.ViewModel.Windows.SearchWindowViewModel;
 
 #endregion
 
-namespace Core.SDKs.Services.Config;
+namespace Core.Services.Config;
 
 public class ConfigManger
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<ConfigManger>();
+    private static ILogger Log = LogManager.Logger.ForContext<ConfigManger>();
     public static Version Version = new("1.0.0");
     public static string ApiUrl = "https://api.kitopia.top:5111";
     public static Dictionary<string, ConfigBase> Configs = new();
-    public static KitopiaConfig Config => (KitopiaConfig)Configs["KitopiaConfig"] ;
-    
+    public static KitopiaConfig Config => (KitopiaConfig)Configs["KitopiaConfig"];
+
     private static readonly Dictionary<HotKeyModel, (object, FieldInfo)> hotkeysMappings = new();
 
     public static JsonSerializerOptions DefaultOptions = new()
@@ -48,7 +46,7 @@ public class ConfigManger
         if (!Directory.Exists($"{AppDomain.CurrentDomain.BaseDirectory}configs"))
             Directory.CreateDirectory($"{AppDomain.CurrentDomain.BaseDirectory}configs");
 
-        Configs.Add("KitopiaConfig", new KitopiaConfig() { Name = "KitopiaConfig" });
+        Configs.Add("KitopiaConfig", new KitopiaConfig { Name = "KitopiaConfig" });
         var configF =
             new FileInfo(
                 $"{AppDomain.CurrentDomain.BaseDirectory}configs{Path.DirectorySeparatorChar}KitopiaConfig.json");
@@ -68,7 +66,7 @@ public class ConfigManger
             }
             catch (Exception e)
             {
-                Log.Error(e,"配置文件加载失败");
+                Log.Error(e, "配置文件加载失败");
             }
         }
 
@@ -86,7 +84,7 @@ public class ConfigManger
                         if (Config.invokes.TryGetValue(configField.ActionName, out var value))
                             if (!HotKeyManager.HotKetImpl.Add(hotKeyModel, value as Action<HotKeyModel>))
                                 ServiceManager.Services.GetService<IContentDialog>().ShowDialog(null,
-                                    new DialogContent()
+                                    new DialogContent
                                     {
                                         Title = $"快捷键{hotKeyModel.SignName}设置失败",
                                         Content = "请重新设置快捷键，按键与系统其他程序冲突",

@@ -10,6 +10,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Core.SDKs.Services;
+using Core.Services;
 using OpenCvSharp;
 using PluginCore;
 using Polly;

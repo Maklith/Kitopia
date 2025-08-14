@@ -3,10 +3,11 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using Core.CustomScenario;
 using Core.JsonConverter;
-using Core.SDKs.CustomScenario;
-using Core.SDKs.HotKey;
-using Core.SDKs.Services.Config;
+using Core.Services.Config;
+using Core.Services.HotKey;
+using Core.Utils;
 using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -20,11 +21,11 @@ using Serilog;
 
 #endregion
 
-namespace Core.SDKs.Services.Plugin;
+namespace Core.Services.Plugin;
 
 public class Plugin
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<Plugin>();
+    private static ILogger Log = LogManager.Logger.ForContext<Plugin>();
 
     private AssemblyLoadContextH? _plugin;
     private IPlugin _pluginService;
@@ -38,23 +39,21 @@ public class Plugin
             var j = JsonSerializer.Serialize(configBase, configBase.GetType(), ConfigManger.DefaultOptions);
             File.WriteAllText(fileInfo.FullName, j);
         }
-        bool retryFlag = false;
+
+        var retryFlag = false;
         retry:
-        
+
         var configF =
             new FileInfo($"{AppDomain.CurrentDomain.BaseDirectory}configs{Path.DirectorySeparatorChar}{key}.json");
-        if (!configF.Exists)
-        {
-            SerializeConfigToFile(configF);
-        }
+        if (!configF.Exists) SerializeConfigToFile(configF);
 
         var json = File.ReadAllText(configF.FullName);
         if (string.IsNullOrWhiteSpace(json))
         {
             SerializeConfigToFile(configF);
             ServiceManager.Services.GetService<IToastService>().Show("警告", $"{configF.Name}配置文件加载失败，已还原到最初配置");
-
         }
+
         try
         {
             var deserializeObject =
@@ -70,21 +69,20 @@ public class Plugin
         catch (Exception e)
         {
             Log.Error(e, "配置文件加载失败");
-            
+
             SerializeConfigToFile(configF);
-            
+
             if (!retryFlag)
             {
                 retryFlag = true;
                 goto retry;
             }
+
             ServiceManager.Services.GetService<IToastService>().Show("错误", $"{configF.Name}配置文件加载失败，请检查配置文件内容是否正确");
         }
 
         if (retryFlag)
-        {
             ServiceManager.Services.GetService<IToastService>().Show("警告", $"{configF.Name}配置文件加载失败，已还原到最初配置");
-        }
         configBase.GetType()
             .GetFields(BindingFlags.Instance | BindingFlags.Public)
             .ToList()
@@ -98,7 +96,7 @@ public class Plugin
                         if (HotKeyManager.HotKetImpl.Add(hotKeyModel,
                                 (Action<HotKeyModel>)configBase.GetType().GetProperty($"{x.Name}Action")
                                     .GetValue(configBase, null)))
-                            ServiceManager.Services.GetService<IContentDialog>().ShowDialog(null, new DialogContent()
+                            ServiceManager.Services.GetService<IContentDialog>().ShowDialog(null, new DialogContent
                             {
                                 Title = $"快捷键{hotKeyModel.SignName}设置失败",
                                 Content = "请重新设置快捷键，按键与系统其他程序冲突",
@@ -117,12 +115,13 @@ public class Plugin
         //Dictionary<string, (MethodInfo, object)> methodInfos = new();
         ScenarioMethodCategoryGroup pluginMainScenarioMethodCategoryGroup = new();
 
-       
+
         List<ScreenCaptureExMethod> captureActions = new();
         List<OnnxModelInfoWrapper> onnxModelInfos = new();
-        List<Func<IInputDataAnalyzeTimeFlags,string, IEnumerable<InputData>>> inputDataIdentifier = new();
-        List< (Func<IInputDataAnalyzeTimeFlags>,Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>)> inputDataAnalyzerActions = new();
-        Dictionary<string,Func<IInferenceSession>> onnxRuntimes = new();
+        List<Func<IInputDataAnalyzeTimeFlags, string, IEnumerable<InputData>>> inputDataIdentifier = new();
+        List<(Func<IInputDataAnalyzeTimeFlags>, Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>)>
+            inputDataAnalyzerActions = new();
+        Dictionary<string, Func<IInferenceSession>> onnxRuntimes = new();
         PluginInfo = pluginInfo;
         foreach (var type in t)
             if (type.GetInterface("IPlugin") != null)
@@ -134,12 +133,12 @@ public class Plugin
                     .Invoke(null, null);
 
                 var service = ServiceProvider.GetService(type);
-                _pluginService = ((IPlugin)service);
+                _pluginService = (IPlugin)service;
                 _pluginService.OnEnabled(ServiceProvider);
                 break;
             }
 
-       
+
         pluginMainScenarioMethodCategoryGroup.Name = PluginInfo.PluginBaseInfo.Name;
 
         foreach (var type in t)
@@ -161,25 +160,28 @@ public class Plugin
                 CustomScenarioGloble.Triggers.Add($"{PluginInfo.ToPlgString()}_{type.Name}",
                     customScenarioTriggerInfo);
             }
+
             if (typeof(IInferenceSession).IsAssignableFrom(type))
             {
                 var inferenceSession = (IInferenceSession)ServiceProvider.GetService(type);
-                
-                onnxRuntimes.Add(inferenceSession.Device, (() => (IInferenceSession)ServiceProvider.GetService(type)));
-                
+
+                onnxRuntimes.Add(inferenceSession.Device, () => (IInferenceSession)ServiceProvider.GetService(type));
             }
+
             if (typeof(IInputDataAnalyzer).IsAssignableFrom(type))
             {
                 var inferenceSession = (IInputDataAnalyzer)ServiceProvider.GetService(type);
                 inputDataAnalyzerActions.Add(
-                    (()=> inferenceSession.AnalyzeTimeFlags,inputData => inferenceSession.AnalyzeInputData(inputData)));
+                    (() => inferenceSession.AnalyzeTimeFlags,
+                        inputData => inferenceSession.AnalyzeInputData(inputData)));
             }
+
             if (typeof(IInputDataIdentifier).IsAssignableFrom(type))
             {
                 var inferenceSession = (IInputDataIdentifier)ServiceProvider.GetService(type);
-                inputDataIdentifier.Add((timeFlag, filePath) => inferenceSession.IdentifyInputData(timeFlag,filePath));
+                inputDataIdentifier.Add((timeFlag, filePath) => inferenceSession.IdentifyInputData(timeFlag, filePath));
             }
-            
+
 
             var scenarioMethodCategoryGroup = pluginMainScenarioMethodCategoryGroup;
             if (type.GetCustomAttribute<ScenarioMethodCategoryAttribute>() is { } scenarioMethodCategoryAttribute)
@@ -191,28 +193,24 @@ public class Plugin
                 if (methodInfo.GetCustomAttribute<ScenarioMethodAttribute>() is { } scenarioMethodAttribute) //情景的可用节点
                 {
                     var parameterInfos = methodInfo.GetParameters();
-                    if (parameterInfos.Length==0)
-                    {
-                        continue;
-                    }
+                    if (parameterInfos.Length == 0) continue;
                     var parameterTypeFullName = parameterInfos[^1].ParameterType.FullName;
                     if (parameterTypeFullName !=
-                        "System.Threading.CancellationToken"&&!
-                            parameterTypeFullName.StartsWith("System.Nullable`1[[System.Threading.CancellationToken,")) continue;
+                        "System.Threading.CancellationToken" && !
+                            parameterTypeFullName.StartsWith("System.Nullable`1[[System.Threading.CancellationToken,"))
+                        continue;
 
                     var scenarioMethodInfo = new ScenarioMethod(methodInfo, PluginInfo, scenarioMethodAttribute,
                         ScenarioMethodType.插件方法, ServiceProvider);
                     scenarioMethodCategoryGroup.Methods.Add(scenarioMethodInfo.MethodTitle,
                         scenarioMethodInfo.GenerateNode());
                 }
-                
-                if (methodInfo.GetCustomAttribute<CaptureAttribute>() is { } captureAttribute )
-                {
-                    captureActions.Add(new ScreenCaptureExMethod()
+
+                if (methodInfo.GetCustomAttribute<CaptureAttribute>() is { } captureAttribute)
+                    captureActions.Add(new ScreenCaptureExMethod
                     {
                         Action = e =>
                         {
-
                             try
                             {
                                 methodInfo.Invoke(
@@ -221,46 +219,43 @@ public class Plugin
                             }
                             catch (Exception exception)
                             {
-                                ServiceManager.Services.GetService<IToastService>().Show("执行截图扩展方法时出现错误",exception.InnerException?.Message ?? exception.Message);
-                                Log.Error(exception,"错误");
+                                ServiceManager.Services.GetService<IToastService>().Show("执行截图扩展方法时出现错误",
+                                    exception.InnerException?.Message ?? exception.Message);
+                                Log.Error(exception, "错误");
                             }
                         },
                         Description = captureAttribute.Description,
                         Symbol = captureAttribute.Symbol
                     });
-                }
             }
+
             foreach (var propertyInfo in type.GetProperties())
-            {
-                if (propertyInfo.GetCustomAttribute<OnnxModelInfoAttribute>() is {} onnxModelInfoAttribute)
+                if (propertyInfo.GetCustomAttribute<OnnxModelInfoAttribute>() is { } onnxModelInfoAttribute)
                 {
                     var value = propertyInfo.GetValue(ServiceProvider!.GetService(propertyInfo.DeclaringType!));
                     if (value is OnnxModelInfo onnxModelInfo)
                     {
-                        onnxModelInfo.ModelPath= $"{pluginInfo.Path}{onnxModelInfo.ModelPath}";
-                        onnxModelInfos.Add(new()
+                        onnxModelInfo.ModelPath = $"{pluginInfo.Path}{onnxModelInfo.ModelPath}";
+                        onnxModelInfos.Add(new OnnxModelInfoWrapper
                         {
                             Model = onnxModelInfo,
                             PluginStr = PluginInfo.ToPlgString()
                         });
                     }
                 }
-            }
         }
-        
-            
+
+
         PluginOverall.ScreenCaptureExMethods.Add(PluginInfo.ToPlgString(), captureActions);
-            
+
         PluginOverall.OnnxModelInfos.Add(PluginInfo.ToPlgString(), onnxModelInfos);
         PluginOverall.OnnxRuntimes.Add(PluginInfo.ToPlgString(), onnxRuntimes);
         PluginOverall.SearchWindowInputDataIdentifies.Add(PluginInfo.ToPlgString(), inputDataIdentifier);
         PluginOverall.SearchWindowInputDataAnalyzers.Add(PluginInfo.ToPlgString(), inputDataAnalyzerActions);
 
-        if (pluginMainScenarioMethodCategoryGroup.Childrens.Count!=0)
-        {
+        if (pluginMainScenarioMethodCategoryGroup.Childrens.Count != 0)
             ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.Childrens.Add(PluginInfo.ToPlgString(),
                 pluginMainScenarioMethodCategoryGroup);
-        }
     }
 
     public Assembly? _dll => _plugin.Assembly;
@@ -300,13 +295,12 @@ public class Plugin
         var typeNames = split.Select(e =>
         {
             var name = e.Replace("[", ",").Replace("]", "");
-            return  name.Split(",");
-           
+            return name.Split(",");
         }).ToList();
         var typeName = typeNames[1..];
         var stringsList = typeName.Select(e =>
         {
-            int index = 0;
+            var index = 0;
             return typeJsonConverter.ParseType(e, ref index);
         }).ToList();
 
@@ -360,7 +354,7 @@ public class Plugin
 
 
         CustomScenarioManger.UnloadWhichUseThePlugin(PluginInfo.ToPlgString());
-            
+
         _pluginService.OnDisabled();
         _pluginService = null;
         PluginInfo = null;

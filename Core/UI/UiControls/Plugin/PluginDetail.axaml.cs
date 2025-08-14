@@ -13,7 +13,7 @@ public partial class PluginDetail : UserControl
         get => (Control)GetValue(ContentProperty);
         set => SetValue(ContentProperty, value);
     }
-    
+
 
     public PluginDetail()
     {

@@ -1,9 +1,7 @@
 ﻿<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        
-        xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
-        xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
-      >
+
+        xmlns:controls="clr-namespace:KitopiaAvalonia.Controls">
     <Style Selector="controls|DownloadButton">
         <!-- Set Defaults -->
         <Setter Property="Template">
@@ -31,11 +29,9 @@
                     <StackPanel Orientation="Horizontal" IsVisible="{TemplateBinding IsDownloading}"
                                 VerticalAlignment="Center" Margin="15,0,15,0">
                         <ProgressBar IsIndeterminate="{TemplateBinding IsIndeterminate}"
-                                     Value="{TemplateBinding Progress}">
-                        </ProgressBar>
+                                     Value="{TemplateBinding Progress}" />
                         <TextBlock VerticalAlignment="Center"
-                                   Text="{Binding  Path=Progress,StringFormat='{}{0:f2}%', RelativeSource={RelativeSource TemplatedParent} }">
-                        </TextBlock>
+                                   Text="{Binding  Path=Progress,StringFormat='{}{0:f2}%', RelativeSource={RelativeSource TemplatedParent} }" />
                         <Button Command="{TemplateBinding CancelCommand}"
                                 CommandParameter="{TemplateBinding DataContext}">
                             取消

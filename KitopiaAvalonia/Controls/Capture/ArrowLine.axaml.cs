@@ -1,10 +1,8 @@
 ﻿using System;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
-using NodifyM.Avalonia.Controls;
 
 namespace KitopiaAvalonia.Controls.Capture;
 

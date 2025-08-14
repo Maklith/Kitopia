@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 namespace KitopiaAvalonia.Windows;
@@ -19,6 +20,6 @@ public partial class ErrorDialog : Window
 
     private void logs_Click(object? sender, RoutedEventArgs e)
     {
-        throw new System.NotImplementedException();
+        throw new NotImplementedException();
     }
 }

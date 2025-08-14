@@ -2,11 +2,13 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.Messaging;
+using Core.CustomScenario;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
-using Core.SDKs.Services.Config;
+using Core.Services;
+using Core.Services.Config;
 using Core.ViewModel;
-
+using Core.ViewModel.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Serilog;
