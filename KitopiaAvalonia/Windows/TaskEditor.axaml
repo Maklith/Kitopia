@@ -1518,6 +1518,21 @@
                             <controls2:KnotNode
                                 Location="{Binding Location,Mode=TwoWay}"
                                 Content="{Binding Connector}">
+                                <controls2:KnotNode.ContextFlyout>
+                                    <MenuFlyout>
+                                        <!-- ReSharper disable once Xaml.RedundantResource -->
+                                        <MenuItem Header="复制节点"
+                                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                                  Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).CopyNodeCommand}"
+                                                  CommandParameter="{Binding }" />
+                                        <!-- ReSharper disable once Xaml.RedundantResource -->
+                                        <MenuItem Header="删除此节点"
+                                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                                  Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).DelNodeCommand}"
+                                                  CommandParameter="{Binding }" />
+
+                                    </MenuFlyout>
+                                </controls2:KnotNode.ContextFlyout>
                                 <controls2:KnotNode.ContentTemplate>
                                     <DataTemplate DataType="customScenario:ConnectorItem">
                                         <controls2:Connector

@@ -163,7 +163,7 @@ public partial class CustomScenario : ObservableRecipient
             foreach (var (key, value) in dictionary)
                 outputs.Add(new ConnectorItem
                 {
-                    IsOut = true,
+                    ConnectorType = ConnectorType.Output,
                     Source = nodes.First(),
                     InputObject = new CustomScenarioValue() { Type = value.GetType() },
                     Title = key

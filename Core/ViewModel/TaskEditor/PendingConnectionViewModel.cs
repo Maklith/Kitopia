@@ -23,7 +23,6 @@ public partial class PendingConnectionViewModel : ObservableRecipient
 
     partial void OnPreviewTargetChanged(object? value)
     {
-        var canConnect = value != null;
         switch (value)
         {
             case ConnectorItem con:
@@ -34,7 +33,7 @@ public partial class PendingConnectionViewModel : ObservableRecipient
                     break;
                 }
 
-                if (Source.IsOut == con.IsOut)
+                if (Source.ConnectorType!=ConnectorType.Both&&Source.ConnectorType == con.ConnectorType)
                 {
                     PreviewText = $"错误的连接";
                     break;
@@ -94,12 +93,27 @@ public partial class PendingConnectionViewModel : ObservableRecipient
               target.InputObject?.RealType.FullName == "System.Object"))
             return;
 
-        if (Source.IsOut != target.IsOut)
+        if (Source.ConnectorType!=ConnectorType.Both&&Source.ConnectorType == target.ConnectorType)
         {
-            if (!Source.IsOut)
-                _editor.Connect(target, Source);
-            else
-                _editor.Connect(Source, target);
+            return;
         }
+
+        switch (Source.ConnectorType)
+        {
+            case ConnectorType.Input:
+                _editor.Connect(target, Source);
+                break;
+            case ConnectorType.Output:
+                _editor.Connect(Source, target);
+                break;
+            case ConnectorType.Both:
+                _editor.Connect(Source, target);
+                break;
+            case ConnectorType.Custom:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+        
     }
 }

@@ -63,7 +63,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         {
             new()
             {
-                IsOut = true,
+                ConnectorType = ConnectorType.Output,
                 Source = nodify2,
                 InputObject = new CustomScenarioValue()
                 {
@@ -84,7 +84,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         {
             new()
             {
-                IsOut = true,
+                ConnectorType = ConnectorType.Output,
                 Source = nodify3,
                 InputObject = new CustomScenarioValue()
                 {
@@ -165,7 +165,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                     Type = typeof(NodeConnectorClass)
                                 },
                                 Title = "流输出",
-                                IsOut = true,
+                                ConnectorType = ConnectorType.Output,
                             });
                         }
                 }
@@ -187,7 +187,6 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                     if (e.ScenarioMethodNode.Input.Count() < index + 2)
                                         e.ScenarioMethodNode.Input.Add(new ConnectorItem
                                         {
-                                            IsOut = false,
                                             Source = e.ScenarioMethodNode,
                                             InputObject = new CustomScenarioValue()
                                             {
@@ -285,7 +284,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
     }
 
     [RelayCommand]
-    private void CopyNode(ScenarioMethodNode scenarioMethodNode)
+    private void CopyNode(ScenarioNodeBase scenarioMethodNode)
     {
         IsModified = true;
         if (Scenario.nodes.IndexOf(scenarioMethodNode) is 0 or 1) return;
@@ -457,14 +456,14 @@ public partial class TaskEditorViewModel : ObservableRecipient
         }
     }
 
-    public void Connect(ConnectorItem source, ConnectorItem target)
+    public void Connect(ConnectorItem source, ConnectorItem target,bool toFirstVerify=true)
     {
         if (source.IsConnected)
             if (Scenario.connections
                 .Any(e => e.Source == source && e.Target == target))
                 return;
 
-        if (source.InputObject.Type.FullName == "PluginCore.NodeConnectorClass")
+        if (source.InputObject?.Type.FullName == "PluginCore.NodeConnectorClass")
             if (source.IsConnected)
             {
                 var connectionsToRemove = Scenario.connections
@@ -486,7 +485,11 @@ public partial class TaskEditorViewModel : ObservableRecipient
         var connectionItem = new ConnectionItem(source, target);
         connectionItem.Init(SplitConnection);
         Scenario.connections.Add(connectionItem);
-        ToFirstVerify();
+        if (toFirstVerify)
+        {
+            ToFirstVerify();
+        }
+        
         //OnPropertyChanged(nameof(Connections));
     }
 
@@ -641,15 +644,25 @@ public partial class TaskEditorViewModel : ObservableRecipient
     {
         var knot = new KnotNodeViewModel
         {
-            Location = location,
-            Connector = new ConnectorItem()
+            Location = location
         };
+        knot.Connector = new ConnectorItem()
+        {
+            ConnectorType = ConnectorType.Both,
+            Source = knot,
+            InputObject = new CustomScenarioValue()
+            {
+                Type = typeof(object),
+                RealType = typeof(object),
+                Value = null
+            },
+        };
+        
         _scenario.nodes.Add(knot);
 
-        Connect(connection.Source, knot.Connector);
-        Connect(knot.Connector, connection.Target);
-
-        _scenario.connections.Remove(connection);
+        Connect(connection.Source, knot.Connector,false);
+        Connect(knot.Connector, connection.Target,false);
+        DelConnection(connection);
     }
 }
 

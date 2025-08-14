@@ -70,11 +70,80 @@ public partial class ScenarioNodeBase: ObservableRecipient
     {
         return false;
     }
+
+    public virtual ScenarioNodeBase Copy()
+    {
+        return null;
+    }
 }
 
 public partial class KnotNodeViewModel : ScenarioNodeBase
 {
     [ObservableProperty] private ConnectorItem connector = new();
+
+    public override bool InputDataIsEnough(ObservableCollection<ConnectionItem> connections)
+    {
+        return connections.Any(e=>e.Target == Connector);
+    }
+
+    public override bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
+        ObservableDictionary<string, CustomScenarioValue> values, ObservableDictionary<string, object> tempValues)
+    {
+        foreach (var b in connections.Where(e=>e.Source == connector))
+        {
+            b.Target.InputObject.Value=
+                b.Source.InputObject.Value; //将连接的值传递给下一个节点
+        }
+
+        return true;
+    }
+    public override IEnumerable<ScenarioNodeBase> GetForwardNodes(
+        ObservableCollection<ConnectionItem> connections)
+    {
+        
+        foreach (var sourceSource in Connector.GetSourceOrNextPointItems(connections,false))
+        {
+            yield return sourceSource;
+        }
+        
+    }
+    
+    public override IEnumerable<ScenarioNodeBase> GetBackwardNodes(
+        ObservableCollection<ConnectionItem> connections)
+    {
+        
+        foreach (var sourceSource in Connector.GetSourceOrNextPointItems(connections,true)){
+            yield return sourceSource;
+        }
+        
+    }
+
+    public override bool IsUsed(ObservableCollection<ConnectionItem> connections)
+    {
+        return connections.Any(e=>e.Source == connector||e.Target == connector);
+        
+    }
+
+    public override ScenarioNodeBase Copy()
+    {
+        var item = new KnotNodeViewModel
+        {
+            Title = Title,
+            Location = new Point(Location.X, Location.Y)
+        };
+        item.Connector = new ConnectorItem
+        {
+            Anchor = new Point(Connector.Anchor.X, Connector.Anchor.Y),
+            Source = item,
+            InputObject = new CustomScenarioValue()
+            {
+                RealType = Connector.InputObject.RealType,
+                Type = Connector.InputObject.Type,
+                Value = Connector.InputObject.Value
+            },
+        };
+        return item;
+    }
 }
 public partial class ScenarioMethodNode :ScenarioNodeBase
 {
@@ -143,7 +212,7 @@ public partial class ScenarioMethodNode :ScenarioNodeBase
                     ScenarioMethod.ServiceProvider!.GetService(ScenarioMethod.Method.DeclaringType!),
                     list.ToArray());
                 if (invoke is null)
-                   break;
+                    break;
                 if (ScenarioMethod.Method.ReturnParameter.ParameterType.GetCustomAttribute(typeof(AutoUnbox)) is not
                     null)
                 {
@@ -279,14 +348,14 @@ public partial class ScenarioMethodNode :ScenarioNodeBase
         {
             if (connectorItem.InputObject.RealType == typeof(NodeConnectorClass)) continue;
 
-            foreach (var sourceOrNextConnectorItem in connectorItem.GetSourceOrNextConnectorItems(connections))
+            foreach (var sourceOrNextConnectorItem in connectorItem.GetSourceOrNextConnectorItems(connections,false))
                 sourceOrNextConnectorItem.InputObject.Value = connectorItem.InputObject.Value;
         }
         InvokeTime = DateTime.Now-start;
         return true;
     }
 
-    public ScenarioMethodNode Copy()
+    public override ScenarioNodeBase Copy()
     {
         var item = new ScenarioMethodNode
         {
@@ -313,7 +382,7 @@ public partial class ScenarioMethodNode :ScenarioNodeBase
                 AutoUnboxIndex = connectorItem.AutoUnboxIndex,
                 AutoUnboxPropertyName = connectorItem.AutoUnboxPropertyName,
                 SelfInputAble = connectorItem.SelfInputAble,
-                IsOut = connectorItem.IsOut,
+                ConnectorType = connectorItem.ConnectorType,
                 isPluginInputConnector = connectorItem.isPluginInputConnector,
                 PluginInputConnector = connectorItem.PluginInputConnector
             });
@@ -337,7 +406,7 @@ public partial class ScenarioMethodNode :ScenarioNodeBase
                 AutoUnboxIndex = connectorItem.AutoUnboxIndex,
                 AutoUnboxPropertyName = connectorItem.AutoUnboxPropertyName,
                 IsConnected = connectorItem.IsConnected,
-                IsOut = connectorItem.IsOut
+                ConnectorType = connectorItem.ConnectorType,
             };
             if (connectorItem.Interfaces is { Count: > 0 })
             {
@@ -358,7 +427,7 @@ public partial class ScenarioMethodNode :ScenarioNodeBase
     {
         foreach (var connectorItem in Output)
         {
-            foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections))
+            foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections,false))
             {
                 yield return sourceSource;
             }
@@ -370,7 +439,7 @@ public partial class ScenarioMethodNode :ScenarioNodeBase
     {
         foreach (var connectorItem in Input)
         {
-            foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections)){
+            foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections,true)){
                 yield return sourceSource;
             }
         }

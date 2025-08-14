@@ -40,7 +40,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                     },
                     Title = CustomScenarioGloble.GetI18N(value.FullName),
                  
-                    IsOut = true
+                    ConnectorType = ConnectorType.Output,
                 }
             };
             String.Output = StringoutItems;

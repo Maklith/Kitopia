@@ -8,7 +8,13 @@ using Core.SDKs.Services.Config;
 using PluginCore;
 
 namespace Core.SDKs.CustomScenario;
-
+public enum ConnectorType
+{
+    Input,
+    Output,
+    Both,
+    Custom
+}
 public partial class ConnectorItem : ObservableRecipient
 {
     [JsonConverter(typeof(PointJsonConverter))]
@@ -23,7 +29,7 @@ public partial class ConnectorItem : ObservableRecipient
 
     [ObservableProperty] private bool _isConnected;
     [ObservableProperty] private bool _isNotUsed = false;
-    [ObservableProperty] private bool _isOut;
+    [ObservableProperty] private ConnectorType _connectorType=ConnectorType.Input;
     
 
 
@@ -42,9 +48,9 @@ public partial class ConnectorItem : ObservableRecipient
     public ScenarioNodeBase Source { get; set; }
 
     public IEnumerable<ConnectorItem> GetSourceOrNextConnectorItems(
-        ObservableCollection<ConnectionItem> connectionItems)
+        ObservableCollection<ConnectionItem> connectionItems,bool source)
     {
-        if (IsOut)
+        if (!source)
             return connectionItems.Where((e) => e.Source == this)
                 .Select(e => e.Target);
 
@@ -53,9 +59,9 @@ public partial class ConnectorItem : ObservableRecipient
     }
 
     public IEnumerable<ScenarioNodeBase> GetSourceOrNextPointItems(
-        ObservableCollection<ConnectionItem> connectionItems)
+        ObservableCollection<ConnectionItem> connectionItems,bool source)
     {
-        if (IsOut)
+        if (!source)
             return connectionItems.Where((e) => e.Source == this)
                 .Select(e => e.Target.Source);
 
