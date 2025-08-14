@@ -6,8 +6,10 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
 using CommunityToolkit.Mvvm.Messaging;
+using Core.Infrastructure.JsonConverter;
 using Core.JsonConverter;
 using Core.SDKs.HotKey;
+using Core.Services;
 using Core.ViewModel;
 
 using Microsoft.Extensions.DependencyInjection;

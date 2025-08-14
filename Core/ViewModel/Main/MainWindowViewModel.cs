@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
+using Core.Services;
 using PluginCore;
 
 #endregion

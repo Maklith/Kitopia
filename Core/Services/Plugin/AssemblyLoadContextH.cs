@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
 using Avalonia;
+using Core.Infrastructure.JsonConverter;
 using Core.JsonConverter;
 using Core.SDKs.Services.Config;
 

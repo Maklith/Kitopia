@@ -5,7 +5,7 @@
              xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia.Tight"
              xmlns:pages="clr-namespace:Core.ViewModel.Pages"
              xmlns:plugin="clr-namespace:Core.ViewModel.Pages.plugin;assembly=Core"
-             xmlns:pluginManagerPage1="clr-namespace:Core.UiControls.Plugin"
+             xmlns:pluginManagerPage1="clr-namespace:Core.UI.UiControls.Plugin"
              xmlns:plugin1="clr-namespace:Core.SDKs.Services.Plugin"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
 
@@ -16,7 +16,7 @@
              x:DataType="plugin:PluginDetailViewModel"
              Width="800"
              Height="495"
-             x:Class="Core.UiControls.Plugin.PluginDetail">
+             x:Class="Core.UI.UiControls.Plugin.PluginDetail">
     <UserControl.Resources>
 
     </UserControl.Resources>

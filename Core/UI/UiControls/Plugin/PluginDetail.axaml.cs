@@ -1,8 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Core.ViewModel.Pages;
 
-namespace Core.UiControls.Plugin;
+namespace Core.UI.UiControls.Plugin;
 
 public partial class PluginDetail : UserControl
 {

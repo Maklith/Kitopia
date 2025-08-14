@@ -19,6 +19,7 @@ using Core.SDKs.Services.Config;
 using Core.SDKs.Services.MQTT;
 using Core.SDKs.Services.Onnx;
 using Core.SDKs.Services.Plugin;
+using Core.Services;
 using Core.ViewModel;
 using Core.ViewModel.Pages;
 using Core.ViewModel.Pages.customScenario;

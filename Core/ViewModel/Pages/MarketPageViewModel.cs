@@ -17,7 +17,7 @@ using Core.SDKs;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
 using Core.SDKs.Services.Plugin;
-using Core.UiControls.Plugin;
+using Core.UI.UiControls.Plugin;
 using Core.ViewModel.Pages.plugin;
 using KitopiaAvalonia.Tools;
 using Markdown.Avalonia.Full;

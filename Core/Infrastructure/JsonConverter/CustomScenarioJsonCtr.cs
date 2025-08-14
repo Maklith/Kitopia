@@ -1,7 +1,7 @@
 ﻿using System.Text.Json;
 using Core.SDKs.CustomScenario;
 
-namespace Core.JsonConverter;
+namespace Core.Infrastructure.JsonConverter;
 
 public class CustomScenarioJsonCtr : System.Text.Json.Serialization.JsonConverter<CustomScenario>
 {

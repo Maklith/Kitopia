@@ -5,7 +5,7 @@ using System.Text.Unicode;
 using Core.SDKs.CustomScenario;
 using PluginCore;
 
-namespace Core.SDKs.Services.Config;
+namespace Core.Infrastructure.JsonConverter;
 
 public class ConnectorItemJsonCtr : JsonConverter<ConnectorItem>
 {

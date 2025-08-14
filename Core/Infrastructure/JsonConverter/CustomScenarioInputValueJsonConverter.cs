@@ -2,10 +2,11 @@
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Core.JsonConverter;
 using Core.SDKs.CustomScenario;
 using PluginCore;
 
-namespace Core.JsonConverter;
+namespace Core.Infrastructure.JsonConverter;
 
 public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenarioValue>
 {

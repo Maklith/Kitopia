@@ -2,7 +2,7 @@
 using Avalonia;
 using Core.SDKs.Services;
 using Core.SDKs.Services.Config;
-
+using Core.Services;
 using Microsoft.Win32;
 using PluginCore;
 using Serilog;
