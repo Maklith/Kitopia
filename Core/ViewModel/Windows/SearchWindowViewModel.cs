@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Core.Services;
 using Core.Services.Config;
 using Core.Services.Plugin;
+using ObservableCollections;
 using Pinyin.NET;
 using PluginCore;
 using PluginCore.SearchWindow.InputData;
@@ -32,7 +33,6 @@ public class FileTypeFilter
 public partial class SearchWindowViewModel : ObservableRecipient
 {
     private static ILogger Log = LogManager.Logger.ForContext<SearchWindowViewModel>();
-    private static readonly List<SearchViewItem> TempList = new(1000);
     public readonly ConcurrentDictionary<string, SearchViewItem> _collection = new(); //存储本机所有软件
 
     [ObservableProperty] private bool? _everythingIsOk = true;
@@ -41,8 +41,9 @@ public partial class SearchWindowViewModel : ObservableRecipient
     [ObservableProperty] private ObservableCollection<FileTypeFilter> _fileTypes = new();
 
     [ObservableProperty] private ObservableCollection<InputData> _inputDatas = new();
-    [ObservableProperty] private ObservableCollection<SearchViewItem> _items = new(TempList);
-
+    [ObservableProperty] private ObservableList<SearchViewItem> _items = new();
+    [ObservableProperty] private ISynchronizedView<SearchViewItem, SearchViewItem> _itemsView;
+    [ObservableProperty] private NotifyCollectionChangedSynchronizedViewList<SearchViewItem> _itemsViewList;
     private PinyinSearcher<SearchViewItem>? _pinyinReSearcher;
     private PinyinSearcher<SearchViewItem> _pinyinSearcher;
 
@@ -53,7 +54,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
 
     [ObservableProperty] private int? _selectedIndex = -1;
-    [ObservableProperty] private ObservableCollection<SearchViewItem> _showItems; //搜索界面显示的软件
 
 
     [ObservableProperty] private bool nowInSelectMode = false;
@@ -64,6 +64,8 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
     public SearchWindowViewModel()
     {
+        ItemsView = Items.CreateView(e => e);
+        ItemsViewList = ItemsView.ToNotifyCollectionChanged();
         Task.Run(() =>
         {
             ReloadApps(false);
@@ -191,7 +193,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
             searchViewItem.PinyinItem.CharMatchResults = [];
         }
 
-        ShowItems = Items;
         FileTypes.Clear();
         ShowFileTypeFilter = FileTypes.Count > 0;
     }
@@ -373,14 +374,14 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
 
         FileTypes.Clear();
-        var fileTypes = Enumerable.GroupBy<SearchViewItem, FileType>(Items, e => e.FileType).Select(e => e.Key);
+        var fileTypes = Items.Select(e => e.FileType).Distinct();
         foreach (var fileType in fileTypes)
             FileTypes.Add(new FileTypeFilter
             {
                 FileType = fileType,
                 IsChecked = false
             });
-        ShowItems = Items;
+
         ShowFileTypeFilter = FileTypes.Count > 0;
     }
 
@@ -470,10 +471,10 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
     public void UpdateFilter()
     {
-        if (Enumerable.All<FileTypeFilter>(FileTypes, e => !e.IsChecked))
-            ShowItems = Items;
+        if (FileTypes.All(e => !e.IsChecked))
+            ItemsView.ResetFilter();
         else
-            ShowItems = new ObservableCollection<SearchViewItem>(Enumerable.Where<SearchViewItem>(Items, e =>
-                Enumerable.Any<FileTypeFilter>(FileTypes, e1 => e1.FileType == e.FileType && e1.IsChecked)));
+            ItemsView.AttachFilter(e => FileTypes.Any(fileTypeFilter =>
+                fileTypeFilter.FileType == e.FileType && fileTypeFilter.IsChecked));
     }
 }

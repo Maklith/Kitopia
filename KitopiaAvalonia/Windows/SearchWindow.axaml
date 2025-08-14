@@ -135,7 +135,7 @@
 
 
             <ListBox Name="dataGrid"
-                     ItemsSource="{Binding ShowItems,Mode=OneWay }"
+                     ItemsSource="{Binding ItemsViewList,Mode=OneWay }"
                      KeyDown="DataGrid_OnKeyDown"
                      PointerMoved="DataGrid_OnPointerMoved"
                      Margin="0,0,0,0">

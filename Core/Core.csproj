@@ -46,6 +46,7 @@
         <PackageReference Include="Microsoft.Extensions.Resilience" Version="9.2.0"/>
         <PackageReference Include="MQTTnet" Version="4.3.6.1152"/>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
+        <PackageReference Include="ObservableCollections" Version="3.3.4"/>
         <PackageReference Include="Polly" Version="8.5.2"/>
         <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.0"/>
         <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0"/>
