@@ -108,6 +108,10 @@
             <DependentUpon>PluginDetail.axaml</DependentUpon>
             <SubType>Code</SubType>
         </Compile>
+        <Compile Update="Windows\TaskEditor\TaskEditor.axaml.cs">
+            <DependentUpon>TaskEditor.axaml</DependentUpon>
+            <SubType>Code</SubType>
+        </Compile>
     </ItemGroup>
     <ItemGroup>
         <Folder Include="Converter\MarketPage\"/>

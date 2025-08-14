@@ -1,9 +1,9 @@
 ﻿#region
 
 using System;
-using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Metadata;
 using Core.CustomScenario;
 using Core.Utils;
@@ -15,17 +15,13 @@ namespace KitopiaAvalonia.Pages;
 public class MyDataTemplateSelector : IDataTemplate
 {
     // Override the SelectTemplate method
-    [Content] public Dictionary<string, IDataTemplate> Templates { get; } = new();
+    [Content] public string TemplateType { get; set; } = String.Empty;
 
-    private static Type ResolveType(string? ns, string typeName)
-    {
-        return typeName switch
+    ResourceInclude Templates { get; } =
+        new ResourceInclude(new Uri("avares://KitopiaAvalonia/Windows/TaskEditors/NodeInputTemplates.axaml"))
         {
-            "TextBlock" => typeof(TextBlock),
-            "ComboBox" => typeof(ComboBox),
-            _ => throw new InvalidOperationException($"Could not resolve type {typeName}.")
+            Source = new Uri("avares://KitopiaAvalonia/Windows/TaskEditors/NodeInputTemplates.axaml")
         };
-    }
 
     public Control? Build(object? item)
     {
@@ -34,7 +30,7 @@ public class MyDataTemplateSelector : IDataTemplate
             // Check the type of the item and return the corresponding data template from the resources
             if (!pointItem.InputObject.IsSelf || pointItem.InputObject.RealType == null ||
                 pointItem.InputObject.RealType.BaseType == null)
-                return Templates["InputTemplate"]
+                return GetTemplate("InputTemplate")
                     .Build(item);
 
             if (pointItem.isPluginInputConnector)
@@ -50,7 +46,7 @@ public class MyDataTemplateSelector : IDataTemplate
 
             if (pointItem.InputObject.RealType.BaseType.FullName == "System.Enum")
             {
-                var control = Templates["EnumTemplate"].Build(item);
+                var control = GetTemplate("EnumTemplate").Build(item);
                 var childOfType = control.GetChildOfType<ComboBox>("ComboBox");
                 childOfType.ItemsSource = pointItem.InputObject.RealType.GetEnumValues();
                 return control;
@@ -59,17 +55,17 @@ public class MyDataTemplateSelector : IDataTemplate
             switch (pointItem.InputObject.RealType.FullName!)
             {
                 case "System.String":
-                    return Templates["StringTemplate"].Build(item);
+                    return GetTemplate("StringTemplate").Build(item);
                 case "System.Int32":
-                    return Templates["IntTemplate"].Build(item);
+                    return GetTemplate("IntTemplate").Build(item);
                 case "System.Double":
-                    return Templates["DoubleTemplate"].Build(item);
+                    return GetTemplate("DoubleTemplate").Build(item);
                 case "System.Boolean":
-                    return Templates["BoolTemplate"].Build(item);
+                    return GetTemplate("BoolTemplate").Build(item);
                 case "PluginCore.SearchViewItem":
-                    return Templates["SearchItemTemplate"].Build(item);
+                    return GetTemplate("SearchItemTemplate").Build(item);
                 default:
-                    return Templates["InputTemplate"].Build(item);
+                    return GetTemplate("InputTemplate").Build(item);
             }
         }
 
@@ -79,5 +75,20 @@ public class MyDataTemplateSelector : IDataTemplate
     public bool Match(object? data)
     {
         return true;
+    }
+
+    private IDataTemplate GetTemplate(string templateName)
+    {
+        if (templateName == "InputTemplate")
+        {
+            templateName = TemplateType == "show" ? "ShowInputTemplate" : templateName;
+        }
+
+        if (Templates.TryGetResource(templateName, null, out var template))
+        {
+            return (IDataTemplate)template;
+        }
+
+        throw new InvalidOperationException($"Template '{templateName}' not found in resources.");
     }
 }

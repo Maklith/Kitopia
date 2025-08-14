@@ -57,10 +57,6 @@
         <PackageReference Include="System.Runtime.InteropServices" Version="4.3.0"/>
     </ItemGroup>
 
-    <ItemGroup>
-        <Folder Include="SDKs\Msgs\"/>
-    </ItemGroup>
-
 
     <ItemGroup>
         <ProjectReference Include="..\PinyinM.NET\Pinyin.NET\Pinyin.NET.csproj"/>
