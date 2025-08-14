@@ -1145,7 +1145,7 @@
                 <ContentPresenter x:Name="ContentPresenter">
                     <ContentPresenter.Resources>
                         <taskEditor:InterfacesToString x:Key="InterfacesToString" />
-                        <DataTemplate x:Key="DataTemplate" DataType="{x:Type customScenario1:ScenarioMethodNode}">
+                        <DataTemplate x:Key="ScenarioMethodNode" DataType="{x:Type customScenario1:ScenarioMethodNode}">
                             <Border Tag="Node" BorderBrush="LightGray" BorderThickness="1" CornerRadius="3"
                                     PointerMoved="ListBox_OnMouseMove">
                                 <DockPanel Panel.ZIndex="1">
@@ -1185,7 +1185,7 @@
                                                     </ItemsControl.ItemsPanel>
                                                     <!-- Set the ItemTemplate to a Button with the content bound to the item -->
                                                     <ItemsControl.ItemTemplate>
-                                                        <pages:MyDataTemplateSelector TemplateType="show" />
+                                                        <pages:NodeInputDataTemplateSelector TemplateType="show" />
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
 
@@ -1472,7 +1472,7 @@
                                                 </MenuFlyout>
                                             </ContentPresenter.ContextFlyout>
                                             <ContentPresenter.DataTemplates>
-                                                <pages:MyDataTemplateSelector TemplateType="nodify" />
+                                                <pages:NodeInputDataTemplateSelector TemplateType="nodify" />
                                             </ContentPresenter.DataTemplates>
                                         </ContentPresenter>
 

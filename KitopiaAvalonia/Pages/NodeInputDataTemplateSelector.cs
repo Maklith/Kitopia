@@ -12,7 +12,7 @@ using Core.Utils;
 
 namespace KitopiaAvalonia.Pages;
 
-public class MyDataTemplateSelector : IDataTemplate
+public class NodeInputDataTemplateSelector : IDataTemplate
 {
     // Override the SelectTemplate method
     [Content] public string TemplateType { get; set; } = String.Empty;
