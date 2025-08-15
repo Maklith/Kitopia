@@ -17,7 +17,7 @@ public class ScenarioMethodCategoryGroupCtr : IValueConverter
         if (parameter is CompiledBindingExtension compiledBindingExtension)
             if (compiledBindingExtension.DefaultAnchor.Target is Control control)
             {
-                control.TryGetResource("DataTemplate", null, out var dataTemplate);
+                control.TryGetResource("ScenarioMethodNode", null, out var dataTemplate);
                 DataTemplate = dataTemplate as IDataTemplate;
             }
 
@@ -37,6 +37,11 @@ public class ScenarioMethodCategoryGroupCtr : IValueConverter
         }
 
         return expander;
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
     }
 
     private void Prase(ScenarioMethodCategoryGroup group, StackPanel itemsControl)
@@ -60,10 +65,5 @@ public class ScenarioMethodCategoryGroupCtr : IValueConverter
                 control.DataContext = value;
                 itemsControl.Children.Add(control);
             }
-    }
-
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        throw new NotImplementedException();
     }
 }
