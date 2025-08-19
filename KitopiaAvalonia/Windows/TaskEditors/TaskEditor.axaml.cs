@@ -63,7 +63,7 @@ public partial class TaskEditor : UrsaWindow
                         case "Set":
                         {
                             var keyValuePair = (KeyValuePair<string, CustomScenarioValue>)borderDataContext;
-                            pointItem = new ScenarioMethod(ScenarioMethodType.变量设置)
+                            pointItem = new ScenarioMethod(ScenarioMethodType.VariableSet)
                                     { ValueName = keyValuePair.Key, ValueDataType = keyValuePair.Value.Type }
                                 .GenerateNode();
                             break;
@@ -71,7 +71,7 @@ public partial class TaskEditor : UrsaWindow
                         case "Get":
                         {
                             var keyValuePair = (KeyValuePair<string, CustomScenarioValue>)borderDataContext;
-                            pointItem = new ScenarioMethod(ScenarioMethodType.变量获取)
+                            pointItem = new ScenarioMethod(ScenarioMethodType.VariableGet)
                                     { ValueName = keyValuePair.Key, ValueDataType = keyValuePair.Value.Type }
                                 .GenerateNode();
                             break;
@@ -79,7 +79,7 @@ public partial class TaskEditor : UrsaWindow
                         case "TempSet":
                         {
                             var keyValuePair = (KeyValuePair<string, object>)borderDataContext;
-                            pointItem = new ScenarioMethod(ScenarioMethodType.临时变量设置)
+                            pointItem = new ScenarioMethod(ScenarioMethodType.TempVariableSet)
                                     { ValueName = keyValuePair.Key }
                                 .GenerateNode();
                             break;
@@ -87,7 +87,7 @@ public partial class TaskEditor : UrsaWindow
                         case "TempGet":
                         {
                             var keyValuePair = (KeyValuePair<string, object>)borderDataContext;
-                            pointItem = new ScenarioMethod(ScenarioMethodType.临时变量获取)
+                            pointItem = new ScenarioMethod(ScenarioMethodType.TempVariableGet)
                                     { ValueName = keyValuePair.Key }
                                 .GenerateNode();
                             break;

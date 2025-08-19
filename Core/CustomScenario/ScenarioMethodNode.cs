@@ -11,12 +11,12 @@ using PluginCore.Attribute;
 
 namespace Core.CustomScenario;
 
-public enum S节点状态
+public enum NodeStatus
 {
-    未验证,
-    已验证,
-    错误,
-    初步验证
+    Unverified,
+    Verified,
+    Error,
+    PreliminaryVerified
 }
 
 [JsonDerivedType(typeof(ScenarioNodeBase), "base")]
@@ -25,7 +25,7 @@ public enum S节点状态
 public partial class ScenarioNodeBase : ObservableRecipient
 {
     [ObservableProperty] private string _title;
-    [ObservableProperty] private S节点状态 status = S节点状态.未验证;
+    [ObservableProperty] private NodeStatus status = NodeStatus.Unverified;
 
     [property: JsonConverter(typeof(PointJsonConverter))]
     [JsonConverter(typeof(PointJsonConverter))]
@@ -155,7 +155,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
         //生成本节点所有数据
         switch (ScenarioMethod.Type)
         {
-            case ScenarioMethodType.插件方法:
+            case ScenarioMethodType.PluginMethod:
             {
                 List<object> list = new();
                 var index = 1;
@@ -234,19 +234,19 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
 
                 break;
             }
-            case ScenarioMethodType.一对二:
+            case ScenarioMethodType.OneToTwo:
             {
                 Output[0].InputObject.Value = "流1";
                 Output[1].InputObject.Value = "流2";
                 break;
             }
-            case ScenarioMethodType.一对多:
+            case ScenarioMethodType.OneToMany:
             {
                 for (var i = 0; i < Output.Count; i++) Output[i].InputObject.Value = $"流{i + 1}";
 
                 break;
             }
-            case ScenarioMethodType.相等:
+            case ScenarioMethodType.Equal:
             {
                 if (Input[1].InputObject is null)
                     Output[0].InputObject.Value = false;
@@ -257,35 +257,35 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
 
                 break;
             }
-            case ScenarioMethodType.变量设置:
+            case ScenarioMethodType.VariableSet:
             {
                 if (values.ContainsKey(ScenarioMethod.ValueName))
                     values[ScenarioMethod.ValueName].Value = Input[1].InputObject.Value!;
 
                 break;
             }
-            case ScenarioMethodType.变量获取:
+            case ScenarioMethodType.VariableGet:
             {
                 if (values.ContainsKey(ScenarioMethod.ValueName))
                     Output[1].InputObject.Value = values[ScenarioMethod.ValueName].Value;
 
                 break;
             }
-            case ScenarioMethodType.临时变量设置:
+            case ScenarioMethodType.TempVariableSet:
             {
                 if (tempValues.ContainsKey(ScenarioMethod.ValueName))
                     tempValues[ScenarioMethod.ValueName] = Input[1].InputObject.Value!;
 
                 break;
             }
-            case ScenarioMethodType.临时变量获取:
+            case ScenarioMethodType.TempVariableGet:
             {
                 if (tempValues.ContainsKey(ScenarioMethod.ValueName))
                     Output[1].InputObject.Value = tempValues[ScenarioMethod.ValueName];
 
                 break;
             }
-            case ScenarioMethodType.判断:
+            case ScenarioMethodType.Condition:
             {
                 if (Input[1].InputObject.Value is bool b1)
                 {
@@ -307,7 +307,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
 
                 break;
             }
-            case ScenarioMethodType.打开运行本地项目:
+            case ScenarioMethodType.OpenRunLocalProject:
             {
                 if (Enumerable.Count<ConnectorItem>(Input) >= 3)
                 {
@@ -326,7 +326,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
 
                 break;
             }
-            case ScenarioMethodType.默认:
+            case ScenarioMethodType.Default:
             {
                 if (Input == null || Input.Count == 0) break;
 
@@ -475,7 +475,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
             if (!connectorItem.InputObject.IsSelf)
                 connectorItem.InputObject.Value = null;
 
-        Status = S节点状态.未验证;
+        Status = NodeStatus.Unverified;
     }
 
     public override void ConnectorInit()

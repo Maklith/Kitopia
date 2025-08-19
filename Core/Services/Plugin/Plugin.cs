@@ -201,7 +201,7 @@ public class Plugin
                         continue;
 
                     var scenarioMethodInfo = new ScenarioMethod(methodInfo, PluginInfo, scenarioMethodAttribute,
-                        ScenarioMethodType.插件方法, ServiceProvider);
+                        ScenarioMethodType.PluginMethod, ServiceProvider);
                     scenarioMethodCategoryGroup.Methods.Add(scenarioMethodInfo.MethodTitle,
                         scenarioMethodInfo.GenerateNode());
                 }

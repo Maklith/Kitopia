@@ -9,7 +9,7 @@ public class NodeStatusBorderCtr : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is not S节点状态 status || parameter is null) return false;
+        if (value is not NodeStatus status || parameter is null) return false;
 
         if (((int)status).ToString() == parameter.ToString()) return true;
 

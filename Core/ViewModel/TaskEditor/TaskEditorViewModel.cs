@@ -58,7 +58,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         var nodify2 = new ScenarioMethodNode
         {
             Title = "任务1",
-            ScenarioMethod = new ScenarioMethod(ScenarioMethodType.默认)
+            ScenarioMethod = new ScenarioMethod(ScenarioMethodType.Default)
         };
         nodify2.Output = new ObservableCollection<ConnectorItem>
         {
@@ -78,7 +78,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         var nodify3 = new ScenarioMethodNode
         {
             Title = "Tick",
-            ScenarioMethod = new ScenarioMethod(ScenarioMethodType.默认),
+            ScenarioMethod = new ScenarioMethod(ScenarioMethodType.Default),
             Location = new Point(0, 100)
         };
         nodify3.Output = new ObservableCollection<ConnectorItem>
@@ -119,7 +119,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
                 if (e.ConnectorItem is not { InputObject: not null }) return;
 
-                if (e.ScenarioMethodNode.ScenarioMethod.Type == ScenarioMethodType.一对多 &&
+                if (e.ScenarioMethodNode.ScenarioMethod.Type == ScenarioMethodType.OneToMany &&
                     e.ConnectorItem.Title == "输出数量")
                 {
                     int? value = null;
@@ -171,7 +171,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                         }
                 }
 
-                if (e.ScenarioMethodNode.ScenarioMethod.Type == ScenarioMethodType.打开运行本地项目)
+                if (e.ScenarioMethodNode.ScenarioMethod.Type == ScenarioMethodType.OpenRunLocalProject)
                 {
                     var o = e.ScenarioMethodNode.Input[1].InputObject.Value;
                     if (o is string inputObject)
