@@ -13,12 +13,12 @@ public static class TranslateApi
     static HttpClient httpClient = new HttpClient();
     private static string token;
     
-    private static void Auth()
+    private static async Task AuthAsync()
     {
         httpClient.DefaultRequestHeaders.Remove("Authorization");
         httpClient.DefaultRequestHeaders.Add("Authorization",$"Bearer {token}");
         httpClient.DefaultRequestHeaders.Add("User-Agent","KitopiaEx/1.1.0");
-        token = httpClient.GetStringAsync("https://edge.microsoft.com/translate/auth").Result;
+        token = await httpClient.GetStringAsync("https://edge.microsoft.com/translate/auth");
     }
     public static string TargetTranslateLangToName(TargetTranslateLang lang)
     {
@@ -59,7 +59,8 @@ public static class TranslateApi
             });
             var content = new StringContent(jsonArray.ToJsonString(), Encoding.UTF8, "application/json");
             
-            var r=await httpClient.PostAsync(new Uri($"https://api-edge.cognitive.microsofttranslator.com/translate?from={SourceTranslateLangToName(from)}&to={TargetTranslateLangToName(to)}&api-version=3.0&includeSentenceLength=true"),content).Result.Content.ReadAsStringAsync();
+            var response = await httpClient.PostAsync(new Uri($"https://api-edge.cognitive.microsofttranslator.com/translate?from={SourceTranslateLangToName(from)}&to={TargetTranslateLangToName(to)}&api-version=3.0&includeSentenceLength=true"), content);
+            var r = await response.Content.ReadAsStringAsync();
             if (CheckIsSuccess(r))
             {
                 using var doc = JsonDocument.Parse(r);
@@ -71,7 +72,7 @@ public static class TranslateApi
             }
             else
             {
-                Auth();
+                await AuthAsync();
                 return await GetTranslation(text, from, to);
             }
         }

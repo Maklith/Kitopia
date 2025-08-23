@@ -93,7 +93,7 @@ public class TextCaptureTool : CaptureToolBase
         set => SetValue(StartTranslateTransformProperty, value);
     }
 
-    #region 内部控件: 拖拽
+    #region Internal Control: Dragging
 
     private bool _isDragging;
     private Point _dragStartPoint;

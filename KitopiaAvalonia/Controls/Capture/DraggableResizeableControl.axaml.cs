@@ -79,7 +79,7 @@ public class DraggableResizeableControl : CaptureToolBase
     }
 
 
-    #region 边框: 调整大小
+    #region Border: Resize
 
     private bool _isResizing;
     private Point _resizeStartPoint;
@@ -307,7 +307,7 @@ public class DraggableResizeableControl : CaptureToolBase
 
     #endregion
 
-    #region 内部控件: 拖拽
+    #region Internal Control: Dragging
 
     private void ContentOnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs pointerCaptureLostEventArgs)
     {

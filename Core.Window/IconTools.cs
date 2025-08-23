@@ -142,7 +142,7 @@ internal class IconTools
         }
 
 
-        #region 获取64*64的尺寸Icon
+        #region Get 64x64 Size Icon
 
         {
             var iconTotalCount = PrivateExtractIcons(path, 0, 0, 0, null!, null!, 0, 0);
