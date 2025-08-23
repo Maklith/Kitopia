@@ -13,6 +13,9 @@ using PluginCore;
 
 namespace Core.ViewModel.Main;
 
+/// <summary>
+/// 主窗口视图模型 / Main window view model for handling navigation and UI state
+/// </summary>
 public partial class MainWindowViewModel : ObservableRecipient
 {
     public MainWindowViewModel()
@@ -89,13 +92,21 @@ public partial class MainWindowViewModel : ObservableRecipient
     }
 }
 
+/// <summary>
+/// 页面切换事件参数 / Page change event arguments for navigation
+/// </summary>
 public class PageChangeEventArgs
 {
+    /// <summary>
+    /// 初始化新的页面切换事件参数实例 / Initializes a new instance of PageChangeEventArgs
+    /// </summary>
+    /// <param name="key">页面键 / The page key</param>
     public PageChangeEventArgs(string key)
     {
         Key = key;
     }
 
+    /// <summary>获取或设置页面键 / Gets or sets the page key</summary>
     public string Key { get; set; }
 }
 

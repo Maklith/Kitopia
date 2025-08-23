@@ -20,7 +20,7 @@ public partial class MouseQuickWindowViewModel : ObservableRecipient
 {
     [ObservableProperty] private ObservableCollection<SearchViewItem> _items = new();
 
-    [ObservableProperty] private SelectedItem selectedItem;
+    [ObservableProperty] private SelectedItem _selectedItem;
 
     public MouseQuickWindowViewModel()
     {
