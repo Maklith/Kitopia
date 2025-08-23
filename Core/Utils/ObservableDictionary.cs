@@ -145,7 +145,7 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
         if (PropertyChanged != null) PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    #region private方法
+    #region Private Methods
 
     private void SetIndexValue(int index, TValue value)
     {

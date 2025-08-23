@@ -142,7 +142,7 @@ public class DraggableArrowControl : CaptureToolBase
 
     #endregion
 
-    #region 内部控件: 拖拽
+    #region Internal Control: Dragging
 
     private void ContentOnPointerPressed(object? sender, PointerPressedEventArgs e)
     {

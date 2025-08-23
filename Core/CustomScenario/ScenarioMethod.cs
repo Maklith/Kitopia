@@ -54,7 +54,7 @@ public class ScenarioMethod
     {
         get
         {
-            if (Type == ScenarioMethodType.插件方法)
+            if (Type == ScenarioMethodType.PluginMethod)
             {
                 var sb = new StringBuilder("|");
                 var typeJsonConverter = new TypeJsonConverter();
@@ -263,11 +263,11 @@ public class ScenarioMethod
         {
             switch (Type)
             {
-                case ScenarioMethodType.插件方法:
+                case ScenarioMethodType.PluginMethod:
                     break;
-                case ScenarioMethodType.判断:
+                case ScenarioMethodType.Condition:
                 {
-                    pointItem.Title = "判断";
+                    pointItem.Title = "Condition";
                     ObservableCollection<ConnectorItem> StringoutItems = new()
                     {
                         new ConnectorItem
@@ -317,9 +317,9 @@ public class ScenarioMethod
                     pointItem.Input = StringinItems;
                     break;
                 }
-                case ScenarioMethodType.一对二:
+                case ScenarioMethodType.OneToTwo:
                 {
-                    pointItem.Title = "一对二";
+                    pointItem.Title = "OneToTwo";
                     ObservableCollection<ConnectorItem> StringoutItems = new()
                     {
                         new ConnectorItem
@@ -360,9 +360,9 @@ public class ScenarioMethod
                     pointItem.Input = StringinItems;
                     break;
                 }
-                case ScenarioMethodType.一对多:
+                case ScenarioMethodType.OneToMany:
                 {
-                    pointItem.Title = "一对多";
+                    pointItem.Title = "OneToMany";
                     ObservableCollection<ConnectorItem> StringoutItems = new()
                     {
                         new ConnectorItem
@@ -416,9 +416,9 @@ public class ScenarioMethod
                     pointItem.Input = StringinItems;
                     break;
                 }
-                case ScenarioMethodType.相等:
+                case ScenarioMethodType.Equal:
                 {
-                    pointItem.Title = "相等";
+                    pointItem.Title = "Equal";
                     ObservableCollection<ConnectorItem> StringoutItems = new()
                     {
                         new ConnectorItem
@@ -466,7 +466,7 @@ public class ScenarioMethod
                     pointItem.Input = StringinItems;
                     break;
                 }
-                case ScenarioMethodType.变量设置:
+                case ScenarioMethodType.VariableSet:
                 {
                     pointItem.Title = $"{ValueName}";
                     ObservableCollection<ConnectorItem> inpItems = new();
@@ -505,7 +505,7 @@ public class ScenarioMethod
                     pointItem.Output = outItems;
                     break;
                 }
-                case ScenarioMethodType.变量获取:
+                case ScenarioMethodType.VariableGet:
                 {
                     pointItem.Title = $"{ValueName}";
                     ObservableCollection<ConnectorItem> inpItems = new();
@@ -544,7 +544,7 @@ public class ScenarioMethod
                     pointItem.Output = outItems;
                     break;
                 }
-                case ScenarioMethodType.临时变量设置:
+                case ScenarioMethodType.TempVariableSet:
                 {
                     pointItem.Title = $"{ValueName}";
                     ObservableCollection<ConnectorItem> inpItems = new();
@@ -583,7 +583,7 @@ public class ScenarioMethod
                     pointItem.Output = outItems;
                     break;
                 }
-                case ScenarioMethodType.临时变量获取:
+                case ScenarioMethodType.TempVariableGet:
                 {
                     pointItem.Title = $"{ValueName}";
                     ObservableCollection<ConnectorItem> inpItems = new();
@@ -622,7 +622,7 @@ public class ScenarioMethod
                     pointItem.Output = outItems;
                     break;
                 }
-                case ScenarioMethodType.打开运行本地项目:
+                case ScenarioMethodType.OpenRunLocalProject:
                 {
                     pointItem.Title = "打开/运行本地项目";
                     ObservableCollection<ConnectorItem> outItems = new();

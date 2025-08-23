@@ -25,7 +25,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
         {
             var String = new ScenarioMethodNode
             {
-                ScenarioMethod = new ScenarioMethod(ScenarioMethodType.默认),
+                ScenarioMethod = new ScenarioMethod(ScenarioMethodType.Default),
                 Title = key
             };
             ObservableCollection<ConnectorItem> StringoutItems = new()
@@ -68,20 +68,20 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
         scenarioMethodCategoryGroup.Childrens.Add("节点控制", controlScenarioMethodCategoryGroup);
         controlScenarioMethodCategoryGroup.Name = "节点控制";
 
-        var scenarioMethodNode1 = new ScenarioMethod(ScenarioMethodType.判断).GenerateNode();
-        controlScenarioMethodCategoryGroup.Methods.Add("判断", scenarioMethodNode1);
+        var scenarioMethodNode1 = new ScenarioMethod(ScenarioMethodType.Condition).GenerateNode();
+        controlScenarioMethodCategoryGroup.Methods.Add("Condition", scenarioMethodNode1);
 
-        var scenarioMethodNode2 = new ScenarioMethod(ScenarioMethodType.一对二).GenerateNode();
-        controlScenarioMethodCategoryGroup.Methods.Add("一对二", scenarioMethodNode2);
+        var scenarioMethodNode2 = new ScenarioMethod(ScenarioMethodType.OneToTwo).GenerateNode();
+        controlScenarioMethodCategoryGroup.Methods.Add("OneToTwo", scenarioMethodNode2);
 
-        var scenarioMethodNode3 = new ScenarioMethod(ScenarioMethodType.一对多).GenerateNode();
-        controlScenarioMethodCategoryGroup.Methods.Add("一对多", scenarioMethodNode3);
+        var scenarioMethodNode3 = new ScenarioMethod(ScenarioMethodType.OneToMany).GenerateNode();
+        controlScenarioMethodCategoryGroup.Methods.Add("OneToMany", scenarioMethodNode3);
 
-        var scenarioMethodNode4 = new ScenarioMethod(ScenarioMethodType.相等).GenerateNode();
-        controlScenarioMethodCategoryGroup.Methods.Add("相等", scenarioMethodNode4);
+        var scenarioMethodNode4 = new ScenarioMethod(ScenarioMethodType.Equal).GenerateNode();
+        controlScenarioMethodCategoryGroup.Methods.Add("Equal", scenarioMethodNode4);
 
-        var scenarioMethodNode5 = new ScenarioMethod(ScenarioMethodType.打开运行本地项目).GenerateNode();
-        controlScenarioMethodCategoryGroup.Methods.Add("打开运行本地项目", scenarioMethodNode5);
+        var scenarioMethodNode5 = new ScenarioMethod(ScenarioMethodType.OpenRunLocalProject).GenerateNode();
+        controlScenarioMethodCategoryGroup.Methods.Add("OpenRunLocalProject", scenarioMethodNode5);
 
 
         return rootScenarioMethodCategoryGroup;

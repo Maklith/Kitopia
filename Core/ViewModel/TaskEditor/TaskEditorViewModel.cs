@@ -58,7 +58,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         var nodify2 = new ScenarioMethodNode
         {
             Title = "任务1",
-            ScenarioMethod = new ScenarioMethod(ScenarioMethodType.默认)
+            ScenarioMethod = new ScenarioMethod(ScenarioMethodType.Default)
         };
         nodify2.Output = new ObservableCollection<ConnectorItem>
         {
@@ -78,7 +78,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         var nodify3 = new ScenarioMethodNode
         {
             Title = "Tick",
-            ScenarioMethod = new ScenarioMethod(ScenarioMethodType.默认),
+            ScenarioMethod = new ScenarioMethod(ScenarioMethodType.Default),
             Location = new Point(0, 100)
         };
         nodify3.Output = new ObservableCollection<ConnectorItem>
@@ -119,7 +119,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
                 if (e.ConnectorItem is not { InputObject: not null }) return;
 
-                if (e.ScenarioMethodNode.ScenarioMethod.Type == ScenarioMethodType.一对多 &&
+                if (e.ScenarioMethodNode.ScenarioMethod.Type == ScenarioMethodType.OneToMany &&
                     e.ConnectorItem.Title == "输出数量")
                 {
                     int? value = null;
@@ -171,7 +171,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                         }
                 }
 
-                if (e.ScenarioMethodNode.ScenarioMethod.Type == ScenarioMethodType.打开运行本地项目)
+                if (e.ScenarioMethodNode.ScenarioMethod.Type == ScenarioMethodType.OpenRunLocalProject)
                 {
                     var o = e.ScenarioMethodNode.Input[1].InputObject.Value;
                     if (o is string inputObject)
@@ -543,9 +543,9 @@ public partial class TaskEditorViewModel : ObservableRecipient
     [ObservableProperty]
     private CustomScenarioValueTuple _valueType;
 
-    private bool valueCanAdd => !string.IsNullOrEmpty(_valueValue) && _valueType != null;
+    private bool _valueCanAdd => !string.IsNullOrEmpty(_valueValue) && _valueType != null;
 
-    [RelayCommand(CanExecute = nameof(valueCanAdd))]
+    [RelayCommand(CanExecute = nameof(_valueCanAdd))]
     private void AddValue()
     {
         if (Scenario.Values.ContainsKey(ValueValue)) return;
@@ -662,8 +662,13 @@ public partial class TaskEditorViewModel : ObservableRecipient
     }
 }
 
+/// <summary>
+/// 自定义情景值元组 / Custom scenario value tuple for type-value pairs
+/// </summary>
 public class CustomScenarioValueTuple
 {
+    /// <summary>获取或设置类型 / Gets or sets the type</summary>
     public Type Type { get; set; }
+    /// <summary>获取或设置值 / Gets or sets the value</summary>
     public object Value { get; set; }
 }

@@ -247,7 +247,7 @@ public partial class CustomScenario : ObservableRecipient
 
         for (var i = nodes.Count - 1; i >= 1; i--)
             if (!nodes[i].IsUsed(connections))
-                nodes[i].Status = S节点状态.未验证;
+                nodes[i].Status = NodeStatus.Unverified;
 
         try
         {
@@ -431,7 +431,7 @@ public partial class CustomScenario : ObservableRecipient
 
         // foreach (var connectorItem in nowScenarioMethodNode.Input)
         // foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections))
-        //     if (sourceSource.Status == S节点状态.错误)
+        //     if (sourceSource.Status == NodeStatus.Error)
         //         valid = false;
 
 
@@ -447,7 +447,7 @@ public partial class CustomScenario : ObservableRecipient
                 {
                     //如果执行失败
                     valid = false;
-                    nowScenarioMethodNode.Status = S节点状态.错误;
+                    nowScenarioMethodNode.Status = NodeStatus.Error;
                     Log.Debug($"执行节点失败:{nowScenarioMethodNode.Title}");
                 }
                 else
@@ -473,12 +473,12 @@ public partial class CustomScenario : ObservableRecipient
         finnish:
         if (valid)
         {
-            nowScenarioMethodNode.Status = notRealTime ? S节点状态.已验证 : S节点状态.初步验证;
+            nowScenarioMethodNode.Status = notRealTime ? NodeStatus.Verified : NodeStatus.PreliminaryVerified;
             Log.Debug($"解析节点完成:{nowScenarioMethodNode.Title}");
         }
         else
         {
-            nowScenarioMethodNode.Status = S节点状态.错误;
+            nowScenarioMethodNode.Status = NodeStatus.Error;
             Log.Debug($"解析节点失败:{nowScenarioMethodNode.Title}");
         }
 

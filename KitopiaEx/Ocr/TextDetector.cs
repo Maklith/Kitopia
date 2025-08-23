@@ -11,16 +11,16 @@ namespace KitopiaEx.Ocr
 {
     internal class TextDetector : IDisposable
     {
-        private float unclipRatio;
-        private int maxCandidates;
+        private float _unclipRatio;
+        private int _maxCandidates;
         private IInferenceSession _session;
-        private int shortSize = 736;
-        private float shortSideThresh = 3.0f;
+        private int _shortSize = 736;
+        private float _shortSideThresh = 3.0f;
         public Mat dstImg;
         public TextDetector()
         {
-            this.unclipRatio = 1.6f;
-            this.maxCandidates = 1000;
+            this._unclipRatio = 1.6f;
+            this._maxCandidates = 1000;
             this._session = Kitopia.InferenceSessionManager.GetSession("paddleocrdet");
         }
 
@@ -60,7 +60,7 @@ namespace KitopiaEx.Ocr
                     {
                         var box = Cv2.MinAreaRect(contour);
                         float shortSide = Math.Min(box.Size.Width, box.Size.Height);
-                        if (shortSide < this.shortSideThresh)
+                        if (shortSide < this._shortSideThresh)
                             continue;
                         bool swapSize = box.Size.Width < box.Size.Height || Math.Abs(box.Angle) >= 60.0f;
                         if (swapSize)
@@ -80,7 +80,7 @@ namespace KitopiaEx.Ocr
 
                         box = Cv2.MinAreaRect(oUnclip);
                         shortSide = Math.Min(box.Size.Width, box.Size.Height);
-                        if (shortSide < this.shortSideThresh+2.0f)
+                        if (shortSide < this._shortSideThresh+2.0f)
                             continue;
                         results.Add(box.Points());
                     }
@@ -137,7 +137,7 @@ namespace KitopiaEx.Ocr
             var outPoly = new Point2f[4];
             float area = (float)Cv2.ContourArea(inPoly);    //轮廓面积
             float length = (float)Cv2.ArcLength(inPoly, true); //轮廓周长
-            float distance = area * this.unclipRatio / length;
+            float distance = area * this._unclipRatio / length;
 
             int numPoints = inPoly.Length;
             var newLines = new List<List<Point2f>>();

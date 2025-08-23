@@ -10,6 +10,9 @@ using PluginCore;
 
 namespace Core.ViewModel.Main;
 
+/// <summary>
+/// 应用程序视图模型 / Application view model for global app operations
+/// </summary>
 public partial class AppViewModel : ObservableObject
 {
     [RelayCommand]

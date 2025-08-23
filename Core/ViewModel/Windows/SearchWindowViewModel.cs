@@ -24,12 +24,20 @@ using Serilog;
 
 namespace Core.ViewModel.Windows;
 
+/// <summary>
+/// 文件类型过滤器 / File type filter for search results
+/// </summary>
 public class FileTypeFilter
 {
+    /// <summary>获取或设置文件类型 / Gets or sets the file type</summary>
     public FileType FileType { get; set; }
+    /// <summary>获取或设置是否选中 / Gets or sets whether the filter is checked</summary>
     public bool IsChecked { get; set; }
 }
 
+/// <summary>
+/// 搜索窗口视图模型 / Search window view model for handling search functionality
+/// </summary>
 public partial class SearchWindowViewModel : ObservableRecipient
 {
     private static ILogger Log = LogManager.Logger.ForContext<SearchWindowViewModel>();
@@ -56,10 +64,10 @@ public partial class SearchWindowViewModel : ObservableRecipient
     [ObservableProperty] private int? _selectedIndex = -1;
 
 
-    [ObservableProperty] private bool nowInSelectMode = false;
-    private Action<SearchViewItem?>? selectAction;
+    [ObservableProperty] private bool _nowInSelectMode = false;
+    private Action<SearchViewItem?>? _selectAction;
 
-    [ObservableProperty] private bool showFileTypeFilter = false;
+    [ObservableProperty] private bool _showFileTypeFilter = false;
     [ObservableProperty] public bool showInputData;
 
     public SearchWindowViewModel()
@@ -402,7 +410,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     public void SetSelectMode(bool flag, Action<SearchViewItem> action)
     {
         NowInSelectMode = flag;
-        selectAction = action;
+        _selectAction = action;
     }
 
     [RelayCommand]
@@ -413,7 +421,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         {
             if (NowInSelectMode)
             {
-                selectAction.Invoke(item);
+                _selectAction.Invoke(item);
                 NowInSelectMode = false;
                 WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
                 return;

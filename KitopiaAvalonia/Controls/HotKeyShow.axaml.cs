@@ -144,9 +144,11 @@ public class HotKeyShow : TemplatedControl
             hotKeyShow.KeyType = (KeyTypeE)10000;
             hotKeyShow.KeyName = hotKeyModel.MouseButton switch
             {
-                0 => "鼠标左键",
-                1 => "鼠标右键",
-                2 => "鼠标中键",
+                (int)MouseHookType.LeftButton => "鼠标左键",
+                (int)MouseHookType.RightButton => "鼠标右键", 
+                (int)MouseHookType.MiddleButton => "鼠标中键",
+                (int)MouseHookType.XButton1 => "鼠标侧键1",
+                (int)MouseHookType.XButton2 => "鼠标侧键2",
                 _ => $"鼠标按键{hotKeyModel.MouseButton}"
             };
             return;
