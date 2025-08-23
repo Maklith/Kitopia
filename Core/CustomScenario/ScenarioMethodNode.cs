@@ -11,11 +11,19 @@ using PluginCore.Attribute;
 
 namespace Core.CustomScenario;
 
+/// <summary>
+/// 节点状态枚举，表示场景节点的验证和执行状态
+/// Node status enumeration representing the validation and execution state of scenario nodes
+/// </summary>
 public enum NodeStatus
 {
+    /// <summary>未验证状态 / Unverified state</summary>
     Unverified,
+    /// <summary>已验证状态 / Verified state</summary>
     Verified,
+    /// <summary>错误状态 / Error state</summary>
     Error,
+    /// <summary>初步验证状态 / Preliminary verified state</summary>
     PreliminaryVerified
 }
 
