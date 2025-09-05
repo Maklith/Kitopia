@@ -319,7 +319,7 @@
                                                                         CornerRadius="3 3 0 0">
                                                                     <Border.Background>
                                                                         <SolidColorBrush Opacity="0.5"
-                                                                            Color="{DynamicResource SemiBlue5Color}" />
+                                                                                Color="{DynamicResource SemiBlue5Color}" />
                                                                     </Border.Background>
                                                                     <TextBlock HorizontalAlignment="Center"
 
@@ -339,11 +339,11 @@
                                                                     </Rectangle>
                                                                     <DockPanel>
                                                                         <StackPanel Orientation="Vertical"
-                                                                            DockPanel.Dock="Left"
-                                                                            VerticalAlignment="Center">
+                                                                                DockPanel.Dock="Left"
+                                                                                VerticalAlignment="Center">
 
                                                                             <StackPanel Orientation="Horizontal"
-                                                                                VerticalAlignment="Center">
+                                                                                    VerticalAlignment="Center">
                                                                                 <Border Background="Transparent">
                                                                                     <!-- Set the border color to red -->
                                                                                     <Border.BorderBrush>
@@ -377,7 +377,7 @@
                                                                                     Text="流输入" />
                                                                             </StackPanel>
                                                                             <StackPanel Orientation="Horizontal"
-                                                                                VerticalAlignment="Center">
+                                                                                    VerticalAlignment="Center">
                                                                                 <Border Background="Transparent">
                                                                                     <!-- Set the border color to red -->
                                                                                     <Border.BorderBrush>
@@ -411,11 +411,11 @@
                                                                             </StackPanel>
                                                                         </StackPanel>
                                                                         <StackPanel Orientation="Vertical"
-                                                                            DockPanel.Dock="Right"
-                                                                            HorizontalAlignment="Right"
-                                                                            VerticalAlignment="Center">
+                                                                                DockPanel.Dock="Right"
+                                                                                HorizontalAlignment="Right"
+                                                                                VerticalAlignment="Center">
                                                                             <StackPanel Orientation="Horizontal"
-                                                                                HorizontalAlignment="Right">
+                                                                                    HorizontalAlignment="Right">
 
                                                                                 <TextBlock
                                                                                     VerticalAlignment="Center"
@@ -469,7 +469,7 @@
                                                                         CornerRadius="3 3 0 0">
                                                                     <Border.Background>
                                                                         <SolidColorBrush Opacity="0.5"
-                                                                            Color="{DynamicResource SemiBlue5Color}" />
+                                                                                Color="{DynamicResource SemiBlue5Color}" />
                                                                     </Border.Background>
                                                                     <TextBlock HorizontalAlignment="Center"
 
@@ -490,11 +490,11 @@
                                                                     </Rectangle>
                                                                     <DockPanel>
                                                                         <StackPanel Orientation="Vertical"
-                                                                            DockPanel.Dock="Left"
-                                                                            VerticalAlignment="Center">
+                                                                                DockPanel.Dock="Left"
+                                                                                VerticalAlignment="Center">
 
                                                                             <StackPanel Orientation="Horizontal"
-                                                                                VerticalAlignment="Center">
+                                                                                    VerticalAlignment="Center">
                                                                                 <Border Background="Transparent">
                                                                                     <!-- Set the border color to red -->
                                                                                     <Border.BorderBrush>
@@ -529,11 +529,11 @@
                                                                             </StackPanel>
                                                                         </StackPanel>
                                                                         <StackPanel Orientation="Vertical"
-                                                                            DockPanel.Dock="Right"
-                                                                            HorizontalAlignment="Right"
-                                                                            VerticalAlignment="Center">
+                                                                                DockPanel.Dock="Right"
+                                                                                HorizontalAlignment="Right"
+                                                                                VerticalAlignment="Center">
                                                                             <StackPanel Orientation="Horizontal"
-                                                                                HorizontalAlignment="Right">
+                                                                                    HorizontalAlignment="Right">
 
                                                                                 <TextBlock
                                                                                     VerticalAlignment="Center"
@@ -566,7 +566,7 @@
 
                                                                             </StackPanel>
                                                                             <StackPanel Orientation="Horizontal"
-                                                                                HorizontalAlignment="Right">
+                                                                                    HorizontalAlignment="Right">
 
                                                                                 <TextBlock
                                                                                     VerticalAlignment="Center"
@@ -703,7 +703,7 @@
                                                                         CornerRadius="3 3 0 0">
                                                                     <Border.Background>
                                                                         <SolidColorBrush Opacity="0.5"
-                                                                            Color="{DynamicResource SemiBlue5Color}" />
+                                                                                Color="{DynamicResource SemiBlue5Color}" />
                                                                     </Border.Background>
                                                                     <TextBlock HorizontalAlignment="Center"
 
@@ -723,11 +723,11 @@
                                                                     </Rectangle>
                                                                     <DockPanel>
                                                                         <StackPanel Orientation="Vertical"
-                                                                            DockPanel.Dock="Left"
-                                                                            VerticalAlignment="Center">
+                                                                                DockPanel.Dock="Left"
+                                                                                VerticalAlignment="Center">
 
                                                                             <StackPanel Orientation="Horizontal"
-                                                                                VerticalAlignment="Center">
+                                                                                    VerticalAlignment="Center">
                                                                                 <Border Background="Transparent">
                                                                                     <!-- Set the border color to red -->
                                                                                     <Border.BorderBrush>
@@ -761,7 +761,7 @@
                                                                                     Text="流输入" />
                                                                             </StackPanel>
                                                                             <StackPanel Orientation="Horizontal"
-                                                                                VerticalAlignment="Center">
+                                                                                    VerticalAlignment="Center">
                                                                                 <Border Background="Transparent">
                                                                                     <!-- Set the border color to red -->
                                                                                     <Border.BorderBrush>
@@ -795,11 +795,11 @@
                                                                             </StackPanel>
                                                                         </StackPanel>
                                                                         <StackPanel Orientation="Vertical"
-                                                                            DockPanel.Dock="Right"
-                                                                            HorizontalAlignment="Right"
-                                                                            VerticalAlignment="Center">
+                                                                                DockPanel.Dock="Right"
+                                                                                HorizontalAlignment="Right"
+                                                                                VerticalAlignment="Center">
                                                                             <StackPanel Orientation="Horizontal"
-                                                                                HorizontalAlignment="Right">
+                                                                                    HorizontalAlignment="Right">
 
                                                                                 <TextBlock
                                                                                     VerticalAlignment="Center"
@@ -853,7 +853,7 @@
                                                                         CornerRadius="3 3 0 0">
                                                                     <Border.Background>
                                                                         <SolidColorBrush Opacity="0.5"
-                                                                            Color="{DynamicResource SemiBlue5Color}" />
+                                                                                Color="{DynamicResource SemiBlue5Color}" />
                                                                     </Border.Background>
                                                                     <TextBlock HorizontalAlignment="Center"
 
@@ -874,11 +874,11 @@
                                                                     </Rectangle>
                                                                     <DockPanel>
                                                                         <StackPanel Orientation="Vertical"
-                                                                            DockPanel.Dock="Left"
-                                                                            VerticalAlignment="Center">
+                                                                                DockPanel.Dock="Left"
+                                                                                VerticalAlignment="Center">
 
                                                                             <StackPanel Orientation="Horizontal"
-                                                                                VerticalAlignment="Center">
+                                                                                    VerticalAlignment="Center">
                                                                                 <Border Background="Transparent">
                                                                                     <!-- Set the border color to red -->
                                                                                     <Border.BorderBrush>
@@ -913,11 +913,11 @@
                                                                             </StackPanel>
                                                                         </StackPanel>
                                                                         <StackPanel Orientation="Vertical"
-                                                                            DockPanel.Dock="Right"
-                                                                            HorizontalAlignment="Right"
-                                                                            VerticalAlignment="Center">
+                                                                                DockPanel.Dock="Right"
+                                                                                HorizontalAlignment="Right"
+                                                                                VerticalAlignment="Center">
                                                                             <StackPanel Orientation="Horizontal"
-                                                                                HorizontalAlignment="Right">
+                                                                                    HorizontalAlignment="Right">
 
                                                                                 <TextBlock
                                                                                     VerticalAlignment="Center"
@@ -950,7 +950,7 @@
 
                                                                             </StackPanel>
                                                                             <StackPanel Orientation="Horizontal"
-                                                                                HorizontalAlignment="Right">
+                                                                                    HorizontalAlignment="Right">
 
                                                                                 <TextBlock
                                                                                     VerticalAlignment="Center"
@@ -1433,13 +1433,8 @@
                                     </Style>
                                 </controls2:Node.Styles>
                                 <controls2:Node.Resources>
-
                                     <taskEditor:InterfacesToString x:Key="InterfacesToString" />
-
-
                                 </controls2:Node.Resources>
-
-
                                 <controls2:Node.HeaderBrush>
                                     <SolidColorBrush Color="{DynamicResource SemiBlue5Color}"
                                                      Opacity="0.5" />

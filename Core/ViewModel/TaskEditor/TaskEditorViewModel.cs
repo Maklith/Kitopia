@@ -12,9 +12,6 @@ using CommunityToolkit.Mvvm.ComponentModel.__Internals;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.CustomScenario;
-using Core.SDKs;
-using Core.SDKs.CustomScenario;
-using Core.SDKs.Services;
 using Core.Services;
 using Core.Utils;
 using PluginCore;
@@ -33,20 +30,6 @@ public partial class TaskEditorViewModel : ObservableRecipient
     [NotifyCanExecuteChangedFor(nameof(SaveCustomScenarioCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveAndQuitCustomScenarioCommand))]
     public bool _isModified = false;
-
-
-    public ScenarioMethodCategoryGroup ScenarioMethodCategoryGroup
-    {
-        get
-        {
-            var rootScenarioMethodCategoryGroup = ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup;
-            rootScenarioMethodCategoryGroup.PropertyChanged += (sender, args) =>
-            {
-                OnPropertyChanged(nameof(ScenarioMethodCategoryGroup));
-            };
-            return rootScenarioMethodCategoryGroup;
-        }
-    }
 
     [ObservableProperty] private CustomScenario.CustomScenario _scenario = new() { IsActive = true };
 
@@ -219,6 +202,20 @@ public partial class TaskEditorViewModel : ObservableRecipient
             });
 
         //nodeMethods.Add("new PointItem(){Title = \"Test\"}");
+    }
+
+
+    public ScenarioMethodCategoryGroup ScenarioMethodCategoryGroup
+    {
+        get
+        {
+            var rootScenarioMethodCategoryGroup = ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup;
+            rootScenarioMethodCategoryGroup.PropertyChanged += (sender, args) =>
+            {
+                OnPropertyChanged(nameof(ScenarioMethodCategoryGroup));
+            };
+            return rootScenarioMethodCategoryGroup;
+        }
     }
 
     public bool IsSaveInLocal => CustomScenarioManger.CustomScenarios.Contains(Scenario);
@@ -510,6 +507,31 @@ public partial class TaskEditorViewModel : ObservableRecipient
         }
     }
 
+    public void SplitConnection(ConnectionItem connection, Point location)
+    {
+        var knot = new KnotNodeViewModel
+        {
+            Location = location
+        };
+        knot.Connector = new ConnectorItem
+        {
+            ConnectorType = ConnectorType.Both,
+            Source = knot,
+            InputObject = new CustomScenarioValue
+            {
+                Type = typeof(object),
+                RealType = typeof(object),
+                Value = null
+            }
+        };
+
+        _scenario.nodes.Add(knot);
+
+        Connect(connection.Source, knot.Connector, false);
+        Connect(knot.Connector, connection.Target, false);
+        DelConnection(connection);
+    }
+
     #region 自定义关键词
 
     [RelayCommand]
@@ -533,7 +555,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
     #region 变量
 
-    [NotifyPropertyChangedFor(nameof(valueCanAdd))]
+    [NotifyPropertyChangedFor(nameof(_valueCanAdd))]
     [NotifyCanExecuteChangedFor(nameof(AddValueCommand))]
     [ObservableProperty]
     private string? _valueValue = string.Empty;
@@ -635,31 +657,6 @@ public partial class TaskEditorViewModel : ObservableRecipient
     }
 
     #endregion
-
-    public void SplitConnection(ConnectionItem connection, Point location)
-    {
-        var knot = new KnotNodeViewModel
-        {
-            Location = location
-        };
-        knot.Connector = new ConnectorItem
-        {
-            ConnectorType = ConnectorType.Both,
-            Source = knot,
-            InputObject = new CustomScenarioValue
-            {
-                Type = typeof(object),
-                RealType = typeof(object),
-                Value = null
-            }
-        };
-
-        _scenario.nodes.Add(knot);
-
-        Connect(connection.Source, knot.Connector, false);
-        Connect(knot.Connector, connection.Target, false);
-        DelConnection(connection);
-    }
 }
 
 /// <summary>
@@ -669,6 +666,7 @@ public class CustomScenarioValueTuple
 {
     /// <summary>获取或设置类型 / Gets or sets the type</summary>
     public Type Type { get; set; }
+
     /// <summary>获取或设置值 / Gets or sets the value</summary>
     public object Value { get; set; }
 }

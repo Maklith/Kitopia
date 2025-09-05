@@ -43,7 +43,6 @@ public class NodeInputDataTemplateSelector : IDataTemplate
                 return control;
             }
 
-
             if (pointItem.InputObject.RealType.BaseType.FullName == "System.Enum")
             {
                 var control = GetTemplate("EnumTemplate").Build(item);
