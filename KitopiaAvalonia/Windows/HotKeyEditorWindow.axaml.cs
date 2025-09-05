@@ -16,9 +16,9 @@ namespace KitopiaAvalonia.Windows;
 public partial class HotKeyEditorWindow : UrsaWindow
 {
     private HotKeyModel? _hotKeyModel;
+    private HotKeyType _type = HotKeyType.Keyboard;
     private bool isFinnish;
     private EKey? selectedKey;
-    private HotKeyType _type = HotKeyType.Keyboard;
     private ushort? selectedMouseButton;
     private bool setSuccess;
 
@@ -211,17 +211,18 @@ public partial class HotKeyEditorWindow : UrsaWindow
 
         if (_type != HotKeyType.Mouse) return;
 
-        ushort id = 0;
+        ushort id = 1;
         var pointerPointProperties = e.GetCurrentPoint(this).Properties;
-        if (pointerPointProperties.IsLeftButtonPressed) id = 0;
+        if (pointerPointProperties.IsLeftButtonPressed) id = (int)MouseHookType.LeftButton;
 
-        if (pointerPointProperties.IsRightButtonPressed) id = 1;
+        if (pointerPointProperties.IsRightButtonPressed) id = (int)MouseHookType.RightButton;
 
-        if (pointerPointProperties.IsMiddleButtonPressed) id = 2;
+        if (pointerPointProperties.IsMiddleButtonPressed) id = (int)MouseHookType.MiddleButton;
 
-        if (pointerPointProperties.IsXButton1Pressed) id = 3;
+        if (pointerPointProperties.IsXButton1Pressed) id = (int)MouseHookType.XButton1;
 
-        if (pointerPointProperties.IsXButton2Pressed) id = 4;
+        if (pointerPointProperties.IsXButton2Pressed) id = (int)MouseHookType.XButton2;
+
 
         selectedMouseButton = id;
         KeyName.IsVisible = true;
