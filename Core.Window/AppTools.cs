@@ -1,17 +1,12 @@
 ﻿#region
 
 using System.Collections.Concurrent;
-using System.IO;
-using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Text.RegularExpressions;
-using Core.SDKs;
-using Core.SDKs.Services;
 using Core.Services;
 using Core.Services.Config;
 using Core.Utils;
 using Core.Window.Everything;
-
 using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;
 using PluginCore;
@@ -26,7 +21,7 @@ namespace Core.Window;
 
 public partial class AppTools
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<AppTools>();
+    private static ILogger Log = LogManager.Logger.ForContext<AppTools>();
     private static readonly List<string> ErrorLnkList = new();
 
     //Console.WriteLine();
@@ -282,66 +277,13 @@ public partial class AppTools
                 {
                     case ".lnk":
                     {
-                        localizedName = Shell32.SHCreateItemFromParsingName<Shell32.IShellItem>(file)
-                            .GetDisplayName(Shell32.SIGDN.SIGDN_NORMALDISPLAY);
-                        //var sb = new StringBuilder(260);
-                        // var shellLink = new ShellLink(file, LinkResolution.None);
-                        var link = new Shell32.IShellLinkW();
-                        ((IPersistFile)link).Load(file, (int)STGM.STGM_READ);
-                        var sb = new StringBuilder(260);
-                        var data = new WIN32_FIND_DATA();
-                        //((IShellLinkW)link).GetShowCmd
-                        ((Shell32.IShellLinkW)link).GetPath(sb, sb.Capacity, out data, 0);
-                        var argSb = new StringBuilder(260);
-                        link.GetArguments(argSb, argSb.Capacity);
-                        var workingDirectorySb = new StringBuilder(260);
-                        link.GetWorkingDirectory(workingDirectorySb, workingDirectorySb.Capacity);
-                        var arg = argSb.Length > 0 ? argSb.ToString() : null;
-                        if (arg != null && arg.Contains('%'))
+                        var shellItem = new ShellLink(file);
+                        var targetPath = shellItem.ShortTargetPath;
+                        if (string.IsNullOrWhiteSpace(targetPath))
                         {
-                            var regex = new Regex("%(\\w+)%");
-
-                            // 替换后的字符串
-                            arg = regex.Replace(arg, match =>
-                            {
-                                // 获取匹配到的环境变量名称
-                                var variable = match.Groups[1].Value;
-
-                                // 获取环境变量值
-                                var value = Environment.GetEnvironmentVariable(variable);
-
-
-                                // 返回替换后的值
-                                return value;
-                            });
+                            return;
                         }
 
-                        var targetPath = sb.ToString() ?? file;
-
-                        if (string.IsNullOrWhiteSpace(targetPath)) targetPath = file;
-
-                        if (!File.Exists(targetPath))
-                        {
-                            if (File.Exists(targetPath.Replace("Program Files (x86)", "Program Files")))
-                            {
-                                targetPath = targetPath.Replace("Program Files (x86)", "Program Files");
-                                goto next;
-                            }
-
-                            if (File.Exists(targetPath.Replace("Program Files", "Program Files (x86)")))
-                            {
-                                targetPath = targetPath.Replace("Program Files", "Program Files (x86)");
-                                goto next;
-                            }
-
-                            if (File.Exists(targetPath.Replace("system32", "sysnative")))
-                            {
-                                targetPath = targetPath.Replace("system32", "sysnative");
-                                goto next;
-                            }
-                        }
-
-                        next:
                         var refFileInfo = new FileInfo(targetPath);
                         var fullName = refFileInfo.FullName;
                         if (ConfigManger.Config.ignoreItems.Contains(fullName))
@@ -376,9 +318,9 @@ public partial class AppTools
                                 {
                                     PinyinItem = _pinyinProcessor.GetPinyin(localizedName, true),
                                     IsVisible = true, ItemDisplayName = localizedName,
-                                    OnlyKey = fullName, IsStared = star, Arguments = arg,
+                                    OnlyKey = fullName, IsStared = star, Arguments = shellItem.Arguments,
                                     FileType = FileType.应用程序, Icon = null,
-                                    StartDirectory = workingDirectorySb.ToString()
+                                    StartDirectory = shellItem.WorkingDirectory
                                 });
                             }
 
@@ -499,16 +441,12 @@ public partial class AppTools
         }
         catch (Exception e)
         {
-            Log.Error(e,$"索引失败:{file}");
-            
+            Log.Error(e, $"索引失败:{file}");
         }
     }
-    
-    // 使用const或readonly修饰符来声明pattern字符串
+
     internal static PinyinItem NameSolver(string name)
     {
         return _pinyinProcessor.GetPinyin(name, true);
     }
-
-   
 }
