@@ -35,9 +35,12 @@ public partial class SearchWindow : Window
                     ((INotifyCollectionChanged)args.NewValue).CollectionChanged += (o, e) =>
                     {
                         if (e.Action == NotifyCollectionChangedAction.Add)
-                            // 如果是添加新项，自动选中第一项
-                            if (dataGrid.Items.Count > 0)
-                                dataGrid.SelectedItem = dataGrid.Items[0];
+                            Dispatcher.UIThread.Invoke((() =>
+                            {
+                                // 如果是添加新项，自动选中第一项
+                                if (dataGrid.Items.Count > 0)
+                                    dataGrid.SelectedItem = dataGrid.Items[0];
+                            }));
                     };
         };
     }

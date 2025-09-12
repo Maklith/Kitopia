@@ -42,17 +42,18 @@ public class ControlPanelTools
                 StringBuilder appContainer = new StringBuilder(100);
                 ShlwApi.SHLoadIndirectString(localizedString ?? (string?)reg2.GetValue("") ?? subKeyName, appContainer,
                     (uint)appContainer.Capacity, IntPtr.Zero);
+                var onlyKey = $"""shell:::{subKeyName}""";
                 var item = new SearchViewItem
                 {
                     ItemDisplayName = appContainer.ToString(),
-                    OnlyKey = $"""shell:::{subKeyName}""",
+                    OnlyKey = onlyKey,
                     FileType = FileType.控制面板,
                     PinyinItem = AppTools.NameSolver(appContainer.ToString()),
                     IconPath = Environment.ExpandEnvironmentVariables(
                         (string?)reg2.OpenSubKey("DefaultIcon")?.GetValue("") ?? ""),
                     IsVisible = true
                 };
-                items.TryAdd(subKeyName, item);
+                items.TryAdd(onlyKey, item);
             }
             catch (Exception e)
             {
