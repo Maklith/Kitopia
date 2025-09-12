@@ -266,6 +266,7 @@ public partial class AppTools
         {
             var localizedName = file.Split("\\")
                 .Last();
+
             var lastIndexOf = localizedName.LastIndexOf(".", StringComparison.Ordinal);
             if (lastIndexOf != -1) localizedName = localizedName.Remove(lastIndexOf);
 
@@ -278,6 +279,7 @@ public partial class AppTools
                     case ".lnk":
                     {
                         var shellItem = new ShellLink(file);
+                        localizedName = shellItem.Name;
                         var targetPath = shellItem.ShortTargetPath;
                         if (string.IsNullOrWhiteSpace(targetPath))
                         {

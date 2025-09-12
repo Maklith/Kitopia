@@ -155,7 +155,12 @@ internal class IconTools
                     out User32.SafeHICON[]? large, out var small);
                 if (safeHicon != 0 && large != null && large.Length != 0)
                 {
-                    var icon1 = Icon.FromHandle(large[0].DangerousGetHandle());
+                    if (!large[0].IsNull)
+                    {
+                        var icon1 = Icon.FromHandle(large[0].DangerousGetHandle());
+                        return icon1;
+                    }
+
                     for (var i = 1; i < large.Length; i++)
                     {
                         DestroyIcon(large[i].DangerousGetHandle());
@@ -165,8 +170,6 @@ internal class IconTools
                     {
                         DestroyIcon(hicon.DangerousGetHandle());
                     }
-
-                    return icon1;
                 }
 
                 var extractIcon = Icon.ExtractIcon(dllPath2, iconIndex);
