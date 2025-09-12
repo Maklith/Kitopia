@@ -146,7 +146,7 @@ public partial class AppTools
 
         UwpTools.GetAll(collection);
         Log.Debug("索引全部软件及收藏项目UWP");
-
+        ControlPanelTools.GetAll(collection);
         // 创建一个空的文件路径集合
 
 

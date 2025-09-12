@@ -36,6 +36,7 @@
         </Content>
     </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="PeNet" Version="5.1.0"/>
         <PackageReference Include="Vanara.Core" Version="4.2.0"/>
         <PackageReference Include="Vanara.PInvoke.FirewallApi" Version="4.2.0"/>
         <PackageReference Include="Vanara.PInvoke.NetApi32" Version="4.2.0"/>

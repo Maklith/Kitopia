@@ -1,9 +1,7 @@
 ﻿#region
 
 using System.Collections.Concurrent;
-using System.IO;
 using System.Xml;
-using Core.SDKs.Services;
 using Core.Services;
 using Core.Services.Config;
 using PluginCore;
@@ -16,10 +14,10 @@ using Vanara.Windows.Shell;
 
 namespace Core.Window;
 
-internal  class UwpTools
+internal class UwpTools
 {
     private static HashSet<string> errorUWPs = new();
-    private static ILogger Log =   LogManager.Logger.ForContext<UwpTools>();
+    private static ILogger Log = LogManager.Logger.ForContext<UwpTools>();
 
     private static XmlNode? GetApplicationNode(XmlNode node)
     {
@@ -51,7 +49,7 @@ internal  class UwpTools
             }
             catch (Exception e)
             {
-                Log.Error(e,"UWP索引时出现错误");
+                Log.Error(e, "UWP索引时出现错误");
                 errorUWPs.Add(file.displayName);
             }
         });
