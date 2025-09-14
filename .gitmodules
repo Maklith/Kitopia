@@ -1,12 +1,12 @@
 [submodule "PluginCore"]
 	path = PluginCore
-	url = https://github.com/MakesYT/PluginCore.git
+	url = https://github.com/Maklith/PluginCore.git
 [submodule "NodifyM.Avalonia"]
 	path = NodifyM.Avalonia
-	url = https://github.com/MakesYT/NodifyM.Avalonia/
+	url = https://github.com/Maklith/NodifyM.Avalonia/
 [submodule "PinyinM.NET"]
 	path = PinyinM.NET
-	url = https://github.com/MakesYT/Pinyin.NET
+	url = https://github.com/Maklith/Pinyin.NET
 [submodule "ModernInstaller"]
 	path = ModernInstaller
-	url = https://github.com/MakesYT/ModernInstaller
+	url = https://github.com/Maklith/ModernInstaller
