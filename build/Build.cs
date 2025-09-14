@@ -1,22 +1,17 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using Nuke.Common;
 using Nuke.Common.CI.GitHubActions;
-using Nuke.Common.Execution;
 using Nuke.Common.Git;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.Git;
 using Nuke.Common.Tools.GitHub;
-using Nuke.Common.Tools.GitVersion;
 using Nuke.Common.Tools.PowerShell;
-using Nuke.Common.Utilities;
 using Octokit;
 using Serilog;
 using SharpCompress.Archives;
@@ -27,18 +22,22 @@ using Project = Nuke.Common.ProjectModel.Project;
 [GitHubActions(
     "continuous",
     GitHubActionsImage.WindowsLatest,
-    
     On = new[] { GitHubActionsTrigger.Push },
     ImportSecrets = new[] { nameof(GitHubToken) },
     InvokedTargets = new[] { nameof(Clean) })]
 class Build : NukeBuild
 {
+    public static Guid uuid = Guid.NewGuid();
+
     [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
     readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
 
     [Parameter] [Secret] readonly string GitHubToken;
 
     [Solution] readonly Solution Solution;
+
+    GitHubClient _gitHubClient;
+    Release release;
 
     Project AvaloniaProject => Solution.GetProject("KitopiaAvalonia");
 
@@ -53,16 +52,16 @@ class Build : NukeBuild
                 .SetProjectFile(AvaloniaProject.Path)
                 .SetRuntime("win-x64"));
             DotNetRestore(c => new DotNetRestoreSettings()
-                .SetProjectFile( RootDirectory/"KitopiaEx"/"KitopiaEx.csproj")
+                .SetProjectFile(RootDirectory / "KitopiaEx" / "KitopiaEx.csproj")
                 .SetRuntime("win-x64"));
             DotNetRestore(c => new DotNetRestoreSettings()
-                .SetProjectFile( RootDirectory/"OnnxRuntime.CPU"/"OnnxRuntime.CPU.csproj")
+                .SetProjectFile(RootDirectory / "OnnxRuntime.CPU" / "OnnxRuntime.CPU.csproj")
                 .SetRuntime("win-x64"));
             DotNetRestore(c => new DotNetRestoreSettings()
-                .SetProjectFile( RootDirectory/"OnnxRuntime.Gpu.Win"/"OnnxRuntime.Gpu.Win.csproj")
+                .SetProjectFile(RootDirectory / "OnnxRuntime.Gpu.Win" / "OnnxRuntime.Gpu.Win.csproj")
                 .SetRuntime("win-x64"));
             DotNetRestore(c => new DotNetRestoreSettings()
-                .SetProjectFile( RootDirectory/"OnnxRuntime.OpenVino"/"OnnxRuntime.OpenVino.csproj")
+                .SetProjectFile(RootDirectory / "OnnxRuntime.OpenVino" / "OnnxRuntime.OpenVino.csproj")
                 .SetRuntime("win-x64"));
         });
 
@@ -73,11 +72,11 @@ class Build : NukeBuild
             var rootDirectory = RootDirectory / "buildTest";
             rootDirectory.DeleteDirectory();
             DotNetBuild(c => new DotNetBuildSettings()
-                .SetProjectFile( RootDirectory/"KitopiaEx"/"KitopiaEx.csproj")
+                .SetProjectFile(RootDirectory / "KitopiaEx" / "KitopiaEx.csproj")
                 .SetOutputDirectory(rootDirectory / "plugins" / "kitopiaex")
                 .SetRuntime("win-x64"));
             DotNetBuild(c => new DotNetBuildSettings()
-                .SetProjectFile( RootDirectory/"OnnxRuntime.CPU"/"OnnxRuntime.CPU.csproj")
+                .SetProjectFile(RootDirectory / "OnnxRuntime.CPU" / "OnnxRuntime.CPU.csproj")
                 .SetOutputDirectory(rootDirectory / "plugins" / "kitopiaonnxruntimecpu")
                 .SetRuntime("win-x64"));
             DotNetBuild(c => new DotNetBuildSettings()
@@ -89,90 +88,87 @@ class Build : NukeBuild
             );
         });
 
-    GitHubClient _gitHubClient;
-    Release release;
-
     Target CreateRelease => _ => _
         .DependsOn(CompileWindowsX64)
         .OnlyWhenDynamic(() =>
-    {
-        this._gitHubClient = new GitHubClient(new ProductHeaderValue("Kitopia"))
         {
-            Credentials = new Credentials(GitHubToken)
-        };
-        var gitRepository = GitRepository.FromUrl("https://github.com/MakesYT/Kitopia");
-        Log.Debug("Packing project {0}", AvaloniaProject);
-        Log.Debug("GitHubName {0}", gitRepository.GetGitHubName());
-        var readOnlyList = _gitHubClient
-            .Repository.GetAllTags(gitRepository.GetGitHubOwner(),
-                gitRepository.GetGitHubName())
-            .Result;
-        if (readOnlyList.Any(e => e.Name == AvaloniaProject.GetProperty("Version"))) return false;
-
-        return true;
-    }).Executes(() =>
-    {
-        var body = new StringBuilder();
-        var gitRepository = GitRepository.FromUrl("https://github.com/MakesYT/Kitopia");
-        var repositoryTags = _gitHubClient
-            .Repository.GetAllTags(gitRepository.GetGitHubOwner(),
-                gitRepository.GetGitHubName())
-            .Result;
-        if (repositoryTags.Count <= 0)
-        {
-            body.AppendLine("无明确更新说明");
-        }
-        else
-        {
-            var lastCommit = GitTasks.GitCurrentCommit();
-            Log.Debug("Last commit {0}", lastCommit);
-            var repositoryTag = repositoryTags.First();
-            Log.Debug("First commit {0}", repositoryTag.Commit.Sha);
-            while (lastCommit != repositoryTag.Commit.Sha)
+            this._gitHubClient = new GitHubClient(new ProductHeaderValue("Kitopia"))
             {
-                var gitHubCommit = _gitHubClient
-                    .Repository.Commit.Get(gitRepository.GetGitHubOwner(),
-                        gitRepository.GetGitHubName(), lastCommit)
-                    .Result;
-                if (gitHubCommit.Commit.Message.Length >= 3)
-                    if (!gitHubCommit.Commit.Message.StartsWith("*"))
-                        body.AppendLine(gitHubCommit.Commit.Message);
+                Credentials = new Credentials(GitHubToken)
+            };
+            var gitRepository = GitRepository.FromUrl("https://github.com/Maklith/Kitopia");
+            Log.Debug("Packing project {0}", AvaloniaProject);
+            Log.Debug("GitHubName {0}", gitRepository.GetGitHubName());
+            var readOnlyList = _gitHubClient
+                .Repository.GetAllTags(gitRepository.GetGitHubOwner(),
+                    gitRepository.GetGitHubName())
+                .Result;
+            if (readOnlyList.Any(e => e.Name == AvaloniaProject.GetProperty("Version"))) return false;
 
-                lastCommit = gitHubCommit.Parents.First()
-                    .Sha;
-                Log.Debug(lastCommit);
-            }
-        }
-
-        var tag = _gitHubClient.Git.Tag.Create(gitRepository.GetGitHubOwner(),
-                gitRepository.GetGitHubName(),
-                new NewTag()
-                {
-                    Object = GitTasks.GitCurrentCommit(),
-                    Tag = AvaloniaProject.GetProperty("Version"),
-                    Message = AvaloniaProject.GetProperty("Version")
-                })
-            .Result;
-        var reference = _gitHubClient.Git.Reference.Create(gitRepository.GetGitHubOwner(),
-                gitRepository.GetGitHubName(),
-                new NewReference(
-                    "refs/tags/" +
-                    AvaloniaProject.GetProperty("Version"),
-                    GitTasks.GitCurrentCommit()))
-            .Result;
-        var newRelease = new NewRelease(AvaloniaProject.GetProperty("Version"))
+            return true;
+        }).Executes(() =>
         {
-            Name = AvaloniaProject.GetProperty("Version"),
-            Prerelease = true,
-            Draft = false,
-            Body = body.ToString()
-        };
-        release = _gitHubClient.Repository.Release.Create(
-                gitRepository.GetGitHubOwner(),
-                gitRepository.GetGitHubName(),
-                newRelease)
-            .Result;
-    });
+            var body = new StringBuilder();
+            var gitRepository = GitRepository.FromUrl("https://github.com/Maklith/Kitopia");
+            var repositoryTags = _gitHubClient
+                .Repository.GetAllTags(gitRepository.GetGitHubOwner(),
+                    gitRepository.GetGitHubName())
+                .Result;
+            if (repositoryTags.Count <= 0)
+            {
+                body.AppendLine("无明确更新说明");
+            }
+            else
+            {
+                var lastCommit = GitTasks.GitCurrentCommit();
+                Log.Debug("Last commit {0}", lastCommit);
+                var repositoryTag = repositoryTags.First();
+                Log.Debug("First commit {0}", repositoryTag.Commit.Sha);
+                while (lastCommit != repositoryTag.Commit.Sha)
+                {
+                    var gitHubCommit = _gitHubClient
+                        .Repository.Commit.Get(gitRepository.GetGitHubOwner(),
+                            gitRepository.GetGitHubName(), lastCommit)
+                        .Result;
+                    if (gitHubCommit.Commit.Message.Length >= 3)
+                        if (!gitHubCommit.Commit.Message.StartsWith("*"))
+                            body.AppendLine(gitHubCommit.Commit.Message);
+
+                    lastCommit = gitHubCommit.Parents.First()
+                        .Sha;
+                    Log.Debug(lastCommit);
+                }
+            }
+
+            var tag = _gitHubClient.Git.Tag.Create(gitRepository.GetGitHubOwner(),
+                    gitRepository.GetGitHubName(),
+                    new NewTag()
+                    {
+                        Object = GitTasks.GitCurrentCommit(),
+                        Tag = AvaloniaProject.GetProperty("Version"),
+                        Message = AvaloniaProject.GetProperty("Version")
+                    })
+                .Result;
+            var reference = _gitHubClient.Git.Reference.Create(gitRepository.GetGitHubOwner(),
+                    gitRepository.GetGitHubName(),
+                    new NewReference(
+                        "refs/tags/" +
+                        AvaloniaProject.GetProperty("Version"),
+                        GitTasks.GitCurrentCommit()))
+                .Result;
+            var newRelease = new NewRelease(AvaloniaProject.GetProperty("Version"))
+            {
+                Name = AvaloniaProject.GetProperty("Version"),
+                Prerelease = true,
+                Draft = false,
+                Body = body.ToString()
+            };
+            release = _gitHubClient.Repository.Release.Create(
+                    gitRepository.GetGitHubOwner(),
+                    gitRepository.GetGitHubName(),
+                    newRelease)
+                .Result;
+        });
 
     Target PackDebug => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
@@ -250,7 +246,8 @@ class Build : NukeBuild
                     .Wait();
             }
         );
-Target Pack2 => _ => _
+
+    Target Pack2 => _ => _
         .Executes(() =>
             {
                 var rootDirectory = RootDirectory / "Publish";
@@ -283,10 +280,8 @@ Target Pack2 => _ => _
                 foreach (var absolutePath in rootDirectory.GetFiles())
                     if (absolutePath.Extension is ".pdb" or ".xml")
                         absolutePath.DeleteFile();
-                
             }
         );
-
 
 
     Target PackSelf => _ => _
@@ -341,81 +336,83 @@ Target Pack2 => _ => _
                     .Wait();
             }
         );
+
     Target PreparePackInstallerGithub => _ => _
-        
         .After(Pack)
         .OnlyWhenDynamic(() => FinishedTargets.Contains(Pack))
         .Executes(() =>
         {
             Directory.CreateDirectory(RootDirectory / "ModernInstaller" / "Assets");
-        var directoryInfo = new DirectoryInfo(RootDirectory / "build"/"InstallerAssets");
-        foreach (var enumerateFile in directoryInfo.EnumerateFiles())
-        {
-            File.Copy(enumerateFile.FullName,RootDirectory/"ModernInstaller"/"Assets"/enumerateFile.Name,true);
-        }
-        File.Copy(RootDirectory / "Kitopia" + AvaloniaProject.GetProperty("Version") +
-                  "_WithoutContained.zip",RootDirectory/"ModernInstaller"/"Assets"/"App.zip",true);
-        
-      
+            var directoryInfo = new DirectoryInfo(RootDirectory / "build" / "InstallerAssets");
+            foreach (var enumerateFile in directoryInfo.EnumerateFiles())
+            {
+                File.Copy(enumerateFile.FullName, RootDirectory / "ModernInstaller" / "Assets" / enumerateFile.Name,
+                    true);
+            }
 
-    });
-    Target PrepareNative=>_=>_
+            File.Copy(RootDirectory / "Kitopia" + AvaloniaProject.GetProperty("Version") +
+                      "_WithoutContained.zip", RootDirectory / "ModernInstaller" / "Assets" / "App.zip", true);
+        });
+
+    Target PrepareNative => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(PreparePackInstallerGithub))
         .DependsOn(PreparePackInstallerGithub)
-        
         .Executes(() =>
         {
-            if (!File.Exists(RootDirectory/"ModernInstaller"/"Natives"/"Windows-x86"/"av_libglesv2.lib"))
+            if (!File.Exists(RootDirectory / "ModernInstaller" / "Natives" / "Windows-x86" / "av_libglesv2.lib"))
             {
-                using var sevenZipArchive = SevenZipArchive.Open(RootDirectory/"ModernInstaller"/"Natives"/"Windows-x86"/"Windows-x86.7z");
-                sevenZipArchive.ExtractToDirectory(RootDirectory/"ModernInstaller"/"Natives"/"Windows-x86");
+                using var sevenZipArchive = SevenZipArchive.Open(RootDirectory / "ModernInstaller" / "Natives" /
+                                                                 "Windows-x86" / "Windows-x86.7z");
+                sevenZipArchive.ExtractToDirectory(RootDirectory / "ModernInstaller" / "Natives" / "Windows-x86");
             }
         });
-    public static Guid uuid = Guid.NewGuid();
+
     Target BuildNativeUninstaller => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(PrepareNative))
         .DependsOn(PrepareNative)
         .Executes(() =>
         {
-            
             //File.WriteAllText($"ModernInstaller{Path.DirectorySeparatorChar}Assets{Path.DirectorySeparatorChar}ApplicationUUID",uuid.ToString());
-            
-            DotNetTasks.DotNetPublish(c => new DotNetPublishSettings()
+
+            DotNetPublish(c => new DotNetPublishSettings()
                 .SetProject($"ModernInstaller{Path.DirectorySeparatorChar}ModernInstaller.Uninstaller")
-                .SetOutput(RootDirectory/"ModernInstaller" / "Publish" )
+                .SetOutput(RootDirectory / "ModernInstaller" / "Publish")
                 .SetFramework("net9.0-windows")
                 .SetRuntime("win-x86")
                 .SetConfiguration("Release")
                 .SetSelfContained(true)
                 .SetPublishSingleFile(true)
-                
             );
         });
+
     Target PrepareBuildNativeInstaller => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(BuildNativeUninstaller))
         .DependsOn(BuildNativeUninstaller)
         .Executes(() =>
         {
-            File.Copy(RootDirectory /"ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe",RootDirectory / "Assets" / "ModernInstaller.Uninstaller.exe",true);
-            PowerShellTasks.PowerShell($"ModernInstaller{Path.DirectorySeparatorChar}build{Path.DirectorySeparatorChar}upx.exe --force --lzma {RootDirectory /"ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe"} ");
+            File.Copy(RootDirectory / "ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe",
+                RootDirectory / "Assets" / "ModernInstaller.Uninstaller.exe", true);
+            PowerShellTasks.PowerShell(
+                $"ModernInstaller{Path.DirectorySeparatorChar}build{Path.DirectorySeparatorChar}upx.exe --force --lzma {RootDirectory / "ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe"} ");
         });
+
     Target BuildNativeInstaller => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(PrepareBuildNativeInstaller))
         .DependsOn(PrepareBuildNativeInstaller)
         .Executes(() =>
         {
-            DotNetTasks.DotNetPublish(c => new DotNetPublishSettings()
+            DotNetPublish(c => new DotNetPublishSettings()
                 //.SetProject("AvaloniaApplication1")
                 .SetProject($"ModernInstaller{Path.DirectorySeparatorChar}ModernInstaller")
-                .SetOutput(RootDirectory /"ModernInstaller" / "Publish" )
+                .SetOutput(RootDirectory / "ModernInstaller" / "Publish")
                 .SetFramework("net9.0-windows")
                 .SetRuntime("win-x86")
                 .SetConfiguration("Release")
                 .SetSelfContained(true)
                 .SetPublishSingleFile(true)
-                
             );
         });
+
     Target PackInstaller => _ => _
         .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
         .OnlyWhenDynamic(() => FinishedTargets.Contains(BuildNativeInstaller))
@@ -424,17 +421,19 @@ Target Pack2 => _ => _
         .DependsOn(BuildNativeInstaller)
         .Executes((() =>
         {
-            var moderninstallerExe = RootDirectory /"ModernInstaller" / "Publish" / "ModernInstaller.exe";
-            PowerShellTasks.PowerShell($"ModernInstaller{Path.DirectorySeparatorChar}build{Path.DirectorySeparatorChar}upx.exe --force --lzma {moderninstallerExe} ");
+            var moderninstallerExe = RootDirectory / "ModernInstaller" / "Publish" / "ModernInstaller.exe";
+            PowerShellTasks.PowerShell(
+                $"ModernInstaller{Path.DirectorySeparatorChar}build{Path.DirectorySeparatorChar}upx.exe --force --lzma {moderninstallerExe} ");
             var assetUpload_self = new ReleaseAssetUpload
             {
-                FileName = "Kitopia"+AvaloniaProject.GetProperty("Version") + "_Installer.exe",
+                FileName = "Kitopia" + AvaloniaProject.GetProperty("Version") + "_Installer.exe",
                 ContentType = "application/octet-stream",
                 RawData = File.OpenRead(moderninstallerExe)
             };
             _gitHubClient.Repository.Release.UploadAsset(release, assetUpload_self)
                 .Wait();
         }));
+
     Target Clean => _ => _
         .DependsOn(PackDebug)
         .DependsOn(Pack)
