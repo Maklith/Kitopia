@@ -22,6 +22,7 @@
                 <ResourceInclude Source="Styles/FAColorPicker.axaml" />
                 <ResourceInclude Source="Controls/SettingsExpander/SettingsExpanderStyles.axaml" />
                 <ResourceInclude Source="Controls/SettingsExpander/SettingsExpanderItemStyles.axaml" />
+
             </ResourceDictionary.MergedDictionaries>
             <converter:DoubleQuarterConverter x:Key="doubleQuarterConverter" />
         </ResourceDictionary>

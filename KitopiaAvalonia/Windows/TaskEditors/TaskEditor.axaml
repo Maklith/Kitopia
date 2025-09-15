@@ -16,6 +16,7 @@
               xmlns:customScenario1="clr-namespace:Core.CustomScenario;assembly=Core"
               xmlns:taskEditor="clr-namespace:KitopiaAvalonia.Converter.TaskEditor"
               xmlns:converter="clr-namespace:KitopiaAvalonia.Converter"
+              xmlns:taskEditors="clr-namespace:KitopiaAvalonia.Windows.TaskEditors"
               mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
               x:Class="KitopiaAvalonia.Windows.TaskEditor"
               Title="情景编排"
@@ -29,7 +30,6 @@
 
     </u:UrsaWindow.Background>
     <u:UrsaWindow.Resources>
-
         <taskEditor:IfNullVisibilityHidden x:Key="IfNullVisibilityHidden" />
 
 
@@ -1288,9 +1288,7 @@
                                         DisconnectConnectorCommand="{Binding DisconnectConnectorCommand}"
                                         Connections="{Binding Scenario.connections}"
                                         ItemsSource="{Binding Scenario.nodes}">
-                    <controls2:NodifyEditor.Resources>
-                        <taskEditor:NodeStatusBorderCtr x:Key="NodeStatusBorderCtr" />
-                    </controls2:NodifyEditor.Resources>
+
                     <controls2:NodifyEditor.GridLineTemplate>
                         <DataTemplate>
                             <controls2:LargeGridLine
@@ -1357,169 +1355,8 @@
                         </DataTemplate>
                     </controls2:NodifyEditor.PendingConnectionTemplate>
                     <controls2:NodifyEditor.DataTemplates>
-                        <DataTemplate DataType="customScenario1:KnotNodeViewModel">
-                            <controls2:KnotNode
-                                Location="{Binding Location,Mode=TwoWay}"
-                                Content="{Binding Connector}">
-                                <controls2:KnotNode.ContextFlyout>
-                                    <MenuFlyout>
-                                        <!-- ReSharper disable once Xaml.RedundantResource -->
-                                        <MenuItem Header="复制节点"
-                                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                                                  Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).CopyNodeCommand}"
-                                                  CommandParameter="{Binding }" />
-                                        <!-- ReSharper disable once Xaml.RedundantResource -->
-                                        <MenuItem Header="删除此节点"
-                                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                                                  Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).DelNodeCommand}"
-                                                  CommandParameter="{Binding }" />
-
-                                    </MenuFlyout>
-                                </controls2:KnotNode.ContextFlyout>
-                                <controls2:KnotNode.ContentTemplate>
-                                    <DataTemplate DataType="customScenario1:ConnectorItem">
-                                        <controls2:Connector
-                                            VerticalAlignment="Center"
-                                            IsConnected="{Binding IsConnected}"
-                                            Anchor="{Binding Anchor, Mode=OneWayToSource}">
-                                            <controls2:Connector.BorderBrush>
-                                                <SolidColorBrush
-                                                    Color="{DynamicResource SemiBlue5Color}"
-                                                    Opacity="0.5" />
-                                            </controls2:Connector.BorderBrush>
-                                        </controls2:Connector>
-                                    </DataTemplate>
-                                </controls2:KnotNode.ContentTemplate>
-                            </controls2:KnotNode>
-                        </DataTemplate>
-                        <DataTemplate DataType="{x:Type customScenario1:ScenarioMethodNode}">
-                            <controls2:Node
-                                Classes.Status0="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=0}"
-                                Classes.Status1="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=1}"
-                                Classes.Status2="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=2}"
-                                Classes.Status3="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=3}"
-                                x:Name="Node"
-                                Input="{Binding Input}"
-                                Location="{Binding Location,Mode=TwoWay}"
-                                VerticalAlignment="Center"
-                                Output="{Binding Output}">
-                                <controls2:Node.ContextFlyout>
-                                    <MenuFlyout>
-                                        <!-- ReSharper disable once Xaml.RedundantResource -->
-                                        <MenuItem Header="复制节点"
-                                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                                                  Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).CopyNodeCommand}"
-                                                  CommandParameter="{Binding }" />
-                                        <!-- ReSharper disable once Xaml.RedundantResource -->
-                                        <MenuItem Header="删除此节点"
-                                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                                                  Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).DelNodeCommand}"
-                                                  CommandParameter="{Binding }" />
-
-                                    </MenuFlyout>
-                                </controls2:Node.ContextFlyout>
-                                <controls2:Node.Styles>
-                                    <Style Selector="controls2|Node.Status0">
-                                        <Setter Property="BorderBrush" Value="LightGray" />
-                                    </Style>
-                                    <Style Selector="controls2|Node.Status1">
-                                        <Setter Property="BorderBrush" Value="GreenYellow" />
-                                    </Style>
-                                    <Style Selector="controls2|Node.Status2">
-                                        <Setter Property="BorderBrush" Value="OrangeRed" />
-                                    </Style>
-                                    <Style Selector="controls2|Node.Status3">
-                                        <Setter Property="BorderBrush" Value="Yellow" />
-                                    </Style>
-                                </controls2:Node.Styles>
-                                <controls2:Node.Resources>
-                                    <taskEditor:InterfacesToString x:Key="InterfacesToString" />
-                                </controls2:Node.Resources>
-                                <controls2:Node.HeaderBrush>
-                                    <SolidColorBrush Color="{DynamicResource SemiBlue5Color}"
-                                                     Opacity="0.5" />
-                                </controls2:Node.HeaderBrush>
-                                <controls2:Node.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding Title}" Foreground="White"
-                                                   HorizontalAlignment="Center" />
-                                        <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
-                                                            Glyph="&#xf4a3;" Foreground="White"
-                                                            ToolTip.Tip="{Binding  InvokeTime,StringFormat='执行耗时:{0}'}"
-                                                            ToolTip.ShowDelay="0" />
-                                    </StackPanel>
-
-                                </controls2:Node.Header>
-                                <controls2:Node.InputConnectorTemplate>
-                                    <DataTemplate DataType="{x:Type customScenario1:ConnectorItem}">
-                                        <ContentPresenter Content="{Binding .}" Name="ContentPresenter1">
-                                            <ContentPresenter.ContextFlyout>
-                                                <MenuFlyout>
-                                                    <!-- ReSharper disable once Xaml.RedundantResource -->
-                                                    <MenuItem
-                                                        Foreground="{DynamicResource SemiColorText0}"
-                                                        Command="{Binding $parent[controls2:NodifyEditor].((taskEditor1:TaskEditorViewModel)DataContext).SwitchConnectorCommand}"
-                                                        CommandParameter="{Binding #ContentPresenter1  }">
-                                                        <MenuItem.Header>
-                                                            <TextBlock Text="切换自输入/连接器" />
-                                                        </MenuItem.Header>
-                                                    </MenuItem>
-                                                </MenuFlyout>
-                                            </ContentPresenter.ContextFlyout>
-                                            <ContentPresenter.DataTemplates>
-                                                <pages:NodeInputDataTemplateSelector TemplateType="nodify" />
-                                            </ContentPresenter.DataTemplates>
-                                        </ContentPresenter>
-
-                                    </DataTemplate>
-
-
-                                    <!-- Use a ContentControl to display the single element -->
-
-
-                                </controls2:Node.InputConnectorTemplate>
-
-                                <controls2:Node.OutputConnectorTemplate>
-                                    <DataTemplate DataType="{x:Type customScenario1:ConnectorItem}">
-                                        <controls2:NodeOutput
-                                            x:Name="NodeOutput"
-                                            ToolTip.Tip="{Binding InputObject.Value,Converter={StaticResource ToolTipConverter}}"
-                                            ToolTip.ShowDelay="0"
-                                            VerticalAlignment="Center"
-                                            IsConnected="{Binding IsConnected}"
-                                            Anchor="{Binding Anchor, Mode=TwoWay}">
-                                            <controls2:NodeOutput.Header>
-                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                                                            HorizontalAlignment="Right">
-
-                                                    <TextBlock VerticalAlignment="Center"
-                                                               Text="{Binding Title}" />
-                                                    <TextBlock VerticalAlignment="Center" FontSize="12"
-                                                               Background="{DynamicResource SemiColorText0}"
-                                                               Foreground="{DynamicResource SemiBackground4Color}"
-                                                               Text="{Binding  InputObject.RealType,Converter={StaticResource NodeTypeNameI18NCtr}}" />
-
-                                                    <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
-                                                                        Glyph="&#xf10c;"
-                                                                        ToolTip.Tip="{Binding Interfaces, Converter={StaticResource InterfacesToString}}"
-                                                                        ToolTip.ShowDelay="0"
-                                                                        IsVisible="{Binding Interfaces, Converter={StaticResource IfNullVisibilityHidden}}" />
-                                                </StackPanel>
-                                            </controls2:NodeOutput.Header>
-                                            <controls2:NodeOutput.BorderBrush>
-                                                <SolidColorBrush
-                                                    Color="{DynamicResource SemiBlue5Color}"
-                                                    Opacity="0.5" />
-                                            </controls2:NodeOutput.BorderBrush>
-                                        </controls2:NodeOutput>
-                                    </DataTemplate>
-                                </controls2:Node.OutputConnectorTemplate>
-
-                            </controls2:Node>
-
-                        </DataTemplate>
+                        <taskEditors:NodeTemplatesSelector />
                     </controls2:NodifyEditor.DataTemplates>
-
                 </controls2:NodifyEditor>
 
             </Grid>
