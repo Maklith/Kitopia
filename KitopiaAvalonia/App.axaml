@@ -25,6 +25,7 @@
 
             </ResourceDictionary.MergedDictionaries>
             <converter:DoubleQuarterConverter x:Key="doubleQuarterConverter" />
+            <converter:ClassesContainTheClass x:Key="ClassesContainTheClass" />
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>

@@ -13,8 +13,17 @@ using Core.CustomScenario;
 
 namespace KitopiaAvalonia.Windows.TaskEditors;
 
+public enum NodeRenderType
+{
+    Editor,
+    View,
+    ViewMinimal
+}
+
 public class NodeTemplatesSelector : IDataTemplate
 {
+    public NodeRenderType TemplateType { get; set; } = NodeRenderType.Editor;
+
     static ResourceInclude Templates { get; } =
         new ResourceInclude(new Uri("avares://KitopiaAvalonia/Windows/TaskEditors/NodeTemplates.axaml"))
         {
@@ -30,7 +39,9 @@ public class NodeTemplatesSelector : IDataTemplate
             {
                 if (dataTemplate.Match(param))
                 {
-                    return dataTemplate.Build(param);
+                    var control = dataTemplate.Build(param);
+                    control?.Classes.Add(TemplateType.ToString());
+                    return control;
                 }
             }
         }

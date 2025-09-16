@@ -6,7 +6,8 @@
                     xmlns:taskEditor="clr-namespace:KitopiaAvalonia.Converter.TaskEditor"
                     xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
                     xmlns:pages="clr-namespace:KitopiaAvalonia.Pages"
-                    xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore">
+                    xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
+                    xmlns:u="https://irihi.tech/ursa">
     <!-- Add Resources Here -->
     <taskEditor:NodeStatusBorderCtr x:Key="NodeStatusBorderCtr" />
     <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
@@ -49,6 +50,7 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type customScenario1:ScenarioMethodNode}">
             <controls2:Node
+
                 Classes.Status0="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=0}"
                 Classes.Status1="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=1}"
                 Classes.Status2="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=2}"
@@ -58,22 +60,43 @@
                 Location="{Binding Location,Mode=TwoWay}"
                 VerticalAlignment="Center"
                 Output="{Binding Output}">
-                <controls2:Node.ContextFlyout>
-                    <MenuFlyout>
-                        <!-- ReSharper disable once Xaml.RedundantResource -->
-                        <MenuItem Header="复制节点"
-                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                                  Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).CopyNodeCommand}"
-                                  CommandParameter="{Binding }" />
-                        <!-- ReSharper disable once Xaml.RedundantResource -->
-                        <MenuItem Header="删除此节点"
-                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                                  Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).DelNodeCommand}"
-                                  CommandParameter="{Binding }" />
-
-                    </MenuFlyout>
-                </controls2:Node.ContextFlyout>
                 <controls2:Node.Styles>
+                    <Style Selector="controls2|Node.View">
+                        <Setter Property="HorizontalAlignment" Value="Stretch"></Setter>
+                        <Setter Property="DragDrop.AllowDrop" Value="True" />
+                        <Setter Property="(Interaction.Behaviors)">
+                            <BehaviorCollectionTemplate>
+                                <BehaviorCollection>
+
+                                    <EventTrigger EventName="PointerPressed">
+                                        <InvokeCommandAction
+                                            PassEventArgsToCommand="True"
+                                            Command="{Binding 
+                                       $parent[u:UrsaWindow].((taskEditor1:TaskEditorViewModel)DataContext).StartDraggingCommand}">
+                                        </InvokeCommandAction>
+                                    </EventTrigger>
+                                </BehaviorCollection>
+                            </BehaviorCollectionTemplate>
+                        </Setter>
+                    </Style>
+                    <Style Selector="controls2|Node.Editor">
+
+                        <Setter Property="ContextFlyout">
+                            <MenuFlyout>
+                                <!-- ReSharper disable once Xaml.RedundantResource -->
+                                <MenuItem Header="复制节点"
+                                          Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                          Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).CopyNodeCommand}"
+                                          CommandParameter="{Binding }" />
+                                <!-- ReSharper disable once Xaml.RedundantResource -->
+                                <MenuItem Header="删除此节点"
+                                          Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                          Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).DelNodeCommand}"
+                                          CommandParameter="{Binding }" />
+
+                            </MenuFlyout>
+                        </Setter>
+                    </Style>
                     <Style Selector="controls2|Node.Status0">
                         <Setter Property="BorderBrush" Value="LightGray" />
                     </Style>
@@ -86,6 +109,7 @@
                     <Style Selector="controls2|Node.Status3">
                         <Setter Property="BorderBrush" Value="Yellow" />
                     </Style>
+
                 </controls2:Node.Styles>
                 <controls2:Node.Resources>
                     <taskEditor:InterfacesToString x:Key="InterfacesToString" />
@@ -98,10 +122,18 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding Title}" Foreground="White"
                                    HorizontalAlignment="Center" />
+
                         <controls:FontIcon FontFamily="{StaticResource FluentFont}"
-                                           Glyph="&#xf4a3;" Foreground="White"
+                                           Classes.Editor="{Binding $parent[controls2:Node],Converter={StaticResource ClassesContainTheClass},ConverterParameter='Editor'}"
+                                           Glyph="&#xf4a3;" Foreground="White" Name="ExecTimeIcon"
                                            ToolTip.Tip="{Binding  InvokeTime,StringFormat='执行耗时:{0}'}"
-                                           ToolTip.ShowDelay="0" />
+                                           ToolTip.ShowDelay="0">
+                            <controls:FontIcon.Styles>
+                                <Style Selector="controls|FontIcon:not(.Editor)">
+                                    <Setter Property="IsVisible" Value="False" />
+                                </Style>
+                            </controls:FontIcon.Styles>
+                        </controls:FontIcon>
                     </StackPanel>
 
                 </controls2:Node.Header>

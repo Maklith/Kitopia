@@ -5,6 +5,8 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Input;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -530,6 +532,35 @@ public partial class TaskEditorViewModel : ObservableRecipient
         Connect(connection.Source, knot.Connector, false);
         Connect(knot.Connector, connection.Target, false);
         DelConnection(connection);
+    }
+
+
+    [RelayCommand]
+    public async Task StartDragging(PointerPressedEventArgs args)
+    {
+        if (args.Source is Control border)
+        {
+            var parentOfType = border.GetParentOfType<Control>("Node");
+            if (args.Properties.IsLeftButtonPressed)
+            {
+                try
+                {
+                    var data = new DataObject();
+                    data.Set("KitopiaPointItem", parentOfType.DataContext);
+                    DragDrop.DoDragDrop(args, data, DragDropEffects.Copy);
+                    var renderTargetBitmap =
+                        new RenderTargetBitmap(new PixelSize((int)parentOfType.Bounds.Width,
+                            (int)parentOfType.Bounds.Height));
+                    renderTargetBitmap.Render(parentOfType);
+                    //Cursor.Dispose();
+                    //Cursor = new Cursor(renderTargetBitmap,new PixelPoint((int)(renderTargetBitmap.Size.Width/2),(int)(renderTargetBitmap.Size.Height/2)));
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine(exception);
+                }
+            }
+        }
     }
 
     #region 自定义关键词

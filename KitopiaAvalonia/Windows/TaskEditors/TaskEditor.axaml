@@ -10,7 +10,6 @@
 
               xmlns:generic="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
               xmlns:controls2="clr-namespace:NodifyM.Avalonia.Controls;assembly=NodifyM.Avalonia"
-              xmlns:pages="clr-namespace:KitopiaAvalonia.Pages"
               xmlns:u="https://irihi.tech/ursa"
               xmlns:settingsExpander="clr-namespace:KitopiaAvalonia.Controls.SettingsExpander"
               xmlns:customScenario1="clr-namespace:Core.CustomScenario;assembly=Core"
@@ -1145,124 +1144,20 @@
                 <ContentPresenter x:Name="ContentPresenter">
                     <ContentPresenter.Resources>
                         <taskEditor:InterfacesToString x:Key="InterfacesToString" />
-                        <DataTemplate x:Key="ScenarioMethodNode" DataType="{x:Type customScenario1:ScenarioMethodNode}">
-                            <Border Tag="Node" BorderBrush="LightGray" BorderThickness="1" CornerRadius="3"
-                                    PointerMoved="ListBox_OnMouseMove">
-                                <DockPanel Panel.ZIndex="1">
-                                    <Border DockPanel.Dock="Top" CornerRadius="3 3 0 0">
-
-                                        <Border Height="20"
-
-                                                CornerRadius="3 3 0 0">
-                                            <Border.Background>
-                                                <SolidColorBrush Opacity="0.5"
-                                                                 Color="{DynamicResource SemiBlue5Color}" />
-                                            </Border.Background>
-                                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                       Text="{Binding Title}"
-                                                       Foreground="White" />
-                                        </Border>
-
-                                    </Border>
-                                    <Border CornerRadius="0 0 3 3">
-                                        <Grid>
-                                            <Rectangle>
-                                                <Rectangle.Fill>
-                                                    <SolidColorBrush
-                                                        Color="{DynamicResource Node.BackgroundColor}"
-                                                        Opacity="0.5" />
-                                                </Rectangle.Fill>
-                                            </Rectangle>
-                                            <DockPanel>
-                                                <ItemsControl DockPanel.Dock="Left"
-                                                              ItemsSource="{Binding Input}">
-                                                    <!-- Set the ItemsPanel to a StackPanel with horizontal orientation -->
-                                                    <ItemsControl.ItemsPanel>
-                                                        <ItemsPanelTemplate>
-                                                            <StackPanel Orientation="Vertical"
-                                                                        VerticalAlignment="Center" />
-                                                        </ItemsPanelTemplate>
-                                                    </ItemsControl.ItemsPanel>
-                                                    <!-- Set the ItemTemplate to a Button with the content bound to the item -->
-                                                    <ItemsControl.ItemTemplate>
-                                                        <pages:NodeInputDataTemplateSelector TemplateType="show" />
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
-
-
-                                                <ItemsControl DockPanel.Dock="Right"
-                                                              VerticalAlignment="Center"
-                                                              ItemsSource="{Binding Output}">
-                                                    <!-- Set the ItemsPanel to a StackPanel with horizontal orientation -->
-                                                    <ItemsControl.ItemsPanel>
-                                                        <ItemsPanelTemplate>
-                                                            <StackPanel Orientation="Vertical"
-                                                                        HorizontalAlignment="Right" />
-                                                        </ItemsPanelTemplate>
-                                                    </ItemsControl.ItemsPanel>
-                                                    <!-- Set the ItemTemplate to a Button with the content bound to the item -->
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <StackPanel Orientation="Horizontal"
-                                                                        VerticalAlignment="Center"
-                                                                        HorizontalAlignment="Right">
-
-                                                                <TextBlock
-                                                                    VerticalAlignment="Center"
-
-                                                                    Foreground="{DynamicResource SemiColorText0}"
-                                                                    Text="{Binding Title}" />
-                                                                <TextBlock
-                                                                    VerticalAlignment="Center"
-                                                                    FontSize="12"
-                                                                    Background="{DynamicResource SemiColorText0}"
-                                                                    Foreground="{DynamicResource SemiBackground4Color}"
-                                                                    Text="{Binding  InputObject.RealType,Converter={StaticResource NodeTypeNameI18NCtr}}" />
-                                                                <controls1:FontIcon
-                                                                    FontFamily="{StaticResource FluentFont}"
-                                                                    Glyph="&#xf10c;"
-                                                                    ToolTip.Tip="{Binding Interfaces, Converter={StaticResource InterfacesToString}}"
-                                                                    ToolTip.ShowDelay="0"
-                                                                    IsVisible="{Binding Interfaces, Converter={StaticResource IfNullVisibilityHidden}}" />
-                                                                <Border Background="Transparent">
-                                                                    <!-- Set the border color to red -->
-                                                                    <Border.BorderBrush>
-                                                                        <SolidColorBrush
-                                                                            Color="{DynamicResource SemiBlue5Color}"
-                                                                            Opacity="0.5" />
-                                                                    </Border.BorderBrush>
-                                                                    <!-- Set the border thickness to 2 -->
-                                                                    <Border.BorderThickness>2</Border.BorderThickness>
-                                                                    <!-- Set the border corner radius to 10 -->
-                                                                    <Border.CornerRadius>10</Border.CornerRadius>
-                                                                    <!-- Set the padding to 10 -->
-                                                                    <Border.Padding>5</Border.Padding>
-                                                                    <!-- Set the margin to 20 -->
-                                                                    <Border.Margin>5</Border.Margin>
-                                                                </Border>
-                                                                <!-- Declare a TextBlock element and give it a name -->
-
-                                                            </StackPanel>
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
-                                            </DockPanel>
-                                        </Grid>
-                                    </Border>
-
-
-                                </DockPanel>
-                            </Border>
-
-
-                        </DataTemplate>
+                        <taskEditors:NodeTemplatesSelector x:Key="ScenarioMethodNode" TemplateType="View" />
                     </ContentPresenter.Resources>
+                    <ContentPresenter.Styles>
+                        <Style Selector="controls2|Node.View">
+
+                        </Style>
+                    </ContentPresenter.Styles>
                     <ContentPresenter.Content>
                         <Binding
                             Path="ScenarioMethodCategoryGroup"
                             Converter="{StaticResource ScenarioMethodCategoryGroupCtr}"
                             ConverterParameter="{Binding #ContentPresenter}" UpdateSourceTrigger="PropertyChanged" />
                     </ContentPresenter.Content>
+
                 </ContentPresenter>
 
 
