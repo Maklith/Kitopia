@@ -359,7 +359,7 @@ class Build : NukeBuild
         .DependsOn(PreparePackInstallerGithub)
         .Executes(() =>
         {
-            if (!File.Exists(RootDirectory / "ModernInstaller" / "Natives" / "Windows-x86" / "av_libglesv2.lib"))
+            if (!File.Exists(RootDirectory / "ModernInstaller" / "Natives" / "Windows-x86" / "libHarfBuzzSharp.lib"))
             {
                 using var sevenZipArchive = SevenZipArchive.Open(RootDirectory / "ModernInstaller" / "Natives" /
                                                                  "Windows-x86" / "Windows-x86.7z");
