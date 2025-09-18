@@ -71,6 +71,12 @@ public partial class TaskEditorValueToScenarioMethodNode : UserControl
 
     private static void Action(TaskEditorValueToScenarioMethodNode x, AvaloniaPropertyChangedEventArgs e)
     {
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+        if (x.Source.Key == null || x.Source.Value == null)
+        {
+            return;
+        }
+
         switch (x.ValueType)
         {
             case ValueType.None:

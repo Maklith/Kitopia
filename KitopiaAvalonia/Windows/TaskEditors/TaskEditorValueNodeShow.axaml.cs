@@ -64,18 +64,40 @@ public partial class TaskEditorValueNodeShow : UserControl
             x.AddCommand = new RelayCommand(() =>
             {
                 if (values1.ContainsKey(x.ValueNameToAdd)) return;
-
+                if (x.ValueType != ValueType.TempValue && x.ValueTypeToAdd == null)
+                {
+                    return;
+                }
 
                 values1.Add(x.ValueNameToAdd,
                     new CustomScenarioValue(x.ValueTypeToAdd == null ? typeof(object) : x.ValueTypeToAdd.Type, null!));
 
                 x.ValueNameToAdd = null!;
+            }, () =>
+            {
+                if (x.ValueType != ValueType.TempValue && x.ValueTypeToAdd == null)
+                {
+                    return false;
+                }
+
+                return !string.IsNullOrWhiteSpace(x.ValueNameToAdd) && !values1.ContainsKey(x.ValueNameToAdd);
             });
+
             x.DelCommand = new RelayCommand<object>((s) =>
             {
                 if (s is not KeyValuePair<string, CustomScenarioValue> str) return;
                 values1.Remove(str.Key);
             });
+        });
+        ValueTypeToAddProperty.Changed.AddClassHandler<TaskEditorValueNodeShow>((x, e) =>
+        {
+            if (x.AddCommand is RelayCommand cmd)
+                cmd.NotifyCanExecuteChanged();
+        });
+        ValueNameToAddProperty.Changed.AddClassHandler<TaskEditorValueNodeShow>((x, e) =>
+        {
+            if (x.AddCommand is RelayCommand cmd)
+                cmd.NotifyCanExecuteChanged();
         });
     }
 
