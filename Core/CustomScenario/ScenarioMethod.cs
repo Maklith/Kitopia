@@ -14,6 +14,8 @@ namespace Core.CustomScenario;
 
 public class ScenarioMethod
 {
+    public string _methodAbsolutelyName;
+
     public ScenarioMethod()
     {
     }
@@ -47,8 +49,6 @@ public class ScenarioMethod
 
     [JsonConverter(typeof(ScenarioMethodAttributeJsonCtr))]
     public ScenarioMethodAttribute Attribute { get; set; }
-
-    public string _methodAbsolutelyName;
 
     public string MethodAbsolutelyName
     {
@@ -614,6 +614,45 @@ public class ScenarioMethod
                         InputObject = new CustomScenarioValue
                         {
                             Type = typeof(object)
+                        },
+
+                        Title = "获取",
+                        ConnectorType = ConnectorType.Output
+                    });
+                    pointItem.Output = outItems;
+                    break;
+                }
+                case ScenarioMethodType.InputVariableGet:
+                {
+                    pointItem.Title = $"{ValueName}";
+                    ObservableCollection<ConnectorItem> inpItems = new();
+                    inpItems.Add(new ConnectorItem
+                    {
+                        Source = pointItem,
+                        InputObject = new CustomScenarioValue
+                        {
+                            Type = typeof(NodeConnectorClass)
+                        },
+                        Title = "流输入"
+                    });
+                    pointItem.Input = inpItems;
+                    ObservableCollection<ConnectorItem> outItems = new();
+                    outItems.Add(new ConnectorItem
+                    {
+                        Source = pointItem,
+                        InputObject = new CustomScenarioValue
+                        {
+                            Type = typeof(NodeConnectorClass)
+                        },
+                        ConnectorType = ConnectorType.Output,
+                        Title = "流输出"
+                    });
+                    outItems.Add(new ConnectorItem
+                    {
+                        Source = pointItem,
+                        InputObject = new CustomScenarioValue
+                        {
+                            Type = ValueDataType
                         },
 
                         Title = "获取",

@@ -1,7 +1,6 @@
 ﻿#region
 
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 using Avalonia.Media.Imaging;
@@ -99,7 +98,6 @@ public partial class CustomScenario : ObservableRecipient
                 CustomScenarioManger.Save(this);
             }
         });
-        InputValue.CollectionChanged += OnInputValueOnCollectionChanged;
     }
 
     public string UUID { get; init; } = Guid.NewGuid()
@@ -154,23 +152,6 @@ public partial class CustomScenario : ObservableRecipient
         HotKeyManager.HotKetImpl.DeleteCompletely(StopHotKey.UUID);
     }
 
-
-    private void OnInputValueOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
-    {
-        var outputs = ((ScenarioMethodNode)nodes.First())
-            .Output;
-        for (var i = outputs.Count - 1; i >= 1; i--) outputs.RemoveAt(i);
-
-        if (sender is ObservableDictionary<string, object> dictionary)
-            foreach (var (key, value) in dictionary)
-                outputs.Add(new ConnectorItem
-                {
-                    ConnectorType = ConnectorType.Output,
-                    Source = nodes.First(),
-                    InputObject = new CustomScenarioValue { Type = value.GetType() },
-                    Title = key
-                });
-    }
 
     private PropertyChangedEventHandler? PropertyChangedEventHandler()
     {
@@ -240,10 +221,6 @@ public partial class CustomScenario : ObservableRecipient
         if (notRealTime)
         {
             foreach (var pointItem in nodes) pointItem.ResetData();
-
-            for (var i = 0; i < inputValues.Length; i++)
-                ((ScenarioMethodNode)nodes[0])!
-                    .Output[i + 1].InputObject!.Value = inputValues[i];
         }
 
         for (var i = nodes.Count - 1; i >= 1; i--)
@@ -443,7 +420,8 @@ public partial class CustomScenario : ObservableRecipient
             try
             {
                 Log.Debug($"执行节点:{nowScenarioMethodNode.Title}");
-                var invoke = nowScenarioMethodNode.Invoke(cancellationToken, connections, Values, TempValue);
+                var invoke =
+                    nowScenarioMethodNode.Invoke(cancellationToken, connections, Values, TempValue, InputValue);
                 if (!invoke)
                 {
                     //如果执行失败
@@ -515,6 +493,5 @@ public partial class CustomScenario : ObservableRecipient
     public void OnDeserialized() //反序列化时hotkeys的默认值会被添加,需要先清空
     {
         PropertyChanged += PropertyChangedEventHandler();
-        InputValue.CollectionChanged += OnInputValueOnCollectionChanged;
     }
 }

@@ -143,96 +143,7 @@
                         <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
                                             Glyph="&#xf226;" />
                     </settingsExpander:SettingsExpander.IconSource>
-                    <StackPanel>
-                        <ListBox Margin="0,0,10,0" x:Name="inputvalues"
-                                 ItemsSource="{Binding Scenario.InputValue }">
-                            <ListBox.ItemContainerTheme>
-                                <ControlTheme TargetType="ListBoxItem">
-                                    <Setter Property="Template">
-                                        <ControlTemplate>
-                                            <ContentPresenter Name="PART_ContentPresenter"
-                                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                              Background="{TemplateBinding Background}"
-                                                              BorderBrush="{TemplateBinding BorderBrush}"
-                                                              BorderThickness="{TemplateBinding BorderThickness}"
-                                                              Content="{TemplateBinding Content}"
-                                                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                              DataContext="{TemplateBinding DataContext}"
-                                                              CornerRadius="{TemplateBinding CornerRadius}" />
-                                        </ControlTemplate>
-
-                                    </Setter>
-                                </ControlTheme>
-                            </ListBox.ItemContainerTheme>
-                            <ListBox.ItemTemplate>
-
-                                <DataTemplate>
-                                    <Button Width="{Binding $parent.Bounds.Width, Mode=OneWay}"
-                                            HorizontalContentAlignment="Stretch">
-                                        <DockPanel Margin="15,0,0,0">
-                                            <TextBlock VerticalAlignment="Center" Text="{ReflectionBinding Key}" />
-                                            <Button Name="Button" Width="24" Height="24"
-                                                    ToolTip.Tip="删除"
-                                                    HorizontalAlignment="Right"
-                                                    Command="{Binding $parent[StackPanel].((taskEditor1:TaskEditorViewModel)DataContext).DelInputValueCommand}"
-                                                    CommandParameter="{ReflectionBinding Key}"
-                                                    VerticalContentAlignment="Center"
-                                                    HorizontalContentAlignment="Center">
-                                                <controls1:FontIcon VerticalAlignment="Center"
-                                                                    HorizontalAlignment="Center"
-                                                                    Margin="0,2,0,0"
-                                                                    Width="24"
-                                                                    Height="24"
-                                                                    FontFamily="{StaticResource FluentFont}"
-                                                                    Glyph="&#xf36a;"
-                                                                    FontSize="24" />
-                                                <Button.Styles>
-
-                                                    <Style
-                                                        Selector="Button#Button:pointerover /template/ Border#Root">
-
-                                                        <Setter Property="Background">
-                                                            <SolidColorBrush
-                                                                Color="{DynamicResource SemiBackground4Color}"
-                                                                Opacity="0.2" />
-                                                        </Setter>
-                                                    </Style>
-
-                                                </Button.Styles>
-                                            </Button>
-                                        </DockPanel>
-                                    </Button>
-
-                                </DataTemplate>
-
-
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                        <Grid ColumnDefinitions="*,5,Auto,Auto" VerticalAlignment="Center"
-                              HorizontalAlignment="Stretch">
-                            <TextBox Watermark="变量名称" HorizontalAlignment="Stretch"
-                                     Text="{Binding InputValueValue,Mode=TwoWay}" />
-                            <ComboBox Grid.Column="2" VerticalAlignment="Center"
-                                      SelectedItem="{Binding InputValueType}"
-                                      ItemsSource="{Binding Source={x:Static customScenario1:CustomScenarioGloble.GetAllCouldUseTypeInValue}}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate DataType="taskEditor1:CustomScenarioValueTuple">
-                                        <TextBlock Text="{Binding Value}" ToolTip.Tip="{Binding Type}" />
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                            <Button Command="{Binding AddInputValueCommand}" Grid.Column="3"
-                                    CommandParameter="{Binding $self.Parent}" Padding="2,3,0,0"
-                                    Margin="3">
-
-                                <controls1:FontIcon FontSize="24" HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center" Foreground="GreenYellow"
-                                                    Glyph="&#xf107;" />
-                            </Button>
-                        </Grid>
-
-                    </StackPanel>
+                    <taskEditors:TaskEditorValueNodeShow Values="{Binding Scenario.InputValue}" ValueType="InputValue"></taskEditors:TaskEditorValueNodeShow>
 
 
                 </settingsExpander:SettingsExpander>
@@ -262,8 +173,6 @@
                 <Expander Header="变量" FontSize="15" IsExpanded="True" FontWeight="Medium">
                     <Expander.Content>
                         <taskEditors:TaskEditorValueNodeShow Values="{Binding Scenario.Values}" ValueType="StoredValue"></taskEditors:TaskEditorValueNodeShow>
-
-
                     </Expander.Content>
                 </Expander>
                 <Expander Header="临时变量(不会被序列化)" FontSize="15" IsExpanded="True" FontWeight="Medium">

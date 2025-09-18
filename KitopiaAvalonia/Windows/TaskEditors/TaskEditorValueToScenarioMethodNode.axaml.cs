@@ -109,6 +109,15 @@ public partial class TaskEditorValueToScenarioMethodNode : UserControl
                 }
 
                 break;
+            case ValueType.InputValue:
+            {
+                KeyValuePair<string, CustomScenarioValue> values3 = x.Source;
+                x.Node = new ScenarioMethod(ScenarioMethodType.InputVariableGet)
+                    { ValueName = values3.Key, ValueDataType = values3.Value.Type }.GenerateNode();
+
+
+                break;
+            }
             default:
                 throw new ArgumentOutOfRangeException();
         }

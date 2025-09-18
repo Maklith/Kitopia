@@ -45,7 +45,8 @@ public partial class ScenarioNodeBase : ObservableRecipient
 
     public virtual bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
         ObservableDictionary<string, CustomScenarioValue> values,
-        ObservableDictionary<string, CustomScenarioValue> tempValues)
+        ObservableDictionary<string, CustomScenarioValue> tempValues,
+        ObservableDictionary<string, CustomScenarioValue> inputValues)
     {
         return false;
     }
@@ -102,7 +103,8 @@ public partial class KnotNodeViewModel : ScenarioNodeBase
 
     public override bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
         ObservableDictionary<string, CustomScenarioValue> values,
-        ObservableDictionary<string, CustomScenarioValue> tempValues)
+        ObservableDictionary<string, CustomScenarioValue> tempValues,
+        ObservableDictionary<string, CustomScenarioValue> inputValues)
     {
         foreach (var b in connections.Where(e => e.Source == connector))
             b.Target.InputObject.Value =
@@ -163,7 +165,8 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
 
     public override bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
         ObservableDictionary<string, CustomScenarioValue> values,
-        ObservableDictionary<string, CustomScenarioValue> tempValues)
+        ObservableDictionary<string, CustomScenarioValue> tempValues,
+        ObservableDictionary<string, CustomScenarioValue> inputValues)
     {
         var start = DateTime.Now;
         //生成本节点所有数据
@@ -296,6 +299,13 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
             {
                 if (tempValues.ContainsKey(ScenarioMethod.ValueName))
                     Output[1].InputObject.Value = tempValues[ScenarioMethod.ValueName];
+
+                break;
+            }
+            case ScenarioMethodType.InputVariableGet:
+            {
+                if (tempValues.ContainsKey(ScenarioMethod.ValueName))
+                    Output[1].InputObject.Value = inputValues[ScenarioMethod.ValueName];
 
                 break;
             }

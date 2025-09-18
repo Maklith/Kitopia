@@ -66,7 +66,14 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <taskEditors:TaskEditorValueToScenarioMethodNode ValueForward="Set" Source="{Binding }"
-                                        ValueType="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueType}" />
+                                        ValueType="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueType}"
+                                        Classes.DontShowSet="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueType,Converter={StaticResource EnumEqualCtr},ConverterParameter='1'}">
+                                    <taskEditors:TaskEditorValueToScenarioMethodNode.Styles>
+                                        <Style Selector="taskEditors|TaskEditorValueToScenarioMethodNode.DontShowSet">
+                                            <Setter Property="IsVisible" Value="False"></Setter>
+                                        </Style>
+                                    </taskEditors:TaskEditorValueToScenarioMethodNode.Styles>
+                                </taskEditors:TaskEditorValueToScenarioMethodNode>
                                 <taskEditors:TaskEditorValueToScenarioMethodNode Grid.Column="2" ValueForward="Get"
                                         Source="{Binding }"
                                         ValueType="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueType}" />
