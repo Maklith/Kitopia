@@ -9,7 +9,7 @@
                     xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
                     xmlns:u="https://irihi.tech/ursa">
     <!-- Add Resources Here -->
-    <taskEditor:NodeStatusBorderCtr x:Key="NodeStatusBorderCtr" />
+    <taskEditor:EnumEqualCtr x:Key="NodeStatusBorderCtr" />
     <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
     <taskEditor:NodeTypeNameI18NCtr x:Key="NodeTypeNameI18NCtr" />
     <DataTemplates x:Key="NodifyEditorNodeTemplates">

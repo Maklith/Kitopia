@@ -19,10 +19,13 @@ public enum NodeStatus
 {
     /// <summary>未验证状态 / Unverified state</summary>
     Unverified,
+
     /// <summary>已验证状态 / Verified state</summary>
     Verified,
+
     /// <summary>错误状态 / Error state</summary>
     Error,
+
     /// <summary>初步验证状态 / Preliminary verified state</summary>
     PreliminaryVerified
 }
@@ -32,16 +35,17 @@ public enum NodeStatus
 [JsonDerivedType(typeof(KnotNodeViewModel), "KnotNode")]
 public partial class ScenarioNodeBase : ObservableRecipient
 {
-    [ObservableProperty] private string _title;
-    [ObservableProperty] private NodeStatus status = NodeStatus.Unverified;
-
     [property: JsonConverter(typeof(PointJsonConverter))]
     [JsonConverter(typeof(PointJsonConverter))]
     [ObservableProperty]
     private Point _location;
 
+    [ObservableProperty] private string _title;
+    [ObservableProperty] private NodeStatus status = NodeStatus.Unverified;
+
     public virtual bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
-        ObservableDictionary<string, CustomScenarioValue> values, ObservableDictionary<string, object> tempValues)
+        ObservableDictionary<string, CustomScenarioValue> values,
+        ObservableDictionary<string, CustomScenarioValue> tempValues)
     {
         return false;
     }
@@ -97,7 +101,8 @@ public partial class KnotNodeViewModel : ScenarioNodeBase
     }
 
     public override bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
-        ObservableDictionary<string, CustomScenarioValue> values, ObservableDictionary<string, object> tempValues)
+        ObservableDictionary<string, CustomScenarioValue> values,
+        ObservableDictionary<string, CustomScenarioValue> tempValues)
     {
         foreach (var b in connections.Where(e => e.Source == connector))
             b.Target.InputObject.Value =
@@ -147,17 +152,18 @@ public partial class KnotNodeViewModel : ScenarioNodeBase
 
 public partial class ScenarioMethodNode : ScenarioNodeBase
 {
-    [ObservableProperty] private ObservableCollection<ConnectorItem> input = new();
-    [ObservableProperty] private ObservableCollection<ConnectorItem> output = new();
-
     [JsonIgnore] [property: JsonIgnore] [ObservableProperty]
     private TimeSpan _invokeTime = TimeSpan.Zero;
+
+    [ObservableProperty] private ObservableCollection<ConnectorItem> input = new();
+    [ObservableProperty] private ObservableCollection<ConnectorItem> output = new();
 
     [JsonConverter(typeof(ScenarioMethodJsonCtr))]
     public ScenarioMethod ScenarioMethod { get; set; }
 
     public override bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
-        ObservableDictionary<string, CustomScenarioValue> values, ObservableDictionary<string, object> tempValues)
+        ObservableDictionary<string, CustomScenarioValue> values,
+        ObservableDictionary<string, CustomScenarioValue> tempValues)
     {
         var start = DateTime.Now;
         //生成本节点所有数据
@@ -282,7 +288,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
             case ScenarioMethodType.TempVariableSet:
             {
                 if (tempValues.ContainsKey(ScenarioMethod.ValueName))
-                    tempValues[ScenarioMethod.ValueName] = Input[1].InputObject.Value!;
+                    tempValues[ScenarioMethod.ValueName].Value = Input[1].InputObject.Value!;
 
                 break;
             }
@@ -338,7 +344,8 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
             {
                 if (Input == null || Input.Count == 0) break;
 
-                var connectorItem = Enumerable.First<ConnectorItem>(Input, e => e.InputObject.RealType != typeof(NodeConnectorClass));
+                var connectorItem =
+                    Enumerable.First<ConnectorItem>(Input, e => e.InputObject.RealType != typeof(NodeConnectorClass));
                 if (connectorItem == null) break;
 
                 foreach (var item in Output) item.InputObject.Value = connectorItem.InputObject.Value;

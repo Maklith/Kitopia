@@ -1,0 +1,112 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:taskEditors="clr-namespace:KitopiaAvalonia.Windows.TaskEditors"
+             xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
+             xmlns:taskEditor="clr-namespace:Core.ViewModel.TaskEditor;assembly=Core"
+             xmlns:customScenario1="clr-namespace:Core.CustomScenario;assembly=Core"
+             xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
+             xmlns:taskEditor1="clr-namespace:KitopiaAvalonia.Converter.TaskEditor"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="KitopiaAvalonia.Windows.TaskEditors.TaskEditorValueNodeShow">
+    <UserControl.Resources>
+        <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
+        <taskEditor1:EnumEqualCtr x:Key="EnumEqualCtr" />
+    </UserControl.Resources>
+    <StackPanel>
+        <ListBox Margin="0,0,10,0" x:Name="ValueListBox"
+                 ItemsSource="{Binding $parent[taskEditors:TaskEditorValueNodeShow].Values }">
+            <ListBox.ItemContainerTheme>
+                <ControlTheme TargetType="ListBoxItem">
+                    <Setter Property="Template">
+                        <ControlTemplate>
+                            <ContentPresenter Name="PART_ContentPresenter"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Background="{TemplateBinding Background}"
+                                              BorderBrush="{TemplateBinding BorderBrush}"
+                                              BorderThickness="{TemplateBinding BorderThickness}"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              DataContext="{TemplateBinding DataContext}"
+                                              CornerRadius="{TemplateBinding CornerRadius}" />
+                        </ControlTemplate>
+
+                    </Setter>
+                </ControlTheme>
+            </ListBox.ItemContainerTheme>
+            <ListBox.ItemTemplate>
+
+                <DataTemplate>
+                    <Grid x:Name="NodeRootGrid">
+                        <Border BorderBrush="LightGray" BorderThickness="1"
+                                CornerRadius="3"
+
+                                ToolTip.Tip="{ReflectionBinding Value ,Converter={StaticResource ToolTipConverter}}"
+                                ToolTip.ShowDelay="0"
+                                Background="{DynamicResource SemiBackground4Color}">
+                            <Border.ContextFlyout>
+                                <MenuFlyout>
+                                    <!-- ReSharper disable once Xaml.RedundantResource -->
+                                    <MenuItem Header="删除此变量"
+                                              Foreground="{DynamicResource SemiColorText0}"
+                                              Command="{Binding $parent[taskEditors:TaskEditorValueNodeShow].DelCommand}"
+                                              CommandParameter="{Binding  }" />
+                                </MenuFlyout>
+                            </Border.ContextFlyout>
+
+                            <Grid Margin="9">
+                                <Grid.DataTemplates>
+                                    <taskEditors:NodeTemplatesSelector TemplateType="View" />
+                                </Grid.DataTemplates>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="30" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <taskEditors:TaskEditorValueToScenarioMethodNode ValueForward="Set" Source="{Binding }"
+                                        ValueType="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueType}" />
+                                <taskEditors:TaskEditorValueToScenarioMethodNode Grid.Column="2" ValueForward="Get"
+                                        Source="{Binding }"
+                                        ValueType="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueType}" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                </DataTemplate>
+
+
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <Grid ColumnDefinitions="*,5,Auto,Auto" VerticalAlignment="Center"
+              HorizontalAlignment="Stretch">
+            <TextBox Watermark="变量名称" HorizontalAlignment="Stretch"
+                     Text="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueNameToAdd,Mode=TwoWay}" />
+            <ComboBox Grid.Column="2" VerticalAlignment="Center"
+                      Classes.DontShowTypeComboBox="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueType,Converter={StaticResource EnumEqualCtr},ConverterParameter='2'}"
+                      SelectedItem="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueTypeToAdd}"
+                      ItemsSource="{Binding Source={x:Static customScenario1:CustomScenarioGloble.GetAllCouldUseTypeInValue}}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate DataType="taskEditor:CustomScenarioValueTuple">
+                        <TextBlock Text="{Binding Value}" ToolTip.Tip="{Binding Type}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+                <ComboBox.Styles>
+                    <Style Selector="ComboBox.DontShowTypeComboBox">
+                        <Setter Property="IsVisible" Value="False" />
+                    </Style>
+                </ComboBox.Styles>
+            </ComboBox>
+            <Button Command="{Binding $parent[taskEditors:TaskEditorValueNodeShow].AddCommand}" Grid.Column="3"
+                    CommandParameter="{Binding $self.Parent}" Padding="2,3,0,0"
+                    Margin="3">
+
+                <controls:FontIcon FontSize="24" HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" Foreground="GreenYellow"
+                                   Glyph="&#xf107;" />
+            </Button>
+        </Grid>
+
+    </StackPanel>
+</UserControl>

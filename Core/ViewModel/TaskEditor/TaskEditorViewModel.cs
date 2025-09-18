@@ -6,7 +6,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -548,10 +547,10 @@ public partial class TaskEditorViewModel : ObservableRecipient
                     var data = new DataObject();
                     data.Set("KitopiaPointItem", parentOfType.DataContext);
                     DragDrop.DoDragDrop(args, data, DragDropEffects.Copy);
-                    var renderTargetBitmap =
-                        new RenderTargetBitmap(new PixelSize((int)parentOfType.Bounds.Width,
-                            (int)parentOfType.Bounds.Height));
-                    renderTargetBitmap.Render(parentOfType);
+                    // var renderTargetBitmap =
+                    //     new RenderTargetBitmap(new PixelSize((int)parentOfType.Bounds.Width,
+                    //         (int)parentOfType.Bounds.Height));
+                    // renderTargetBitmap.Render(parentOfType);
                     //Cursor.Dispose();
                     //Cursor = new Cursor(renderTargetBitmap,new PixelPoint((int)(renderTargetBitmap.Size.Width/2),(int)(renderTargetBitmap.Size.Height/2)));
                 }
@@ -578,74 +577,6 @@ public partial class TaskEditorViewModel : ObservableRecipient
         if (Scenario.Keys.Contains(key)) return;
 
         Scenario.Keys.Add(key);
-
-        IsModified = true;
-    }
-
-    #endregion
-
-    #region 变量
-
-    [NotifyPropertyChangedFor(nameof(_valueCanAdd))]
-    [NotifyCanExecuteChangedFor(nameof(AddValueCommand))]
-    [ObservableProperty]
-    private string? _valueValue = string.Empty;
-
-    [NotifyPropertyChangedFor(nameof(inputValueCanAdd))]
-    [NotifyCanExecuteChangedFor(nameof(AddValueCommand))]
-    [ObservableProperty]
-    private CustomScenarioValueTuple _valueType;
-
-    private bool _valueCanAdd => !string.IsNullOrEmpty(_valueValue) && _valueType != null;
-
-    [RelayCommand(CanExecute = nameof(_valueCanAdd))]
-    private void AddValue()
-    {
-        if (Scenario.Values.ContainsKey(ValueValue)) return;
-
-
-        Scenario.Values.Add(ValueValue, new CustomScenarioValue(ValueType.Type, null));
-        OnPropertyChanged(__KnownINotifyPropertyChangedArgs
-            .InputValue);
-        ValueValue = null;
-        IsModified = true;
-    }
-
-    [RelayCommand]
-    private void DelValue(string key)
-    {
-        if (Scenario.Values.ContainsKey(key)) Scenario.Values.Remove(key);
-
-        IsModified = true;
-    }
-
-    #endregion
-
-    #region 临时变量
-
-    [NotifyPropertyChangedFor(nameof(tempValueCanAdd))]
-    [NotifyCanExecuteChangedFor(nameof(AddTempValueCommand))]
-    [ObservableProperty]
-    private string? _tempValueValue = string.Empty;
-
-    private bool tempValueCanAdd => !string.IsNullOrEmpty(_tempValueValue);
-
-    [RelayCommand(CanExecute = nameof(tempValueCanAdd))]
-    private void AddTempValue()
-    {
-        if (Scenario.TempValue.ContainsKey(TempValueValue)) return;
-
-
-        Scenario.TempValue.Add(TempValueValue, null);
-        OnPropertyChanged(__KnownINotifyPropertyChangedArgs.TempValue);
-        TempValueValue = null;
-        IsModified = true;
-    }
-
-    [RelayCommand]
-    private void DelTempValue(string key)
-    {
-        if (Scenario.TempValue.ContainsKey(key)) Scenario.TempValue.Remove(key);
 
         IsModified = true;
     }

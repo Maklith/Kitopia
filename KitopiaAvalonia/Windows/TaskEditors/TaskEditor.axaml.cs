@@ -1,20 +1,11 @@
 ﻿#region
 
-using System;
-using System.Collections.Generic;
-using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Core.CustomScenario;
 using Core.ViewModel.TaskEditor;
 using NodifyM.Avalonia.Events;
-using PluginCore;
 using Ursa.Controls;
-using DataObject = Avalonia.Input.DataObject;
 using DragDrop = Avalonia.Input.DragDrop;
-using DragDropEffects = Avalonia.Input.DragDropEffects;
 using DragEventArgs = Avalonia.Input.DragEventArgs;
 using Point = Avalonia.Point;
 
@@ -41,74 +32,6 @@ public partial class TaskEditor : UrsaWindow
         //((TaskEditorViewModel)DataContext).ContentPresenter = ContentPresenter;
     }
 
-
-    private void ListBox_OnMouseMove(object? sender, PointerEventArgs e)
-    {
-        var point = e.GetCurrentPoint(this);
-
-        if (sender is Border border)
-            if (point.Properties.IsLeftButtonPressed)
-            {
-                var borderDataContext = border.DataContext;
-                try
-                {
-                    ScenarioMethodNode pointItem = null!;
-                    switch ((string)border.Tag)
-                    {
-                        case "Node":
-                        {
-                            pointItem = (ScenarioMethodNode)border.DataContext;
-                            break;
-                        }
-                        case "Set":
-                        {
-                            var keyValuePair = (KeyValuePair<string, CustomScenarioValue>)borderDataContext;
-                            pointItem = new ScenarioMethod(ScenarioMethodType.VariableSet)
-                                    { ValueName = keyValuePair.Key, ValueDataType = keyValuePair.Value.Type }
-                                .GenerateNode();
-                            break;
-                        }
-                        case "Get":
-                        {
-                            var keyValuePair = (KeyValuePair<string, CustomScenarioValue>)borderDataContext;
-                            pointItem = new ScenarioMethod(ScenarioMethodType.VariableGet)
-                                    { ValueName = keyValuePair.Key, ValueDataType = keyValuePair.Value.Type }
-                                .GenerateNode();
-                            break;
-                        }
-                        case "TempSet":
-                        {
-                            var keyValuePair = (KeyValuePair<string, object>)borderDataContext;
-                            pointItem = new ScenarioMethod(ScenarioMethodType.TempVariableSet)
-                                    { ValueName = keyValuePair.Key }
-                                .GenerateNode();
-                            break;
-                        }
-                        case "TempGet":
-                        {
-                            var keyValuePair = (KeyValuePair<string, object>)borderDataContext;
-                            pointItem = new ScenarioMethod(ScenarioMethodType.TempVariableGet)
-                                    { ValueName = keyValuePair.Key }
-                                .GenerateNode();
-                            break;
-                        }
-                    }
-
-                    var data = new DataObject();
-                    data.Set("KitopiaPointItem", pointItem);
-                    DragDrop.DoDragDrop(e, data, DragDropEffects.Copy);
-                    var renderTargetBitmap =
-                        new RenderTargetBitmap(new PixelSize((int)border.Bounds.Width, (int)border.Bounds.Height));
-                    renderTargetBitmap.Render(border);
-                    //Cursor.Dispose();
-                    //Cursor = new Cursor(renderTargetBitmap,new PixelPoint((int)(renderTargetBitmap.Size.Width/2),(int)(renderTargetBitmap.Size.Height/2)));
-                }
-                catch (Exception exception)
-                {
-                    Console.WriteLine(exception);
-                }
-            }
-    }
 
     private void NodifyEditor_Drop(object sender, DragEventArgs e)
     {

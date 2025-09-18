@@ -112,6 +112,9 @@
             <DependentUpon>TaskEditor.axaml</DependentUpon>
             <SubType>Code</SubType>
         </Compile>
+        <Compile Update="Windows\TaskEditors\TaskEditorValueToScenarioMethodNode.axaml.cs">
+            <DependentUpon>TaskEditorValueToScenarioMethodNode.axaml</DependentUpon>
+        </Compile>
     </ItemGroup>
     <ItemGroup>
         <Folder Include="Converter\MarketPage\"/>

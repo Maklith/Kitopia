@@ -21,16 +21,16 @@ namespace Core.CustomScenario;
 
 public partial class CustomScenario : ObservableRecipient
 {
-    public event EventHandler Saved;
     private static ILogger Log = LogManager.Logger.ForContext<CustomScenario>();
-
-    [property: JsonIgnore] [JsonIgnore] [ObservableProperty]
-    private Bitmap? _icon;
 
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> _autoTriggers = new();
     private CancellationTokenSource _cancellationTokenSource = new();
 
     [JsonIgnore] [ObservableProperty] private string _description = "";
+
+    [property: JsonIgnore] [JsonIgnore] [ObservableProperty]
+    private Bitmap? _icon;
+
     private Dictionary<ScenarioNodeBase, Thread?> _initTasks = new();
 
     [JsonIgnore] [ObservableProperty] private bool _isRunning = false;
@@ -42,11 +42,6 @@ public partial class CustomScenario : ObservableRecipient
     private Dictionary<ScenarioNodeBase, Thread?> _tickTasks = new();
     private TickUtil? _tickUtil;
 
-    internal void NotifySaved()
-    {
-        Saved?.Invoke(this, EventArgs.Empty);
-    }
-
     /// <summary>
     ///     手动执行
     /// </summary>
@@ -55,22 +50,22 @@ public partial class CustomScenario : ObservableRecipient
     [JsonIgnore] [ObservableProperty] private bool hasInit = true;
     [JsonIgnore] [ObservableProperty] private string? initError;
     [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> inputValue = new();
-    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, object> tempValue = new();
     private bool InTick;
 
     [JsonIgnore] [ObservableProperty] private bool isHaveInputValue = false;
 
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> keys = new();
 
-
-    [JsonIgnore] [ObservableProperty] private double? tickIntervalSecond = 5;
-
-    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> values = new();
-
     //ActiveHotKey
     [JsonIgnore] [ObservableProperty] public HotKeyModel runHotKey;
 
     [JsonIgnore] [ObservableProperty] public HotKeyModel stopHotKey;
+    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> tempValue = new();
+
+
+    [JsonIgnore] [ObservableProperty] private double? tickIntervalSecond = 5;
+
+    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> values = new();
 
     public CustomScenario()
     {
@@ -105,6 +100,20 @@ public partial class CustomScenario : ObservableRecipient
             }
         });
         InputValue.CollectionChanged += OnInputValueOnCollectionChanged;
+    }
+
+    public string UUID { get; init; } = Guid.NewGuid()
+        .ToString();
+
+
+    public ObservableCollection<ScenarioNodeBase> nodes { get; set; } = new();
+
+    public ObservableCollection<ConnectionItem> connections { get; set; } = new();
+    public event EventHandler Saved;
+
+    internal void NotifySaved()
+    {
+        Saved?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]
@@ -173,14 +182,6 @@ public partial class CustomScenario : ObservableRecipient
                 { Type = 1, Name = nameof(e), CustomScenario = this });
         };
     }
-
-    public string UUID { get; init; } = Guid.NewGuid()
-        .ToString();
-
-
-    public ObservableCollection<ScenarioNodeBase> nodes { get; set; } = new();
-
-    public ObservableCollection<ConnectionItem> connections { get; set; } = new();
 
     public void Dispose()
     {
