@@ -2,12 +2,9 @@
               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
               xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
               xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-
               xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
               xmlns:controls1="clr-namespace:KitopiaAvalonia.Controls"
-
               xmlns:taskEditor1="clr-namespace:Core.ViewModel.TaskEditor;assembly=Core"
-
               xmlns:generic="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
               xmlns:controls2="clr-namespace:NodifyM.Avalonia.Controls;assembly=NodifyM.Avalonia"
               xmlns:u="https://irihi.tech/ursa"

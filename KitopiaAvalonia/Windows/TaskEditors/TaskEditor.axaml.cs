@@ -1,6 +1,6 @@
 ﻿#region
 
-using Avalonia.Controls.Primitives;
+using System;
 using Core.CustomScenario;
 using Core.ViewModel.TaskEditor;
 using NodifyM.Avalonia.Events;
@@ -21,17 +21,16 @@ public partial class TaskEditor : UrsaWindow
         Editor.AddHandler(DragDrop.DropEvent, NodifyEditor_Drop);
     }
 
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        Editor.RemoveHandler(DragDrop.DropEvent, NodifyEditor_Drop);
+    }
+
     public void LoadTask(CustomScenario name)
     {
         ((TaskEditorViewModel)DataContext).Load(name);
     }
-
-    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
-    {
-        base.OnApplyTemplate(e);
-        //((TaskEditorViewModel)DataContext).ContentPresenter = ContentPresenter;
-    }
-
 
     private void NodifyEditor_Drop(object sender, DragEventArgs e)
     {

@@ -202,28 +202,24 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 }
             });
 
-        //nodeMethods.Add("new PointItem(){Title = \"Test\"}");
+
+        //ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.PropertyChanged += OnRootScenarioMethodCategoryGroupOnPropertyChanged;
     }
 
-
-    public ScenarioMethodCategoryGroup ScenarioMethodCategoryGroup
-    {
-        get
-        {
-            var rootScenarioMethodCategoryGroup = ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup;
-            rootScenarioMethodCategoryGroup.PropertyChanged += (sender, args) =>
-            {
-                OnPropertyChanged(nameof(ScenarioMethodCategoryGroup));
-            };
-            return rootScenarioMethodCategoryGroup;
-        }
-    }
+    public ScenarioMethodCategoryGroup ScenarioMethodCategoryGroup =>
+        ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup;
 
     public bool IsSaveInLocal => CustomScenarioManger.CustomScenarios.Contains(Scenario);
 
     public object ContentPresenter { get; set; }
 
     public PendingConnectionViewModel PendingConnection { get; }
+
+    private void OnRootScenarioMethodCategoryGroupOnPropertyChanged(object? o,
+        PropertyChangedEventArgs propertyChangedEventArgs)
+    {
+        OnPropertyChanged();
+    }
 
     [RelayCommand]
     private void VerifyNode()
@@ -405,6 +401,15 @@ public partial class TaskEditorViewModel : ObservableRecipient
     private void Load(object window)
     {
         _window = (Window)window;
+        _window.Closed += Window_Closed;
+    }
+
+    private void Window_Closed(object? sender, EventArgs e)
+    {
+        _window.Closed -= Window_Closed;
+        WeakReferenceMessenger.Default.UnregisterAll(this);
+        ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.PropertyChanged -=
+            OnRootScenarioMethodCategoryGroupOnPropertyChanged;
     }
 
     [RelayCommand]
