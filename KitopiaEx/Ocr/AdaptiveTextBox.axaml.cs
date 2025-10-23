@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Utils;
@@ -318,7 +319,7 @@ public partial class AdaptiveTextBox : TextBlock
     }
 
     /// <summary>Copies the current selection to the Clipboard.</summary>
-    public async void Copy()
+    public async Task Copy()
     {
       AdaptiveTextBox AdaptiveTextBox = this;
       if (!AdaptiveTextBox._canCopy)

@@ -195,7 +195,7 @@ internal class Program
 
         //CheckAndDeleteLogFiles();
 
-        MqttManager.Init().Wait();
+        MqttManager.Init().GetAwaiter().GetResult();
         Log.Information("MQTT初始化完成");
         HotKeyManager.Init();
         Log.Debug("注册热键管理器完成");

@@ -190,7 +190,7 @@ public class PluginManager
             {
                 GC.Collect(2, GCCollectionMode.Aggressive);
                 GC.WaitForPendingFinalizers();
-                Task.Delay(50).Wait();
+                Thread.Sleep(50);
                 if (!weakReference.IsAlive) break;
             }
         });
@@ -419,7 +419,7 @@ public class PluginManager
                         {
                             var allText = File.ReadAllText($"{info.Path}.update");
                             if (int.TryParse(allText, out var versionId))
-                                DownloadPluginOnline(pluginBaseInfo.Id, pluginBaseInfo.NameSign, versionId).Wait();
+                                DownloadPluginOnline(pluginBaseInfo.Id, pluginBaseInfo.NameSign, versionId).GetAwaiter().GetResult();
 
                             try
                             {
@@ -443,9 +443,9 @@ public class PluginManager
                             if (!EnablePlugins.ContainsKey(pluginBaseInfo.ToPlgString()))
                             {
                                 if (init)
-                                    Task.Run(() => { EnablePluginWithoutReloadOthers(info); }).Wait();
+                                    Task.Run(() => { EnablePluginWithoutReloadOthers(info); }).GetAwaiter().GetResult();
                                 else
-                                    Task.Run(() => { EnablePlugin(info); }).Wait();
+                                    Task.Run(() => { EnablePlugin(info); }).GetAwaiter().GetResult();
                             }
                         }
                     }
@@ -611,9 +611,9 @@ public class PluginManager
         {
             if (targetVersionId is null)
             {
-                var httpResponseMessage = _httpClient
-                    .GetAsync($"{ConfigManger.ApiUrl}/api/plugin/{pluginId}").Result;
-                var httpContent = httpResponseMessage.Content.ReadAsStringAsync().Result;
+                var httpResponseMessage = await _httpClient
+                    .GetAsync($"{ConfigManger.ApiUrl}/api/plugin/{pluginId}");
+                var httpContent = await httpResponseMessage.Content.ReadAsStringAsync();
                 var deserializeObject = (JObject)JsonConvert.DeserializeObject(httpContent);
                 targetVersionId = deserializeObject["data"]["lastVersionId"].ToObject<int>();
             }

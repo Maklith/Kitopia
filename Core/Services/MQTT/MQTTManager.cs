@@ -15,18 +15,39 @@ using Serilog;
 
 namespace Core.Services.MQTT;
 
+/// <summary>
+/// MQTT消息类型枚举
+/// MQTT message type enumeration
+/// </summary>
 public enum MqttMsgType
 {
+    /// <summary>重复启动消息 / Duplicate startup message</summary>
     重复启动,
+    
+    /// <summary>下载指定插件消息 / Download specified plugin message</summary>
     下载指定插件
 }
 
+/// <summary>
+/// MQTT管理器，负责MQTT服务器的初始化和消息处理
+/// MQTT manager responsible for MQTT server initialization and message handling
+/// </summary>
 public class MqttManager
 {
     private static ILogger Log = LogManager.Logger.ForContext<MqttManager>();
+    
+    /// <summary>
+    /// MQTT服务器实例 / MQTT server instance
+    /// </summary>
     public static MqttServer Server;
+    
     private static FileStream fileStream;
 
+    /// <summary>
+    /// 初始化MQTT服务器
+    /// Initialize MQTT server
+    /// </summary>
+    /// <returns>异步任务 / Asynchronous task</returns>
     public static async Task Init()
     {
         var mqttFactory = new MqttFactory();
@@ -48,7 +69,7 @@ public class MqttManager
                         .WithTcpServer("localhost", i) // 指定MQTT代理服务器的地址和端口
                         .Build();
                     var mqttClient = mqttFactory.CreateMqttClient();
-                    var mqttClientConnectResult = mqttClient.ConnectAsync(options).Result;
+                    var mqttClientConnectResult = await mqttClient.ConnectAsync(options);
                     if (mqttClientConnectResult.ResultCode == MqttClientConnectResultCode.Success)
                     {
                         Log.Debug("MQTT连接成功");
