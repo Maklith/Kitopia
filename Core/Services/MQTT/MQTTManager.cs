@@ -48,7 +48,7 @@ public class MqttManager
                         .WithTcpServer("localhost", i) // 指定MQTT代理服务器的地址和端口
                         .Build();
                     var mqttClient = mqttFactory.CreateMqttClient();
-                    var mqttClientConnectResult = mqttClient.ConnectAsync(options).Result;
+                    var mqttClientConnectResult = await mqttClient.ConnectAsync(options);
                     if (mqttClientConnectResult.ResultCode == MqttClientConnectResultCode.Success)
                     {
                         Log.Debug("MQTT连接成功");

@@ -51,8 +51,8 @@ public class ContentDialogService : IContentDialog
                 var frame = new DispatcherFrame();
                 dialog.Closed += (sender, args) => { tcs.SetResult(); };
                 dialog.Show();
-            }).Wait();
-            tcs.Task.Wait();
+            }).GetAwaiter().GetResult();
+            tcs.Task.GetAwaiter().GetResult();
         }
         else
         {
@@ -91,7 +91,7 @@ public class ContentDialogService : IContentDialog
                     {
                         Title = dialogContent.Title,
                         Button = button
-                    }).Result;
+                    }).GetAwaiter().GetResult();
 
                 switch (result)
                 {
@@ -111,7 +111,7 @@ public class ContentDialogService : IContentDialog
                         break;
                     }
                 }
-            }).Wait();
+            }).GetAwaiter().GetResult();
         }
     }
 }

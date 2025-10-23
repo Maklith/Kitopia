@@ -318,7 +318,7 @@ public partial class AdaptiveTextBox : TextBlock
     }
 
     /// <summary>Copies the current selection to the Clipboard.</summary>
-    public async void Copy()
+    public async Task Copy()
     {
       AdaptiveTextBox AdaptiveTextBox = this;
       if (!AdaptiveTextBox._canCopy)

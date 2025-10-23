@@ -58,7 +58,8 @@ public partial class MouseQuickWindow : Window
         Position = new PixelPoint(Left, Top);
 
         string? text = null;
-        if (Clipboard.GetFormatsAsync().Result.Contains("Text")) text = Clipboard.GetTextAsync().Result;
+        if (Clipboard.GetFormatsAsync().GetAwaiter().GetResult().Contains("Text")) 
+            text = Clipboard.GetTextAsync().GetAwaiter().GetResult();
 
 
         var eventSimulator = new EventSimulator();
@@ -71,7 +72,7 @@ public partial class MouseQuickWindow : Window
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             Task.Delay(800);
-            var s = Clipboard.GetTextAsync().Result;
+            var s = Clipboard.GetTextAsync().GetAwaiter().GetResult();
             if (s != text)
             {
                 ((MouseQuickWindowViewModel)DataContext).SelectedItem = new SelectedItem

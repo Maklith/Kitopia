@@ -17,10 +17,7 @@ public enum ConnectorType
 
 public partial class ConnectorItem : ObservableRecipient
 {
-    [JsonConverter(typeof(PointJsonConverter))]
-    #pragma warning disable CS0657 // 不是此声明的有效特性位置
     [property: JsonConverter(typeof(PointJsonConverter))]
-    #pragma warning restore CS0657 // 不是此声明的有效特性位置
     [ObservableProperty]
     private Point _anchor;
 

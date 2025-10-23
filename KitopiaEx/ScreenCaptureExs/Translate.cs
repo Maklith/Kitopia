@@ -15,7 +15,7 @@ public class Translate
         var ocrResults = service.OcrImg(dResult, CancellationToken.None);
         var service2 = KitopiaEx.ServiceProvider.GetService<global::KitopiaEx.Translate.Translate>()!;
         ocrResults = service2.TranslateOcrResults(ocrResults, SourceTranslateLang.自动检测, TargetTranslateLang.简体中文,
-            CancellationToken.None).Result;
+            CancellationToken.None).GetAwaiter().GetResult();
         service.OcrResultShow(dResult, ocrResults, CancellationToken.None);
     }
 }
