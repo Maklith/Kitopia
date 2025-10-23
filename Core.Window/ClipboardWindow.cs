@@ -1,39 +1,45 @@
-﻿using System.Buffers;
-using System.Drawing.Imaging;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Threading.RateLimiting;
+﻿using System.Threading.RateLimiting;
 using System.Windows;
 using System.Windows.Media.Imaging;
-using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Platform;
-using Avalonia.Threading;
-using Core.SDKs.Services;
 using Core.Services;
 using OpenCvSharp;
 using PluginCore;
 using Polly;
 using Polly.Retry;
 using Serilog;
-
-using Vanara.PInvoke;
 using Application = Avalonia.Application;
-using Bitmap = Avalonia.Media.Imaging.Bitmap;
-using PixelFormat = Avalonia.Platform.PixelFormat;
 using PixelFormats = System.Windows.Media.PixelFormats;
-using Rectangle = System.Drawing.Rectangle;
-using Vector = Avalonia.Vector;
 using Clipboard = System.Windows.Clipboard;
-using DataFormats = Avalonia.Input.DataFormats;
 using Size = OpenCvSharp.Size;
-using WriteableBitmap = Avalonia.Media.Imaging.WriteableBitmap;
 
 namespace Core.Window;
 
 public class ClipboardWindow : IClipboardService
 {
-    private static ILogger Log =   LogManager.Logger.ForContext<ClipboardWindow>();
+    private static ILogger Log = LogManager.Logger.ForContext<ClipboardWindow>();
+
+
+    private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
+        .AddConcurrencyLimiter(new ConcurrencyLimiterOptions()
+        {
+            PermitLimit = 1,
+            QueueLimit = Int32.MaxValue
+        })
+        .AddRetry(
+            new RetryStrategyOptions()
+            {
+                ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
+                {
+                    Log.Error(exception, "错误");
+                    return true;
+                }),
+                Delay = TimeSpan.FromSeconds(1),
+                MaxRetryAttempts = 5,
+                BackoffType = DelayBackoffType.Linear,
+                UseJitter = true
+            }).Build();
+
     public bool HasText()
     {
         try
@@ -116,49 +122,8 @@ public class ClipboardWindow : IClipboardService
         thread.Start();
         tcs.Task.Wait();
         return writeableBitmap;
-        
     }
 
-    public bool SetImage(Mat image)
-    {
-        try
-        {
-            var data2 = new DataObject();
-            var bitmapSource = BitmapSource.Create(
-                image.Width, image.Height,
-                96, 96,
-                PixelFormats.Bgra32, null,
-                image.Data,(int)(image.DataEnd-image.Data), ((image.Width * PixelFormat.Bgra8888.BitsPerPixel + 31) & ~31) >> 3);
-            data2.SetImage(bitmapSource);
-            Ole32.OleSetClipboard(data2);
-        }
-        catch (Exception e)
-        {
-            return false;
-        }
-
-
-        return true;
-    }
-    private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
-        .AddConcurrencyLimiter(new ConcurrencyLimiterOptions()
-        {
-            PermitLimit = 1,
-            QueueLimit = Int32.MaxValue
-        })
-        .AddRetry(
-            new RetryStrategyOptions()
-            {
-                ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
-                {
-                    Log.Error(exception,"错误");
-                    return true;
-                }),
-                Delay = TimeSpan.FromSeconds(1),
-                MaxRetryAttempts = 5,
-                BackoffType = DelayBackoffType.Linear,
-                UseJitter = true
-            }).Build();
     [STAThread]
     public async Task<bool> SetImageAsync(ScreenCaptureResult screenCaptureResult)
     {
@@ -175,15 +140,17 @@ public class ClipboardWindow : IClipboardService
                         int stride = (screenCaptureResult.Source.Width * channels + 3) & ~3; // 对齐后的步长
                         int bufferSize = stride * screenCaptureResult.Source.Height;
                         Log.Information("设置剪贴板图片");
-                        var bitmapSource = new System.Windows.Media.Imaging.WriteableBitmap(screenCaptureResult.Source.Width,screenCaptureResult.Source.Height,96,96,PixelFormats.Bgra32, null);
+                        var bitmapSource = new WriteableBitmap(screenCaptureResult.Source.Width,
+                            screenCaptureResult.Source.Height, 96, 96, PixelFormats.Bgra32, null);
                         bitmapSource.Lock();
-                       
 
-                        bitmapSource.WritePixels(new Int32Rect(0,0,screenCaptureResult.Source.Width,screenCaptureResult.Source.Height),
-                           (IntPtr) screenCaptureResult.Source.DataPointer,
-                           bufferSize, stride);
+
+                        bitmapSource.WritePixels(
+                            new Int32Rect(0, 0, screenCaptureResult.Source.Width, screenCaptureResult.Source.Height),
+                            (IntPtr)screenCaptureResult.Source.DataPointer,
+                            bufferSize, stride);
                         bitmapSource.Unlock();
-                        
+
                         Clipboard.SetImage(bitmapSource);
                         Clipboard.Flush();
                         tcs.SetResult(true); // 仅在成功时设置
@@ -204,39 +171,5 @@ public class ClipboardWindow : IClipboardService
 
 
         return executeAsync;
-    }
-    private static T BytesToStructure<T>(byte[] bytes)
-    {
-        var size = Marshal.SizeOf(typeof(T));
-        if (bytes.Length < size)
-            throw new Exception("Invalid parameter");
-
-        var ptr = Marshal.AllocHGlobal(size);
-        try
-        {
-            Marshal.Copy(bytes, 0, ptr, size);
-            return (T)Marshal.PtrToStructure(ptr, typeof(T));
-        }
-        finally
-        {
-            Marshal.FreeHGlobal(ptr);
-        }
-    }
-
-    public static byte[] StructToBytes(object structObj)
-    {
-        var size = Marshal.SizeOf(structObj);
-        var buffer = Marshal.AllocHGlobal(size);
-        try
-        {
-            Marshal.StructureToPtr(structObj, buffer, false);
-            var bytes = new byte[size];
-            Marshal.Copy(buffer, bytes, 0, size);
-            return bytes;
-        }
-        finally
-        {
-            Marshal.FreeHGlobal(buffer);
-        }
     }
 }
