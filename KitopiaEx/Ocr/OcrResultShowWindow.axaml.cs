@@ -1,19 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Markup.Xaml;
 using Avalonia.Media;
-using Avalonia.Threading;
-using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.ExMethod;
 using Ursa.Controls;
@@ -23,13 +17,16 @@ namespace KitopiaEx.Ocr;
 
 public partial class OcrResultShowWindow : UrsaWindow
 {
+    private bool _inSelectMode = false;
     private ScaleTransform _scaleTransform;
+    private Point _startPoint;
+
     public OcrResultShowWindow()
     {
         InitializeComponent();
         _scaleTransform = new ScaleTransform();
-        
-        
+
+
         ItemsControl.RenderTransform = _scaleTransform;
         _scaleTransform.ScaleX = 1d;
         _scaleTransform.ScaleY = 1d;
@@ -50,7 +47,7 @@ public partial class OcrResultShowWindow : UrsaWindow
             }
         };
     }
-   
+
     public void UpdateImageScale()
     {
         ItemsControl.Width = Image.Source.Size.Width;
@@ -59,23 +56,21 @@ public partial class OcrResultShowWindow : UrsaWindow
         _scaleTransform.ScaleX = scale;
         _scaleTransform.ScaleY = scale;
     }
+
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        
+
         if (Image.Source is null)
         {
             return;
         }
+
         ItemsControl.Width = Image.Source.Size.Width;
-        ItemsControl.Height =Image.Source.Size.Height;
+        ItemsControl.Height = Image.Source.Size.Height;
         double scale = Image.Bounds.Size.Width / Image.Source.Size.Width;
         _scaleTransform.ScaleX = scale;
         _scaleTransform.ScaleY = scale;
-        
-        
-      
-        
     }
 
     protected override void OnClosed(EventArgs e)
@@ -87,18 +82,14 @@ public partial class OcrResultShowWindow : UrsaWindow
 
     private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
     {
-        
-        
         if (Image.Source is not null)
         {
-            
-            _scaleTransform.ScaleX/=  (e.PreviousSize.Width / e.NewSize.Width);
-            _scaleTransform.ScaleY /=  (e.PreviousSize.Width / e.NewSize.Width);
+            _scaleTransform.ScaleX /= (e.PreviousSize.Width / e.NewSize.Width);
+            _scaleTransform.ScaleY /= (e.PreviousSize.Width / e.NewSize.Width);
         }
     }
 
-    
-    
+
     private void InputElement_OnPointerMoved(object? sender, PointerEventArgs e)
     {
         var bottomRight = e.GetPosition(this);
@@ -115,15 +106,12 @@ public partial class OcrResultShowWindow : UrsaWindow
                 new Rect(startPoint, endPoint));
             foreach (var controlsInBound in controlsInBounds)
             {
-               
                 if (controlsInBound is AdaptiveTextBox adaptiveTextBox1)
                 {
-                    adaptiveTextBox1.SelectText(this.TranslatePoint(startPoint,controlsInBound).Value,this.TranslatePoint(endPoint,controlsInBound).Value);
+                    adaptiveTextBox1.SelectText(this.TranslatePoint(startPoint, controlsInBound).Value,
+                        this.TranslatePoint(endPoint, controlsInBound).Value);
                 }
-              
-
             }
-           
         }
         else
         {
@@ -164,8 +152,6 @@ public partial class OcrResultShowWindow : UrsaWindow
         }
     }
 
-    private bool _inSelectMode = false;
-    private Point _startPoint;
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
@@ -182,6 +168,7 @@ public partial class OcrResultShowWindow : UrsaWindow
         {
             return;
         }
+
         _inSelectMode = false;
         var bottomRight = e.GetPosition(this);
         var left = Math.Min(_startPoint.X, bottomRight.X);
@@ -193,7 +180,7 @@ public partial class OcrResultShowWindow : UrsaWindow
         var controlsInBounds = ControlHelper.GetControlsInBounds(ItemsControl.ItemsPanelRoot,
             new Rect(startPoint, endPoint));
         StringBuilder sb = new StringBuilder();
-        List<(Point,AdaptiveTextBox)> list = new List<(Point,AdaptiveTextBox)>();
+        List<(Point, AdaptiveTextBox)> list = new List<(Point, AdaptiveTextBox)>();
         foreach (var controlsInBound in controlsInBounds)
         {
             AdaptiveTextBox adaptiveTextBox;
@@ -205,45 +192,39 @@ public partial class OcrResultShowWindow : UrsaWindow
             {
                 continue;
             }
-    
-            list.Add((adaptiveTextBox.TopLeft,adaptiveTextBox));
+
+            list.Add((adaptiveTextBox.TopLeft, adaptiveTextBox));
         }
-        list.Sort((e, a)=>
+
+        list.Sort((e, a) =>
         {
             if (Math.Abs(e.Item1.Y - a.Item1.Y) > Double.Epsilon)
             {
                 return (int)(e.Item1.Y - a.Item1.Y);
-            }else 
+            }
+            else
                 return (int)(e.Item1.X - a.Item1.X);
         });
         foreach (var (point, item2) in list)
         {
-            if (item2.SelectedText=="")
+            if (item2.SelectedText == "")
             {
                 sb.Append(item2.Text);
-            }else 
+            }
+            else
                 sb.Append(item2.SelectedText);
-            
+
             sb.Append(Environment.NewLine);
         }
 
-        if (sb.Length==0)
+        if (sb.Length == 0)
         {
             return;
         }
-        
+
         this.Clipboard.SetTextAsync(sb.ToString());
         ClearAllSelected();
-        Kitopia.IToastService.Show("已复制",sb.ToString());
-        TipTextBlock.IsVisible = true;
-        Task.Run(async () =>
-        {
-            await Task.Delay(3000);
-            Dispatcher.UIThread.InvokeAsync((() =>
-            {
-                TipTextBlock.IsVisible = false;
-            }));
-        });
+        Kitopia.IToastService.Show("已复制", sb.ToString());
     }
 
     private void InputElement_OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
@@ -260,7 +241,7 @@ public partial class OcrResultShowWindow : UrsaWindow
     private void InputElement_OnPointerExited(object? sender, PointerEventArgs e)
     {
     }
-    
+
     private void Button_OnClick(object? sender, RoutedEventArgs e)
     {
         Topmost = !Topmost;

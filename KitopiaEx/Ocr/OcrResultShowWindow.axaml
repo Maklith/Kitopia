@@ -6,40 +6,45 @@
               xmlns:u="https://irihi.tech/ursa"
               mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
               x:Class="KitopiaEx.Ocr.OcrResultShowWindow"
-      
+
               Width="1440"
               Height="810"
               WindowStartupLocation="CenterScreen"
-         
+
               Title="OcrResultShowWindow">
-     <u:UrsaWindow.TitleBarContent>
-        <Button Width="32" Height="24" Margin="0,0,0,0" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" HorizontalAlignment="Right" Click="Button_OnClick">
+    <u:UrsaWindow.TitleBarContent>
+        <Button Width="32" Height="24" Margin="0,0,0,0" Background="Transparent" BorderBrush="Transparent"
+                BorderThickness="0" HorizontalAlignment="Right" Click="Button_OnClick">
             <Panel>
-                <PathIcon Width="16" Height="16" FontSize="10" Foreground="{DynamicResource SemiColorText2}" IsVisible="{Binding !$parent[Window].Topmost}">
+                <PathIcon Width="16" Height="16" FontSize="10" Foreground="{DynamicResource SemiColorText2}"
+                          IsVisible="{Binding !$parent[Window].Topmost}">
                     <PathIcon.Data>
                         M648.728381 130.779429a73.142857 73.142857 0 0 1 22.674286 15.433142l191.561143 191.756191a73.142857 73.142857 0 0 1-22.137905 118.564571l-67.876572 30.061715-127.341714 127.488-10.093714 140.239238a73.142857 73.142857 0 0 1-124.684191 46.445714l-123.66019-123.782095-210.724572 211.699809-51.833904-51.614476 210.846476-211.821714-127.926857-128.024381a73.142857 73.142857 0 0 1 46.299428-124.635429l144.237715-10.776381 125.074285-125.220571 29.379048-67.779048a73.142857 73.142857 0 0 1 96.207238-38.034285z m-29.086476 67.120761l-34.913524 80.530286-154.087619 154.331429-171.398095 12.751238 303.323428 303.542857 12.044191-167.399619 156.233143-156.428191 80.384-35.59619-191.585524-191.73181z
                     </PathIcon.Data>
                 </PathIcon>
-                <PathIcon Width="16" Height="16" FontSize="10" Foreground="{DynamicResource SemiColorText2}" IsVisible="{Binding $parent[Window].Topmost}">
+                <PathIcon Width="16" Height="16" FontSize="10" Foreground="{DynamicResource SemiColorText2}"
+                          IsVisible="{Binding $parent[Window].Topmost}">
                     <PathIcon.Data>
                         M648.728381 130.779429a73.142857 73.142857 0 0 1 22.674286 15.433142l191.561143 191.756191a73.142857 73.142857 0 0 1-22.137905 118.564571l-67.876572 30.061715-127.341714 127.488-10.093714 140.239238a73.142857 73.142857 0 0 1-124.684191 46.445714l-123.66019-123.782095-210.724572 211.699809-51.833904-51.614476 210.846476-211.821714-127.926857-128.024381a73.142857 73.142857 0 0 1 46.299428-124.635429l144.237715-10.776381 125.074285-125.220571 29.379048-67.779048a73.142857 73.142857 0 0 1 96.207238-38.034285z
                     </PathIcon.Data>
                 </PathIcon>
             </Panel>
-           
-            
+
+
         </Button>
     </u:UrsaWindow.TitleBarContent>
-    <Panel PointerMoved="InputElement_OnPointerMoved" PointerPressed="InputElement_OnPointerPressed" PointerReleased="InputElement_OnPointerReleased" PointerCaptureLost="InputElement_OnPointerCaptureLost" PointerExited="InputElement_OnPointerExited">
+    <Panel PointerMoved="InputElement_OnPointerMoved" PointerPressed="InputElement_OnPointerPressed"
+           PointerReleased="InputElement_OnPointerReleased" PointerCaptureLost="InputElement_OnPointerCaptureLost"
+           PointerExited="InputElement_OnPointerExited">
         <Panel.Background>
             <SolidColorBrush Color="Azure" Opacity="0.001"></SolidColorBrush>
         </Panel.Background>
-        <Image x:Name="Image"   HorizontalAlignment="Left" VerticalAlignment="Top"></Image>
-        <ItemsControl x:Name="ItemsControl"  HorizontalAlignment="Left" VerticalAlignment="Top">
+        <Image x:Name="Image" HorizontalAlignment="Left" VerticalAlignment="Top"></Image>
+        <ItemsControl x:Name="ItemsControl" HorizontalAlignment="Left" VerticalAlignment="Top">
             <ItemsControl.Styles>
                 <Style Selector="ocr|AdaptiveTextBox:pointerover">
                     <Setter Property="Background" Value="{DynamicResource SemiColorText3}">
-                        
+
                     </Setter>
                 </Style>
                 <Style Selector="TextBox:focus /template/ Border#PART_ContentPresenterBorder">
@@ -57,26 +62,23 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate DataType="ocr:OcrResult">
-                    <ocr:AdaptiveTextBox 
-                        TopLeft="{Binding SPoint}" BottomRight="{Binding EPoint}" 
+                    <ocr:AdaptiveTextBox
+                        TopLeft="{Binding SPoint}" BottomRight="{Binding EPoint}"
                         Text="{Binding Text}" Foreground="{DynamicResource SemiColorBackground0}"
-                        Background="{DynamicResource SemiColorText2}"
-                        ></ocr:AdaptiveTextBox>
-                    
+                        Background="{DynamicResource SemiColorText2}">
+                    </ocr:AdaptiveTextBox>
+
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
             <ItemsControl.Styles>
-                <Style Selector="ItemsControl > ContentPresenter" >
+                <Style Selector="ItemsControl > ContentPresenter">
 
-                    <Setter Property="Canvas.Left"  Value="{ReflectionBinding SPoint.X }" />
+                    <Setter Property="Canvas.Left" Value="{ReflectionBinding SPoint.X }" />
                     <Setter Property="Canvas.Top" Value="{ReflectionBinding SPoint.Y }" />
 
                 </Style>
             </ItemsControl.Styles>
         </ItemsControl>
-        <Border VerticalAlignment="Bottom" HorizontalAlignment="Center" Name="TipTextBlock" Background="{DynamicResource SemiColorText2}" CornerRadius="10" IsVisible="False" Padding="10" Margin="0,0,0,50">
-            <TextBlock Name="TextBlock" Text="已复制" FontSize="20" Foreground="{DynamicResource SemiColorBackground0}"></TextBlock>
-        </Border>
-        
+
     </Panel>
 </u:UrsaWindow>
