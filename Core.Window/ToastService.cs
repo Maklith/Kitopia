@@ -1,6 +1,5 @@
 ﻿#region
 
-using Windows.UI.Notifications;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
@@ -10,7 +9,6 @@ using PluginCore;
 using Serilog;
 using Ursa.Controls;
 using Vanara.PInvoke;
-using WinRT;
 
 #endregion
 
@@ -19,13 +17,16 @@ namespace Core.Window;
 public class ToastService : IToastService
 {
     private static ILogger Log = LogManager.Logger.ForContext<ToastService>();
-    private ToastNotifier _toastNotifier;
+    private ToastShowWindow _toastShowWindow;
 
     public void Init()
     {
-        ComWrappersSupport.InitializeComWrappers();
-        var toastNotificationManagerForUser = ToastNotificationManager.GetDefault();
-        _toastNotifier = toastNotificationManagerForUser.CreateToastNotifier("Kitopia");
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _toastShowWindow = new ToastShowWindow();
+            _toastShowWindow.Show();
+            _toastShowWindow.IsVisible = false;
+        });
     }
 
     public void Show(string header, string text, NotificationType notificationType = NotificationType.Information)
@@ -41,20 +42,33 @@ public class ToastService : IToastService
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             var windowFromIntPtr = GetWindowFromIntPtr(foregroundWindow.DangerousGetHandle());
+
             if (windowFromIntPtr == null)
             {
-                Log.Warning("无法通过前台窗口句柄获取Avalonia窗口，Toast显示失败");
-                return;
+                Log.Warning("无法通过前台窗口句柄获取Avalonia窗口，使用全局 Toast显示");
+                _toastShowWindow.IsVisible = true;
+                windowFromIntPtr = _toastShowWindow;
+                var windowToastManager = WindowToastManager.TryGetToastManager(windowFromIntPtr, out var manager)
+                    ? manager
+                    : new WindowToastManager(windowFromIntPtr);
+                windowToastManager!.Show(
+                    new Toast($"{header}{text}"),
+                    showIcon: true,
+                    showClose: true,
+                    onClose: () => { _toastShowWindow.IsVisible = false; },
+                    type: notificationType);
             }
-
-            var windowToastManager = WindowToastManager.TryGetToastManager(windowFromIntPtr, out var manager)
-                ? manager
-                : new WindowToastManager(windowFromIntPtr);
-            windowToastManager!.Show(
-                new Toast($"{header}{text}"),
-                showIcon: true,
-                showClose: true,
-                type: notificationType);
+            else
+            {
+                var windowToastManager = WindowToastManager.TryGetToastManager(windowFromIntPtr, out var manager)
+                    ? manager
+                    : new WindowToastManager(windowFromIntPtr);
+                windowToastManager!.Show(
+                    new Toast($"{header}{text}"),
+                    showIcon: true,
+                    showClose: true,
+                    type: notificationType);
+            }
         });
     }
 
