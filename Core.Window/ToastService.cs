@@ -9,6 +9,8 @@ using PluginCore;
 using Serilog;
 using Ursa.Controls;
 using Vanara.PInvoke;
+using Notification = Ursa.Controls.Notification;
+using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
 
 #endregion
 
@@ -48,11 +50,13 @@ public class ToastService : IToastService
                 Log.Warning("无法通过前台窗口句柄获取Avalonia窗口，使用全局 Toast显示");
                 _toastShowWindow.IsVisible = true;
                 windowFromIntPtr = _toastShowWindow;
-                var windowToastManager = WindowToastManager.TryGetToastManager(windowFromIntPtr, out var manager)
-                    ? manager
-                    : new WindowToastManager(windowFromIntPtr);
+                var windowToastManager =
+                    WindowNotificationManager.TryGetNotificationManager(windowFromIntPtr, out var manager)
+                        ? manager
+                        : new WindowNotificationManager(windowFromIntPtr);
+                windowToastManager.Position = NotificationPosition.BottomRight;
                 windowToastManager!.Show(
-                    new Toast($"{header}{text}"),
+                    new Notification("Kitopia", $"{header}{text}"),
                     showIcon: true,
                     showClose: true,
                     onClose: () => { _toastShowWindow.IsVisible = false; },

@@ -29,8 +29,8 @@ public partial class ToastShowWindow : Avalonia.Controls.Window
         User32.GetMonitorInfo(hmonitor, ref monitorInfo);
         User32.GetWindowRect(this.TryGetPlatformHandle()!.Handle, out var windowRect);
         this.Position = new PixelPoint(
-            monitorInfo.rcMonitor.Right - windowRect.Width - 10,
-            monitorInfo.rcMonitor.Bottom - windowRect.Height - 10);
+            monitorInfo.rcWork.Right - windowRect.Width - 10,
+            monitorInfo.rcWork.Bottom - windowRect.Height - 10);
     }
 
     protected override void IsVisibleChanged(AvaloniaPropertyChangedEventArgs e)
