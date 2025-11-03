@@ -30,7 +30,7 @@ public class ToastService : IToastService
             _toastShowWindow.IsVisible = false;
         });
     }
-
+    int counter = 0;
     public void Show(string header, string text, NotificationType notificationType = NotificationType.Information)
     {
         Log.Debug($"{nameof(ToastService)}的接口{nameof(Show)}被调用,header：{header},text：{text}");
@@ -45,7 +45,7 @@ public class ToastService : IToastService
         {
             var windowFromIntPtr = GetWindowFromIntPtr(foregroundWindow.DangerousGetHandle());
 
-            if (windowFromIntPtr == null)
+            if (windowFromIntPtr == null||windowFromIntPtr.TryGetPlatformHandle()!.Handle==_toastShowWindow.TryGetPlatformHandle()?.Handle)
             {
                 Log.Warning("无法通过前台窗口句柄获取Avalonia窗口，使用全局 Toast显示");
                 _toastShowWindow.IsVisible = true;
@@ -55,11 +55,17 @@ public class ToastService : IToastService
                         ? manager
                         : new WindowNotificationManager(windowFromIntPtr);
                 windowToastManager.Position = NotificationPosition.BottomRight;
+                Interlocked.Add(ref  counter, 1);
                 windowToastManager!.Show(
                     new Notification("Kitopia", $"{header}{text}"),
                     showIcon: true,
                     showClose: true,
-                    onClose: () => { _toastShowWindow.IsVisible = false; },
+                    onClose: () =>
+                    {
+                        Interlocked.Add(ref counter, -1);
+                        if (counter == 0)
+                            _toastShowWindow.IsVisible = false;
+                    },
                     type: notificationType);
             }
             else

@@ -17,6 +17,8 @@
         MinHeight="200"
         BorderBrush="Transparent"
         BorderThickness="0"
+        Focusable="False"
+        ShowActivated="False"
 
         Title="ToastShowWindow">
 </Window>
