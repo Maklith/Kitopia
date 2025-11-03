@@ -67,75 +67,78 @@
             </Border>
         </Grid>
     </u:UrsaWindow.TitleBarContent>
-    <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,*" Margin="5,40,5,5" ColumnSpan="5">
-        <Border Grid.Row="1" Grid.Column="0" Padding="1" VerticalAlignment="Stretch"
-                Theme="{DynamicResource CardBorder1}">
+    <Panel>
+        <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,*" Margin="5,40,5,5" ColumnSpan="5">
+            <Border Grid.Row="1" Grid.Column="0" Padding="1" VerticalAlignment="Stretch"
+                    Theme="{DynamicResource CardBorder1}">
 
-            <u:NavMenu Name="NavView"
-                       IsHorizontalCollapsed="True"
-                       CanToggle="False"
-                       ExpandWidth="56"
-                       CollapseWidth="56"
+                <u:NavMenu Name="NavView"
+                           IsHorizontalCollapsed="True"
+                           CanToggle="False"
+                           ExpandWidth="56"
+                           CollapseWidth="56"
 
-                       ItemsSource="{Binding MenuItems}"
-                       CommandBinding="{Binding ActivateCommand}"
-                       HeaderBinding="{Binding}"
-                       IconBinding="{Binding}">
-                <u:NavMenu.Styles>
-                    <Style Selector="u|NavMenuItem" x:DataType="main:MenuItemViewModel">
-                        <Setter Property="IsSeparator" Value="{Binding IsSeparator}" />
-                    </Style>
-                </u:NavMenu.Styles>
-                <u:NavMenu.HeaderTemplate>
-                    <DataTemplate x:DataType="main:MenuItemViewModel">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock HorizontalAlignment="Left" Text="{Binding MenuHeader}" />
-                        </StackPanel>
-                    </DataTemplate>
-                </u:NavMenu.HeaderTemplate>
-                <u:NavMenu.IconTemplate>
-                    <DataTemplate x:DataType="main:MenuItemViewModel">
-                        <controls:FontIcon
-                            Width="24"
-                            Height="24"
-                            FontSize="24"
-                            IsFilled="{Binding IsSelected}"
-                            Foreground="{DynamicResource SemiColorText0}"
-                            GlyphFilled="{Binding MenuIconFilledGlyph}"
-                            Glyph="{Binding MenuIconGlyph }" />
-                    </DataTemplate>
-                </u:NavMenu.IconTemplate>
-                <u:NavMenu.Footer>
+                           ItemsSource="{Binding MenuItems}"
+                           CommandBinding="{Binding ActivateCommand}"
+                           HeaderBinding="{Binding}"
+                           IconBinding="{Binding}">
+                    <u:NavMenu.Styles>
+                        <Style Selector="u|NavMenuItem" x:DataType="main:MenuItemViewModel">
+                            <Setter Property="IsSeparator" Value="{Binding IsSeparator}" />
+                        </Style>
+                    </u:NavMenu.Styles>
+                    <u:NavMenu.HeaderTemplate>
+                        <DataTemplate x:DataType="main:MenuItemViewModel">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock HorizontalAlignment="Left" Text="{Binding MenuHeader}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </u:NavMenu.HeaderTemplate>
+                    <u:NavMenu.IconTemplate>
+                        <DataTemplate x:DataType="main:MenuItemViewModel">
+                            <controls:FontIcon
+                                Width="24"
+                                Height="24"
+                                FontSize="24"
+                                IsFilled="{Binding IsSelected}"
+                                Foreground="{DynamicResource SemiColorText0}"
+                                GlyphFilled="{Binding MenuIconFilledGlyph}"
+                                Glyph="{Binding MenuIconGlyph }" />
+                        </DataTemplate>
+                    </u:NavMenu.IconTemplate>
+                    <u:NavMenu.Footer>
 
-                    <Button HorizontalAlignment="Stretch" Height="56" ToolTip.Tip="设置"
-                            Command="{Binding ActivateSettingPageCommand}"
-                            Foreground="{DynamicResource SemiColorText0}">
-                        <Button.Resources>
-                        </Button.Resources>
-                        <controls:FontIcon
-                            Foreground="{DynamicResource SemiColorText0}"
-                            Width="24"
-                            Height="24"
-                            FontSize="24"
-                            IsFilled="{Binding SettingPage}"
-                            FontWeight="Normal"
-                            GlyphFilled="&#xf6b3;"
-                            Glyph="&#xf6aa;" />
-                    </Button>
-                </u:NavMenu.Footer>
+                        <Button HorizontalAlignment="Stretch" Height="56" ToolTip.Tip="设置"
+                                Command="{Binding ActivateSettingPageCommand}"
+                                Foreground="{DynamicResource SemiColorText0}">
+                            <Button.Resources>
+                            </Button.Resources>
+                            <controls:FontIcon
+                                Foreground="{DynamicResource SemiColorText0}"
+                                Width="24"
+                                Height="24"
+                                FontSize="24"
+                                IsFilled="{Binding SettingPage}"
+                                FontWeight="Normal"
+                                GlyphFilled="&#xf6b3;"
+                                Glyph="&#xf6aa;" />
+                        </Button>
+                    </u:NavMenu.Footer>
 
-            </u:NavMenu>
-        </Border>
-        <Border Grid.Row="1" Grid.Column="1" Padding="3" Theme="{DynamicResource CardBorder1}">
-            <Panel>
-                <ContentPresenter
-                    Content="{Binding Content,Converter={StaticResource ViewLocator}}" />
-                <u:OverlayDialogHost HostId="LocalHost" />
-            </Panel>
-        </Border>
+                </u:NavMenu>
+            </Border>
+            <Border Grid.Row="1" Grid.Column="1" Padding="3" Theme="{DynamicResource CardBorder1}">
+                <Panel>
+                    <ContentPresenter
+                        Content="{Binding Content,Converter={StaticResource ViewLocator}}" />
+                    <u:OverlayDialogHost HostId="LocalHost" />
+                </Panel>
+            </Border>
 
-
-    </Grid>
+            <TextBlock Grid.Row="1" Grid.Column="1" Foreground="Gainsboro" Text="{Binding Version}" HorizontalAlignment="Right" VerticalAlignment="Bottom"></TextBlock>
+        </Grid>
+        
+    </Panel>
 
 
 </u:UrsaWindow>

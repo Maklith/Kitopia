@@ -24,7 +24,8 @@ public partial class MainWindowViewModel : ObservableRecipient
     }
 
     [ObservableProperty] private bool _settingPage = false;
-
+    //从解决方案配置获取版本号
+    [ObservableProperty] private string _version = "0.0.2.127";
     private void OnNavigation(MainWindowViewModel recipient, PageChangeEventArgs message)
     {
         Content = message.Key;
