@@ -19,6 +19,6 @@
         BorderThickness="0"
         Focusable="False"
         ShowActivated="False"
-
+        Topmost="True"
         Title="ToastShowWindow">
 </Window>
