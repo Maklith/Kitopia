@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO.Compression;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
@@ -31,7 +32,13 @@ public class PluginManager
     private static readonly ObservableCollection<PluginLocalInfo> AllPluginInfos = new();
     private static readonly Dictionary<string, Plugin> EnablePlugins = new();
 
-    public static HttpClient _httpClient = new();
+    public static HttpClient _httpClient = new()
+    {
+        DefaultRequestHeaders =
+        {
+            UserAgent = { new ProductInfoHeaderValue("Kitopia/1.0")}
+        }
+    };
 
     public static void Init()
     {

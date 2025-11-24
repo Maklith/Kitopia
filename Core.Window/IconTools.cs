@@ -21,7 +21,7 @@ using Size = System.Drawing.Size;
 
 namespace Core.Window;
 
-internal class IconTools
+internal partial class IconTools
 {
     private const uint SHGFI_ICON = 0x100;
     private const uint SHGFI_LARGEICON = 0x0;
@@ -64,180 +64,157 @@ internal class IconTools
         int nIcons, //The number of icons to extract from the file. Only valid when *.exe and *.dll
         int flags //Specifies flags that control this function.
     );
+    
+    public static Icon? GetIconFromImageList(string path, Shell32.SHIL size = Shell32.SHIL.SHIL_EXTRALARGE)
+    {
+        var shfi = new Shell32.SHFILEINFO();
+        var result = Shell32.SHGetFileInfo(
+            path, 
+            0, 
+            ref shfi, 
+            Shell32.SHFILEINFO.Size, 
+            Shell32.SHGFI.SHGFI_SYSICONINDEX); // 注意：移除了 SHGFI_ICON
 
-    //details:https://msdn.microsoft.com/en-us/library/windows/desktop/ms648063(v=vs.85).aspx
-    //Destroys an icon and frees any memory the icon occupied.
-    [DllImport("User32.dll")]
-    internal static extern bool DestroyIcon(
-        IntPtr hIcon //A handle to the icon to be destroyed. The icon must not be in use.
-    );
-
+        if (result == IntPtr.Zero) return null;
+        var hres = Shell32.SHGetImageList(size, typeof(ComCtl32.IImageList).GUID, out var listObj);
+    
+        if (hres.Failed || listObj is not ComCtl32.IImageList imgList) return null;
+        try 
+        {
+            var hIcon = imgList.GetIcon(shfi.iIcon, ComCtl32.IMAGELISTDRAWFLAGS.ILD_TRANSPARENT);
+            if (hIcon == IntPtr.Zero) return null;
+            var icon = (Icon)Icon.FromHandle(hIcon.DangerousGetHandle()).Clone();
+            User32.DestroyIcon(hIcon);
+        
+            return icon;
+        }
+        catch
+        {
+            return null;
+        }
+    }
     private static Icon? GetIconBase(string path, string cacheKey)
     {
-        switch (Path.GetExtension(path))
+        try
         {
-            case ".png":
-            case ".bmp":
-            case ".ico":
-            case ".jpg":
+            switch (Path.GetExtension(path))
             {
-                if (!File.Exists(path)) return null;
+                case ".png":
+                case ".bmp":
+                case ".ico":
+                case ".jpg":
+                {
+                    if (!File.Exists(path)) return null;
 
-                using var bm = new System.Drawing.Bitmap(path);
-                using var iconBm = new System.Drawing.Bitmap(bm, new Size(64, 64));
+                    using var bm = new System.Drawing.Bitmap(path);
+                    using var iconBm = new System.Drawing.Bitmap(bm, new Size(64, 64));
 
-                retry:
+                    retry:
+                    try
+                    {
+                        var icon = Icon.FromHandle(iconBm.GetHicon());
+                        return icon;
+                    }
+                    catch (Exception e)
+                    {
+                        goto retry;
+                    }
+                }
+                case ".msc":
+                {
+                    var index = 0;
+                    string dllPath;
+                    var xd = new XmlDocument();
+                    xd.Load(path); //加载xml文档
+                    var rootNode = xd.SelectSingleNode("MMC_ConsoleFile"); //得到xml文档的根节点
+                    var BinaryStorage = rootNode.SelectSingleNode("VisualAttributes").SelectSingleNode("Icon");
+                    index = int.Parse(((XmlElement)BinaryStorage).GetAttribute("Index"));
+                    dllPath = ((XmlElement)BinaryStorage).GetAttribute("File");
+
+                    dllPath = Environment.SystemDirectory + "\\" + dllPath.Split("\\").Last();
+                    path = dllPath;
+                    if (cacheKey.Contains("taskschd.msc"))
+                    {
+                        index += 1;
+                    }
+
+                    var iconTotalCount = PrivateExtractIcons(dllPath, index, 0, 0, null!, null!, 0, 0);
+
+                    //用于接收获取到的图标指针
+                    var hIcons = new IntPtr[iconTotalCount];
+                    //对应的图标id
+                    var ids = new int[iconTotalCount];
+                    //成功获取到的图标个数
+                    var successCount = PrivateExtractIcons((string)dllPath, index, 48, 48, hIcons, ids, iconTotalCount, 0);
+                    for (var i = 0; i < successCount; i++)
+                    {
+                        //指针为空，跳过
+                        if (hIcons[i] == IntPtr.Zero)
+                        {
+                            continue;
+                        }
+
+                        var icon = Icon.FromHandle(hIcons[i]);
+
+                        return icon;
+                    }
+
+                    break;
+                }
+            }
+            var match = MyRegex().Match(path);
+            if (match.Success)
+            {
+                // 获取匹配到的部分
+                string dllPath2 = match.Groups[1].Value;
+                int iconIndex = int.Parse(match.Groups[2].Value);
+
                 try
                 {
-                    var icon = Icon.FromHandle(iconBm.GetHicon());
-                    return icon;
+                    var safeHicon = Shell32.ExtractIconEx(dllPath2, iconIndex, 1,
+                        out User32.SafeHICON[]? large, out var small);
+                    if (safeHicon != 0 && large != null && large.Length != 0)
+                    {
+                        if (!large[0].IsNull)
+                        {
+                            var icon1 = Icon.FromHandle(large[0].DangerousGetHandle());
+                            return icon1;
+                        }
+
+                        for (var i = 1; i < large.Length; i++)
+                        {
+                            User32.DestroyIcon(large[i].DangerousGetHandle());
+                        }
+
+                        foreach (var hicon in small)
+                        {
+                            User32.DestroyIcon(hicon.DangerousGetHandle());
+                        }
+                    }
+
+                    var extractIcon = Icon.ExtractIcon(dllPath2, iconIndex);
+                    if (extractIcon is not null) return extractIcon;
                 }
                 catch (Exception e)
                 {
-                    goto retry;
+                    Log.Error(e, "ExtractIcon获取图标失败");
                 }
+
+                var iconByPe = GetIconByPe(dllPath2);
+                if (iconByPe != null) return iconByPe;
+                path = dllPath2;
             }
-            case ".msc":
-            {
-                var index = 0;
-                string dllPath;
-                var xd = new XmlDocument();
-                xd.Load(path); //加载xml文档
-                var rootNode = xd.SelectSingleNode("MMC_ConsoleFile"); //得到xml文档的根节点
-                var BinaryStorage = rootNode.SelectSingleNode("VisualAttributes").SelectSingleNode("Icon");
-                index = int.Parse(((XmlElement)BinaryStorage).GetAttribute("Index"));
-                dllPath = ((XmlElement)BinaryStorage).GetAttribute("File");
 
-                dllPath = Environment.SystemDirectory + "\\" + dllPath.Split("\\").Last();
-                path = dllPath;
-                if (cacheKey.Contains("taskschd.msc"))
-                {
-                    index += 1;
-                }
+            var jumboIcon = GetIconFromImageList(path, Shell32.SHIL.SHIL_EXTRALARGE); // 48x48 或更大
+            if (jumboIcon != null) return jumboIcon;
 
-                var iconTotalCount = PrivateExtractIcons(dllPath, index, 0, 0, null!, null!, 0, 0);
-
-                //用于接收获取到的图标指针
-                var hIcons = new IntPtr[iconTotalCount];
-                //对应的图标id
-                var ids = new int[iconTotalCount];
-                //成功获取到的图标个数
-                var successCount = PrivateExtractIcons((string)dllPath, index, 48, 48, hIcons, ids, iconTotalCount, 0);
-                for (var i = 0; i < successCount; i++)
-                {
-                    //指针为空，跳过
-                    if (hIcons[i] == IntPtr.Zero)
-                    {
-                        continue;
-                    }
-
-                    var icon = Icon.FromHandle(hIcons[i]);
-
-                    return icon;
-                }
-
-                break;
-            }
+            return null;
         }
-
-// Get the icon from the image list
-        var match = Regex.Match(path, @"(.+),(-?\d+)(?:#.*)?");
-
-        if (match.Success)
+        catch (Exception e)
         {
-            // 获取匹配到的部分
-            string dllPath2 = match.Groups[1].Value;
-            int iconIndex = int.Parse(match.Groups[2].Value);
-
-            try
-            {
-                var safeHicon = Shell32.ExtractIconEx(dllPath2, iconIndex, 1,
-                    out User32.SafeHICON[]? large, out var small);
-                if (safeHicon != 0 && large != null && large.Length != 0)
-                {
-                    if (!large[0].IsNull)
-                    {
-                        var icon1 = Icon.FromHandle(large[0].DangerousGetHandle());
-                        return icon1;
-                    }
-
-                    for (var i = 1; i < large.Length; i++)
-                    {
-                        DestroyIcon(large[i].DangerousGetHandle());
-                    }
-
-                    foreach (var hicon in small)
-                    {
-                        DestroyIcon(hicon.DangerousGetHandle());
-                    }
-                }
-
-                var extractIcon = Icon.ExtractIcon(dllPath2, iconIndex);
-                if (extractIcon is not null) return extractIcon;
-            }
-            catch (Exception e)
-            {
-                Log.Error(e, "ExtractIcon获取图标失败");
-            }
-
-            var iconByPe = GetIconByPe(dllPath2);
-            if (iconByPe != null) return iconByPe;
-            path = dllPath2;
+            Log.Error(e, $"获取图标失败，路径：{path}，缓存键：{cacheKey}");
+            return null;
         }
-
-        #region Get 64x64 Size Icon
-
-        {
-            var iconTotalCount = PrivateExtractIcons(path, 0, 0, 0, null!, null!, 0, 0);
-
-            //用于接收获取到的图标指针
-            var hIcons = new IntPtr[iconTotalCount];
-            //对应的图标id
-            var ids = new int[iconTotalCount];
-            //成功获取到的图标个数
-            var successCount = PrivateExtractIcons((string)path, 0, 64, 64, hIcons, ids, iconTotalCount, 0);
-
-            //遍历并保存图标
-            Icon? icon = null;
-            for (var i = 0; i < successCount; i++)
-            {
-                //指针为空，跳过
-                if (hIcons[i] == IntPtr.Zero) continue;
-
-                if (icon is null)
-                    icon = Icon.FromHandle(hIcons[i]);
-                else DestroyIcon(hIcons[i]);
-            }
-
-            if (icon is not null) return icon;
-        }
-
-        #endregion
-
-
-        var hres = Shell32.SHGetImageList(Shell32.SHIL.SHIL_EXTRALARGE, typeof(ComCtl32.IImageList2).GUID, out var iml);
-        if (hres.Failed) throw new Win32Exception(hres.Code);
-
-        // Get the icon index for a file
-        var shfi = new Shell32.SHFILEINFO();
-        var hIcon = Shell32.SHGetFileInfo(path, 0, ref shfi, Shell32.SHFILEINFO.Size,
-            Shell32.SHGFI.SHGFI_ICONLOCATION | Shell32.SHGFI.SHGFI_SYSICONINDEX | Shell32.SHGFI.SHGFI_ICON);
-        if (hIcon != IntPtr.Zero)
-        {
-            var safe = ((ComCtl32.IImageList2)iml).GetIcon(shfi.iIcon, ComCtl32.IMAGELISTDRAWFLAGS.ILD_TRANSPARENT);
-            if (safe == IntPtr.Zero) throw new Win32Exception();
-
-            try
-            {
-                return (Icon)Icon.FromHandle(safe);
-            }
-            catch (Exception e)
-            {
-                return null;
-            }
-        }
-
-        return null;
     }
 
     private static Icon? GetIconByPe(string dllPath2)
@@ -435,7 +412,7 @@ internal class IconTools
                     0, ref shinfo, (uint)Marshal.SizeOf(shinfo),
                     SHGFI_ICON | SHGFI_LARGEICON);
                 var independenceIcon12 = Icon.FromHandle(shinfo.hIcon).ToBitmap().ToAvaloniaBitmap();
-                DestroyIcon(shinfo.hIcon);
+                User32.DestroyIcon(shinfo.hIcon);
                 _icons.TryAdd(path, independenceIcon12);
                 item.Icon = independenceIcon12;
             }, e);
@@ -460,4 +437,7 @@ internal class IconTools
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
         internal string szTypeName;
     };
+
+    [GeneratedRegex(@"(.+),(-?\d+)(?:#.*)?")]
+    private static partial Regex MyRegex();
 }
