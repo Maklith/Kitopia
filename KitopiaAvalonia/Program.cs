@@ -65,7 +65,15 @@ internal class Program
             {
                 while (Application.Current is null) await Task.Delay(100);
 
-                OnStartup(args);
+                try
+                {
+                    OnStartup(args);
+                }
+                catch (Exception e)
+                {
+                    Log.Fatal(e, "启动失败");
+                    Environment.Exit(0);
+                }
             });
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);

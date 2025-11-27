@@ -22,16 +22,7 @@ public class CustomScenarioIdentifier : IInputDataIdentifier
     public CustomScenarioIdentifier()
     {
         _pinyinSearcher =
-            new PinyinSearcher<CustomScenarioSearcherWrapper>(_cache, nameof(CustomScenarioSearcherWrapper.PinyinItem));
-    }
-
-    public void UpdateCache(object? sender, EventArgs eventArgs)
-    {
-        if (sender is CustomScenario.CustomScenario scenario)
-        {
-            var customScenarioSearcherWrapper = _cache.Find(e => e.CustomScenario == scenario);
-            if (customScenarioSearcherWrapper != null) _cache.Remove(customScenarioSearcherWrapper);
-        }
+            new PinyinSearcher<CustomScenarioSearcherWrapper>(_cache, e => e.CustomScenario.Name);
     }
 
     public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(
@@ -68,5 +59,14 @@ public class CustomScenarioIdentifier : IInputDataIdentifier
 
         // }
         yield break;
+    }
+
+    public void UpdateCache(object? sender, EventArgs eventArgs)
+    {
+        if (sender is CustomScenario.CustomScenario scenario)
+        {
+            var customScenarioSearcherWrapper = _cache.Find(e => e.CustomScenario == scenario);
+            if (customScenarioSearcherWrapper != null) _cache.Remove(customScenarioSearcherWrapper);
+        }
     }
 }

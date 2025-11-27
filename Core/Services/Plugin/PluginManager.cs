@@ -5,7 +5,6 @@ using System.Collections.ObjectModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO.Compression;
-using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
@@ -28,6 +27,17 @@ namespace Core.Services.Plugin;
 
 public class PluginManager
 {
+    public enum VersionCheckResult
+    {
+        依赖正常,
+        依赖不存在,
+        依赖远端不存在,
+        依赖下载失败,
+        依赖未启用,
+        依赖版本不匹配,
+        Kitopia版本不匹配
+    }
+
     private static ILogger Log = LogManager.Logger.ForContext<PluginManager>();
     private static readonly ObservableCollection<PluginLocalInfo> AllPluginInfos = new();
     private static readonly Dictionary<string, Plugin> EnablePlugins = new();
@@ -36,21 +46,21 @@ public class PluginManager
     {
         DefaultRequestHeaders =
         {
-            UserAgent = { new ProductInfoHeaderValue("Kitopia/1.0")}
+            { "User-Agent", "Kitopia/1.0.0" }
         }
     };
 
     public static void Init()
     {
-        PluginCore.Kitopia.ISearchItemTool =
+        Kitopia.ISearchItemTool =
             (ISearchItemTool)ServiceManager.Services.GetService(typeof(ISearchItemTool))!;
-        PluginCore.Kitopia.IClipboardService = ServiceManager.Services.GetService<IClipboardService>()!;
-        PluginCore.Kitopia.IToastService = (IToastService)ServiceManager.Services.GetService(typeof(IToastService))!;
-        PluginCore.Kitopia._i18n = CustomScenarioGloble._i18n;
-        PluginCore.Kitopia.ToolTipConverters = CustomScenarioGloble.ToolTipConverters;
-        PluginCore.Kitopia.JsonConverters = CustomScenarioGloble.JsonConverters;
-        PluginCore.Kitopia.InferenceSessionManager = ServiceManager.Services.GetService<IInferenceSessionManager>()!;
-        PluginCore.Kitopia.Logger = LogManager.Logger;
+        Kitopia.IClipboardService = ServiceManager.Services.GetService<IClipboardService>()!;
+        Kitopia.IToastService = (IToastService)ServiceManager.Services.GetService(typeof(IToastService))!;
+        Kitopia._i18n = CustomScenarioGloble._i18n;
+        Kitopia.ToolTipConverters = CustomScenarioGloble.ToolTipConverters;
+        Kitopia.JsonConverters = CustomScenarioGloble.JsonConverters;
+        Kitopia.InferenceSessionManager = ServiceManager.Services.GetService<IInferenceSessionManager>()!;
+        Kitopia.Logger = LogManager.Logger;
         Load(true);
     }
 
@@ -230,17 +240,6 @@ public class PluginManager
     {
         AllPluginInfos.Clear();
         Load();
-    }
-
-    public enum VersionCheckResult
-    {
-        依赖正常,
-        依赖不存在,
-        依赖远端不存在,
-        依赖下载失败,
-        依赖未启用,
-        依赖版本不匹配,
-        Kitopia版本不匹配
     }
 
     public static (bool, ConcurrentDictionary<string, VersionCheckResult>) CheckDependencies(
@@ -426,7 +425,8 @@ public class PluginManager
                         {
                             var allText = File.ReadAllText($"{info.Path}.update");
                             if (int.TryParse(allText, out var versionId))
-                                DownloadPluginOnline(pluginBaseInfo.Id, pluginBaseInfo.NameSign, versionId).GetAwaiter().GetResult();
+                                DownloadPluginOnline(pluginBaseInfo.Id, pluginBaseInfo.NameSign, versionId).GetAwaiter()
+                                    .GetResult();
 
                             try
                             {

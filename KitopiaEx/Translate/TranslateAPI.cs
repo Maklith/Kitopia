@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -10,16 +9,23 @@ namespace KitopiaEx.Translate;
 
 public static class TranslateApi
 {
-    static HttpClient httpClient = new HttpClient();
+    static HttpClient httpClient = new HttpClient()
+    {
+        DefaultRequestHeaders =
+        {
+            { "User-Agent", "KitopiaEx/1.1.0" }
+        }
+    };
+
     private static string token;
-    
+
     private static async Task AuthAsync()
     {
         httpClient.DefaultRequestHeaders.Remove("Authorization");
-        httpClient.DefaultRequestHeaders.Add("Authorization",$"Bearer {token}");
-        httpClient.DefaultRequestHeaders.Add("User-Agent","KitopiaEx/1.1.0");
+        httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
         token = await httpClient.GetStringAsync("https://edge.microsoft.com/translate/auth");
     }
+
     public static string TargetTranslateLangToName(TargetTranslateLang lang)
     {
         return lang switch
@@ -31,11 +37,12 @@ public static class TranslateApi
             _ => throw new ArgumentOutOfRangeException(nameof(lang), lang, null)
         };
     }
+
     public static string SourceTranslateLangToName(SourceTranslateLang lang)
     {
         return lang switch
         {
-            SourceTranslateLang.自动检测=>"",
+            SourceTranslateLang.自动检测 => "",
             SourceTranslateLang.简体中文 => "zh-Hans",
             SourceTranslateLang.繁體中文 => "zh-Hant",
             SourceTranslateLang.English => "en",
@@ -43,11 +50,12 @@ public static class TranslateApi
             _ => throw new ArgumentOutOfRangeException(nameof(lang), lang, null)
         };
     }
-    
+
     private static bool CheckIsSuccess(string text)
     {
         return text.Contains("translations");
     }
+
     public static async Task<string> GetTranslation(string text, SourceTranslateLang from, TargetTranslateLang to)
     {
         try
@@ -58,8 +66,11 @@ public static class TranslateApi
                 ["Text"] = text
             });
             var content = new StringContent(jsonArray.ToJsonString(), Encoding.UTF8, "application/json");
-            
-            var response = await httpClient.PostAsync(new Uri($"https://api-edge.cognitive.microsofttranslator.com/translate?from={SourceTranslateLangToName(from)}&to={TargetTranslateLangToName(to)}&api-version=3.0&includeSentenceLength=true"), content);
+
+            var response = await httpClient.PostAsync(
+                new Uri(
+                    $"https://api-edge.cognitive.microsofttranslator.com/translate?from={SourceTranslateLangToName(from)}&to={TargetTranslateLangToName(to)}&api-version=3.0&includeSentenceLength=true"),
+                content);
             var r = await response.Content.ReadAsStringAsync();
             if (CheckIsSuccess(r))
             {
@@ -80,6 +91,5 @@ public static class TranslateApi
         {
             return e.Message;
         }
-        
     }
 }

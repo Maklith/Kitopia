@@ -31,6 +31,7 @@ public class FileTypeFilter
 {
     /// <summary>获取或设置文件类型 / Gets or sets the file type</summary>
     public FileType FileType { get; set; }
+
     /// <summary>获取或设置是否选中 / Gets or sets whether the filter is checked</summary>
     public bool IsChecked { get; set; }
 }
@@ -52,20 +53,19 @@ public partial class SearchWindowViewModel : ObservableRecipient
     [ObservableProperty] private ObservableList<SearchViewItem> _items = new();
     [ObservableProperty] private ISynchronizedView<SearchViewItem, SearchViewItem> _itemsView;
     [ObservableProperty] private NotifyCollectionChangedSynchronizedViewList<SearchViewItem> _itemsViewList;
-    private PinyinSearcher<SearchViewItem>? _pinyinReSearcher;
-    private PinyinSearcher<SearchViewItem> _pinyinSearcher;
+
+
+    [ObservableProperty] private bool _nowInSelectMode = false;
+    private PinyinSearcher<KeyValuePair<string, SearchViewItem>>? _pinyinSearcher;
 
     private bool _reloading = false;
 
 
     [ObservableProperty] private string? _search;
+    private Action<SearchViewItem?>? _selectAction;
 
 
     [ObservableProperty] private int? _selectedIndex = -1;
-
-
-    [ObservableProperty] private bool _nowInSelectMode = false;
-    private Action<SearchViewItem?>? _selectAction;
 
     [ObservableProperty] private bool _showFileTypeFilter = false;
     [ObservableProperty] public bool showInputData;
@@ -100,6 +100,15 @@ public partial class SearchWindowViewModel : ObservableRecipient
         ServiceManager.Services.GetService<IAppToolService>()!.DelNullFile(_collection);
         ServiceManager.Services.GetService<IAppToolService>()!.GetAllApps(_collection, logging,
             ConfigManger.Config.useEverything);
+        if (_pinyinSearcher is null)
+        {
+            _pinyinSearcher =
+                new PinyinSearcher<KeyValuePair<string, SearchViewItem>>(_collection, e => e.Value.ItemDisplayName);
+        }
+        else
+        {
+            _pinyinSearcher.AppendLoad(_collection, e => e.Value.ItemDisplayName);
+        }
 
 
         _reloading = false;
@@ -248,10 +257,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
     // ReSharper disable once RedundantAssignment
     public void ToSearch(string? value)
     {
-        if (_pinyinSearcher is null)
-            _pinyinSearcher = new PinyinSearcher<SearchViewItem>(_collection,
-                nameof(SearchViewItem.PinyinItem), true);
-
         //Log.Debug("搜索开始");
         if (string.IsNullOrEmpty(Search))
         {
@@ -277,7 +282,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
         var originalValue = Search;
         var lowerOriginalValue = Search.ToLowerInvariant();
-        value = Enumerable.First<string>(Search.Split(" ")).ToLowerInvariant();
+        value = Search.ToLowerInvariant();
         var pluginItem = 0;
 
 
@@ -293,23 +298,27 @@ public partial class SearchWindowViewModel : ObservableRecipient
         {
             #region 从文件索引检索并排序
 
-            var filtered = _pinyinSearcher.Search(value)
+            var filtered = _pinyinSearcher?.Search(value)
                 .ToList();
 
-            var sorted = filtered.OrderByDescending(x => x.Weight)
+            var sorted = filtered?.OrderByDescending(x => x.Weight)
                 .ToList();
 
             #endregion
 
+            if (sorted is null)
+            {
+                return;
+            }
 
             var count = 0; // 计数器变量
             const int limit = 100; // 限制次数
             Dictionary<SearchViewItem, int> nowHasLastOpens = new();
 
             for (var i = sorted.Count - 1; i >= 0; i--)
-                if (ConfigManger.Config.lastOpens.TryGetValue(sorted[i].Source.OnlyKey, out var open))
+                if (ConfigManger.Config.lastOpens.TryGetValue(sorted[i].Source.Value.OnlyKey, out var open))
                 {
-                    nowHasLastOpens.Add((SearchViewItem)sorted[i].Source, (int)sorted[i].Weight);
+                    nowHasLastOpens.Add((SearchViewItem)sorted[i].Source.Value, (int)sorted[i].Weight);
                     sorted.RemoveAt(i);
                 }
 
@@ -331,7 +340,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 if (count >= limit) // 如果达到了限制
                     break; // 跳出循环
 
-                var searchViewItem = (SearchViewItem)x.Source;
+                var searchViewItem = (SearchViewItem)x.Source.Value;
                 {
                     //Log.Debug("添加搜索结果" + x.Item.OnlyKey);
 
@@ -346,10 +355,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
             }
 
             //Items.RaiseListChangedEvents = true;
-            var strings = Search.Split(" ", StringSplitOptions.RemoveEmptyEntries);
-            if (strings.Length > 1)
-                for (var index = 1; index < strings.Length; index++)
-                    ReSearch(strings[index]);
         }
 
 
@@ -395,16 +400,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
     private void ReSearch(string value)
     {
-        if (_pinyinReSearcher is null)
-            _pinyinReSearcher = new PinyinSearcher<SearchViewItem>(Items,
-                nameof(SearchViewItem.PinyinItem), false);
-
-        var searchResultsEnumerable = _pinyinReSearcher.Search(value)
-            .OrderByDescending(x => x.Weight)
-            .ToList();
-        Items.Clear();
-        foreach (var searchResults in searchResultsEnumerable)
-            Items.Add(searchResults.Source);
     }
 
     public void SetSelectMode(bool flag, Action<SearchViewItem> action)
