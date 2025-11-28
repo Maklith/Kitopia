@@ -18,7 +18,7 @@ public class ItemNameMatchCtr : IValueConverter
         if (searchViewItem is not SearchViewItem str) return new InlineCollection();
 
         InlineCollection list = new();
-        if (str.PinyinItem == null)
+        if (str.PinyinItem == null|| str.PinyinItem.Length!= str.ItemDisplayName?.Length)
         {
             list.Add(new Run(str.ItemDisplayName));
             return list;
