@@ -318,7 +318,6 @@ public partial class AppTools
                             {
                                 collection.TryAdd(fullName, new SearchViewItem
                                 {
-                                    PinyinItem = _pinyinProcessor.GetPinyin(localizedName, true),
                                     IsVisible = true, ItemDisplayName = localizedName,
                                     OnlyKey = fullName, IsStared = star, Arguments = shellItem.Arguments,
                                     FileType = FileType.应用程序, Icon = null,
@@ -368,7 +367,6 @@ public partial class AppTools
                         {
                             collection.TryAdd(onlyKey, new SearchViewItem
                             {
-                                PinyinItem = _pinyinProcessor.GetPinyin(localizedName, true),
                                 IsVisible = true, ItemDisplayName = localizedName,
                                 OnlyKey = onlyKey, IsStared = star,
                                 IconPath = relFile,
@@ -413,7 +411,6 @@ public partial class AppTools
                                 FileType = fileType,
 
                                 OnlyKey = file,
-                                PinyinItem = _pinyinProcessor.GetPinyin(localizedName, true),
                                 IsStared = star,
                                 IsVisible = true
                             });
@@ -434,8 +431,6 @@ public partial class AppTools
                     FileType = FileType.文件夹,
                     IsStared = star,
                     OnlyKey = file,
-                    PinyinItem = _pinyinProcessor.GetPinyin(file.Split(Path.DirectorySeparatorChar)
-                        .Last(), true),
                     Icon = null,
                     IsVisible = true
                 });

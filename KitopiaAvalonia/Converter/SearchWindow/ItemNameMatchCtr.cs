@@ -18,20 +18,17 @@ public class ItemNameMatchCtr : IValueConverter
         if (searchViewItem is not SearchViewItem str) return new InlineCollection();
 
         InlineCollection list = new();
-        if (str.PinyinItem == null || str.PinyinItem.CharMatchResults == null || str.PinyinItem.SplitWords == null ||
-            str.PinyinItem.CharMatchResults.Length == 0 ||
-            str.PinyinItem.CharMatchResults.Length != str.PinyinItem.SplitWords.Length
-           )
+        if (str.PinyinItem == null)
         {
             list.Add(new Run(str.ItemDisplayName));
             return list;
         }
 
 
-        for (var i = 0; i < str.PinyinItem.SplitWords.Length; i++)
+        for (var i = 0; i < str.PinyinItem.Length; i++)
         {
-            var inline = new Run(str.PinyinItem.SplitWords[i]);
-            if (str.PinyinItem.CharMatchResults[i])
+            var inline = new Run(str.ItemDisplayName[i].ToString());
+            if (str.PinyinItem[i])
                 inline.Foreground = Brushes.OrangeRed;
 
             list.Add(inline);

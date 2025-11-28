@@ -133,7 +133,6 @@ internal class UwpTools
                 ItemDisplayName = fileName,
                 OnlyKey = $"{appContainer.appContainerName}!{id}",
                 FileType = FileType.UWP应用,
-                PinyinItem = AppTools.NameSolver(fileName),
                 IconPath = pa,
                 IsVisible = true
             };
@@ -153,7 +152,6 @@ internal class UwpTools
                         ItemDisplayName = fileName,
                         OnlyKey = $"{appContainer.appContainerName}!{id}",
                         FileType = FileType.UWP应用,
-                        PinyinItem = AppTools.NameSolver(fileName),
                         IconPath = enumerateFile.FullName,
                         IsVisible = true
                     };

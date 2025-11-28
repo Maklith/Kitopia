@@ -203,13 +203,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
             }
         }
 
-        foreach (var searchViewItem in Items)
-        {
-            if (searchViewItem.PinyinItem is null) continue;
-
-            searchViewItem.PinyinItem.CharMatchResults = [];
-        }
-
         FileTypes.Clear();
         ShowFileTypeFilter = FileTypes.Count > 0;
     }
@@ -301,7 +294,11 @@ public partial class SearchWindowViewModel : ObservableRecipient
             var filtered = _pinyinSearcher?.Search(value)
                 .ToList();
 
-            var sorted = filtered?.OrderByDescending(x => x.Weight)
+            var sorted = filtered?.OrderByDescending(x => x.Weight).Select(e =>
+                {
+                    e.Source.Value.PinyinItem = e.CharMatchResults;
+                    return e;
+                })
                 .ToList();
 
             #endregion

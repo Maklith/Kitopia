@@ -48,7 +48,6 @@ public class ControlPanelTools
                     ItemDisplayName = appContainer.ToString(),
                     OnlyKey = onlyKey,
                     FileType = FileType.控制面板,
-                    PinyinItem = AppTools.NameSolver(appContainer.ToString()),
                     IconPath = Environment.ExpandEnvironmentVariables(
                         (string?)reg2.OpenSubKey("DefaultIcon")?.GetValue("") ?? ""),
                     IsVisible = true
