@@ -205,6 +205,10 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
         FileTypes.Clear();
         ShowFileTypeFilter = FileTypes.Count > 0;
+        foreach (var searchViewItem in Items)
+        {
+            searchViewItem.PinyinItem = null;
+        }
     }
 
 
@@ -394,10 +398,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
         ShowFileTypeFilter = FileTypes.Count > 0;
     }
-
-    private void ReSearch(string value)
-    {
-    }
+    
 
     public void SetSelectMode(bool flag, Action<SearchViewItem> action)
     {
