@@ -37,6 +37,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OnnxRuntime.OpenVino", "Onn
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OnnxRuntime.CPU", "OnnxRuntime.CPU\OnnxRuntime.CPU.csproj", "{5B315CC7-34C7-4AEA-BFD0-C275522A63CD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KitopiaTest", "KitopiaTest\KitopiaTest.csproj", "{003DC581-CAE3-42AD-A052-EE995F42C121}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -293,6 +295,26 @@ Global
 		{5B315CC7-34C7-4AEA-BFD0-C275522A63CD}.Release|x64.Build.0 = Release|Any CPU
 		{5B315CC7-34C7-4AEA-BFD0-C275522A63CD}.Release|x86.ActiveCfg = Release|Any CPU
 		{5B315CC7-34C7-4AEA-BFD0-C275522A63CD}.Release|x86.Build.0 = Release|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Debug|ARM.Build.0 = Debug|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Debug|arm64.ActiveCfg = Debug|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Debug|arm64.Build.0 = Debug|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Debug|x64.Build.0 = Debug|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Debug|x86.Build.0 = Debug|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Release|Any CPU.Build.0 = Release|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Release|ARM.ActiveCfg = Release|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Release|ARM.Build.0 = Release|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Release|arm64.ActiveCfg = Release|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Release|arm64.Build.0 = Release|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Release|x64.ActiveCfg = Release|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Release|x64.Build.0 = Release|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Release|x86.ActiveCfg = Release|Any CPU
+		{003DC581-CAE3-42AD-A052-EE995F42C121}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
