@@ -403,7 +403,9 @@ public class ScreenCaptureByWGC : IScreenCapture
             
             framePool = Direct3D11CaptureFramePool.Create(
                 direct3DDeviceFromSharpDxDevice,
-                DirectXPixelFormat.R8G8B8A8UIntNormalized,
+                adapterForMonitor.Item2.ColorSpace.ToString().EndsWith("2020")
+                    ? DirectXPixelFormat.R16G16B16A16Float
+                    : DirectXPixelFormat.R8G8B8A8UIntNormalized,
                 2,
                 item.Size);
             
@@ -424,7 +426,9 @@ public class ScreenCaptureByWGC : IScreenCapture
             {
                 CPUAccessFlags = (uint)CpuAccessFlag.Read,
                 BindFlags = (uint)BindFlag.None,
-                Format = Format.FormatR8G8B8A8Unorm,
+                Format = adapterForMonitor.Item2.ColorSpace.ToString().EndsWith("2020")
+                    ? Format.FormatR16G16B16A16Float
+                    : Format.FormatR8G8B8A8Unorm,
                 Width =  (uint)(item.Size.Width),
                 Height = (uint)item.Size.Height,
                 MiscFlags = (uint)ResourceMiscFlag.None,
