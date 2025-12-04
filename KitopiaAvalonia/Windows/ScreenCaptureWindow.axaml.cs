@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Notifications;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
@@ -35,28 +36,30 @@ namespace KitopiaAvalonia.Windows;
 
 public partial class ScreenCaptureWindow : Window
 {
-    private enum SelectionState
-    {
-        None,
-        WindowSelecting,
-        MoveSelecting,
-        Selected
-    }
+    private WindowInfo _currentWindowInfo;
+    private Point _pointerStartPoint;
+    private ScreenCaptureInfo _screenCaptureInfo;
+    private Point _startPoint;
+    private List<WindowInfo> _windowInfos;
+    private bool Adding截图工具 = false;
+
+    private int count = 0;
+    private bool Finish = false;
+
+    private Button lastTool;
+    private CaptureToolBase Now截图工具;
 
     private SelectionState NowSelectionState = SelectionState.None;
-    private Point _startPoint;
-    private Point _pointerStartPoint;
+
+    public 截图工具 NowTool = 截图工具.无;
     public Stack<ScreenCaptureRedoInfo> redoStack = new();
-    private List<CaptureToolBase> tools = new();
-    private bool selectMode = false;
-    private Action<ScreenCaptureInfo> selectModeAction;
+    private RenderTargetBitmap? renderTargetBitmap;
     private bool selectBytesMode = false;
     private Action<ScreenCaptureResult> selectBytesModeAction;
     private Action selectBytesModeCancelAction;
-    private ScreenCaptureInfo _screenCaptureInfo;
-    private bool Finish = false;
-    private List<WindowInfo> _windowInfos;
-    private WindowInfo _currentWindowInfo;
+    private bool selectMode = false;
+    private Action<ScreenCaptureInfo> selectModeAction;
+    private List<CaptureToolBase> tools = new();
 
     public ScreenCaptureWindow(ScreenCaptureResult screenCaptureResult)
     {
@@ -111,6 +114,8 @@ public partial class ScreenCaptureWindow : Window
         });
     }
 
+    private bool ShowAlignLine => NowSelectionState == SelectionState.Selected;
+
     public void SetToSelectMode(Action<ScreenCaptureInfo> selectModeAction)
     {
         selectMode = true;
@@ -124,8 +129,6 @@ public partial class ScreenCaptureWindow : Window
         this.selectBytesModeAction = selectBytesModeAction;
         this.selectBytesModeCancelAction = selectBytesModeCancelAction;
     }
-
-    private bool ShowAlignLine => NowSelectionState == SelectionState.Selected;
 
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -424,10 +427,6 @@ public partial class ScreenCaptureWindow : Window
         UpdateSelectBox();
     }
 
-    public 截图工具 NowTool = 截图工具.无;
-    private bool Adding截图工具 = false;
-    private CaptureToolBase Now截图工具;
-
 
     private void SelectBox_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -607,9 +606,6 @@ public partial class ScreenCaptureWindow : Window
             e.Handled = true;
         }
     }
-
-    private int count = 0;
-    private RenderTargetBitmap? renderTargetBitmap;
 
     private void SelectBox_OnPointerMoved(object? sender, PointerEventArgs e)
     {
@@ -992,6 +988,7 @@ public partial class ScreenCaptureWindow : Window
                             });
                         });
                     else
+                    {
                         ServiceManager.Services.GetService<IClipboardService>()!
                             .SetImageAsync(new ScreenCaptureResult
                             {
@@ -1004,7 +1001,18 @@ public partial class ScreenCaptureWindow : Window
                                     ScreenInfo = _screenCaptureInfo.ScreenInfo
                                 },
                                 Source = mat
-                            }).ContinueWith(e => { mat.Dispose(); });
+                            }).ContinueWith(e =>
+                            {
+                                mat.Dispose();
+                                if (!e.Result)
+                                {
+                                    ServiceManager.Services.GetService<IToastService>().Show("截图失败", "无法复制到剪贴板",
+                                        NotificationType.Error
+                                    );
+                                }
+                            });
+                    }
+
                     bitmap.Dispose();
                     renderTargetBitmap.Dispose();
                 }
@@ -1026,8 +1034,6 @@ public partial class ScreenCaptureWindow : Window
         WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");
         Close();
     }
-
-    private Button lastTool;
 
     private void RectangleButton_OnClick(object? sender, RoutedEventArgs e)
     {
@@ -1276,5 +1282,13 @@ public partial class ScreenCaptureWindow : Window
             e.Source?.Dispose();
         };
         FinnishCapture();
+    }
+
+    private enum SelectionState
+    {
+        None,
+        WindowSelecting,
+        MoveSelecting,
+        Selected
     }
 }
