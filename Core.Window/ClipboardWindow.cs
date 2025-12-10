@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using System.Threading.RateLimiting;
+﻿using System.Threading.RateLimiting;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -166,7 +165,6 @@ public class ClipboardWindow : IClipboardService
             {
                 try
                 {
-                    // Ensure source is valid
                     var src = screenCaptureResult.Source;
                     if (src == null || src.Width == 0 || src.Height == 0)
                     {
@@ -190,7 +188,6 @@ public class ClipboardWindow : IClipboardService
                     }
                     else
                     {
-                        // Fallback: convert to 4 channels
                         Cv2.CvtColor(src, bgra, ColorConversionCodes.BGR2BGRA);
                     }
 
@@ -200,50 +197,12 @@ public class ClipboardWindow : IClipboardService
                     int stride = width * bytesPerPixel;
                     int bufferSize = stride * height;
 
-                    // Copy native data into managed array so we can premultiply alpha if necessary
-                    byte[] pixels = new byte[bufferSize];
-                    Marshal.Copy(bgra.Data, pixels, 0, bufferSize);
+                    var bitmapSource = BitmapSource.Create(width, height, 96, 96, PixelFormats.Pbgra32,
+                        null, bgra.Data, bufferSize, stride);
 
-                    // Check if premultiplication of alpha is needed (any alpha != 255)
-                    bool needPremultiply = false;
-                    for (int i = 3; i < pixels.Length; i += 4)
-                    {
-                        if (pixels[i] != 255)
-                        {
-                            needPremultiply = true;
-                            break;
-                        }
-                    }
-
-                    if (needPremultiply)
-                    {
-                        for (int i = 0; i < pixels.Length; i += 4)
-                        {
-                            byte a = pixels[i + 3];
-                            if (a == 0)
-                            {
-                                pixels[i] = 0;
-                                pixels[i + 1] = 0;
-                                pixels[i + 2] = 0;
-                            }
-                            else if (a < 255)
-                            {
-                                // premultiply
-                                pixels[i] = (byte)((pixels[i] * a + 127) / 255);
-                                pixels[i + 1] = (byte)((pixels[i + 1] * a + 127) / 255);
-                                pixels[i + 2] = (byte)((pixels[i + 2] * a + 127) / 255);
-                            }
-                        }
-                    }
-
-                    // Create a BitmapSource with premultiplied BGRA (Pbgra32)
-                    var bitmapSource = BitmapSource.Create(width, height, 96, 96, PixelFormats.Pbgra32, null, pixels,
-                        stride);
-
-                    // Place image into clipboard
+                    Clipboard.Clear();
                     Clipboard.SetImage(bitmapSource);
                     Clipboard.Flush();
-
                     tcs.SetResult(true);
                 }
                 catch (Exception exception)

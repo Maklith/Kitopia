@@ -18,20 +18,15 @@ namespace Core.ViewModel.Main;
 /// </summary>
 public partial class MainWindowViewModel : ObservableRecipient
 {
+    [ObservableProperty] private object? _content;
+
+    [ObservableProperty] private bool _settingPage = false;
+    [ObservableProperty] private string _version = "0.0.2.129";
+
     public MainWindowViewModel()
     {
         WeakReferenceMessenger.Default.Register<MainWindowViewModel, PageChangeEventArgs>(this, OnNavigation);
     }
-
-    [ObservableProperty] private bool _settingPage = false;
-    [ObservableProperty] private string _version = "0.0.2.128";
-    private void OnNavigation(MainWindowViewModel recipient, PageChangeEventArgs message)
-    {
-        Content = message.Key;
-        SettingPage = message.Key == "Setting";
-    }
-
-    [ObservableProperty] private object? _content;
 
     public ObservableCollection<MenuItemViewModel> MenuItems { get; } = new()
     {
@@ -79,6 +74,12 @@ public partial class MainWindowViewModel : ObservableRecipient
         }
     };
 
+    private void OnNavigation(MainWindowViewModel recipient, PageChangeEventArgs message)
+    {
+        Content = message.Key;
+        SettingPage = message.Key == "Setting";
+    }
+
     [RelayCommand]
     public void ActivateSettingPage()
     {
@@ -112,6 +113,15 @@ public class PageChangeEventArgs
 
 public partial class MenuItemViewModel : ObservableObject
 {
+    [ObservableProperty] private bool _isSelected = false;
+
+    public MenuItemViewModel()
+    {
+        WeakReferenceMessenger.Default.Register<PageChangeEventArgs>(this,
+            (recipient, message) => { IsSelected = message.Key == Key; });
+        ActivateCommand = new RelayCommand(OnActivate);
+    }
+
     public string MenuHeader { get; set; }
     public string MenuIconGlyph { get; set; }
     public string MenuIconFilledGlyph { get; set; }
@@ -121,15 +131,6 @@ public partial class MenuItemViewModel : ObservableObject
 
     public ObservableCollection<MenuItemViewModel> Children { get; set; } = new();
     public ICommand ActivateCommand { get; set; }
-
-    [ObservableProperty] private bool _isSelected = false;
-
-    public MenuItemViewModel()
-    {
-        WeakReferenceMessenger.Default.Register<PageChangeEventArgs>(this,
-            (recipient, message) => { IsSelected = message.Key == Key; });
-        ActivateCommand = new RelayCommand(OnActivate);
-    }
 
     private void OnActivate()
     {
