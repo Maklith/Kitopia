@@ -19,7 +19,7 @@
     <u:UrsaWindow.TitleBarContent>
         
     </u:UrsaWindow.TitleBarContent>
-    <Grid RowDefinitions="*,40,*" Margin="15,30,15,15" >
+    <Grid RowDefinitions="*,40,*" Margin="15,30,15,15" x:DataType="translate:TranslateWindowViewModel">
         <TextBox  Classes="ClearButton TextArea" VerticalAlignment="Stretch" VerticalContentAlignment="Top" 
                   TextWrapping="Wrap" Text="{Binding SourceText}"></TextBox>
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -28,7 +28,8 @@
                 Width="150"
                 EnumType="translate:SourceTranslateLang"
                 Value="{Binding SourceTranslateLang}" />
-            <TextBlock Text="->" VerticalAlignment="Center" Margin="10,0,10,0"></TextBlock>
+            <Button Content="->" VerticalAlignment="Center" Width="32" Height="32" Theme="{StaticResource BorderlessButton}" 
+                    Margin="0" Padding="0" ToolTip.Tip="交换" Command="{Binding SwapLanguagesCommand}"></Button>
             <u:EnumSelector
                 Width="150"
                 EnumType="translate:TargetTranslateLang"

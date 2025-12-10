@@ -29,5 +29,27 @@ public partial class TranslateWindowViewModel : ObservableObject
     {
         TargetText=await TranslateApi.GetTranslation(SourceText, SourceTranslateLang, TargetTranslateLang);
     }
+    [RelayCommand]
+    private async Task SwapLanguages()
+    {
+        var tempLang = SourceTranslateLang;
+        SourceTranslateLang = TargetTranslateLang switch
+        {
+            TargetTranslateLang.简体中文 => SourceTranslateLang.简体中文,
+            TargetTranslateLang.繁體中文 => SourceTranslateLang.繁體中文,
+            TargetTranslateLang.English => SourceTranslateLang.English,
+            TargetTranslateLang.日本語 => SourceTranslateLang.日本語,
+            _ => throw new ArgumentOutOfRangeException()
+        };
+        TargetTranslateLang = tempLang switch
+        {
+            SourceTranslateLang.简体中文 => TargetTranslateLang.简体中文,
+            SourceTranslateLang.繁體中文 => TargetTranslateLang.繁體中文,
+            SourceTranslateLang.English => TargetTranslateLang.English,
+            SourceTranslateLang.日本語 => TargetTranslateLang.日本語,
+            SourceTranslateLang.自动检测 => TargetTranslateLang.简体中文,
+            _ => throw new ArgumentOutOfRangeException()
+        };
+    }
    
 }
