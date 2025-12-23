@@ -153,7 +153,7 @@
                             Click="LongCaptureButton_OnClick">
                         <controls1:FontIcon VerticalAlignment="Center" HorizontalAlignment="Center" Width="24"
                                             Height="24"
-                                            FontFamily="{StaticResource FluentFont}" Glyph="&#xe9bd;" FontSize="24" />
+                                            FontFamily="{StaticResource FluentFont}" RenderTransform="rotate(90deg)" Glyph="&#xE8C2;" FontSize="24" />
                     </Button>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="2">
