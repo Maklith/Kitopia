@@ -1104,15 +1104,62 @@ public partial class ScreenCaptureWindow : Window
     {
         ToolBar.IsVisible = true;
         ToolBar.Measure(Bounds.Size);
-        if (SelectBox._dragTransform.X + SelectBox.Width + ToolBar.DesiredSize.Width > Bounds.Width)
-            ToolBar.SetValue(Canvas.LeftProperty, Bounds.Width - ToolBar.DesiredSize.Width);
-        else
-            ToolBar.SetValue(Canvas.LeftProperty, SelectBox._dragTransform.X + SelectBox.Width);
+        var margin = 5.0;
+        var toolBarWidth = ToolBar.DesiredSize.Width;
+        var toolBarHeight = ToolBar.DesiredSize.Height;
 
-        if (SelectBox._dragTransform.Y + SelectBox.Height + ToolBar.DesiredSize.Height > Bounds.Height)
-            ToolBar.SetValue(Canvas.TopProperty, Bounds.Height - ToolBar.DesiredSize.Height);
+        // Determine scaling and current screen logical bounds
+        var scaling = 1.0;
+        var primaryScreen = Screens.ScreenFromPoint(Position);
+        if (primaryScreen != null) scaling = primaryScreen.Scaling;
+
+        var selCenterLogical = new Point(SelectBox._dragTransform.X + SelectBox.Width / 2,
+                                         SelectBox._dragTransform.Y + SelectBox.Height / 2);
+        var selCenterPhysical = Position + PixelPoint.FromPoint(selCenterLogical, scaling);
+        var targetScreen = Screens.ScreenFromPoint(selCenterPhysical);
+
+        double minX_logical, minY_logical, maxX_logical, maxY_logical;
+
+        if (targetScreen != null)
+        {
+            minX_logical = (targetScreen.Bounds.X - Position.X) / scaling;
+            minY_logical = (targetScreen.Bounds.Y - Position.Y) / scaling;
+            maxX_logical = minX_logical + targetScreen.Bounds.Width / scaling;
+            maxY_logical = minY_logical + targetScreen.Bounds.Height / scaling;
+        }
         else
-            ToolBar.SetValue(Canvas.TopProperty, SelectBox._dragTransform.Y + SelectBox.Height);
+        {
+            minX_logical = 0;
+            minY_logical = 0;
+            maxX_logical = Bounds.Width;
+            maxY_logical = Bounds.Height;
+        }
+
+        var left = SelectBox._dragTransform.X + SelectBox.Width + margin;
+        var top = SelectBox._dragTransform.Y + SelectBox.Height + margin;
+
+        if (left + toolBarWidth + margin > maxX_logical)
+        {
+            left = maxX_logical - toolBarWidth - margin;
+        }
+        if (left < minX_logical + margin) left = minX_logical + margin;
+
+        if (top + toolBarHeight + margin > maxY_logical)
+        {
+            var topAbove = SelectBox._dragTransform.Y - toolBarHeight - margin;
+            if (topAbove >= minY_logical + margin)
+            {
+                top = topAbove;
+            }
+            else
+            {
+                top = maxY_logical - toolBarHeight - margin;
+            }
+        }
+        if (top < minY_logical + margin) top = minY_logical + margin;
+
+        ToolBar.SetValue(Canvas.LeftProperty, left);
+        ToolBar.SetValue(Canvas.TopProperty, top);
     }
 
     private void Rectangle_OnPointerEntered(object? sender, PointerEventArgs e)
