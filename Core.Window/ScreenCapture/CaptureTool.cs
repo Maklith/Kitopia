@@ -60,16 +60,14 @@ public static class CaptureTool
                 ]
             );
             Cv2.Transform(mat, mat, Mat.FromArray(matrix));
-            Cv2.Log(new Scalar(1, 1, 1) + mat, mat);
-            double minVal, maxVal;
-            Cv2.MinMaxLoc(mat, out minVal, out maxVal);
-            if (maxVal > 1e-6) // 避免除以0
-            {
-                mat /= maxVal; // 归一化到 0-1
-            }
-
-            Cv2.Pow(mat, 1.5 / 2.2, mat);
-            mat.ConvertTo(mat, MatType.CV_8UC4, 255.0);
+            
+            // 移除自动曝光逻辑，直接使用Gamma矫正和裁剪
+            // 1.0 (SDR White) -> 1.0 (Output White)
+            // >1.0 (HDR Highlights) -> Clipped to 255
+            Cv2.Pow(mat, 1.0 / 2.2, mat);
+            mat *= 255.0;
+            
+            mat.ConvertTo(mat, MatType.CV_8UC4);
             Cv2.CvtColor(mat, mat, ColorConversionCodes.RGB2BGRA);
             if (screenCaptureInfo.ScreenCaptureType != ScreenCaptureType.窗口)
             {
