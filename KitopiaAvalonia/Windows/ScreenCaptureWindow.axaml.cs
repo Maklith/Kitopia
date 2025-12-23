@@ -203,7 +203,14 @@ public partial class ScreenCaptureWindow : Window
 
             // 2. Hide window to reveal content behind
             this.Hide();
-            await Task.Delay(500); // Wait for scroll animation/render
+            
+            // Show Progress Window
+            var progressWindow = new LongScreenshotProgressWindow();
+           
+
+            
+
+            await Task.Delay(500); // Wait for animation/hide
 
             var captureManager = ServiceManager.Services.GetService<IScreenCaptureManager>();
             var simulator = new EventSimulator();
@@ -211,23 +218,43 @@ public partial class ScreenCaptureWindow : Window
             // 3. Initial Capture
             var accumulatorResult = captureManager!.CaptureScreenBytes(captureInfo);
             var accumulator = accumulatorResult.Source;
+            progressWindow.Width = accumulator.Width;
             
+            progressWindow.Position = new PixelPoint(captureInfo.X, (int)(captureInfo.Y- captureInfo.Height ));
+            progressWindow.Show();
             if (accumulator == null || accumulator.Empty())
             {
                  ServiceManager.Services.GetService<IToastService>()?.Show("错误", "初始截图失败", NotificationType.Error);
+                 progressWindow.Close();
                  this.Show();
                  _isLongCapturing = false;
                  return;
             }
+            
+            progressWindow.UpdateImage(accumulator);
 
             // 4. Scroll and Stitch Loop
             int maxScrolls = 50;
-            int scrollStep = -140; // Negative is down
+            
+            // Dynamic Scroll Step based on Capture Height
+            // Baseline: 120 delta (~1 notch) for ~600px height.
+            // If window is small (300px), use half notch (60) to avoid jumping over content.
+            // If window is large (1200px), use 2 notches (240) to speed up.
+            double stepRatio = captureInfo.Height / 300.0;
+            int stepMagnitude = (int)(120 * stepRatio);
+            
+            // Clamp values
+            if (stepMagnitude < 120) stepMagnitude = 120;
+            if (stepMagnitude > 360) stepMagnitude = 360; 
+
+            short scrollStep = (short)-stepMagnitude; // Negative is down
             
             for (int i = 0; i < maxScrolls; i++)
             {
+                if (progressWindow.IsStopRequested) break;
+                
                 // Scroll
-                simulator.SimulateMouseWheel(  (short)scrollStep);
+                simulator.SimulateMouseWheel((short)scrollStep);
                 await Task.Delay(500); // Wait for scroll animation/render
 
                 // Capture new frame
@@ -249,6 +276,9 @@ public partial class ScreenCaptureWindow : Window
                     var oldAccumulator = accumulator;
                     accumulator = stitched;
                     oldAccumulator.Dispose();
+                    
+                    // Update Progress
+                    progressWindow.UpdateImage(accumulator);
                 }
                 else
                 {
@@ -256,9 +286,11 @@ public partial class ScreenCaptureWindow : Window
                     break;
                 }
             }
+            
+            progressWindow.Close();
 
             // 5. Restore Window
-            //this.Show();
+            this.Show();
             
             // 6. Finish
             ServiceManager.Services.GetService<IClipboardService>()!

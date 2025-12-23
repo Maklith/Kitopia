@@ -115,6 +115,9 @@
         <Compile Update="Windows\TaskEditors\TaskEditorValueToScenarioMethodNode.axaml.cs">
             <DependentUpon>TaskEditorValueToScenarioMethodNode.axaml</DependentUpon>
         </Compile>
+        <Compile Update="Windows\LongScreenshotProgressWindow.axaml.cs">
+          <DependentUpon>LongScreenshotProgressWindow.axaml</DependentUpon>
+        </Compile>
     </ItemGroup>
     <ItemGroup>
         <Folder Include="Converter\MarketPage\"/>
