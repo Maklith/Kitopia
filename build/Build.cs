@@ -83,7 +83,7 @@ class Build : NukeBuild
                 .SetProjectFile(AvaloniaProject.Path)
                 .SetOutputDirectory(rootDirectory)
                 .SetRuntime("win-x64")
-                .SetFramework("net9.0-windows10.0.19041.0")
+                .SetFramework("net10.0-windows10.0.19041.0")
                 .SetConfiguration("Release")
             );
         });
@@ -210,7 +210,7 @@ class Build : NukeBuild
                     .SetProject("KitopiaEx")
                     .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaex")
                     .SetRuntime("win-x64")
-                    .SetFramework("net9.0")
+                    .SetFramework("net10.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(false)
                 );
@@ -218,7 +218,7 @@ class Build : NukeBuild
                     .SetProject("OnnxRuntime.CPU")
                     .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaonnxruntimecpu")
                     .SetRuntime("win-x64")
-                    .SetFramework("net9.0")
+                    .SetFramework("net10.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(false)
                 );
@@ -227,7 +227,7 @@ class Build : NukeBuild
                     .SetOutput(RootDirectory / "Publish")
                     .SetPublishSingleFile(true)
                     .SetRuntime("win-x64")
-                    .SetFramework("net9.0-windows10.0.19041.0")
+                    .SetFramework("net10.0-windows10.0.19041.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(false)
                 );
@@ -261,7 +261,7 @@ class Build : NukeBuild
                     .SetProject("KitopiaEx")
                     .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaex")
                     .SetRuntime("win-x64")
-                    .SetFramework("net9.0")
+                    .SetFramework("net10.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(false)
                 );
@@ -269,7 +269,7 @@ class Build : NukeBuild
                     .SetProject("OnnxRuntime.CPU")
                     .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaonnxruntimecpu")
                     .SetRuntime("win-x64")
-                    .SetFramework("net9.0")
+                    .SetFramework("net10.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(false)
                 );
@@ -278,7 +278,7 @@ class Build : NukeBuild
                     .SetOutput(RootDirectory / "Publish")
                     .SetPublishSingleFile(true)
                     .SetRuntime("win-x64")
-                    .SetFramework("net9.0-windows10.0.19041.0")
+                    .SetFramework("net10.0-windows10.0.19041.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(false)
                 );
@@ -302,7 +302,7 @@ class Build : NukeBuild
                     .SetOutput(RootDirectory / "Publish_SelfContained" / "plugins" /
                                "kitopiaex")
                     .SetRuntime("win-x64")
-                    .SetFramework("net9.0")
+                    .SetFramework("net10.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(true)
                 );
@@ -310,7 +310,7 @@ class Build : NukeBuild
                     .SetProject("OnnxRuntime.CPU")
                     .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaonnxruntimecpu")
                     .SetRuntime("win-x64")
-                    .SetFramework("net9.0")
+                    .SetFramework("net10.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(true)
                 );
@@ -319,7 +319,7 @@ class Build : NukeBuild
                     .SetOutput(RootDirectory / "Publish_SelfContained")
                     .SetPublishSingleFile(true)
                     .SetRuntime("win-x64")
-                    .SetFramework("net9.0-windows10.0.19041.0")
+                    .SetFramework("net10.0-windows10.0.19041.0")
                     .SetConfiguration("Release")
                     .SetSelfContained(true)
                 );
@@ -382,7 +382,7 @@ class Build : NukeBuild
             DotNetPublish(c => new DotNetPublishSettings()
                 .SetProject($"ModernInstaller{Path.DirectorySeparatorChar}ModernInstaller.Uninstaller")
                 .SetOutput(RootDirectory / "ModernInstaller" / "Publish")
-                .SetFramework("net9.0-windows")
+                .SetFramework("net10.0-windows")
                 .SetRuntime("win-x86")
                 .SetConfiguration("Release")
                 .SetSelfContained(true)
@@ -410,7 +410,7 @@ class Build : NukeBuild
                 //.SetProject("AvaloniaApplication1")
                 .SetProject($"ModernInstaller{Path.DirectorySeparatorChar}ModernInstaller")
                 .SetOutput(RootDirectory / "ModernInstaller" / "Publish")
-                .SetFramework("net9.0-windows")
+                .SetFramework("net10.0-windows")
                 .SetRuntime("win-x86")
                 .SetConfiguration("Release")
                 .SetSelfContained(true)
