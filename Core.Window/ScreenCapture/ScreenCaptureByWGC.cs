@@ -46,7 +46,7 @@ public class ScreenCaptureByWGC : IScreenCapture
                     Width = arg3.right - arg3.left,
                     Height = arg3.bottom - arg3.top,
                     hMonitor = arg1,
-                    
+                    SdrWhiteLevelScale = DisplayConfigHelper.GetSdrWhiteLevel(arg1)
                 }
                 
             });
@@ -307,6 +307,7 @@ public class ScreenCaptureByWGC : IScreenCapture
                 {
                     var monitorFromWindow = User32.MonitorFromWindow(screenCaptureInfo.WindowInfo.Hwnd,User32.MonitorFlags.MONITOR_DEFAULTTONEAREST);
                     screenCaptureInfo.ScreenInfo.hMonitor = monitorFromWindow.DangerousGetHandle();
+                    screenCaptureInfo.ScreenInfo.SdrWhiteLevelScale = DisplayConfigHelper.GetSdrWhiteLevel(screenCaptureInfo.ScreenInfo.hMonitor);
                     break;
                 }
                 else  if (allWindowInfo.Any(e=>e.Title==screenCaptureInfo.WindowInfo.Title&&e.ModuleFileName==screenCaptureInfo.WindowInfo.ModuleFileName))
@@ -314,12 +315,14 @@ public class ScreenCaptureByWGC : IScreenCapture
                     screenCaptureInfo.WindowInfo=allWindowInfo.First(e=>e.Title==screenCaptureInfo.WindowInfo.Title&&e.ModuleFileName==screenCaptureInfo.WindowInfo.ModuleFileName);
                     var monitorFromWindow = User32.MonitorFromWindow(screenCaptureInfo.WindowInfo.Hwnd,User32.MonitorFlags.MONITOR_DEFAULTTONEAREST);
                     screenCaptureInfo.ScreenInfo.hMonitor = monitorFromWindow.DangerousGetHandle();
+                    screenCaptureInfo.ScreenInfo.SdrWhiteLevelScale = DisplayConfigHelper.GetSdrWhiteLevel(screenCaptureInfo.ScreenInfo.hMonitor);
                     break;
                 }else  if (allWindowInfo.Any(e=>e.ModuleFileName==screenCaptureInfo.WindowInfo.ModuleFileName))
                 {
                     screenCaptureInfo.WindowInfo=allWindowInfo.First(e=>e.ModuleFileName==screenCaptureInfo.WindowInfo.ModuleFileName);
                     var monitorFromWindow = User32.MonitorFromWindow(screenCaptureInfo.WindowInfo.Hwnd,User32.MonitorFlags.MONITOR_DEFAULTTONEAREST);
                     screenCaptureInfo.ScreenInfo.hMonitor = monitorFromWindow.DangerousGetHandle();
+                    screenCaptureInfo.ScreenInfo.SdrWhiteLevelScale = DisplayConfigHelper.GetSdrWhiteLevel(screenCaptureInfo.ScreenInfo.hMonitor);
                     break;
                 }
                 throw new Exception("目标窗口不存在");

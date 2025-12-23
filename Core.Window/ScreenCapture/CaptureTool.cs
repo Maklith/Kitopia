@@ -61,6 +61,11 @@ public static class CaptureTool
             );
             Cv2.Transform(mat, mat, Mat.FromArray(matrix));
             
+            // Normalize by SDR White Level Scale from Windows Settings
+            float scale = screenCaptureInfo.ScreenInfo.SdrWhiteLevelScale;
+            if (scale < 0.1f) scale = 1.0f; // Safety check
+            mat /= scale;
+
             // 移除自动曝光逻辑，直接使用Gamma矫正和裁剪
             // 1.0 (SDR White) -> 1.0 (Output White)
             // >1.0 (HDR Highlights) -> Clipped to 255
