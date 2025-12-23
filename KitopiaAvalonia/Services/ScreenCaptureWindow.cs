@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -13,12 +15,12 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
     public void CaptureScreen()
     {
         var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBytes();
-        while (results.TryPop(out var result))
+        var window = new Windows.ScreenCaptureWindow(results);
+        foreach (var result in results)
         {
-            var window = new Windows.ScreenCaptureWindow(result);
-            result.Source.Dispose();
-            window.Show();
+            result.Source?.Dispose();
         }
+        window.Show();
 
         GC.Collect(2, GCCollectionMode.Aggressive);
     }
@@ -26,13 +28,13 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
     public void RequestUserSelectScreenInfo(Action<ScreenCaptureInfo> action)
     {
         var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBytes();
-        while (results.TryPop(out var result))
+        var window = new Windows.ScreenCaptureWindow(results);
+        foreach (var result in results)
         {
-            var window = new Windows.ScreenCaptureWindow(result);
-            result.Source.Dispose();
-            window.SetToSelectMode(action.Invoke);
-            window.Show();
+            result.Source?.Dispose();
         }
+        window.SetToSelectMode(action.Invoke);
+        window.Show();
     }
 
     public void RequestUserSelectScreenBytes(Action<ScreenCaptureResult> action, Action cancle)
@@ -40,23 +42,13 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
         Dispatcher.UIThread.Invoke(() =>
         {
             var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBytes();
-            var count = results.Count;
-            var cancelCount = 0;
-            var @lock = new Lock();
-            while (results.TryPop(out var result))
+            var window = new Windows.ScreenCaptureWindow(results);
+            foreach (var result in results)
             {
-                var window = new Windows.ScreenCaptureWindow(result);
-                result.Source.Dispose();
-                window.SetToSelectBytesMode(action.Invoke, () =>
-                {
-                    lock (@lock)
-                    {
-                        cancelCount++;
-                        if (count == cancelCount) cancle.Invoke();
-                    }
-                });
-                window.Show();
+                result.Source?.Dispose();
             }
+            window.SetToSelectBytesMode(action.Invoke, cancle);
+            window.Show();
         });
     }
 

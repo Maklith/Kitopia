@@ -14,9 +14,9 @@
 
     <Canvas RenderTransformOrigin="0%,0%">
 
-        <Image Name="Image" Width="{Binding $parent[Canvas].Bounds.Width}"
+        <Image Name="Image" Width="{Binding $parent[Canvas].Bounds.Width}" Stretch="Fill"
                Height="{Binding $parent[Canvas].Bounds.Height}" />
-        <Image Name="MosaicImage" Width="{Binding $parent[Canvas].Bounds.Width}"
+        <Image Name="MosaicImage" Width="{Binding $parent[Canvas].Bounds.Width}" Stretch="Fill"
                Height="{Binding $parent[Canvas].Bounds.Height}" />
         <capture:PenCaptureTool Name="MosaicCanvas" Width="{Binding $parent[Canvas].Bounds.Width}" ZIndex="-1"
                                 Height="{Binding $parent[Canvas].Bounds.Height}" Stroke="Black" Fill="Black"

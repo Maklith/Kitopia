@@ -41,6 +41,7 @@ public partial class ScreenCaptureWindow : Window
     private ScreenCaptureInfo _screenCaptureInfo;
     private Point _startPoint;
     private List<WindowInfo> _windowInfos;
+    private List<ScreenCaptureInfo> _screens = new();
     private bool Adding截图工具 = false;
 
     private int count = 0;
@@ -61,14 +62,79 @@ public partial class ScreenCaptureWindow : Window
     private Action<ScreenCaptureInfo> selectModeAction;
     private List<CaptureToolBase> tools = new();
 
-    public ScreenCaptureWindow(ScreenCaptureResult screenCaptureResult)
+    public ScreenCaptureWindow(IEnumerable<ScreenCaptureResult> screenCaptureResults)
     {
         InitializeComponent();
         _windowInfos = ServiceManager.Services.GetService<IScreenCaptureManager>()!.GetAllWindowInfo();
-        _screenCaptureInfo = screenCaptureResult.Info;
-        Image.Source = screenCaptureResult.Source.ToAWriteableBitmap();
-        Position = new PixelPoint(screenCaptureResult.Info.ScreenInfo.X, screenCaptureResult.Info.ScreenInfo.Y);
-        WindowState = WindowState.FullScreen;
+        
+        var results = screenCaptureResults.ToList();
+        _screens = results.Select(r => r.Info).ToList();
+        
+        int minX = 0, minY = 0, width = 0, height = 0;
+        
+        if (results.Count > 0) 
+        {
+            minX = results.Min(r => r.Info.ScreenInfo.X);
+            minY = results.Min(r => r.Info.ScreenInfo.Y);
+            int maxX = results.Max(r => r.Info.ScreenInfo.X + r.Info.ScreenInfo.Width);
+            int maxY = results.Max(r => r.Info.ScreenInfo.Y + r.Info.ScreenInfo.Height);
+            width = maxX - minX;
+            height = maxY - minY;
+        }
+
+        if (width > 0 && height > 0) 
+        {
+            // Combined Mat
+            using var combinedMat = new Mat(height, width, MatType.CV_8UC4, Scalar.All(0));
+            
+            foreach (var result in results)
+            {
+                if (result.Source != null && !result.Source.IsDisposed)
+                {
+                    int x = result.Info.ScreenInfo.X - minX;
+                    int y = result.Info.ScreenInfo.Y - minY;
+                    
+                    if (x >= 0 && y >= 0 && x + result.Source.Width <= width && y + result.Source.Height <= height)
+                    {
+                         using var roiMat = combinedMat[new OpenCvSharp.Rect(x, y, result.Source.Width, result.Source.Height)];
+                         result.Source.CopyTo(roiMat);
+                    }
+                }
+            }
+            
+            Image.Source = combinedMat.ToAWriteableBitmap();
+            
+            _screenCaptureInfo = new ScreenCaptureInfo
+            {
+                ScreenCaptureType = ScreenCaptureType.屏幕,
+                ScreenInfo = new ScreenInfo
+                {
+                    X = minX,
+                    Y = minY,
+                    Width = width,
+                    Height = height,
+                    hMonitor = IntPtr.Zero
+                }
+            };
+
+            Position = new PixelPoint(minX, minY);
+            
+            var scaling = 1.0;
+            var screen = Screens.ScreenFromPoint(new PixelPoint(minX, minY));
+            if (screen != null)
+            {
+                scaling = screen.Scaling;
+            }
+
+            Width = width / scaling;
+            Height = height / scaling;
+        }
+        else
+        {
+             _screenCaptureInfo = new ScreenCaptureInfo();
+        }
+        
+        WindowState = WindowState.Normal;
         SystemDecorations = SystemDecorations.None;
         Background = new SolidColorBrush(Colors.Black);
         ShowInTaskbar = false;
@@ -930,14 +996,46 @@ public partial class ScreenCaptureWindow : Window
                         WindowInfo = _currentWindowInfo
                     });
                 else
-                    selectModeAction.Invoke(new ScreenCaptureInfo
+                {
+                    int absX = _screenCaptureInfo.ScreenInfo.X + x;
+                    int absY = _screenCaptureInfo.ScreenInfo.Y + y;
+                    
+                    var targetScreen = _screens.FirstOrDefault(s => 
+                        absX >= s.ScreenInfo.X && absX < s.ScreenInfo.X + s.ScreenInfo.Width &&
+                        absY >= s.ScreenInfo.Y && absY < s.ScreenInfo.Y + s.ScreenInfo.Height);
+
+                    if (targetScreen.Equals(default(ScreenCaptureInfo)))
                     {
-                        X = x,
-                        Y = y,
-                        Width = cropW,
-                        Height = cropH,
-                        ScreenInfo = _screenCaptureInfo.ScreenInfo
-                    });
+                         targetScreen = _screens.FirstOrDefault();
+                    }
+                    
+                    if (!targetScreen.Equals(default(ScreenCaptureInfo)))
+                    {
+                         int relX = absX - targetScreen.ScreenInfo.X;
+                         int relY = absY - targetScreen.ScreenInfo.Y;
+                         
+                         selectModeAction.Invoke(new ScreenCaptureInfo
+                         {
+                             ScreenCaptureType = ScreenCaptureType.屏幕,
+                             X = relX,
+                             Y = relY,
+                             Width = cropW,
+                             Height = cropH,
+                             ScreenInfo = targetScreen.ScreenInfo
+                         });
+                    }
+                    else
+                    {
+                        selectModeAction.Invoke(new ScreenCaptureInfo
+                        {
+                            X = x,
+                            Y = y,
+                            Width = cropW,
+                            Height = cropH,
+                            ScreenInfo = _screenCaptureInfo.ScreenInfo
+                        });
+                    }
+                }
             }
             else
             {
