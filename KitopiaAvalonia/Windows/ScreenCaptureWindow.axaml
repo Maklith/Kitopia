@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -183,9 +183,13 @@
 
                 </StackPanel>
             </StackPanel>
-
         </Border>
 
-
+        <Border ZIndex="10" Padding="8,4" CornerRadius="4" IsVisible="False" Name="LongCaptureTooltip" IsHitTestVisible="False">
+            <Border.Background>
+                <SolidColorBrush Color="Black" Opacity="0.7" />
+            </Border.Background>
+            <TextBlock Text="请把鼠标放在需要滚动的位置然后点击" Foreground="White" FontSize="12"/>
+        </Border>
     </Canvas>
 </Window>

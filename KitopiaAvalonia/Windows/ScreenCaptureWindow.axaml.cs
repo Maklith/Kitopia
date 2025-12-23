@@ -99,8 +99,8 @@ public partial class ScreenCaptureWindow : Window
                     
                     if (x >= 0 && y >= 0 && x + result.Source.Width <= width && y + result.Source.Height <= height)
                     {
-                         using var roiMat = combinedMat[new OpenCvSharp.Rect(x, y, result.Source.Width, result.Source.Height)];
-                         result.Source.CopyTo(roiMat);
+                        using var roiMat = combinedMat[new OpenCvSharp.Rect(x, y, result.Source.Width, result.Source.Height)];
+                        result.Source.CopyTo(roiMat);
                     }
                 }
             }
@@ -134,7 +134,7 @@ public partial class ScreenCaptureWindow : Window
         }
         else
         {
-             _screenCaptureInfo = new ScreenCaptureInfo();
+            _screenCaptureInfo = new ScreenCaptureInfo();
         }
         
         WindowState = WindowState.Normal;
@@ -184,6 +184,8 @@ public partial class ScreenCaptureWindow : Window
     }
 
     private bool _isLongCapturing = false;
+    private bool _isWaitingForLongCaptureClick = false;
+    private TaskCompletionSource? _longCaptureClickTaskSource;
 
     private async void LongCaptureButton_OnClick(object? sender, RoutedEventArgs e)
     {
@@ -201,27 +203,36 @@ public partial class ScreenCaptureWindow : Window
                 return;
             }
 
-            // 2. Hide window to reveal content behind
+            // 2. Wait for user to click the scrollable area
+            ToolBar.IsVisible = false;
+            LongCaptureTooltip.IsVisible = true;
+            _isWaitingForLongCaptureClick = true;
+            _longCaptureClickTaskSource = new TaskCompletionSource();
+            
+            await _longCaptureClickTaskSource.Task;
+            
+            _isWaitingForLongCaptureClick = false;
+            LongCaptureTooltip.IsVisible = false;
+
+            // 3. Hide window to reveal content behind
             this.Hide();
             
-            // Show Progress Window
-            var progressWindow = new LongScreenshotProgressWindow();
-           
-
-            
-
             await Task.Delay(500); // Wait for animation/hide
 
             var captureManager = ServiceManager.Services.GetService<IScreenCaptureManager>();
             var simulator = new EventSimulator();
 
-            // 3. Initial Capture
+            // 4. Initial Capture
             var accumulatorResult = captureManager!.CaptureScreenBytes(captureInfo);
             var accumulator = accumulatorResult.Source;
+            
+            // Progress window
+            var progressWindow = new LongScreenshotProgressWindow();
             progressWindow.Width = SelectBox.Bounds.Width;
             progressWindow.Height = SelectBox.Bounds.Height;
             progressWindow.Position = new PixelPoint(captureInfo.X, (int)(captureInfo.Y- captureInfo.Height ));
             progressWindow.Show();
+            
             if (accumulator == null || accumulator.Empty())
             {
                  ServiceManager.Services.GetService<IToastService>()?.Show("错误", "初始截图失败", NotificationType.Error);
@@ -233,31 +244,24 @@ public partial class ScreenCaptureWindow : Window
             
             progressWindow.UpdateImage(accumulator);
 
-            // 4. Scroll and Stitch Loop
+            // 5. Scroll and Stitch Loop
             int maxScrolls = 50;
             
-            // Dynamic Scroll Step based on Capture Height
-            // Baseline: 120 delta (~1 notch) for ~600px height.
-            // If window is small (300px), use half notch (60) to avoid jumping over content.
-            // If window is large (1200px), use 2 notches (240) to speed up.
-            double stepRatio = captureInfo.Height / 300.0;
+            double stepRatio = captureInfo.Height / 600.0;
             int stepMagnitude = (int)(120 * stepRatio);
             
-            // Clamp values
             if (stepMagnitude < 120) stepMagnitude = 120;
             if (stepMagnitude > 360) stepMagnitude = 360; 
 
-            short scrollStep = (short)-stepMagnitude; // Negative is down
+            short scrollStep = (short)-stepMagnitude; 
             
             for (int i = 0; i < maxScrolls; i++)
             {
                 if (progressWindow.IsStopRequested) break;
                 
-                // Scroll
                 simulator.SimulateMouseWheel((short)scrollStep);
-                await Task.Delay(500); // Wait for scroll animation/render
+                await Task.Delay(500); 
 
-                // Capture new frame
                 var newResult = captureManager.CaptureScreenBytes(captureInfo);
                 var newFrame = newResult.Source;
 
@@ -266,33 +270,28 @@ public partial class ScreenCaptureWindow : Window
                     break;
                 }
 
-                // Stitch
                 var stitched = ImageStitcher.StitchImages(accumulator, newFrame);
-
-                newFrame.Dispose(); // Done with new frame raw data
+                newFrame.Dispose(); 
 
                 if (stitched != null)
                 {
                     var oldAccumulator = accumulator;
                     accumulator = stitched;
                     oldAccumulator.Dispose();
-                    
-                    // Update Progress
                     progressWindow.UpdateImage(accumulator);
                 }
                 else
                 {
-                    // No overlap found or end of content
                     break;
                 }
             }
             
             progressWindow.Close();
 
-            // 5. Restore Window
+            // 6. Restore Window
             this.Show();
             
-            // 6. Finish
+            // 7. Finish
             ServiceManager.Services.GetService<IClipboardService>()!
                             .SetImageAsync(new ScreenCaptureResult
                             {
@@ -300,8 +299,6 @@ public partial class ScreenCaptureWindow : Window
                                 Source = accumulator.Clone() 
                             });
             
-             
-             
              accumulator.Dispose();
              this.Close();
              WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");
@@ -498,6 +495,14 @@ public partial class ScreenCaptureWindow : Window
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+
+        if (_isWaitingForLongCaptureClick)
+        {
+            _longCaptureClickTaskSource?.TrySetResult();
+            e.Handled = true;
+            return;
+        }
+
         if (NowSelectionState == SelectionState.Selected) return;
         if (e.GetCurrentPoint(this)
             .Properties.IsLeftButtonPressed)
@@ -548,6 +553,15 @@ public partial class ScreenCaptureWindow : Window
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        
+        if (_isWaitingForLongCaptureClick)
+        {
+            var pos = e.GetPosition(this);
+            LongCaptureTooltip.SetValue(Canvas.LeftProperty, pos.X + 15);
+            LongCaptureTooltip.SetValue(Canvas.TopProperty, pos.Y + 15);
+            return;
+        }
+
         if (NowSelectionState == SelectionState.Selected) return;
 
         if (NowSelectionState == SelectionState.None) NowSelectionState = SelectionState.WindowSelecting;
@@ -636,6 +650,13 @@ public partial class ScreenCaptureWindow : Window
 
     private void SelectBox_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (_isWaitingForLongCaptureClick)
+        {
+            _longCaptureClickTaskSource?.TrySetResult();
+            e.Handled = true;
+            return;
+        }
+
         foreach (var canvasChild in Canvas.Children)
             if (canvasChild is CaptureToolBase draggableResizeableControl)
                 draggableResizeableControl.IsSelected = false;
@@ -815,6 +836,14 @@ public partial class ScreenCaptureWindow : Window
 
     private void SelectBox_OnPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (_isWaitingForLongCaptureClick)
+        {
+            var pos = e.GetPosition(this);
+            LongCaptureTooltip.SetValue(Canvas.LeftProperty, pos.X + 15);
+            LongCaptureTooltip.SetValue(Canvas.TopProperty, pos.Y + 15);
+            return;
+        }
+
         if (NowSelectionState == SelectionState.Selected)
         {
             if (!(StrokeWidth.Value > 1)) StrokeWidth.Value = 1;
@@ -1147,23 +1176,23 @@ public partial class ScreenCaptureWindow : Window
 
             if (targetScreen.Equals(default(ScreenCaptureInfo)))
             {
-                    targetScreen = _screens.FirstOrDefault();
+                targetScreen = _screens.FirstOrDefault();
             }
             
             if (!targetScreen.Equals(default(ScreenCaptureInfo)))
             {
-                    int relX = absX - targetScreen.ScreenInfo.X;
-                    int relY = absY - targetScreen.ScreenInfo.Y;
+                int relX = absX - targetScreen.ScreenInfo.X;
+                int relY = absY - targetScreen.ScreenInfo.Y;
                     
-                    return new ScreenCaptureInfo
-                    {
-                        ScreenCaptureType = ScreenCaptureType.屏幕,
-                        X = relX,
-                        Y = relY,
-                        Width = cropW,
-                        Height = cropH,
-                        ScreenInfo = targetScreen.ScreenInfo
-                    };
+                return new ScreenCaptureInfo
+                {
+                    ScreenCaptureType = ScreenCaptureType.屏幕,
+                    X = relX,
+                    Y = relY,
+                    Width = cropW,
+                    Height = cropH,
+                    ScreenInfo = targetScreen.ScreenInfo
+                };
             }
             else
             {
@@ -1193,8 +1222,8 @@ public partial class ScreenCaptureWindow : Window
         
         if (Image.Source is Bitmap bitmap)
         {
-             // Calculate x,y,w,h again for RenderTargetBitmap (relative to the window/bitmap)
-             // Or better, just reuse the logic for visual capture but use 'info' for the metadata.
+            // Calculate x,y,w,h again for RenderTargetBitmap (relative to the window/bitmap)
+            // Or better, just reuse the logic for visual capture but use 'info' for the metadata.
             var cropW = 0;
             var dragTransformX = SelectBox._dragTransform.X * (bitmap.PixelSize.Width / Bounds.Width);
             var selectBoxWidth = SelectBox.Width * (bitmap.PixelSize.Width / Bounds.Width);
@@ -1216,7 +1245,7 @@ public partial class ScreenCaptureWindow : Window
 
             if (selectMode)
             {
-               selectModeAction.Invoke(info);
+                selectModeAction.Invoke(info);
             }
             else
             {

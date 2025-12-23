@@ -25,37 +25,47 @@ public static class ImageStitcher
         
         int searchStartY = previous.Rows - current.Rows;
         if (searchStartY < 0) searchStartY = 0;
-        
-        if (searchStartY >= previous.Rows) return null;
 
-        using var searchRegion = previous[searchStartY, previous.Rows, 0, previous.Cols];
+        // Try to match with a bottom offset (to skip fixed bottom bars) first, then try without offset
+        int[] bottomOffsets = [0, (int)System.Math.Min(150, current.Height*0.1)];
 
-        
-        using var result = new Mat();
-        Cv2.MatchTemplate(searchRegion, template, result, TemplateMatchModes.CCoeffNormed);
+        foreach (var bottomOffset in bottomOffsets)
+        {
+            int searchEndY = previous.Rows - bottomOffset;
 
-        double minVal, maxVal;
-        Point minLoc, maxLoc;
-        Cv2.MinMaxLoc(result, out minVal, out maxVal, out minLoc, out maxLoc);
-        if (maxVal < 0.8)
-            return null;
+            if (searchEndY <= searchStartY + templateHeight) 
+                continue;
+
+            using var searchRegion = previous[searchStartY, searchEndY, 0, previous.Cols];
+
+            using var result = new Mat();
+            Cv2.MatchTemplate(searchRegion, template, result, TemplateMatchModes.CCoeffNormed);
+
+            double minVal, maxVal;
+            Point minLoc, maxLoc;
+            Cv2.MinMaxLoc(result, out minVal, out maxVal, out minLoc, out maxLoc);
+            Console.WriteLine(maxVal);
+            if (maxVal < 0.6)
+                continue;
         
-        int matchYInPrevious = searchStartY + maxLoc.Y; 
-        int currentTopMatchInPrevious = matchYInPrevious - topOffset;
+            int matchYInPrevious = searchStartY + maxLoc.Y; 
+            int currentTopMatchInPrevious = matchYInPrevious - topOffset;
        
-        int overlapHeight = previous.Rows - currentTopMatchInPrevious;
+            int overlapHeight = previous.Rows - currentTopMatchInPrevious;
 
-        if (overlapHeight <= 0 || overlapHeight >= current.Rows) 
-            return null;
+            if (overlapHeight <= 0 || overlapHeight >= current.Rows) 
+                continue;
         
-        int newHeight = previous.Rows + (current.Rows - overlapHeight);
-        var stitched = new Mat(newHeight, previous.Cols, previous.Type());
+            int newHeight = previous.Rows + (current.Rows - overlapHeight);
+            var stitched = new Mat(newHeight, previous.Cols, previous.Type());
 
-        previous.CopyTo(stitched[0, previous.Rows, 0, previous.Cols]);
+            previous.CopyTo(stitched[0, previous.Rows, 0, previous.Cols]);
         
-        var newPart = current[overlapHeight, current.Rows, 0, current.Cols];
-        newPart.CopyTo(stitched[previous.Rows, newHeight, 0, current.Cols]);
+            current.CopyTo(stitched[currentTopMatchInPrevious, newHeight, 0, current.Cols]);
 
-        return stitched;
+            return stitched;
+        }
+
+        return null;
     }
 }
