@@ -124,7 +124,8 @@ class Build : NukeBuild
                 Log.Debug("Last commit {0}", lastCommit);
                 var repositoryTag = repositoryTags.First();
                 Log.Debug("First commit {0}", repositoryTag.Commit.Sha);
-                while (lastCommit != repositoryTag.Commit.Sha)
+                var depth = 0;
+                while (lastCommit != repositoryTag.Commit.Sha && depth < 50)
                 {
                     var gitHubCommit = _gitHubClient
                         .Repository.Commit.Get(gitRepository.GetGitHubOwner(),
@@ -134,9 +135,13 @@ class Build : NukeBuild
                         if (!gitHubCommit.Commit.Message.StartsWith("*"))
                             body.AppendLine(gitHubCommit.Commit.Message);
 
+                    if (gitHubCommit.Parents.Count == 0)
+                        break;
+
                     lastCommit = gitHubCommit.Parents.First()
                         .Sha;
                     Log.Debug(lastCommit);
+                    depth++;
                 }
             }
 
