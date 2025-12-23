@@ -11,7 +11,7 @@ public static class ImageStitcher
         if (previous.Empty() || current.Empty() || previous.Cols != current.Cols)
             return null;
 
-        int topOffset = (int)(current.Rows * 0.15);
+        int topOffset = (int)(current.Rows * 0.6);
         if (topOffset < 50) topOffset = 50; // Minimum offset
         if (topOffset >= current.Rows / 2) topOffset = 0; // Fallback if image small
 
@@ -44,7 +44,6 @@ public static class ImageStitcher
             double minVal, maxVal;
             Point minLoc, maxLoc;
             Cv2.MinMaxLoc(result, out minVal, out maxVal, out minLoc, out maxLoc);
-            Console.WriteLine(maxVal);
             if (maxVal < 0.6)
                 continue;
         
@@ -52,11 +51,19 @@ public static class ImageStitcher
             int currentTopMatchInPrevious = matchYInPrevious - topOffset;
        
             int overlapHeight = previous.Rows - currentTopMatchInPrevious;
-
-            if (overlapHeight <= 0 || overlapHeight >= current.Rows) 
+            
+            if (overlapHeight <= 0 || overlapHeight > current.Rows) 
                 continue;
         
             int newHeight = previous.Rows + (current.Rows - overlapHeight);
+
+            if (newHeight <= previous.Rows)
+            {
+               
+                if (maxVal > 0.9) return null;
+                continue;
+            }
+
             var stitched = new Mat(newHeight, previous.Cols, previous.Type());
 
             previous.CopyTo(stitched[0, previous.Rows, 0, previous.Cols]);
