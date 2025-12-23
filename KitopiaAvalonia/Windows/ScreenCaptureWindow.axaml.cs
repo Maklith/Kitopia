@@ -25,8 +25,11 @@ using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
 using PluginCore.ExMethod;
+using SharpHook;
+using SharpHook.Native;
 using Ursa.Controls;
 using Math = System.Math;
+using MouseButton = Avalonia.Input.MouseButton;
 using Point = Avalonia.Point;
 using Rect = Avalonia.Rect;
 using Size = Avalonia.Size;
@@ -178,6 +181,111 @@ public partial class ScreenCaptureWindow : Window
                 }
             }
         });
+    }
+
+    private bool _isLongCapturing = false;
+
+    private async void LongCaptureButton_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (_isLongCapturing) return;
+        _isLongCapturing = true;
+
+        try
+        {
+            // 1. Get current selection info
+            var captureInfo = GetSelectedScreenCaptureInfo();
+            if (captureInfo.Width <= 0 || captureInfo.Height <= 0)
+            {
+                ServiceManager.Services.GetService<IToastService>()?.Show("提示", "请先选择区域", NotificationType.Warning);
+                _isLongCapturing = false;
+                return;
+            }
+
+            // 2. Hide window to reveal content behind
+            this.Hide();
+            await Task.Delay(500); // Wait for scroll animation/render
+
+            var captureManager = ServiceManager.Services.GetService<IScreenCaptureManager>();
+            var simulator = new EventSimulator();
+
+            // 3. Initial Capture
+            var accumulatorResult = captureManager!.CaptureScreenBytes(captureInfo);
+            var accumulator = accumulatorResult.Source;
+            
+            if (accumulator == null || accumulator.Empty())
+            {
+                 ServiceManager.Services.GetService<IToastService>()?.Show("错误", "初始截图失败", NotificationType.Error);
+                 this.Show();
+                 _isLongCapturing = false;
+                 return;
+            }
+
+            // 4. Scroll and Stitch Loop
+            int maxScrolls = 50;
+            int scrollStep = -140; // Negative is down
+            
+            for (int i = 0; i < maxScrolls; i++)
+            {
+                // Scroll
+                simulator.SimulateMouseWheel(  (short)scrollStep);
+                await Task.Delay(500); // Wait for scroll animation/render
+
+                // Capture new frame
+                var newResult = captureManager.CaptureScreenBytes(captureInfo);
+                var newFrame = newResult.Source;
+
+                if (newFrame == null || newFrame.Empty())
+                {
+                    break;
+                }
+
+                // Stitch
+                var stitched = ImageStitcher.StitchImages(accumulator, newFrame);
+
+                newFrame.Dispose(); // Done with new frame raw data
+
+                if (stitched != null)
+                {
+                    var oldAccumulator = accumulator;
+                    accumulator = stitched;
+                    oldAccumulator.Dispose();
+                }
+                else
+                {
+                    // No overlap found or end of content
+                    break;
+                }
+            }
+
+            // 5. Restore Window
+            //this.Show();
+            
+            // 6. Finish
+            ServiceManager.Services.GetService<IClipboardService>()!
+                            .SetImageAsync(new ScreenCaptureResult
+                            {
+                                Info = captureInfo, 
+                                Source = accumulator.Clone() 
+                            });
+            
+             
+             
+             accumulator.Dispose();
+             this.Close();
+             WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");
+            
+             ServiceManager.Services.GetService<IToastService>().Show("成功", "长截图已复制到剪贴板", NotificationType.Success);
+
+        }
+        catch (Exception ex)
+        {
+             ServiceManager.Services.GetService<IToastService>()?.Show("错误", $"长截图失败: {ex.Message}", NotificationType.Error);
+             this.Show();
+        }
+        finally
+        {
+            _isLongCapturing = false;
+        }
     }
 
     private bool ShowAlignLine => NowSelectionState == SelectionState.Selected;
@@ -965,7 +1073,7 @@ public partial class ScreenCaptureWindow : Window
         Close();
     }
 
-    private void FinnishCapture()
+    private ScreenCaptureInfo GetSelectedScreenCaptureInfo()
     {
         if (Image.Source is Bitmap bitmap)
         {
@@ -987,55 +1095,96 @@ public partial class ScreenCaptureWindow : Window
             else cropH = (int)selectBoxHeight + (int)dragTransformY;
             var x = Math.Max((int)dragTransformX, 0);
             var y = Math.Max((int)dragTransformY, 0);
+
+            if (selectMode && _currentWindowInfo.Hwnd != IntPtr.Zero)
+            {
+                return new ScreenCaptureInfo
+                {
+                    ScreenCaptureType = ScreenCaptureType.窗口,
+                    WindowInfo = _currentWindowInfo
+                };
+            }
+            
+            // Logic to map to specific screen (copied from FinnishCapture)
+            int absX = _screenCaptureInfo.ScreenInfo.X + x;
+            int absY = _screenCaptureInfo.ScreenInfo.Y + y;
+            
+            var targetScreen = _screens.FirstOrDefault(s => 
+                absX >= s.ScreenInfo.X && absX < s.ScreenInfo.X + s.ScreenInfo.Width &&
+                absY >= s.ScreenInfo.Y && absY < s.ScreenInfo.Y + s.ScreenInfo.Height);
+
+            if (targetScreen.Equals(default(ScreenCaptureInfo)))
+            {
+                    targetScreen = _screens.FirstOrDefault();
+            }
+            
+            if (!targetScreen.Equals(default(ScreenCaptureInfo)))
+            {
+                    int relX = absX - targetScreen.ScreenInfo.X;
+                    int relY = absY - targetScreen.ScreenInfo.Y;
+                    
+                    return new ScreenCaptureInfo
+                    {
+                        ScreenCaptureType = ScreenCaptureType.屏幕,
+                        X = relX,
+                        Y = relY,
+                        Width = cropW,
+                        Height = cropH,
+                        ScreenInfo = targetScreen.ScreenInfo
+                    };
+            }
+            else
+            {
+                return new ScreenCaptureInfo
+                {
+                    X = x,
+                    Y = y,
+                    Width = cropW,
+                    Height = cropH,
+                    ScreenInfo = _screenCaptureInfo.ScreenInfo
+                };
+            }
+        }
+        return new ScreenCaptureInfo();
+    }
+
+    private void FinnishCapture()
+    {
+        var info = GetSelectedScreenCaptureInfo();
+        // Since GetSelectedScreenCaptureInfo handles the screen mapping, we just use the result.
+        // But we need to handle the specific actions (Clipboard vs SelectMode).
+        
+        // Re-implementing the action logic using 'info' and the existing bitmap logic for clipboard/Crop
+        // Note: The original code used renderTargetBitmap to crop the visual tree (including annotations).
+        // GetSelectedScreenCaptureInfo only gives us the coordinates.
+        // We still need to render the visual tree if we are saving/copying the annotated image.
+        
+        if (Image.Source is Bitmap bitmap)
+        {
+             // Calculate x,y,w,h again for RenderTargetBitmap (relative to the window/bitmap)
+             // Or better, just reuse the logic for visual capture but use 'info' for the metadata.
+            var cropW = 0;
+            var dragTransformX = SelectBox._dragTransform.X * (bitmap.PixelSize.Width / Bounds.Width);
+            var selectBoxWidth = SelectBox.Width * (bitmap.PixelSize.Width / Bounds.Width);
+            if (selectBoxWidth + dragTransformX > bitmap.PixelSize.Width)
+                cropW = bitmap.PixelSize.Width;
+            else if (dragTransformX > 0)
+                cropW = (int)selectBoxWidth;
+            else cropW = (int)selectBoxWidth + (int)dragTransformX;
+            var cropH = 0;
+            var dragTransformY = SelectBox._dragTransform.Y * (bitmap.PixelSize.Height / Bounds.Height);
+            var selectBoxHeight = SelectBox.Height * (bitmap.PixelSize.Height / Bounds.Height);
+            if (selectBoxHeight + dragTransformY > bitmap.PixelSize.Height)
+                cropH = bitmap.PixelSize.Height;
+            else if (dragTransformY > 0)
+                cropH = (int)selectBoxHeight;
+            else cropH = (int)selectBoxHeight + (int)dragTransformY;
+            var x = Math.Max((int)dragTransformX, 0);
+            var y = Math.Max((int)dragTransformY, 0);
+
             if (selectMode)
             {
-                if (_currentWindowInfo.Hwnd != IntPtr.Zero)
-                    selectModeAction.Invoke(new ScreenCaptureInfo
-                    {
-                        ScreenCaptureType = ScreenCaptureType.窗口,
-                        WindowInfo = _currentWindowInfo
-                    });
-                else
-                {
-                    int absX = _screenCaptureInfo.ScreenInfo.X + x;
-                    int absY = _screenCaptureInfo.ScreenInfo.Y + y;
-                    
-                    var targetScreen = _screens.FirstOrDefault(s => 
-                        absX >= s.ScreenInfo.X && absX < s.ScreenInfo.X + s.ScreenInfo.Width &&
-                        absY >= s.ScreenInfo.Y && absY < s.ScreenInfo.Y + s.ScreenInfo.Height);
-
-                    if (targetScreen.Equals(default(ScreenCaptureInfo)))
-                    {
-                         targetScreen = _screens.FirstOrDefault();
-                    }
-                    
-                    if (!targetScreen.Equals(default(ScreenCaptureInfo)))
-                    {
-                         int relX = absX - targetScreen.ScreenInfo.X;
-                         int relY = absY - targetScreen.ScreenInfo.Y;
-                         
-                         selectModeAction.Invoke(new ScreenCaptureInfo
-                         {
-                             ScreenCaptureType = ScreenCaptureType.屏幕,
-                             X = relX,
-                             Y = relY,
-                             Width = cropW,
-                             Height = cropH,
-                             ScreenInfo = targetScreen.ScreenInfo
-                         });
-                    }
-                    else
-                    {
-                        selectModeAction.Invoke(new ScreenCaptureInfo
-                        {
-                            X = x,
-                            Y = y,
-                            Width = cropW,
-                            Height = cropH,
-                            ScreenInfo = _screenCaptureInfo.ScreenInfo
-                        });
-                    }
-                }
+               selectModeAction.Invoke(info);
             }
             else
             {
@@ -1074,14 +1223,7 @@ public partial class ScreenCaptureWindow : Window
                         {
                             selectBytesModeAction.Invoke(new ScreenCaptureResult
                             {
-                                Info = new ScreenCaptureInfo
-                                {
-                                    X = x,
-                                    Y = y,
-                                    Width = cropW,
-                                    Height = cropH,
-                                    ScreenInfo = _screenCaptureInfo.ScreenInfo
-                                },
+                                Info = info,
                                 Source = mat
                             });
                         });
@@ -1090,14 +1232,7 @@ public partial class ScreenCaptureWindow : Window
                         ServiceManager.Services.GetService<IClipboardService>()!
                             .SetImageAsync(new ScreenCaptureResult
                             {
-                                Info = new ScreenCaptureInfo
-                                {
-                                    X = x,
-                                    Y = y,
-                                    Width = cropW,
-                                    Height = cropH,
-                                    ScreenInfo = _screenCaptureInfo.ScreenInfo
-                                },
+                                Info = info,
                                 Source = mat
                             }).ContinueWith(e =>
                             {

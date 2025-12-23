@@ -149,6 +149,12 @@
                                             Height="24"
                                             FontFamily="{StaticResource FluentFont}" Glyph="&#xf295;" FontSize="24" />
                     </Button>
+                    <Button BorderThickness="1" ToolTip.Tip="滚动截屏" Width="32" Height="32" Padding="1,3,0,0"
+                            Click="LongCaptureButton_OnClick">
+                        <controls1:FontIcon VerticalAlignment="Center" HorizontalAlignment="Center" Width="24"
+                                            Height="24"
+                                            FontFamily="{StaticResource FluentFont}" Glyph="&#xe9bd;" FontSize="24" />
+                    </Button>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="2">
                     <StackPanel.Styles>
