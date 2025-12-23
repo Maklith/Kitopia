@@ -12,9 +12,9 @@
         Background="Transparent"
         TransparencyLevelHint="AcrylicBlur">
     
-    <Border CornerRadius="8" Background="Transparent" BorderThickness="1" Padding="10">
+    <Border CornerRadius="8" Background="Transparent" BorderThickness="1" >
         <Grid RowDefinitions="*,Auto">
-            <Image    StretchDirection="Both" Name="PreviewImage" Grid.Row="0" Margin="0,0,0,10" Stretch="None"/>
+            <Image    StretchDirection="Both" Name="PreviewImage" Grid.Row="0" Margin="0,0,0,10" Stretch="Uniform"/>
             
             <Button Name="StopButton" Grid.Row="1" Content="完成 / 停止" HorizontalAlignment="Center" Click="StopButton_Click"/>
         </Grid>

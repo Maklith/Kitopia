@@ -218,8 +218,8 @@ public partial class ScreenCaptureWindow : Window
             // 3. Initial Capture
             var accumulatorResult = captureManager!.CaptureScreenBytes(captureInfo);
             var accumulator = accumulatorResult.Source;
-            progressWindow.Width = accumulator.Width;
-            
+            progressWindow.Width = SelectBox.Bounds.Width;
+            progressWindow.Height = SelectBox.Bounds.Height;
             progressWindow.Position = new PixelPoint(captureInfo.X, (int)(captureInfo.Y- captureInfo.Height ));
             progressWindow.Show();
             if (accumulator == null || accumulator.Empty())

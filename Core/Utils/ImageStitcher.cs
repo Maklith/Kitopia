@@ -37,7 +37,6 @@ public static class ImageStitcher
         double minVal, maxVal;
         Point minLoc, maxLoc;
         Cv2.MinMaxLoc(result, out minVal, out maxVal, out minLoc, out maxLoc);
-
         if (maxVal < 0.8)
             return null;
         
