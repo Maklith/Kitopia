@@ -26,6 +26,12 @@
     <ItemGroup>
         <None Remove="Everything32.dll"/>
         <None Remove="Everything64.dll"/>
+        <None Update="WinRT.Runtime.dll">
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+        <None Update="Microsoft.Windows.SDK.NET.dll">
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
     <ItemGroup>
         <Content Include="Everything32.dll">
