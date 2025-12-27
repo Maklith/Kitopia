@@ -41,6 +41,8 @@ class Build : NukeBuild
 
     Project AvaloniaProject => Solution.GetProject("KitopiaAvalonia");
 
+    // Helper property to check if we should interact with GitHub
+    bool IsRelease => IsServerBuild && !string.IsNullOrWhiteSpace(GitHubToken);
 
     Target Restore => _ => _
         .Executes(() =>
@@ -92,6 +94,12 @@ class Build : NukeBuild
         .DependsOn(CompileWindowsX64)
         .OnlyWhenDynamic(() =>
         {
+            if (!IsRelease)
+            {
+                Log.Information("Skipping GitHub release creation (Local build or missing token).");
+                return false;
+            }
+
             this._gitHubClient = new GitHubClient(new ProductHeaderValue("Kitopia"))
             {
                 Credentials = new Credentials(GitHubToken)
@@ -103,7 +111,11 @@ class Build : NukeBuild
                 .Repository.GetAllTags(gitRepository.GetGitHubOwner(),
                     gitRepository.GetGitHubName())
                 .Result;
-            if (readOnlyList.Any(e => e.Name == AvaloniaProject.GetProperty("Version"))) return false;
+            if (readOnlyList.Any(e => e.Name == AvaloniaProject.GetProperty("Version")))
+            {
+                Log.Information($"Tag {AvaloniaProject.GetProperty("Version")} already exists. Skipping release creation.");
+                return false;
+            }
 
             return true;
         }).Executes(() =>
@@ -176,7 +188,6 @@ class Build : NukeBuild
         });
 
     Target PackDebug => _ => _
-        .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
         .DependsOn(CreateRelease)
         .After(CreateRelease)
         .Executes(() =>
@@ -186,20 +197,24 @@ class Build : NukeBuild
                               "_Debug_WithoutContained.zip";
             archiveFile.DeleteFile();
             rootDirectory.ZipTo(archiveFile);
-            Log.Debug("Uploading artifact {0}", archiveFile);
-            using var artifactStream = File.OpenRead(archiveFile);
-            var assetUpload = new ReleaseAssetUpload
+            Log.Debug("Artifact created: {0}", archiveFile);
+
+            if (IsRelease && release != null)
             {
-                FileName = archiveFile.Name,
-                ContentType = "application/octet-stream",
-                RawData = artifactStream
-            };
-            _gitHubClient.Repository.Release.UploadAsset(release, assetUpload)
-                .Wait();
+                Log.Debug("Uploading artifact {0}", archiveFile);
+                using var artifactStream = File.OpenRead(archiveFile);
+                var assetUpload = new ReleaseAssetUpload
+                {
+                    FileName = archiveFile.Name,
+                    ContentType = "application/octet-stream",
+                    RawData = artifactStream
+                };
+                _gitHubClient.Repository.Release.UploadAsset(release, assetUpload)
+                    .Wait();
+            }
         });
 
     Target Pack => _ => _
-        .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
         .After(CreateRelease)
         .DependsOn(CreateRelease)
         .Executes(() =>
@@ -225,7 +240,6 @@ class Build : NukeBuild
                 DotNetPublish(c => new DotNetPublishSettings()
                     .SetProject(AvaloniaProject.Name)
                     .SetOutput(RootDirectory / "Publish")
-                    .SetPublishSingleFile(true)
                     .SetRuntime("win-x64")
                     .SetFramework("net10.0-windows10.0.19041.0")
                     .SetConfiguration("Release")
@@ -239,58 +253,25 @@ class Build : NukeBuild
                                   "_WithoutContained.zip";
                 archiveFile.DeleteFile();
                 rootDirectory.ZipTo(archiveFile);
-                Log.Debug("Uploading artifact {0}", archiveFile);
-                using var artifactStream = File.OpenRead(archiveFile);
-                var assetUpload = new ReleaseAssetUpload
+                Log.Debug("Artifact created: {0}", archiveFile);
+
+                if (IsRelease && release != null)
                 {
-                    FileName = archiveFile.Name,
-                    ContentType = "application/octet-stream",
-                    RawData = artifactStream
-                };
-                _gitHubClient.Repository.Release.UploadAsset(release, assetUpload)
-                    .Wait();
+                    Log.Debug("Uploading artifact {0}", archiveFile);
+                    using var artifactStream = File.OpenRead(archiveFile);
+                    var assetUpload = new ReleaseAssetUpload
+                    {
+                        FileName = archiveFile.Name,
+                        ContentType = "application/octet-stream",
+                        RawData = artifactStream
+                    };
+                    _gitHubClient.Repository.Release.UploadAsset(release, assetUpload)
+                        .Wait();
+                }
             }
         );
-
-    Target Pack2 => _ => _
-        .Executes(() =>
-            {
-                var rootDirectory = RootDirectory / "Publish";
-                rootDirectory.DeleteDirectory();
-                DotNetPublish(c => new DotNetPublishSettings()
-                    .SetProject("KitopiaEx")
-                    .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaex")
-                    .SetRuntime("win-x64")
-                    .SetFramework("net10.0")
-                    .SetConfiguration("Release")
-                    .SetSelfContained(false)
-                );
-                DotNetPublish(c => new DotNetPublishSettings()
-                    .SetProject("OnnxRuntime.CPU")
-                    .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaonnxruntimecpu")
-                    .SetRuntime("win-x64")
-                    .SetFramework("net10.0")
-                    .SetConfiguration("Release")
-                    .SetSelfContained(false)
-                );
-                DotNetPublish(c => new DotNetPublishSettings()
-                    .SetProject(AvaloniaProject.Name)
-                    .SetOutput(RootDirectory / "Publish")
-                    .SetPublishSingleFile(true)
-                    .SetRuntime("win-x64")
-                    .SetFramework("net10.0-windows10.0.19041.0")
-                    .SetConfiguration("Release")
-                    .SetSelfContained(false)
-                );
-                foreach (var absolutePath in rootDirectory.GetFiles())
-                    if (absolutePath.Extension is ".pdb" or ".xml")
-                        absolutePath.DeleteFile();
-            }
-        );
-
 
     Target PackSelf => _ => _
-        .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
         .After(CreateRelease)
         .DependsOn(CreateRelease)
         .Executes(() =>
@@ -317,7 +298,6 @@ class Build : NukeBuild
                 DotNetPublish(c => new DotNetPublishSettings()
                     .SetProject(AvaloniaProject.Name)
                     .SetOutput(RootDirectory / "Publish_SelfContained")
-                    .SetPublishSingleFile(true)
                     .SetRuntime("win-x64")
                     .SetFramework("net10.0-windows10.0.19041.0")
                     .SetConfiguration("Release")
@@ -331,20 +311,25 @@ class Build : NukeBuild
                         absolutePath.DeleteFile();
 
                 rootDirectory_self.ZipTo(archiveFile_self, compressionLevel: CompressionLevel.SmallestSize);
-                var assetUpload_self = new ReleaseAssetUpload
+                Log.Debug("Artifact created: {0}", archiveFile_self);
+
+                if (IsRelease && release != null)
                 {
-                    FileName = archiveFile_self.Name,
-                    ContentType = "application/octet-stream",
-                    RawData = File.OpenRead(archiveFile_self)
-                };
-                _gitHubClient.Repository.Release.UploadAsset(release, assetUpload_self)
-                    .Wait();
+                    var assetUpload_self = new ReleaseAssetUpload
+                    {
+                        FileName = archiveFile_self.Name,
+                        ContentType = "application/octet-stream",
+                        RawData = File.OpenRead(archiveFile_self)
+                    };
+                    _gitHubClient.Repository.Release.UploadAsset(release, assetUpload_self)
+                        .Wait();
+                }
             }
         );
 
     Target PreparePackInstallerGithub => _ => _
         .After(Pack)
-        .OnlyWhenDynamic(() => FinishedTargets.Contains(Pack))
+        .DependsOn(Pack) // Ensured Pack runs for local builds
         .Executes(() =>
         {
             Directory.CreateDirectory(RootDirectory / "ModernInstaller" / "Assets");
@@ -360,7 +345,6 @@ class Build : NukeBuild
         });
 
     Target PrepareNative => _ => _
-        .OnlyWhenDynamic(() => FinishedTargets.Contains(PreparePackInstallerGithub))
         .DependsOn(PreparePackInstallerGithub)
         .Executes(() =>
         {
@@ -373,44 +357,35 @@ class Build : NukeBuild
         });
 
     Target BuildNativeUninstaller => _ => _
-        .OnlyWhenDynamic(() => FinishedTargets.Contains(PrepareNative))
         .DependsOn(PrepareNative)
         .Executes(() =>
         {
-            //File.WriteAllText($"ModernInstaller{Path.DirectorySeparatorChar}Assets{Path.DirectorySeparatorChar}ApplicationUUID",uuid.ToString());
-
             DotNetPublish(c => new DotNetPublishSettings()
                 .SetProject($"ModernInstaller{Path.DirectorySeparatorChar}ModernInstaller.Uninstaller")
                 .SetOutput(RootDirectory / "ModernInstaller" / "Publish")
-                .SetFramework("net9.0-windows")
+                .SetFramework("net10.0-windows")
                 .SetRuntime("win-x86")
                 .SetConfiguration("Release")
                 .SetSelfContained(true)
-                .SetPublishSingleFile(true)
             );
         });
 
     Target PrepareBuildNativeInstaller => _ => _
-        .OnlyWhenDynamic(() => FinishedTargets.Contains(BuildNativeUninstaller))
         .DependsOn(BuildNativeUninstaller)
         .Executes(() =>
         {
             File.Copy(RootDirectory / "ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe",
                 RootDirectory / "Assets" / "ModernInstaller.Uninstaller.exe", true);
-            PowerShellTasks.PowerShell(
-                $"ModernInstaller{Path.DirectorySeparatorChar}build{Path.DirectorySeparatorChar}upx.exe --force --lzma {RootDirectory / "ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe"} ");
         });
 
     Target BuildNativeInstaller => _ => _
-        .OnlyWhenDynamic(() => FinishedTargets.Contains(PrepareBuildNativeInstaller))
         .DependsOn(PrepareBuildNativeInstaller)
         .Executes(() =>
         {
             DotNetPublish(c => new DotNetPublishSettings()
-                //.SetProject("AvaloniaApplication1")
                 .SetProject($"ModernInstaller{Path.DirectorySeparatorChar}ModernInstaller")
                 .SetOutput(RootDirectory / "ModernInstaller" / "Publish")
-                .SetFramework("net9.0-windows")
+                .SetFramework("net10.0-windows")
                 .SetRuntime("win-x86")
                 .SetConfiguration("Release")
                 .SetSelfContained(true)
@@ -419,8 +394,6 @@ class Build : NukeBuild
         });
 
     Target PackInstaller => _ => _
-        .OnlyWhenDynamic(() => FinishedTargets.Contains(CreateRelease))
-        .OnlyWhenDynamic(() => FinishedTargets.Contains(BuildNativeInstaller))
         .After(CreateRelease)
         .DependsOn(CreateRelease)
         .DependsOn(BuildNativeInstaller)
@@ -429,14 +402,20 @@ class Build : NukeBuild
             var moderninstallerExe = RootDirectory / "ModernInstaller" / "Publish" / "ModernInstaller.exe";
             PowerShellTasks.PowerShell(
                 $"ModernInstaller{Path.DirectorySeparatorChar}build{Path.DirectorySeparatorChar}upx.exe --force --lzma {moderninstallerExe} ");
-            var assetUpload_self = new ReleaseAssetUpload
+            
+            Log.Debug("Installer created: {0}", moderninstallerExe);
+
+            if (IsRelease && release != null)
             {
-                FileName = "Kitopia" + AvaloniaProject.GetProperty("Version") + "_Installer.exe",
-                ContentType = "application/octet-stream",
-                RawData = File.OpenRead(moderninstallerExe)
-            };
-            _gitHubClient.Repository.Release.UploadAsset(release, assetUpload_self)
-                .Wait();
+                var assetUpload_self = new ReleaseAssetUpload
+                {
+                    FileName = "Kitopia" + AvaloniaProject.GetProperty("Version") + "_Installer.exe",
+                    ContentType = "application/octet-stream",
+                    RawData = File.OpenRead(moderninstallerExe)
+                };
+                _gitHubClient.Repository.Release.UploadAsset(release, assetUpload_self)
+                    .Wait();
+            }
         }));
 
     Target Clean => _ => _
@@ -448,10 +427,5 @@ class Build : NukeBuild
         {
         });
 
-    /// Support plugins are available for:
-    ///   - JetBrains ReSharper        https://nuke.build/resharper
-    ///   - JetBrains Rider            https://nuke.build/rider
-    ///   - Microsoft VisualStudio     https://nuke.build/visualstudio
-    ///   - Microsoft VSCode           https://nuke.build/vscode
     public static int Main() => Execute<Build>(x => x.Clean);
 }
