@@ -1,11 +1,14 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Notifications;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -16,6 +19,7 @@ using Core.Services.Config;
 using Core.Services.MQTT;
 using Core.Services.Onnx;
 using Core.Services.Plugin;
+using Core.Utils;
 using Core.ViewModel.Main;
 using Core.ViewModel.Pages;
 using Core.ViewModel.Pages.customScenario;
@@ -165,6 +169,7 @@ internal class Program
 
 
         services.AddSingleton<SettingPage>(e => new SettingPage());
+        services.AddSingleton<GitHubUpdateService>();
 
         return services.BuildServiceProvider();
     }
@@ -181,19 +186,98 @@ internal class Program
         var currentDate = DateTime.Today;
 
         // 获取目录下的所有日志文件，按照最后修改时间排序
-        var logFiles = Directory.EnumerateFiles(logDirectory)
-            .Select(f => new FileInfo(f))
-            .OrderByDescending(f => f.LastWriteTime);
+        try
+        {
+            var logFiles = Directory.EnumerateFiles(logDirectory)
+                .Select(f => new FileInfo(f))
+                .OrderByDescending(f => f.LastWriteTime);
 
-        // 遍历每个日志文件
-        foreach (var logFile in logFiles)
-            // 计算日志文件的最后修改时间和当前日期的差值
-            // 如果差值大于要保留的时间范围，就删除该日志文件
-            if (currentDate - logFile.LastWriteTime > timeSpan)
+            // 遍历每个日志文件
+            foreach (var logFile in logFiles)
+                // 计算日志文件的最后修改时间和当前日期的差值
+                // 如果差值大于要保留的时间范围，就删除该日志文件
+                if (currentDate - logFile.LastWriteTime > timeSpan)
+                {
+                    Log.Debug($"删除日志文件:{logFile.FullName}");
+                    logFile.Delete();
+                }
+        }
+        catch (Exception e)
+        {
+            // ignored
+        }
+    }
+    
+    private static async Task CheckUpdates()
+    {
+        var gitHubUpdateService = ServiceManager.Services.GetService<GitHubUpdateService>();
+        var (hasUpdate, latestVersion, downloadUrl, releaseNotes) = await gitHubUpdateService!.CheckForUpdatesAsync();
+        if (hasUpdate && !string.IsNullOrEmpty(downloadUrl))
+        {
+            Log.Information($"发现新版本:{latestVersion}");
+            var dialog = new DialogContent()
             {
-                Log.Debug($"删除日志文件:{logFile.FullName}");
-                logFile.Delete();
-            }
+                Title = $"Kitopia更新 - 发现新版本 {latestVersion}",
+                Content = $"发现新版本 {latestVersion}，是否前往下载？\n\n更新内容:\n{releaseNotes ?? "无更新说明"}",
+                PrimaryButtonText = "下载并更新",
+                SecondaryButtonText = "取消",
+                PrimaryAction = async () =>
+                {
+                    try
+                    {
+                        var toastService = ServiceManager.Services.GetService<IToastService>();
+                        var tempPath = Path.Combine(Path.GetTempPath(), $"Kitopia_{latestVersion}_Installer.exe");
+                        
+                        using var client = new HttpClient();
+                        using var response = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
+                        response.EnsureSuccessStatusCode();
+
+                        var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                        var canReportProgress = totalBytes != -1;
+
+                        await using var contentStream = await response.Content.ReadAsStreamAsync();
+                        var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+
+                        var buffer = new byte[8192];
+                        long totalRead = 0;
+                        int bytesRead;
+                        var lastProgress = -1;
+
+                        toastService!.Show("更新", "开始下载更新...");
+
+                        while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                        {
+                            await fileStream.WriteAsync(buffer, 0, bytesRead);
+                            totalRead += bytesRead;
+
+                            if (canReportProgress)
+                            {
+                                var progress = (int)((double)totalRead / totalBytes * 100);
+                                if (progress > lastProgress && progress % 10 == 0) // Report every 10%
+                                {
+                                    lastProgress = progress;
+                                    toastService.Show("更新", $"下载进度: {progress}%");
+                                }
+                            }
+                        }
+                        await fileStream.DisposeAsync();
+                        toastService.Show("更新", "下载完成，正在启动安装程序...");
+                        await Task.Delay(1000);
+                        // Close application and start installer
+                        ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(tempPath);
+                        await Task.Delay(2000);
+                        Environment.Exit(0);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "更新失败");
+                        ServiceManager.Services.GetService<IToastService>()!.Show("更新失败", $"下载出错: {ex.Message}",  NotificationType.Error);
+                    }
+                }
+            };
+            await ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
+                dialog);
+        }
     }
 
     public static void OnStartup(string[] arg)
@@ -201,8 +285,8 @@ internal class Program
         Log.Information("启动");
         ServiceManager.Services = ConfigureServices();
 
-        //CheckAndDeleteLogFiles();
-
+        CheckAndDeleteLogFiles();
+        Task.Run(CheckUpdates);
         MqttManager.Init().GetAwaiter().GetResult();
         Log.Information("MQTT初始化完成");
         HotKeyManager.Init();

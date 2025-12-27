@@ -128,6 +128,12 @@ public class SearchItemTool : ISearchItemTool
         }
     }
 
+    public void OpenFile(string path)
+    {
+        Log.Debug("打开指定内容" + path);
+        Shell32.ShellExecute(IntPtr.Zero, "open", path, "", "",
+            ShowWindowCommand.SW_NORMAL);
+    }
 
     public void IgnoreItem(SearchViewItem? item)
     {
