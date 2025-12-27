@@ -56,7 +56,7 @@ namespace KitopiaAvalonia.Services
 
                 if (Version.TryParse(cleanTagName, out var latestVersion))
                 {
-                    if (latestVersion== currentVersion)
+                    if (latestVersion> currentVersion)
                     {
                         var htmlUrl = ((JArray)release["assets"]).FirstOrDefault(e=>e["name"].ToString()==$"Kitopia{cleanTagName}_Installer.exe")?["browser_download_url"]?.ToString();
                         var body = release["body"]?.ToString();
