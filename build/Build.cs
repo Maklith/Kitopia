@@ -190,6 +190,7 @@ class Build : NukeBuild
     Target PackDebug => _ => _
         .DependsOn(CreateRelease)
         .After(CreateRelease)
+        .OnlyWhenDynamic(() => !IsRelease || release != null)
         .Executes(() =>
         {
             var rootDirectory = RootDirectory / "buildTest";
@@ -217,6 +218,8 @@ class Build : NukeBuild
     Target Pack => _ => _
         .After(CreateRelease)
         .DependsOn(CreateRelease)
+        .DependsOn(CompileWindowsX64)
+        .OnlyWhenDynamic(() => !IsRelease || release != null)
         .Executes(() =>
             {
                 var rootDirectory = RootDirectory / "Publish";
@@ -274,6 +277,8 @@ class Build : NukeBuild
     Target PackSelf => _ => _
         .After(CreateRelease)
         .DependsOn(CreateRelease)
+        .DependsOn(CompileWindowsX64)
+        .OnlyWhenDynamic(() => !IsRelease || release != null)
         .Executes(() =>
             {
                 var rootDirectory_self = RootDirectory / "Publish_SelfContained";
@@ -330,6 +335,7 @@ class Build : NukeBuild
     Target PreparePackInstallerGithub => _ => _
         .After(Pack)
         .DependsOn(Pack) // Ensured Pack runs for local builds
+        .OnlyWhenDynamic(() => !IsRelease || release != null)
         .Executes(() =>
         {
             Directory.CreateDirectory(RootDirectory / "ModernInstaller" / "Assets");
@@ -346,6 +352,7 @@ class Build : NukeBuild
 
     Target PrepareNative => _ => _
         .DependsOn(PreparePackInstallerGithub)
+        .OnlyWhenDynamic(() => !IsRelease || release != null)
         .Executes(() =>
         {
             if (!File.Exists(RootDirectory / "ModernInstaller" / "Natives" / "Windows-x86" / "libHarfBuzzSharp.lib"))
@@ -358,6 +365,7 @@ class Build : NukeBuild
 
     Target BuildNativeUninstaller => _ => _
         .DependsOn(PrepareNative)
+        .OnlyWhenDynamic(() => !IsRelease || release != null)
         .Executes(() =>
         {
             DotNetPublish(c => new DotNetPublishSettings()
@@ -372,6 +380,7 @@ class Build : NukeBuild
 
     Target PrepareBuildNativeInstaller => _ => _
         .DependsOn(BuildNativeUninstaller)
+        .OnlyWhenDynamic(() => !IsRelease || release != null)
         .Executes(() =>
         {
             File.Copy(RootDirectory / "ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe",
@@ -380,6 +389,7 @@ class Build : NukeBuild
 
     Target BuildNativeInstaller => _ => _
         .DependsOn(PrepareBuildNativeInstaller)
+        .OnlyWhenDynamic(() => !IsRelease || release != null)
         .Executes(() =>
         {
             DotNetPublish(c => new DotNetPublishSettings()
@@ -397,6 +407,7 @@ class Build : NukeBuild
         .After(CreateRelease)
         .DependsOn(CreateRelease)
         .DependsOn(BuildNativeInstaller)
+        .OnlyWhenDynamic(() => !IsRelease || release != null)
         .Executes((() =>
         {
             var moderninstallerExe = RootDirectory / "ModernInstaller" / "Publish" / "ModernInstaller.exe";
@@ -419,6 +430,7 @@ class Build : NukeBuild
         }));
 
     Target Clean => _ => _
+        .DependsOn(CompileWindowsX64)
         .DependsOn(PackDebug)
         .DependsOn(Pack)
         .DependsOn(PackSelf)
