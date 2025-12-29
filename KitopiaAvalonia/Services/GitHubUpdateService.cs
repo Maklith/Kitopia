@@ -60,7 +60,7 @@ namespace KitopiaAvalonia.Services
                     {
                         var htmlUrl = ((JArray)release["assets"]).FirstOrDefault(e=>e["name"].ToString()==$"Kitopia{cleanTagName}_Installer.exe")?["browser_download_url"]?.ToString();
                         var body = release["body"]?.ToString();
-                        htmlUrl = htmlUrl.Replace("https://github.com/Maklith","https://update.kitopia.top/Maklith");
+                        htmlUrl = htmlUrl?.Replace("https://github.com/Maklith","https://update.kitopia.top/Maklith");
                         return (true, tagName, htmlUrl, body);
                     }
                 }
