@@ -286,7 +286,12 @@ internal class Program
         ServiceManager.Services = ConfigureServices();
 
         CheckAndDeleteLogFiles();
-        Task.Run(CheckUpdates);
+        
+        Task.Run((async () =>
+        {
+            await CheckUpdates();
+            await Task.Delay(TimeSpan.FromMinutes(30));
+        }));
         MqttManager.Init().GetAwaiter().GetResult();
         Log.Information("MQTT初始化完成");
         HotKeyManager.Init();
