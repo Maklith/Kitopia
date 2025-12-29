@@ -189,7 +189,7 @@
                                     <TextBlock VerticalAlignment="Center" FontSize="12"
                                                Background="{DynamicResource SemiColorText0}"
                                                Foreground="{DynamicResource SemiBackground4Color}"
-                                               Text="{Binding  InputObject.RealType,Converter={StaticResource NodeTypeNameI18NCtr}}" />
+                                               Text="{Binding  InputObject.Type,Converter={StaticResource NodeTypeNameI18NCtr}}" />
 
                                     <controls:FontIcon FontFamily="{StaticResource FluentFont}"
                                                        Glyph="&#xf10c;"

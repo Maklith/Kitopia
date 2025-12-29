@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -226,6 +227,10 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                     list.ToArray());
                 if (invoke is null)
                     break;
+                var resultProperty = invoke.GetType().GetProperty("Result");
+                if (resultProperty is not null)
+                    invoke = resultProperty.GetValue(invoke);
+
                 if (ScenarioMethod.Method.ReturnParameter.ParameterType.GetCustomAttribute(typeof(AutoUnbox)) is not
                     null)
                 {
@@ -239,7 +244,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                                     BindingFlags.Instance | BindingFlags.IgnoreCase |
                                     BindingFlags.Public | BindingFlags.NonPublic |
                                     BindingFlags.GetProperty, null, invoke, null);
-
+                            
                             connectorItem.InputObject.Value = value;
                             break;
                         }

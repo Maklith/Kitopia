@@ -239,13 +239,16 @@ public class ScenarioMethod
                     foreach (var @interface in Method.ReturnParameter.ParameterType.GetInterfaces())
                         interfaces.Add(@interface.FullName);
 
-
+                    var type = Method.ReturnParameter.ParameterType.BaseType==typeof(Task)&&Method.ReturnParameter.ParameterType.IsGenericType
+                        ?Method.ReturnParameter.ParameterType.GetGenericArguments()[0]
+                        :Method.ReturnParameter.ParameterType;
                     outItems.Add(new ConnectorItem
                     {
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = Method.ReturnParameter.ParameterType
+                            RealType= Method.ReturnParameter.ParameterType,
+                            Type = type
                         },
 
                         Title = Attribute.GetParameterName("return"),
