@@ -148,7 +148,8 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
         }
         else if (value.RealType.IsEnum)
         {
-            writer.WriteNumberValue((int)value.Value);
+            var valueValue = (object)value.Value;
+            writer.WriteNumberValue(Convert.ToInt32(valueValue));
         }
         else if (value.IsSelf)
         {

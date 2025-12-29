@@ -5,7 +5,8 @@
                     xmlns:u="https://irihi.tech/ursa"
                     xmlns:controls1="clr-namespace:NodifyM.Avalonia.Controls;assembly=NodifyM.Avalonia"
                     xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
-                    xmlns:taskEditor="clr-namespace:KitopiaAvalonia.Converter.TaskEditor">
+                    xmlns:taskEditor="clr-namespace:KitopiaAvalonia.Converter.TaskEditor"
+                    xmlns:system="clr-namespace:System;assembly=System.Runtime">
     <!-- Add Resources Here -->
     <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
     <taskEditor:NodeTypeNameI18NCtr x:Key="NodeTypeNameI18NCtr" />
@@ -141,7 +142,22 @@
             <ComboBox Margin="10,5,10,5"
                       x:Name="ComboBox"
                       MinWidth="40"
-                      SelectedValue="{Binding InputObject.Value,Mode=TwoWay}" />
+                      SelectedValue="{Binding InputObject.Value,Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate DataType="system:Enum">
+                        <TextBlock   
+                            Foreground="{DynamicResource SemiColorText0}"
+                            Text="{Binding }" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+                <ComboBox.SelectionBoxItemTemplate>
+                    <DataTemplate DataType="system:Enum">
+                        <TextBlock   
+                            Foreground="{DynamicResource SemiColorText0}"
+                            Text="{Binding }" />
+                    </DataTemplate>
+                </ComboBox.SelectionBoxItemTemplate>
+            </ComboBox>
         </StackPanel>
 
     </DataTemplate>

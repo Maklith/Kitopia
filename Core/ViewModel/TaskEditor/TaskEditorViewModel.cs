@@ -542,6 +542,10 @@ public partial class TaskEditorViewModel : ObservableRecipient
     [RelayCommand]
     public async Task StartDragging(PointerPressedEventArgs args)
     {
+        if (((Control)args.Source).GetParentOfType<ComboBox>() is not null)
+        {
+            return;
+        }
         if (args.Source is Control border)
         {
             var parentOfType = border.GetParentOfType<Control>("Node");
