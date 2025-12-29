@@ -7,11 +7,13 @@
                     xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
                     xmlns:pages="clr-namespace:KitopiaAvalonia.Pages"
                     xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
-                    xmlns:u="https://irihi.tech/ursa">
+                    xmlns:u="https://irihi.tech/ursa"
+                    xmlns:converter="clr-namespace:KitopiaAvalonia.Converter">
     <!-- Add Resources Here -->
     <taskEditor:EnumEqualCtr x:Key="NodeStatusBorderCtr" />
     <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
     <taskEditor:NodeTypeNameI18NCtr x:Key="NodeTypeNameI18NCtr" />
+    <converter:IfNullVisibilityHidden x:Key="IfNullVisibilityHidden" />
     <DataTemplates x:Key="NodifyEditorNodeTemplates">
         <DataTemplate DataType="customScenario1:KnotNodeViewModel">
             <controls2:KnotNode

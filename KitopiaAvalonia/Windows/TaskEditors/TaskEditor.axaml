@@ -26,7 +26,7 @@
 
     </u:UrsaWindow.Background>
     <u:UrsaWindow.Resources>
-        <taskEditor:IfNullVisibilityHidden x:Key="IfNullVisibilityHidden" />
+        <converter:IfNullVisibilityHidden x:Key="IfNullVisibilityHidden" />
 
 
         <taskEditor:ScenarioMethodCategoryGroupCtr x:Key="ScenarioMethodCategoryGroupCtr" />

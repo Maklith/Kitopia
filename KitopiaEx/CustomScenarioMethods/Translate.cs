@@ -1,17 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia.Threading;
 using KitopiaEx.Ocr;
-using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json.Linq;
-using PluginCore;
 using PluginCore.Attribute;
 
 namespace KitopiaEx.Translate;

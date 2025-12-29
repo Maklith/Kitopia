@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using PluginCore;
+﻿using PluginCore;
 
 namespace KitopiaEx.CustomScenarioTriggers;
 

@@ -4,7 +4,7 @@ using PluginCore.Attribute;
 
 namespace KitopiaEx;
 
-public class SearchItemEx
+public class SearchItemScenarioMethod
 {
     [ScenarioMethod("打开/运行本地项目", $"{nameof(item)}=本地项目",
         "return=返回参数")]

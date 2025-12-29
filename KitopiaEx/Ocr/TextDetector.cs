@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using OpenCvSharp;
 using PluginCore;
 using PluginCore.Onnx;
@@ -51,7 +50,7 @@ namespace KitopiaEx.Ocr
                     Mat binary = Mat.FromPixelData(dstImg.Rows, dstImg.Cols, MatType.CV_32FC1,(IntPtr)ptr);
                     binary.ConvertTo(binary, MatType.CV_8UC1, 255.0);
                     binary.Threshold(0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);  
-                    OpenCvSharp.Point[][] contours;
+                    Point[][] contours;
                     Cv2.FindContours(binary, out contours, out _, RetrievalModes.List, ContourApproximationModes.ApproxTC89L1);
             
                     var results = new List<Point2f[]>();

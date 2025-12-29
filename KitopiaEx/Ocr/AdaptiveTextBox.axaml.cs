@@ -1,22 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Utils;
-using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
-using Avalonia.Markup.Xaml;
 using Avalonia.Media;
-using Avalonia.Media.TextFormatting;
 using Avalonia.Media.TextFormatting.Unicode;
-using Avalonia.Styling;
 using Avalonia.Threading;
-using Avalonia.Utilities;
 
 namespace KitopiaEx.Ocr;
 internal static class StringUtils
@@ -88,19 +81,19 @@ internal static class StringUtils
       if (string.IsNullOrEmpty(text))
         return 0;
       cursor = Math.Min(cursor, text.Length);
-      int index = StringUtils.LineBegin(text, cursor) - 1;
+      int index = LineBegin(text, cursor) - 1;
       int num1 = index <= 0 || text[index] != '\n' || text[index - 1] != '\r' ? index : index - 1;
       if (cursor - 1 == index)
         return num1 <= 0 ? 0 : num1;
-      StringUtils.CharClass charClass1 = StringUtils.GetCharClass(text[cursor - 1]);
+      CharClass charClass1 = GetCharClass(text[cursor - 1]);
       int num2 = index + 1;
       int num3 = cursor;
-      while (num3 > num2 && StringUtils.GetCharClass(text[num3 - 1]) == charClass1)
+      while (num3 > num2 && GetCharClass(text[num3 - 1]) == charClass1)
         --num3;
-      if (charClass1 == StringUtils.CharClass.CharClassWhitespace && num3 > num2)
+      if (charClass1 == CharClass.CharClassWhitespace && num3 > num2)
       {
-        StringUtils.CharClass charClass2 = StringUtils.GetCharClass(text[num3 - 1]);
-        while (num3 > num2 && StringUtils.GetCharClass(text[num3 - 1]) == charClass2)
+        CharClass charClass2 = GetCharClass(text[num3 - 1]);
+        while (num3 > num2 && GetCharClass(text[num3 - 1]) == charClass2)
           --num3;
       }
       return num3;
@@ -108,7 +101,7 @@ internal static class StringUtils
 
     public static int NextWord(string text, int cursor)
     {
-      int index1 = StringUtils.LineEnd(text, cursor);
+      int index1 = LineEnd(text, cursor);
       if (cursor >= text.Length)
         return cursor;
       int num = index1 >= text.Length || text[index1] != '\r' || index1 + 1 >= text.Length || text[index1 + 1] != '\n' ? index1 : index1 + 1;
@@ -119,29 +112,29 @@ internal static class StringUtils
         ++index2;
       if (index2 >= index1)
         return index2;
-      StringUtils.CharClass charClass = StringUtils.GetCharClass(text[index2]);
-      while (index2 < index1 && StringUtils.GetCharClass(text[index2]) == charClass)
+      CharClass charClass = GetCharClass(text[index2]);
+      while (index2 < index1 && GetCharClass(text[index2]) == charClass)
         ++index2;
       return index2;
     }
 
-    private static StringUtils.CharClass GetCharClass(char c)
+    private static CharClass GetCharClass(char c)
     {
       if (char.IsWhiteSpace(c))
-        return StringUtils.CharClass.CharClassWhitespace;
-      return char.IsLetterOrDigit(c) ? StringUtils.CharClass.CharClassAlphaNumeric : StringUtils.CharClass.CharClassUnknown;
+        return CharClass.CharClassWhitespace;
+      return char.IsLetterOrDigit(c) ? CharClass.CharClassAlphaNumeric : CharClass.CharClassUnknown;
     }
 
     private static int LineBegin(string text, int pos)
     {
-      while (pos > 0 && !StringUtils.IsEol(text[pos - 1]))
+      while (pos > 0 && !IsEol(text[pos - 1]))
         --pos;
       return pos;
     }
 
     private static int LineEnd(string text, int cursor, bool include = false)
     {
-      while (cursor < text.Length && !StringUtils.IsEol(text[cursor]))
+      while (cursor < text.Length && !IsEol(text[cursor]))
         ++cursor;
       if (include && cursor < text.Length)
       {
@@ -193,10 +186,10 @@ public partial class AdaptiveTextBox : TextBlock
     {
       Dispatcher.UIThread.InvokeAsync(() =>
       {
-        InputElement.FocusableProperty.OverrideDefaultValue(typeof(AdaptiveTextBox), true);
-        Visual.AffectsRender<AdaptiveTextBox>((AvaloniaProperty)AdaptiveTextBox.SelectionStartProperty,
-          (AvaloniaProperty)AdaptiveTextBox.SelectionEndProperty,
-          (AvaloniaProperty)AdaptiveTextBox.SelectionBrushProperty);
+        FocusableProperty.OverrideDefaultValue(typeof(AdaptiveTextBox), true);
+        AffectsRender<AdaptiveTextBox>((AvaloniaProperty)SelectionStartProperty,
+          (AvaloniaProperty)SelectionEndProperty,
+          (AvaloniaProperty)SelectionBrushProperty);
         BackgroundProperty.OverrideDefaultValue<AdaptiveTextBox>(new SolidColorBrush(Colors.Gray, 0.7d));
         ForegroundProperty.OverrideDefaultValue<AdaptiveTextBox>(new SolidColorBrush(Colors.White));
       });
@@ -262,18 +255,18 @@ public partial class AdaptiveTextBox : TextBlock
 
     public event EventHandler<RoutedEventArgs>? CopyingToClipboard
     {
-      add => this.AddHandler<RoutedEventArgs>(AdaptiveTextBox.CopyingToClipboardEvent, value);
+      add => this.AddHandler<RoutedEventArgs>(CopyingToClipboardEvent, value);
       remove
       {
-        this.RemoveHandler<RoutedEventArgs>(AdaptiveTextBox.CopyingToClipboardEvent, value);
+        this.RemoveHandler<RoutedEventArgs>(CopyingToClipboardEvent, value);
       }
     }
 
     /// <summary>Gets or sets the brush that highlights selected text.</summary>
     public IBrush? SelectionBrush
     {
-      get => this.GetValue<IBrush>(AdaptiveTextBox.SelectionBrushProperty);
-      set => this.SetValue<IBrush>(AdaptiveTextBox.SelectionBrushProperty, value);
+      get => this.GetValue<IBrush>(SelectionBrushProperty);
+      set => this.SetValue<IBrush>(SelectionBrushProperty, value);
     }
 
     /// <summary>
@@ -281,8 +274,8 @@ public partial class AdaptiveTextBox : TextBlock
     /// </summary>
     public IBrush? SelectionForegroundBrush
     {
-      get => this.GetValue<IBrush>(AdaptiveTextBox.SelectionForegroundBrushProperty);
-      set => this.SetValue<IBrush>(AdaptiveTextBox.SelectionForegroundBrushProperty, value);
+      get => this.GetValue<IBrush>(SelectionForegroundBrushProperty);
+      set => this.SetValue<IBrush>(SelectionForegroundBrushProperty, value);
     }
 
     /// <summary>
@@ -290,8 +283,8 @@ public partial class AdaptiveTextBox : TextBlock
     /// </summary>
     public int SelectionStart
     {
-      get => this.GetValue<int>(AdaptiveTextBox.SelectionStartProperty);
-      set => this.SetValue<int>(AdaptiveTextBox.SelectionStartProperty, value);
+      get => this.GetValue<int>(SelectionStartProperty);
+      set => this.SetValue<int>(SelectionStartProperty, value);
     }
 
     /// <summary>
@@ -299,8 +292,8 @@ public partial class AdaptiveTextBox : TextBlock
     /// </summary>
     public int SelectionEnd
     {
-      get => this.GetValue<int>(AdaptiveTextBox.SelectionEndProperty);
-      set => this.SetValue<int>(AdaptiveTextBox.SelectionEndProperty, value);
+      get => this.GetValue<int>(SelectionEndProperty);
+      set => this.SetValue<int>(SelectionEndProperty, value);
     }
 
     /// <summary>Gets the content of the current selection.</summary>
@@ -314,7 +307,7 @@ public partial class AdaptiveTextBox : TextBlock
       get => this._canCopy;
       private set
       {
-        this.SetAndRaise<bool>((DirectPropertyBase<bool>) AdaptiveTextBox.CanCopyProperty, ref this._canCopy, value);
+        this.SetAndRaise<bool>((DirectPropertyBase<bool>) CanCopyProperty, ref this._canCopy, value);
       }
     }
 
@@ -327,7 +320,7 @@ public partial class AdaptiveTextBox : TextBlock
       string selection = AdaptiveTextBox.GetSelection();
       if (string.IsNullOrEmpty(selection))
         return;
-      RoutedEventArgs e = new RoutedEventArgs((RoutedEvent) AdaptiveTextBox.CopyingToClipboardEvent);
+      RoutedEventArgs e = new RoutedEventArgs((RoutedEvent) CopyingToClipboardEvent);
       // ISSUE: explicit non-virtual call
       AdaptiveTextBox.RaiseEvent(e);
       if (e.Handled)
@@ -342,14 +335,14 @@ public partial class AdaptiveTextBox : TextBlock
     public void SelectAll()
     {
       string text = this.Text;
-      this.SetCurrentValue<int>(AdaptiveTextBox.SelectionStartProperty, 0);
-      this.SetCurrentValue<int>(AdaptiveTextBox.SelectionEndProperty, text != null ? text.Length : 0);
+      this.SetCurrentValue<int>(SelectionStartProperty, 0);
+      this.SetCurrentValue<int>(SelectionEndProperty, text != null ? text.Length : 0);
     }
 
     /// <summary>Clears the current selection</summary>
     public void ClearSelection()
     {
-      this.SetCurrentValue<int>(AdaptiveTextBox.SelectionEndProperty, this.SelectionStart);
+      this.SetCurrentValue<int>(SelectionEndProperty, this.SelectionStart);
     }
 
     internal void SelectText(Point start,Point end)

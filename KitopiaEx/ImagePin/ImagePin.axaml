@@ -34,5 +34,5 @@
             
         </Button>
     </u:UrsaWindow.TitleBarContent>
-    <Image x:Name="Image" PointerPressed="Image_OnPointerPressed"></Image>
+    <Image x:Name="Image" PointerPressed="Image_OnPointerPressed" />
 </u:UrsaWindow>

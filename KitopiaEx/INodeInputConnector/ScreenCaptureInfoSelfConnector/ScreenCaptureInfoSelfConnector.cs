@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading;
 using Avalonia.Controls.Templates;
 using Avalonia.Markup.Xaml.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -7,7 +6,6 @@ using CommunityToolkit.Mvvm.Input;
 using Core.SDKs.Services;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using PluginCore.Attribute.Scenario;
 
 namespace KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
 

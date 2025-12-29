@@ -1,22 +1,20 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using KitopiaEx.Ocr;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.ExMethod;
 
-namespace KitopiaEx.ImagePin;
+namespace KitopiaEx.CustomScenarioMethods;
 
-public class ImagePinEx
+public class ImagePinScenarioMethod
 {
     [ScenarioMethod("创建图片置顶窗口",$"return=图片置顶窗口实例")]
-    public ImagePin OcrResultShow(CancellationToken ct)
+    public ImagePin.ImagePin OcrResultShow(CancellationToken ct)
     {
         
-        ImagePin ocrResultShowWindow =null;
+        ImagePin.ImagePin ocrResultShowWindow =null;
         ct.Register(() =>
         {
             Dispatcher.UIThread.InvokeAsync((() =>
@@ -27,14 +25,14 @@ public class ImagePinEx
         });
         Dispatcher.UIThread.Invoke((() =>
         {
-            ocrResultShowWindow = new ImagePin();
+            ocrResultShowWindow = new ImagePin.ImagePin();
             ocrResultShowWindow.Show();
             
         }));
         return ocrResultShowWindow; 
     }
     [ScenarioMethod("设置置顶窗口图片",$"return=图片置顶窗口实例")]
-    public void SetImagePin(ImagePin imagePin, ScreenCaptureResult screenCapture, CancellationToken ct)
+    public void SetImagePin(ImagePin.ImagePin imagePin, ScreenCaptureResult screenCapture, CancellationToken ct)
     {
         if (imagePin == null) return;
         Dispatcher.UIThread.Invoke((() =>

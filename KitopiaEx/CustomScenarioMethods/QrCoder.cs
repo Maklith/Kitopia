@@ -1,12 +1,11 @@
 ﻿using System.Threading;
-using KitopiaEx.Translate;
 using OpenCvSharp;
 using PluginCore;
 using PluginCore.Attribute;
 
 namespace KitopiaEx.QRCode;
 
-public class Coder
+public class QrCoder
 {
     [ScenarioMethod("识别QRCode", $"{nameof(captureResult)}=图像数据","return=QRCode识别结果")]
     public string QRCodeDecode(ScreenCaptureResult captureResult, CancellationToken ct)

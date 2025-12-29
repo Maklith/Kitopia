@@ -1,6 +1,5 @@
 ﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:customScenario="clr-namespace:Core.SDKs.CustomScenario;assembly=PluginCore"
                     xmlns:screenCaptureInfoSelfConnector="clr-namespace:KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector"
                     xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore">
     <DataTemplate x:Key="Template">
@@ -10,7 +9,7 @@
                 <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
             </Button.Resources>
             <TextBlock x:DataType="screenCaptureInfoSelfConnector:ScreenCaptureInfoSelfConnector"  Foreground="{DynamicResource SemiColorText0}"
-                       Text="{Binding Value.Value.Value,Converter={StaticResource ToolTipConverter},ConverterParameter='截图区域未设置' }"></TextBlock>
+                       Text="{Binding Value.Value.Value,Converter={StaticResource ToolTipConverter},ConverterParameter='截图区域未设置' }" />
         </Button>
     </DataTemplate>
 </ResourceDictionary>

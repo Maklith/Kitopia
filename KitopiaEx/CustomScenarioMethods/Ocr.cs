@@ -1,29 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
-using Core.SDKs;
 using OpenCvSharp;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Attribute.Scenario;
 using PluginCore.ExMethod;
 using PluginCore.Onnx;
-using SharpHook;
-using SharpHook.Native;
 using Point = Avalonia.Point;
 using Rect = OpenCvSharp.Rect;
-using TextDetector = KitopiaEx.Ocr.TextDetector;
 
 namespace KitopiaEx.Ocr;
 [ScenarioMethodCategory("文字识别")]

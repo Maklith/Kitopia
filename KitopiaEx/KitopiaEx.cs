@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using KitopiaEx.CustomScenarioMethods;
 using KitopiaEx.CustomScenarioValueSerializer;
-using KitopiaEx.ImagePin;
 using KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
 using KitopiaEx.Ocr;
+using KitopiaEx.QRCode;
+using KitopiaEx.Translate;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using PluginCore;
 
 namespace KitopiaEx;
@@ -22,7 +25,7 @@ public class KitopiaEx : IPlugin
         Kitopia._i18n.TryAdd(typeof(ScreenCaptureInfoSelfConnector).FullName, "屏幕截图信息");
         Kitopia._i18n.TryAdd(typeof(ScreenCaptureInfo).FullName, "屏幕截图信息");
         Kitopia._i18n.TryAdd(typeof(ScreenCaptureResult).FullName, "屏幕截图数据");
-        Kitopia._i18n.TryAdd(typeof(System.Collections.Generic.IEnumerable<OcrResult>).FullName, "文字识别结果数组");
+        Kitopia._i18n.TryAdd(typeof(IEnumerable<OcrResult>).FullName, "文字识别结果数组");
         ServiceProvider = serviceProvider;
         Kitopia.ToolTipConverters.TryAdd(typeof(ScreenCaptureInfo), info =>
         {
@@ -71,28 +74,24 @@ public class KitopiaEx : IPlugin
     {
         var services = new ServiceCollection();
         services.AddSingleton<KitopiaEx>();
-       
-        services.AddSingleton<SearchItemEx>();
-      
-        
-        
+        services.AddSingleton<SearchItemScenarioMethod>();
         services.AddTransient<ScreenCaptureInfoSelfConnector>();
         services.AddSingleton<KeyboardSimulation>();
         services.AddSingleton<ScreenCaptureNode>();
         services.AddTransient<Ocr.Ocr>();
-
-        
         services.AddTransient<ImagePin.ImagePin>();
         services.AddTransient<Translate.Translate>();
-        services.AddTransient<Translate.TranslateInputDataAnalyzer>();
-        services.AddTransient<QRCode.Coder>();
-
+        services.AddTransient<TranslateInputDataAnalyzer>();
+        services.AddTransient<QrCoder>();
+        services.AddTransient<Image>();
+        
         services.AddTransient<ScreenCaptureExs.Ocr>();
         services.AddTransient<ScreenCaptureExs.ImagePin>();
         services.AddTransient<ScreenCaptureExs.QRCode>();
         services.AddTransient<ScreenCaptureExs.Translate>();
+        services.AddTransient<ScreenCaptureExs.SaveImageToFile>();
         
-        services.AddTransient<ImagePinEx>();
+        services.AddTransient<ImagePinScenarioMethod>();
         
         var buildServiceProvider = services.BuildServiceProvider();
         ServiceProvider = buildServiceProvider;

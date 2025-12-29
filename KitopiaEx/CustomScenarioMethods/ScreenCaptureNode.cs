@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Attribute.Scenario;
-using SharpHook.Native;
 
 namespace KitopiaEx;
 

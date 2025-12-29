@@ -7,7 +7,7 @@ using Avalonia.Data.Converters;
 
 #endregion
 
-namespace KitopiaAvalonia.Converter.TaskEditor;
+namespace KitopiaAvalonia.Converter;
 
 public class IfNullVisibilityHidden : IValueConverter
 

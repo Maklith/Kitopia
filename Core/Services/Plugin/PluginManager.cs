@@ -52,6 +52,7 @@ public class PluginManager
 
     public static void Init()
     {
+        Kitopia.ServiceProvider = ServiceManager.Services;
         Kitopia.ISearchItemTool =
             (ISearchItemTool)ServiceManager.Services.GetService(typeof(ISearchItemTool))!;
         Kitopia.IClipboardService = ServiceManager.Services.GetService<IClipboardService>()!;

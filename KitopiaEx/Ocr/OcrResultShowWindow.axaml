@@ -37,27 +37,25 @@
            PointerReleased="InputElement_OnPointerReleased" PointerCaptureLost="InputElement_OnPointerCaptureLost"
            PointerExited="InputElement_OnPointerExited">
         <Panel.Background>
-            <SolidColorBrush Color="Azure" Opacity="0.001"></SolidColorBrush>
+            <SolidColorBrush Color="Azure" Opacity="0.001" />
         </Panel.Background>
-        <Image x:Name="Image" HorizontalAlignment="Left" VerticalAlignment="Top"></Image>
+        <Image x:Name="Image" HorizontalAlignment="Left" VerticalAlignment="Top" />
         <ItemsControl x:Name="ItemsControl" HorizontalAlignment="Left" VerticalAlignment="Top">
             <ItemsControl.Styles>
                 <Style Selector="ocr|AdaptiveTextBox:pointerover">
-                    <Setter Property="Background" Value="{DynamicResource SemiColorText3}">
-
-                    </Setter>
+                    <Setter Property="Background" Value="{DynamicResource SemiColorText3}" />
                 </Style>
                 <Style Selector="TextBox:focus /template/ Border#PART_ContentPresenterBorder">
                     <Setter Property="BorderBrush">
                         <Setter.Value>
-                            <SolidColorBrush Color="Transparent"></SolidColorBrush>
+                            <SolidColorBrush Color="Transparent" />
                         </Setter.Value>
                     </Setter>
                 </Style>
             </ItemsControl.Styles>
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <Canvas></Canvas>
+                    <Canvas />
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
@@ -65,8 +63,7 @@
                     <ocr:AdaptiveTextBox
                         TopLeft="{Binding SPoint}" BottomRight="{Binding EPoint}"
                         Text="{Binding Text}" Foreground="{DynamicResource SemiColorBackground0}"
-                        Background="{DynamicResource SemiColorText2}">
-                    </ocr:AdaptiveTextBox>
+                        Background="{DynamicResource SemiColorText2}" />
 
                 </DataTemplate>
             </ItemsControl.ItemTemplate>

@@ -11,7 +11,7 @@ public class QRCode
     [Capture("识别二维码",0xf635)]
     public void QRCodeImgCapture(ScreenCaptureResult dResult)
     {
-        var service = KitopiaEx.ServiceProvider.GetService<Coder>();
+        var service = KitopiaEx.ServiceProvider.GetService<QrCoder>();
         var qrCodeDecode = service.QRCodeDecode(dResult,CancellationToken.None);
         if (qrCodeDecode==string.Empty)
         {

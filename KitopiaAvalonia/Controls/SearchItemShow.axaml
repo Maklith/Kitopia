@@ -12,7 +12,7 @@
     <Styles.Resources>
         <searchWindow:PathToImageConverter x:Key="PathToImageConverter" />
         <converter:ReverseBoolToVisibilityConverter x:Key="boolToVisibilityConverter" />
-        <searchWindow:IfNullVisibilityHidden x:Key="IfNullVisibilityHidden" />
+        <converter:IfNullVisibilityHidden x:Key="IfNullVisibilityHidden" />
         <converter:IntToIconSymbol x:Key="IntToIconSymbol" />
         <converter:ReverseBool x:Key="ReverseBool" />
     </Styles.Resources>
