@@ -77,13 +77,12 @@ public class ScreenCaptureByWGC : IScreenCapture
             {
                 continue;
             }
-            int style1= User32.GetWindowLong(currentHwnd,User32.WindowLongFlags.GWL_STYLE);
-            if ( (style1 & (uint) User32.WindowStyles.WS_POPUP) != 0)
+            int style2 = User32.GetWindowLong(currentHwnd,User32.WindowLongFlags.GWL_EXSTYLE);
+            if ( (style2 & (int) User32.WindowStylesEx.WS_EX_NOACTIVATE) != 0)
             {
                 continue;
             }
-            int style2 = User32.GetWindowLong(currentHwnd,User32.WindowLongFlags.GWL_EXSTYLE);
-            if ( (style2 & (int) User32.WindowStylesEx.WS_EX_NOACTIVATE) != 0)
+            if ( (style2 & WS_EX_TOOLWINDOW) != 0)
             {
                 continue;
             }
