@@ -84,7 +84,7 @@ public class ToastService : IToastService
                         : new WindowNotificationManager(windowFromIntPtr);
                 windowToastManager.Position = NotificationPosition.BottomRight;
                 windowToastManager!.Show(
-                    new Notification($"Kitopia{header}", text),
+                    new Notification($"{header}", text),
                     showIcon: true,
                     showClose: true,
                     type: notificationType);
