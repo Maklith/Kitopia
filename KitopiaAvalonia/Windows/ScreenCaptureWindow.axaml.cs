@@ -614,34 +614,62 @@ public partial class ScreenCaptureWindow : Window
     private void SelectWindow(PointerEventArgs e)
     {
         var currentPoint = e.GetCurrentPoint(this);
-        var screenInfoWidth = Bounds.Width / _screenCaptureInfo.ScreenInfo.Width;
-        var screenInfoHeight = Bounds.Height / _screenCaptureInfo.ScreenInfo.Height;
-        var positionY = currentPoint.Position.Y / screenInfoWidth + Position.Y;
-        var positionX = currentPoint.Position.X / screenInfoHeight + Position.X;
+        var pixelPoint = this.PointToScreen(currentPoint.Position);
+        var positionX = pixelPoint.X;
+        var positionY = pixelPoint.Y;
+
         var firstOrDefault = _windowInfos.Where(e => positionX >= e.Rect.X && positionX <= e.Rect.X + e.Rect.Width &&
                                                      positionY >= e.Rect.Y && positionY <= e.Rect.Y + e.Rect.Height)
             .OrderBy(e => e.ZIndex).ToList();
+        
+        Rect targetRectPhysical;
+
         if (firstOrDefault.Count() == 0)
         {
-            _currentWindowInfo = new WindowInfo();
-            _startPoint = new Point(0, 0);
-            SelectBox._dragTransform.X = 0;
-            SelectBox._dragTransform.Y = 0;
-            SelectBox.Width = Bounds.Width;
-            SelectBox.Height = Bounds.Height;
+            // Fallback: Check which screen we are on
+            var screen = _screens.FirstOrDefault(s => positionX >= s.ScreenInfo.X && positionX < s.ScreenInfo.X + s.ScreenInfo.Width &&
+                                                      positionY >= s.ScreenInfo.Y && positionY < s.ScreenInfo.Y + s.ScreenInfo.Height);
+
+            if (!screen.Equals(default(ScreenCaptureInfo)))
+            {
+                // Found a screen
+                targetRectPhysical = new Rect(screen.ScreenInfo.X, screen.ScreenInfo.Y, screen.ScreenInfo.Width, screen.ScreenInfo.Height);
+                _currentWindowInfo = new WindowInfo(); // No specific window
+            }
+            else
+            {
+                // Fallback to full canvas if no screen matches (unlikely if strictly inside bounds)
+                _currentWindowInfo = new WindowInfo();
+                _startPoint = new Point(0, 0);
+                SelectBox._dragTransform.X = 0;
+                SelectBox._dragTransform.Y = 0;
+                SelectBox.Width = Bounds.Width;
+                SelectBox.Height = Bounds.Height;
+                SelectBox.IsVisible = true;
+                UpdateSelectBox();
+                return;
+            }
         }
         else
         {
             var windowInfo = firstOrDefault.FirstOrDefault();
             _currentWindowInfo = windowInfo;
-            var rectX = windowInfo.Rect.X - Position.X;
-            var rectY = windowInfo.Rect.Y - Position.Y;
-            _startPoint = new Point(rectX * screenInfoWidth, rectY * screenInfoHeight);
-            SelectBox._dragTransform.X = _startPoint.X;
-            SelectBox._dragTransform.Y = _startPoint.Y;
-            SelectBox.Width = windowInfo.Rect.Width * screenInfoWidth;
-            SelectBox.Height = windowInfo.Rect.Height * screenInfoHeight;
+            targetRectPhysical = new Rect(windowInfo.Rect.X, windowInfo.Rect.Y, windowInfo.Rect.Width, windowInfo.Rect.Height);
         }
+        
+        // Convert Physical Rect back to Logical coordinates for SelectBox
+        var topLeft = this.PointToClient(new PixelPoint((int)targetRectPhysical.X, (int)targetRectPhysical.Y));
+        var bottomRight = this.PointToClient(new PixelPoint((int)(targetRectPhysical.X + targetRectPhysical.Width), (int)(targetRectPhysical.Y + targetRectPhysical.Height)));
+
+        // Handle negative coordinates or off-canvas mapping if necessary, though PointToClient should handle it relative to window origin
+        var width = bottomRight.X - topLeft.X;
+        var height = bottomRight.Y - topLeft.Y;
+        
+        _startPoint = topLeft;
+        SelectBox._dragTransform.X = topLeft.X;
+        SelectBox._dragTransform.Y = topLeft.Y;
+        SelectBox.Width = width;
+        SelectBox.Height = height;
 
         SelectBox.IsVisible = true;
         UpdateSelectBox();
