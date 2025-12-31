@@ -57,7 +57,7 @@ public class ToastService : IToastService
                 windowToastManager.Position = NotificationPosition.BottomRight;
                 Interlocked.Add(ref  counter, 1);
                 windowToastManager!.Show(
-                    new Notification("Kitopia", $"{header}{text}"),
+                    new Notification($"Kitopia{header}", text),
                     showIcon: true,
                     showClose: true,
                     onClose: () =>
@@ -70,11 +70,21 @@ public class ToastService : IToastService
             }
             else
             {
-                var windowToastManager = WindowToastManager.TryGetToastManager(windowFromIntPtr, out var manager)
-                    ? manager
-                    : new WindowToastManager(windowFromIntPtr);
+                // var windowToastManager = WindowToastManager.TryGetToastManager(windowFromIntPtr, out var manager)
+                //     ? manager
+                //     : new WindowToastManager(windowFromIntPtr);
+                // windowToastManager!.Show(
+                //     new Toast($"{header} {text}"),
+                //     showIcon: true,
+                //     showClose: true,
+                //     type: notificationType);
+                var windowToastManager =
+                    WindowNotificationManager.TryGetNotificationManager(windowFromIntPtr, out var manager)
+                        ? manager
+                        : new WindowNotificationManager(windowFromIntPtr);
+                windowToastManager.Position = NotificationPosition.BottomRight;
                 windowToastManager!.Show(
-                    new Toast($"{header}{text}"),
+                    new Notification($"Kitopia{header}", text),
                     showIcon: true,
                     showClose: true,
                     type: notificationType);

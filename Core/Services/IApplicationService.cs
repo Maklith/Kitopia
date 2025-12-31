@@ -7,4 +7,5 @@ public interface IApplicationService
     public bool ChangeAutoStart(bool autoStart);
     public void Restart();
     public void Stop();
+    public Task CheckUpdate();
 }

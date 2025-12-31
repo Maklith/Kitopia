@@ -210,74 +210,7 @@ internal class Program
     
     private static async Task CheckUpdates()
     {
-        var gitHubUpdateService = ServiceManager.Services.GetService<GitHubUpdateService>();
-        var (hasUpdate, latestVersion, downloadUrl, releaseNotes) = await gitHubUpdateService!.CheckForUpdatesAsync();
-        if (hasUpdate && !string.IsNullOrEmpty(downloadUrl))
-        {
-            Log.Information($"发现新版本:{latestVersion}");
-            var dialog = new DialogContent()
-            {
-                Title = $"Kitopia更新 - 发现新版本 {latestVersion}",
-                Content = $"发现新版本 {latestVersion}，是否前往下载？\n\n更新内容:\n{releaseNotes ?? "无更新说明"}",
-                PrimaryButtonText = "下载并更新",
-                SecondaryButtonText = "取消",
-                PrimaryAction = async () =>
-                {
-                    try
-                    {
-                        var toastService = ServiceManager.Services.GetService<IToastService>();
-                        var tempPath = Path.Combine(Path.GetTempPath(), $"Kitopia_{latestVersion}_Installer.exe");
-                        
-                        using var client = new HttpClient();
-                        using var response = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
-                        response.EnsureSuccessStatusCode();
-
-                        var totalBytes = response.Content.Headers.ContentLength ?? -1L;
-                        var canReportProgress = totalBytes != -1;
-
-                        await using var contentStream = await response.Content.ReadAsStreamAsync();
-                        var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
-
-                        var buffer = new byte[8192];
-                        long totalRead = 0;
-                        int bytesRead;
-                        var lastProgress = -1;
-
-                        toastService!.Show("更新", "开始下载更新...");
-
-                        while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                        {
-                            await fileStream.WriteAsync(buffer, 0, bytesRead);
-                            totalRead += bytesRead;
-
-                            if (canReportProgress)
-                            {
-                                var progress = (int)((double)totalRead / totalBytes * 100);
-                                if (progress > lastProgress && progress % 10 == 0) // Report every 10%
-                                {
-                                    lastProgress = progress;
-                                    toastService.Show("更新", $"下载进度: {progress}%");
-                                }
-                            }
-                        }
-                        await fileStream.DisposeAsync();
-                        toastService.Show("更新", "下载完成，正在启动安装程序...");
-                        await Task.Delay(1000);
-                        // Close application and start installer
-                        ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(tempPath);
-                        await Task.Delay(2000);
-                        Environment.Exit(0);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error(ex, "更新失败");
-                        ServiceManager.Services.GetService<IToastService>()!.Show("更新失败", $"下载出错: {ex.Message}",  NotificationType.Error);
-                    }
-                }
-            };
-            await ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
-                dialog);
-        }
+        await ServiceManager.Services.GetService<IApplicationService>()!.CheckUpdate();
     }
 
     public static void OnStartup(string[] arg)

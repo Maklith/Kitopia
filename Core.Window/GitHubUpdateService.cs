@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Threading.Tasks;
+using Core.Services.Plugin;
 using Newtonsoft.Json.Linq;
 using Serilog;
 
@@ -19,11 +20,9 @@ namespace KitopiaAvalonia.Services
         {
             try
             {
-                using var client = new HttpClient();
-                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(UserAgent, "1.0"));
-
+                
                 var url = $"https://update.kitopia.top/repos/{Owner}/{Repo}/releases";
-                var response = await client.GetAsync(url);
+                var response = await PluginManager._httpClient.GetAsync(url);
 
                 if (!response.IsSuccessStatusCode)
                 {

@@ -31,7 +31,7 @@ public class KitopiaConfig : ConfigBase
     public bool canReadClipboard = true;
 
     [ConfigFieldCategory("搜索框")]
-    [ConfigField("搜索框快捷键", "显示搜索框快捷键", 0xF4B8, ConfigFieldType.快捷键, action: "searchHotKeyAction")]
+    [ConfigField("搜索框快捷键", "显示搜索框快捷键", 0xF4B8, ConfigFieldType.快捷键, actionName: "searchHotKeyAction")]
     public HotKeyModel searchHotKey = new()
     {
         IsEnabled = true,
@@ -95,7 +95,7 @@ public class KitopiaConfig : ConfigBase
     [ConfigFieldCategory("鼠标快捷操作")] [ConfigField("允许对鼠标进行捕获", "允许对鼠标进行捕获(禁用后鼠标快捷键无效)", 0xE61C, ConfigFieldType.布尔)]
     public bool mouseCapture = true;
 
-    [ConfigField("鼠标快捷键", "激活鼠标快捷菜单快捷键", 0xF4B8, ConfigFieldType.快捷键, action: "mouseHotkeyAction")]
+    [ConfigField("鼠标快捷键", "激活鼠标快捷菜单快捷键", 0xF4B8, ConfigFieldType.快捷键, actionName: "mouseHotkeyAction")]
     public HotKeyModel mouseHotkey = new()
     {
         IsEnabled = true,
@@ -111,13 +111,14 @@ public class KitopiaConfig : ConfigBase
     public List<string> mouseQuickItems = new();
 
 
-    [ConfigFieldCategory("截图")] [ConfigField("截图直接复制到剪贴板", "截图直接复制到剪贴板,不显示工具栏", 0xE61C, ConfigFieldType.布尔)]
+    [ConfigFieldCategory("截图")] 
+    [ConfigField("截图直接复制到剪贴板", "截图直接复制到剪贴板,不显示工具栏", 0xE61C, ConfigFieldType.布尔)]
     public bool 截图直接复制到剪贴板 = false;
 
-    [ConfigField("截图方法", "使用特定的截图方法,某些情况下截图失败请尝试切换", 0xE61C, ConfigFieldType.自定义选项, action: "截图方法列表")]
+    [ConfigField("截图方法", "使用特定的截图方法,某些情况下截图失败请尝试切换", 0xE61C, ConfigFieldType.自定义选项, actionName: "截图方法列表")]
     public string 截图方法 = "WGC";
 
-    [ConfigField("截图快捷键", "修改截图快捷键", 0xF4B8, ConfigFieldType.快捷键, action: "screenShotHotKeyAction")]
+    [ConfigField("截图快捷键", "修改截图快捷键", 0xF4B8, ConfigFieldType.快捷键, actionName: "screenShotHotKeyAction")]
     public HotKeyModel screenShotHotKey = new()
     {
         IsEnabled = true,
@@ -126,6 +127,13 @@ public class KitopiaConfig : ConfigBase
         IsSelectShift = false, SelectKey = EKey.Q
     };
 
+    [ConfigFieldCategory("更多")]
+    [ConfigField("检查更新", "立即检查更新", 0xE974, ConfigFieldType.按钮,actionName: "检查更新")]
+    public async Task CheckUpdate()
+    {
+        await ServiceManager.Services.GetService<IApplicationService>()!.CheckUpdate();
+    }
+    
     public override void BeforeLoad()
     {
         invokes.Add("screenShotHotKeyAction", new Action<HotKeyModel>(e =>
