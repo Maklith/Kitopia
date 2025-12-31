@@ -1272,16 +1272,18 @@ public partial class ScreenCaptureWindow : Window
             // Calculate x,y,w,h again for RenderTargetBitmap (relative to the window/bitmap)
             // Or better, just reuse the logic for visual capture but use 'info' for the metadata.
             var cropW = 0;
-            var dragTransformX = SelectBox._dragTransform.X * (bitmap.PixelSize.Width / Bounds.Width);
-            var selectBoxWidth = SelectBox.Width * (bitmap.PixelSize.Width / Bounds.Width);
+            var scaleX = bitmap.PixelSize.Width / Bounds.Width;
+            var dragTransformX = SelectBox._dragTransform.X * scaleX;
+            var selectBoxWidth = SelectBox.Width * scaleX;
             if (selectBoxWidth + dragTransformX > bitmap.PixelSize.Width)
                 cropW = bitmap.PixelSize.Width;
             else if (dragTransformX > 0)
                 cropW = (int)selectBoxWidth;
             else cropW = (int)selectBoxWidth + (int)dragTransformX;
             var cropH = 0;
-            var dragTransformY = SelectBox._dragTransform.Y * (bitmap.PixelSize.Height / Bounds.Height);
-            var selectBoxHeight = SelectBox.Height * (bitmap.PixelSize.Height / Bounds.Height);
+            var scaleY = bitmap.PixelSize.Height / Bounds.Height;
+            var dragTransformY = SelectBox._dragTransform.Y * scaleY;
+            var selectBoxHeight = SelectBox.Height * scaleY;
             if (selectBoxHeight + dragTransformY > bitmap.PixelSize.Height)
                 cropH = bitmap.PixelSize.Height;
             else if (dragTransformY > 0)
@@ -1309,15 +1311,15 @@ public partial class ScreenCaptureWindow : Window
 
                     var content = (Control)Content;
                     var transformGroup = new TransformGroup();
-                    var scaleTransform = new ScaleTransform(bitmap.PixelSize.Width / Bounds.Width,
-                        bitmap.PixelSize.Height / Bounds.Height);
+                    var scaleTransform = new ScaleTransform(scaleX, scaleY);
                     transformGroup.Children.Add(scaleTransform);
                     transformGroup.Children.Add(new TranslateTransform(0, 0));
                     content.RenderTransform = transformGroup;
                     content.Width = bitmap.PixelSize.Width;
                     content.Height = bitmap.PixelSize.Height;
+                    content.Measure(Bounds.Size);
+                    content.Arrange(new Rect(Bounds.Size));
                     renderTargetBitmap.Render(content);
-
 
                     var mat = new Mat(cropH, cropW, MatType.CV_8UC4);
 
