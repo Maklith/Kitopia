@@ -5,7 +5,7 @@ namespace OnnxRuntime.CPU;
 
 public class OnnxRuntimeGpuWin : IPlugin
 {
-    public void OnEnabled(IServiceProvider serviceProvider)
+    public void OnEnabled(IServiceProvider serviceProvider, Dictionary<string, IServiceProvider> dependencyServiceProviders)
     {
     }
 

@@ -1,10 +1,16 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using PluginCore.Attribute;
 
-namespace OnnxRuntime.Gpu.Win;
+namespace HasDependencyPluginBase;
 
-public class OnnxRuntimeGpuWin : IPlugin
+public class TestBase : IPlugin
 {
+    public void TestMethod()
+    {
+        Console.WriteLine(1);
+    }
+
     public void OnEnabled(IServiceProvider serviceProvider, Dictionary<string, IServiceProvider> dependencyServiceProviders)
     {
     }
@@ -16,8 +22,8 @@ public class OnnxRuntimeGpuWin : IPlugin
     public static IServiceProvider GetServiceProvider()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<OnnxRuntimeGpuWin>();
-        services.AddTransient<MInferenceSession>();
-        return services.BuildServiceProvider();
+        services.AddSingleton<TestBase>();
+        return services
+            .BuildServiceProvider();
     }
 }

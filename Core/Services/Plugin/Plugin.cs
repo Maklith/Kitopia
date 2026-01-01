@@ -31,6 +31,7 @@ public class Plugin
     private IPlugin _pluginService;
 
     public IServiceProvider? ServiceProvider;
+    internal AssemblyLoadContextH? AssemblyLoadContext => _plugin;
 
     public void AddConfig(string key, ConfigBase configBase)
     {
@@ -109,7 +110,7 @@ public class Plugin
     public Plugin(PluginLocalInfo pluginInfo)
     {
         _plugin = new AssemblyLoadContextH(pluginInfo.FullPath, pluginInfo.FullPath.Split(Path.DirectorySeparatorChar)
-            .Last() + "_plugin");
+            .Last() + "_plugin", pluginInfo.PluginBaseInfo.Dependencies);
         Log.Debug($"加载插件:{pluginInfo.FullPath}");
         var t = _dll.GetExportedTypes();
         //Dictionary<string, (MethodInfo, object)> methodInfos = new();
@@ -134,7 +135,22 @@ public class Plugin
 
                 var service = ServiceProvider.GetService(type);
                 _pluginService = (IPlugin)service;
-                _pluginService.OnEnabled(ServiceProvider);
+                var dependencyServiceProviders = new Dictionary<string, IServiceProvider>();
+                if (pluginInfo.PluginBaseInfo.Dependencies != null)
+                {
+                    foreach (var dependency in pluginInfo.PluginBaseInfo.Dependencies)
+                    {
+                        if (dependency.Key == "Kitopia") continue;
+                        if (PluginManager.GetEnablePlugins().TryGetValue(dependency.Key, out var plugin))
+                        {
+                            if (plugin.ServiceProvider != null)
+                            {
+                                dependencyServiceProviders.Add(dependency.Key, plugin.ServiceProvider);
+                            }
+                        }
+                    }
+                }
+                _pluginService.OnEnabled(ServiceProvider, dependencyServiceProviders);
                 break;
             }
 

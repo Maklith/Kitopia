@@ -20,12 +20,14 @@ namespace Core.Services.Plugin;
 public class AssemblyLoadContextH : AssemblyLoadContext
 {
     private readonly AssemblyDependencyResolver _resolver;
+    private readonly Dictionary<string, string> _dependencies;
     private Assembly _assembly;
     private static ILogger Log = LogManager.Logger.ForContext<AssemblyLoadContextH>();
 
-    public AssemblyLoadContextH(string pluginPath, string name) : base(isCollectible: true, name: name)
+    public AssemblyLoadContextH(string pluginPath, string name, Dictionary<string, string> dependencies) : base(isCollectible: true, name: name)
     {
         _resolver = new AssemblyDependencyResolver(pluginPath);
+        _dependencies = dependencies;
         _assembly = LoadFromAssemblyPath(pluginPath);
         Unloading += (sender) =>
         {
@@ -68,6 +70,32 @@ public class AssemblyLoadContextH : AssemblyLoadContext
 
 
             return LoadFromAssemblyPath(assemblyPath);
+        }
+
+        // 如果本地未找到，尝试从依赖项中加载
+        if (_dependencies != null)
+        {
+            foreach (var dependency in _dependencies)
+            {
+                // 跳过 Kitopia 核心依赖
+                if (dependency.Key == "Kitopia") continue;
+
+                if (PluginManager.GetEnablePlugins().TryGetValue(dependency.Key, out var plugin))
+                {
+                    try
+                    {
+                        var assembly = plugin.AssemblyLoadContext?.LoadFromAssemblyName(assemblyName);
+                        if (assembly != null)
+                        {
+                            return assembly;
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略加载失败，继续尝试下一个依赖
+                    }
+                }
+            }
         }
 
         return null;

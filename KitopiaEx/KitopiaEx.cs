@@ -18,7 +18,7 @@ public class KitopiaEx : IPlugin
 
     private IPlugin _pluginImplementation;
 
-    public void OnEnabled(IServiceProvider serviceProvider)
+    public void OnEnabled(IServiceProvider serviceProvider, Dictionary<string, IServiceProvider> dependencyServiceProviders)
     {
         //MessageBox.Show("OnEnabled");
         Kitopia._i18n.TryAdd("System.Windows.Media.Imaging.BitmapSource", "图像BitmapSource");

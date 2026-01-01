@@ -243,6 +243,52 @@ public class PluginManager
         Load();
     }
 
+    public static List<PluginLocalInfo> TopologicalSort(List<PluginLocalInfo> nodes)
+    {
+        var sorted = new List<PluginLocalInfo>();
+        var visited = new HashSet<string>();
+        var processing = new HashSet<string>();
+        var nodeMap = nodes.ToDictionary(n => n.PluginBaseInfo.NameSign, n => n);
+
+        void Visit(PluginLocalInfo node)
+        {
+            var id = node.PluginBaseInfo.NameSign;
+            if (processing.Contains(id))
+            {
+                throw new Exception($"检测到循环依赖: {id}");
+            }
+
+            if (visited.Contains(id))
+            {
+                return;
+            }
+
+            processing.Add(id);
+
+            foreach (var dep in node.PluginBaseInfo.Dependencies)
+            {
+                // 忽略 Kitopia 核心依赖
+                if (dep.Key == "Kitopia") continue;
+
+                if (nodeMap.TryGetValue(dep.Key, out var depNode))
+                {
+                    Visit(depNode);
+                }
+            }
+
+            processing.Remove(id);
+            visited.Add(id);
+            sorted.Add(node);
+        }
+
+        foreach (var node in nodes)
+        {
+            Visit(node);
+        }
+
+        return sorted;
+    }
+
     public static (bool, ConcurrentDictionary<string, VersionCheckResult>) CheckDependencies(
         List<PluginBaseInfo> previewList, Dictionary<string, string> dependencies, bool autoDownload = true,
         bool autoEnable = false)
@@ -250,7 +296,8 @@ public class PluginManager
         ConcurrentDictionary<string, VersionCheckResult> results = new();
         var canLoad = true;
 
-        Parallel.ForEachAsync(dependencies, async (e1, e) =>
+        // 修改为同步 foreach，避免并发问题
+        foreach (var e1 in dependencies)
         {
             var (pluginSignName, verStr) = e1;
             if (pluginSignName == "Kitopia")
@@ -259,10 +306,10 @@ public class PluginManager
                 {
                     canLoad = false;
                     results.TryAdd(pluginSignName, VersionCheckResult.Kitopia版本不匹配);
-                    return;
+                    continue;
                 }
 
-                return;
+                continue;
             }
 
             if (autoDownload)
@@ -270,19 +317,19 @@ public class PluginManager
                 //下载缺失依赖
                 if (previewList.All(e => e.NameSign != pluginSignName))
                 {
-                    var onlinePluginInfo = await GetOnlinePluginInfo(pluginSignName);
+                    var onlinePluginInfo = GetOnlinePluginInfo(pluginSignName).GetAwaiter().GetResult();
                     if (onlinePluginInfo is null)
                     {
                         ServiceManager.Services.GetService<IToastService>()
                             .Show("自动下载插件失败", $"未找到ID:{pluginSignName}的插件");
                         canLoad = false;
                         results.TryAdd(pluginSignName, VersionCheckResult.依赖远端不存在);
-                        return;
+                        continue;
                     }
 
-                    var downloadPluginOnline = await DownloadPluginAndEnable(onlinePluginInfo.Id,
+                    var downloadPluginOnline = DownloadPluginAndEnable(onlinePluginInfo.Id,
                         onlinePluginInfo.NameSign,
-                        targetVersion: verStr.Replace("^", "").Split("-")[0]);
+                        targetVersion: verStr.Replace("^", "").Split("-")[0]).GetAwaiter().GetResult();
 
                     if (downloadPluginOnline)
                     {
@@ -297,12 +344,12 @@ public class PluginManager
                     }
                 }
 
-                var firstOrDefault2 = AllPluginInfos.FirstOrDefault(e => e.PluginBaseInfo.NameSign != pluginSignName);
+                var firstOrDefault2 = AllPluginInfos.FirstOrDefault(e => e.PluginBaseInfo.NameSign == pluginSignName);
                 if (firstOrDefault2 is null)
                 {
                     canLoad = false;
                     results.TryAdd(pluginSignName, VersionCheckResult.依赖不存在);
-                    return;
+                    continue;
                 }
 
                 var versionInRange = VersionInRange(firstOrDefault2.PluginBaseInfo.Version, verStr);
@@ -310,16 +357,16 @@ public class PluginManager
                 {
                     canLoad = false;
                     results.TryAdd(pluginSignName, VersionCheckResult.依赖版本不匹配);
-                    return;
+                    continue;
                 }
             }
 
-            var firstOrDefault = AllPluginInfos.FirstOrDefault(e => e.ToPlgString() != pluginSignName);
+            var firstOrDefault = AllPluginInfos.FirstOrDefault(e => e.ToPlgString() == pluginSignName);
             if (firstOrDefault is null)
             {
                 canLoad = false;
                 results.TryAdd(pluginSignName, VersionCheckResult.依赖不存在);
-                return;
+                continue;
             }
 
             var contains = EnablePlugins.ContainsKey(pluginSignName);
@@ -333,10 +380,10 @@ public class PluginManager
                 {
                     canLoad = false;
                     results.TryAdd(pluginSignName, VersionCheckResult.依赖未启用);
-                    return;
+                    continue;
                 }
             }
-        });
+        }
 
 
         return (canLoad, results);
@@ -351,121 +398,222 @@ public class PluginManager
             pluginsDirectoryInfo.Create();
         }
 
-        List<PluginBaseInfo> previewList = new();
-        foreach (var enumerateDirectory in pluginsDirectoryInfo.EnumerateDirectories())
-            if (File.Exists($"{enumerateDirectory.FullName}{Path.DirectorySeparatorChar}manifest.json"))
-            {
-                var readAllText =
-                    File.ReadAllText($"{enumerateDirectory.FullName}{Path.DirectorySeparatorChar}manifest.json");
-                var serialize = JsonSerializer.Deserialize<PluginBaseInfo?>(readAllText);
-                if (serialize != null) previewList.Add(serialize.Value);
-            }
+        // Phase 1 & 2: 发现与补全 (Discovery & Resolution)
+        List<PluginLocalInfo> candidates = new();
+        bool newPluginDownloaded = true;
+        int maxIterations = 5;
 
-        foreach (var directoryInfo in pluginsDirectoryInfo.EnumerateDirectories())
+        while (newPluginDownloaded && maxIterations-- > 0)
         {
-            if (init && File.Exists($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}.remove"))
+            newPluginDownloaded = false;
+            candidates.Clear();
+
+            foreach (var directoryInfo in pluginsDirectoryInfo.EnumerateDirectories())
             {
+                if (init && File.Exists($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}.remove"))
+                {
+                    try
+                    {
+                        directoryInfo.Delete(true);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error(e, "错误");
+                    }
+                    continue;
+                }
+
                 try
                 {
-                    directoryInfo.Delete(true);
+                    if (File.Exists($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}manifest.json"))
+                    {
+                        var readAllText = File.ReadAllText($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}manifest.json");
+                        var serialize = JsonSerializer.Deserialize<PluginBaseInfo?>(readAllText);
+                        if (serialize != null)
+                        {
+                            var pluginBaseInfo = serialize.Value;
+                            candidates.Add(new PluginLocalInfo
+                            {
+                                PluginBaseInfo = pluginBaseInfo,
+                                FullPath = $"{directoryInfo.FullName}{Path.DirectorySeparatorChar}{pluginBaseInfo.Main}",
+                                Path = $"{directoryInfo.FullName}{Path.DirectorySeparatorChar}"
+                            });
+                        }
+                    }
                 }
                 catch (Exception e)
                 {
-                    Log.Error(e, "错误");
+                    Log.Error(e, "读取插件元数据错误");
                 }
-
-                continue;
             }
 
-
-            try
+            var localMap = candidates.Select(c => c.PluginBaseInfo.NameSign).ToHashSet();
+            
+            foreach (var candidate in candidates.ToList())
             {
-                if (File.Exists($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}manifest.json"))
+                foreach (var dep in candidate.PluginBaseInfo.Dependencies)
                 {
-                    var readAllText =
-                        File.ReadAllText($"{directoryInfo.FullName}{Path.DirectorySeparatorChar}manifest.json");
-                    var serialize = JsonSerializer.Deserialize<PluginBaseInfo?>(readAllText);
-                    if (serialize != null)
+                    if (dep.Key == "Kitopia") continue;
+
+                    if (!localMap.Contains(dep.Key))
                     {
-                        var pluginBaseInfo = serialize.Value;
-
-                        var info = new PluginLocalInfo
+                        Log.Information($"插件 {candidate.PluginBaseInfo.Name} 缺少依赖 {dep.Key}，尝试自动下载...");
+                        try 
                         {
-                            PluginBaseInfo = pluginBaseInfo,
-                            FullPath = $"{directoryInfo.FullName}{Path.DirectorySeparatorChar}{pluginBaseInfo.Main}",
-                            Path = $"{directoryInfo.FullName}{Path.DirectorySeparatorChar}"
-                        };
-                        AllPluginInfos.Add(info);
-
-                        var (item1, versionCheckResults) =
-                            CheckDependencies(previewList, pluginBaseInfo.Dependencies,
-                                ConfigManger.Config.EnabledPluginInfos.Any(e =>
-                                    e.ToPlgString() == pluginBaseInfo.ToPlgString()));
-                        if (!item1)
-                        {
-                            var stringBuilder = new StringBuilder();
-                            foreach (var (key, value) in versionCheckResults)
-                                stringBuilder.AppendLine($"{key} {value.ToString()}");
-
-                            Log.Error($"加载插件{pluginBaseInfo.Name}时插件错误,缺失依赖\n {stringBuilder}");
-                            var dialog = new DialogContent
+                            var onlineInfo = GetOnlinePluginInfo(dep.Key).GetAwaiter().GetResult();
+                            if (onlineInfo != null)
                             {
-                                Title = $"加载插件{pluginBaseInfo.Name}时插件错误",
-                                Content = stringBuilder,
-                                CloseButtonText = "我知道了"
-                            };
-                            ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!)
-                                .ShowDialogAsync(
-                                    null,
-                                    dialog);
-                            continue;
-                        }
-
-                        Log.Debug($"加载插件{pluginBaseInfo.Name}信息成功");
-                        if (init && File.Exists($"{info.Path}.update"))
-                        {
-                            var allText = File.ReadAllText($"{info.Path}.update");
-                            if (int.TryParse(allText, out var versionId))
-                                DownloadPluginOnline(pluginBaseInfo.Id, pluginBaseInfo.NameSign, versionId).GetAwaiter()
-                                    .GetResult();
-
-                            try
-                            {
-                                File.Delete($"{info.Path}.update");
-                            }
-                            catch (Exception e)
-                            {
-                                Log.Error(e, "错误");
-                            }
-                        }
-
-                        if (ConfigManger.Config.EnabledPluginInfos.Any(e =>
-                                e.ToPlgString() == pluginBaseInfo.ToPlgString()))
-                        {
-                            var pluginInfo =
-                                ConfigManger.Config.EnabledPluginInfos.First(e =>
-                                    e.ToPlgString() == pluginBaseInfo.ToPlgString());
-                            ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.NameSign == pluginInfo.NameSign);
-                            ConfigManger.Config.EnabledPluginInfos.Add(pluginBaseInfo);
-
-                            if (!EnablePlugins.ContainsKey(pluginBaseInfo.ToPlgString()))
-                            {
-                                if (init)
-                                    Task.Run(() => { EnablePluginWithoutReloadOthers(info); }).GetAwaiter().GetResult();
+                                var verStr = dep.Value.Replace("^", "").Split("-")[0];
+                                var success = DownloadPluginOnline(onlineInfo.Id, onlineInfo.NameSign, targetVersion: verStr).GetAwaiter().GetResult();
+                                if (success)
+                                {
+                                    Log.Information($"依赖 {dep.Key} 下载成功，将重新扫描。");
+                                    newPluginDownloaded = true;
+                                    goto ReScan; 
+                                }
                                 else
-                                    Task.Run(() => { EnablePlugin(info); }).GetAwaiter().GetResult();
+                                {
+                                    Log.Error($"依赖 {dep.Key} 下载失败。");
+                                }
                             }
+                            else
+                            {
+                                Log.Error($"依赖 {dep.Key} 在服务器上未找到。");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error(ex, $"尝试下载依赖 {dep.Key} 时发生异常");
                         }
                     }
                 }
             }
-            catch (Exception e)
-            {
-                Log.Error(e, "错误");
-            }
+            ReScan:;
         }
 
-        Log.Debug($"加载插件信息完成共{AllPluginInfos.Count}插件被识别");
+        // Phase 3: 排序 (Sorting)
+        List<PluginLocalInfo> sortedCandidates;
+        try
+        {
+            sortedCandidates = TopologicalSort(candidates);
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, "插件加载排序失败，可能存在循环依赖");
+            ServiceManager.Services.GetService<IToastService>()?.Show("插件加载错误", $"检测到循环依赖: {e.Message}");
+            return;
+        }
+
+        // Phase 4: 多线程加载 (Multithreaded Loading)
+        Log.Debug($"插件加载顺序计算完成，准备并发加载: {string.Join(" -> ", sortedCandidates.Select(c => c.PluginBaseInfo.Name))}");
+
+        var loadingTasks = new Dictionary<string, Task>();
+        var loadLock = new object();
+
+        // 遍历排序后的列表创建任务
+        foreach (var info in sortedCandidates)
+        {
+            // 找出当前插件的所有依赖任务
+            var dependencyTasks = info.PluginBaseInfo.Dependencies
+                .Where(d => d.Key != "Kitopia")
+                .Select(d => loadingTasks.TryGetValue(d.Key, out var task) ? task : null)
+                .Where(t => t != null)
+                .ToArray();
+
+            // 创建加载任务
+            var loadTask = Task.Run(async () =>
+            {
+                // 1. 等待所有依赖项加载完成
+                if (dependencyTasks.Length > 0)
+                {
+                    await Task.WhenAll(dependencyTasks!);
+                }
+
+                try
+                {
+                    // 2. 线程安全地注册到 AllPluginInfos
+                    lock (loadLock)
+                    {
+                        AllPluginInfos.Add(info);
+                    }
+
+                    // 3. 依赖检查 (同步)
+                    // 注意：这里 CheckDependencies 内部已改为单线程，且只读访问 AllPluginInfos (已加锁保护或认为并发读安全)
+                    // 由于前面已经 await 了依赖任务，依赖项必定已在 AllPluginInfos 中
+                    var (canLoad, versionCheckResults) = CheckDependencies(
+                        candidates.Select(c => c.PluginBaseInfo).ToList(), 
+                        info.PluginBaseInfo.Dependencies, 
+                        autoDownload: false);
+
+                    if (!canLoad)
+                    {
+                        lock (loadLock)
+                        {
+                            AllPluginInfos.Remove(info);
+                        }
+                        
+                        var stringBuilder = new StringBuilder();
+                        foreach (var (key, value) in versionCheckResults)
+                            stringBuilder.AppendLine($"{key} {value.ToString()}");
+
+                        Log.Error($"加载插件{info.PluginBaseInfo.Name}时错误, 依赖检查未通过:\n {stringBuilder}");
+                        return;
+                    }
+
+                    Log.Debug($"加载插件{info.PluginBaseInfo.Name}信息成功");
+
+                    // 4. 处理更新 (文件IO，可并行)
+                    if (init && File.Exists($"{info.Path}.update"))
+                    {
+                        var allText = await File.ReadAllTextAsync($"{info.Path}.update");
+                        if (int.TryParse(allText, out var versionId))
+                            await DownloadPluginOnline(info.PluginBaseInfo.Id, info.PluginBaseInfo.NameSign, versionId);
+
+                        try
+                        {
+                            File.Delete($"{info.Path}.update");
+                        }
+                        catch (Exception e)
+                        {
+                            Log.Error(e, "删除更新标记文件错误");
+                        }
+                    }
+
+                    // 5. 启用插件 (涉及全局状态修改，需加锁)
+                    lock (loadLock)
+                    {
+                        if (ConfigManger.Config.EnabledPluginInfos.Any(e => e.ToPlgString() == info.PluginBaseInfo.ToPlgString()))
+                        {
+                            var configPluginInfo = ConfigManger.Config.EnabledPluginInfos.First(e => e.ToPlgString() == info.PluginBaseInfo.ToPlgString());
+                            ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.NameSign == configPluginInfo.NameSign);
+                            ConfigManger.Config.EnabledPluginInfos.Add(info.PluginBaseInfo);
+
+                            if (!EnablePlugins.ContainsKey(info.PluginBaseInfo.ToPlgString()))
+                            {
+                                // 这里调用 EnablePluginWithoutReloadOthers，其内部操作了字典，需确保在 Lock 中
+                                // 注意：如果 Plugin 构造函数耗时且不涉及全局状态，可考虑移出 Lock，但为了安全起见暂且保持一致
+                                EnablePluginWithoutReloadOthers(info);
+                            }
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e, $"加载插件 {info.PluginBaseInfo.Name} 时发生未知错误");
+                    lock (loadLock)
+                    {
+                        if (AllPluginInfos.Contains(info)) AllPluginInfos.Remove(info);
+                    }
+                }
+            });
+
+            loadingTasks[info.PluginBaseInfo.NameSign] = loadTask;
+        }
+
+        // 等待所有加载任务完成
+        Task.WaitAll(loadingTasks.Values.ToArray());
+
+        Log.Debug($"加载插件信息完成共{AllPluginInfos.Count}插件被加载");
     }
 
     public static void DeletePlugin(string pluginSignName)
