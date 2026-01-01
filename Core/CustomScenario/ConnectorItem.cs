@@ -69,7 +69,21 @@ public partial class ConnectorItem : ObservableRecipient
     /// <summary>
     /// 支持的接口列表 / List of supported interfaces
     /// </summary>
-    public List<string>? Interfaces { get; set; }
+    [JsonIgnore]
+    public List<string>? Interfaces
+    {
+        get
+        {
+            if (InputObject == null) return null;
+            var type = InputObject.RealType;
+            
+            if (type.FullName == null || type.FullName.StartsWith("System.")) return null;
+            List<string> interfaces = new();
+            foreach (var @interface in type.GetInterfaces())
+                interfaces.Add(@interface.FullName);
+            return interfaces;
+        }
+    }
 
     /// <summary>
     /// 连接器所属的源节点 / Source node that owns this connector

@@ -123,14 +123,6 @@ public class ScenarioMethod
                     foreach (var memberInfo in type.GetProperties())
                     {
                         if (memberInfo.GetCustomAttribute(typeof(AutoUnboxProperty)) is null) continue;
-                        List<string>? interfaces = null;
-                        if (!memberInfo.PropertyType.FullName.StartsWith("System."))
-                        {
-                            interfaces = new List<string>();
-                            foreach (var @interface in memberInfo.PropertyType.GetInterfaces())
-                                interfaces.Add(@interface.FullName);
-                        }
-
                         inpItems.Add(new ConnectorItem
                         {
                             Source = pointItem,
@@ -143,7 +135,6 @@ public class ScenarioMethod
 
                             AutoUnboxIndex = autoUnboxIndex,
                             AutoUnboxPropertyName = memberInfo.Name,
-                            Interfaces = interfaces,
                             Title = Attribute.GetParameterName(memberInfo.Name)
                         });
                     }
@@ -209,14 +200,6 @@ public class ScenarioMethod
                     foreach (var memberInfo in type.GetProperties())
                     {
                         if (memberInfo.GetCustomAttribute(typeof(AutoUnboxProperty)) is null) continue;
-                        List<string>? interfaces = null;
-                        if (!memberInfo.PropertyType.FullName.StartsWith("System."))
-                        {
-                            interfaces = new List<string>();
-                            foreach (var @interface in memberInfo.PropertyType.GetInterfaces())
-                                interfaces.Add(@interface.FullName);
-                        }
-
                         outItems.Add(new ConnectorItem
                         {
                             Source = pointItem,
@@ -227,7 +210,6 @@ public class ScenarioMethod
 
                             AutoUnboxIndex = autoUnboxIndex,
                             AutoUnboxPropertyName = memberInfo.Name,
-                            Interfaces = interfaces,
                             Title = Attribute.GetParameterName(memberInfo.Name),
                             ConnectorType = ConnectorType.Output
                         });
@@ -235,10 +217,7 @@ public class ScenarioMethod
                 }
                 else
                 {
-                    List<string> interfaces = new();
-                    foreach (var @interface in Method.ReturnParameter.ParameterType.GetInterfaces())
-                        interfaces.Add(@interface.FullName);
-
+                   
                     var type = Method.ReturnParameter.ParameterType.BaseType==typeof(Task)&&Method.ReturnParameter.ParameterType.IsGenericType
                         ?Method.ReturnParameter.ParameterType.GetGenericArguments()[0]
                         :Method.ReturnParameter.ParameterType;
@@ -252,7 +231,6 @@ public class ScenarioMethod
                         },
 
                         Title = Attribute.GetParameterName("return"),
-                        Interfaces = interfaces,
                         ConnectorType = ConnectorType.Output
                     });
                 }

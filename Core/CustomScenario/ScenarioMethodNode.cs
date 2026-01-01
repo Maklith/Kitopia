@@ -433,14 +433,6 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                 IsConnected = connectorItem.IsConnected,
                 ConnectorType = connectorItem.ConnectorType
             };
-            if (connectorItem.Interfaces is { Count: > 0 })
-            {
-                List<string> interfaces = new();
-                foreach (var connectorItemInterface in connectorItem.Interfaces) interfaces.Add(connectorItemInterface);
-
-                connectorItem1.Interfaces = interfaces;
-            }
-
             output.Add(connectorItem1);
         }
 
