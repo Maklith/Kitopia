@@ -5,8 +5,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.Services.Config;
 using Core.ViewModel.Pages;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using PluginCore;
 using Polly;
 using Polly.Retry;
@@ -26,24 +24,6 @@ public class PluginStateChanged
 
 public class PluginsReloaded
 {
-}
-
-public struct VersionDetail
-{
-    /*
-     "id": 1,
-            "pluginId": 7,
-            "versionInt": 1,
-            "version": "1.0.0",
-            "detail": "第一个版本",
-            "isAvailable": true
-     */
-    public int Id { get; set; }
-    public int PluginId { get; set; }
-    public int VersionInt { get; set; }
-    public string Version { get; set; }
-    public string Detail { get; set; }
-    public bool IsAvailable { get; set; }
 }
 
 public partial class PluginInfoUiHelper : ObservableObject, IDisposable
@@ -108,60 +88,42 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
     {
         if (OnlinePluginInfo is not null)
         {
-            var request = new HttpRequestMessage
-            {
-                RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/plugin/avatar"),
-                Method = HttpMethod.Get
-            };
-            request.Headers.Add("id", PluginBaseInfo.Id.ToString());
-            var sendAsync = await PluginNetworkService.HttpClient.SendAsync(request, cts);
-            var stringAsync = await sendAsync.Content.ReadAsStringAsync(cts);
-            var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
-            if (deserializeObject["flag"].ToObject<bool>())
-                Icon = new Bitmap(new MemoryStream(deserializeObject["data"].ToObject<byte[]>()));
+            var bytes = await PluginNetworkService.GetAvatarBytesAsync(PluginBaseInfo.Id, cts);
+            if (bytes != null)
+                Icon = new Bitmap(new MemoryStream(bytes));
         }
 
         if (PluginLocalInfo is not null)
         {
             if (!File.Exists($"{PluginLocalInfo.Path}avatar.png"))
             {
-                var request = new HttpRequestMessage
+                var bytes = await PluginNetworkService.GetAvatarBytesAsync(PluginBaseInfo.Id, cts);
+                if (bytes != null)
                 {
-                    RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/plugin/avatar"),
-                    Method = HttpMethod.Get
-                };
-                request.Headers.Add("id", PluginBaseInfo.Id.ToString());
-                var sendAsync = await PluginNetworkService.HttpClient.SendAsync(request, cts);
-                var stringAsync = await sendAsync.Content.ReadAsStringAsync(cts);
-                var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
-                if (deserializeObject["flag"].ToObject<bool>())
-                {
-                    var bitmap = new Bitmap(new MemoryStream(deserializeObject["data"].ToObject<byte[]>()));
-                    bitmap.Save($"{PluginLocalInfo.Path}avatar.png");
-                    Icon = bitmap;
+                    // Assuming we still want to save it locally if fetched
+                    try 
+                    {
+                        await File.WriteAllBytesAsync($"{PluginLocalInfo.Path}avatar.png", bytes, cts);
+                        Icon = new Bitmap(new MemoryStream(bytes));
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "保存插件图标失败");
+                        // Still show it even if save failed
+                        Icon = new Bitmap(new MemoryStream(bytes));
+                    }
                 }
             }
             else
             {
-                Icon =
-                    new Bitmap($"{PluginLocalInfo.Path}avatar.png");
+                Icon = new Bitmap($"{PluginLocalInfo.Path}avatar.png");
             }
         }
     }
 
     private async ValueTask GetAuthorName(CancellationToken cts)
     {
-        var request = new HttpRequestMessage
-        {
-            RequestUri = new Uri($"{ConfigManger.ApiUrl}/api/user/baseInfo"),
-            Method = HttpMethod.Get
-        };
-        request.Headers.Add("id", PluginBaseInfo.AuthorId.ToString());
-        var async = await PluginNetworkService.HttpClient.SendAsync(request, cts);
-        var stringAsync = await async.Content.ReadAsStringAsync(cts);
-        var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
-
-        AuthorName = deserializeObject["data"]["userName"].ToString();
+        AuthorName = await PluginNetworkService.GetAuthorNameAsync(PluginBaseInfo.AuthorId, cts);
     }
 
     private string? _authorName;
@@ -218,24 +180,15 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
             }
         }
 
-        try
+        var latestInfo = await PluginNetworkService.GetLatestVersionInfoAsync(PluginBaseInfo.Id, cts);
+        
+        if (latestInfo.HasValue)
         {
-            var httpResponseMessage = await PluginNetworkService.HttpClient
-                .GetAsync($"{ConfigManger.ApiUrl}/api/plugin/{PluginBaseInfo.Id}");
-            var httpContent = await httpResponseMessage.Content.ReadAsStringAsync(cts);
-            var deserializeObject = (JObject)JsonConvert.DeserializeObject(httpContent);
-            var o = deserializeObject["data"];
-            if (o.Type == JTokenType.Integer)
-            {
-                CanUpdate = false;
-                return;
-            }
-
-            CanUpdate = o["lastVersionId"].ToObject<int>() > PluginLocalInfo.PluginBaseInfo.VersionId;
-            CanUpdateVersion = o["lastVersion"].ToString();
-            CanUpdateVersionId = o["lastVersionId"].ToObject<int>();
+            CanUpdate = latestInfo.Value.VersionId > PluginLocalInfo.PluginBaseInfo.VersionId;
+            CanUpdateVersion = latestInfo.Value.Version;
+            CanUpdateVersionId = latestInfo.Value.VersionId;
         }
-        catch (Exception e)
+        else
         {
             CanUpdate = false;
         }
@@ -312,24 +265,6 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     private async ValueTask GetVersionDetails(CancellationToken cts)
     {
-        var httpResponseMessage = await PluginNetworkService.HttpClient
-            .GetAsync($"{ConfigManger.ApiUrl}/api/plugin/{PluginBaseInfo.Id}", cts);
-        var httpContent = await httpResponseMessage.Content.ReadAsStringAsync(cts);
-        var deserializeObject2 = (JObject)JsonConvert.DeserializeObject(httpContent);
-        var o = deserializeObject2["data"];
-        var request = new HttpRequestMessage
-        {
-            RequestUri =
-                new Uri(
-                    $"{ConfigManger.ApiUrl}/api/plugin/detail/{PluginBaseInfo.Id}/{o["lastVersionId"].ToObject<int>()}"),
-            Method = HttpMethod.Get
-        };
-        request.Headers.Add("AllBeforeThisVersion", true.ToString());
-        var sendAsync = await PluginNetworkService.HttpClient.SendAsync(request, cts);
-        var stringAsync = await sendAsync.Content.ReadAsStringAsync(cts);
-        var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
-        var list = deserializeObject["data"].ToObject<List<VersionDetail>>();
-        list.Reverse();
-        VersionDetails = list;
+        VersionDetails = await PluginNetworkService.GetVersionDetailsAsync(PluginBaseInfo.Id, null, cts);
     }
 }

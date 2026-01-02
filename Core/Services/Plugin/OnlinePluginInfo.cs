@@ -2,6 +2,24 @@ using PluginCore;
 
 namespace Core.Services.Plugin;
 
+public struct VersionDetail
+{
+    /*
+     "id": 1,
+            "pluginId": 7,
+            "versionInt": 1,
+            "version": "1.0.0",
+            "detail": "第一个版本",
+            "isAvailable": true
+     */
+    public int Id { get; set; }
+    public int PluginId { get; set; }
+    public int VersionInt { get; set; }
+    public string Version { get; set; }
+    public string Detail { get; set; }
+    public bool IsAvailable { get; set; }
+}
+
 public partial class OnlinePluginInfo
 {
     internal class ApiResponse
@@ -29,7 +47,7 @@ public partial class OnlinePluginInfo
 
     public string ToPlgString()
     {
-        return $"{Id}_{AuthorId}_{NameSign}";
+        return NameSign;
     }
 
     public override string ToString()
