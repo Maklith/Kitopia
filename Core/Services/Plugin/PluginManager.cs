@@ -333,6 +333,61 @@ public class PluginManager
         WeakReferenceMessenger.Default.Send(new PluginsReloaded());
     }
 
+    public static (List<PluginLocalInfo> Sorted, List<PluginLocalInfo> Cyclic) SafeTopologicalSort(List<PluginLocalInfo> nodes)
+    {
+        var sorted = new List<PluginLocalInfo>();
+        var nodeMap = nodes.ToDictionary(n => n.PluginBaseInfo.NameSign, n => n);
+        var inDegree = nodes.ToDictionary(n => n.PluginBaseInfo.NameSign, n => 0);
+        var adj = nodes.ToDictionary(n => n.PluginBaseInfo.NameSign, n => new List<string>());
+
+        // 构建图和入度
+        foreach (var node in nodes)
+        {
+            foreach (var dep in node.PluginBaseInfo.Dependencies)
+            {
+                if (dep.Key == "Kitopia") continue;
+
+                if (nodeMap.ContainsKey(dep.Key))
+                {
+                    inDegree[node.PluginBaseInfo.NameSign]++;
+                    adj[dep.Key].Add(node.PluginBaseInfo.NameSign);
+                }
+            }
+        }
+
+        var queue = new Queue<PluginLocalInfo>();
+        foreach (var node in nodes)
+        {
+            if (inDegree[node.PluginBaseInfo.NameSign] == 0)
+            {
+                queue.Enqueue(node);
+            }
+        }
+
+        while (queue.Count > 0)
+        {
+            var u = queue.Dequeue();
+            sorted.Add(u);
+
+            if (adj.TryGetValue(u.PluginBaseInfo.NameSign, out var neighbors))
+            {
+                foreach (var vName in neighbors)
+                {
+                    inDegree[vName]--;
+                    if (inDegree[vName] == 0)
+                    {
+                        queue.Enqueue(nodeMap[vName]);
+                    }
+                }
+            }
+        }
+
+        var sortedIds = sorted.Select(x => x.PluginBaseInfo.NameSign).ToHashSet();
+        var cyclic = nodes.Where(x => !sortedIds.Contains(x.PluginBaseInfo.NameSign)).ToList();
+
+        return (sorted, cyclic);
+    }
+
     public static List<PluginLocalInfo> TopologicalSort(List<PluginLocalInfo> nodes)
     {
         var sorted = new List<PluginLocalInfo>();
@@ -583,22 +638,33 @@ public class PluginManager
 
         // Phase 3: 排序 (Sorting)
         List<PluginLocalInfo> sortedCandidates;
-        try
+        var (sorted, cyclic) = SafeTopologicalSort(candidates);
+        sortedCandidates = sorted;
+
+        var loadLock = new object();
+
+        if (cyclic.Count > 0)
         {
-            sortedCandidates = TopologicalSort(candidates);
-        }
-        catch (Exception e)
-        {
-            Log.Error(e, "插件加载排序失败，可能存在循环依赖");
-            ServiceManager.Services.GetService<IToastService>()?.Show("插件加载错误", $"检测到循环依赖: {e.Message}");
-            return;
+            foreach (var info in cyclic)
+            {
+                info.LoadFailed = true;
+                info.LoadFailedReason = "检测到循环依赖";
+                lock (loadLock)
+                {
+                    AllPluginInfos.Add(info);
+                }
+                info.NotifyStatusChanged();
+            }
+
+            var msg = string.Join(", ", cyclic.Select(c => c.PluginBaseInfo.Name));
+            Log.Error($"插件加载检测到循环依赖，以下插件将被排除: {msg}");
+            ServiceManager.Services.GetService<IToastService>()?.Show("循环依赖警告", $"以下插件因循环依赖无法加载: {msg}");
         }
 
         // Phase 4: 多线程加载 (Multithreaded Loading)
         Log.Debug($"插件加载顺序计算完成，准备并发加载: {string.Join(" -> ", sortedCandidates.Select(c => c.PluginBaseInfo.Name))}");
 
         var loadingTasks = new Dictionary<string, Task>();
-        var loadLock = new object();
 
         // 遍历排序后的列表创建任务
         foreach (var info in sortedCandidates)
@@ -774,11 +840,27 @@ public class PluginManager
         {
             var pluginsDirectoryInfo =
                 new DirectoryInfo(pluginInfoEx.Path);
-            pluginsDirectoryInfo.Delete(true);
+            if (pluginsDirectoryInfo.Exists)
+            {
+                Log.Information($"正在删除插件目录: {pluginsDirectoryInfo.FullName}");
+                try
+                {
+                    pluginsDirectoryInfo.Delete(true);
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e, $"删除插件目录失败: {pluginsDirectoryInfo.FullName}");
+                }
+            }
+            else
+            {
+                Log.Warning($"插件目录不存在，跳过删除: {pluginsDirectoryInfo.FullName}");
+            }
             //Task.Run(Reload);
         }
         else
         {
+            Log.Warning($"插件卸载失败，创建 .remove 标记: {pluginInfoEx.Path}");
             File.Create(
                 $"{pluginInfoEx.Path}.remove");
             //Task.Run(Reload);

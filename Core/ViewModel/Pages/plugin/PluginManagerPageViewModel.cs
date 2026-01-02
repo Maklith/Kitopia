@@ -30,7 +30,7 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
             PluginBaseInfo = e.PluginBaseInfo,
             PluginLocalInfo = e,
             IsLocal = true
-        }).ToList());
+        }).OrderBy(e=>e.PluginBaseInfo.NameSign).ToList());
 
     public PluginManagerPageViewModel()
     {
