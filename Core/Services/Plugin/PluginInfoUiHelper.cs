@@ -24,6 +24,10 @@ public class PluginStateChanged
     }
 }
 
+public class PluginsReloaded
+{
+}
+
 public struct VersionDetail
 {
     /*

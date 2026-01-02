@@ -118,16 +118,35 @@
                                         </StackPanel>
 
                                     </Grid>
-                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" ZIndex="1"
-                                                IsVisible="{Binding PluginLocalInfo.UnloadFailed}">
-                                        <StackPanel.Background>
+                                    <Panel VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ZIndex="1"
+                                           IsVisible="{Binding PluginLocalInfo.UnloadFailed}">
+                                        <Panel.Background>
                                             <SolidColorBrush Color="{DynamicResource SemiBackground0Color}"
                                                              Opacity="0.4" />
-                                        </StackPanel.Background>
-                                        <TextBlock Text="插件动态卸载失败,重启后完成卸载/更新" />
-                                        <Button Content="重启"
-                                                Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).RestartAppCommand}" />
-                                    </StackPanel>
+                                        </Panel.Background>
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock Text="插件动态卸载失败,重启后完成卸载/更新" />
+                                            <Button Content="重启"
+                                                    Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).RestartAppCommand}" />
+                                        </StackPanel>
+                                    </Panel>
+                                    <Panel VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ZIndex="1"
+                                           IsVisible="{Binding PluginLocalInfo.LoadFailed}">
+                                        <Panel.Background>
+                                            <SolidColorBrush Color="{DynamicResource SemiBackground0Color}"
+                                                             Opacity="0.4" />
+                                        </Panel.Background>
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock Text="插件加载失败" HorizontalAlignment="Center" FontWeight="Bold" />
+                                            <TextBlock Text="{Binding PluginLocalInfo.LoadFailedReason}"
+                                                       TextWrapping="Wrap" MaxWidth="280" />
+                                            <Button Content="删除"
+                                                    HorizontalAlignment="Center"
+                                                    Classes="Danger"
+                                                    Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).DeleteCommand}"
+                                                    CommandParameter="{Binding }" />
+                                        </StackPanel>
+                                    </Panel>
                                 </Panel>
 
                             </Border>

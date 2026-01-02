@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 
 using Core.Services;
 using Core.Services.Plugin;
@@ -34,6 +35,10 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     public PluginManagerPageViewModel()
     {
         // PluginManager.CheckAllUpdate();
+        WeakReferenceMessenger.Default.Register<PluginsReloaded>(this, (r, m) =>
+        {
+            Task.Run(() => OnPropertyChanged(nameof(Items)));
+        });
     }
 
     [RelayCommand]
@@ -55,7 +60,7 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
         Log.Debug(pluginInfoEx.IsEnabled.ToString());
         if (pluginInfoEx.IsEnabled)
             //卸载插件
-            await PluginManager.UnloadPlugin(pluginInfoEx);
+            PluginManager.DisablePlugin(pluginInfoEx);
         else
             //加载插件
             //Plugin.NewPlugin(pluginInfoEx.Path, out var weakReference);

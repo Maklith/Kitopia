@@ -11,10 +11,14 @@ public partial class PluginLocalInfo : ObservableObject
     [JsonIgnore] public string Path { set; get; }
     public bool IsEnabled => PluginManager.GetPluginLocalInfoOnlyOnEnableByPlgStr(PluginBaseInfo.NameSign) is not null;
     [JsonIgnore] [ObservableProperty] public bool unloadFailed;
+    [JsonIgnore] [ObservableProperty] public bool loadFailed;
+    [JsonIgnore] [ObservableProperty] public string? loadFailedReason;
 
     public void NotifyStatusChanged()
     {
         OnPropertyChanged(nameof(IsEnabled));
+        OnPropertyChanged(nameof(LoadFailed));
+        OnPropertyChanged(nameof(LoadFailedReason));
     }
 
     public string ToPlgString()

@@ -170,8 +170,47 @@ public class PluginManager
         if (EnablePlugins.ContainsKey(pluginInfoEx.ToPlgString())) return;
         EnablePluginWithoutReloadOthers(pluginInfoEx);
         CustomScenarioManger.ReCheck(true);
+        RefreshPluginDependencyStatus();
         WeakReferenceMessenger.Default.Send(
             new PluginStateChanged(pluginInfoEx.PluginBaseInfo.NameSign));
+    }
+
+    public static void RefreshPluginDependencyStatus()
+    {
+        var allBaseInfos = AllPluginInfos.Select(x => x.PluginBaseInfo).ToList();
+
+        foreach (var info in AllPluginInfos)
+        {
+            var (canLoad, versionCheckResults) = CheckDependencies(
+                allBaseInfos,
+                info.PluginBaseInfo.Dependencies,
+                autoDownload: false,
+                autoEnable: false);
+
+            if (!canLoad)
+            {
+                var stringBuilder = new StringBuilder();
+                foreach (var (key, value) in versionCheckResults)
+                    stringBuilder.AppendLine($"{key} {value.ToString()}");
+
+                var reason = $"依赖检查未通过:\n {stringBuilder}";
+                if (!info.LoadFailed || info.LoadFailedReason != reason)
+                {
+                    info.LoadFailed = true;
+                    info.LoadFailedReason = reason;
+                    info.NotifyStatusChanged();
+                }
+            }
+            else
+            {
+                if (info.LoadFailed)
+                {
+                    info.LoadFailed = false;
+                    info.LoadFailedReason = null;
+                    info.NotifyStatusChanged();
+                }
+            }
+        }
     }
 
     public static void EnablePluginWithoutReloadOthers(PluginLocalInfo pluginInfoEx)
@@ -190,6 +229,56 @@ public class PluginManager
         if (pluginInfoEx is null) return false;
         EnablePlugin(pluginInfoEx);
         return true;
+    }
+
+    public static void DisablePlugin(PluginLocalInfo pluginInfoEx)
+    {
+        var deps = new HashSet<PluginLocalInfo>();
+        GetAllDependentPlugins(pluginInfoEx, deps);
+
+        if (deps.Count > 0)
+        {
+            var sortedDeps = new List<PluginLocalInfo>();
+            try
+            {
+                sortedDeps = TopologicalSort(deps.ToList());
+                sortedDeps.Reverse(); // Disable dependents first
+            }
+            catch (Exception)
+            {
+                sortedDeps = deps.ToList();
+            }
+
+            var content = "检测到以下插件依赖于此插件，也将被一并禁用：\n" + string.Join(", ", sortedDeps.Select(p => p.PluginBaseInfo.Name));
+
+            var dialog = new DialogContent
+            {
+                Title = $"禁用 {pluginInfoEx.PluginBaseInfo.Name}?",
+                Content = content,
+                PrimaryButtonText = "确定",
+                CloseButtonText = "取消",
+                PrimaryAction = async () =>
+                {
+                    try
+                    {
+                        foreach (var dep in sortedDeps)
+                        {
+                            await UnloadPlugin(dep, false);
+                        }
+                        await UnloadPlugin(pluginInfoEx, true);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error(e, "批量禁用插件时发生错误");
+                    }
+                }
+            };
+            ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null, dialog);
+        }
+        else
+        {
+            _ = UnloadPlugin(pluginInfoEx, true);
+        }
     }
 
     public static async Task<bool> UnloadPlugin(PluginLocalInfo pluginInfoEx,
@@ -241,6 +330,7 @@ public class PluginManager
     {
         AllPluginInfos.Clear();
         Load();
+        WeakReferenceMessenger.Default.Send(new PluginsReloaded());
     }
 
     public static List<PluginLocalInfo> TopologicalSort(List<PluginLocalInfo> nodes)
@@ -547,16 +637,16 @@ public class PluginManager
 
                     if (!canLoad)
                     {
-                        lock (loadLock)
-                        {
-                            AllPluginInfos.Remove(info);
-                        }
-                        
                         var stringBuilder = new StringBuilder();
                         foreach (var (key, value) in versionCheckResults)
                             stringBuilder.AppendLine($"{key} {value.ToString()}");
 
                         Log.Error($"加载插件{info.PluginBaseInfo.Name}时错误, 依赖检查未通过:\n {stringBuilder}");
+                        ServiceManager.Services.GetService<IToastService>()?.Show($"加载插件{info.PluginBaseInfo.Name}失败", $"依赖检查未通过:\n {stringBuilder}");
+                        
+                        info.LoadFailed = true;
+                        info.LoadFailedReason = $"依赖检查未通过:\n {stringBuilder}";
+                        info.NotifyStatusChanged();
                         return;
                     }
 
@@ -618,27 +708,68 @@ public class PluginManager
 
     public static void DeletePlugin(string pluginSignName)
     {
-        DeletePlugin(AllPluginInfos.FirstOrDefault(e => e.PluginBaseInfo.NameSign == pluginSignName));
+        var pluginLocalInfo = AllPluginInfos.FirstOrDefault(e => e.PluginBaseInfo.NameSign == pluginSignName);
+        if (pluginLocalInfo is not null) DeletePlugin(pluginLocalInfo);
+    }
+
+    private static void GetAllDependentPlugins(PluginLocalInfo target, HashSet<PluginLocalInfo> collected)
+    {
+        var directDeps = AllPluginInfos.Where(p => p.PluginBaseInfo.Dependencies.ContainsKey(target.PluginBaseInfo.NameSign));
+        foreach (var dep in directDeps)
+        {
+            if (collected.Add(dep))
+            {
+                GetAllDependentPlugins(dep, collected);
+            }
+        }
     }
 
     public static void DeletePlugin(PluginLocalInfo pluginInfoEx)
     {
+        if (pluginInfoEx is null) return;
+        var deps = new HashSet<PluginLocalInfo>();
+        GetAllDependentPlugins(pluginInfoEx, deps);
+
+        var content = "是否确定删除?\n他真的会丢失很久很久(不可恢复)";
+        var sortedDeps = new List<PluginLocalInfo>();
+        if (deps.Count > 0)
+        {
+            try
+            {
+                sortedDeps = TopologicalSort(deps.ToList());
+                sortedDeps.Reverse(); // Delete dependents first
+            }
+            catch (Exception)
+            {
+                // Fallback if topological sort fails (e.g. cycles), though cyclic deps shouldn't load
+                sortedDeps = deps.ToList();
+            }
+            content += $"\n\n注意：以下插件依赖于此插件，也将被一并删除：\n{string.Join(", ", sortedDeps.Select(p => p.PluginBaseInfo.Name))}";
+        }
+
         var dialog = new DialogContent
         {
             Title = $"删除{pluginInfoEx.PluginBaseInfo.Name}?",
-            Content = "是否确定删除?\n他真的会丢失很久很久(不可恢复)",
+            Content = content,
             PrimaryButtonText = "确定",
             CloseButtonText = "取消",
-            PrimaryAction = () => { DeletePluginWithoutUserCheck(pluginInfoEx); }
+            PrimaryAction = async () =>
+            {
+                foreach (var dep in sortedDeps)
+                {
+                    await DeletePluginWithoutUserCheck(dep, false);
+                }
+                await DeletePluginWithoutUserCheck(pluginInfoEx, true);
+            }
         };
         ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
             dialog);
     }
 
-    public static void DeletePluginWithoutUserCheck(PluginLocalInfo pluginInfoEx)
+    public static async Task DeletePluginWithoutUserCheck(PluginLocalInfo pluginInfoEx, bool reload = true)
     {
         Log.Debug($"删除插件{pluginInfoEx.PluginBaseInfo.Name}");
-        UnloadPlugin(pluginInfoEx, false);
+        await UnloadPlugin(pluginInfoEx, false);
         if (!pluginInfoEx.UnloadFailed)
         {
             var pluginsDirectoryInfo =
@@ -653,8 +784,11 @@ public class PluginManager
             //Task.Run(Reload);
         }
 
-        Reload();
-        CustomScenarioManger.Reload();
+        if (reload)
+        {
+            Reload();
+            CustomScenarioManger.Reload();
+        }
     }
 
     public static Task<OnlinePluginInfo?> GetOnlinePluginInfo(int id, bool allBeforeThisVersion = false)
