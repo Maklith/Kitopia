@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Threading.RateLimiting;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -114,7 +114,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
                 Method = HttpMethod.Get
             };
             request.Headers.Add("id", PluginBaseInfo.Id.ToString());
-            var sendAsync = await PluginManager._httpClient.SendAsync(request, cts);
+            var sendAsync = await PluginNetworkService.HttpClient.SendAsync(request, cts);
             var stringAsync = await sendAsync.Content.ReadAsStringAsync(cts);
             var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
             if (deserializeObject["flag"].ToObject<bool>())
@@ -131,7 +131,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
                     Method = HttpMethod.Get
                 };
                 request.Headers.Add("id", PluginBaseInfo.Id.ToString());
-                var sendAsync = await PluginManager._httpClient.SendAsync(request, cts);
+                var sendAsync = await PluginNetworkService.HttpClient.SendAsync(request, cts);
                 var stringAsync = await sendAsync.Content.ReadAsStringAsync(cts);
                 var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
                 if (deserializeObject["flag"].ToObject<bool>())
@@ -157,7 +157,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
             Method = HttpMethod.Get
         };
         request.Headers.Add("id", PluginBaseInfo.AuthorId.ToString());
-        var async = await PluginManager._httpClient.SendAsync(request, cts);
+        var async = await PluginNetworkService.HttpClient.SendAsync(request, cts);
         var stringAsync = await async.Content.ReadAsStringAsync(cts);
         var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
 
@@ -220,7 +220,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
         try
         {
-            var httpResponseMessage = await PluginManager._httpClient
+            var httpResponseMessage = await PluginNetworkService.HttpClient
                 .GetAsync($"{ConfigManger.ApiUrl}/api/plugin/{PluginBaseInfo.Id}");
             var httpContent = await httpResponseMessage.Content.ReadAsStringAsync(cts);
             var deserializeObject = (JObject)JsonConvert.DeserializeObject(httpContent);
@@ -281,7 +281,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
     private async ValueTask GetDescription(CancellationToken cts)
     {
         if (IsLocal && OnlinePluginInfo is null)
-            OnlinePluginInfo = await PluginManager.GetOnlinePluginInfo(PluginBaseInfo.Id, true);
+            OnlinePluginInfo = await PluginNetworkService.GetOnlinePluginInfo(PluginBaseInfo.Id, true);
 
         if (OnlinePluginInfo is null)
         {
@@ -312,7 +312,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     private async ValueTask GetVersionDetails(CancellationToken cts)
     {
-        var httpResponseMessage = await PluginManager._httpClient
+        var httpResponseMessage = await PluginNetworkService.HttpClient
             .GetAsync($"{ConfigManger.ApiUrl}/api/plugin/{PluginBaseInfo.Id}", cts);
         var httpContent = await httpResponseMessage.Content.ReadAsStringAsync(cts);
         var deserializeObject2 = (JObject)JsonConvert.DeserializeObject(httpContent);
@@ -325,7 +325,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
             Method = HttpMethod.Get
         };
         request.Headers.Add("AllBeforeThisVersion", true.ToString());
-        var sendAsync = await PluginManager._httpClient.SendAsync(request, cts);
+        var sendAsync = await PluginNetworkService.HttpClient.SendAsync(request, cts);
         var stringAsync = await sendAsync.Content.ReadAsStringAsync(cts);
         var deserializeObject = (JObject)JsonConvert.DeserializeObject(stringAsync);
         var list = deserializeObject["data"].ToObject<List<VersionDetail>>();

@@ -22,7 +22,7 @@ namespace KitopiaAvalonia.Services
             {
                 
                 var url = $"https://update.kitopia.top/repos/{Owner}/{Repo}/releases";
-                var response = await PluginManager._httpClient.GetAsync(url);
+                var response = await PluginNetworkService.HttpClient.GetAsync(url);
 
                 if (!response.IsSuccessStatusCode)
                 {

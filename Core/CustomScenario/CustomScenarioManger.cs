@@ -136,7 +136,7 @@ public class CustomScenarioManger
                         PrimaryAction = async () =>
                         {
                             var onlinePluginInfo =
-                                await PluginManager.GetOnlinePluginInfo(int.Parse(e1.PluginName.Split("_")[0]));
+                                await PluginNetworkService.GetOnlinePluginInfo(int.Parse(e1.PluginName.Split("_")[0]));
                             if (onlinePluginInfo is null)
                             {
                                 ServiceManager.Services.GetService<IToastService>().Show("自动下载插件失败",

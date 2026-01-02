@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -168,7 +168,7 @@ public class MqttManager
                     //1 : pluginVersionInt
 
                     var onlinePluginInfo =
-                        await PluginManager.GetOnlinePluginInfo(int.Parse(jObject["pluginId"].ToString()));
+                        await PluginNetworkService.GetOnlinePluginInfo(int.Parse(jObject["pluginId"].ToString()));
                     if (onlinePluginInfo == null)
                     {
                         ServiceManager.Services.GetService<IToastService>().Show("来自URL的操作失败",
@@ -176,7 +176,7 @@ public class MqttManager
                         break;
                     }
 
-                    PluginManager.DownloadPluginOnline(onlinePluginInfo.Id, onlinePluginInfo.NameSign,
+                    PluginManager.DownloadPluginAndEnable(onlinePluginInfo.Id, onlinePluginInfo.NameSign,
                         int.Parse(jObject["pluginVersionInt"].ToString()));
                     ServiceManager.Services.GetService<IToastService>().Show("来自URL的操作",
                         $"下载安装插件{onlinePluginInfo.Name}ID:{jObject["pluginVersionInt"]}成功");
