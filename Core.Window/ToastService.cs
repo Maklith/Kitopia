@@ -28,7 +28,7 @@ public class ToastService : IToastService
             _toastShowWindow = new ToastShowWindow();
             _toastShowWindow.Show();
             _toastShowWindow.IsVisible = false;
-        });
+        }).Wait();
     }
     int counter = 0;
     public void Show(string header, string text, NotificationType notificationType = NotificationType.Information)
@@ -40,12 +40,12 @@ public class ToastService : IToastService
             Log.Warning("无法获取前台窗口，Toast显示失败");
             return;
         }
-
+        
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             var windowFromIntPtr = GetWindowFromIntPtr(foregroundWindow.DangerousGetHandle());
 
-            if (windowFromIntPtr == null||windowFromIntPtr.TryGetPlatformHandle()!.Handle==_toastShowWindow.TryGetPlatformHandle()?.Handle)
+            if (windowFromIntPtr == null||windowFromIntPtr.TryGetPlatformHandle()?.Handle==_toastShowWindow.TryGetPlatformHandle()?.Handle)
             {
                 Log.Warning("无法通过前台窗口句柄获取Avalonia窗口，使用全局 Toast显示");
                 _toastShowWindow.IsVisible = true;

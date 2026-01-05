@@ -51,6 +51,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
     [ObservableProperty] private ObservableCollection<InputData> _inputDatas = new();
     [ObservableProperty] private ObservableList<SearchViewItem> _items = new();
+    [ObservableProperty] private ObservableCollection<SearchViewItem> _pinnedItems = new();
     [ObservableProperty] private ISynchronizedView<SearchViewItem, SearchViewItem> _itemsView;
     [ObservableProperty] private NotifyCollectionChangedSynchronizedViewList<SearchViewItem> _itemsViewList;
 
@@ -68,6 +69,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     [ObservableProperty] private int? _selectedIndex = -1;
 
     [ObservableProperty] private bool _showFileTypeFilter = false;
+    [ObservableProperty] private bool _showPinnedItems = false;
     [ObservableProperty] public bool showInputData;
 
     public SearchWindowViewModel()
@@ -146,6 +148,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         foreach (var searchViewItem in Items) searchViewItem.Dispose();
 
         Items.Clear();
+        PinnedItems.Clear();
 
         var limit = 0;
         //Items.RaiseListChangedEvents = false;
@@ -161,12 +164,14 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
 
                     item.IsPined = true;
-                    Items.Add(item);
+                    //Items.Add(item);
+                    PinnedItems.Add(item);
 
 
                     limit++;
                 }
         }
+        
 
         if (ConfigManger.Config.lastOpens.Any())
         {
@@ -192,17 +197,19 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     Log.Debug("加载历史:" + item.OnlyKey);
 
 
-                    if (!Enumerable.Any<SearchViewItem>(Items, (e) => e.OnlyKey.Equals(item.OnlyKey)))
+                    if (!Items.Any((e) => e.OnlyKey.Equals(item.OnlyKey)))
                     {
-                        Items.Add(item);
-
-
-                        limit++;
+                        if (PinnedItems.All(e => e.OnlyKey != item.OnlyKey))
+                        {
+                            PinnedItems.Add(item);
+                            limit++;
+                        }
+                        
                     }
                 }
             }
         }
-
+        ShowPinnedItems = PinnedItems.Count > 0;
         FileTypes.Clear();
         ShowFileTypeFilter = FileTypes.Count > 0;
         foreach (var searchViewItem in Items)
@@ -261,6 +268,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             ProcessInputData(null, IInputDataAnalyzeTimeFlags.搜索前);
             return;
         }
+        ShowPinnedItems = false;
 
         Log.Debug("搜索变更:" + Search);
         // Items.RaiseListChangedEvents = false;
@@ -460,6 +468,16 @@ public partial class SearchWindowViewModel : ObservableRecipient
         //Items.ResetItem(index);
 
         ServiceManager.Services.GetService<ISearchItemTool>()!.Pin(item);
+        if (item.IsPined)
+        {
+            if (!PinnedItems.Contains(item)) PinnedItems.Insert(0, item);
+        }
+        else
+        {
+            if (PinnedItems.Contains(item)) PinnedItems.Remove(item);
+        }
+
+        if (string.IsNullOrEmpty(Search)) ShowPinnedItems = PinnedItems.Count > 0;
     }
 
     [RelayCommand]

@@ -250,10 +250,18 @@ public class SearchItemTool : ISearchItemTool
 
     public void Pin(SearchViewItem? item)
     {
-        if (ConfigManger.Config.alwayShows.Contains(item.OnlyKey)) ConfigManger.Config.alwayShows.Remove(item.OnlyKey);
-
-        if (item.IsPined) //收藏操作
+        if (ConfigManger.Config.alwayShows.Contains(item.OnlyKey))
+        {
+            item.IsPined = false;
+            ConfigManger.Config.alwayShows.Remove(item.OnlyKey);
+        }
+        else
+        {
+            item.IsPined = true;
             ConfigManger.Config.alwayShows.Insert(0, item.OnlyKey);
+        }
+           
+
 
         ConfigManger.Save();
     }
