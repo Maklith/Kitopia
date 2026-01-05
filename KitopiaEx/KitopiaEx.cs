@@ -90,6 +90,8 @@ public class KitopiaEx : IPlugin
         services.AddTransient<ScreenCaptureExs.QRCode>();
         services.AddTransient<ScreenCaptureExs.Translate>();
         services.AddTransient<ScreenCaptureExs.SaveImageToFile>();
+
+        services.AddTransient<SearchWindow.InputDataAnalyzer.ImageAnalyzer>();
         
         services.AddTransient<ImagePinScenarioMethod>();
         

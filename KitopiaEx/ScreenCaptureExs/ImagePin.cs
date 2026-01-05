@@ -1,6 +1,7 @@
 ﻿using System;
 using Avalonia;
 using Avalonia.Threading;
+using OpenCvSharp;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.ExMethod;
@@ -16,21 +17,33 @@ public class ImagePin
         {
             throw new Exception("无图像数据");
         }
+        PinBase(dResult.Source,dResult.Info);
+    }
 
-        Dispatcher.UIThread.Invoke((() =>
+    internal void PinBase(Mat src,ScreenCaptureInfo? info=null)
+    {
+        Dispatcher.UIThread.InvokeAsync(() =>
         {
-
             var imagePin = new global::KitopiaEx.ImagePin.ImagePin
             {
                 Image =
                 {
-                    Source = dResult.Source.ToAWriteableBitmap()
+                    Source = src.ToAWriteableBitmap()
                 }
             };
-            imagePin.Position=(new PixelPoint(dResult.Info.X,dResult.Info.Y));
-            imagePin.Width = dResult.Info.Width/imagePin.DesktopScaling;
-            imagePin.Height = dResult.Info.Height/imagePin.DesktopScaling;
+            if (info != null)
+            {
+                imagePin.Position=(new PixelPoint(info.Value.X,info.Value.Y));
+                imagePin.Width = info.Value.Width/imagePin.DesktopScaling;
+                imagePin.Height = info.Value.Height/imagePin.DesktopScaling;
+            }
+            else
+            {
+                imagePin.Width = src.Width/imagePin.DesktopScaling;
+                imagePin.Height = src.Height/imagePin.DesktopScaling;
+            }
+            
             imagePin.Show();
-        }));
+        });
     }
 }

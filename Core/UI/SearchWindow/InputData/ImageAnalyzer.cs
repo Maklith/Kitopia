@@ -27,6 +27,7 @@ public class ImageAnalyzer : IInputDataAnalyzer
                         IconSymbol = 0xE357,
                         Icon = null,
                         IsVisible = true,
+                        ShowAsMiniApp = true,
                         Action = (item, s) =>
                         {
                             var ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0);

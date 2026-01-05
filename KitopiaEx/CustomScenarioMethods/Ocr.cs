@@ -133,21 +133,25 @@ public class Ocr
         {
             throw new Exception("无图像数据");
         }
+        return OcrImgBase(dResult.Source,ct);
+    }
 
+    internal IEnumerable<OcrResult> OcrImgBase(Mat image, CancellationToken ct)
+    {
         var ocrResults = new List<OcrResult>();
         var callingAssembly = Assembly.GetExecutingAssembly().Location;
-        callingAssembly = callingAssembly.Remove(callingAssembly.LastIndexOf("\\"));
+        callingAssembly = callingAssembly.Remove(callingAssembly.LastIndexOf("\\", StringComparison.Ordinal));
 
-        using TextDetector _textDetector = new TextDetector();
-        using TextRecognizer _textRecognizer = new TextRecognizer($"{callingAssembly}\\Ocr\\rec_word_dict.txt");
+        using TextDetector textDetector = new TextDetector();
+        using TextRecognizer textRecognizer = new TextRecognizer($"{callingAssembly}\\Ocr\\rec_word_dict.txt");
        
-        var detect = _textDetector.Detect(dResult.Source);
-        using var textDetectorDstImg = _textDetector.dstImg;
+        var detect = textDetector.Detect(image);
+        using var textDetectorDstImg = textDetector.dstImg;
        
         foreach (var point2Fse in detect)
         {
-            (Mat, Rect) textimg = _textDetector.GetRotateCropImage(textDetectorDstImg, point2Fse);
-            var predictText = _textRecognizer.PredictText(textimg.Item1);
+            (Mat, Rect) textimg = textDetector.GetRotateCropImage(textDetectorDstImg, point2Fse);
+            var predictText = textRecognizer.PredictText(textimg.Item1);
             textimg.Item1.Dispose();
             if (string.IsNullOrWhiteSpace(predictText))
             {
@@ -165,22 +169,25 @@ public class Ocr
            
             //Console.WriteLine(predictText+" "+rect.Left + " " + rect.Top + " " + rect.Width + " " + rect.Height);
         }
-
+        
         return ocrResults;
     }
 
     [ScenarioMethod("文字提取结果显示", $"{nameof(dResult)}=截图数据",$"{nameof(ocrResults)}=文字识别结果数据")]
     public void OcrResultShow(ScreenCaptureResult dResult,IEnumerable<OcrResult> ocrResults, CancellationToken ct)
     {
-       
+        if (dResult.Source != null) OcrResultShowBase(dResult.Source, ocrResults, ct);
+    }
+
+    internal void OcrResultShowBase(Mat img, IEnumerable<OcrResult> ocrResults, CancellationToken ct)
+    {
         Dispatcher.UIThread.Invoke((() =>
         {
             var ocrResultShowWindow = new OcrResultShowWindow();
-            ocrResultShowWindow.Image.Source = dResult.Source.ToAWriteableBitmap();
+            ocrResultShowWindow.Image.Source = img.ToAWriteableBitmap();
             ocrResultShowWindow.ItemsControl.ItemsSource = ocrResults;
             ocrResultShowWindow.Show();
         }));
-       
     }
     [ScenarioMethod("获取文字提取结果显示实例")]
     public OcrResultShowWindow OcrResultShowIn(CancellationToken ct)

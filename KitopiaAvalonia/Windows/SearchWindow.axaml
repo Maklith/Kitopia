@@ -50,7 +50,7 @@
 
         <DockPanel Margin="10" VerticalAlignment="Stretch">
             <StackPanel DockPanel.Dock="Top" Margin="0,0,0,5" Spacing="5">
-                <Border IsVisible="{Binding ShowInputData}" Theme="{DynamicResource RadioButtonGroupBorder}"
+                <Border Theme="{DynamicResource RadioButtonGroupBorder}"
                         Height="30">
                     <Border.Styles>
                         <Style Selector="RadioButton">
@@ -131,40 +131,75 @@
 
 
                 </Border>
-            </StackPanel>
+                <Border IsVisible="{Binding ShowPinnedItems}" Theme="{DynamicResource RadioButtonGroupBorder}"
+                    HorizontalAlignment="Stretch" Padding="5"
+                   >
+                <Border.Styles>
+                    <Style Selector="RadioButton">
+                        <Setter Property="Theme" Value="{DynamicResource ButtonRadioButton}" />
+                    </Style>
+                </Border.Styles>
+                <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center"
+                              VerticalAlignment="Center">
+                    <ItemsControl ItemsSource="{Binding PinnedItems}" >
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="pluginCore:SearchViewItem">
+                                <Button Width="56" Height="56" Margin="0,0,5,0"
+                                        Command="{Binding $parent[ItemsControl].((windows:SearchWindowViewModel)DataContext).OpenFileCommand}"
+                                        CommandParameter="{Binding .}"
+                                        ToolTip.Tip="{Binding ItemDisplayName}">
+                                    <Button.ContextFlyout>
+                                        <MenuFlyout>
+                                            <MenuItem Header="打开"
+                                                      Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFileCommand}"
+                                                      CommandParameter="{Binding .}" />
+                                            <MenuItem Header="以管理员身份运行"
+                                                      Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
+                                                      CommandParameter="{Binding .}" />
+                                            <MenuItem Header="打开文件所在位置"
+                                                      Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}"
+                                                      CommandParameter="{Binding .}" />
+                                            <MenuItem Header="在终端中打开"
+                                                      Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
+                                                      CommandParameter="{Binding .}" />
+                                            <MenuItem Header="固定" IsVisible="{Binding !IsPined}"
+                                                      Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).PinCommand}"
+                                                      CommandParameter="{Binding .}" />
+                                            <MenuItem Header="取消固定" IsVisible="{Binding IsPined}"
+                                                      Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).PinCommand}"
+                                                      CommandParameter="{Binding .}" />
+                                            <MenuItem Header="收藏"
+                                                      Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).StarCommand}"
+                                                      CommandParameter="{Binding .}" />
+                                            <MenuItem Header="忽略"
+                                                      Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).IgnoreItemCommand}"
+                                                      CommandParameter="{Binding .}" />
+                                        </MenuFlyout>
+                                    </Button.ContextFlyout>
+                                    <Panel>
+                                        <controls1:FontIcon Width="36" Height="36" FontSize="36"
+                                                            FontFamily="{StaticResource FluentFont}"
+                                                            Glyph="{Binding IconSymbol, Converter={StaticResource IntToIconSymbol}}" />
+                                        <Image Width="36" Height="36"
+                                               Source="{Binding Icon, Converter={StaticResource PathToImageConverter}, ConverterParameter={Binding .}}" />
+                                    </Panel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <!-- 使用 WrapPanel 实现子项横向排列 -->
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
 
-            <ItemsControl ItemsSource="{Binding PinnedItems}" IsVisible="{Binding ShowPinnedItems}" DockPanel.Dock="Top" Margin="0,0,0,0">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="pluginCore:SearchViewItem">
-                        <Button Width="56" Height="56" Margin="0,0,5,5" 
-                                Command="{Binding $parent[ItemsControl].((windows:SearchWindowViewModel)DataContext).OpenFileCommand}"
-                                CommandParameter="{Binding .}"
-                                ToolTip.Tip="{Binding ItemDisplayName}">
-                             <Button.ContextFlyout>
-                                <MenuFlyout>
-                                    <MenuItem Header="打开" Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFileCommand}" CommandParameter="{Binding .}" />
-                                    <MenuItem Header="以管理员身份运行" Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}" CommandParameter="{Binding .}" />
-                                    <MenuItem Header="打开文件所在位置" Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}" CommandParameter="{Binding .}" />
-                                    <MenuItem Header="在终端中打开" Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}" CommandParameter="{Binding .}" />
-                                    <MenuItem Header="固定" IsVisible="{Binding !IsPined}" Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).PinCommand}" CommandParameter="{Binding .}" />
-                                    <MenuItem Header="取消固定" IsVisible="{Binding IsPined}" Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).PinCommand}" CommandParameter="{Binding .}" />
-                                    <MenuItem Header="收藏" Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).StarCommand}" CommandParameter="{Binding .}" />
-                                    <MenuItem Header="忽略" Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).IgnoreItemCommand}" CommandParameter="{Binding .}" />
-                                </MenuFlyout>
-                             </Button.ContextFlyout>
-                             <Panel>
-                                <controls1:FontIcon Width="48" Height="48" FontSize="48" FontFamily="{StaticResource FluentFont}" Glyph="{Binding IconSymbol, Converter={StaticResource IntToIconSymbol}}" />
-                                <Image Width="48" Height="48" Source="{Binding Icon, Converter={StaticResource PathToImageConverter}, ConverterParameter={Binding .}}" />
-                             </Panel>
-                        </Button>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+
+            </Border>
+            </StackPanel>
+            
 
 
             <ListBox Name="dataGrid"

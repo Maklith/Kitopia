@@ -254,8 +254,16 @@ public partial class SearchWindowViewModel : ObservableRecipient
             var inputDataAnalyzeTimeFlags = func.Item1.Invoke();
             if ((inputDataAnalyzeTimeFlags & nowTimeFlags) == 0) continue; // 如果当前时间标志不匹配，则跳过
             var enumerable = func.Item2.Invoke(InputDatas);
-            foreach (var searchViewItem in enumerable) Items.Insert(0, searchViewItem);
+            foreach (var searchViewItem in enumerable)
+            {
+                if (searchViewItem.ShowAsMiniApp)
+                {
+                    PinnedItems.Insert(0, searchViewItem);
+                }else
+                    Items.Insert(0, searchViewItem);
+            }
         }
+        ShowPinnedItems = PinnedItems.Count > 0;
     }
 
     // ReSharper disable once RedundantAssignment
@@ -278,6 +286,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         foreach (var searchViewItem in Items) searchViewItem.Dispose();
 
         Items.Clear();
+        PinnedItems.Clear();
 
         if (Search is null) return;
 
