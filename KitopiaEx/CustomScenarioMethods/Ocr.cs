@@ -189,7 +189,7 @@ public class Ocr
             ocrResultShowWindow.Show();
         }));
     }
-    [ScenarioMethod("获取文字提取结果显示实例")]
+    [ScenarioMethod("获取文字提取结果显示实例", $"return=文字提取结果显示实例")]
     public OcrResultShowWindow OcrResultShowIn(CancellationToken ct)
     {
         OcrResultShowWindow ocrResultShowWindow =null;

@@ -11,7 +11,7 @@ namespace KitopiaEx.CustomScenarioMethods;
 public class ImagePinScenarioMethod
 {
     [ScenarioMethod("创建图片置顶窗口",$"return=图片置顶窗口实例")]
-    public ImagePin.ImagePin OcrResultShow(CancellationToken ct)
+    public ImagePin.ImagePin? OcrResultShow(CancellationToken ct)
     {
         
         ImagePin.ImagePin ocrResultShowWindow =null;
@@ -19,7 +19,7 @@ public class ImagePinScenarioMethod
         {
             Dispatcher.UIThread.InvokeAsync((() =>
             {
-                 ocrResultShowWindow.Close();
+                 ocrResultShowWindow?.Close();
             }));
            
         });
@@ -31,10 +31,11 @@ public class ImagePinScenarioMethod
         }));
         return ocrResultShowWindow; 
     }
-    [ScenarioMethod("设置置顶窗口图片",$"return=图片置顶窗口实例")]
-    public void SetImagePin(ImagePin.ImagePin imagePin, ScreenCaptureResult screenCapture, CancellationToken ct)
+    [ScenarioMethod("设置置顶窗口图片",$"{nameof(imagePin)}=图片置顶窗口实例",$"{nameof(screenCapture)}=图像")]
+    public void SetImagePin(ImagePin.ImagePin? imagePin, ScreenCaptureResult screenCapture, CancellationToken ct)
     {
         if (imagePin == null) return;
+        if (screenCapture.Source == null) return;
         Dispatcher.UIThread.Invoke((() =>
         {
             if (imagePin.Image.Source is null  )
@@ -43,8 +44,8 @@ public class ImagePinScenarioMethod
             }
             else if (imagePin.Image.Source is WriteableBitmap writeableBitmap)
             {
-                if (writeableBitmap.Size.Width!= screenCapture.Source.Width ||
-                    writeableBitmap.Size.Height!= screenCapture.Source.Height)
+                if (Math.Abs(writeableBitmap.Size.Width - screenCapture.Source.Width) > double.Epsilon ||
+                    Math.Abs(writeableBitmap.Size.Height - screenCapture.Source.Height) > double.Epsilon)
                 {
                     imagePin.Image.Source =screenCapture.Source.ToAWriteableBitmap();
                 }

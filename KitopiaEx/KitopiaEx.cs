@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using KitopiaEx.CustomScenarioMethods;
 using KitopiaEx.CustomScenarioValueSerializer;
 using KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
@@ -18,14 +19,17 @@ public class KitopiaEx : IPlugin
 
     private IPlugin _pluginImplementation;
 
+    
     public void OnEnabled(IServiceProvider serviceProvider, Dictionary<string, IServiceProvider> dependencyServiceProviders)
     {
         //MessageBox.Show("OnEnabled");
         Kitopia._i18n.TryAdd("System.Windows.Media.Imaging.BitmapSource", "图像BitmapSource");
-        Kitopia._i18n.TryAdd(typeof(ScreenCaptureInfoSelfConnector).FullName, "屏幕截图信息");
-        Kitopia._i18n.TryAdd(typeof(ScreenCaptureInfo).FullName, "屏幕截图信息");
-        Kitopia._i18n.TryAdd(typeof(ScreenCaptureResult).FullName, "屏幕截图数据");
-        Kitopia._i18n.TryAdd(typeof(IEnumerable<OcrResult>).FullName, "文字识别结果数组");
+        Kitopia._i18n.TryAdd(typeof(ScreenCaptureInfoSelfConnector).FullName!, "屏幕截图信息");
+        Kitopia._i18n.TryAdd(typeof(ScreenCaptureInfo).FullName!, "屏幕截图信息");
+        Kitopia._i18n.TryAdd(typeof(ScreenCaptureResult).FullName!, "屏幕截图数据");
+        Kitopia._i18n.TryAdd(typeof(IEnumerable<OcrResult>).FullName!, "文字识别结果数组");
+        Kitopia._i18n.TryAdd(typeof(ImagePin.ImagePin).FullName!, "图片置顶窗口实例");
+        Kitopia._i18n.TryAdd(typeof(OcrResultShowWindow).FullName!, "文字提取结果显示实例");
         ServiceProvider = serviceProvider;
         Kitopia.ToolTipConverters.TryAdd(typeof(ScreenCaptureInfo), info =>
         {
