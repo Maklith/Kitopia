@@ -22,13 +22,14 @@ public class ImagePin
 
     internal void PinBase(Mat src,ScreenCaptureInfo? info=null)
     {
+        var aWriteableBitmap = src.ToAWriteableBitmap();
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             var imagePin = new global::KitopiaEx.ImagePin.ImagePin
             {
                 Image =
                 {
-                    Source = src.ToAWriteableBitmap()
+                    Source = aWriteableBitmap
                 }
             };
             if (info != null)
