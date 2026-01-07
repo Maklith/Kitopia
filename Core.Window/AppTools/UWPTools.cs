@@ -17,7 +17,7 @@ namespace Core.Window;
 internal class UwpTools
 {
     private static HashSet<string> errorUWPs = new();
-    private static ILogger Log = LogManager.Logger.ForContext<UwpTools>();
+    private static ILogger Logger = LogManager.Logger.ForContext<UwpTools>();
 
     private static XmlNode? GetApplicationNode(XmlNode node)
     {
@@ -49,7 +49,7 @@ internal class UwpTools
             }
             catch (Exception e)
             {
-                Log.Error(e, "UWP索引时出现错误");
+                Logger.Error(e, "UWP索引时出现错误");
                 errorUWPs.Add(file.displayName);
             }
         });
@@ -60,7 +60,7 @@ internal class UwpTools
     {
         if (ConfigManger.Config.ignoreItems.Contains(appContainer.appContainerName))
         {
-            Log.Debug("忽略索引:" + appContainer.appContainerName);
+            Logger.Debug("忽略索引:" + appContainer.appContainerName);
             return;
         }
 
@@ -77,7 +77,7 @@ internal class UwpTools
         }
         catch (Exception e)
         {
-            Log.Error($"错误的UWP应用{appContainer.displayName}:{e.Message}");
+            Logger.Error($"错误的UWP应用{appContainer.displayName}:{e.Message}");
             errorUWPs.Add(appContainer.displayName);
         }
 

@@ -10,7 +10,7 @@ namespace Core.UI.SearchWindow.InputData;
 
 public class PathIdentifier : IInputDataIdentifier
 {
-    private static ILogger Log = LogManager.Logger.ForContext<SearchWindowViewModel>();
+    private static ILogger Logger = LogManager.Logger.ForContext<SearchWindowViewModel>();
 
     public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(
         IInputDataAnalyzeTimeFlags analyzeTimeFlags, string? text)
@@ -39,7 +39,7 @@ public class PathIdentifier : IInputDataIdentifier
         if (Path.HasExtension(text) && File.Exists(text))
         {
             var fileInfo = new FileInfo(text);
-            Log.Debug($"检测路径{fileInfo.FullName}");
+            Logger.Debug($"检测路径{fileInfo.FullName}");
             yield return new PluginCore.SearchWindow.InputData.InputData
             {
                 InputType = InputType.文件,
@@ -55,7 +55,7 @@ public class PathIdentifier : IInputDataIdentifier
         else if (Directory.Exists(text))
         {
             var directoryInfo = new DirectoryInfo(text);
-            Log.Debug($"检测路径{directoryInfo.FullName}");
+            Logger.Debug($"检测路径{directoryInfo.FullName}");
             yield return new PluginCore.SearchWindow.InputData.InputData
             {
                 InputType = InputType.目录,

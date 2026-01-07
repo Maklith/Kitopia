@@ -17,7 +17,7 @@ namespace Core.Window;
 
 public class ClipboardWindow : IClipboardService
 {
-    private static ILogger Log = LogManager.Logger.ForContext<ClipboardWindow>();
+    private static ILogger Logger = LogManager.Logger.ForContext<ClipboardWindow>();
 
 
     private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
@@ -31,7 +31,7 @@ public class ClipboardWindow : IClipboardService
             {
                 ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
                 {
-                    Log.Error(exception, "错误");
+                    Logger.Error(exception, "错误");
                     return true;
                 }),
                 Delay = TimeSpan.FromSeconds(1),
@@ -143,7 +143,7 @@ public class ClipboardWindow : IClipboardService
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "读取剪贴板图片失败");
+                Logger.Error(ex, "读取剪贴板图片失败");
                 tcs.SetResult(true);
             }
         });
@@ -207,7 +207,7 @@ public class ClipboardWindow : IClipboardService
                 }
                 catch (Exception exception)
                 {
-                    Log.Error(exception, "设置剪贴板图片失败");
+                    Logger.Error(exception, "设置剪贴板图片失败");
                     tcs.SetResult(false);
                 }
             });

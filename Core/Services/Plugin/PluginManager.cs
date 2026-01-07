@@ -17,7 +17,7 @@ namespace Core.Services.Plugin;
 
 public class PluginManager
 {
-    private static ILogger Log = LogManager.Logger.ForContext<PluginManager>();
+    private static ILogger Logger = LogManager.Logger.ForContext<PluginManager>();
     private static readonly ObservableCollection<PluginLocalInfo> AllPluginInfos = new();
     private static readonly Dictionary<string, Plugin> EnablePlugins = new();
 
@@ -198,7 +198,7 @@ public class PluginManager
                     }
                     catch (Exception e)
                     {
-                        Log.Error(e, "批量禁用插件时发生错误");
+                        Logger.Error(e, "批量禁用插件时发生错误");
                     }
                 }
             };
@@ -291,7 +291,7 @@ public class PluginManager
 
                     if (!localMap.Contains(dep.Key))
                     {
-                        Log.Information($"插件 {candidate.PluginBaseInfo.Name} 缺少依赖 {dep.Key}，尝试自动下载...");
+                        Logger.Information($"插件 {candidate.PluginBaseInfo.Name} 缺少依赖 {dep.Key}，尝试自动下载...");
                         try 
                         {
                             var onlineInfo = PluginNetworkService.GetOnlinePluginInfo(dep.Key).GetAwaiter().GetResult();
@@ -301,23 +301,23 @@ public class PluginManager
                                 var success = PluginNetworkService.DownloadPlugin(onlineInfo.Id, verStr, onlineInfo.NameSign).GetAwaiter().GetResult();
                                 if (success)
                                 {
-                                    Log.Information($"依赖 {dep.Key} 下载成功，将重新扫描。");
+                                    Logger.Information($"依赖 {dep.Key} 下载成功，将重新扫描。");
                                     newPluginDownloaded = true;
                                     goto ReScan; 
                                 }
                                 else
                                 {
-                                    Log.Error($"依赖 {dep.Key} 下载失败。");
+                                    Logger.Error($"依赖 {dep.Key} 下载失败。");
                                 }
                             }
                             else
                             {
-                                Log.Error($"依赖 {dep.Key} 在服务器上未找到。");
+                                Logger.Error($"依赖 {dep.Key} 在服务器上未找到。");
                             }
                         }
                         catch (Exception ex)
                         {
-                            Log.Error(ex, $"尝试下载依赖 {dep.Key} 时发生异常");
+                            Logger.Error(ex, $"尝试下载依赖 {dep.Key} 时发生异常");
                         }
                     }
                 }
@@ -344,12 +344,12 @@ public class PluginManager
             }
 
             var msg = string.Join(", ", cyclic.Select(c => c.PluginBaseInfo.Name));
-            Log.Error($"插件加载检测到循环依赖，以下插件将被排除: {msg}");
+            Logger.Error($"插件加载检测到循环依赖，以下插件将被排除: {msg}");
             ServiceManager.Services.GetService<IToastService>()?.Show("循环依赖警告", $"以下插件因循环依赖无法加载: {msg}");
         }
 
         // Phase 4: Multithreaded Loading
-        Log.Debug($"插件加载顺序计算完成，准备并发加载: {string.Join(" -> ", sortedCandidates.Select(c => c.PluginBaseInfo.Name))}");
+        Logger.Debug($"插件加载顺序计算完成，准备并发加载: {string.Join(" -> ", sortedCandidates.Select(c => c.PluginBaseInfo.Name))}");
 
         var loadingTasks = new Dictionary<string, Task>();
 
@@ -387,7 +387,7 @@ public class PluginManager
                         foreach (var (key, value) in versionCheckResults)
                             stringBuilder.AppendLine($"{key} {value.ToString()}");
 
-                        Log.Error($"加载插件{info.PluginBaseInfo.Name}时错误, 依赖检查未通过:\n {stringBuilder}");
+                        Logger.Error($"加载插件{info.PluginBaseInfo.Name}时错误, 依赖检查未通过:\n {stringBuilder}");
                         ServiceManager.Services.GetService<IToastService>()?.Show($"加载插件{info.PluginBaseInfo.Name}失败", $"依赖检查未通过:\n {stringBuilder}");
                         
                         info.LoadFailed = true;
@@ -396,7 +396,7 @@ public class PluginManager
                         return;
                     }
 
-                    Log.Debug($"加载插件{info.PluginBaseInfo.Name}信息成功");
+                    Logger.Debug($"加载插件{info.PluginBaseInfo.Name}信息成功");
 
                     if (init && File.Exists($"{info.Path}.update"))
                     {
@@ -410,7 +410,7 @@ public class PluginManager
                         }
                         catch (Exception e)
                         {
-                            Log.Error(e, "删除更新标记文件错误");
+                            Logger.Error(e, "删除更新标记文件错误");
                         }
                     }
 
@@ -431,7 +431,7 @@ public class PluginManager
                 }
                 catch (Exception e)
                 {
-                    Log.Error(e, $"加载插件 {info.PluginBaseInfo.Name} 时发生未知错误");
+                    Logger.Error(e, $"加载插件 {info.PluginBaseInfo.Name} 时发生未知错误");
                     lock (loadLock)
                     {
                         if (AllPluginInfos.Contains(info)) AllPluginInfos.Remove(info);
@@ -444,7 +444,7 @@ public class PluginManager
 
         Task.WaitAll(loadingTasks.Values.ToArray());
 
-        Log.Debug($"加载插件信息完成共{AllPluginInfos.Count}插件被加载");
+        Logger.Debug($"加载插件信息完成共{AllPluginInfos.Count}插件被加载");
     }
 
     public static void DeletePlugin(string pluginSignName)
@@ -496,7 +496,7 @@ public class PluginManager
 
     public static async Task DeletePluginWithoutUserCheck(PluginLocalInfo pluginInfoEx, bool reload = true)
     {
-        Log.Debug($"删除插件{pluginInfoEx.PluginBaseInfo.Name}");
+        Logger.Debug($"删除插件{pluginInfoEx.PluginBaseInfo.Name}");
         await UnloadPlugin(pluginInfoEx, false);
         if (!pluginInfoEx.UnloadFailed)
         {
@@ -504,24 +504,24 @@ public class PluginManager
                 new DirectoryInfo(pluginInfoEx.Path);
             if (pluginsDirectoryInfo.Exists)
             {
-                Log.Information($"正在删除插件目录: {pluginsDirectoryInfo.FullName}");
+                Logger.Information($"正在删除插件目录: {pluginsDirectoryInfo.FullName}");
                 try
                 {
                     pluginsDirectoryInfo.Delete(true);
                 }
                 catch (Exception e)
                 {
-                    Log.Error(e, $"删除插件目录失败: {pluginsDirectoryInfo.FullName}");
+                    Logger.Error(e, $"删除插件目录失败: {pluginsDirectoryInfo.FullName}");
                 }
             }
             else
             {
-                Log.Warning($"插件目录不存在，跳过删除: {pluginsDirectoryInfo.FullName}");
+                Logger.Warning($"插件目录不存在，跳过删除: {pluginsDirectoryInfo.FullName}");
             }
         }
         else
         {
-            Log.Warning($"插件卸载失败，创建 .remove 标记: {pluginInfoEx.Path}");
+            Logger.Warning($"插件卸载失败，创建 .remove 标记: {pluginInfoEx.Path}");
             File.Create(
                 $"{pluginInfoEx.Path}.remove");
         }
@@ -585,7 +585,7 @@ public class PluginManager
         }
         catch (Exception e)
         {
-            Log.Error(e, "错误");
+            Logger.Error(e, "错误");
             return false;
         }
     }

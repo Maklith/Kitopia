@@ -19,7 +19,7 @@ namespace KitopiaAvalonia.Windows;
 
 public partial class MouseQuickWindow : Window
 {
-    private static ILogger Log = LogManager.Logger.ForContext<MouseQuickWindow>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<MouseQuickWindow>();
 
     public MouseQuickWindow()
     {
@@ -78,7 +78,7 @@ public partial class MouseQuickWindow : Window
                 ((MouseQuickWindowViewModel)DataContext).SelectedItem = new SelectedItem
                     { type = FileType.文本, obj = s };
 
-                Log.Information(s);
+                Logger.Information(s);
             }
 
             if (text != null) Clipboard.SetTextAsync(text);

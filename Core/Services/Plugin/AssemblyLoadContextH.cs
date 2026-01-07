@@ -22,7 +22,7 @@ public class AssemblyLoadContextH : AssemblyLoadContext
     private readonly AssemblyDependencyResolver _resolver;
     private readonly Dictionary<string, string> _dependencies;
     private Assembly _assembly;
-    private static ILogger Log = LogManager.Logger.ForContext<AssemblyLoadContextH>();
+    private static ILogger Logger = LogManager.Logger.ForContext<AssemblyLoadContextH>();
 
     public AssemblyLoadContextH(string pluginPath, string name, Dictionary<string, string> dependencies) : base(isCollectible: true, name: name)
     {
@@ -48,7 +48,7 @@ public class AssemblyLoadContextH : AssemblyLoadContext
                 Converters = { new CustomScenarioInputValueJsonConverter(), new INodeInputJsonConverter() }
             };
             _assembly = null;
-            Log.Information($"Unloading {sender.Assemblies.First()}");
+            Logger.Information($"Unloading {sender.Assemblies.First()}");
             AvaloniaPropertyRegistry.Instance.UnregisterByModule(sender.Assemblies.First()
                 .DefinedTypes);
             ServiceManager.Services.GetService<IPluginToolService>()!.RequestUninstallPlugin(pluginPath);

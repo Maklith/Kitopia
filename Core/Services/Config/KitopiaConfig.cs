@@ -21,7 +21,7 @@ public class HistoryItem
 [ConfigName("Kitopia主配置文件")]
 public class KitopiaConfig : ConfigBase
 {
-    private static ILogger Log = LogManager.Logger.ForContext<KitopiaConfig>();
+    private static ILogger Logger = LogManager.Logger.ForContext<KitopiaConfig>();
     public List<string> alwayShows = new();
 
     public Dictionary<string, string> OnnxTargetDevices = new();
@@ -144,7 +144,7 @@ public class KitopiaConfig : ConfigBase
     {
         invokes.Add("screenShotHotKeyAction", new Action<HotKeyModel>(e =>
         {
-            Log.Debug("截图热键被触发");
+            Logger.Debug("截图热键被触发");
 
             Dispatcher.UIThread.InvokeAsync(() =>
                 {
@@ -155,7 +155,7 @@ public class KitopiaConfig : ConfigBase
                 {
                     if (e.IsFaulted)
                     {
-                        Log.Error(e.Exception, "");
+                        Logger.Error(e.Exception, "");
                         ServiceManager.Services.GetService<IErrorWindow>()!.ShowErrorWindow(
                             "截图失败", e.Exception.Message + e.Exception.StackTrace);
                     }
@@ -163,12 +163,12 @@ public class KitopiaConfig : ConfigBase
         }));
         invokes.Add("mouseHotkeyAction", new Action<HotKeyModel>(e =>
         {
-            Log.Debug("鼠标快捷菜单快捷键触发");
+            Logger.Debug("鼠标快捷菜单快捷键触发");
             ServiceManager.Services.GetService<IMouseQuickWindowService>()!.Open();
         }));
         invokes.Add("searchHotKeyAction", new Action<HotKeyModel>(e =>
         {
-            Log.Debug("显示搜索框热键被触发");
+            Logger.Debug("显示搜索框热键被触发");
             ServiceManager.Services.GetService<ISearchWindowService>()!.ShowOrHiddenSearchWindow();
         }));
         invokes.Add("截图方法列表",

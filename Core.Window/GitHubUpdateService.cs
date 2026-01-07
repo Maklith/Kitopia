@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Threading.Tasks;
+using Core.Services;
 using Core.Services.Plugin;
 using Newtonsoft.Json.Linq;
 using Serilog;
@@ -12,6 +13,7 @@ namespace KitopiaAvalonia.Services
 {
     public class GitHubUpdateService
     {
+        private static ILogger Logger = LogManager.Logger.ForContext<GitHubUpdateService>();
         private const string Owner = "Maklith";
         private const string Repo = "kitopia";
         private const string UserAgent = "KitopiaUpdateChecker";
@@ -26,7 +28,7 @@ namespace KitopiaAvalonia.Services
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    Log.Warning($"Failed to check for updates. Status code: {response.StatusCode}");
+                    Logger.Warning($"Failed to check for updates. Status code: {response.StatusCode}");
                     return (false, null, null, null);
                 }
 
@@ -66,7 +68,7 @@ namespace KitopiaAvalonia.Services
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Error checking for updates");
+                Logger.Error(ex, "Error checking for updates");
             }
 
             return (false, null, null, null);

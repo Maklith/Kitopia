@@ -10,14 +10,14 @@ namespace Core.UI.SearchWindow.InputData;
 
 public class ImageIdentifier : IInputDataIdentifier
 {
-    private static ILogger Log = LogManager.Logger.ForContext<ImageIdentifier>();
+    private static ILogger Logger = LogManager.Logger.ForContext<ImageIdentifier>();
 
     public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(
         IInputDataAnalyzeTimeFlags analyzeTimeFlags, string? s)
     {
         if (ServiceManager.Services.GetService<IClipboardService>()!.HasImage())
         {
-            Log.Debug("剪贴板有图像信息");
+            Logger.Debug("剪贴板有图像信息");
             var image = ServiceManager.Services.GetService<IClipboardService>()!.GetImage();
             var identifyInputData = new PluginCore.SearchWindow.InputData.InputData
             {

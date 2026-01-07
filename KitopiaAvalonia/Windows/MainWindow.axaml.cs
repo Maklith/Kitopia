@@ -10,7 +10,7 @@ namespace KitopiaAvalonia.Windows;
 
 public partial class MainWindow : UrsaWindow
 {
-    private static ILogger Log = LogManager.Logger.ForContext<MainWindow>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<MainWindow>();
 
     public MainWindow()
     {
@@ -19,7 +19,7 @@ public partial class MainWindow : UrsaWindow
         Dispatcher.UIThread.UnhandledException += (sender, e) =>
         {
             e.Handled = true;
-            Log.Fatal(e.Exception, "");
+            Logger.Fatal(e.Exception, "");
         };
         Opened += FirstOpenEventHandler;
 

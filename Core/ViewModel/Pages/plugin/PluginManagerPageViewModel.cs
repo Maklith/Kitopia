@@ -21,7 +21,7 @@ namespace Core.ViewModel.Pages.plugin;
 
 public partial class PluginManagerPageViewModel : ObservableRecipient
 {
-    private static ILogger Log = LogManager.Logger.ForContext<PluginManagerPageViewModel>();
+    private static ILogger Logger = LogManager.Logger.ForContext<PluginManagerPageViewModel>();
     private readonly TaskScheduler _scheduler = TaskScheduler.FromCurrentSynchronizationContext();
 
     public ObservableCollection<PluginInfoUiHelper> Items => new(PluginManager.GetPluginLocalInfos().Select(e =>
@@ -57,7 +57,7 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     public async Task Switch(PluginInfoUiHelper pluginInfoUi)
     {
         var pluginInfoEx = pluginInfoUi.PluginLocalInfo;
-        Log.Debug(pluginInfoEx.IsEnabled.ToString());
+        Logger.Debug(pluginInfoEx.IsEnabled.ToString());
         if (pluginInfoEx.IsEnabled)
             //卸载插件
             PluginManager.DisablePlugin(pluginInfoEx);
@@ -66,7 +66,7 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
             //Plugin.NewPlugin(pluginInfoEx.Path, out var weakReference);
             PluginManager.EnablePlugin(pluginInfoEx);
 
-        Log.Debug(pluginInfoEx.IsEnabled.ToString());
+        Logger.Debug(pluginInfoEx.IsEnabled.ToString());
     }
 
     [RelayCommand]

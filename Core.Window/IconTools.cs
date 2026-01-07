@@ -28,7 +28,7 @@ internal partial class IconTools
     private const uint SHGFI_SMALLICON = 0x000000001;
     private const uint SHGFI_USEFILEATTRIBUTES = 0x000000010;
     private const uint SHGFI_OPENICON = 0x000000002;
-    private static ILogger Log = LogManager.Logger.ForContext<IconTools>();
+    private static ILogger Logger = LogManager.Logger.ForContext<IconTools>();
 
     private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
         .AddConcurrencyLimiter(new ConcurrencyLimiterOptions()
@@ -41,7 +41,7 @@ internal partial class IconTools
             {
                 ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
                 {
-                    Log.Error(exception, "错误");
+                    Logger.Error(exception, "错误");
                     return true;
                 }),
                 Delay = TimeSpan.FromSeconds(1),
@@ -197,7 +197,7 @@ internal partial class IconTools
                 }
                 catch (Exception e)
                 {
-                    Log.Error(e, "ExtractIcon获取图标失败");
+                    Logger.Error(e, "ExtractIcon获取图标失败");
                 }
 
                 var iconByPe = GetIconByPe(dllPath2);
@@ -212,7 +212,7 @@ internal partial class IconTools
         }
         catch (Exception e)
         {
-            Log.Error(e, $"获取图标失败，路径：{path}，缓存键：{cacheKey}");
+            Logger.Error(e, $"获取图标失败，路径：{path}，缓存键：{cacheKey}");
             return null;
         }
     }

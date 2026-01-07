@@ -25,7 +25,7 @@ namespace Core.Services.Plugin;
 
 public class Plugin
 {
-    private static ILogger Log = LogManager.Logger.ForContext<Plugin>();
+    private static ILogger Logger = LogManager.Logger.ForContext<Plugin>();
 
     private AssemblyLoadContextH? _plugin;
     private IPlugin _pluginService;
@@ -69,7 +69,7 @@ public class Plugin
         }
         catch (Exception e)
         {
-            Log.Error(e, "配置文件加载失败");
+            Logger.Error(e, "配置文件加载失败");
 
             SerializeConfigToFile(configF);
 
@@ -111,7 +111,7 @@ public class Plugin
     {
         _plugin = new AssemblyLoadContextH(pluginInfo.FullPath, pluginInfo.FullPath.Split(Path.DirectorySeparatorChar)
             .Last() + "_plugin", pluginInfo.PluginBaseInfo.Dependencies);
-        Log.Debug($"加载插件:{pluginInfo.FullPath}");
+        Logger.Debug($"加载插件:{pluginInfo.FullPath}");
         var t = _dll.GetExportedTypes();
         //Dictionary<string, (MethodInfo, object)> methodInfos = new();
         ScenarioMethodCategoryGroup pluginMainScenarioMethodCategoryGroup = new();
@@ -127,7 +127,7 @@ public class Plugin
         foreach (var type in t)
             if (type.GetInterface("IPlugin") != null)
             {
-                Log.Debug($"加载插件:{PluginInfo.ToPlgString()}");
+                Logger.Debug($"加载插件:{PluginInfo.ToPlgString()}");
                 //var instance = Activator.CreateInstance(type);
                 var methodInfo = type.GetMethod("GetServiceProvider");
                 ServiceProvider = (IServiceProvider)methodInfo
@@ -237,7 +237,7 @@ public class Plugin
                             {
                                 ServiceManager.Services.GetService<IToastService>().Show("执行截图扩展方法时出现错误",
                                     exception.InnerException?.Message ?? exception.Message);
-                                Log.Error(exception, "错误");
+                                Logger.Error(exception, "错误");
                             }
                         },
                         Description = captureAttribute.Description,
@@ -354,7 +354,7 @@ public class Plugin
 
     public void Unload(out WeakReference weakReference)
     {
-        Log.Debug($"卸载插件:{PluginInfo.ToPlgString()}");
+        Logger.Debug($"卸载插件:{PluginInfo.ToPlgString()}");
         ConfigManger.RemoveConfig($"{PluginInfo.ToPlgString()}");
 
         PluginOverall.ScreenCaptureExMethods.Remove(PluginInfo.ToPlgString());

@@ -21,7 +21,7 @@ namespace Core.Window;
 
 public partial class AppTools
 {
-    private static ILogger Log = LogManager.Logger.ForContext<AppTools>();
+    private static ILogger Logger = LogManager.Logger.ForContext<AppTools>();
     private static readonly List<string> ErrorLnkList = new();
 
     //Console.WriteLine();
@@ -80,7 +80,7 @@ public partial class AppTools
 
                                 Thread.Sleep(200);
                                 File.Delete(TempFileName);
-                                Log.Debug("创建Everything的noUAC任务计划完成");
+                                Logger.Debug("创建Everything的noUAC任务计划完成");
                                 Shell32.ShellExecute(IntPtr.Zero, "open",
                                     $"{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.lnk",
                                     "", "",
@@ -89,7 +89,7 @@ public partial class AppTools
                             },
                             CloseAction = () =>
                             {
-                                Log.Debug("关闭自动启动Everything功能");
+                                Logger.Debug("关闭自动启动Everything功能");
                                 ConfigManger.Config.autoStartEverything = false;
                                 ConfigManger.Save();
                             }
@@ -141,11 +141,11 @@ public partial class AppTools
     internal static void GetAllApps(ConcurrentDictionary<string, SearchViewItem> collection,
         bool logging = false, bool useEverything = false)
     {
-        Log.Debug("索引全部软件及收藏项目");
+        Logger.Debug("索引全部软件及收藏项目");
 
 
         UwpTools.GetAll(collection);
-        Log.Debug("索引全部软件及收藏项目UWP");
+        Logger.Debug("索引全部软件及收藏项目UWP");
         ControlPanelTools.GetAll(collection);
         // 创建一个空的文件路径集合
 
@@ -213,7 +213,7 @@ public partial class AppTools
             var c = new StringBuilder("检测到多个无效的快捷方式\n需要Kitopia帮你清理吗?(该功能每个错误快捷方式只提示一次)\n以下为无效的快捷方式列表:\n");
             foreach (var s in ErrorLnkList) c.AppendLine(s);
 
-            Log.Debug(c.ToString());
+            Logger.Debug(c.ToString());
             var dialog = new DialogContent()
             {
                 Title = $"Kitopia建议",
@@ -224,14 +224,14 @@ public partial class AppTools
                 {
                     foreach (var s in ErrorLnkList)
                     {
-                        Log.Debug($"删除无效快捷方式:{s}");
+                        Logger.Debug($"删除无效快捷方式:{s}");
                         try
                         {
                             File.Delete(s);
                         }
                         catch (Exception)
                         {
-                            Log.Debug($"添加无效快捷方式记录:{s}");
+                            Logger.Debug($"添加无效快捷方式记录:{s}");
                             ConfigManger.Config.errorLnk.Add(s);
                             ConfigManger.Save();
                         }
@@ -243,12 +243,12 @@ public partial class AppTools
                 {
                     foreach (var s in ErrorLnkList)
                     {
-                        Log.Debug($"添加无效快捷方式记录:{s}");
+                        Logger.Debug($"添加无效快捷方式记录:{s}");
                         ConfigManger.Config.errorLnk.Add(s);
                         ConfigManger.Save();
                     }
 
-                    Log.Debug("取消删除无效快捷方式");
+                    Logger.Debug("取消删除无效快捷方式");
                     ErrorLnkList.Clear();
                 }
             };
@@ -290,7 +290,7 @@ public partial class AppTools
                         var fullName = refFileInfo.FullName;
                         if (ConfigManger.Config.ignoreItems.Contains(fullName))
                         {
-                            Log.Debug($"忽略索引:{fullName}");
+                            Logger.Debug($"忽略索引:{fullName}");
                             return;
                         }
 
@@ -300,7 +300,7 @@ public partial class AppTools
                         }
                         else
                         {
-                            Log.Debug($"无效索引:\n{file}\n目标位置:{fullName}");
+                            Logger.Debug($"无效索引:\n{file}\n目标位置:{fullName}");
                             if (!ErrorLnkList.Contains(file) && !ConfigManger.Config.errorLnk.Contains(file))
                                 ErrorLnkList.Add(file);
 
@@ -351,7 +351,7 @@ public partial class AppTools
 
                         if (ConfigManger.Config.ignoreItems.Contains(onlyKey))
                         {
-                            Log.Debug($"忽略索引:{onlyKey}");
+                            Logger.Debug($"忽略索引:{onlyKey}");
                             return;
                         }
 
@@ -438,7 +438,7 @@ public partial class AppTools
         }
         catch (Exception e)
         {
-            Log.Error(e, $"索引失败:{file}");
+            Logger.Error(e, $"索引失败:{file}");
         }
     }
 

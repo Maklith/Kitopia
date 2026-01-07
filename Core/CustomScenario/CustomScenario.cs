@@ -20,7 +20,7 @@ namespace Core.CustomScenario;
 
 public partial class CustomScenario : ObservableRecipient
 {
-    private static ILogger Log = LogManager.Logger.ForContext<CustomScenario>();
+    private static ILogger Logger = LogManager.Logger.ForContext<CustomScenario>();
 
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> _autoTriggers = new();
     private CancellationTokenSource _cancellationTokenSource = new();
@@ -270,13 +270,13 @@ public partial class CustomScenario : ObservableRecipient
                         IsRunning = false;
                         ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
                             $"情景\'{Name}\'运行完成");
-                        Log.Debug($"情景运行完成:{Name}");
+                        Logger.Debug($"情景运行完成:{Name}");
                         break;
                     }
 
                     ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
                         $"情景\'{Name}\'进入Tick");
-                    Log.Debug($"情景进入Tick:{Name}");
+                    Logger.Debug($"情景进入Tick:{Name}");
                     try
                     {
                         _tickUtil = new TickUtil(1000, (uint)(tickIntervalSecond * 1000 * 1000), 1, TickMethod);
@@ -359,13 +359,13 @@ public partial class CustomScenario : ObservableRecipient
         {
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!)
                 .Show("情景", $"情景\'{Name}\'由于出现错误被停止");
-            Log.Debug($"情景\'{Name}\'由于出现错误被停止");
+            Logger.Debug($"情景\'{Name}\'由于出现错误被停止");
         }
         else
         {
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!)
                 .Show("情景", $"情景\'{Name}\'被用户停止");
-            Log.Debug($"情景\'{Name}\'被用户停止");
+            Logger.Debug($"情景\'{Name}\'被用户停止");
         }
     }
 
@@ -375,7 +375,7 @@ public partial class CustomScenario : ObservableRecipient
         bool notRealTime,
         CancellationToken cancellationToken)
     {
-        Log.Debug($"解析节点:{nowScenarioMethodNode.Title}");
+        Logger.Debug($"解析节点:{nowScenarioMethodNode.Title}");
         var valid = true;
         List<Thread> sourceDataTask = new();
         valid = nowScenarioMethodNode.InputDataIsEnough(connections);
@@ -419,7 +419,7 @@ public partial class CustomScenario : ObservableRecipient
         if (notRealTime)
             try
             {
-                Log.Debug($"执行节点:{nowScenarioMethodNode.Title}");
+                Logger.Debug($"执行节点:{nowScenarioMethodNode.Title}");
                 var invoke =
                     nowScenarioMethodNode.Invoke(cancellationToken, connections, Values, TempValue, InputValue);
                 if (!invoke)
@@ -427,16 +427,16 @@ public partial class CustomScenario : ObservableRecipient
                     //如果执行失败
                     valid = false;
                     nowScenarioMethodNode.Status = NodeStatus.Error;
-                    Log.Debug($"执行节点失败:{nowScenarioMethodNode.Title}");
+                    Logger.Debug($"执行节点失败:{nowScenarioMethodNode.Title}");
                 }
                 else
                 {
-                    Log.Debug($"执行节点完成:{nowScenarioMethodNode.Title}");
+                    Logger.Debug($"执行节点完成:{nowScenarioMethodNode.Title}");
                 }
             }
             catch (Exception e)
             {
-                Log.Error(e, "错误");
+                Logger.Error(e, "错误");
                 ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
                     e.InnerException is not null
                         ? $"情景{Name}出现错误\n{e.InnerException?.Message}"
@@ -453,12 +453,12 @@ public partial class CustomScenario : ObservableRecipient
         if (valid)
         {
             nowScenarioMethodNode.Status = notRealTime ? NodeStatus.Verified : NodeStatus.PreliminaryVerified;
-            Log.Debug($"解析节点完成:{nowScenarioMethodNode.Title}");
+            Logger.Debug($"解析节点完成:{nowScenarioMethodNode.Title}");
         }
         else
         {
             nowScenarioMethodNode.Status = NodeStatus.Error;
-            Log.Debug($"解析节点失败:{nowScenarioMethodNode.Title}");
+            Logger.Debug($"解析节点失败:{nowScenarioMethodNode.Title}");
         }
 
         if (!onlyBackward)

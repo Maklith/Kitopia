@@ -28,7 +28,7 @@ public class PluginsReloaded
 
 public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 {
-    private static ILogger Log = LogManager.Logger.ForContext<PluginInfoUiHelper>();
+    private static ILogger Logger = LogManager.Logger.ForContext<PluginInfoUiHelper>();
 
     private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
         .AddConcurrencyLimiter(new ConcurrencyLimiterOptions
@@ -41,7 +41,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
             {
                 ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
                 {
-                    Log.Error(exception, "错误");
+                    Logger.Error(exception, "错误");
                     return false;
                 }),
                 Delay = TimeSpan.FromSeconds(1),
@@ -108,7 +108,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
                     }
                     catch (Exception ex)
                     {
-                        Log.Error(ex, "保存插件图标失败");
+                        Logger.Error(ex, "保存插件图标失败");
                         // Still show it even if save failed
                         Icon = new Bitmap(new MemoryStream(bytes));
                     }

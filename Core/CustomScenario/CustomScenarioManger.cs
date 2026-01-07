@@ -17,7 +17,7 @@ namespace Core.CustomScenario;
 public class CustomScenarioManger
 {
     public static ObservableCollection<CustomScenario> CustomScenarios = new();
-    private static ILogger Log = LogManager.Logger.ForContext<CustomScenarioManger>();
+    private static ILogger Logger = LogManager.Logger.ForContext<CustomScenarioManger>();
 
 
     public static void Init()
@@ -41,13 +41,13 @@ public class CustomScenarioManger
             if (sb.Length != 0)
             {
                 sb.Insert(0, $"情景触发器\"{e}\"触发了以下情景:\n");
-                Log.Information(sb.ToString());
+                Logger.Information(sb.ToString());
                 ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
                     sb.ToString());
             }
             else
             {
-                Log.Information($"情景触发器\"{e}\"没有触发情景");
+                Logger.Information($"情景触发器\"{e}\"没有触发情景");
             }
         });
 
@@ -66,7 +66,7 @@ public class CustomScenarioManger
             if (fileInfo.Extension == ".json")
                 Load(fileInfo);
 
-        Log.Debug($"加载情景信息完成共{CustomScenarios.Count}情景被识别");
+        Logger.Debug($"加载情景信息完成共{CustomScenarios.Count}情景被识别");
     }
 
     public static void UnloadAll()
@@ -106,7 +106,7 @@ public class CustomScenarioManger
         catch (CustomScenarioLoadFromJsonException e1)
         {
             var Name = string.Empty;
-            Log.Error($"情景文件\"{fileInfo.FullName}\"加载失败,内部异常");
+            Logger.Error($"情景文件\"{fileInfo.FullName}\"加载失败,内部异常");
             var utf8JsonReader = new Utf8JsonReader(File.ReadAllBytes(fileInfo.FullName));
             utf8JsonReader.Read();
             while (utf8JsonReader.Read())
@@ -206,7 +206,7 @@ public class CustomScenarioManger
         }
         catch (Exception e)
         {
-            Log.Error("错误", e);
+            Logger.Error("错误", e);
             var content = $"情景文件\n{fileInfo.FullName}\n加载失败疑似文件已损坏";
             var dialog = new DialogContent
             {
@@ -253,7 +253,7 @@ public class CustomScenarioManger
 
         catch (CustomScenarioLoadFromJsonException e)
         {
-            Log.Error("情景保存失败", e);
+            Logger.Error("情景保存失败", e);
             switch (e.FailedType)
             {
                 case CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到:

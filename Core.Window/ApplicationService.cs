@@ -17,7 +17,7 @@ namespace Core.Window;
 public class ApplicationService : IApplicationService
 {
     
-    private static ILogger Log = LogManager.Logger.ForContext<ApplicationService>();
+    private static ILogger Logger = LogManager.Logger.ForContext<ApplicationService>();
     public void Init()
     {
         InitUrlProtocol();
@@ -62,11 +62,11 @@ public class ApplicationService : IApplicationService
                 key.Flush();
             }
 
-            Log.Debug("定义URL Protocol成功");
+            Logger.Debug("定义URL Protocol成功");
         }
         catch (Exception ex)
         {
-            Log.Error("定义URL Protocol失败", ex);
+            Logger.Error("定义URL Protocol失败", ex);
         }
     }
 
@@ -92,12 +92,12 @@ public class ApplicationService : IApplicationService
                 {
                     if (Equals(registry.GetValue("Kitopia"), $"\"{strName}\""))
                     {
-                        Log.Information("开机自启配置已存在");
+                        Logger.Information("开机自启配置已存在");
                         return true;
                     }
                 }
 
-                Log.Information("用户确认启用开机自启");
+                Logger.Information("用户确认启用开机自启");
                 try
                 {
                     registry.SetValue("Kitopia", $"\"{strName}\""); //设置该子项的新的“键值对”
@@ -106,8 +106,8 @@ public class ApplicationService : IApplicationService
                 }
                 catch (Exception exception)
                 {
-                    Log.Error("开机自启设置失败");
-                    Log.Error(exception.StackTrace);
+                    Logger.Error("开机自启设置失败");
+                    Logger.Error(exception.StackTrace);
                     ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))).Show("开机自启",
                         "开机自启设置失败");
                     return false;
@@ -130,7 +130,7 @@ public class ApplicationService : IApplicationService
         }
         catch (Exception e)
         {
-            Log.Error(e,"开机自启设置失败");
+            Logger.Error(e,"开机自启设置失败");
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))).Show("开机自启",
                 "开机自启设置失败");
             return false;
@@ -145,7 +145,7 @@ public class ApplicationService : IApplicationService
         var (hasUpdate, latestVersion, downloadUrl, releaseNotes) = await gitHubUpdateService!.CheckForUpdatesAsync();
         if (hasUpdate && !string.IsNullOrEmpty(downloadUrl))
         {
-            Log.Information($"发现新版本:{latestVersion}");
+            Logger.Information($"发现新版本:{latestVersion}");
             var dialog = new DialogContent()
             {
                 Title = $"Kitopia更新 - 发现新版本 {latestVersion}",
@@ -201,7 +201,7 @@ public class ApplicationService : IApplicationService
                     }
                     catch (Exception ex)
                     {
-                        Log.Error(ex, "更新失败");
+                        Logger.Error(ex, "更新失败");
                         ServiceManager.Services.GetService<IToastService>()!.Show("更新失败", $"下载出错: {ex.Message}",  NotificationType.Error);
                     }
                 }

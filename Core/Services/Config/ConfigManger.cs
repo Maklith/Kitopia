@@ -22,7 +22,7 @@ namespace Core.Services.Config;
 
 public class ConfigManger
 {
-    private static ILogger Log = LogManager.Logger.ForContext<ConfigManger>();
+    private static ILogger Logger = LogManager.Logger.ForContext<ConfigManger>();
     public static Version Version = new("1.0.0");
     public static string ApiUrl = "https://api.kitopia.top:5111";
     public static Dictionary<string, ConfigBase> Configs = new();
@@ -66,7 +66,7 @@ public class ConfigManger
             }
             catch (Exception e)
             {
-                Log.Error(e, "配置文件加载失败");
+                Logger.Error(e, "配置文件加载失败");
             }
         }
 

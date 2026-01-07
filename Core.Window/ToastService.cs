@@ -18,7 +18,7 @@ namespace Core.Window;
 
 public class ToastService : IToastService
 {
-    private static ILogger Log = LogManager.Logger.ForContext<ToastService>();
+    private static ILogger Logger = LogManager.Logger.ForContext<ToastService>();
     private ToastShowWindow _toastShowWindow;
 
     public void Init()
@@ -33,11 +33,11 @@ public class ToastService : IToastService
     int counter = 0;
     public void Show(string header, string text, NotificationType notificationType = NotificationType.Information)
     {
-        Log.Debug($"{nameof(ToastService)}的接口{nameof(Show)}被调用,header：{header},text：{text}");
+        Logger.Debug($"{nameof(ToastService)}的接口{nameof(Show)}被调用,header：{header},text：{text}");
         var foregroundWindow = User32.GetForegroundWindow();
         if (foregroundWindow.IsNull || foregroundWindow.IsInvalid)
         {
-            Log.Warning("无法获取前台窗口，Toast显示失败");
+            Logger.Warning("无法获取前台窗口，Toast显示失败");
             return;
         }
         
@@ -47,7 +47,7 @@ public class ToastService : IToastService
 
             if (windowFromIntPtr == null||windowFromIntPtr.TryGetPlatformHandle()?.Handle==_toastShowWindow.TryGetPlatformHandle()?.Handle)
             {
-                Log.Warning("无法通过前台窗口句柄获取Avalonia窗口，使用全局 Toast显示");
+                Logger.Warning("无法通过前台窗口句柄获取Avalonia窗口，使用全局 Toast显示");
                 _toastShowWindow.IsVisible = true;
                 windowFromIntPtr = _toastShowWindow;
                 var windowToastManager =

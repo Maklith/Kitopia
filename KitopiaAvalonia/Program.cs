@@ -42,7 +42,7 @@ namespace KitopiaAvalonia;
 
 internal class Program
 {
-    private static ILogger Log = LogManager.Logger.ForContext<Program>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<Program>();
 
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
@@ -53,15 +53,15 @@ internal class Program
         try
         {
             // RxApp.DefaultExceptionHandler = new MyCoolObservableExceptionHandler();
-            TaskScheduler.UnobservedTaskException += (sender, eventArgs) => { Log.Error(eventArgs.Exception, "错误"); };
+            TaskScheduler.UnobservedTaskException += (sender, eventArgs) => { Logger.Error(eventArgs.Exception, "错误"); };
 
             AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
             {
-                Log.Fatal((Exception)e.ExceptionObject, "错误");
+                Logger.Fatal((Exception)e.ExceptionObject, "错误");
             };
             AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
             {
-                Log.Information("程序退出");
+                Logger.Information("程序退出");
                 LogManager.Logger.Dispose();
                 ServiceManager.Services.GetService<IToastService>().Unregister();
             };
@@ -75,7 +75,7 @@ internal class Program
                 }
                 catch (Exception e)
                 {
-                    Log.Fatal(e, "启动失败");
+                    Logger.Fatal(e, "启动失败");
                     Environment.Exit(0);
                 }
             });
@@ -84,7 +84,7 @@ internal class Program
         }
         catch (Exception e)
         {
-            Log.Fatal(e, "");
+            Logger.Fatal(e, "");
             Environment.Exit(0);
         }
         finally
@@ -178,7 +178,7 @@ internal class Program
     {
         // 定义日志文件的目录
         var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-        Log.Debug($"检查日志目录:{logDirectory}");
+        Logger.Debug($"检查日志目录:{logDirectory}");
         // 定义要保留的日志文件的时间范围，这里是一周
         var timeSpan = TimeSpan.FromDays(2);
 
@@ -198,7 +198,7 @@ internal class Program
                 // 如果差值大于要保留的时间范围，就删除该日志文件
                 if (currentDate - logFile.LastWriteTime > timeSpan)
                 {
-                    Log.Debug($"删除日志文件:{logFile.FullName}");
+                    Logger.Debug($"删除日志文件:{logFile.FullName}");
                     logFile.Delete();
                 }
         }
@@ -215,7 +215,7 @@ internal class Program
 
     public static void OnStartup(string[] arg)
     {
-        Log.Information("启动");
+        Logger.Information("启动");
         ServiceManager.Services = ConfigureServices();
 
         CheckAndDeleteLogFiles();
@@ -226,11 +226,11 @@ internal class Program
             await Task.Delay(TimeSpan.FromMinutes(30));
         }));
         MqttManager.Init().GetAwaiter().GetResult();
-        Log.Information("MQTT初始化完成");
+        Logger.Information("MQTT初始化完成");
         HotKeyManager.Init();
-        Log.Debug("注册热键管理器完成");
+        Logger.Debug("注册热键管理器完成");
         ConfigManger.Init();
-        Log.Information("配置文件初始化完成");
+        Logger.Information("配置文件初始化完成");
         if (ConfigManger.Config.mouseCapture) HotKeyManager.HotKetImpl.StartHook();
         ServiceManager.Services.GetService<IToastService>().Init();
 
@@ -261,19 +261,19 @@ internal class Program
             }
         }
 
-        Log.Information("主题初始化完成");
+        Logger.Information("主题初始化完成");
 
         PluginManager.Init();
-        Log.Information("插件管理器初始化完成");
+        Logger.Information("插件管理器初始化完成");
         CustomScenarioManger.Init();
-        Log.Information("场景管理器初始化完成");
+        Logger.Information("场景管理器初始化完成");
 
 
         ServicePointManager.DefaultConnectionLimit = 10240;
 
         if (ConfigManger.Config.autoStart)
         {
-            Log.Information("设置开机自启");
+            Logger.Information("设置开机自启");
             ServiceManager.Services.GetService<IApplicationService>()
                 .ChangeAutoStart(true);
         }

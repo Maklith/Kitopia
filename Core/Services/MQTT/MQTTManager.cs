@@ -34,7 +34,7 @@ public enum MqttMsgType
 /// </summary>
 public class MqttManager
 {
-    private static ILogger Log = LogManager.Logger.ForContext<MqttManager>();
+    private static ILogger Logger = LogManager.Logger.ForContext<MqttManager>();
     
     /// <summary>
     /// MQTT服务器实例 / MQTT server instance
@@ -72,7 +72,7 @@ public class MqttManager
                     var mqttClientConnectResult = await mqttClient.ConnectAsync(options);
                     if (mqttClientConnectResult.ResultCode == MqttClientConnectResultCode.Success)
                     {
-                        Log.Debug("MQTT连接成功");
+                        Logger.Debug("MQTT连接成功");
                         var jObject = new JObject();
                         if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime
                             appLifetime)
@@ -126,7 +126,7 @@ public class MqttManager
             Server.ClientDisconnectedAsync -= Server_ClientDisconnectedAsync;
             Server.InterceptingPublishAsync -= Server_InterceptingPublishAsync;
             nowPort++;
-            Log.Debug($"MQTT启动失败,尝试启动端口{nowPort}");
+            Logger.Debug($"MQTT启动失败,尝试启动端口{nowPort}");
             goto restart;
         }
 
@@ -139,7 +139,7 @@ public class MqttManager
     private static async Task Server_InterceptingPublishAsync(InterceptingPublishEventArgs arg)
     {
         var s = Encoding.UTF8.GetString(arg.ApplicationMessage.Payload);
-        Log.Debug($"Publish {arg.ApplicationMessage.Topic} {s}");
+        Logger.Debug($"Publish {arg.ApplicationMessage.Topic} {s}");
         try
         {
             var jObject = JObject.Parse(s);
@@ -188,17 +188,17 @@ public class MqttManager
         }
         catch (Exception e)
         {
-            Log.Error("来自URL的操作出现错误", e);
+            Logger.Error("来自URL的操作出现错误", e);
         }
     }
 
     private static async Task Server_ClientDisconnectedAsync(ClientDisconnectedEventArgs arg)
     {
-        Log.Debug($"Client {arg.ClientId} disconnected.");
+        Logger.Debug($"Client {arg.ClientId} disconnected.");
     }
 
     private static async Task Server_ClientConnectedAsync(ClientConnectedEventArgs arg)
     {
-        Log.Debug($"Client {arg.ClientId} connected.");
+        Logger.Debug($"Client {arg.ClientId} connected.");
     }
 }

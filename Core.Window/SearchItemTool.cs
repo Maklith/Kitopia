@@ -19,11 +19,11 @@ namespace Core.Window;
 public class SearchItemTool : ISearchItemTool
 {
     
-    private static ILogger Log =   LogManager.Logger.ForContext<SearchItemTool>();
+    private static ILogger Logger =   LogManager.Logger.ForContext<SearchItemTool>();
     public void OpenFile(SearchViewItem? searchViewItem, params object[] inputValues)
     {
         if (searchViewItem is null) return;
-        Log.Debug("打开指定内容" + searchViewItem.OnlyKey);
+        Logger.Debug("打开指定内容" + searchViewItem.OnlyKey);
         switch (searchViewItem.OnlyKey)
         {
             case "Math": break;
@@ -93,7 +93,7 @@ public class SearchItemTool : ISearchItemTool
                         Shell32.ShellExecute(IntPtr.Zero, "open", searchViewItem.OnlyKey, searchViewItem.Arguments,
                             searchViewItem.StartDirectory,
                             ShowWindowCommand.SW_NORMAL);
-                        Log.Debug(
+                        Logger.Debug(
                             $"打开指定内容{searchViewItem.OnlyKey}_{searchViewItem.Arguments}_{searchViewItem.StartDirectory}");
 
                         break;
@@ -106,7 +106,7 @@ public class SearchItemTool : ISearchItemTool
 
     public void OpenFile(string path)
     {
-        Log.Debug("打开指定内容" + path);
+        Logger.Debug("打开指定内容" + path);
         Shell32.ShellExecute(IntPtr.Zero, "open", path, "", "",
             ShowWindowCommand.SW_NORMAL);
     }
@@ -133,7 +133,7 @@ public class SearchItemTool : ISearchItemTool
         }
         Task.Run(() =>
         {
-            Log.Debug($"打开指定内容文件夹{searchViewItem.OnlyKey}_{searchViewItem.StartDirectory}");
+            Logger.Debug($"打开指定内容文件夹{searchViewItem.OnlyKey}_{searchViewItem.StartDirectory}");
             Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + searchViewItem.OnlyKey, searchViewItem.StartDirectory,
                 ShowWindowCommand.SW_SHOW);
             RecordOpenTime(searchViewItem);
@@ -148,7 +148,7 @@ public class SearchItemTool : ISearchItemTool
         }
         Task.Run(() =>
         {
-            Log.Debug("以管理员身份打开指定内容" + item?.OnlyKey);
+            Logger.Debug("以管理员身份打开指定内容" + item?.OnlyKey);
             if (item is { FileType: FileType.UWP应用 })
                 //explorer.exe shell:AppsFolder\Microsoft.WindowsMaps_8wekyb3d8bbwe!App
                 Shell32.ShellExecute(IntPtr.Zero, "runas", "explorer.exe", $"shell:AppsFolder\\{item.OnlyKey}!App",
@@ -166,7 +166,7 @@ public class SearchItemTool : ISearchItemTool
         if (item is null) return;
 
         var collection = ServiceManager.Services.GetService<SearchWindowViewModel>()!._collection;
-        Log.Information("添加/移除收藏" + item.OnlyKey);
+        Logger.Information("添加/移除收藏" + item.OnlyKey);
         item.IsStared = !item.IsStared;
         if (ConfigManger.Config!.customCollections.Contains(item.OnlyKey))
             ConfigManger.Config.customCollections.Remove(item.OnlyKey);
@@ -212,14 +212,14 @@ public class SearchItemTool : ISearchItemTool
         }
         Task.Run(() =>
         {
-            Log.Debug("打开指定内容在终端中" + item.OnlyKey);
+            Logger.Debug("打开指定内容在终端中" + item.OnlyKey);
             var startInfo = new ProcessStartInfo
             {
                 FileName = @"C:\Windows\System32\cmd.exe"
             };
             if (!File.Exists(@"C:\Windows\System32\cmd.exe"))
             {
-                Log.Debug("64");
+                Logger.Debug("64");
                 startInfo.FileName = @"C:\Windows\sysnative\cmd.exe";
             }
 

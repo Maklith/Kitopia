@@ -10,7 +10,7 @@ namespace Core.Services.Plugin;
 
 public class PluginNetworkService
 {
-    private static readonly ILogger Log = LogManager.Logger.ForContext<PluginNetworkService>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<PluginNetworkService>();
 
     public static readonly HttpClient HttpClient = new()
     {
@@ -45,7 +45,7 @@ public class PluginNetworkService
         }
         catch (Exception e)
         {
-            Log.Error(e, "获取插件信息错误");
+            Logger.Error(e, "获取插件信息错误");
             return null;
         }
     }
@@ -54,7 +54,7 @@ public class PluginNetworkService
     {
         try
         {
-            Log.Debug($"从服务器下载插件{plugin}(ID:{id})版本{versionId}");
+            Logger.Debug($"从服务器下载插件{plugin}(ID:{id})版本{versionId}");
             var streamAsync =
                 await HttpClient.GetStreamAsync($"{ConfigManger.ApiUrl}/api/plugin/download/1/{id}/{versionId}");
             
@@ -81,7 +81,7 @@ public class PluginNetworkService
         }
         catch (Exception e)
         {
-            Log.Error(e, "下载插件错误");
+            Logger.Error(e, "下载插件错误");
             return false;
         }
 
@@ -108,7 +108,7 @@ public class PluginNetworkService
         }
         catch (Exception e)
         {
-            Log.Error(e, "获取插件图标错误");
+            Logger.Error(e, "获取插件图标错误");
         }
         return null;
     }
@@ -138,7 +138,7 @@ public class PluginNetworkService
         }
         catch (Exception e)
         {
-            Log.Error(e, "下载插件图标错误");
+            Logger.Error(e, "下载插件图标错误");
         }
     }
 
@@ -160,7 +160,7 @@ public class PluginNetworkService
         }
         catch (Exception e)
         {
-            Log.Error(e, "获取作者信息错误");
+            Logger.Error(e, "获取作者信息错误");
             return null;
         }
     }
@@ -183,7 +183,7 @@ public class PluginNetworkService
         }
         catch (Exception e)
         {
-            Log.Error(e, "获取最新版本信息错误");
+            Logger.Error(e, "获取最新版本信息错误");
             return null;
         }
     }
@@ -216,7 +216,7 @@ public class PluginNetworkService
         }
         catch (Exception e)
         {
-            Log.Error(e, "获取版本详情错误");
+            Logger.Error(e, "获取版本详情错误");
             return null;
         }
     }

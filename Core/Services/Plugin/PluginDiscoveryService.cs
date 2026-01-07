@@ -7,7 +7,7 @@ namespace Core.Services.Plugin;
 
 public class PluginDiscoveryService
 {
-    private static readonly ILogger Log = LogManager.Logger.ForContext<PluginDiscoveryService>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<PluginDiscoveryService>();
 
     public static List<PluginLocalInfo> DiscoverPlugins(string pluginsPath, bool handleRemovals = false)
     {
@@ -16,7 +16,7 @@ public class PluginDiscoveryService
 
         if (!pluginsDirectoryInfo.Exists)
         {
-            Log.Debug($"插件目录不存在创建{pluginsDirectoryInfo.FullName}");
+            Logger.Debug($"插件目录不存在创建{pluginsDirectoryInfo.FullName}");
             pluginsDirectoryInfo.Create();
             return candidates;
         }
@@ -31,7 +31,7 @@ public class PluginDiscoveryService
                 }
                 catch (Exception e)
                 {
-                    Log.Error(e, "删除插件目录失败");
+                    Logger.Error(e, "删除插件目录失败");
                 }
                 continue;
             }
@@ -57,7 +57,7 @@ public class PluginDiscoveryService
             }
             catch (Exception e)
             {
-                Log.Error(e, $"读取插件元数据错误: {directoryInfo.FullName}");
+                Logger.Error(e, $"读取插件元数据错误: {directoryInfo.FullName}");
             }
         }
 

@@ -16,7 +16,7 @@ namespace Core.Window.Everything;
 
 public class EverythingTools
 {
-    private static ILogger Log =  LogManager.Logger.ForContext<EverythingTools>();
+    private static ILogger Logger =  LogManager.Logger.ForContext<EverythingTools>();
     public static bool IsRun()
     {
         if (IntPtr.Size == 8)
@@ -29,7 +29,7 @@ public class EverythingTools
             });
             if (!task.Wait(TimeSpan.FromSeconds(1)))
             {
-                Log.Error("Everything调用超时");
+                Logger.Error("Everything调用超时");
                 ServiceManager.Services.GetService<IToastService>()!.Show("Everything", "Everything调用超时");
                 return false;
             }
@@ -47,7 +47,7 @@ public class EverythingTools
             });
             if (!task.Wait(TimeSpan.FromSeconds(1)))
             {
-                Log.Error("Everything调用超时");
+                Logger.Error("Everything调用超时");
                 ServiceManager.Services.GetService<IToastService>()!.Show("Everything", "Everything调用超时");
                 return false;
             }
@@ -69,7 +69,7 @@ public class EverythingTools
         });
         if (!task.Wait(TimeSpan.FromSeconds(1)))
         {
-            Log.Error("Everything调用超时");
+            Logger.Error("Everything调用超时");
             ServiceManager.Services.GetService<IToastService>()!.Show("Everything", "Everything调用超时");
         }
     }
@@ -87,7 +87,7 @@ public class EverythingTools
         });
         if (!task.Wait(TimeSpan.FromSeconds(1)))
         {
-            Log.Error("Everything调用超时");
+            Logger.Error("Everything调用超时");
             ServiceManager.Services.GetService<IToastService>()!.Show("Everything", "Everything调用超时");
         }
 

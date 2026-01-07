@@ -41,7 +41,7 @@ public class FileTypeFilter
 /// </summary>
 public partial class SearchWindowViewModel : ObservableRecipient
 {
-    private static ILogger Log = LogManager.Logger.ForContext<SearchWindowViewModel>();
+    private static ILogger Logger = LogManager.Logger.ForContext<SearchWindowViewModel>();
     public readonly ConcurrentDictionary<string, SearchViewItem> _collection = new(); //存储本机所有软件
 
     [ObservableProperty] private bool? _everythingIsOk = true;
@@ -82,13 +82,13 @@ public partial class SearchWindowViewModel : ObservableRecipient
             LoadLast();
         }).ContinueWith(e =>
         {
-            if (e.Exception is not null) Log.Error(e.Exception, "");
+            if (e.Exception is not null) Logger.Error(e.Exception, "");
         });
         this.WhenAnyValue(e => e.Search)
             .Throttle(TimeSpan.FromMilliseconds(100))
             .DistinctUntilChanged()
             .ObserveOn(SynchronizationContext.Current)
-            .Subscribe(ToSearch, e => { Log.Error(e, ""); });
+            .Subscribe(ToSearch, e => { Logger.Error(e, ""); });
     }
 
 
@@ -120,7 +120,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     {
         if (ConfigManger.Config.useEverything && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            Log.Debug("everything检测");
+            Logger.Debug("everything检测");
 
 
             var service = ServiceManager.Services.GetService<IEverythingService>()!;
@@ -142,7 +142,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         if (!string.IsNullOrEmpty(Search)) return;
 
 
-        Log.Debug("加载历史记录");
+        Logger.Debug("加载历史记录");
 
 
         foreach (var searchViewItem in Items) searchViewItem.Dispose();
@@ -154,13 +154,13 @@ public partial class SearchWindowViewModel : ObservableRecipient
         //Items.RaiseListChangedEvents = false;
         if (ConfigManger.Config.alwayShows.Any())
         {
-            Log.Debug("加载常驻");
+            Logger.Debug("加载常驻");
             foreach (var configAlwayShow in ConfigManger.Config.alwayShows)
                 if (_collection.TryGetValue(configAlwayShow, out var searchViewItem))
                 {
                     var item = (SearchViewItem)searchViewItem;
 
-                    Log.Debug("加载常驻:" + item.OnlyKey);
+                    Logger.Debug("加载常驻:" + item.OnlyKey);
 
 
                     item.IsPined = true;
@@ -175,7 +175,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
         if (ConfigManger.Config.lastOpens.Any())
         {
-            Log.Debug("加载历史");
+            Logger.Debug("加载历史");
             var sortedDict = ConfigManger.Config.lastOpens
                 .Select(p => new
                 {
@@ -190,7 +190,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             {
                 if (limit >= ConfigManger.Config.maxHistory)
                 {
-                    Log.Debug("超过历史记录限制,当前" + limit);
+                    Logger.Debug("超过历史记录限制,当前" + limit);
 
 
                     break;
@@ -202,7 +202,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
                     var item = (SearchViewItem)item2;
 
-                    Log.Debug("加载历史:" + item.OnlyKey);
+                    Logger.Debug("加载历史:" + item.OnlyKey);
 
 
                     if (!Items.Any((e) => e.OnlyKey.Equals(item.OnlyKey)))
@@ -286,7 +286,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         }
         ShowPinnedItems = false;
 
-        Log.Debug("搜索变更:" + Search);
+        Logger.Debug("搜索变更:" + Search);
         // Items.RaiseListChangedEvents = false;
 
         #region 清除上次搜索结果
@@ -387,7 +387,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         if (Items.Count <= pluginItem)
         {
             {
-                Log.Debug("无搜索项目,添加网页搜索");
+                Logger.Debug("无搜索项目,添加网页搜索");
                 var searchViewItem3 = new SearchViewItem
                 {
                     ItemDisplayName = "将内容添加至便签" + originalValue,
@@ -489,7 +489,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     private void Pin(object searchViewItem)
     {
         var item = (SearchViewItem)searchViewItem;
-        Log.Debug("添加常驻" + item.OnlyKey);
+        Logger.Debug("添加常驻" + item.OnlyKey);
         //Items.ResetItem(index);
 
         ServiceManager.Services.GetService<ISearchItemTool>()!.Pin(item);
