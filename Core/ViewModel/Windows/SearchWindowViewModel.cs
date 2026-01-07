@@ -63,7 +63,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
 
     [ObservableProperty] private string? _search;
-    private Action<SearchViewItem?>? _selectAction;
+    private Action<SearchViewItem?> _selectAction;
 
 
     [ObservableProperty] private int? _selectedIndex = -1;
@@ -176,7 +176,15 @@ public partial class SearchWindowViewModel : ObservableRecipient
         if (ConfigManger.Config.lastOpens.Any())
         {
             Log.Debug("加载历史");
-            var sortedDict = ConfigManger.Config.lastOpens.OrderByDescending(p => p.Value)
+            var sortedDict = ConfigManger.Config.lastOpens
+                .Select(p => new
+                {
+                    Key = p.Key,
+                    Value = p.Value,
+                    Score = p.Value.AccessTimes.Sum(t => 1.0 / (1.0 + (DateTime.Now - t).TotalDays))
+                })
+                .Where(p => p.Score > 0)
+                .OrderByDescending(p => p.Score)
                 .ToDictionary(p => p.Key, p => p.Value);
             foreach (var (key, value) in sortedDict)
             {
@@ -427,18 +435,24 @@ public partial class SearchWindowViewModel : ObservableRecipient
     public void OpenFile(SearchViewItem? item)
     {
         var s = Search;
+        if (s is null)
+        {
+            return;
+        }
         Task.Run(() =>
         {
             if (NowInSelectMode)
             {
-                _selectAction.Invoke(item);
+                _selectAction?.Invoke(item);
                 NowInSelectMode = false;
                 WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
                 return;
             }
 
             ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item, s);
+            WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
         });
+        
         Search = "";
     }
 
@@ -454,6 +468,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     {
         Search = "";
         ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFolder((SearchViewItem?)searchViewItem);
+        WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
     }
 
     [RelayCommand]
@@ -461,6 +476,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     {
         Search = "";
         ServiceManager.Services.GetService<ISearchItemTool>()!.RunAsAdmin((SearchViewItem?)searchViewItem);
+        WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
     }
 
     [RelayCommand]
@@ -494,6 +510,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     {
         Search = "";
         ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFolderInTerminal((SearchViewItem?)searchViewItem);
+        WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
     }
 
 

@@ -23,8 +23,6 @@ public class SearchItemTool : ISearchItemTool
     public void OpenFile(SearchViewItem? searchViewItem, params object[] inputValues)
     {
         if (searchViewItem is null) return;
-
-        WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
         Log.Debug("打开指定内容" + searchViewItem.OnlyKey);
         switch (searchViewItem.OnlyKey)
         {
@@ -100,29 +98,7 @@ public class SearchItemTool : ISearchItemTool
 
                         break;
                 }
-
-                switch (searchViewItem.FileType)
-                {
-                    case FileType.文件夹:
-                    case FileType.应用程序:
-                    case FileType.Word文档:
-                    case FileType.PPT文档:
-                    case FileType.Excel文档:
-                    case FileType.PDF文档:
-                    case FileType.图像:
-                    case FileType.文件:
-                    case FileType.自定义情景:
-                    {
-                        if (ConfigManger.Config.lastOpens.ContainsKey(searchViewItem.OnlyKey))
-                            ConfigManger.Config.lastOpens[searchViewItem.OnlyKey]++;
-                        else
-                            ConfigManger.Config.lastOpens.Add(searchViewItem.OnlyKey, 1);
-
-                        break;
-                    }
-                }
-
-                ConfigManger.Save();
+                RecordOpenTime(searchViewItem);
                 return;
             }
         }
@@ -137,6 +113,10 @@ public class SearchItemTool : ISearchItemTool
 
     public void IgnoreItem(SearchViewItem? item)
     {
+        if (item is null)
+        {
+            return;
+        }
         Task.Run(() =>
         {
             ConfigManger.Config.ignoreItems.Add(item.OnlyKey);
@@ -147,48 +127,29 @@ public class SearchItemTool : ISearchItemTool
 
     public void OpenFolder(SearchViewItem? searchViewItem)
     {
+        if (searchViewItem is null)
+        {
+            return;
+        }
         Task.Run(() =>
         {
-            WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
-            var item = (SearchViewItem)searchViewItem;
-            Log.Debug($"打开指定内容文件夹{item.OnlyKey}_{item.StartDirectory}");
-            Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + item.OnlyKey, item.StartDirectory,
+            Log.Debug($"打开指定内容文件夹{searchViewItem.OnlyKey}_{searchViewItem.StartDirectory}");
+            Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + searchViewItem.OnlyKey, searchViewItem.StartDirectory,
                 ShowWindowCommand.SW_SHOW);
-
-            switch (item.FileType)
-            {
-                case FileType.文件夹:
-                case FileType.应用程序:
-                case FileType.Word文档:
-                case FileType.PPT文档:
-                case FileType.Excel文档:
-                case FileType.PDF文档:
-                case FileType.图像:
-                case FileType.文件:
-                {
-                    if (ConfigManger.Config.lastOpens.ContainsKey(item.OnlyKey))
-                        ConfigManger.Config.lastOpens[item.OnlyKey]++;
-                    else
-                        ConfigManger.Config.lastOpens.Add(item.OnlyKey, 1);
-
-                    break;
-                }
-                    ;
-            }
-
-            //if (ConfigManger.config.lastOpens.Count > ConfigManger.config.maxHistory) ConfigManger.config.lastOpens.RemoveAt(ConfigManger.config.lastOpens.Count-1);
-
-            ConfigManger.Save();
+            RecordOpenTime(searchViewItem);
         });
     }
 
     public void RunAsAdmin(SearchViewItem? item)
     {
+        if (item is null)
+        {
+            return;
+        }
         Task.Run(() =>
         {
-            WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
-            Log.Debug("以管理员身份打开指定内容" + item.OnlyKey);
-            if (item.FileType == FileType.UWP应用)
+            Log.Debug("以管理员身份打开指定内容" + item?.OnlyKey);
+            if (item is { FileType: FileType.UWP应用 })
                 //explorer.exe shell:AppsFolder\Microsoft.WindowsMaps_8wekyb3d8bbwe!App
                 Shell32.ShellExecute(IntPtr.Zero, "runas", "explorer.exe", $"shell:AppsFolder\\{item.OnlyKey}!App",
                     "", ShowWindowCommand.SW_NORMAL);
@@ -196,30 +157,7 @@ public class SearchItemTool : ISearchItemTool
                 Shell32.ShellExecute(IntPtr.Zero, "runas", item.OnlyKey, "", "",
                     ShowWindowCommand.SW_NORMAL);
 
-            switch (item.FileType)
-            {
-                case FileType.文件夹:
-                case FileType.应用程序:
-                case FileType.Word文档:
-                case FileType.PPT文档:
-                case FileType.Excel文档:
-                case FileType.PDF文档:
-                case FileType.图像:
-                case FileType.文件:
-                {
-                    if (ConfigManger.Config.lastOpens.ContainsKey(item.OnlyKey))
-                        ConfigManger.Config.lastOpens[item.OnlyKey]++;
-                    else
-                        ConfigManger.Config.lastOpens.Add(item.OnlyKey, 1);
-
-                    break;
-                }
-                    ;
-            }
-
-            //if (ConfigManger.config.lastOpens.Count > ConfigManger.config.maxHistory) ConfigManger.config.lastOpens.RemoveAt(ConfigManger.config.lastOpens.Count-1);
-
-            ConfigManger.Save();
+            RecordOpenTime(item);
         });
     }
 
@@ -268,9 +206,12 @@ public class SearchItemTool : ISearchItemTool
 
     public void OpenFolderInTerminal(SearchViewItem? item)
     {
+        if (item is null)
+        {
+            return;
+        }
         Task.Run(() =>
         {
-            WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
             Log.Debug("打开指定内容在终端中" + item.OnlyKey);
             var startInfo = new ProcessStartInfo
             {
@@ -289,31 +230,39 @@ public class SearchItemTool : ISearchItemTool
 
             Process.Start(startInfo);
 
-            switch (item.FileType)
-            {
-                case FileType.文件夹:
-                case FileType.应用程序:
-                case FileType.Word文档:
-                case FileType.PPT文档:
-                case FileType.Excel文档:
-                case FileType.PDF文档:
-                case FileType.图像:
-                case FileType.文件:
-                {
-                    if (ConfigManger.Config.lastOpens.ContainsKey(item.OnlyKey))
-                        ConfigManger.Config.lastOpens[item.OnlyKey]++;
-                    else
-                        ConfigManger.Config.lastOpens.Add(item.OnlyKey, 1);
-
-                    break;
-                }
-                    ;
-            }
-
-            //if (ConfigManger.config.lastOpens.Count > ConfigManger.config.maxHistory) ConfigManger.config.lastOpens.RemoveAt(ConfigManger.config.lastOpens.Count-1);
-
-            ConfigManger.Save();
+            RecordOpenTime(item);
         });
+    }
+
+    private static void RecordOpenTime(SearchViewItem item)
+    {
+        switch (item.FileType)
+        {
+            case FileType.文件夹:
+            case FileType.应用程序:
+            case FileType.Word文档:
+            case FileType.PPT文档:
+            case FileType.Excel文档:
+            case FileType.PDF文档:
+            case FileType.图像:
+            case FileType.文件:
+            {
+                if (ConfigManger.Config.lastOpens.ContainsKey(item.OnlyKey))
+                {
+                    ConfigManger.Config.lastOpens[item.OnlyKey].AccessTimes.Add(DateTime.Now);
+                    ConfigManger.Config.lastOpens[item.OnlyKey].AccessTimes.RemoveAll(t => (DateTime.Now - t).TotalDays > 30);
+                }
+                else
+                {
+                    ConfigManger.Config.lastOpens.Add(item.OnlyKey,
+                        new HistoryItem { AccessTimes = { DateTime.Now } });
+                }
+
+                break;
+            }
+                ;
+        }
+        ConfigManger.Save();
     }
 
     public void OpenSearchItemByOnlyKey(string onlyKey, params object[] inputValues)

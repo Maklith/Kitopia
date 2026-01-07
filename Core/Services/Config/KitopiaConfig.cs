@@ -6,11 +6,17 @@ using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Config;
 using Serilog;
+using System;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable FieldCanBeMadeReadOnly.Global
 
 namespace Core.Services.Config;
+
+public class HistoryItem
+{
+    public List<DateTime> AccessTimes { get; set; } = new();
+}
 
 [ConfigName("Kitopia主配置文件")]
 public class KitopiaConfig : ConfigBase
@@ -87,7 +93,7 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("输入平滑延时", "在指定时间内不处理数据以减轻性能消耗", 0xED9B, ConfigFieldType.整数滑块, null, 1000, 50, 10)]
     public int inputSmoothingMilliseconds = 50;
 
-    public Dictionary<string, int> lastOpens = new();
+    public Dictionary<string, HistoryItem> lastOpens = new();
 
     [ConfigField("最大历史记录", "最大历史记录数", 0xF2D7, ConfigFieldType.整数列表, null, 10, 1, 1)]
     public int maxHistory = 6;

@@ -2,6 +2,7 @@
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Core.Services;
 using Core.Services.Config;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,14 +47,19 @@ public partial class MouseQuickWindowViewModel : ObservableRecipient
     public void Excute(SearchViewItem? searchViewItem)
     {
         if (searchViewItem.OnlyKey == "Add")
+        {
             ServiceManager.Services.GetService<ISearchItemChooseService>()!.Choose((item) =>
             {
                 Dispatcher.UIThread.InvokeAsync(() => { Items.Add(item); });
                 ConfigManger.Config.mouseQuickItems.Add(item.OnlyKey);
                 ConfigManger.Save();
             });
+        }
         else
+        {
             ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(searchViewItem);
+            WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
+        }
     }
 
     [RelayCommand]
