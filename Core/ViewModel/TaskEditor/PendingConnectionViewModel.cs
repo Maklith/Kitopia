@@ -2,6 +2,7 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Core.CustomScenario;
 using Core.SDKs.CustomScenario;
 using ConnectorItem = Core.CustomScenario.ConnectorItem;
@@ -70,7 +71,7 @@ public partial class PendingConnectionViewModel : ObservableRecipient
                 break;
             }
             default:
-                PreviewText = $"丢弃连接";
+                PreviewText = $"选择节点";
                 break;
         }
     }
@@ -84,7 +85,11 @@ public partial class PendingConnectionViewModel : ObservableRecipient
     [RelayCommand]
     public void Finish(ConnectorItem? target)
     {
-        if (target == null) return;
+        if (target == null)
+        {
+            WeakReferenceMessenger.Default.Send(new RequestNodeSearchMessage(Source));
+            return;
+        }
 
         if (target == Source || target.Source == Source.Source) return;
 
@@ -115,3 +120,5 @@ public partial class PendingConnectionViewModel : ObservableRecipient
         }
     }
 }
+
+public record RequestNodeSearchMessage(ConnectorItem Source);

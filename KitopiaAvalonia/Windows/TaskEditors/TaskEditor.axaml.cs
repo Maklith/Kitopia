@@ -1,8 +1,15 @@
 ﻿#region
 
 using System;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Messaging;
 using Core.CustomScenario;
 using Core.ViewModel.TaskEditor;
+using KitopiaAvalonia.Windows.TaskEditors;
 using NodifyM.Avalonia.Events;
 using Ursa.Controls;
 using DragDrop = Avalonia.Input.DragDrop;
@@ -15,16 +22,44 @@ namespace KitopiaAvalonia.Windows;
 
 public partial class TaskEditor : UrsaWindow
 {
+    private Point _lastMousePosition;
+
     public TaskEditor()
     {
         InitializeComponent();
         Editor.AddHandler(DragDrop.DropEvent, NodifyEditor_Drop);
+        
+        // Track pointer position more reliably using Tunneling and handledEventsToo: true
+        this.AddHandler(PointerMovedEvent, (sender, args) =>
+        {
+            _lastMousePosition = args.GetPosition(Editor);
+        }, RoutingStrategies.Tunnel, true);
+        
+        WeakReferenceMessenger.Default.Register<RequestNodeSearchMessage>(this, OnNodeSearchRequested);
+    }
+
+    private void OnNodeSearchRequested(object recipient, RequestNodeSearchMessage message)
+    {
+        var point = _lastMousePosition;
+        // Calculate canvas location: (LocalPoint - Offset)
+        var canvasLocation = point - new Point(Editor.OffsetX, Editor.OffsetY);
+
+        var searchWin = new TaskNodeSearchWindow();
+        var vm = new TaskNodeSearchViewModel(message.Source, (TaskEditorViewModel)DataContext, canvasLocation);
+        searchWin.DataContext = vm;
+        
+        var visualEditor = (Visual)Editor;
+        var screenPos = visualEditor.PointToScreen(point);
+        searchWin.Position = screenPos;
+        
+        searchWin.Show(this);
     }
 
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
         Editor.RemoveHandler(DragDrop.DropEvent, NodifyEditor_Drop);
+        WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 
     public void LoadTask(CustomScenario name)

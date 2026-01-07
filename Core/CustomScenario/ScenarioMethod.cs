@@ -248,7 +248,7 @@ public class ScenarioMethod
                     break;
                 case ScenarioMethodType.Condition:
                 {
-                    pointItem.Title = "Condition";
+                    pointItem.Title = "条件";
                     ObservableCollection<ConnectorItem> StringoutItems = new()
                     {
                         new ConnectorItem
@@ -300,7 +300,7 @@ public class ScenarioMethod
                 }
                 case ScenarioMethodType.OneToTwo:
                 {
-                    pointItem.Title = "OneToTwo";
+                    pointItem.Title = "一变二";
                     ObservableCollection<ConnectorItem> StringoutItems = new()
                     {
                         new ConnectorItem
@@ -343,7 +343,7 @@ public class ScenarioMethod
                 }
                 case ScenarioMethodType.OneToMany:
                 {
-                    pointItem.Title = "OneToMany";
+                    pointItem.Title = "一变多";
                     ObservableCollection<ConnectorItem> StringoutItems = new()
                     {
                         new ConnectorItem
@@ -399,7 +399,7 @@ public class ScenarioMethod
                 }
                 case ScenarioMethodType.Equal:
                 {
-                    pointItem.Title = "Equal";
+                    pointItem.Title = "相等";
                     ObservableCollection<ConnectorItem> StringoutItems = new()
                     {
                         new ConnectorItem
