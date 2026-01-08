@@ -7,6 +7,7 @@ namespace Core.Services;
 public static class LogManager
 {
     public static readonly Logger Logger = new LoggerConfiguration()
+        .MinimumLevel.Debug()
         .WriteTo.File($"{AppDomain.CurrentDomain.BaseDirectory}logs{Path.DirectorySeparatorChar}info.txt",
             rollingInterval: RollingInterval.Day, restrictedToMinimumLevel: LogEventLevel.Information,
             outputTemplate:

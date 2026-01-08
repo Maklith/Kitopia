@@ -4,9 +4,12 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Threading.Tasks;
+using Avalonia.Controls.Notifications;
 using Core.Services;
 using Core.Services.Plugin;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
+using PluginCore;
 using Serilog;
 
 namespace KitopiaAvalonia.Services
@@ -29,6 +32,7 @@ namespace KitopiaAvalonia.Services
                 if (!response.IsSuccessStatusCode)
                 {
                     Logger.Warning($"Failed to check for updates. Status code: {response.StatusCode}");
+                    ServiceManager.Services.GetService<IToastService>()!.Show("更新", $"无法检查更新，请检查网络连接。\nCode: {response.StatusCode}", NotificationType.Error);
                     return (false, null, null, null);
                 }
 
@@ -38,12 +42,14 @@ namespace KitopiaAvalonia.Services
 
                 if (release == null)
                 {
+                    ServiceManager.Services .GetService<IToastService>()!.Show("更新", "无法检查更新，未找到版本信息。", NotificationType.Error);
                     return (false, null, null, null);
                 }
 
                 var tagName = release["tag_name"]?.ToString();
                 if (string.IsNullOrEmpty(tagName))
                 {
+                    ServiceManager.Services.GetService<IToastService>()!.Show("更新", "无法检查更新，未找到版本信息。", NotificationType.Error);
                     return (false, null, null, null);
                 }
 
@@ -68,6 +74,7 @@ namespace KitopiaAvalonia.Services
             }
             catch (Exception ex)
             {
+                ServiceManager.Services.GetService<IToastService>()!.Show("更新", $"检查更新时出错: {ex.Message}", NotificationType.Error);
                 Logger.Error(ex, "Error checking for updates");
             }
 

@@ -48,8 +48,8 @@
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
         <PackageReference Include="ObservableCollections" Version="3.3.4"/>
         <PackageReference Include="Polly" Version="8.5.2"/>
-        <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.0"/>
-        <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0"/>
+        <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0"/>
         <PackageReference Include="SharpHook" Version="5.3.8"/>
         <PackageReference Include="SharpHook.Reactive" Version="5.3.8"/>

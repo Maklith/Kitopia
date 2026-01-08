@@ -23,7 +23,8 @@ public class SearchItemTool : ISearchItemTool
     public void OpenFile(SearchViewItem? searchViewItem, params object[] inputValues)
     {
         if (searchViewItem is null) return;
-        Logger.Debug("打开指定内容" + searchViewItem.OnlyKey);
+        Logger.Debug(
+            $"打开指定内容{searchViewItem.OnlyKey}_{searchViewItem.Arguments}_{searchViewItem.StartDirectory}");
         switch (searchViewItem.OnlyKey)
         {
             case "Math": break;
@@ -93,8 +94,7 @@ public class SearchItemTool : ISearchItemTool
                         Shell32.ShellExecute(IntPtr.Zero, "open", searchViewItem.OnlyKey, searchViewItem.Arguments,
                             searchViewItem.StartDirectory,
                             ShowWindowCommand.SW_NORMAL);
-                        Logger.Debug(
-                            $"打开指定内容{searchViewItem.OnlyKey}_{searchViewItem.Arguments}_{searchViewItem.StartDirectory}");
+                        
 
                         break;
                 }
