@@ -13,6 +13,8 @@
               xmlns:taskEditor="clr-namespace:KitopiaAvalonia.Converter.TaskEditor"
               xmlns:converter="clr-namespace:KitopiaAvalonia.Converter"
               xmlns:taskEditors="clr-namespace:KitopiaAvalonia.Windows.TaskEditors"
+              xmlns:converters="clr-namespace:NodifyM.Avalonia.Converters;assembly=NodifyM.Avalonia"
+              xmlns:kitopiaAvalonia="clr-namespace:KitopiaAvalonia"
               mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
               x:Class="KitopiaAvalonia.Windows.TaskEditor"
               Title="情景编排"
@@ -347,6 +349,9 @@
                                         Connections="{Binding Scenario.connections}"
                                         ItemsSource="{Binding Scenario.nodes}">
 
+                    <controls2:NodifyEditor.Resources>
+                        <kitopiaAvalonia:FlowToDirectionConverter x:Key="FlowToDirectionConverter" />
+                    </controls2:NodifyEditor.Resources>
                     <controls2:NodifyEditor.GridLineTemplate>
                         <DataTemplate>
                             <controls2:LargeGridLine
@@ -369,8 +374,6 @@
                             <Grid>
                                 <controls2:Connection Source="{Binding Source.Anchor}" Focusable="True"
                                                       SplitCommand="{Binding SplitConnectionCommand }"
-
-
                                                       Target="{Binding Target.Anchor}">
                                     <controls2:Connection.ContextFlyout>
                                         <MenuFlyout>
@@ -397,6 +400,7 @@
                                                          CompletedCommand="{Binding FinishCommand}"
                                                          EnablePreview="True"
                                                          EnableSnapping="True"
+                                                         Direction="{Binding Source,Converter={StaticResource FlowToDirectionConverter}}"
 
                                                          PreviewTarget="{Binding PreviewTarget, Mode=TwoWay}">
                                 <controls2:PendingConnection.Stroke>
