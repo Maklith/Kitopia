@@ -57,9 +57,6 @@ namespace KitopiaAvalonia.Services
                 var cleanTagName = tagName.TrimStart('v');
                 
                 var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
-                
-                // If current version is not set (e.g. 0.0.0.0), assume dev build and skip update check or handle differently
-                // For now, we proceed with standard comparison.
 
                 if (Version.TryParse(cleanTagName, out var latestVersion))
                 {
@@ -71,14 +68,20 @@ namespace KitopiaAvalonia.Services
                         return (true, tagName, htmlUrl, body);
                     }
                 }
+                else
+                {
+                    Logger.Warning($"Failed to parse latest version: {cleanTagName}");
+                    ServiceManager.Services.GetService<IToastService>()!.Show("更新", "无法检查更新，版本信息格式错误。", NotificationType.Error);
+                }
+                return (false, null, null, null);
             }
             catch (Exception ex)
             {
                 ServiceManager.Services.GetService<IToastService>()!.Show("更新", $"检查更新时出错: {ex.Message}", NotificationType.Error);
                 Logger.Error(ex, "Error checking for updates");
+                return (false, null, null, null);
             }
-
-            return (false, null, null, null);
+            
         }
     }
 }
