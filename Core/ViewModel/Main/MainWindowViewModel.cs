@@ -21,7 +21,6 @@ public partial class MainWindowViewModel : ObservableRecipient
     [ObservableProperty] private object? _content;
 
     [ObservableProperty] private bool _settingPage = false;
-    [ObservableProperty] private string _version = "0.1.1.4";
 
     public MainWindowViewModel()
     {

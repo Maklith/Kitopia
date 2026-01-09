@@ -56,7 +56,12 @@ namespace KitopiaAvalonia.Services
                 // Remove 'v' prefix if present
                 var cleanTagName = tagName.TrimStart('v');
                 
-                var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                if (!Version.TryParse(ServiceManager.Version , out var currentVersion))
+                {
+                    Logger.Warning($"Failed to parse current version: {ServiceManager.Version }");
+                    ServiceManager.Services.GetService<IToastService>()!.Show("更新", "无法检查更新，当前版本信息格式错误。", NotificationType.Error);
+                    return (false, null, null, null);
+                }
 
                 if (Version.TryParse(cleanTagName, out var latestVersion))
                 {

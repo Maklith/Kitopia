@@ -11,6 +11,7 @@
               xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
               xmlns:converter="clr-namespace:KitopiaAvalonia.Converter"
               xmlns:main="clr-namespace:Core.ViewModel.Main;assembly=Core"
+              xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
               Icon="/Assets/icon.png"
               WindowState="Minimized"
               IsTitleBarVisible="True"
@@ -135,7 +136,7 @@
                 </Panel>
             </Border>
 
-            <TextBlock Grid.Row="1" Grid.Column="1" Foreground="Gainsboro" Text="{Binding Version}" HorizontalAlignment="Right" VerticalAlignment="Bottom"></TextBlock>
+            <TextBlock Grid.Row="1" Grid.Column="1" Foreground="Gainsboro" Text="{x:Static pluginCore:ServiceManager.Version}" HorizontalAlignment="Right" VerticalAlignment="Bottom"></TextBlock>
         </Grid>
         
     </Panel>
