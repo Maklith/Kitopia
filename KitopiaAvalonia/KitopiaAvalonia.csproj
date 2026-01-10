@@ -31,7 +31,7 @@
         <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
         <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
-        <Version>0.1.1.4</Version>
+        <Version>0.1.1.5</Version>
         <AvaloniaVersion>11.3.2</AvaloniaVersion>
         <Configurations>Debug;Release</Configurations>
         <Platforms>AnyCPU;x64</Platforms>
