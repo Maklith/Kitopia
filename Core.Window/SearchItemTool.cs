@@ -1,5 +1,9 @@
+using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.CustomScenario;
@@ -131,11 +135,43 @@ public class SearchItemTool : ISearchItemTool
         {
             return;
         }
+
         Task.Run(() =>
         {
             Logger.Debug($"打开指定内容文件夹{searchViewItem.OnlyKey}_{searchViewItem.StartDirectory}");
-            Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + searchViewItem.OnlyKey, searchViewItem.StartDirectory,
-                ShowWindowCommand.SW_SHOW);
+            var path = searchViewItem.OnlyKey;
+            var parentDir = Path.GetDirectoryName(path);
+
+            if (string.IsNullOrEmpty(parentDir))
+            {
+                Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + path,
+                    searchViewItem.StartDirectory,
+                    ShowWindowCommand.SW_SHOW);
+                RecordOpenTime(searchViewItem);
+                return;
+            }
+
+            try
+            {
+                using var pidlFolder = Shell32.ILCreateFromPath(parentDir);
+                using var pidlItem = Shell32.ILCreateFromPath(path);
+                
+                if (pidlFolder.IsNull || pidlItem.IsNull)
+                {
+                    throw new ArgumentException("Could not create PIDL for path.");
+                }
+
+                var itemsToSelect = new[] { pidlItem.DangerousGetHandle() };
+                Shell32.SHOpenFolderAndSelectItems(pidlFolder, (uint)itemsToSelect.Length, itemsToSelect, 0);
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e, "Vanara SHOpenFolderAndSelectItems failed, falling back to ShellExecute.");
+                Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + path,
+                    searchViewItem.StartDirectory,
+                    ShowWindowCommand.SW_SHOW);
+            }
+
             RecordOpenTime(searchViewItem);
         });
     }
