@@ -434,8 +434,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     [RelayCommand]
     public void OpenFile(SearchViewItem? item)
     {
-        var s = Search;
-        if (s is null)
+        if (item is null)
         {
             return;
         }
@@ -449,7 +448,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 return;
             }
 
-            ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item, s);
+            ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item);
             WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
         });
         

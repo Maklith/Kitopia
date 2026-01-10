@@ -1,4 +1,7 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
+using System.Net.Http;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.Notifications;
 using Core.SDKs.Services;
