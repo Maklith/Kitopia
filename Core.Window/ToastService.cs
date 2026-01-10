@@ -7,6 +7,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using Core.Services;
+using Core.ViewModel.Windows;
 using PluginCore;
 using Serilog;
 using Ursa.Controls;
@@ -72,14 +73,6 @@ public class ToastService : IToastService
             }
             else
             {
-                // var windowToastManager = WindowToastManager.TryGetToastManager(windowFromIntPtr, out var manager)
-                //     ? manager
-                //     : new WindowToastManager(windowFromIntPtr);
-                // windowToastManager!.Show(
-                //     new Toast($"{header} {text}"),
-                //     showIcon: true,
-                //     showClose: true,
-                //     type: notificationType);
                 var windowToastManager =
                     WindowNotificationManager.TryGetNotificationManager(windowFromIntPtr, out var manager)
                         ? manager
@@ -108,6 +101,11 @@ public class ToastService : IToastService
 
         foreach (var window in desktop.Windows)
         {
+            if (window.DataContext?.GetType()==typeof(SearchWindowViewModel))
+            {
+                continue;
+            }
+
             // 获取窗口平台 handle
             if (window.TryGetPlatformHandle()?.Handle == hwnd)
             {
