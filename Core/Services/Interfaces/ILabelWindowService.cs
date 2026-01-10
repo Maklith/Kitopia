@@ -1,4 +1,4 @@
-﻿namespace Core.Services;
+﻿namespace Core.Services.Interfaces;
 
 /// <summary>
 /// 标签窗口服务接口 / Label window service interface for displaying notifications

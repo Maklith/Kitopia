@@ -2,7 +2,7 @@
 using System.Text.Json.Serialization;
 using Avalonia;
 
-namespace Core.Infrastructure.JsonConverter;
+namespace Core.JsonConverter;
 
 public class PointJsonConverter : JsonConverter<Point>
 {

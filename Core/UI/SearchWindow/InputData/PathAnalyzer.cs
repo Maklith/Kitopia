@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using Core.Services;
+using Core.Services.Interfaces;
 using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;

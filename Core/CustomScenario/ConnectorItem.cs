@@ -2,7 +2,7 @@
 using System.Text.Json.Serialization;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Core.Infrastructure.JsonConverter;
+using Core.JsonConverter;
 using PluginCore;
 
 namespace Core.CustomScenario;

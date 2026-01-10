@@ -2,10 +2,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
-using Core.SDKs.CustomScenario;
 using ConnectorItem = Core.CustomScenario.ConnectorItem;
 
-namespace Core.Infrastructure.JsonConverter;
+namespace Core.JsonConverter;
 
 public class ConnectorItemJsonCtr : JsonConverter<ConnectorItem>
 {

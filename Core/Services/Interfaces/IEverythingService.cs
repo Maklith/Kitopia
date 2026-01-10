@@ -1,4 +1,4 @@
-﻿namespace Core.Services;
+﻿namespace Core.Services.Interfaces;
 
 /// <summary>
 /// Everything 搜索服务接口 / Everything search service interface for file indexing

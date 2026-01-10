@@ -14,6 +14,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.CustomScenario;
 using Core.Services;
+using Core.Services.Interfaces;
 using Core.Utils;
 using PluginCore;
 using ConnectorItem = Core.CustomScenario.ConnectorItem;

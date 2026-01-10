@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using Core.Services;
+using Core.Services.Interfaces;
 using Core.ViewModel.Windows;
 using KitopiaAvalonia.Windows;
 using Microsoft.Extensions.DependencyInjection;

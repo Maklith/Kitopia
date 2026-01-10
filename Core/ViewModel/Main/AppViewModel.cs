@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Core.Services;
 using Core.Services.Config;
+using Core.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 

@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using AvaloniaEdit.Utils;
+using Core.Services.Interfaces;
 using Core.Services.Plugin;
 using MQTTnet;
 using MQTTnet.Client;

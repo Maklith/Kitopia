@@ -7,6 +7,7 @@ using Core.CustomScenario;
 using Core.JsonConverter;
 using Core.Services.Config;
 using Core.Services.HotKey;
+using Core.Services.Interfaces;
 using Core.Utils;
 using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;

@@ -1,6 +1,6 @@
 ﻿using Core.Utils;
 
-namespace Core.Services;
+namespace Core.Services.Interfaces;
 
 public interface IContentDialog
 {

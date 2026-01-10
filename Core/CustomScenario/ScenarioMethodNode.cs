@@ -1,10 +1,9 @@
 ﻿using System.Collections.ObjectModel;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Core.Infrastructure.JsonConverter;
+using Core.JsonConverter;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;

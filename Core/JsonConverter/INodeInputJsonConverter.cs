@@ -2,7 +2,7 @@
 using System.Text.Json.Serialization;
 using PluginCore;
 
-namespace Core.Infrastructure.JsonConverter;
+namespace Core.JsonConverter;
 
 public class INodeInputJsonConverter : JsonConverter<INodeInputConnector>
 {

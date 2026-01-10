@@ -1,5 +1,6 @@
 ﻿using Core.Services;
 using Core.Services.HotKey;
+using Core.Services.Interfaces;
 using KitopiaAvalonia.Windows;
 using Window = Avalonia.Controls.Window;
 using WindowStartupLocation = Avalonia.Controls.WindowStartupLocation;

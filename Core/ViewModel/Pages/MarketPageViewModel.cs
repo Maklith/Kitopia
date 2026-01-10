@@ -6,7 +6,6 @@ using Core.Services.Config;
 using Core.Services.Plugin;
 using Core.UI.UiControls.Plugin;
 using Core.ViewModel.Pages.plugin;
-using PluginCore;
 using Ursa.Controls;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 using PluginInfoUiHelper = Core.Services.Plugin.PluginInfoUiHelper;

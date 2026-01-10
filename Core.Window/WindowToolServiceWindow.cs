@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Core.SDKs.Services;
 using Core.Services;
+using Core.Services.Interfaces;
 using Vanara.PInvoke;
 
 namespace Core.Window;

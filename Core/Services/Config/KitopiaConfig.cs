@@ -1,12 +1,12 @@
 ﻿using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using Core.SDKs.Services;
+using Core.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Attribute;
 using PluginCore.Config;
 using Serilog;
-using System;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable FieldCanBeMadeReadOnly.Global
@@ -17,7 +17,12 @@ public class HistoryItem
 {
     public List<DateTime> AccessTimes { get; set; } = new();
 }
-
+public enum ThemeEnum
+{
+    跟随系统,
+    深色,
+    浅色
+}
 [ConfigName("Kitopia主配置文件")]
 public class KitopiaConfig : ConfigBase
 {

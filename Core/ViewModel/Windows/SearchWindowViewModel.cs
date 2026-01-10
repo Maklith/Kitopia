@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.Services;
 using Core.Services.Config;
+using Core.Services.Interfaces;
 using Core.Services.Plugin;
 using ObservableCollections;
 using Pinyin.NET;
@@ -448,7 +449,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 return;
             }
 
-            ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item);
+            ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item,Search);
             WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
         });
         

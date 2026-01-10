@@ -16,6 +16,7 @@ using Core.CustomScenario;
 using Core.SDKs.Services;
 using Core.Services;
 using Core.Services.Config;
+using Core.Services.Interfaces;
 using Core.Services.MQTT;
 using Core.Services.Onnx;
 using Core.Services.Plugin;

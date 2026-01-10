@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Core.Services;
+using Core.Services.Interfaces;
 using Serilog;
 
 #endregion

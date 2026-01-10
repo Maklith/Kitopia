@@ -1,4 +1,3 @@
-using System;
 using OpenCvSharp;
 
 namespace Core.Utils;

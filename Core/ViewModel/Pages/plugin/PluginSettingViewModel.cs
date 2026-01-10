@@ -4,9 +4,9 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Core.SDKs.Services;
 using Core.Services;
 using Core.Services.Config;
+using Core.Services.Interfaces;
 using PluginCore;
 using PluginCore.Attribute;
 

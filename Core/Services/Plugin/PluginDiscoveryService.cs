@@ -1,4 +1,3 @@
-using System.Text.Json;
 using PluginCore;
 using Serilog;
 using JsonSerializer = System.Text.Json.JsonSerializer;

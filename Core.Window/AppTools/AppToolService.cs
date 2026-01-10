@@ -1,7 +1,10 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
 using Core.Services;
+using Core.Services.Interfaces;
 using Core.Window.Everything;
 using Pinyin.NET;
 using PluginCore;

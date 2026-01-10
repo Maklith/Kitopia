@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Text;
 using Core.Services.Config;
 using PluginCore;
 using Serilog;

@@ -1,13 +1,7 @@
-using System;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Core.CustomScenario;
-using Core.SDKs.Services;
-using Core.Services;
 using Core.Services.Config;
+using Core.Services.Interfaces;
 using Core.ViewModel.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -64,7 +58,7 @@ public class SearchItemTool : ISearchItemTool
                     {
                         var thread = new Thread(() =>
                         {
-                            var remove = searchViewItem.ItemDisplayName.Remove(0, 1);
+                            var remove = searchViewItem.ItemDisplayName!.Remove(0, 1);
                             ServiceManager.Services.GetService<IClipboardService>()!.SetText(remove);
                             ServiceManager.Services.GetService<IToastService>()!.Show("Kitopia",
                                 $"计算结果{remove}已经复制到剪贴板");

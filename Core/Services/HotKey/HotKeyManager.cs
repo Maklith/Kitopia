@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Core.Services.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
 namespace Core.Services.HotKey;

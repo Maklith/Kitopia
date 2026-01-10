@@ -1,16 +1,9 @@
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Core.CustomScenario;
-using Core.Services;
 using Pinyin.NET;
-using System;
-using System.Reactive.Linq;
-using Avalonia.Threading;
-using System.Threading.Tasks;
 
 namespace Core.ViewModel.TaskEditor;
 

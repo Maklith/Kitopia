@@ -1,6 +1,6 @@
 ﻿using Avalonia.Controls;
 
-namespace Core.Services;
+namespace Core.Services.Interfaces;
 
 public interface IWindowTool
 {

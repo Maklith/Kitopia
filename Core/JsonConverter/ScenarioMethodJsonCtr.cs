@@ -4,7 +4,7 @@ using Core.CustomScenario;
 using Core.SDKs.CustomScenario;
 using Core.Services.Plugin;
 
-namespace Core.Infrastructure.JsonConverter;
+namespace Core.JsonConverter;
 
 public class ScenarioMethodJsonCtr : JsonConverter<ScenarioMethod>
 {

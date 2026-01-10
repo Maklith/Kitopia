@@ -6,6 +6,7 @@ using Core.SDKs.CustomScenario;
 using Core.Services;
 using Core.Services.Config;
 using Core.Services.HotKey;
+using Core.Services.Interfaces;
 using Core.Services.Plugin;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;

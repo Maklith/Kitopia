@@ -7,6 +7,7 @@ using Avalonia.Controls.Notifications;
 using Core.SDKs.Services;
 using Core.Services;
 using Core.Services.Config;
+using Core.Services.Interfaces;
 using Core.Utils;
 using KitopiaAvalonia.Services;
 using Microsoft.Extensions.DependencyInjection;

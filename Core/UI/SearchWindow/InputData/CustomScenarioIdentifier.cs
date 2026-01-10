@@ -1,5 +1,6 @@
 ﻿using Core.CustomScenario;
 using Core.Services;
+using Core.Services.Interfaces;
 using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;

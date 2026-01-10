@@ -6,15 +6,11 @@ namespace Core.UI.SearchWindow.InputData;
 
 public class CustomScenarioAnalyzer : IInputDataAnalyzer
 {
-    private IInputDataAnalyzeTimeFlags _analyzeTimeFlags = IInputDataAnalyzeTimeFlags.搜索时;
-
-    public IInputDataAnalyzeTimeFlags AnalyzeTimeFlags => _analyzeTimeFlags;
+    public IInputDataAnalyzeTimeFlags AnalyzeTimeFlags => IInputDataAnalyzeTimeFlags.搜索时;
 
     public IEnumerable<SearchViewItem> AnalyzeInputData(
         IEnumerable<PluginCore.SearchWindow.InputData.InputData> inputDatas)
     {
-        if (!inputDatas.Any())
-            yield break;
         foreach (var inputData in inputDatas)
             if (inputData.InputType is InputType.情景)
                 if (inputData.Data is CustomScenario.CustomScenario scenario)

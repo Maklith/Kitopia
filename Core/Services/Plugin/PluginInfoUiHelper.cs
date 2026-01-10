@@ -3,8 +3,6 @@ using System.Threading.RateLimiting;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.Services.Config;
-using Core.ViewModel.Pages;
 using PluginCore;
 using Polly;
 using Polly.Retry;

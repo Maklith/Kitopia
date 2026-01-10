@@ -2,7 +2,7 @@
 using Pinyin.NET;
 using PluginCore;
 
-namespace Core.Services;
+namespace Core.Services.Interfaces;
 
 /// <summary>
 /// 应用程序工具服务接口 / Application tool service interface for app-related operations
