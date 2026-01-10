@@ -17,6 +17,7 @@ public class MathAnalyzer : IInputDataAnalyzer
             {
                 SearchViewItem? item;
                 var value = (string)inputData.Data;
+                value = value.Trim('=');
                 try
                 {
                     var e = Math.Evaluate(value);
