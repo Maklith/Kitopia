@@ -1,0 +1,65 @@
+using System;
+using System.IO;
+using Core.SDKs.Services;
+using Serilog;
+using Vanara.PInvoke;
+
+namespace Core.Window;
+
+public class ShellUtils : IShellUtils
+{
+    private static readonly ILogger Logger = Services.LogManager.Logger.ForContext<ShellUtils>();
+
+    public void Open(string path, string arguments = "", string workingDirectory = "")
+    {
+        try 
+        {
+            Shell32.ShellExecute(IntPtr.Zero, "open", path, arguments, workingDirectory, ShowWindowCommand.SW_NORMAL);
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e, $"Failed to open: {path} args: {arguments} dir: {workingDirectory}");
+        }
+    }
+
+    public void RunAsAdmin(string path, string arguments = "")
+    {
+        try
+        {
+            Shell32.ShellExecute(IntPtr.Zero, "runas", path, arguments, "", ShowWindowCommand.SW_NORMAL);
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e, $"Failed to run as admin: {path} args: {arguments}");
+        }
+    }
+
+    public void OpenFolderAndSelect(string path)
+    {
+        var parentDir = Path.GetDirectoryName(path);
+        if (string.IsNullOrEmpty(parentDir))
+        {
+             Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + path, "", ShowWindowCommand.SW_SHOW);
+             return;
+        }
+        
+        try
+        {
+            using var pidlFolder = Shell32.ILCreateFromPath(parentDir);
+            using var pidlItem = Shell32.ILCreateFromPath(path);
+            
+            if (pidlFolder.IsNull || pidlItem.IsNull)
+            {
+                throw new ArgumentException("Could not create PIDL for path.");
+            }
+
+            var itemsToSelect = new[] { pidlItem.DangerousGetHandle() };
+            Shell32.SHOpenFolderAndSelectItems(pidlFolder, (uint)itemsToSelect.Length, itemsToSelect, 0);
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e, "Vanara SHOpenFolderAndSelectItems failed, falling back to ShellExecute.");
+            Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + path, "", ShowWindowCommand.SW_SHOW);
+        }
+    }
+}

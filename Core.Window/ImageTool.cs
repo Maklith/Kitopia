@@ -1,8 +1,9 @@
 ﻿using System;
 using Core.SDKs.Services;
 using Core.Services;
+using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
-using Vanara.PInvoke;
+using PluginCore;
 
 namespace Core.Window;
 
@@ -12,8 +13,7 @@ public class ImageTool : IImageTool
     {
         if (SaveImage(image,filePath))
         {
-            Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + filePath, "",
-                ShowWindowCommand.SW_NORMAL);
+            ServiceManager.Services.GetService<IShellUtils>()!.OpenFolderAndSelect(filePath!);
         }
 
         return false;

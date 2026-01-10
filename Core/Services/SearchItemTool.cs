@@ -4,26 +4,23 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using CommunityToolkit.Mvvm.Messaging;
 using Core.CustomScenario;
-using Core.SDKs.CustomScenario;
 using Core.SDKs.Services;
 using Core.Services;
 using Core.Services.Config;
-using Core.ViewModel;
 using Core.ViewModel.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Serilog;
-using Vanara.PInvoke;
 
-namespace Core.Window;
+namespace Core.Services;
 
 public class SearchItemTool : ISearchItemTool
 {
+    private static ILogger Logger = LogManager.Logger.ForContext<SearchItemTool>();
     
-    private static ILogger Logger =   LogManager.Logger.ForContext<SearchItemTool>();
+    private IShellUtils ShellUtils => ServiceManager.Services.GetService<IShellUtils>()!;
+
     public void OpenFile(SearchViewItem? searchViewItem, params object[] inputValues)
     {
         if (searchViewItem is null) return;
@@ -37,9 +34,8 @@ public class SearchItemTool : ISearchItemTool
                 switch (searchViewItem.FileType)
                 {
                     case FileType.UWP应用:
-                        Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe",
-                            $"shell:AppsFolder\\{searchViewItem.OnlyKey}", "",
-                            ShowWindowCommand.SW_NORMAL);
+                        // "explorer.exe", $"shell:AppsFolder\{searchViewItem.OnlyKey}"
+                        ShellUtils.Open("explorer.exe", $"shell:AppsFolder\\{searchViewItem.OnlyKey}");
                         break;
                     case FileType.自定义情景:
                         CustomScenarioManger.CustomScenarios
@@ -47,11 +43,11 @@ public class SearchItemTool : ISearchItemTool
                             ?.Run(inputValues: inputValues);
                         break;
                     case FileType.便签:
-                        ((ILabelWindowService)ServiceManager.Services.GetService(typeof(ILabelWindowService))!)
+                        ((ILabelWindowService)ServiceManager.Services.GetService(typeof(ILabelWindowService))!) 
                             .Show(searchViewItem.OnlyKey);
                         break;
                     case FileType.自定义:
-                        searchViewItem.Action?.Invoke(searchViewItem,inputValues[0] as string);
+                        searchViewItem.Action?.Invoke(searchViewItem, inputValues.Length > 0 ? inputValues[0] as string : null);
                         break;
                     case FileType.命令:
                     {
@@ -66,7 +62,6 @@ public class SearchItemTool : ISearchItemTool
                     }
                     case FileType.数学运算:
                     {
-                        //var tcs = new TaskCompletionSource<bool>();
                         var thread = new Thread(() =>
                         {
                             var remove = searchViewItem.ItemDisplayName.Remove(0, 1);
@@ -82,24 +77,17 @@ public class SearchItemTool : ISearchItemTool
                     case FileType.文件夹:
                     {
                         if (searchViewItem.Arguments == null)
-                            Shell32.ShellExecute(IntPtr.Zero, "open", searchViewItem.OnlyKey, "",
-                                searchViewItem.OnlyKey.Remove(searchViewItem.OnlyKey.LastIndexOf('\\')),
-                                ShowWindowCommand.SW_NORMAL);
+                            ShellUtils.Open(searchViewItem.OnlyKey, "", 
+                                searchViewItem.OnlyKey.Remove(searchViewItem.OnlyKey.LastIndexOf('\\'))); 
                         else
-                            Shell32.ShellExecute(IntPtr.Zero, "open", searchViewItem.OnlyKey,
-                                searchViewItem.Arguments,
-                                searchViewItem.OnlyKey.Remove(searchViewItem.OnlyKey.LastIndexOf('\\')),
-                                ShowWindowCommand.SW_SHOWNORMAL);
+                            ShellUtils.Open(searchViewItem.OnlyKey, searchViewItem.Arguments,
+                                searchViewItem.OnlyKey.Remove(searchViewItem.OnlyKey.LastIndexOf('\\')));
 
                         break;
                     }
                     default:
-
-                        Shell32.ShellExecute(IntPtr.Zero, "open", searchViewItem.OnlyKey, searchViewItem.Arguments,
-                            searchViewItem.StartDirectory,
-                            ShowWindowCommand.SW_NORMAL);
-                        
-
+                        ShellUtils.Open(searchViewItem.OnlyKey, searchViewItem.Arguments,
+                            searchViewItem.StartDirectory);
                         break;
                 }
                 RecordOpenTime(searchViewItem);
@@ -111,8 +99,7 @@ public class SearchItemTool : ISearchItemTool
     public void OpenFile(string path)
     {
         Logger.Debug("打开指定内容" + path);
-        Shell32.ShellExecute(IntPtr.Zero, "open", path, "", "",
-            ShowWindowCommand.SW_NORMAL);
+        ShellUtils.Open(path);
     }
 
     public void IgnoreItem(SearchViewItem? item)
@@ -140,37 +127,8 @@ public class SearchItemTool : ISearchItemTool
         {
             Logger.Debug($"打开指定内容文件夹{searchViewItem.OnlyKey}_{searchViewItem.StartDirectory}");
             var path = searchViewItem.OnlyKey;
-            var parentDir = Path.GetDirectoryName(path);
-
-            if (string.IsNullOrEmpty(parentDir))
-            {
-                Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + path,
-                    searchViewItem.StartDirectory,
-                    ShowWindowCommand.SW_SHOW);
-                RecordOpenTime(searchViewItem);
-                return;
-            }
-
-            try
-            {
-                using var pidlFolder = Shell32.ILCreateFromPath(parentDir);
-                using var pidlItem = Shell32.ILCreateFromPath(path);
-                
-                if (pidlFolder.IsNull || pidlItem.IsNull)
-                {
-                    throw new ArgumentException("Could not create PIDL for path.");
-                }
-
-                var itemsToSelect = new[] { pidlItem.DangerousGetHandle() };
-                Shell32.SHOpenFolderAndSelectItems(pidlFolder, (uint)itemsToSelect.Length, itemsToSelect, 0);
-            }
-            catch (Exception e)
-            {
-                Logger.Error(e, "Vanara SHOpenFolderAndSelectItems failed, falling back to ShellExecute.");
-                Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + path,
-                    searchViewItem.StartDirectory,
-                    ShowWindowCommand.SW_SHOW);
-            }
+            
+            ShellUtils.OpenFolderAndSelect(path);
 
             RecordOpenTime(searchViewItem);
         });
@@ -186,12 +144,10 @@ public class SearchItemTool : ISearchItemTool
         {
             Logger.Debug("以管理员身份打开指定内容" + item?.OnlyKey);
             if (item is { FileType: FileType.UWP应用 })
-                //explorer.exe shell:AppsFolder\Microsoft.WindowsMaps_8wekyb3d8bbwe!App
-                Shell32.ShellExecute(IntPtr.Zero, "runas", "explorer.exe", $"shell:AppsFolder\\{item.OnlyKey}!App",
-                    "", ShowWindowCommand.SW_NORMAL);
+                // "explorer.exe", $"shell:AppsFolder\{item.OnlyKey}!App"
+                ShellUtils.RunAsAdmin("explorer.exe", $"shell:AppsFolder\\{item.OnlyKey}!App");
             else
-                Shell32.ShellExecute(IntPtr.Zero, "runas", item.OnlyKey, "", "",
-                    ShowWindowCommand.SW_NORMAL);
+                ShellUtils.RunAsAdmin(item.OnlyKey);
 
             RecordOpenTime(item);
         });
@@ -235,8 +191,6 @@ public class SearchItemTool : ISearchItemTool
             ConfigManger.Config.alwayShows.Insert(0, item.OnlyKey);
         }
            
-
-
         ConfigManger.Save();
     }
 

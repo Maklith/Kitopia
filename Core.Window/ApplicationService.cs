@@ -13,7 +13,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using PluginCore;
 using Serilog;
-using Vanara.PInvoke;
 
 namespace Core.Window;
 
@@ -28,9 +27,9 @@ public class ApplicationService : IApplicationService
 
     public void Restart()
     {
-        Shell32.ShellExecute(IntPtr.Zero, "open", AppDomain.CurrentDomain.FriendlyName + ".exe", "",
-            AppDomain.CurrentDomain.BaseDirectory,
-            ShowWindowCommand.SW_NORMAL);
+        ServiceManager.Services.GetService<IShellUtils>()!.Open(
+            AppDomain.CurrentDomain.FriendlyName + ".exe", "",
+            AppDomain.CurrentDomain.BaseDirectory);
         Environment.Exit(0);
     }
 

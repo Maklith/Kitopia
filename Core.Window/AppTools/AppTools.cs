@@ -1,8 +1,14 @@
 ﻿#region
 
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using Core.SDKs.Services;
 using Core.Services;
 using Core.Services.Config;
 using Core.Utils;
@@ -11,7 +17,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;
 using PluginCore;
 using Serilog;
-using Vanara.PInvoke;
 using Vanara.Windows.Shell;
 using File = System.IO.File;
 
@@ -70,9 +75,8 @@ public partial class AppTools
                                     $"<?xml version=\"1.0\" encoding=\"UTF-16\"?>\n<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\n  <Triggers />\n  <Principals>\n    <Principal id=\"Author\">\n      <LogonType>InteractiveToken</LogonType>\n      <RunLevel>HighestAvailable</RunLevel>\n    </Principal>\n  </Principals>\n  <Settings>\n    <MultipleInstancesPolicy>Parallel</MultipleInstancesPolicy>\n    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\n    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\n    <AllowHardTerminate>false</AllowHardTerminate>\n    <StartWhenAvailable>false</StartWhenAvailable>\n    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>\n    <IdleSettings>\n      <StopOnIdleEnd>false</StopOnIdleEnd>\n      <RestartOnIdle>false</RestartOnIdle>\n    </IdleSettings>\n    <AllowStartOnDemand>true</AllowStartOnDemand>\n    <Enabled>true</Enabled>\n    <Hidden>false</Hidden>\n    <RunOnlyIfIdle>false</RunOnlyIfIdle>\n    <WakeToRun>false</WakeToRun>\n    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\n    <Priority>7</Priority>\n  </Settings>\n  <Actions Context=\"Author\">\n    <Exec>{Environment.NewLine}      <Command>\"{searchViewItem.OnlyKey}\"</Command>{Environment.NewLine}      <Arguments>-startup</Arguments>{Environment.NewLine}    </Exec>\n  </Actions>\n</Task>";
                                 File.WriteAllText(TempFileName, XML_Text, Encoding.Unicode);
 
-                                Shell32.ShellExecute(IntPtr.Zero, "runas", "schtasks.exe",
-                                    $"/create /tn \"{程序名称}\" /xml \"{@TempFileName}\"", "",
-                                    ShowWindowCommand.SW_HIDE);
+                                ServiceManager.Services.GetService<IShellUtils>()!.RunAsAdmin("schtasks.exe",
+                                    $"/create /tn \"{程序名称}\" /xml \"{@TempFileName}\"");
                                 var shellLink = ShellLink.Create(
                                     $"{AppDomain.CurrentDomain.BaseDirectory}noUAC\\{程序名称}.lnk",
                                     "schtasks.exe", null, null, $"/run /tn \"{程序名称}\"");
@@ -81,10 +85,8 @@ public partial class AppTools
                                 Thread.Sleep(200);
                                 File.Delete(TempFileName);
                                 Logger.Debug("创建Everything的noUAC任务计划完成");
-                                Shell32.ShellExecute(IntPtr.Zero, "open",
-                                    $"{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.lnk",
-                                    "", "",
-                                    ShowWindowCommand.SW_HIDE);
+                                ServiceManager.Services.GetService<IShellUtils>()!.Open(
+                                    $"{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.lnk");
                                 action.Invoke();
                             },
                             CloseAction = () =>
@@ -101,10 +103,8 @@ public partial class AppTools
                     else
 
                     {
-                        Shell32.ShellExecute(IntPtr.Zero, "open",
-                            $"{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.lnk", "",
-                            "",
-                            ShowWindowCommand.SW_HIDE);
+                        ServiceManager.Services.GetService<IShellUtils>()!.Open(
+                            $"{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.lnk");
                     }
                 }
             }

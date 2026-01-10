@@ -1,5 +1,7 @@
 ﻿#region
 
+using System;
+using System.Threading;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;

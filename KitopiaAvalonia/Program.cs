@@ -121,6 +121,7 @@ internal class Program
         services.AddTransient<IEverythingService, EverythingService>();
         services.AddTransient<IAppToolService, AppToolService>();
         services.AddSingleton<ISearchItemTool, SearchItemTool>();
+        services.AddSingleton<IShellUtils, ShellUtils>();
         services.AddTransient<IClipboardService, ClipboardWindow>();
         services.AddTransient<IWindowTool, WindowToolServiceWindow>();
         services.AddTransient<IApplicationService, ApplicationService>();
