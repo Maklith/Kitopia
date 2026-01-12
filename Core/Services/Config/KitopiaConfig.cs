@@ -40,7 +40,15 @@ public class KitopiaConfig : ConfigBase
 
     [ConfigField("允许程序读取剪贴板", "自动读取剪贴板路径和剪贴板图像保存依赖于此权限", 0xF2D7, ConfigFieldType.布尔)]
     public bool canReadClipboard = true;
-
+    [ConfigFieldCategory("Windows增强")]
+    [ConfigField("置顶窗口快捷键", "置顶窗口快捷键", 0xf602, ConfigFieldType.快捷键, actionName: "topMostWindowHotKeyAction")]
+    public HotKeyModel topMostWindowHotKey = new()
+    {
+        IsEnabled = true,
+        MainName = "Kitopia", Name = "置顶窗口快捷键", IsSelectCtrl = true, IsSelectAlt = true,
+        IsSelectWin = false,
+        IsSelectShift = false, SelectKey = EKey.T
+    };
     [ConfigFieldCategory("搜索框")]
     [ConfigField("搜索框快捷键", "显示搜索框快捷键", 0xF4B8, ConfigFieldType.快捷键, actionName: "searchHotKeyAction")]
     public HotKeyModel searchHotKey = new()
@@ -175,6 +183,11 @@ public class KitopiaConfig : ConfigBase
         {
             Logger.Debug("显示搜索框热键被触发");
             ServiceManager.Services.GetService<ISearchWindowService>()!.ShowOrHiddenSearchWindow();
+        }));
+        invokes.Add("topMostWindowHotKeyAction", new Action<HotKeyModel>(e =>
+        {
+            Logger.Debug("置顶窗口热键被触发");
+            ServiceManager.Services.GetService<IWindowTool>()!.SelectAndSetWindowTopMost();
         }));
         invokes.Add("截图方法列表",
             new Func<IEnumerable<string>>(() =>
