@@ -10,6 +10,7 @@ using Core.Services.HotKey;
 using Core.Services.Interfaces;
 using Core.Utils;
 using Core.ViewModel;
+using Core.ViewModel.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Attribute;
@@ -28,13 +29,13 @@ public class Plugin
 {
     private static ILogger Logger = LogManager.Logger.ForContext<Plugin>();
 
-    private AssemblyLoadContextH? _plugin;
+    private readonly AssemblyLoadContextH _plugin;
     private IPlugin _pluginService;
 
     public IServiceProvider? ServiceProvider;
-    internal AssemblyLoadContextH? AssemblyLoadContext => _plugin;
+    internal AssemblyLoadContextH AssemblyLoadContext => _plugin;
 
-    public void AddConfig(string key, ConfigBase configBase)
+    private void AddConfig(string key, ConfigBase configBase)
     {
         void SerializeConfigToFile(FileInfo fileInfo)
         {
@@ -53,7 +54,7 @@ public class Plugin
         if (string.IsNullOrWhiteSpace(json))
         {
             SerializeConfigToFile(configF);
-            ServiceManager.Services.GetService<IToastService>().Show("警告", $"{configF.Name}配置文件加载失败，已还原到最初配置");
+            ServiceManager.Services.GetService<IToastService>()!.Show("警告", $"{configF.Name}配置文件加载失败，已还原到最初配置");
         }
 
         try
@@ -64,7 +65,7 @@ public class Plugin
             if (!ConfigManger.Configs.TryAdd(key, deserializeObject)) ConfigManger.Configs[key] = deserializeObject;
 
             deserializeObject.GetType()
-                .BaseType.GetField("Instance")
+                .BaseType?.GetField("Instance")?
                 .SetValue(deserializeObject, deserializeObject);
             deserializeObject.AfterLoad();
         }
@@ -80,11 +81,11 @@ public class Plugin
                 goto retry;
             }
 
-            ServiceManager.Services.GetService<IToastService>().Show("错误", $"{configF.Name}配置文件加载失败，请检查配置文件内容是否正确");
+            ServiceManager.Services.GetService<IToastService>()!.Show("错误", $"{configF.Name}配置文件加载失败，请检查配置文件内容是否正确");
         }
 
         if (retryFlag)
-            ServiceManager.Services.GetService<IToastService>().Show("警告", $"{configF.Name}配置文件加载失败，已还原到最初配置");
+            ServiceManager.Services.GetService<IToastService>()!.Show("警告", $"{configF.Name}配置文件加载失败，已还原到最初配置");
         configBase.GetType()
             .GetFields(BindingFlags.Instance | BindingFlags.Public)
             .ToList()
@@ -97,8 +98,8 @@ public class Plugin
 
                         if (HotKeyManager.HotKetImpl.Add(hotKeyModel,
                                 (Action<HotKeyModel>)configBase.GetType().GetProperty($"{x.Name}Action")
-                                    .GetValue(configBase, null)))
-                            ServiceManager.Services.GetService<IContentDialog>().ShowDialog(null, new DialogContent
+                                    ?.GetValue(configBase, null)))
+                            ServiceManager.Services.GetService<IContentDialog>()!.ShowDialog(null, new DialogContent
                             {
                                 Title = $"快捷键{hotKeyModel.SignName}设置失败",
                                 Content = "请重新设置快捷键，按键与系统其他程序冲突",
@@ -108,6 +109,7 @@ public class Plugin
             });
     }
 
+    private readonly List<SearchViewItem> _searchViewItems = new();
     public Plugin(PluginLocalInfo pluginInfo)
     {
         _plugin = new AssemblyLoadContextH(pluginInfo.FullPath, pluginInfo.FullPath.Split(Path.DirectorySeparatorChar)
@@ -269,13 +271,27 @@ public class Plugin
         PluginOverall.OnnxRuntimes.Add(PluginInfo.ToPlgString(), onnxRuntimes);
         PluginOverall.SearchWindowInputDataIdentifies.Add(PluginInfo.ToPlgString(), inputDataIdentifier);
         PluginOverall.SearchWindowInputDataAnalyzers.Add(PluginInfo.ToPlgString(), inputDataAnalyzerActions);
+        
+        foreach (var func in inputDataAnalyzerActions)
+        {
+            var inputDataAnalyzeTimeFlags = func.Item1.Invoke();
+            if ((inputDataAnalyzeTimeFlags & IInputDataAnalyzeTimeFlags.仅用作文本索引) == 0) continue; // 如果当前时间标志不匹配，则跳过
+            var enumerable = func.Item2.Invoke([new InputData()]).ToList();
+            _searchViewItems.AddRange(enumerable);
+        }
+        foreach (var searchViewItem in _searchViewItems)
+        {
+            var searchWindowViewModel = ServiceManager.Services.GetService<SearchWindowViewModel>();
+            searchWindowViewModel!._collection.TryAdd(searchViewItem.OnlyKey,searchViewItem);
+        }
+        
 
         if (pluginMainScenarioMethodCategoryGroup.Childrens.Count != 0)
             ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.Childrens.Add(PluginInfo.ToPlgString(),
                 pluginMainScenarioMethodCategoryGroup);
     }
 
-    public Assembly? _dll => _plugin.Assembly;
+    private Assembly _dll => _plugin.Assembly;
 
     public PluginLocalInfo PluginInfo { set; get; }
 
@@ -285,16 +301,6 @@ public class Plugin
         foreach (var pluginAssembly in _plugin.Assemblies)
             if (pluginAssembly.GetType(typeName) != null)
                 return pluginAssembly.GetType(typeName);
-
-        return null;
-    }
-
-    public Type GetType(Type type)
-    {
-        foreach (var pluginAssembly in _plugin.Assemblies)
-        foreach (var type1 in pluginAssembly.GetTypes())
-            if (type1 == type)
-                return type1;
 
         return null;
     }
@@ -366,6 +372,13 @@ public class Plugin
         ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.RemoveMethodsByPluginName(PluginInfo.ToPlgString());
         var keyValuePairs = CustomScenarioGloble.Triggers.Where(e => e.Value.PluginInfo == PluginInfo.ToPlgString());
         foreach (var keyValuePair in keyValuePairs) CustomScenarioGloble.Triggers.Remove(keyValuePair.Key);
+
+        foreach (var searchViewItem in _searchViewItems)
+        {
+            ServiceManager.Services.GetService<SearchWindowViewModel>()!._collection.TryRemove(searchViewItem.OnlyKey,out _);
+            ServiceManager.Services.GetService<SearchWindowViewModel>()!.Items.Remove(searchViewItem);
+        }
+        _searchViewItems.Clear();
 
         keyValuePairs = null;
 

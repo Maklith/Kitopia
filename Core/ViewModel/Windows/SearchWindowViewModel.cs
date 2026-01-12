@@ -63,7 +63,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     private bool _reloading = false;
 
 
-    [ObservableProperty] private string? _search;
+    [ObservableProperty] private string _search=string.Empty;
     private Action<SearchViewItem?> _selectAction;
 
 
@@ -88,7 +88,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         this.WhenAnyValue(e => e.Search)
             .Throttle(TimeSpan.FromMilliseconds(100))
             .DistinctUntilChanged()
-            .ObserveOn(SynchronizationContext.Current)
+            .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(ToSearch, e => { Logger.Error(e, ""); });
     }
 
@@ -227,26 +227,22 @@ public partial class SearchWindowViewModel : ObservableRecipient
         }
     }
 
-
+    private readonly List<SearchViewItem> _lastSearchItems = new();
     public void ProcessInputData(string? value, IInputDataAnalyzeTimeFlags nowTimeFlags)
     {
-        if (Enumerable.LastOrDefault<SearchViewItem>(Items, e => e.FileType == FileType.自定义) is { } last)
+        foreach (var lastSearchItem in _lastSearchItems)
         {
-            var indexOf = Items.IndexOf(last);
-            if (indexOf >= 0)
-                for (var i = indexOf; i >= 0; i--)
-                {
-                    Items[i].Dispose();
-                    Items.RemoveAt(i);
-                }
+            PinnedItems.Remove(lastSearchItem);
+            Items.Remove(lastSearchItem);
         }
-
+        _lastSearchItems.Clear();
+        
         InputDatas.Clear();
         foreach (var (key, funcs) in PluginOverall.SearchWindowInputDataIdentifies)
         foreach (var func in funcs)
         {
             var inputData = func.Invoke(nowTimeFlags, value);
-            if (inputData != null) ExtensionMethods.AddRange(InputDatas, inputData);
+            InputDatas.AddRange(inputData);
         }
 
         if (!string.IsNullOrWhiteSpace(value))
@@ -262,7 +258,8 @@ public partial class SearchWindowViewModel : ObservableRecipient
         {
             var inputDataAnalyzeTimeFlags = func.Item1.Invoke();
             if ((inputDataAnalyzeTimeFlags & nowTimeFlags) == 0) continue; // 如果当前时间标志不匹配，则跳过
-            var enumerable = func.Item2.Invoke(InputDatas);
+            var enumerable = func.Item2.Invoke(InputDatas).ToList();
+            _lastSearchItems.AddRange(enumerable);
             foreach (var searchViewItem in enumerable)
             {
                 if (searchViewItem.ShowAsMiniApp)

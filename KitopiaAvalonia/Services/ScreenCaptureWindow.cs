@@ -27,14 +27,19 @@ public class ScreenCaptureWindow : IScreenCaptureWindow
 
     public void RequestUserSelectScreenInfo(Action<ScreenCaptureInfo> action)
     {
-        var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBytes();
-        var window = new Windows.ScreenCaptureWindow(results);
-        foreach (var result in results)
+        Dispatcher.UIThread.Invoke((() =>
         {
-            result.Source?.Dispose();
-        }
-        window.SetToSelectMode(action.Invoke);
-        window.Show();
+            var results = ServiceManager.Services.GetService<IScreenCaptureManager>()!.CaptureAllScreenBytes();
+            var window = new Windows.ScreenCaptureWindow(results);
+            foreach (var result in results)
+            {
+                result.Source?.Dispose();
+            }
+
+            window.SetToSelectMode(action.Invoke);
+            window.Show();
+        }));
+
     }
 
     public void RequestUserSelectScreenBytes(Action<ScreenCaptureResult> action, Action cancle)

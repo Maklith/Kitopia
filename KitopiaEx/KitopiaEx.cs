@@ -96,6 +96,7 @@ public class KitopiaEx : IPlugin
         services.AddTransient<ScreenCaptureExs.SaveImageToFile>();
 
         services.AddTransient<SearchWindow.InputDataAnalyzer.ImageAnalyzer>();
+        services.AddTransient<SearchWindow.InputDataAnalyzer.SetTopmostWindowAnalyzer>();
         
         services.AddTransient<ImagePinScenarioMethod>();
         

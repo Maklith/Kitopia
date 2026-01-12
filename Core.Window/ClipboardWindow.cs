@@ -100,7 +100,27 @@ public class ClipboardWindow : IClipboardService
 
     public bool HasImage()
     {
-        return Clipboard.ContainsImage();
+        bool result = false;
+        var tcs = new TaskCompletionSource<bool>();
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                result = Clipboard.ContainsImage();
+            }
+            catch (Exception)
+            {
+                result = false;
+            }
+            finally
+            {
+                tcs.SetResult(true);
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        tcs.Task.Wait();
+        return result;
     }
 
     [STAThread]

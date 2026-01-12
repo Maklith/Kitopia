@@ -11,6 +11,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.ReactiveUI;
 using Avalonia.Threading;
 using Core.CustomScenario;
 using Core.SDKs.Services;
@@ -124,7 +125,7 @@ internal class Program
         services.AddSingleton<ISearchItemTool, SearchItemTool>();
         services.AddSingleton<IShellUtils, ShellUtils>();
         services.AddTransient<IClipboardService, ClipboardWindow>();
-        services.AddTransient<IWindowTool, WindowToolServiceWindow>();
+        services.AddSingleton<IWindowTool, WindowToolServiceWindow>();
         services.AddTransient<IApplicationService, ApplicationService>();
         services.AddTransient<IImageTool, ImageTool>();
         #endif
@@ -289,6 +290,7 @@ internal class Program
     {
         var buildAvaloniaApp = AppBuilder.Configure<App>();
         buildAvaloniaApp.UsePlatformDetect();
+        buildAvaloniaApp.UseReactiveUI();
         buildAvaloniaApp.With(new FontManagerOptions
         {
             DefaultFamilyName = "avares://KitopiaAvalonia/Assets/HarmonyOS_Sans_SC_Regular.ttf#HarmonyOS Sans",
