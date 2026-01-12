@@ -385,6 +385,8 @@ class Build : NukeBuild
         {
             File.Copy(RootDirectory / "ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe",
                 RootDirectory / "Assets" / "ModernInstaller.Uninstaller.exe", true);
+            PowerShellTasks.PowerShell(
+                $"ModernInstaller{Path.DirectorySeparatorChar}build{Path.DirectorySeparatorChar}upx.exe --force --lzma {RootDirectory /"ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe"} ");
         });
 
     Target BuildNativeInstaller => _ => _
