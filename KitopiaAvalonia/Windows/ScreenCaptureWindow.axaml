@@ -191,5 +191,40 @@
             </Border.Background>
             <TextBlock Text="请把鼠标放在需要滚动的位置然后点击" Foreground="White" FontSize="12"/>
         </Border>
+        
+        <Border ZIndex="20" Name="ColorInspector" IsVisible="False" IsHitTestVisible="False" 
+                CornerRadius="4" BorderThickness="1" Padding="6" Background="{DynamicResource SemiBackground0Color}" BorderBrush="Gray">
+            <StackPanel Spacing="6">
+                <!-- Magnifier -->
+                <Border BorderBrush="Gray" BorderThickness="1" Width="110" Height="110" ClipToBounds="True">
+                    <Grid>
+                        <Image Name="MagnifierImage" Stretch="Fill" RenderOptions.BitmapInterpolationMode="LowQuality"/>
+                        <!-- Crosshair -->
+                        <Rectangle Width="110" Height="1" Fill="#80000000" VerticalAlignment="Center"/>
+                        <Rectangle Width="1" Height="110" Fill="#80000000" HorizontalAlignment="Center"/>
+                        <Rectangle Width="110" Height="1" Fill="#80FFFFFF" VerticalAlignment="Center" Margin="0,2,0,0"/>
+                        <Rectangle Width="1" Height="110" Fill="#80FFFFFF" HorizontalAlignment="Center" Margin="2,0,0,0"/>
+                        <!-- Center Pixel Highlight -->
+                        <Border BorderBrush="Red" BorderThickness="1" Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <!-- Color Info -->
+                <StackPanel Orientation="Vertical" Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Border Name="ColorPreview" Width="16" Height="16" CornerRadius="2" BorderThickness="1" BorderBrush="Gray"/>
+                        <TextBlock Name="ColorHex" VerticalAlignment="Center" FontFamily="Consolas" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource SemiColorText0}"/>
+                    </StackPanel>
+                    <TextBlock Name="ColorRgb" FontFamily="Consolas" FontSize="11" Foreground="{DynamicResource SemiColorText2}"/>
+                    <TextBlock Name="ColorHsv" FontFamily="Consolas" FontSize="11" Foreground="{DynamicResource SemiColorText2}"/>
+                    
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                         <TextBlock Text="C: 复制HEX" FontSize="9" Foreground="{DynamicResource SemiColorText2}"/>
+                         <TextBlock Text="R: 复制RGB" FontSize="9" Foreground="{DynamicResource SemiColorText2}"/>
+                    </StackPanel>
+                    <TextBlock Text="H: 复制HSV" FontSize="9" Foreground="{DynamicResource SemiColorText2}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
     </Canvas>
 </Window>

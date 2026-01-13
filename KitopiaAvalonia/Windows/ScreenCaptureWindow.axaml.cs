@@ -64,10 +64,19 @@ public partial class ScreenCaptureWindow : Window
     private bool selectMode = false;
     private Action<ScreenCaptureInfo> selectModeAction;
     private List<CaptureToolBase> tools = new();
+    
+    private byte[]? _screenPixels;
+    private int _pixelWidth;
+    private int _pixelHeight;
+    private WriteableBitmap? _magnifierBmp;
+    private const int MagnifierSize = 11; // 11x11 grid
 
     public ScreenCaptureWindow(IEnumerable<ScreenCaptureResult> screenCaptureResults)
     {
         InitializeComponent();
+        _magnifierBmp = new WriteableBitmap(new PixelSize(MagnifierSize, MagnifierSize), new Vector(96, 96), PixelFormat.Bgra8888);
+        MagnifierImage.Source = _magnifierBmp;
+
         _windowInfos = ServiceManager.Services.GetService<IScreenCaptureManager>()!.GetAllWindowInfo();
         
         var results = screenCaptureResults.ToList();
@@ -106,6 +115,19 @@ public partial class ScreenCaptureWindow : Window
             }
             
             Image.Source = combinedMat.ToAWriteableBitmap();
+
+            if (combinedMat.Total() > 0)
+            {
+                _pixelWidth = combinedMat.Width;
+                _pixelHeight = combinedMat.Height;
+                // CV_8UC4 is 4 bytes per pixel
+                var length = _pixelWidth * _pixelHeight * 4;
+                _screenPixels = new byte[length];
+                unsafe
+                {
+                    Marshal.Copy((IntPtr)combinedMat.DataPointer, _screenPixels, 0, length);
+                }
+            }
             
             _screenCaptureInfo = new ScreenCaptureInfo
             {
@@ -457,7 +479,48 @@ public partial class ScreenCaptureWindow : Window
 
         if (e.Key == Key.B) WindowState = WindowState.Maximized;
 
-        if (e.Key == Key.C) WindowState = WindowState.Normal;
+        if (e.Key == Key.C)
+        {
+             if (ColorInspector.IsVisible)
+             {
+                 var hex = ColorHex.Text;
+                 if (!string.IsNullOrEmpty(hex))
+                 {
+                     ServiceManager.Services.GetService<IClipboardService>()?.SetText(hex);
+                     ServiceManager.Services.GetService<IToastService>()?.Show("复制成功", $"已复制 HEX: {hex}", NotificationType.Success);
+                     e.Handled = true;
+                     return;
+                 }
+             }
+             else 
+             {
+                 WindowState = WindowState.Normal;
+             }
+        }
+        
+        if (ColorInspector.IsVisible)
+        {
+            if (e.Key == Key.R)
+            {
+                var rgb = ColorRgb.Text?.Replace("RGB: ", "");
+                if (!string.IsNullOrEmpty(rgb))
+                {
+                    ServiceManager.Services.GetService<IClipboardService>()?.SetText(rgb);
+                    ServiceManager.Services.GetService<IToastService>()?.Show("复制成功", $"已复制 RGB: {rgb}", NotificationType.Success);
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Key.H)
+            {
+                var hsv = ColorHsv.Text?.Replace("HSV: ", "");
+                if (!string.IsNullOrEmpty(hsv))
+                {
+                    ServiceManager.Services.GetService<IClipboardService>()?.SetText(hsv);
+                    ServiceManager.Services.GetService<IToastService>()?.Show("复制成功", $"已复制 HSV: {hsv}", NotificationType.Success);
+                     e.Handled = true;
+                }
+            }
+        }
     }
 
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
@@ -553,6 +616,8 @@ public partial class ScreenCaptureWindow : Window
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        
+        UpdateColorInspector(e.GetPosition(this));
         
         if (_isWaitingForLongCaptureClick)
         {
@@ -1201,6 +1266,107 @@ public partial class ScreenCaptureWindow : Window
             }
     }
 
+
+    private void UpdateColorInspector(Point p)
+    {
+        if (_screenPixels == null || ColorInspector == null || _pixelWidth == 0 || _pixelHeight == 0) return;
+        
+        // Don't show if selecting
+        if (NowSelectionState != SelectionState.None && NowSelectionState != SelectionState.WindowSelecting) 
+        {
+             ColorInspector.IsVisible = false;
+             return;
+        }
+
+        double scaleX = _pixelWidth / Bounds.Width;
+        double scaleY = _pixelHeight / Bounds.Height;
+        
+        int centerX = (int)(p.X * scaleX);
+        int centerY = (int)(p.Y * scaleY);
+
+        if (centerX < 0 || centerX >= _pixelWidth || centerY < 0 || centerY >= _pixelHeight) 
+        {
+             ColorInspector.IsVisible = false;
+             return;
+        }
+        
+        // Update Color Info
+        int centerIndex = (centerY * _pixelWidth + centerX) * 4;
+        if (centerIndex >= 0 && centerIndex + 3 < _screenPixels.Length) 
+        {
+            byte b = _screenPixels[centerIndex];
+            byte g = _screenPixels[centerIndex + 1];
+            byte r = _screenPixels[centerIndex + 2];
+            // byte a = _screenPixels[centerIndex + 3]; // Ignore alpha for now, screen capture usually opaque
+
+            Color color = Color.FromRgb(r, g, b);
+            ColorPreview.Background = new SolidColorBrush(color);
+            ColorHex.Text = $"#{r:X2}{g:X2}{b:X2}";
+            ColorRgb.Text = $"RGB: {r}, {g}, {b}";
+            
+            var hsv = color.ToHsv();
+            ColorHsv.Text = $"HSV: {hsv.H:F0}, {hsv.S:F2}, {hsv.V:F2}";
+        }
+
+        // Update Magnifier
+        if (_magnifierBmp != null)
+        {
+            using (var buf = _magnifierBmp.Lock())
+            {
+                unsafe
+                {
+                    uint* ptr = (uint*)buf.Address;
+                    int halfSize = MagnifierSize / 2;
+                    
+                    for (int y = 0; y < MagnifierSize; y++)
+                    {
+                        for (int x = 0; x < MagnifierSize; x++)
+                        {
+                            int sampleX = centerX + (x - halfSize);
+                            int sampleY = centerY + (y - halfSize);
+                            
+                            uint pixelValue = 0xFF000000; // Black default
+
+                            if (sampleX >= 0 && sampleX < _pixelWidth && sampleY >= 0 && sampleY < _pixelHeight)
+                            {
+                                int srcIdx = (sampleY * _pixelWidth + sampleX) * 4;
+                                // Read BGRA
+                                byte pb = _screenPixels[srcIdx];
+                                byte pg = _screenPixels[srcIdx + 1];
+                                byte pr = _screenPixels[srcIdx + 2];
+                                byte pa = 255; 
+                                
+                                // Write BGRA (Little Endian uint: A R G B -> 0xAARRGGBB? No, Skia/WPF use BGRA or ARGB depending on platform, but usually BGRA on Windows)
+                                // WriteableBitmap PixelFormat.Bgra8888 matches this.
+                                // 0xAARRGGBB in uint is B | G<<8 | R<<16 | A<<24
+                                pixelValue = (uint)(pb | (pg << 8) | (pr << 16) | (pa << 24));
+                            }
+                            
+                            ptr[y * MagnifierSize + x] = pixelValue;
+                        }
+                    }
+                }
+            }
+            // Force redraw? WriteableBitmap usually updates on unlock/invalidate
+            // But we need to make sure the Image control sees it? 
+            // Lock/Unlock handles it in Avalonia.
+             // Triggers update
+             //_magnifierBmp.RaiseEvent? No, Lock disposal does it.
+             // We might need to invalidate the Image visual if it doesn't update automatically (it usually does).
+             MagnifierImage.InvalidateVisual();
+        }
+        
+        // Position popup
+        double popupX = p.X + 20;
+        double popupY = p.Y + 20;
+        
+        if (popupX + 130 > Bounds.Width) popupX = p.X - 140;
+        if (popupY + 180 > Bounds.Height) popupY = p.Y - 190;
+
+        Canvas.SetLeft(ColorInspector, popupX);
+        Canvas.SetTop(ColorInspector, popupY);
+        ColorInspector.IsVisible = true;
+    }
 
     private void SaveToClipboard_Click(object? sender, RoutedEventArgs e)
     {
