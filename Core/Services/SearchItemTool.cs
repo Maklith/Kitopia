@@ -90,11 +90,7 @@ public class SearchItemTool : ISearchItemTool
         }
     }
 
-    public void OpenFile(string path)
-    {
-        Logger.Debug("打开指定内容" + path);
-        ShellUtils.Open(path);
-    }
+   
 
     public void IgnoreItem(SearchViewItem? item)
     {

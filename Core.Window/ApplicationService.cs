@@ -198,7 +198,7 @@ public class ApplicationService : IApplicationService
                         toastService.Show("更新", "下载完成，正在启动安装程序...");
                         await Task.Delay(1000);
                         // Close application and start installer
-                        ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(tempPath);
+                        ServiceManager.Services.GetService<IShellUtils>()!.Open(tempPath,"--silent");
                         await Task.Delay(2000);
                         Environment.Exit(0);
                     }
