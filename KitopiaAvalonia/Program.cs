@@ -222,6 +222,7 @@ internal class Program
         ServiceManager.Services = ConfigureServices();
 
         CheckAndDeleteLogFiles();
+        ServiceManager.Services.GetService<IToastService>()!.Init();
         
         Task.Run((async () =>
         {
@@ -235,30 +236,30 @@ internal class Program
         ConfigManger.Init();
         Logger.Information("配置文件初始化完成");
         if (ConfigManger.Config.mouseCapture) HotKeyManager.HotKetImpl.StartHook();
-        ServiceManager.Services.GetService<IToastService>().Init();
+        
 
 
         switch (ConfigManger.Config.themeChoice)
         {
             case ThemeEnum.跟随系统:
             {
-                ServiceManager.Services.GetService<IThemeChange>()
+                ServiceManager.Services.GetService<IThemeChange>()!
                     .followSys(true);
                 break;
             }
             case ThemeEnum.深色:
             {
-                ServiceManager.Services.GetService<IThemeChange>()
+                ServiceManager.Services.GetService<IThemeChange>()!
                     .followSys(false);
-                ServiceManager.Services.GetService<IThemeChange>()
+                ServiceManager.Services.GetService<IThemeChange>()!
                     .changeTo("theme_dark");
                 break;
             }
             case ThemeEnum.浅色:
             {
-                ServiceManager.Services.GetService<IThemeChange>()
+                ServiceManager.Services.GetService<IThemeChange>()!
                     .followSys(false);
-                ServiceManager.Services.GetService<IThemeChange>()
+                ServiceManager.Services.GetService<IThemeChange>()!
                     .changeTo("theme_light");
                 break;
             }
@@ -277,11 +278,11 @@ internal class Program
         if (ConfigManger.Config.autoStart)
         {
             Logger.Information("设置开机自启");
-            ServiceManager.Services.GetService<IApplicationService>()
+            ServiceManager.Services.GetService<IApplicationService>()!
                 .ChangeAutoStart(true);
         }
 
-        ServiceManager.Services.GetService<IApplicationService>().Init();
+        ServiceManager.Services.GetService<IApplicationService>()!.Init();
         Dispatcher.UIThread.InvokeAsync(() => { ServiceManager.Services.GetService<SearchWindowViewModel>(); });
     }
 
