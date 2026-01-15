@@ -1,4 +1,4 @@
-﻿// Author: liaom
+// Author: liaom
 // SolutionName: Kitopia
 // ProjectName: KitopiaEx
 // FileName:SetTopmostWindowAnalyzer.cs
@@ -15,7 +15,7 @@ namespace KitopiaEx.SearchWindow.InputDataAnalyzer;
 
 public class SetTopmostWindowAnalyzer : IInputDataAnalyzer
 {
-    public IInputDataAnalyzeTimeFlags AnalyzeTimeFlags => IInputDataAnalyzeTimeFlags.仅用作文本索引;
+    public InputDataAnalyzeTimeFlags AnalyzeTimeFlags => InputDataAnalyzeTimeFlags.PluginLoad;
 
     public IEnumerable<SearchViewItem> AnalyzeInputData(IEnumerable<InputData> inputDatas)
     {

@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using Core.Services;
@@ -20,8 +20,9 @@ public class SearchWindowService : ISearchWindowService
             var searchWindow = ServiceManager.Services.GetService<SearchWindow>();
             {
                 ServiceManager.Services.GetService<SearchWindowViewModel>()!.LoadLast();
+                ServiceManager.Services.GetService<SearchWindowViewModel>()!.UpdateIndexOnWindowOpen();
                 ServiceManager.Services.GetService<SearchWindowViewModel>()!.ProcessInputData(null,
-                    IInputDataAnalyzeTimeFlags.仅有搜索内容打开时);
+                    InputDataAnalyzeTimeFlags.WindowShow);
 
                 searchWindow.Show();
                 Task.Run(() =>

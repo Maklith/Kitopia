@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using Core.ViewModel;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 
@@ -7,7 +7,7 @@ namespace Core.UI.SearchWindow.InputData;
 public class MathIdentifier : IInputDataIdentifier
 {
     public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(
-        IInputDataAnalyzeTimeFlags analyzeTimeFlags, string? s)
+        InputDataAnalyzeTimeFlags analyzeTimeFlags, string? s)
     {
         var operators = new[] { '*', '+', '-', '/', '^' };
         var pattern = @"[\u4e00-\u9fa5a-zA-Z]+";

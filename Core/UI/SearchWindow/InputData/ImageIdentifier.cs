@@ -1,4 +1,4 @@
-﻿using Core.Services;
+using Core.Services;
 using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
@@ -13,7 +13,7 @@ public class ImageIdentifier : IInputDataIdentifier
     private static ILogger Logger = LogManager.Logger.ForContext<ImageIdentifier>();
 
     public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(
-        IInputDataAnalyzeTimeFlags analyzeTimeFlags, string? s)
+        InputDataAnalyzeTimeFlags analyzeTimeFlags, string? s)
     {
         if (ServiceManager.Services.GetService<IClipboardService>()!.HasImage())
         {

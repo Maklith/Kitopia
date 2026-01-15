@@ -1,4 +1,4 @@
-﻿using Core.ViewModel;
+using Core.ViewModel;
 using PluginCore;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 
@@ -6,9 +6,9 @@ namespace Core.UI.SearchWindow.InputData;
 
 public class UrlAnalyzer : IInputDataAnalyzer
 {
-    public IInputDataAnalyzeTimeFlags AnalyzeTimeFlags => IInputDataAnalyzeTimeFlags.搜索前 |
-                                                          IInputDataAnalyzeTimeFlags.仅有搜索内容打开时 |
-                                                          IInputDataAnalyzeTimeFlags.搜索时;
+    public InputDataAnalyzeTimeFlags AnalyzeTimeFlags => InputDataAnalyzeTimeFlags.InputEmpty |
+                                                          InputDataAnalyzeTimeFlags.WindowShow |
+                                                          InputDataAnalyzeTimeFlags.InputChanged;
 
     public IEnumerable<SearchViewItem> AnalyzeInputData(
         IEnumerable<PluginCore.SearchWindow.InputData.InputData> inputDatas)

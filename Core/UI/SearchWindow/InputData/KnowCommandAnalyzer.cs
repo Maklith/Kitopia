@@ -1,4 +1,4 @@
-﻿using Core.ViewModel;
+using Core.ViewModel;
 using PluginCore;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 
@@ -6,7 +6,7 @@ namespace Core.UI.SearchWindow.InputData;
 
 public class KnowCommandAnalyzer : IInputDataAnalyzer
 {
-    public IInputDataAnalyzeTimeFlags AnalyzeTimeFlags => IInputDataAnalyzeTimeFlags.搜索时;
+    public InputDataAnalyzeTimeFlags AnalyzeTimeFlags => InputDataAnalyzeTimeFlags.InputChanged;
 
     public IEnumerable<SearchViewItem> AnalyzeInputData(
         IEnumerable<PluginCore.SearchWindow.InputData.InputData> inputDatas)

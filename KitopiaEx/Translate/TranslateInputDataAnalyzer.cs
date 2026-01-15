@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Avalonia.Threading;
 using Core.ViewModel;
 using PluginCore;
@@ -9,7 +9,7 @@ namespace KitopiaEx.Translate;
 
 public class TranslateInputDataAnalyzer : IInputDataAnalyzer
 {
-    public IInputDataAnalyzeTimeFlags AnalyzeTimeFlags => IInputDataAnalyzeTimeFlags.搜索时;
+    public InputDataAnalyzeTimeFlags AnalyzeTimeFlags => InputDataAnalyzeTimeFlags.InputChanged;
     public IEnumerable<SearchViewItem> AnalyzeInputData(IEnumerable<InputData> inputDatas)
     {
         foreach (var inputData in inputDatas)

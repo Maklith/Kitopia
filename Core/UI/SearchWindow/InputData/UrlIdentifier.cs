@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -9,11 +9,11 @@ namespace Core.UI.SearchWindow.InputData;
 public partial class UrlIdentifier : IInputDataIdentifier
 {
     public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(
-        IInputDataAnalyzeTimeFlags analyzeTimeFlags, string? s)
+        InputDataAnalyzeTimeFlags analyzeTimeFlags, string? s)
     {
         foreach (var inputData in MatchAndReturnUrlData(s)) yield return inputData;
-        if (analyzeTimeFlags.HasFlag(IInputDataAnalyzeTimeFlags.仅有搜索内容打开时) ||
-            analyzeTimeFlags.HasFlag(IInputDataAnalyzeTimeFlags.搜索前))
+        if (analyzeTimeFlags.HasFlag(InputDataAnalyzeTimeFlags.WindowShow) ||
+            analyzeTimeFlags.HasFlag(InputDataAnalyzeTimeFlags.InputEmpty))
         {
             var data = ServiceManager.Services.GetService<IClipboardService>()!
                 .HasText();

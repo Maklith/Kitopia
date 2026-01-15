@@ -1,4 +1,4 @@
-﻿using Core.Services;
+using Core.Services;
 using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
@@ -9,8 +9,8 @@ namespace Core.UI.SearchWindow.InputData;
 
 public class ImageAnalyzer : IInputDataAnalyzer
 {
-    public IInputDataAnalyzeTimeFlags AnalyzeTimeFlags =>
-        IInputDataAnalyzeTimeFlags.搜索前 | IInputDataAnalyzeTimeFlags.仅有搜索内容打开时;
+    public InputDataAnalyzeTimeFlags AnalyzeTimeFlags =>
+        InputDataAnalyzeTimeFlags.InputEmpty | InputDataAnalyzeTimeFlags.WindowShow;
 
     public IEnumerable<SearchViewItem> AnalyzeInputData(
         IEnumerable<PluginCore.SearchWindow.InputData.InputData> inputDatas)

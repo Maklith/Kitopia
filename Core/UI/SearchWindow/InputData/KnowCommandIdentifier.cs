@@ -1,4 +1,4 @@
-﻿using Core.ViewModel;
+using Core.ViewModel;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 
 namespace Core.UI.SearchWindow.InputData;
@@ -13,7 +13,7 @@ public class KnowCommandIdentifier : IInputDataIdentifier
     ];
 
     public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(
-        IInputDataAnalyzeTimeFlags analyzeTimeFlags, string? value)
+        InputDataAnalyzeTimeFlags analyzeTimeFlags, string? value)
     {
         foreach (var se in knownCommand)
             if (!string.IsNullOrWhiteSpace(value) && value.StartsWith(se, StringComparison.OrdinalIgnoreCase))

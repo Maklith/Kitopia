@@ -1,4 +1,4 @@
-﻿using Core.Services;
+using Core.Services;
 using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -13,12 +13,12 @@ public class PathIdentifier : IInputDataIdentifier
     private static ILogger Logger = LogManager.Logger.ForContext<SearchWindowViewModel>();
 
     public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(
-        IInputDataAnalyzeTimeFlags analyzeTimeFlags, string? text)
+        InputDataAnalyzeTimeFlags analyzeTimeFlags, string? text)
     {
         foreach (var inputData in PathChecker(text)) yield return inputData;
 
-        if (analyzeTimeFlags.HasFlag(IInputDataAnalyzeTimeFlags.仅有搜索内容打开时) ||
-            analyzeTimeFlags.HasFlag(IInputDataAnalyzeTimeFlags.搜索前))
+        if (analyzeTimeFlags.HasFlag(InputDataAnalyzeTimeFlags.WindowShow) ||
+            analyzeTimeFlags.HasFlag(InputDataAnalyzeTimeFlags.InputEmpty))
         {
             var data = ServiceManager.Services.GetService<IClipboardService>()!
                 .HasText();

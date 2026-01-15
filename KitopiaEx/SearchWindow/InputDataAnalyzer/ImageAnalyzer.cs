@@ -1,4 +1,4 @@
-﻿// Author: liaom
+// Author: liaom
 // SolutionName: Kitopia
 // ProjectName: KitopiaEx
 // FileName:ImageAnalyzer.cs
@@ -18,7 +18,7 @@ namespace KitopiaEx.SearchWindow.InputDataAnalyzer;
 
 public class ImageAnalyzer : IInputDataAnalyzer
 {
-    public IInputDataAnalyzeTimeFlags AnalyzeTimeFlags => IInputDataAnalyzeTimeFlags.搜索前 | IInputDataAnalyzeTimeFlags.仅有搜索内容打开时;
+    public InputDataAnalyzeTimeFlags AnalyzeTimeFlags => InputDataAnalyzeTimeFlags.InputEmpty | InputDataAnalyzeTimeFlags.WindowShow;
 
     public IEnumerable<SearchViewItem> AnalyzeInputData(IEnumerable<InputData> inputDatas)
     {

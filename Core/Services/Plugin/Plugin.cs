@@ -1,4 +1,4 @@
-﻿#region
+#region
 
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -122,8 +122,8 @@ public class Plugin
 
         List<ScreenCaptureExMethod> captureActions = new();
         List<OnnxModelInfoWrapper> onnxModelInfos = new();
-        List<Func<IInputDataAnalyzeTimeFlags, string, IEnumerable<InputData>>> inputDataIdentifier = new();
-        List<(Func<IInputDataAnalyzeTimeFlags>, Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>)>
+        List<Func<InputDataAnalyzeTimeFlags, string, IEnumerable<InputData>>> inputDataIdentifier = new();
+        List<(Func<InputDataAnalyzeTimeFlags>, Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>)>
             inputDataAnalyzerActions = new();
         Dictionary<string, Func<IInferenceSession>> onnxRuntimes = new();
         PluginInfo = pluginInfo;
@@ -275,7 +275,7 @@ public class Plugin
         foreach (var func in inputDataAnalyzerActions)
         {
             var inputDataAnalyzeTimeFlags = func.Item1.Invoke();
-            if ((inputDataAnalyzeTimeFlags & IInputDataAnalyzeTimeFlags.仅用作文本索引) == 0) continue; // 如果当前时间标志不匹配，则跳过
+            if ((inputDataAnalyzeTimeFlags & InputDataAnalyzeTimeFlags.PluginLoad) == 0) continue; // 如果当前时间标志不匹配，则跳过
             var enumerable = func.Item2.Invoke([new InputData()]).ToList();
             _searchViewItems.AddRange(enumerable);
         }
@@ -368,6 +368,18 @@ public class Plugin
         PluginOverall.OnnxModelInfos.Remove(PluginInfo.ToPlgString());
         PluginOverall.OnnxRuntimes.Remove(PluginInfo.ToPlgString());
         PluginOverall.SearchWindowInputDataIdentifies.Remove(PluginInfo.ToPlgString());
+
+        if (PluginOverall.SearchWindowInputDataAnalyzers.TryGetValue(PluginInfo.ToPlgString(), out var analyzers))
+        {
+            var searchWindowViewModel = ServiceManager.Services.GetService<SearchWindowViewModel>();
+            if (searchWindowViewModel != null)
+            {
+                foreach (var analyzer in analyzers)
+                {
+                    searchWindowViewModel.RemoveAnalyzerIndex(analyzer);
+                }
+            }
+        }
         PluginOverall.SearchWindowInputDataAnalyzers.Remove(PluginInfo.ToPlgString());
         ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.RemoveMethodsByPluginName(PluginInfo.ToPlgString());
         var keyValuePairs = CustomScenarioGloble.Triggers.Where(e => e.Value.PluginInfo == PluginInfo.ToPlgString());

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using KitopiaEx.CustomScenarioMethods;
@@ -97,6 +97,7 @@ public class KitopiaEx : IPlugin
 
         services.AddTransient<SearchWindow.InputDataAnalyzer.ImageAnalyzer>();
         services.AddTransient<SearchWindow.InputDataAnalyzer.SetTopmostWindowAnalyzer>();
+        services.AddTransient<SearchWindow.InputDataAnalyzer.WindowSwitcherAnalyzer>();
         
         services.AddTransient<ImagePinScenarioMethod>();
         

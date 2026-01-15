@@ -1,4 +1,4 @@
-﻿#region
+#region
 
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
@@ -93,6 +93,67 @@ public partial class SearchWindowViewModel : ObservableRecipient
     }
 
 
+    private readonly Dictionary<object, List<string>> _analyzerIndexedKeys = new();
+    
+    public void RemoveAnalyzerIndex(object analyzer)
+    {
+        if (_analyzerIndexedKeys.TryGetValue(analyzer, out var keys))
+        {
+            foreach (var key in keys)
+            {
+                if (_collection.TryRemove(key, out var item))
+                {
+                    Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        Items.Remove(item);
+                        PinnedItems.Remove(item);
+                    });
+                }
+            }
+            _analyzerIndexedKeys.Remove(analyzer);
+            
+            _pinyinSearcher =
+                new PinyinSearcher<KeyValuePair<string, SearchViewItem>>(_collection, e => e.Value.ItemDisplayName);
+        }
+    }
+    
+    public void UpdateIndexOnWindowOpen()
+    {
+        var changed = false;
+        foreach (var (pluginName, analyzers) in PluginOverall.SearchWindowInputDataAnalyzers)
+        foreach (var analyzerTuple in analyzers)
+        {
+            var timeFlags = analyzerTuple.Item1();
+            if ((timeFlags & InputDataAnalyzeTimeFlags.WindowOpenUpdateIndex) != 0)
+            {
+                // 1. Remove previous items
+                if (_analyzerIndexedKeys.TryGetValue(analyzerTuple, out var oldKeys))
+                {
+                    foreach (var key in oldKeys) _collection.TryRemove(key, out _);
+                    changed = true;
+                }
+
+                // 2. Generate new items
+                var newItems = analyzerTuple.Item2(new List<InputData>()).ToList();
+                var newKeys = new List<string>();
+
+                // 3. Add new items
+                foreach (var item in newItems)
+                    if (_collection.TryAdd(item.OnlyKey, item))
+                        newKeys.Add(item.OnlyKey);
+
+                _analyzerIndexedKeys[analyzerTuple] = newKeys;
+                if (newKeys.Count > 0) changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            _pinyinSearcher =
+                new PinyinSearcher<KeyValuePair<string, SearchViewItem>>(_collection, e => e.Value.ItemDisplayName);
+        }
+    }
+    
     public void ReloadApps(bool logging = false)
     {
         if (_reloading) return;
@@ -228,7 +289,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     }
 
     private readonly List<SearchViewItem> _lastSearchItems = new();
-    public void ProcessInputData(string? value, IInputDataAnalyzeTimeFlags nowTimeFlags)
+    public void ProcessInputData(string? value, InputDataAnalyzeTimeFlags nowTimeFlags)
     {
         foreach (var lastSearchItem in _lastSearchItems)
         {
@@ -279,7 +340,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         if (string.IsNullOrEmpty(Search))
         {
             LoadLast();
-            ProcessInputData(null, IInputDataAnalyzeTimeFlags.搜索前);
+            ProcessInputData(null, InputDataAnalyzeTimeFlags.InputEmpty);
             return;
         }
         ShowPinnedItems = false;
@@ -298,7 +359,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
         #endregion
 
-        ProcessInputData(value, IInputDataAnalyzeTimeFlags.搜索时);
+        ProcessInputData(value, InputDataAnalyzeTimeFlags.InputChanged);
 
         var originalValue = Search;
         var lowerOriginalValue = Search.ToLowerInvariant();

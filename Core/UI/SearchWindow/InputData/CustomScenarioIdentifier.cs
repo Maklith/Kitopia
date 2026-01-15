@@ -1,4 +1,4 @@
-﻿using Core.CustomScenario;
+using Core.CustomScenario;
 using Core.Services;
 using Core.Services.Interfaces;
 using Core.ViewModel;
@@ -27,12 +27,12 @@ public class CustomScenarioIdentifier : IInputDataIdentifier
     }
 
     public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(
-        IInputDataAnalyzeTimeFlags analyzeTimeFlags, string? s)
+        InputDataAnalyzeTimeFlags analyzeTimeFlags, string? s)
     {
         // if (CustomScenarioManger.CustomScenarios.Select(e=>e.))
         // {
 
-        if (!analyzeTimeFlags.HasFlag(IInputDataAnalyzeTimeFlags.搜索时))
+        if (!analyzeTimeFlags.HasFlag(InputDataAnalyzeTimeFlags.InputChanged))
             yield break;
         foreach (var scenario in CustomScenarioManger.CustomScenarios)
         {
