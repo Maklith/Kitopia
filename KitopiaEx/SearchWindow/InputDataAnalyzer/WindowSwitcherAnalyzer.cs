@@ -40,7 +40,7 @@ public class WindowSwitcherAnalyzer : IInputDataAnalyzer
             {
                 ItemDisplayName = window.Title,
                 // Use Application type so that the system tries to extract icon from OnlyKey (ModuleFileName)
-                FileType = FileType.自定义, 
+                FileType = FileType.窗口, 
                 OnlyKey = window.ModuleFileName ?? "",
                 // Fallback icon symbol (Window icon)
                 ShowAsMiniApp = false,

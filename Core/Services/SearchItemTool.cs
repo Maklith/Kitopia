@@ -41,6 +41,7 @@ public class SearchItemTool : ISearchItemTool
                             .Show(searchViewItem.OnlyKey);
                         break;
                     case FileType.自定义:
+                    case FileType.窗口:
                         searchViewItem.Action?.Invoke(searchViewItem, inputValues.Length > 0 ? inputValues[0] as string : null);
                         break;
                     case FileType.命令:
