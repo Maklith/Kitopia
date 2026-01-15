@@ -1,4 +1,4 @@
-﻿#region
+#region
 
 using System;
 using System.Collections.Generic;
@@ -294,7 +294,24 @@ internal partial class IconTools
 
                     break;
                 case FileType.自定义:
-                    if (t.GetIconAction != null) t.Icon = t.GetIconAction(t);
+                    if (t.GetIconAction != null)
+                    {
+                        ResiliencePipeline.ExecuteAsync(async e =>
+                        {
+                            await Task.Run(() =>
+                            {
+                                try
+                                {
+                                    var icon = t.GetIconAction(t);
+                                    t.Icon = icon;
+                                }
+                                catch (Exception exception)
+                                {
+                                    Logger.Error(exception, "GetIconAction执行失败");
+                                }
+                            }, e);
+                        });
+                    }
 
                     break;
                 case FileType.UWP应用:
@@ -304,7 +321,21 @@ internal partial class IconTools
                 default:
                     if (t.GetIconAction != null)
                     {
-                        t.Icon = t.GetIconAction(t);
+                        ResiliencePipeline.ExecuteAsync(async e =>
+                        {
+                            await Task.Run(() =>
+                            {
+                                try
+                                {
+                                    var icon = t.GetIconAction(t);
+                                    t.Icon = icon;
+                                }
+                                catch (Exception exception)
+                                {
+                                    Logger.Error(exception, "GetIconAction执行失败");
+                                }
+                            }, e);
+                        });
                         break;
                     }
 
