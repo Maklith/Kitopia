@@ -128,6 +128,7 @@ internal class Program
         services.AddSingleton<IWindowTool, WindowToolServiceWindow>();
         services.AddTransient<IApplicationService, ApplicationService>();
         services.AddTransient<IImageTool, ImageTool>();
+        services.AddTransient<IExplorerContextMenuService, ExplorerContextMenuService>();
         #endif
 
         #if LINUX
@@ -236,7 +237,11 @@ internal class Program
         ConfigManger.Init();
         Logger.Information("配置文件初始化完成");
         if (ConfigManger.Config.mouseCapture) HotKeyManager.HotKetImpl.StartHook();
-        
+
+        ServiceManager.Services.GetService<IExplorerContextMenuService>()!.RegisterAsync()
+            .GetAwaiter()
+            .GetResult();
+        Logger.Information("资源管理器右键菜单注册完成");
 
 
         switch (ConfigManger.Config.themeChoice)

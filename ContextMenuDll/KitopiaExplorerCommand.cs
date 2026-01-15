@@ -15,6 +15,7 @@ public class KitopiaExplorerCommand : Shell32.IExplorerCommand
 
     private void Log(string message)
     {
+        Debug.WriteLine(message);
         try
         {
             var logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "KitopiaContextMenu.log");
