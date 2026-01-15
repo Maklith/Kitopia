@@ -7,7 +7,7 @@ namespace ContextMenuDll;
 
 [ComVisible(true)]
 [Guid("60DA6757-67FE-B7CE-8195-3EFD30746B23")]
-public class KitopiaExplorerCommand : Shell32.IExplorerCommand, Ole32.IObjectWithSite
+public class KitopiaExplorerCommand : Shell32.IExplorerCommand
 {
     private const string ConfigFileName = "KitopiaContextMenu.json";
     private ContextMenuConfig? _config;
