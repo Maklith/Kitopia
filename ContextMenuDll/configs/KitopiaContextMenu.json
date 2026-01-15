@@ -1,0 +1,9 @@
+{
+  "Items": [
+    {
+      "Title": "Open with Kitopia",
+      "Command": "notepad.exe",
+      "Arguments": "{0}"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="ARM" />
+    <Platform Name="arm64" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Plugins/">
+    <Project Path="KitopiaEx/KitopiaEx.csproj" />
+    <Project Path="PluginCore/PluginCore.csproj" />
+  </Folder>
+  <Folder Name="/Plugins/HasDependencyPlugin/">
+    <Project Path="HasDependencyPlugin/HasDependencyPlugin.csproj" />
+    <Project Path="HasDependencyPluginBase/HasDependencyPluginBase.csproj" />
+  </Folder>
+  <Folder Name="/Plugins/OnnxRuntime/">
+    <Project Path="OnnxRuntime.CPU/OnnxRuntime.CPU.csproj" />
+    <Project Path="OnnxRuntime.Gpu.Win/OnnxRuntime.Gpu.Win.csproj" />
+    <Project Path="OnnxRuntime.OpenVino/OnnxRuntime.OpenVino.csproj" />
+  </Folder>
+  <Project Path="build/kitopia.csproj">
+    <Build Project="false" />
+  </Project>
+  <Project Path="ContextMenuDll/ContextMenuDll.csproj">
+    <Deploy Solution="Debug|Any CPU" />
+  </Project>
+  <Project Path="ContextMenuDllTester/ContextMenuDllTester.csproj" />
+  <Project Path="Core.Linux/Core.Linux.csproj" />
+  <Project Path="Core.Window/Core.Window.csproj" />
+  <Project Path="Core/Core.csproj">
+    <BuildDependency Project="PluginCore/PluginCore.csproj" />
+  </Project>
+  <Project Path="KitopiaAvalonia/KitopiaAvalonia.csproj">
+    <Platform Solution="Debug|x64" Project="x64" />
+  </Project>
+  <Project Path="KitopiaBenchmark/KitopiaBenchmark.csproj">
+    <BuildType Solution="Debug|Any CPU" Project="Release" />
+  </Project>
+  <Project Path="KitopiaTest/KitopiaTest.csproj" />
+  <Project Path="NodifyM.Avalonia/NodifyM.Avalonia/NodifyM.Avalonia.csproj" />
+  <Project Path="PinyinM.NET/Pinyin.NET/Pinyin.NET.csproj" />
+</Solution>

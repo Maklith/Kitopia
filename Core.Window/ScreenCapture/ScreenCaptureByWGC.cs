@@ -45,8 +45,8 @@ public class ScreenCaptureByWGC : IScreenCapture
                     Y = arg3.top,
                     Width = arg3.right - arg3.left,
                     Height = arg3.bottom - arg3.top,
-                    hMonitor = arg1,
-                    SdrWhiteLevelScale = DisplayConfigHelper.GetSdrWhiteLevel(arg1)
+                    hMonitor = arg1.DangerousGetHandle(),
+                    SdrWhiteLevelScale = DisplayConfigHelper.GetSdrWhiteLevel(arg1.DangerousGetHandle())
                 }
                 
             });
@@ -240,7 +240,7 @@ public class ScreenCaptureByWGC : IScreenCapture
         {
             if (screenInfo.X==arg3.left&&screenInfo.Y==arg3.top&&screenInfo.Width==arg3.right-arg3.left&&screenInfo.Height==arg3.bottom-arg3.top)
             {
-                h = arg1;
+                h = arg1.DangerousGetHandle();
                 return false;
             }
             return true;
