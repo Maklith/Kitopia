@@ -7,8 +7,8 @@
         <Platforms>AnyCPU;x64</Platforms>
         <EnableComHosting>true</EnableComHosting>
         <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
-        <PublishAot>true</PublishAot>
-        <PublishTrimmed>true</PublishTrimmed>
+        <PublishAot>false</PublishAot>
+        <PublishTrimmed>false</PublishTrimmed>
         <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     </PropertyGroup>
 

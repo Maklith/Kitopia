@@ -13,4 +13,8 @@
       <ProjectReference Include="..\ContextMenuDll\ContextMenuDll.csproj" />
     </ItemGroup>
 
+    <Target Name="CopyRuntimeConfig" AfterTargets="Build">
+        <Copy SourceFiles="$(OutDir)..\..\..\..\..\ContextMenuDll\bin\$(Configuration)\net10.0-windows\win-x64\ContextMenuDll.runtimeconfig.json" DestinationFolder="$(OutDir)" />
+    </Target>
+
 </Project>

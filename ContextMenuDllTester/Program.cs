@@ -34,11 +34,13 @@ class Program
         {
             var packageManager = new PackageManager();
             
-            // 2. 关键配置：针对稀疏包的注册选项
+            // 2. 配置注册选项
+            // 由于移除了 AllowExternalContent，我们使用标准的松散文件注册 (Developer Mode)
+            // 这种方式不需要 ExternalLocationUri，直接注册 Manifest 即可
             var options = new RegisterPackageOptions
             {
-                // 必须显式指定外部位置 (即 exe 所在目录)
-                ExternalLocationUri = new Uri(exePath), 
+                // 标准开发模式注册不需要指定 ExternalLocationUri (除非是稀疏包)
+                // ExternalLocationUri = new Uri(exePath), 
                 
                 // 允许未签名 (必须开启开发者模式)
                 AllowUnsigned = true, 
