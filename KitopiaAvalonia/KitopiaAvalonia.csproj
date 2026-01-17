@@ -42,9 +42,15 @@
         <AvaloniaResource Include="Assets\FluentSystemIcons-Filled.ttf"/>
         <AvaloniaResource Include="Assets\FluentSystemIcons-Regular.ttf"/>
         <AvaloniaResource Include="Assets\HarmonyOS_Sans_SC_Regular.ttf"/>
-        <AvaloniaResource Include="Assets\icon.png"/>
-    </ItemGroup>
-    <ItemGroup>
+        <AvaloniaResource Include="Assets\icon.png" />
+    
+        <Content Include="Assets\icon.png">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Include="Assets\icon.ico">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+
         <ProjectReference Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' " Include="..\Core.Linux\Core.Linux.csproj"/>
         <ProjectReference Condition=" '$(OS)' == 'Windows_NT' " Include="..\Core.Window\Core.Window.csproj"/>
         <ProjectReference Condition=" '$(OS)' == 'Windows_NT' " Include="..\ContextMenuDll\ContextMenuDll.csproj"/>
