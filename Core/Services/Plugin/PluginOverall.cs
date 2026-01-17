@@ -1,3 +1,5 @@
+using System.Collections.Specialized;
+using Core.Services.Interfaces;
 using Core.UI.SearchWindow.InputData;
 using Core.Utils;
 using PluginCore;
@@ -27,6 +29,8 @@ public class PluginOverall
 
     public static List<ScreenCaptureExMethod> AllScreenCaptureExMethods =>
         ScreenCaptureExMethods.Values.SelectMany(e => e).ToList();
+    
+    public static ObservableDictionary<string,ContextMenuItem> ContextMenuItems = new();
 
     public static Func<IInferenceSession>? GetOnnxRuntime(string targetDevice)
     {
@@ -69,5 +73,16 @@ public class PluginOverall
             (() => urlAnalyzer.AnalyzeTimeFlags, s => urlAnalyzer.AnalyzeInputData(s)),
             (() => customScenarioAnalyzer.AnalyzeTimeFlags, s => customScenarioAnalyzer.AnalyzeInputData(s))
         ];
+        ContextMenuItems.CollectionChanged += UpdateContextMenuItems;
+    }
+
+    private static void UpdateContextMenuItems(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        
+    }
+
+    public void UpdateContextMenuItems(ObservableDictionary<string, ContextMenuItem> items)
+    {
+        
     }
 }

@@ -65,7 +65,7 @@ internal class Program
             {
                 Logger.Information("程序退出");
                 LogManager.Logger.Dispose();
-                ServiceManager.Services.GetService<IToastService>().Unregister();
+                ServiceManager.Services.GetService<IToastService>()!.Unregister();
             };
             Task.Run(async () =>
             {
@@ -129,6 +129,7 @@ internal class Program
         services.AddTransient<IApplicationService, ApplicationService>();
         services.AddTransient<IImageTool, ImageTool>();
         services.AddTransient<IExplorerContextMenuService, ExplorerContextMenuService>();
+        services.AddTransient<IContextMenuConfiger, ContextMenuConfiger>();
         #endif
 
         #if LINUX
