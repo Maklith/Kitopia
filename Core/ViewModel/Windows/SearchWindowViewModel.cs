@@ -580,4 +580,54 @@ public partial class SearchWindowViewModel : ObservableRecipient
             ItemsView.AttachFilter(e => FileTypes.Any(fileTypeFilter =>
                 fileTypeFilter.FileType == e.FileType && fileTypeFilter.IsChecked));
     }
+
+    public bool IsIndexed(string path)
+    {
+        return _collection.ContainsKey(path);
+    }
+
+    public void AddToIndex(string path)
+    {
+        if (IsIndexed(path)) return;
+        var item = new SearchViewItem
+        {
+            ItemDisplayName = Path.GetFileName(path),
+            FileType = FileType.文件,
+            OnlyKey = path,
+            IconSymbol = 0xE7C3, // Default file icon symbol
+            IsVisible = true
+        };
+        if (_collection.TryAdd(path, item))
+        {
+            Dispatcher.UIThread.InvokeAsync(() => Items.Add(item));
+        }
+    }
+
+    public void RemoveFromIndex(string path)
+    {
+        if (_collection.TryRemove(path, out var item))
+        {
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Items.Remove(item);
+                PinnedItems.Remove(item);
+            });
+        }
+    }
+
+    public bool IsPinned(string path)
+    {
+        return PinnedItems.Any(e => e.OnlyKey == path);
+    }
+
+    public void SetPinned(string path, bool pinned)
+    {
+        if (_collection.TryGetValue(path, out var item))
+        {
+            if (item.IsPined != pinned)
+            {
+                Pin(item);
+            }
+        }
+    }
 }

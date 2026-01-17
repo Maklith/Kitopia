@@ -283,47 +283,52 @@ public class SubExplorerCommand : Shell32.IExplorerCommand
             if (paths.Count > 0)
             {
                 // Simple replacement logic
-                string args = _item.Arguments;
-                
-                // If args is empty, just pass the file path
-                if (string.IsNullOrEmpty(args))
+                string args = _item.Arguments ?? string.Empty;
+                string command = _item.Command;
+
+                // Case 1: Multi-file placeholder {all} or %*
+                if (args.Contains("{all}") || args.Contains("%*"))
                 {
-                    foreach(var path in paths)
+                    var sb = new System.Text.StringBuilder();
+                    foreach (var p in paths) sb.Append($"\"{p}\" ");
+                    string allPaths = sb.ToString().Trim();
+                    
+                    string finalArgs = args.Replace("{all}", allPaths).Replace("%*", allPaths);
+                    
+                    Process.Start(new ProcessStartInfo
                     {
-                        Process.Start(new ProcessStartInfo
-                        {
-                            FileName = _item.Command,
-                            Arguments = $"\"{path}\"", // Quote paths
-                            UseShellExecute = true
-                        });
-                    }
+                        FileName = command,
+                        Arguments = finalArgs,
+                        UseShellExecute = true
+                    });
                 }
-                else
+                // Case 2: Per-file placeholder {0} or %1
+                else if (args.Contains("{0}") || args.Contains("%1"))
                 {
-                     // If %1 or {0} is present, run per file
-                     if (args.Contains("{0}") || args.Contains("%1"))
+                     foreach(var path in paths)
                      {
-                         foreach(var path in paths)
-                         {
-                             string fileArgs = args.Replace("{0}", $"\"{path}\"").Replace("%1", $"\"{path}\"");
-                             Process.Start(new ProcessStartInfo
-                             {
-                                 FileName = _item.Command,
-                                 Arguments = fileArgs,
-                                 UseShellExecute = true
-                             });
-                         }
-                     }
-                     else
-                     {
-                         // Run once
+                         string fileArgs = args.Replace("{0}", $"\"{path}\"").Replace("%1", $"\"{path}\"");
                          Process.Start(new ProcessStartInfo
                          {
-                             FileName = _item.Command,
-                             Arguments = args,
+                             FileName = command,
+                             Arguments = fileArgs,
                              UseShellExecute = true
                          });
                      }
+                }
+                // Case 3: No placeholder - Append all paths (Run once)
+                else
+                {
+                     var sb = new System.Text.StringBuilder();
+                     if (!string.IsNullOrEmpty(args)) sb.Append(args + " ");
+                     foreach (var p in paths) sb.Append($"\"{p}\" ");
+                     
+                     Process.Start(new ProcessStartInfo
+                     {
+                         FileName = command,
+                         Arguments = sb.ToString().Trim(),
+                         UseShellExecute = true
+                     });
                 }
             }
             else

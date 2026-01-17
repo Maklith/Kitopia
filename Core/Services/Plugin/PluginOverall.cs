@@ -2,6 +2,7 @@ using System.Collections.Specialized;
 using Core.Services.Interfaces;
 using Core.UI.SearchWindow.InputData;
 using Core.Utils;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Onnx;
 using PluginCore.SearchWindow.InputData;
@@ -73,13 +74,27 @@ public class PluginOverall
             (() => urlAnalyzer.AnalyzeTimeFlags, s => urlAnalyzer.AnalyzeInputData(s)),
             (() => customScenarioAnalyzer.AnalyzeTimeFlags, s => customScenarioAnalyzer.AnalyzeInputData(s))
         ];
-        ContextMenuItems.CollectionChanged += UpdateContextMenuItems;
-    }
-
-    private static void UpdateContextMenuItems(object? sender, NotifyCollectionChangedEventArgs e)
-    {
         
+        
+        var exePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "KitopiaAvalonia.exe");
+        
+        ContextMenuItems.Add("kitopia", new ContextMenuItem()
+        {
+            SubItems = [
+                new ContextMenuItem
+                {
+                    Title = "添加到索引",
+                    Icon = exePath,
+                    Command = exePath,
+                    Arguments = StartupArgumentManager.GenerateCmd(StartupAction.IndexAdd, "{0}"),
+            
+                }
+            ]
+        });
+        ServiceManager.Services.GetService<IContextMenuConfiger>()!
+            .OverwriteMenuItems(ContextMenuItems.SelectMany(e => e.Value.SubItems).ToList());
     }
+    
 
     public void UpdateContextMenuItems(ObservableDictionary<string, ContextMenuItem> items)
     {
