@@ -37,8 +37,8 @@ public class MqttManager
     /// 初始化MQTT服务器
     /// Initialize MQTT server
     /// </summary>
-    /// <returns>异步任务 / Asynchronous task</returns>
-    public static async Task Init()
+    /// <returns>异步任务 / Asynchronous task. Returns true if startup args were sent to another instance.</returns>
+    public static async Task<bool> Init(string[] args)
     {
         var mqttFactory = new MqttFactory();
         if (File.Exists($"{AppDomain.CurrentDomain.BaseDirectory}.port"))
@@ -64,31 +64,28 @@ public class MqttManager
                     {
                         Logger.Debug("MQTT连接成功");
                         var jObject = new JObject();
-                        if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime
-                            appLifetime)
+                        // Use provided args instead of ApplicationLifetime
+                        var result = StartupArgumentManager.Parse(args);
+                        jObject.Add("type", (int)result.Action);
+                        jObject.Add("value", result.Value);
+                        
+                        foreach (var kv in result.Extras)
                         {
-                            var result = StartupArgumentManager.Parse(appLifetime.Args);
-                            jObject.Add("type", (int)result.Action);
-                            jObject.Add("value", result.Value);
-                            
-                            foreach (var kv in result.Extras)
-                            {
-                                jObject[kv.Key] = kv.Value;
-                            }
+                            jObject[kv.Key] = kv.Value;
                         }
-    
-                        mqttClient.PublishAsync(new MqttApplicationMessage
+
+                        await mqttClient.PublishAsync(new MqttApplicationMessage
                         {
                             Topic = "test", Payload = Encoding.UTF8.GetBytes(jObject.ToString()),
                             QualityOfServiceLevel = MqttQualityOfServiceLevel.ExactlyOnce
                         });
+                        
+                        // We handled the startup by sending to another instance
+                        return true;
                     }
-    
-                    ServiceManager.Services.GetService<IApplicationService>().Stop();
-                    return;
                 }
             }
-    
+
         var nowPort = 6600;
         restart:
         var mqttServerOptions = mqttFactory.CreateServerOptionsBuilder()
@@ -97,8 +94,8 @@ public class MqttManager
         Server.ClientConnectedAsync += Server_ClientConnectedAsync;
         Server.ClientDisconnectedAsync += Server_ClientDisconnectedAsync;
         Server.InterceptingPublishAsync += Server_InterceptingPublishAsync;
-    
-    
+
+
         try
         {
             await Server.StartAsync();
@@ -112,52 +109,60 @@ public class MqttManager
             Logger.Debug($"MQTT启动失败,尝试启动端口{nowPort}");
             goto restart;
         }
-    
-    
+
+
         fileStream = new FileStream($"{AppDomain.CurrentDomain.BaseDirectory}.port", FileMode.CreateNew);
         fileStream.Write(Encoding.UTF8.GetBytes(nowPort.ToString()));
         fileStream.Flush();
+        
+        return false;
     }
     
-    private static async Task Server_InterceptingPublishAsync(InterceptingPublishEventArgs arg)
+    // Static method to handle local args if we are the server
+    public static async Task ProcessLocalArgs(string[] args)
     {
-        var s = Encoding.UTF8.GetString(arg.ApplicationMessage.Payload);
-        Logger.Debug($"Publish {arg.ApplicationMessage.Topic} {s}");
-        try
-        {
-            var jObject = JObject.Parse(s);
-            var jToken = jObject["type"];
-            var action = jToken != null ? (StartupAction)jToken.ToObject<int>() : StartupAction.None;
-            var value = jObject["value"]?.ToString();
+         var result = StartupArgumentManager.Parse(args);
+         if (result.Action == StartupAction.None || result.Action == StartupAction.RepeatStartup) return;
+         
+         // Mock an InterceptingPublishEventArgs or just reuse the logic?
+         // Refactor logic into a shared method would be better.
+         await HandleAction(result.Action, result.Value, JObject.FromObject(new { 
+             pluginId = result.Extras.GetValueOrDefault("pluginId"), 
+             pluginVersionInt = result.Extras.GetValueOrDefault("pluginVersionInt")
+         }));
+    }
 
+    private static async Task HandleAction(StartupAction action, string value, JObject jObject)
+    {
             var searchWindow = ServiceManager.Services.GetService<SearchWindowViewModel>();
             var toast = ServiceManager.Services.GetService<IToastService>();
 
             switch (action)
             {
+                // ... same switch case as before ...
                 case StartupAction.RepeatStartup:
                 {
                     Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                         {
-                            desktop.MainWindow!.Show();
-                            desktop.MainWindow.WindowState = WindowState.Normal;
-                            ServiceManager.Services.GetService<IWindowTool>()
-                                .SetForegroundWindow(desktop.MainWindow.TryGetPlatformHandle().Handle);
+                            if (desktop.MainWindow != null)
+                            {
+                                desktop.MainWindow.Show();
+                                desktop.MainWindow.WindowState = WindowState.Normal;
+                                ServiceManager.Services.GetService<IWindowTool>()
+                                    .SetForegroundWindow(desktop.MainWindow.TryGetPlatformHandle().Handle);
+                            }
                         }
                     });
-    
                     break;
                 }
+                // ... copy cases ...
                 case StartupAction.DownloadPlugin:
                 {
-                    // Legacy support: expects pluginId and pluginVersionInt in JSON
-                    // Or if passed via CLI value: "id|version|sign"?
-                    // Use existing logic if fields exist
                     if (jObject["pluginId"] != null)
                     {
-                        var onlinePluginInfo =
+                         var onlinePluginInfo =
                             await PluginNetworkService.GetOnlinePluginInfo(int.Parse(jObject["pluginId"].ToString()));
                         if (onlinePluginInfo == null)
                         {
@@ -165,7 +170,7 @@ public class MqttManager
                                 $"下载安装插件ID:{jObject["pluginVersionInt"]}不存在");
                             break;
                         }
-        
+    
                         PluginManager.DownloadPluginAndEnable(onlinePluginInfo.Id, onlinePluginInfo.NameSign,
                             int.Parse(jObject["pluginVersionInt"].ToString()));
                         toast.Show("来自URL的操作",
@@ -176,85 +181,91 @@ public class MqttManager
                 case StartupAction.IndexAdd:
                     if (!string.IsNullOrEmpty(value))
                     {
-                        searchWindow.AddToIndex(value);
-                        toast.Show("索引操作", $"已添加到索引: {value}");
+                         searchWindow.AddToIndex(value);
+                         toast.Show("索引操作", $"已添加到索引: {value}");
                     }
                     break;
                 case StartupAction.IndexRemove:
                     if (!string.IsNullOrEmpty(value))
                     {
-                        searchWindow.RemoveFromIndex(value);
-                        toast.Show("索引操作", $"已从索引移除: {value}");
+                         searchWindow.RemoveFromIndex(value);
+                         toast.Show("索引操作", $"已从索引移除: {value}");
                     }
                     break;
                 case StartupAction.IndexCheck:
                     if (!string.IsNullOrEmpty(value))
                     {
-                        var exists = searchWindow.IsIndexed(value);
-                        toast.Show("索引状态", exists ? $"已索引: {value}" : $"未索引: {value}");
+                         var exists = searchWindow.IsIndexed(value);
+                         toast.Show("索引状态", exists ? $"已索引: {value}" : $"未索引: {value}");
                     }
                     break;
                 case StartupAction.PinAdd:
-                    if (!string.IsNullOrEmpty(value))
+                     if (!string.IsNullOrEmpty(value))
                     {
-                        searchWindow.SetPinned(value, true);
-                        toast.Show("收藏操作", $"已收藏: {value}");
+                         searchWindow.SetPinned(value, true);
+                         toast.Show("收藏操作", $"已收藏: {value}");
                     }
                     break;
                 case StartupAction.PinRemove:
-                    if (!string.IsNullOrEmpty(value))
+                     if (!string.IsNullOrEmpty(value))
                     {
-                        searchWindow.SetPinned(value, false);
-                        toast.Show("收藏操作", $"已取消收藏: {value}");
+                         searchWindow.SetPinned(value, false);
+                         toast.Show("收藏操作", $"已取消收藏: {value}");
                     }
                     break;
                 case StartupAction.PinCheck:
-                    if (!string.IsNullOrEmpty(value))
+                     if (!string.IsNullOrEmpty(value))
                     {
-                        var pinned = searchWindow.IsPinned(value);
-                        toast.Show("收藏状态", pinned ? $"已收藏: {value}" : $"未收藏: {value}");
+                         var pinned = searchWindow.IsPinned(value);
+                         toast.Show("收藏状态", pinned ? $"已收藏: {value}" : $"未收藏: {value}");
                     }
                     break;
                 case StartupAction.PluginCheck:
-                    if (!string.IsNullOrEmpty(value))
+                     if (!string.IsNullOrEmpty(value))
                     {
-                        var info = PluginManager.GetPluginLocalInfoByPlgStr(value); // Assuming value is NameSign
-                        // Or use Name?
-                        // value might be "Kitopia.Plugin.Demo"
-                        var installed = info != null;
-                        toast.Show("插件状态", installed ? $"已安装插件: {value}" : $"未安装插件: {value}");
+                         var info = PluginManager.GetPluginLocalInfoByPlgStr(value);
+                         var installed = info != null;
+                         toast.Show("插件状态", installed ? $"已安装插件: {value}" : $"未安装插件: {value}");
                     }
                     break;
                 case StartupAction.PluginAdd:
-                    if (!string.IsNullOrEmpty(value))
+                     if (!string.IsNullOrEmpty(value))
                     {
-                        // Try to download by NameSign
-                        var onlineInfo = await PluginNetworkService.GetOnlinePluginInfo(value);
-                        if (onlineInfo != null)
-                        {
-                            await PluginManager.DownloadPluginAndEnable(onlineInfo.Id, onlineInfo.NameSign);
-                            toast.Show("插件操作", $"插件安装/启用成功: {value}");
-                        }
-                        else
-                        {
-                            toast.Show("插件操作", $"找不到插件: {value}");
-                        }
+                         var onlineInfo = await PluginNetworkService.GetOnlinePluginInfo(value);
+                         if (onlineInfo != null)
+                         {
+                             await PluginManager.DownloadPluginAndEnable(onlineInfo.Id, onlineInfo.NameSign);
+                             toast.Show("插件操作", $"插件安装/启用成功: {value}");
+                         }
+                         else
+                         {
+                             toast.Show("插件操作", $"找不到插件: {value}");
+                         }
                     }
                     break;
                 case StartupAction.PluginRemove:
-                    if (!string.IsNullOrEmpty(value))
+                     if (!string.IsNullOrEmpty(value))
                     {
-                        PluginManager.DeletePlugin(value);
-                        // DeletePlugin shows dialog, but here we might want silent?
-                        // DeletePlugin(string) calls DeletePlugin(Info).
-                        // It shows dialog.
-                        // That's fine for now.
+                         PluginManager.DeletePlugin(value);
                     }
                     break;
                 default:
-                    // Handle None/Legacy URL if needed
-                    break;
+                     break;
             }
+    }
+
+    private static async Task Server_InterceptingPublishAsync(InterceptingPublishEventArgs arg)
+    {
+        var s = Encoding.UTF8.GetString(arg.ApplicationMessage.Payload);
+        Logger.Debug($"Publish {arg.ApplicationMessage.Topic} {s}");
+        try
+        {
+            var jObject = JObject.Parse(s);
+            var jToken = jObject["type"];
+            var action = jToken != null ? (StartupAction)jToken.ToObject<int>() : StartupAction.None;
+            var value = jObject["value"]?.ToString();
+            
+            await HandleAction(action, value, jObject);
         }
         catch (Exception e)
         {

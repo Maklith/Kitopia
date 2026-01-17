@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -67,6 +67,13 @@ internal class Program
                 LogManager.Logger.Dispose();
                 ServiceManager.Services.GetService<IToastService>()!.Unregister();
             };
+            
+            if (MqttManager.Init(args).GetAwaiter().GetResult())
+            {
+                Environment.Exit(0);
+                return;
+            }
+            
             Task.Run(async () =>
             {
                 while (Application.Current is null) await Task.Delay(100);
@@ -221,6 +228,7 @@ internal class Program
     public static void OnStartup(string[] arg)
     {
         Logger.Information("启动");
+        
         ServiceManager.Services = ConfigureServices();
 
         CheckAndDeleteLogFiles();
@@ -231,13 +239,18 @@ internal class Program
             await CheckUpdates();
             await Task.Delay(TimeSpan.FromMinutes(30));
         }));
-        MqttManager.Init().GetAwaiter().GetResult();
+        
         Logger.Information("MQTT初始化完成");
         HotKeyManager.Init();
         Logger.Debug("注册热键管理器完成");
         ConfigManger.Init();
         Logger.Information("配置文件初始化完成");
         if (ConfigManger.Config.mouseCapture) HotKeyManager.HotKetImpl.StartHook();
+        
+        // If we are the server, we might need to process the local args now that services are ready
+        // But StartupArgumentManager.Parse(arg) result was already used in Init if we connected to another instance.
+        // Since we are here, we are the only instance. We should process args locally.
+        MqttManager.ProcessLocalArgs(arg).GetAwaiter().GetResult();
 
         ServiceManager.Services.GetService<IExplorerContextMenuService>()!.RegisterAsync()
             .GetAwaiter()
