@@ -91,7 +91,7 @@ public class PluginOverall
                 }
             ]
         });
-        ServiceManager.Services.GetService<IContextMenuConfiger>()!
+        ServiceManager.Services.GetService<IExplorerContextMenuConfiger>()!
             .OverwriteMenuItems(ContextMenuItems.SelectMany(e => e.Value.SubItems).ToList());
     }
     

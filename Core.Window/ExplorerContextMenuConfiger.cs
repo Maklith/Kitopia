@@ -7,15 +7,16 @@
 
 using System.Text.Json;
 using Core.Services.Interfaces;
+using PluginCore;
 
 namespace Core.Window;
 
-public class ContextMenuConfiger : IContextMenuConfiger
+public class ExplorerContextMenuConfiger : IExplorerContextMenuConfiger
 {
     private const string ConfigFileName = "KitopiaContextMenu.json";
     private readonly string _configPath;
 
-    public ContextMenuConfiger()
+    public ExplorerContextMenuConfiger()
     {
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
         var configDir = Path.Combine(baseDir, "configs");

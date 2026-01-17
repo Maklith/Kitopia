@@ -136,7 +136,7 @@ internal class Program
         services.AddTransient<IApplicationService, ApplicationService>();
         services.AddTransient<IImageTool, ImageTool>();
         services.AddTransient<IExplorerContextMenuService, ExplorerContextMenuService>();
-        services.AddTransient<IContextMenuConfiger, ContextMenuConfiger>();
+        services.AddTransient<IExplorerContextMenuConfiger, ExplorerContextMenuConfiger>();
         #endif
 
         #if LINUX
