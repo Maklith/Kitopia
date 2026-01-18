@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Core.SDKs.Services;
+using Core.Services;
 using Core.Services.Interfaces;
 using Serilog;
 using Vanara.PInvoke;
@@ -9,7 +10,7 @@ namespace Core.Window;
 
 public class ShellUtils : IShellUtils
 {
-    private static readonly ILogger Logger = Services.LogManager.Logger.ForContext<ShellUtils>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<ShellUtils>();
 
     public void Open(string path, string? arguments = "", string? workingDirectory = "")
     {

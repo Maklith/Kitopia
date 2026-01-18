@@ -249,6 +249,28 @@ public class MqttManager
                          PluginManager.DeletePlugin(value);
                     }
                     break;
+                case StartupAction.FileLocksmith:
+                     if (!string.IsNullOrEmpty(value))
+                    {
+                         // Basic implementation: Show toast with locking processes?
+                         // Or ideally open a window. Since we don't have a FileLocksmith Window yet,
+                         // we will list processes in a toast or dialog for now as a proof of concept.
+                         var service = ServiceManager.Services.GetService<IFileLocksmith>();
+                         var windowService = ServiceManager.Services.GetService<IFileLocksmithWindow>();
+                         if (service != null && windowService != null)
+                         {
+                             var lockingProcesses = await service.CheckFileLocksAsync(new[] { value });
+                             if (lockingProcesses.Any())
+                             {
+                                await Dispatcher.UIThread.InvokeAsync(() => windowService.Show(lockingProcesses));
+                             }
+                             else
+                             {
+                                 toast.Show("File Locksmith", $"未发现占用文件: {value}");
+                             }
+                         }
+                    }
+                    break;
                 default:
                      break;
             }
@@ -269,7 +291,7 @@ public class MqttManager
         }
         catch (Exception e)
         {
-            Logger.Error("来自URL的操作出现错误", e);
+            Logger.Error( e,"来自URL的操作出现错误");
         }
     }
 

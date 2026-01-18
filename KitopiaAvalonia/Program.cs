@@ -30,6 +30,7 @@ using Core.ViewModel.TaskEditor;
 using Core.ViewModel.Windows;
 using Core.Window;
 using Core.Window.Everything;
+using Core.Window.Services;
 using KitopiaAvalonia.Pages;
 using KitopiaAvalonia.Services;
 using KitopiaAvalonia.Windows;
@@ -137,8 +138,13 @@ internal class Program
         services.AddTransient<IImageTool, ImageTool>();
         services.AddTransient<IExplorerContextMenuService, ExplorerContextMenuService>();
         services.AddTransient<IExplorerContextMenuConfiger, ExplorerContextMenuConfiger>();
+        services.AddTransient<IFileLocksmith, FileLocksmithService>();
+        services.AddTransient<IFileLocksmithWindow, FileLocksmithWindow>(e =>
+        {
+          return  Dispatcher.UIThread.Invoke((() => new FileLocksmithWindow()));
+        });
         #endif
-
+        
         #if LINUX
            services.AddTransient<IAppToolService, AppToolLinuxService>();
 
