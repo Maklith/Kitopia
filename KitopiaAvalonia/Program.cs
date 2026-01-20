@@ -258,10 +258,17 @@ internal class Program
         // Since we are here, we are the only instance. We should process args locally.
         MqttManager.ProcessLocalArgs(arg).GetAwaiter().GetResult();
 
-        ServiceManager.Services.GetService<IExplorerContextMenuService>()!.RegisterAsync()
+        if (ServiceManager.Services.GetService<IExplorerContextMenuService>()!.RegisterAsync()
             .GetAwaiter()
-            .GetResult();
-        Logger.Information("资源管理器右键菜单注册完成");
+            .GetResult())
+        {
+            Logger.Information("资源管理器右键菜单注册完成");
+        }
+        else
+        {
+            Logger.Warning("资源管理器右键菜单注册失败");
+        }
+        
 
 
         switch (ConfigManger.Config.themeChoice)

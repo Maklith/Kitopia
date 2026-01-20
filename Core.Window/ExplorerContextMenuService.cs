@@ -4,11 +4,15 @@ using System.Linq;
 using System.Threading.Tasks;
 using PluginCore;
 using Windows.Management.Deployment;
+using Core.Services;
+using Serilog;
+using Serilog.Core;
 
 namespace Core.Window;
 
 public class ExplorerContextMenuService : IExplorerContextMenuService
 {
+    private ILogger Logger = LogManager.Logger.ForContext<IExplorerContextMenuService>();
     public async Task<bool> RegisterAsync()
     {
         try
@@ -37,8 +41,9 @@ public class ExplorerContextMenuService : IExplorerContextMenuService
             var result = await packageManager.RegisterPackageByUriAsync(new Uri(manifestPath), options);
             return result.ExtendedErrorCode == null;
         }
-        catch (Exception)
+        catch (Exception e)
         {
+            Logger.Error(e,"ExplorerContextMenuService");
             return false;
         }
     }
