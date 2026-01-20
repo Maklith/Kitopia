@@ -1,14 +1,11 @@
 using System;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Notifications;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.ReactiveUI;
@@ -21,7 +18,6 @@ using Core.Services.Interfaces;
 using Core.Services.MQTT;
 using Core.Services.Onnx;
 using Core.Services.Plugin;
-using Core.Utils;
 using Core.ViewModel.Main;
 using Core.ViewModel.Pages;
 using Core.ViewModel.Pages.customScenario;
@@ -53,16 +49,17 @@ internal class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        ServiceManager.Services = ConfigureServices();
         try
         {
             // RxApp.DefaultExceptionHandler = new MyCoolObservableExceptionHandler();
-            TaskScheduler.UnobservedTaskException += (sender, eventArgs) => { Logger.Error(eventArgs.Exception, "错误"); };
+            TaskScheduler.UnobservedTaskException += (_, eventArgs) => { Logger.Error(eventArgs.Exception, "错误"); };
 
-            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+            AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             {
                 Logger.Fatal((Exception)e.ExceptionObject, "错误");
             };
-            AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
+            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
             {
                 Logger.Information("程序退出");
                 LogManager.Logger.Dispose();
@@ -96,9 +93,6 @@ internal class Program
         {
             Logger.Fatal(e, "");
             Environment.Exit(0);
-        }
-        finally
-        {
         }
     }
 
@@ -139,7 +133,7 @@ internal class Program
         services.AddTransient<IExplorerContextMenuService, ExplorerContextMenuService>();
         services.AddTransient<IExplorerContextMenuConfiger, ExplorerContextMenuConfiger>();
         services.AddTransient<IFileLocksmith, FileLocksmithService>();
-        services.AddTransient<IFileLocksmithWindow, FileLocksmithWindow>(e =>
+        services.AddTransient<IFileLocksmithWindow, FileLocksmithWindow>(_ =>
         {
           return  Dispatcher.UIThread.Invoke((() => new FileLocksmithWindow()));
         });
@@ -169,7 +163,7 @@ internal class Program
         services.AddKeyedSingleton<UserControl, CustomScenariosManagerPage>("CustomScenariosManagerPage",
             (e, _) => new CustomScenariosManagerPage
                 { DataContext = e.GetService<CustomScenariosManagerPageViewModel>() });
-        services.AddSingleton<HotKeyManagerPageViewModel>(e => new HotKeyManagerPageViewModel { });
+        services.AddSingleton<HotKeyManagerPageViewModel>(e => new HotKeyManagerPageViewModel());
         services.AddKeyedSingleton<UserControl, HotKeyManagerPage>("HotKeyManagerPage",
             (e, _) => new HotKeyManagerPage { DataContext = e.GetService<HotKeyManagerPageViewModel>() });
         services.AddTransient<PluginManagerPageViewModel>(e => new PluginManagerPageViewModel { IsActive = true });
@@ -234,9 +228,6 @@ internal class Program
     public static void OnStartup(string[] arg)
     {
         Logger.Information("启动");
-        
-        ServiceManager.Services = ConfigureServices();
-
         CheckAndDeleteLogFiles();
         ServiceManager.Services.GetService<IToastService>()!.Init();
         
@@ -246,16 +237,13 @@ internal class Program
             await Task.Delay(TimeSpan.FromMinutes(30));
         }));
         
-        Logger.Information("MQTT初始化完成");
+        
         HotKeyManager.Init();
         Logger.Debug("注册热键管理器完成");
         ConfigManger.Init();
         Logger.Information("配置文件初始化完成");
         if (ConfigManger.Config.mouseCapture) HotKeyManager.HotKetImpl.StartHook();
         
-        // If we are the server, we might need to process the local args now that services are ready
-        // But StartupArgumentManager.Parse(arg) result was already used in Init if we connected to another instance.
-        // Since we are here, we are the only instance. We should process args locally.
         MqttManager.ProcessLocalArgs(arg).GetAwaiter().GetResult();
 
         if (ServiceManager.Services.GetService<IExplorerContextMenuService>()!.RegisterAsync()
@@ -268,9 +256,6 @@ internal class Program
         {
             Logger.Warning("资源管理器右键菜单注册失败");
         }
-        
-
-
         switch (ConfigManger.Config.themeChoice)
         {
             case ThemeEnum.跟随系统:
