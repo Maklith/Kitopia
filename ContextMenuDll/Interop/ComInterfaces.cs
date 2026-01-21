@@ -25,8 +25,10 @@ public partial interface IExplorerCommand
 public partial interface IEnumExplorerCommand
 {
     // Arrays not supported by source generator yet, use IntPtr
-    void Next(uint celt, IntPtr pElements, out uint pceltFetched);
-    void Skip(uint celt);
+    [PreserveSig]
+    int Next(uint celt, IntPtr pElements, out uint pceltFetched);
+    [PreserveSig]
+    int Skip(uint celt);
     void Reset();
     void Clone([MarshalUsing(typeof(ComInterfaceMarshaller<IEnumExplorerCommand>))] out IEnumExplorerCommand ppEnum);
 }
@@ -52,7 +54,7 @@ public partial interface IShellItem
 {
     void BindToHandler([MarshalAs(UnmanagedType.Interface)] object pbc, ref Guid bhid, ref Guid riid, [MarshalAs(UnmanagedType.Interface)] out object ppv);
     void GetParent([MarshalUsing(typeof(ComInterfaceMarshaller<IShellItem>))] out IShellItem ppsi);
-    void GetDisplayName(uint sigdnName, [MarshalAs(UnmanagedType.LPWStr)] out string ppszName);
+    void GetDisplayName(uint sigdnName, out IntPtr ppszName);
     void GetAttributes(uint sfgaoMask, out uint psfgaoAttribs);
     void Compare([MarshalUsing(typeof(ComInterfaceMarshaller<IShellItem>))] IShellItem psi, uint hint, out int piOrder);
 }

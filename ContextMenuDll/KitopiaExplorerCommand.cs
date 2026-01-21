@@ -427,10 +427,11 @@ public partial class ExplorerCommandEnumerator : IEnumExplorerCommand
         _kitopiaPath = kitopiaPath;
     }
 
-    public unsafe void Next(uint celt, IntPtr pElements, out uint pceltFetched)
+    public unsafe int Next(uint celt, IntPtr pElements, out uint pceltFetched)
     {
         pceltFetched = 0;
-        if (celt == 0 || pElements == IntPtr.Zero) return;
+        if (celt == 0) return 0; // S_OK
+        if (pElements == IntPtr.Zero) return -2147024809; // E_INVALIDARG
 
         if (_current < _items.Count)
         {
@@ -449,13 +450,26 @@ public partial class ExplorerCommandEnumerator : IEnumExplorerCommand
             
             _current++;
             pceltFetched = 1;
+            
+            return (celt == 1) ? 0 : 1; // S_OK if satisfied, S_FALSE otherwise
         }
+        
+        return 1; // S_FALSE
     }
 
-    public void Skip(uint celt)
+    public int Skip(uint celt)
     {
-        _current += (int)celt;
-        if (_current > _items.Count) _current = _items.Count;
+        var remaining = _items.Count - _current;
+        if (celt <= remaining)
+        {
+            _current += (int)celt;
+            return 0; // S_OK
+        }
+        else
+        {
+            _current = _items.Count;
+            return 1; // S_FALSE
+        }
     }
 
     public void Reset()
@@ -557,7 +571,12 @@ public partial class SubExplorerCommand : IExplorerCommand
                         if (shellItem != null)
                         {
                             // SIGDN_FILESYSPATH = 0x80058000
-                            shellItem.GetDisplayName((uint)SIGDN.SIGDN_FILESYSPATH, out string path);
+                            shellItem.GetDisplayName((uint)SIGDN.SIGDN_FILESYSPATH, out IntPtr ppszName);
+                            var path = Marshal.PtrToStringUni(ppszName);
+                            Marshal.FreeCoTaskMem(ppszName);
+                            
+                            LogStatic($"Item path retrieved: {path}");
+
                             if (!string.IsNullOrEmpty(path))
                             {
                                 paths.Add(path);
@@ -585,7 +604,13 @@ public partial class SubExplorerCommand : IExplorerCommand
                     foreach (var p in paths) sb.Append($"\"{p}\" ");
                     string allPaths = sb.ToString().Trim();
                     
-                    string finalArgs = args.Replace("{all}", allPaths).Replace("%*", allPaths);
+                    string finalArgs = args
+                        .Replace("\"{all}\"", "{all}") // Remove existing quotes around placeholder
+                        .Replace("\"%*\"", "%*")       // Remove existing quotes around placeholder
+                        .Replace("{all}", allPaths)
+                        .Replace("%*", allPaths);
+                    
+                    LogStatic($"Executing (Case 1): {command} Args: {finalArgs}");
                     
                     Process.Start(new ProcessStartInfo
                     {
@@ -599,7 +624,14 @@ public partial class SubExplorerCommand : IExplorerCommand
                 {
                     foreach(var path in paths)
                     {
-                        string fileArgs = args.Replace("{0}", $"\"{path}\"").Replace("%1", $"\"{path}\"");
+                        string quotedPath = $"\"{path}\"";
+                        string fileArgs = args
+                            .Replace("\"{0}\"", "{0}") // Remove existing quotes around placeholder
+                            .Replace("\"%1\"", "%1")   // Remove existing quotes around placeholder
+                            .Replace("{0}", quotedPath)
+                            .Replace("%1", quotedPath);
+
+                        LogStatic($"Executing (Case 2): {command} Args: {fileArgs}");
                         Process.Start(new ProcessStartInfo
                         {
                             FileName = command,
@@ -608,17 +640,20 @@ public partial class SubExplorerCommand : IExplorerCommand
                         });
                     }
                 }
-                // Case 3: No placeholder - Append all paths (Run once)
+                    // Case 3: No placeholder - Append all paths (Run once)
                 else
                 {
                     var sb = new System.Text.StringBuilder();
                     if (!string.IsNullOrEmpty(args)) sb.Append(args + " ");
                     foreach (var p in paths) sb.Append($"\"{p}\" ");
                      
+                    var finalArgs = sb.ToString().Trim();
+                    LogStatic($"Executing (Case 3): {command} Args: {finalArgs}");
+
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = command,
-                        Arguments = sb.ToString().Trim(),
+                        Arguments = finalArgs,
                         UseShellExecute = true
                     });
                 }

@@ -53,7 +53,6 @@
 
         <ProjectReference Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' " Include="..\Core.Linux\Core.Linux.csproj"/>
         <ProjectReference Condition=" '$(OS)' == 'Windows_NT' " Include="..\Core.Window\Core.Window.csproj"/>
-        <ProjectReference Condition=" '$(OS)' == 'Windows_NT' " Include="..\ContextMenuDll\ContextMenuDll.csproj"/>
         <ProjectReference Include="..\NodifyM.Avalonia\NodifyM.Avalonia\NodifyM.Avalonia.csproj"/>
         <ProjectReference Include="..\Core\Core.csproj"/>
     </ItemGroup>
