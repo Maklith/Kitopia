@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
@@ -10,12 +10,12 @@
   IgnorableNamespaces="uap uap10 rescap desktop4 desktop5 com">
 
   <Identity
-    Name="Kitopia.StoreCompanion"
-    Publisher="CN=liaom"
-    Version="1.0.0.0" />
+    Name="Maklith.KitopiaCompanion"
+    Publisher="CN=Maklith"
+    Version="1.0.2.0" />
 
   <Properties>
-    <DisplayName>Kitopia 伴侣应用</DisplayName>
+    <DisplayName>Kitopia Companion</DisplayName>
     <PublisherDisplayName>Maklith</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>
@@ -34,7 +34,7 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="Kitopia 伴侣应用"
+        DisplayName="Kitopia Companion"
         Description="Kitopia Companion 是 Kitopia 生产力工具的官方配套应用。它允许用户管理 Windows 11 资源管理器集成，检查核心组件状态，并提供无缝的右键菜单体验。"
         BackgroundColor="transparent"
         Square150x150Logo="Images\Square150x150Logo.png"
@@ -60,7 +60,7 @@
         <com:Extension Category="windows.comServer">
           <com:ComServer>
             <com:SurrogateServer DisplayName="Kitopia Context Menu">
-              <com:Class Id="60DA6757-67FE-B7CE-8195-3EFD30746B23" Path="ContextMenuDll\ContextMenuDll.comhost.dll" ThreadingModel="STA"/>
+              <com:Class Id="60DA6757-67FE-B7CE-8195-3EFD30746B23" Path="ContextMenuDll\ContextMenuDll.dll" ThreadingModel="STA"/>
             </com:SurrogateServer>
           </com:ComServer>
         </com:Extension>

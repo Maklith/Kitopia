@@ -67,7 +67,7 @@
         <com:Extension Category="windows.comServer">
           <com:ComServer>
             <com:SurrogateServer DisplayName="Kitopia Context Menu">
-              <com:Class Id="60DA6757-67FE-B7CE-8195-3EFD30746B23" Path="ContextMenuDll.comhost.dll" ThreadingModel="STA"/>
+              <com:Class Id="60DA6757-67FE-B7CE-8195-3EFD30746B23" Path="ContextMenuDll.dll" ThreadingModel="STA"/>
             </com:SurrogateServer>
           </com:ComServer>
         </com:Extension>

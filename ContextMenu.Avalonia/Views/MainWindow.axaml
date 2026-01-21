@@ -3,18 +3,38 @@
         xmlns:vm="using:ContextMenu.Avalonia.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="450"
         x:Class="ContextMenu.Avalonia.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
+        Width="600" Height="400"
+        WindowStartupLocation="CenterScreen"
         Icon="/Assets/avalonia-logo.ico"
-        Title="ContextMenu.Avalonia">
+        Title="Kitopia Context Menu Manager">
 
     <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Grid RowDefinitions="Auto, *, Auto" Margin="20">
+        <StackPanel Grid.Row="0" Spacing="10">
+            <TextBlock Text="Kitopia Context Menu Manager" FontSize="20" FontWeight="Bold"/>
+            <TextBlock Text="{Binding StatusMessage}" Foreground="Gray" TextWrapping="Wrap"/>
+            
+            <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto">
+                 <TextBlock Grid.Column="0" Text="{Binding KitopiaPath, StringFormat='Installation: {0}'}" FontSize="12" Foreground="Gray" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                 <Button Grid.Column="1" Content="Browse..." Command="{Binding BrowsePathCommand}" Margin="10,0,0,0"/>
+            </Grid>
+        </StackPanel>
+
+        <ListBox Grid.Row="1" ItemsSource="{Binding Items}" Margin="0,20">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <CheckBox IsChecked="{Binding IsVisible}" Content="{Binding Title}"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <TextBlock Grid.Row="2" Text="Changes are saved automatically." HorizontalAlignment="Center" Foreground="Gray"/>
+    </Grid>
 
 </Window>
