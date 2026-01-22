@@ -150,7 +150,7 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("检查更新", "立即检查更新", 0xE974, ConfigFieldType.按钮,actionName: "检查更新")]
     public async Task CheckUpdate()
     {
-        await ServiceManager.Services.GetService<IApplicationService>()!.CheckUpdate();
+        await ServiceManager.Services.GetService<IApplicationService>()!.CheckUpdate(true);
     }
     
     public override void BeforeLoad()

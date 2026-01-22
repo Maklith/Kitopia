@@ -142,7 +142,7 @@ public class ApplicationService : IApplicationService
         return true;
     }
 
-    public async Task CheckUpdate()
+    public async Task CheckUpdate(bool toastIfNoUpdate)
     {
         var gitHubUpdateService = ServiceManager.Services.GetService<GitHubUpdateService>();
         var (hasUpdate, latestVersion, downloadUrl, releaseNotes) = await gitHubUpdateService!.CheckForUpdatesAsync();
@@ -214,8 +214,12 @@ public class ApplicationService : IApplicationService
         }
         else
         {
-            var toastService = ServiceManager.Services.GetService<IToastService>();
-            toastService.Show("更新", "无更新", NotificationType.Information);
+            if (toastIfNoUpdate)
+            {
+                var toastService = ServiceManager.Services.GetService<IToastService>()!;
+                toastService.Show("更新", "无更新", NotificationType.Information);
+            }
+            
         }
     }
 }

@@ -220,9 +220,9 @@ internal class Program
         }
     }
     
-    private static async Task CheckUpdates()
+    private static async Task CheckUpdates(bool toastIfNoUpdate = false)
     {
-        await ServiceManager.Services.GetService<IApplicationService>()!.CheckUpdate();
+        await ServiceManager.Services.GetService<IApplicationService>()!.CheckUpdate(toastIfNoUpdate);
     }
 
     public static void OnStartup(string[] arg)
@@ -233,8 +233,12 @@ internal class Program
         
         Task.Run((async () =>
         {
-            await CheckUpdates();
-            await Task.Delay(TimeSpan.FromMinutes(30));
+            while (true)
+            {
+                await CheckUpdates();
+                await Task.Delay(TimeSpan.FromMinutes(30));
+            }
+            
         }));
         
         
