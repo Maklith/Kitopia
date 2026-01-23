@@ -4,7 +4,11 @@ using System.Runtime.InteropServices.Marshalling;
 
 namespace ContextMenuDll.Interop;
 
+#if DEBUG
+[ComImport]
+#else
 [GeneratedComInterface]
+#endif
 [Guid("a08ce4d0-fa25-44ab-b57c-c7b1c323e0b9")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 public partial interface IExplorerCommand
@@ -19,7 +23,11 @@ public partial interface IExplorerCommand
     void EnumSubCommands([MarshalUsing(typeof(ComInterfaceMarshaller<IEnumExplorerCommand>))] out IEnumExplorerCommand? ppEnum);
 }
 
+#if DEBUG
+[ComImport]
+#else
 [GeneratedComInterface]
+#endif
 [Guid("a88826f8-186f-4987-aade-ea0cef8fbfe8")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 public partial interface IEnumExplorerCommand
@@ -33,7 +41,11 @@ public partial interface IEnumExplorerCommand
     void Clone([MarshalUsing(typeof(ComInterfaceMarshaller<IEnumExplorerCommand>))] out IEnumExplorerCommand ppEnum);
 }
 
+#if DEBUG
+[ComImport]
+#else
 [GeneratedComInterface]
+#endif
 [Guid("b63ea76d-1f85-456f-a19c-48159efa858b")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 public partial interface IShellItemArray
@@ -47,7 +59,11 @@ public partial interface IShellItemArray
     void EnumItems([MarshalAs(UnmanagedType.Interface)] out object ppenumShellItems);
 }
 
+#if DEBUG
+[ComImport]
+#else
 [GeneratedComInterface]
+#endif
 [Guid("43826d1e-e718-42ee-bc55-a1e261c37bfe")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 public partial interface IShellItem
@@ -98,7 +114,11 @@ public enum SIGDN : uint
     SIGDN_PARENTRELATIVE = 0x80080001
 }
 
+#if DEBUG
+[ComImport]
+#else
 [GeneratedComInterface]
+#endif
 [Guid("00000001-0000-0000-C000-000000000046")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 public partial interface IClassFactory

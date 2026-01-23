@@ -5,20 +5,41 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <Platforms>AnyCPU;x64</Platforms>
-        <EnableComHosting>false</EnableComHosting>
         <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
-        <PublishAot>true</PublishAot>
-        <PublishTrimmed>true</PublishTrimmed>
         <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-        <SelfContained>true</SelfContained>
-        <SingleFile>true</SingleFile>
+        
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <!-- AOT COM requires this -->
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
-    <ItemGroup>
-       <!-- Replacing Vanara with standard interop -->
+    <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+        <EnableComHosting>true</EnableComHosting>
+        <PublishAot>false</PublishAot>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)'!='Debug'">
+        <EnableComHosting>false</EnableComHosting>
+        <PublishAot>true</PublishAot>
+        <PublishTrimmed>true</PublishTrimmed>
+        <SelfContained>true</SelfContained>
+        <SingleFile>true</SingleFile>
+    </PropertyGroup>
+
+    <Target Name="UpdateSparsePackageManifest" AfterTargets="Build" Condition="'$(Configuration)'=='Debug'">
+        <PropertyGroup>
+            <ManifestFile>$(OutDir)SparsePackage.appxmanifest</ManifestFile>
+        </PropertyGroup>
+        <Exec Command="powershell -Command &quot;(Get-Content '$(ManifestFile)') -replace 'ContextMenuDll.dll', 'ContextMenuDll.comhost.dll' | Set-Content '$(ManifestFile)'&quot;" />
+    </Target>
+
+    <Target Name="CopyClsidMap" AfterTargets="Build" Condition="'$(Configuration)'=='Debug'">
+        <Copy SourceFiles="$(IntermediateOutputPath)$(TargetName).clsidmap" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    </Target>
+
+    <ItemGroup><!-- Replacing Vanara with standard interop -->
+    
+      <AvaloniaResource Include="Assets\icon.ico" />
     </ItemGroup>
 
     <ItemGroup>
@@ -28,6 +49,12 @@
       <Content Include="configs\KitopiaContextMenu.json">
         <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="Assets\icon.ico">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>

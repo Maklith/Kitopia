@@ -7,7 +7,9 @@ using ContextMenuDll.Interop;
 
 namespace ContextMenuDll;
 
+#if !DEBUG
 [GeneratedComClass]
+#endif
 [ComVisible(true)]
 [Guid("60DA6757-67FE-B7CE-8195-3EFD30746B23")]
 public partial class KitopiaExplorerCommand : IExplorerCommand
@@ -27,6 +29,17 @@ public partial class KitopiaExplorerCommand : IExplorerCommand
 
     private static unsafe string GetModulePath()
     {
+#if DEBUG
+        // In Debug (Managed), GetModuleHandleEx might fail.
+        // AppContext.BaseDirectory can be unreliable in some comhost scenarios.
+        // Use Assembly.Location.
+        var location = typeof(KitopiaExplorerCommand).Assembly.Location;
+        if (!string.IsNullOrEmpty(location))
+        {
+            return System.IO.Path.GetDirectoryName(location) ?? string.Empty;
+        }
+        return AppContext.BaseDirectory;
+#else
         try 
         {
             // Use GetModuleHandleEx with a pointer to this method to get the handle of the current DLL
@@ -47,6 +60,7 @@ public partial class KitopiaExplorerCommand : IExplorerCommand
         
         // Fallback (might point to explorer.exe)
         return AppContext.BaseDirectory;
+#endif
     }
 
     // Dummy method for address resolution
@@ -293,6 +307,7 @@ public partial class KitopiaExplorerCommand : IExplorerCommand
         }
     }
 
+#if !DEBUG
     [UnmanagedCallersOnly(EntryPoint = "DllGetClassObject")]
     public static unsafe int DllGetClassObject(Guid* rclsid, Guid* riid, IntPtr* ppv)
     {
@@ -333,6 +348,13 @@ public partial class KitopiaExplorerCommand : IExplorerCommand
         return -2147221231; // CLASS_E_CLASSNOTAVAILABLE
     }
 
+    [UnmanagedCallersOnly(EntryPoint = "DllCanUnloadNow")]
+    public static int DllCanUnloadNow()
+    {
+        return 0; // S_OK
+    }
+#endif
+
     private static void LogStatic(string message)
     {
         try
@@ -342,14 +364,9 @@ public partial class KitopiaExplorerCommand : IExplorerCommand
         }
         catch { }
     }
-
-    [UnmanagedCallersOnly(EntryPoint = "DllCanUnloadNow")]
-    public static int DllCanUnloadNow()
-    {
-        return 0; // S_OK
-    }
 }
 
+#if !DEBUG
 [GeneratedComClass]
 public partial class ClassFactory : IClassFactory
 {
@@ -411,9 +428,13 @@ public partial class ClassFactory : IClassFactory
         catch { }
     }
 }
+#endif
 
 
+#if !DEBUG
 [GeneratedComClass]
+#endif
+[ComVisible(true)]
 [Guid("1F2E3D4C-5B6A-7890-E1F2-A3B4C5D6E7F8")] // Random GUID
 public partial class ExplorerCommandEnumerator : IEnumExplorerCommand
 {
@@ -444,7 +465,11 @@ public partial class ExplorerCommandEnumerator : IEnumExplorerCommand
             // Convert to unmanaged interface pointer using ComInterfaceMarshaller
             // This is the AOT-safe way to get the COM pointer for a [GeneratedComClass] object
             // ConvertToUnmanaged returns void*, so we cast to IntPtr
+#if DEBUG
+            IntPtr pInterface = Marshal.GetComInterfaceForObject(subCmd, typeof(IExplorerCommand));
+#else
             IntPtr pInterface = (IntPtr)ComInterfaceMarshaller<IExplorerCommand>.ConvertToUnmanaged(subCmd);
+#endif
             
             ptr[0] = pInterface;
             
@@ -483,7 +508,10 @@ public partial class ExplorerCommandEnumerator : IEnumExplorerCommand
     }
 }
 
+#if !DEBUG
 [GeneratedComClass]
+#endif
+[ComVisible(true)]
 [Guid("4a132515-3843-4a84-9092-23c2184084f7")] // Arbitrary GUID for internal class
 public partial class SubExplorerCommand : IExplorerCommand
 {
