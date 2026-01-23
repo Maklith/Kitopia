@@ -69,8 +69,6 @@
   </Applications>
 
   <Capabilities>
-    <Capability Name="internetClient" />
     <rescap:Capability Name="runFullTrust" />
-    <rescap:Capability Name="unvirtualizedResources"/>
   </Capabilities>
 </Package>

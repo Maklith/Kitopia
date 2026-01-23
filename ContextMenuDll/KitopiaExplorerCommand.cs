@@ -12,7 +12,7 @@ namespace ContextMenuDll;
 #endif
 [ComVisible(true)]
 [Guid("60DA6757-67FE-B7CE-8195-3EFD30746B23")]
-public partial class KitopiaExplorerCommand : IExplorerCommand
+public partial class KitopiaExplorerCommand : IExplorerCommand, IShellExtInit, IContextMenu
 {
     private const string ConfigFileName = "KitopiaContextMenu.json";
     private ContextMenuConfig? _config;
@@ -524,21 +524,6 @@ public partial class SubExplorerCommand : IExplorerCommand
         _kitopiaPath = kitopiaPath;
     }
 
-    private string ResolvePath(string path)
-    {
-        if (string.IsNullOrEmpty(path)) return path;
-        
-        // If absolute, return as is
-        if (System.IO.Path.IsPathRooted(path)) return path;
-        
-        // If we have kitopia path, combine
-        if (!string.IsNullOrEmpty(_kitopiaPath))
-        {
-            return System.IO.Path.Combine(_kitopiaPath, path);
-        }
-        
-        return path;
-    }
     private void LogStatic(string message)
     {
         try
@@ -558,7 +543,7 @@ public partial class SubExplorerCommand : IExplorerCommand
     public void GetIcon(IShellItemArray? psiItemArray, out string ppszIcon)
     {
         LogStatic("SubCommand GetIcon called");
-        ppszIcon = ResolvePath(_item.Icon);
+        ppszIcon = CommandHelper.ResolvePath(_item.Icon, _kitopiaPath);
     }
 
     public void GetToolTip(IShellItemArray? psiItemArray, out string ppszInfotip)
@@ -582,12 +567,10 @@ public partial class SubExplorerCommand : IExplorerCommand
     public void Invoke(IShellItemArray? psiItemArray, object? pbc)
     {
         LogStatic("SubCommand Invoke called");
-        if (string.IsNullOrEmpty(_item.Command)) return;
-
+        
         var paths = new List<string>();
         if (psiItemArray != null)
         {
-            // psiItemArray is passed as interface.
             try
             {
                 psiItemArray.GetCount(out uint count);
@@ -617,90 +600,7 @@ public partial class SubExplorerCommand : IExplorerCommand
             catch { }
         }
 
-        try
-        {
-            if (paths.Count > 0)
-            {
-                // Simple replacement logic
-                string args = _item.Arguments ?? string.Empty;
-                string command = ResolvePath(_item.Command);
-
-                // Case 1: Multi-file placeholder {all} or %*
-                if (args.Contains("{all}") || args.Contains("%*"))
-                {
-                    var sb = new System.Text.StringBuilder();
-                    foreach (var p in paths) sb.Append($"\"{p}\" ");
-                    string allPaths = sb.ToString().Trim();
-                    
-                    string finalArgs = args
-                        .Replace("\"{all}\"", "{all}") // Remove existing quotes around placeholder
-                        .Replace("\"%*\"", "%*")       // Remove existing quotes around placeholder
-                        .Replace("{all}", allPaths)
-                        .Replace("%*", allPaths);
-                    
-                    LogStatic($"Executing (Case 1): {command} Args: {finalArgs}");
-                    
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = command,
-                        Arguments = finalArgs,
-                        UseShellExecute = true
-                    });
-                }
-                // Case 2: Per-file placeholder {0} or %1
-                else if (args.Contains("{0}") || args.Contains("%1"))
-                {
-                    foreach(var path in paths)
-                    {
-                        string quotedPath = $"\"{path}\"";
-                        string fileArgs = args
-                            .Replace("\"{0}\"", "{0}") // Remove existing quotes around placeholder
-                            .Replace("\"%1\"", "%1")   // Remove existing quotes around placeholder
-                            .Replace("{0}", quotedPath)
-                            .Replace("%1", quotedPath);
-
-                        LogStatic($"Executing (Case 2): {command} Args: {fileArgs}");
-                        Process.Start(new ProcessStartInfo
-                        {
-                            FileName = command,
-                            Arguments = fileArgs,
-                            UseShellExecute = true
-                        });
-                    }
-                }
-                    // Case 3: No placeholder - Append all paths (Run once)
-                else
-                {
-                    var sb = new System.Text.StringBuilder();
-                    if (!string.IsNullOrEmpty(args)) sb.Append(args + " ");
-                    foreach (var p in paths) sb.Append($"\"{p}\" ");
-                     
-                    var finalArgs = sb.ToString().Trim();
-                    LogStatic($"Executing (Case 3): {command} Args: {finalArgs}");
-
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = command,
-                        Arguments = finalArgs,
-                        UseShellExecute = true
-                    });
-                }
-            }
-            else
-            {
-                // No files selected (background click?), just run command
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = ResolvePath(_item.Command),
-                    Arguments = _item.Arguments,
-                    UseShellExecute = true
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error invoking command: {ex.Message}");
-        }
+        CommandHelper.ExecuteCommand(_item, paths, _kitopiaPath, LogStatic);
     }
 
     public void GetFlags(out uint pFlags)

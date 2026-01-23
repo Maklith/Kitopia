@@ -46,14 +46,14 @@
       <Content Include="SparsePackage.appxmanifest">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </Content>
-      <Content Include="configs\KitopiaContextMenu.json">
-        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-      </Content>
     </ItemGroup>
 
     <ItemGroup>
       <None Update="Assets\icon.ico">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Update="configs\KitopiaContextMenu.json">
+        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       </None>
     </ItemGroup>
 

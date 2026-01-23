@@ -20,7 +20,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private const string SettingsFileName = "ContextMenuSettings.json";
     private const string ConfigFileName = "KitopiaContextMenu.json";
 
-    [ObservableProperty] private string _statusMessage = "Initializing...";
+    [ObservableProperty] private string _statusMessage = "初始化中...";
     [ObservableProperty] private string _kitopiaPath = string.Empty;
     
     public ObservableCollection<ContextMenuItemViewModel> Items { get; } = new();
@@ -65,7 +65,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
             if (string.IsNullOrEmpty(installPath))
             {
-                StatusMessage = "Kitopia installation not found. Please set manually.";
+                StatusMessage = "未找到 Kitopia 安装位置，请手动设置。";
                 return;
             }
             KitopiaPath = installPath;
@@ -74,7 +74,7 @@ public partial class MainWindowViewModel : ViewModelBase
             var configPath = Path.Combine(installPath, "configs", ConfigFileName);
             if (!File.Exists(configPath))
             {
-                StatusMessage = $"Config not found at: {configPath}";
+                StatusMessage = $"未找到配置文件: {configPath}";
                 return;
             }
 
@@ -84,7 +84,7 @@ public partial class MainWindowViewModel : ViewModelBase
             
             if (config?.Items == null)
             {
-                StatusMessage = "Failed to parse config.";
+                StatusMessage = "解析配置文件失败。";
                 return;
             }
 
@@ -115,11 +115,11 @@ public partial class MainWindowViewModel : ViewModelBase
                 SaveSettings(settings);
             }
 
-            StatusMessage = "Loaded successfully.";
+            StatusMessage = "加载成功。";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
+            StatusMessage = $"错误: {ex.Message}";
         }
     }
 
@@ -130,7 +130,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             var folders = await desktop.MainWindow.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
             {
-                Title = "Select Kitopia Installation Folder",
+                Title = "选择 Kitopia 安装文件夹",
                 AllowMultiple = false
             });
 
@@ -155,7 +155,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
                 else
                 {
-                    StatusMessage = "Selected folder does not appear to be a valid Kitopia installation.";
+                    StatusMessage = "选择的文件夹似乎不是有效的 Kitopia 安装目录。";
                 }
             }
         }
@@ -260,7 +260,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Failed to save settings: {ex.Message}";
+            StatusMessage = $"保存设置失败: {ex.Message}";
         }
     }
 

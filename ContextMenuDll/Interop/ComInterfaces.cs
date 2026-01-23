@@ -126,3 +126,67 @@ public partial interface IClassFactory
     void CreateInstance([MarshalAs(UnmanagedType.Interface)] object? pUnkOuter, ref Guid riid, out IntPtr ppvObject);
     void LockServer([MarshalAs(UnmanagedType.Bool)] bool fLock);
 }
+
+#if DEBUG
+[ComImport]
+#else
+[GeneratedComInterface]
+#endif
+[Guid("000214e4-0000-0000-c000-000000000046")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public partial interface IContextMenu
+{
+    [PreserveSig]
+    int QueryContextMenu(IntPtr hMenu, uint indexMenu, uint idCmdFirst, uint idCmdLast, uint uFlags);
+    
+    [PreserveSig]
+    int InvokeCommand(IntPtr pici);
+    
+    [PreserveSig]
+    int GetCommandString(nuint idCmd, uint uType, IntPtr pReserved, IntPtr pszName, uint cchMax);
+}
+
+#if DEBUG
+[ComImport]
+#else
+[GeneratedComInterface]
+#endif
+[Guid("000214e8-0000-0000-c000-000000000046")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public partial interface IShellExtInit
+{
+    [PreserveSig]
+    int Initialize(IntPtr pidlFolder, IntPtr pdtobj, IntPtr hKeyProgID);
+}
+
+public enum CMF : uint
+{
+    CMF_NORMAL = 0x00000000,
+    CMF_DEFAULTONLY = 0x00000001,
+    CMF_VERBSONLY = 0x00000002,
+    CMF_EXPLORE = 0x00000004,
+    CMF_NOVERBS = 0x00000008,
+    CMF_CANRENAME = 0x00000010,
+    CMF_NODEFAULT = 0x00000020,
+    CMF_INCLUDESTATIC = 0x00000040,
+    CMF_ITEMMENU = 0x00000080,
+    CMF_EXTENDEDVERBS = 0x00000100,
+    CMF_DISABLEDVERBS = 0x00000200,
+    CMF_ASYNCVERBSTATE = 0x00000400,
+    CMF_OPTIMIZEFORINVOKE = 0x00000800,
+    CMF_SYNCCASCADEMENU = 0x00001000,
+    CMF_DONOTPICKDEFAULT = 0x00002000,
+    CMF_RESERVED = 0xffff0000
+}
+
+public enum GCS : uint
+{
+    GCS_VERBA = 0x00000000,
+    GCS_HELPTEXTA = 0x00000001,
+    GCS_VALIDATEA = 0x00000002,
+    GCS_VERBW = 0x00000004,
+    GCS_HELPTEXTW = 0x00000005,
+    GCS_VALIDATEW = 0x00000006,
+    GCS_VERBICONW = 0x00000014,
+    GCS_UNICODE = 0x00000004
+}

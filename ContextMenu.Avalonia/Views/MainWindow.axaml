@@ -9,7 +9,7 @@
         Width="600" Height="400"
         WindowStartupLocation="CenterScreen"
         Icon="/Assets/icon.ico"
-        Title="Kitopia Context Menu Manager">
+        Title="Kitopia 右键菜单管理器">
 
     <Design.DataContext>
         <vm:MainWindowViewModel/>
@@ -17,12 +17,12 @@
 
     <Grid RowDefinitions="Auto, *, Auto" Margin="20">
         <StackPanel Grid.Row="0" Spacing="10">
-            <TextBlock Text="Kitopia Context Menu Manager" FontSize="20" FontWeight="Bold"/>
+            <TextBlock Text="Kitopia 右键菜单管理器" FontSize="20" FontWeight="Bold"/>
             <TextBlock Text="{Binding StatusMessage}" Foreground="Gray" TextWrapping="Wrap"/>
             
             <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto">
-                 <TextBlock Grid.Column="0" Text="{Binding KitopiaPath, StringFormat='Installation: {0}'}" FontSize="12" Foreground="Gray" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                 <Button Grid.Column="1" Content="Browse..." Command="{Binding BrowsePathCommand}" Margin="10,0,0,0"/>
+                 <TextBlock Grid.Column="0" Text="{Binding KitopiaPath, StringFormat='安装位置: {0}'}" FontSize="12" Foreground="Gray" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                 <Button Grid.Column="1" Content="浏览..." Command="{Binding BrowsePathCommand}" Margin="10,0,0,0"/>
             </Grid>
         </StackPanel>
 
@@ -34,7 +34,7 @@
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <TextBlock Grid.Row="2" Text="Changes are saved automatically." HorizontalAlignment="Center" Foreground="Gray"/>
+        <TextBlock Grid.Row="2" Text="更改会自动保存。" HorizontalAlignment="Center" Foreground="Gray"/>
     </Grid>
 
 </Window>
