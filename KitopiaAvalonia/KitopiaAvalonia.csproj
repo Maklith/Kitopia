@@ -124,6 +124,10 @@
         <Compile Update="Windows\LongScreenshotProgressWindow.axaml.cs">
           <DependentUpon>LongScreenshotProgressWindow.axaml</DependentUpon>
         </Compile>
+        <Compile Update="Services\ToastShowWindow.axaml.cs">
+          <DependentUpon>ToastShowWindow.axaml</DependentUpon>
+          <SubType>Code</SubType>
+        </Compile>
     </ItemGroup>
     <ItemGroup>
         <Folder Include="Converter\MarketPage\"/>

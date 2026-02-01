@@ -136,7 +136,7 @@
                 </Panel>
             </Border>
 
-            <TextBlock Grid.Row="1" Grid.Column="1" Foreground="Gainsboro" Text="{x:Static pluginCore:ServiceManager.Version}" HorizontalAlignment="Right" VerticalAlignment="Bottom"></TextBlock>
+            <TextBlock Margin="0,0,5,3" Grid.Row="1" Grid.Column="1" Foreground="DarkGray" Text="{x:Static pluginCore:ServiceManager.Version}" HorizontalAlignment="Right" VerticalAlignment="Bottom"></TextBlock>
         </Grid>
         
     </Panel>

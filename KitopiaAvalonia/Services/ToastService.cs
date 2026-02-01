@@ -8,6 +8,7 @@ using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using Core.Services;
 using Core.ViewModel.Windows;
+using KitopiaAvalonia.Services;
 using PluginCore;
 using Serilog;
 using Ursa.Controls;

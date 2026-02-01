@@ -8,7 +8,7 @@
 using Avalonia;
 using Vanara.PInvoke;
 
-namespace Core.Window;
+namespace KitopiaAvalonia.Services;
 
 public partial class ToastShowWindow : Avalonia.Controls.Window
 {
