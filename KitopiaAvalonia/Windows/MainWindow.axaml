@@ -32,7 +32,7 @@
               Background="Transparent">
             <Image Margin="12 4"
                    IsHitTestVisible="False"
-
+                   Source="/Assets/icon.png"
                    Width="18" Height="18"
                    DockPanel.Dock="Left"
                    Name="WindowIcon"
