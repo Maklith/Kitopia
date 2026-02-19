@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -45,9 +45,51 @@ public partial class SettingPage : UserControl
             .GetCustomAttribute<ConfigName>()
             ?.Name ?? configBase.Name;
         StackPanel.Children.Clear();
-        LoadConfig();
+        LoadConfig(StackPanel, configBase);
     }
 
+    public void LoadAllConfigs()
+    {
+        disposables.Clear();
+        StackPanel.Children.Clear();
+        TextBlock.Text = "设置";
+        
+        // Main Config
+        var mainExpander = new Expander
+        {
+            Header = new TextBlock { Text = "主程序设置", FontSize = 18, FontWeight = FontWeight.Bold },
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            IsExpanded = true,
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        var mainStackPanel = new StackPanel();
+        mainExpander.Content = mainStackPanel;
+        StackPanel.Children.Add(mainExpander);
+        
+        LoadConfig(mainStackPanel, ConfigManger.Config);
+
+        // Plugin Configs
+        foreach (var config in ConfigManger.Configs.Values)
+        {
+            if (config == ConfigManger.Config) continue; 
+
+            var expander = new Expander
+            {
+                Header = new TextBlock { Text = config.GetType().GetCustomAttribute<ConfigName>()?.Name ?? config.Name, FontSize = 16 },
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                IsExpanded = false,
+                Margin = new Thickness(0, 5)
+            };
+            var stackPanel = new StackPanel();
+            expander.Content = stackPanel;
+            StackPanel.Children.Add(expander);
+            
+            LoadConfig(stackPanel, config);
+        }
+    }
+    
     ~SettingPage()
     {
         disposables.Dispose();
@@ -63,12 +105,16 @@ public partial class SettingPage : UserControl
     }
 
 
-    private void LoadConfig()
+    private void LoadConfig(Panel container, ConfigBase configBase)
     {
-        nowControl = StackPanel;
+        nowControl = (StackPanel)container;
+        _configBase = configBase; // Note: This sets the global _configBase to the last loaded config. 
+                                  // This is strictly for potential side effects if other methods use _configBase.
+                                  // However, our refactored LoadConfig uses the local 'configBase' parameter.
+                                  
         Application.Current.TryGetResource("FluentFont", null, out var font);
-        if (_configBase is null) return;
-        foreach (var fieldInfo in _configBase.GetType()
+        if (configBase is null) return;
+        foreach (var fieldInfo in configBase.GetType()
                      .GetFields(BindingFlags.Instance | BindingFlags.Public))
         {
             var configFieldCategory = fieldInfo.GetCustomAttribute<ConfigFieldCategory>();
@@ -86,7 +132,7 @@ public partial class SettingPage : UserControl
                 stackPanel.HorizontalAlignment = HorizontalAlignment.Stretch;
                 category.Content = stackPanel;
                 nowControl = stackPanel;
-                StackPanel.Children.Add(category);
+                container.Children.Add(category);
             }
 
             if (fieldInfo.GetCustomAttribute<ConfigField>() is { } configField)
@@ -104,7 +150,7 @@ public partial class SettingPage : UserControl
                     }
                 };
 
-                var selectedValue = fieldInfo.GetValue(_configBase);
+                var selectedValue = fieldInfo.GetValue(configBase);
                 switch (configField.FieldType)
                 {
                     case ConfigFieldType.字符串:
@@ -116,9 +162,9 @@ public partial class SettingPage : UserControl
                         disposables.Add(textBox.GetObservable(TextBox.TextProperty)
                             .Subscribe((d) =>
                             {
-                                _configBase.OnConfigChanged(this, fieldInfo.Name, d);
-                                fieldInfo.SetValue(_configBase, d);
-                                ConfigManger.Save(_configBase.Name);
+                                configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                fieldInfo.SetValue(configBase, d);
+                                ConfigManger.Save(configBase.Name);
                             }));
                         SettingsExpander.Footer = textBox;
                         break;
@@ -137,9 +183,9 @@ public partial class SettingPage : UserControl
                             textBox.GetObservable(NumericIntUpDown.ValueProperty)
                                 .Subscribe((d) =>
                                 {
-                                    _configBase.OnConfigChanged(this, fieldInfo.Name, d);
-                                    fieldInfo.SetValue(_configBase, d);
-                                    ConfigManger.Save(_configBase.Name);
+                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    fieldInfo.SetValue(configBase, d);
+                                    ConfigManger.Save(configBase.Name);
                                 }));
 
                         SettingsExpander.Footer = textBox;
@@ -159,9 +205,9 @@ public partial class SettingPage : UserControl
                             comboBox.GetObservable(ComboBox.SelectedValueProperty)
                                 .Subscribe((d) =>
                                 {
-                                    _configBase.OnConfigChanged(this, fieldInfo.Name, d);
-                                    fieldInfo.SetValue(_configBase, d);
-                                    ConfigManger.Save(_configBase.Name);
+                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    fieldInfo.SetValue(configBase, d);
+                                    ConfigManger.Save(configBase.Name);
                                 }));
                         SettingsExpander.Footer = comboBox;
                         break;
@@ -203,9 +249,9 @@ public partial class SettingPage : UserControl
                             slider.GetObservable(Slider.ValueProperty)
                                 .Subscribe((d) =>
                                 {
-                                    _configBase.OnConfigChanged(this, fieldInfo.Name, d);
-                                    fieldInfo.SetValue(_configBase, (int)d);
-                                    ConfigManger.Save(_configBase.Name);
+                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    fieldInfo.SetValue(configBase, (int)d);
+                                    ConfigManger.Save(configBase.Name);
                                 }));
                         stackPanel.Children.Add(textBox);
                         stackPanel.Children.Add(slider);
@@ -226,9 +272,9 @@ public partial class SettingPage : UserControl
                             textBox1.GetObservable(NumericDoubleUpDown.ValueProperty)
                                 .Subscribe((d) =>
                                 {
-                                    _configBase.OnConfigChanged(this, fieldInfo.Name, d);
-                                    fieldInfo.SetValue(_configBase, d);
-                                    ConfigManger.Save(_configBase.Name);
+                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    fieldInfo.SetValue(configBase, d);
+                                    ConfigManger.Save(configBase.Name);
                                 }));
 
                         SettingsExpander.Footer = textBox1;
@@ -246,9 +292,9 @@ public partial class SettingPage : UserControl
                             toggleSwitch.GetObservable(ToggleSwitch.IsCheckedProperty)
                                 .Subscribe((d) =>
                                 {
-                                    _configBase.OnConfigChanged(this, fieldInfo.Name, d);
-                                    fieldInfo.SetValue(_configBase, d);
-                                    ConfigManger.Save(_configBase.Name);
+                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    fieldInfo.SetValue(configBase, d);
+                                    ConfigManger.Save(configBase.Name);
                                 }));
                         SettingsExpander.Footer = toggleSwitch;
                         break;
@@ -262,9 +308,9 @@ public partial class SettingPage : UserControl
                             hotKeyControl.GetObservable(HotKeyShow.HotKeyModelProperty)
                                 .Subscribe((d) =>
                                 {
-                                    _configBase.OnConfigChanged(this, fieldInfo.Name, d);
-                                    fieldInfo.SetValue(_configBase, d);
-                                    ConfigManger.Save(_configBase.Name);
+                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    fieldInfo.SetValue(configBase, d);
+                                    ConfigManger.Save(configBase.Name);
                                 }));
                         SettingsExpander.Footer = hotKeyControl;
                         break;
@@ -288,16 +334,16 @@ public partial class SettingPage : UserControl
                                     comboBox.GetObservable(ComboBox.SelectedValueProperty)
                                         .Subscribe((d) =>
                                         {
-                                            _configBase.OnConfigChanged(this, fieldInfo.Name, d);
-                                            fieldInfo.SetValue(_configBase, d);
-                                            ConfigManger.Save(_configBase.Name);
+                                            configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                            fieldInfo.SetValue(configBase, d);
+                                            ConfigManger.Save(configBase.Name);
                                         }));
                                 SettingsExpander.Footer = comboBox;
                             }
                         }
 
                         if (configField.ActionName == null) break;
-                        if (_configBase.invokes.TryGetValue(configField.ActionName, out var value))
+                        if (configBase.invokes.TryGetValue(configField.ActionName, out var value))
                             if (value is Delegate func)
                             {
                                 // 使用 DynamicInvoke 来执行这个委托
@@ -314,9 +360,9 @@ public partial class SettingPage : UserControl
                                     comboBox.GetObservable(ComboBox.SelectedValueProperty)
                                         .Subscribe((d) =>
                                         {
-                                            _configBase.OnConfigChanged(this, fieldInfo.Name, d);
-                                            fieldInfo.SetValue(_configBase, d);
-                                            ConfigManger.Save(_configBase.Name);
+                                            configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                            fieldInfo.SetValue(configBase, d);
+                                            ConfigManger.Save(configBase.Name);
                                         }));
                                 SettingsExpander.Footer = comboBox;
                             }
@@ -339,12 +385,11 @@ public partial class SettingPage : UserControl
                         var enumerable = (IEnumerable?)selectedValue;
                         if (enumerable is ObservableCollection<string> observableCollection)
                         {
-                            observableCollection.CollectionChanged += ObservableCollectionChange;
-                            disposables.Add(
-                                new AnonymousDisposable(() =>
-                                {
-                                    observableCollection.CollectionChanged -= ObservableCollectionChange;
-                                }));
+                            NotifyCollectionChangedEventHandler handler = (sender, args) => ObservableCollectionChange(sender, args, configBase);
+                            observableCollection.CollectionChanged += handler;
+                            disposables.Add(new AnonymousDisposable(() => {
+                                observableCollection.CollectionChanged -= handler;
+                            }));
                         }
 
                         listShow.ItemsSource = enumerable;
@@ -366,12 +411,11 @@ public partial class SettingPage : UserControl
                         var enumerable = (IEnumerable?)selectedValue;
                         if (enumerable is ObservableCollection<string> observableCollection)
                         {
-                            observableCollection.CollectionChanged += ObservableCollectionChange;
-                            disposables.Add(
-                                new AnonymousDisposable(() =>
-                                {
-                                    observableCollection.CollectionChanged -= ObservableCollectionChange;
-                                }));
+                            NotifyCollectionChangedEventHandler handler = (sender, args) => ObservableCollectionChange(sender, args, configBase);
+                            observableCollection.CollectionChanged += handler;
+                            disposables.Add(new AnonymousDisposable(() => {
+                                observableCollection.CollectionChanged -= handler;
+                            }));
                         }
 
                         listShow.ItemsSource = enumerable;
@@ -387,7 +431,7 @@ public partial class SettingPage : UserControl
             }
         }
 
-        foreach (var methodInfo in _configBase.GetType().GetMethods())
+        foreach (var methodInfo in configBase.GetType().GetMethods())
         {
              var configFieldCategory = methodInfo.GetCustomAttribute<ConfigFieldCategory>();
             if (configFieldCategory is not null)
@@ -404,7 +448,7 @@ public partial class SettingPage : UserControl
                 stackPanel.HorizontalAlignment = HorizontalAlignment.Stretch;
                 category.Content = stackPanel;
                 nowControl = stackPanel;
-                StackPanel.Children.Add(category);
+                container.Children.Add(category);
             }
 
             if (methodInfo.GetCustomAttribute<ConfigField>() is { } configField)
@@ -431,7 +475,7 @@ public partial class SettingPage : UserControl
                         {
                             command = new AsyncRelayCommand(async () =>
                             {
-                                var result = methodInfo.Invoke(_configBase, null);
+                                var result = methodInfo.Invoke(configBase, null);
                                 if (result is System.Threading.Tasks.Task task)
                                 {
                                     await task;
@@ -442,7 +486,7 @@ public partial class SettingPage : UserControl
                         {
                             command = new RelayCommand(() =>
                             {
-                                methodInfo.Invoke(_configBase, null);
+                                methodInfo.Invoke(configBase, null);
                             });
                         }
 
@@ -465,10 +509,10 @@ public partial class SettingPage : UserControl
     }
 
     private void ObservableCollectionChange(object? sender,
-        NotifyCollectionChangedEventArgs notifyCollectionChangedEventArgs)
+        NotifyCollectionChangedEventArgs notifyCollectionChangedEventArgs, ConfigBase configBase)
     {
-        _configBase.OnConfigChanged(this, "", notifyCollectionChangedEventArgs.NewItems);
-        ConfigManger.Save(_configBase.Name);
+        configBase.OnConfigChanged(this, "", notifyCollectionChangedEventArgs.NewItems);
+        ConfigManger.Save(configBase.Name);
     }
 }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
@@ -33,7 +33,7 @@ public class ViewLocator : IValueConverter
             case "Setting":
             {
                 var settingPage = ServiceManager.Services.GetService<SettingPage>();
-                settingPage.ChangeConfig(ConfigManger.Config);
+                settingPage.LoadAllConfigs();
                 return settingPage;
             }
             default:
