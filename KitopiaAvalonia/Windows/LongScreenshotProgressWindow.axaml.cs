@@ -21,19 +21,28 @@ public partial class LongScreenshotProgressWindow : Window
 
     public void UpdateImage(Mat mat)
     {
-        // Must run on UI thread
+        // Convert to bitmap synchronously to ensure the Mat is valid during conversion.
+        // If we deferred this inside InvokeAsync, 'mat' might be disposed by the main loop before the UI thread runs.
+        var bitmap = mat.ToAWriteableBitmap();
+        
+        // Must run on UI thread to update the control
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (PreviewImage.Source is Bitmap old)
             {
                 old.Dispose();
             }
-            PreviewImage.Source = mat.ToAWriteableBitmap();
+            PreviewImage.Source = bitmap;
         });
+    }
+
+    public void RequestStop()
+    {
+        IsStopRequested = true;
     }
 
     private void StopButton_Click(object? sender, RoutedEventArgs e)
     {
-        IsStopRequested = true;
+        RequestStop();
     }
 }

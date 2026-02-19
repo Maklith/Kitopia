@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -265,6 +265,11 @@ public partial class ScreenCaptureWindow : Window
             }
             
             progressWindow.UpdateImage(accumulator);
+
+            // Setup Global Hook to stop on any key
+            using var hook = new SimpleGlobalHook();
+            hook.KeyPressed += (_, _) => progressWindow.RequestStop();
+            hook.RunAsync();
 
             // 5. Scroll and Stitch Loop
             int maxScrolls = 50;

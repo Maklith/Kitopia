@@ -83,7 +83,7 @@
 
 
     <ItemGroup>
-        <AdditionalFiles Include="UI\UiControls\Plugin\PluginDetail.axaml"/>
+        <AdditionalFiles Include="UI\UiControls\Plugin\PluginDetail.axaml" />
     </ItemGroup>
 
 </Project>
