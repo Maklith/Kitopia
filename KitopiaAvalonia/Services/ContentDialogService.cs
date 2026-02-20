@@ -21,17 +21,23 @@ public class ContentDialogService : IContentDialog
     {
         if (contentPresenter is null)
         {
-            Dispatcher.UIThread.InvokeAsync(() =>
+            var tcs = new TaskCompletionSource();
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 var dialog = new DialogWindow(dialogContent);
                 dialog.Show();
+                dialog.Closed += (sender, args) => { tcs.SetResult(); };
+                dialog.Show();
             });
+            await tcs.Task;
+            
             return;
         }
 
         await Task.Run(async () =>
         {
-            Dispatcher.UIThread.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (contentPresenter is ContentPresenter control)
                     control.Content = new DialogOvercover(dialogContent, canDismiss);
