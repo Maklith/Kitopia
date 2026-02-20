@@ -9,7 +9,7 @@ public class NodeConnectorClassCustomScenarioValueSerializer : ICustomScenarioVa
         return "";
     }
 
-    public object Deserialize(ReadOnlySpan<byte> value)
+    public object Deserialize(string? value)
     {
         return null;
     }

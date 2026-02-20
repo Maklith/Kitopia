@@ -1,4 +1,6 @@
-﻿using System.ComponentModel;
+﻿using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -50,8 +52,13 @@ public class SearchItemShow : Button
 
     public SearchItemShow()
     {
-        OnlyKeyProperty.Changed.AddClassHandler<SearchItemShow>(OnOnlyKeyChanged);
+       
         Command = new RelayCommand(ChosseCommand);
+    }
+
+    static SearchItemShow()
+    {
+        OnlyKeyProperty.Changed.AddClassHandler<SearchItemShow>(OnOnlyKeyChanged);
     }
 
     private void ChosseCommand()
@@ -60,7 +67,8 @@ public class SearchItemShow : Button
             item => { Dispatcher.UIThread.Post(() => { OnlyKey = item.OnlyKey; }); });
         ServiceManager.Services.GetService<SearchWindow>()!.Show();
 
-        ServiceManager.Services.GetService<WindowToolServiceWindow>().SetForegroundWindow(
+        var windowToolServiceWindow = ServiceManager.Services.GetService<IWindowTool>();
+        windowToolServiceWindow.SetForegroundWindow(
             ServiceManager.Services.GetService<SearchWindow>()!.TryGetPlatformHandle()
                 .Handle);
         ServiceManager.Services.GetService<SearchWindow>()!.tx.Focus();
@@ -76,7 +84,9 @@ public class SearchItemShow : Button
         var value = (string)e.NewValue;
         if (value is null) return;
 
-        if (ServiceManager.Services.GetService<SearchWindowViewModel>()!._collection.TryGetValue(value,
+        var searchViewItems = ServiceManager.Services.GetService<SearchWindowViewModel>()!._collection;
+        //var enumerable = searchViewItems.Where(e => e.Key.Contains("TopSAP")).ToList();
+        if (searchViewItems.TryGetValue(value,
                 out var searchViewItem))
         {
             searchItemShow.SearchViewItem = searchViewItem;

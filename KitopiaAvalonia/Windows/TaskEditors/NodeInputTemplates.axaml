@@ -54,7 +54,7 @@
                                FontSize="12"
                                x:Name="TypeNametextBlock"
                                Classes.IsNotUsed="{Binding IsNotUsed}"
-                               Text="{Binding  InputObject.Type,Converter={StaticResource NodeTypeNameI18NCtr}}" />
+                               Text="{Binding  InputObject.SerializeType,Converter={StaticResource NodeTypeNameI18NCtr}}" />
                     <TextBlock VerticalAlignment="Center"
 
                                Classes.IsNotUsed="{Binding IsNotUsed}"
@@ -99,7 +99,7 @@
                 FontSize="12"
                 Background="{DynamicResource SemiColorText0}"
                 Foreground="{DynamicResource SemiBackground4Color}"
-                Text="{Binding  InputObject.Type,Converter={StaticResource NodeTypeNameI18NCtr}}" />
+                Text="{Binding  InputObject.SerializeType,Converter={StaticResource NodeTypeNameI18NCtr}}" />
 
 
             <TextBlock

@@ -28,8 +28,8 @@ public class NodeInputDataTemplateSelector : IDataTemplate
         if (item is ConnectorItem pointItem)
         {
             // Check the type of the item and return the corresponding data template from the resources
-            if (!pointItem.InputObject.IsSelf || pointItem.InputObject.RealType == null ||
-                pointItem.InputObject.RealType.BaseType == null)
+            if (!pointItem.InputObject.IsSelf || pointItem.InputObject.ShowType == null ||
+                pointItem.InputObject.ShowType.BaseType == null)
                 return GetTemplate("InputTemplate")
                     .Build(item);
 
@@ -43,15 +43,15 @@ public class NodeInputDataTemplateSelector : IDataTemplate
                 return control;
             }
 
-            if (pointItem.InputObject.RealType.BaseType.FullName == "System.Enum")
+            if (pointItem.InputObject.ShowType.BaseType.FullName == "System.Enum")
             {
                 var control = GetTemplate("EnumTemplate").Build(item);
                 var childOfType = control.GetChildOfType<ComboBox>("ComboBox");
-                childOfType.ItemsSource = pointItem.InputObject.RealType.GetEnumValues();
+                childOfType.ItemsSource = pointItem.InputObject.ShowType.GetEnumValues();
                 return control;
             }
 
-            switch (pointItem.InputObject.RealType.FullName!)
+            switch (pointItem.InputObject.ShowType.FullName!)
             {
                 case "System.String":
                     return GetTemplate("StringTemplate").Build(item);

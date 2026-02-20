@@ -11,8 +11,8 @@ public class Int32CustomScenarioValueSerializer : ICustomScenarioValueSerializer
         return value.ToString();
     }
 
-    public object Deserialize(ReadOnlySpan<byte> value)
+    public object Deserialize(string? value)
     {
-        return int.Parse(Encoding.UTF8.GetString(value));
+        return int.Parse(value);
     }
 }

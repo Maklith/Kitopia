@@ -16,12 +16,11 @@ public class ScreenCaptureInfoCustomScenarioValueSerializer : ICustomScenarioVal
         return $"ScreenCaptureType={screenCaptureInfo.ScreenCaptureType},WindowInfo.Title={screenCaptureInfo.WindowInfo.Title},ScreenInfo.X={screenCaptureInfo.ScreenInfo.X},ScreenInfo.Y={screenCaptureInfo.ScreenInfo.Y},ScreenInfo.Height={screenCaptureInfo.ScreenInfo.Height},ScreenInfo.Width={screenCaptureInfo.ScreenInfo.Width},{nameof(screenCaptureInfo.X)}={screenCaptureInfo.X},{nameof(screenCaptureInfo.Y)}={screenCaptureInfo.Y},{nameof(screenCaptureInfo.Width)}={screenCaptureInfo.Width},{nameof(screenCaptureInfo.Height)}={screenCaptureInfo.Height}";
     }
 
-    public object Deserialize(ReadOnlySpan<byte> value)
+    public object Deserialize(string? str)
     {
-        var str = Encoding.UTF8.GetString(value);
         
-        var split = str.Split(',');
-        if (split.Length != 10)
+        var split = str?.Split(',');
+        if (split?.Length != 10)
         {
             return null;
         }

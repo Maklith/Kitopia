@@ -35,7 +35,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                     Source = String,
                     InputObject = new CustomScenarioValue
                     {
-                        Type = value
+                        SerializeType = value
                     },
                     Title = CustomScenarioGloble.GetI18N(value.FullName),
 
@@ -50,7 +50,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                     Source = String,
                     InputObject = new CustomScenarioValue
                     {
-                        Type = value,
+                        SerializeType = value,
                         Value = value.IsValueType ? Activator.CreateInstance(value) : null,
                         IsSelf = true
                     },

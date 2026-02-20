@@ -11,8 +11,8 @@ public class DoubleCustomScenarioValueSerializer : ICustomScenarioValueSerialize
         return value.ToString();
     }
 
-    public object Deserialize(ReadOnlySpan<byte> value)
+    public object Deserialize(string? value)
     {
-        return double.Parse(Encoding.UTF8.GetString(value));
+        return double.Parse(value);
     }
 }

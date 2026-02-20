@@ -96,7 +96,7 @@ public class ScenarioMethod
                 Source = pointItem,
                 InputObject = new CustomScenarioValue
                 {
-                    Type = typeof(NodeConnectorClass)
+                    SerializeType = typeof(NodeConnectorClass)
                 },
 
                 Title = "流输入"
@@ -127,7 +127,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = memberInfo.PropertyType,
+                                SerializeType = memberInfo.PropertyType,
                                 IsSelf = IsSelf,
                                 Value = defaultValue
                             },
@@ -145,7 +145,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = parameterInfo.ParameterType,
+                            SerializeType = parameterInfo.ParameterType,
                             IsSelf = IsSelf,
                             Value = defaultValue
                         },
@@ -158,8 +158,7 @@ public class ScenarioMethod
                     {
                         connectorItem.isPluginInputConnector = true;
                         connectorItem.InputObject.IsSelf = parameterInfo.GetCustomAttribute<SelfInput>() is not null;
-                        connectorItem.InputObject.RealType = connectorItem.InputObject.Type;
-                        connectorItem.InputObject.Type = customNodeInputType.Type;
+                        connectorItem.InputObject.ShowType =customNodeInputType.Type ;
                         try
                         {
                             var service = ServiceProvider.GetService(customNodeInputType.Type);
@@ -185,7 +184,7 @@ public class ScenarioMethod
                 ConnectorType = ConnectorType.Output,
                 InputObject = new CustomScenarioValue
                 {
-                    Type = typeof(NodeConnectorClass)
+                    SerializeType = typeof(NodeConnectorClass)
                 },
 
                 Title = "流输出"
@@ -204,7 +203,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = memberInfo.PropertyType
+                                SerializeType = memberInfo.PropertyType
                             },
 
                             AutoUnboxIndex = autoUnboxIndex,
@@ -225,8 +224,8 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            RealType= Method.ReturnParameter.ParameterType,
-                            Type = type
+                            ShowType= Method.ReturnParameter.ParameterType,
+                            SerializeType = type
                         },
 
                         Title = Attribute.GetParameterName("return"),
@@ -255,7 +254,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(NodeConnectorClass)
+                                SerializeType = typeof(NodeConnectorClass)
                             },
 
                             Title = "真",
@@ -266,7 +265,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(NodeConnectorClass)
+                                SerializeType = typeof(NodeConnectorClass)
                             },
                             Title = "假",
                             ConnectorType = ConnectorType.Output
@@ -280,7 +279,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(NodeConnectorClass)
+                                SerializeType = typeof(NodeConnectorClass)
                             },
                             Title = "流输入"
                         },
@@ -289,7 +288,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(bool)
+                                SerializeType = typeof(bool)
                             },
                             Title = CustomScenarioGloble.GetI18N(typeof(bool).FullName)
                         }
@@ -307,7 +306,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(NodeConnectorClass)
+                                SerializeType = typeof(NodeConnectorClass)
                             },
 
                             Title = "流输出",
@@ -318,7 +317,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(NodeConnectorClass)
+                                SerializeType = typeof(NodeConnectorClass)
                             },
                             ConnectorType = ConnectorType.Output,
                             Title = "流输出"
@@ -332,7 +331,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(NodeConnectorClass)
+                                SerializeType = typeof(NodeConnectorClass)
                             },
                             Title = "流输入"
                         }
@@ -350,7 +349,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(NodeConnectorClass)
+                                SerializeType = typeof(NodeConnectorClass)
                             },
                             Title = "流输出",
                             ConnectorType = ConnectorType.Output
@@ -360,7 +359,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(NodeConnectorClass)
+                                SerializeType = typeof(NodeConnectorClass)
                             },
                             ConnectorType = ConnectorType.Output,
                             Title = "流输出"
@@ -374,7 +373,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(NodeConnectorClass)
+                                SerializeType = typeof(NodeConnectorClass)
                             },
                             Title = "流输入"
                         },
@@ -383,7 +382,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(int),
+                                SerializeType = typeof(int),
                                 Value = (double)2,
                                 IsSelf = true
                             },
@@ -406,7 +405,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(bool)
+                                SerializeType = typeof(bool)
                             },
                             Title = CustomScenarioGloble.GetI18N(typeof(bool).FullName),
                             ConnectorType = ConnectorType.Output
@@ -420,7 +419,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(NodeConnectorClass)
+                                SerializeType = typeof(NodeConnectorClass)
                             },
                             Title = "流输入"
                         },
@@ -429,7 +428,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(object)
+                                SerializeType = typeof(object)
                             },
                             Title = CustomScenarioGloble.GetI18N(typeof(object).FullName)
                         },
@@ -438,7 +437,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(object)
+                                SerializeType = typeof(object)
                             },
                             Title = CustomScenarioGloble.GetI18N(typeof(object).FullName)
                         }
@@ -455,7 +454,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(NodeConnectorClass)
+                            SerializeType = typeof(NodeConnectorClass)
                         },
 
                         Title = "流输入"
@@ -465,7 +464,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = ValueDataType
+                            SerializeType = ValueDataType
                         },
 
                         Title = "设置"
@@ -478,7 +477,7 @@ public class ScenarioMethod
                         ConnectorType = ConnectorType.Output,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(NodeConnectorClass)
+                            SerializeType = typeof(NodeConnectorClass)
                         },
                         Title = "流输出"
                     });
@@ -494,7 +493,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(NodeConnectorClass)
+                            SerializeType = typeof(NodeConnectorClass)
                         },
                         Title = "流输入"
                     });
@@ -505,7 +504,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(NodeConnectorClass)
+                            SerializeType = typeof(NodeConnectorClass)
                         },
                         ConnectorType = ConnectorType.Output,
                         Title = "流输出"
@@ -515,7 +514,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = ValueDataType
+                            SerializeType = ValueDataType
                         },
 
                         Title = "获取",
@@ -533,7 +532,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(NodeConnectorClass)
+                            SerializeType = typeof(NodeConnectorClass)
                         },
 
                         Title = "流输入"
@@ -543,7 +542,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(object)
+                            SerializeType = typeof(object)
                         },
 
                         Title = "设置"
@@ -556,7 +555,7 @@ public class ScenarioMethod
                         ConnectorType = ConnectorType.Output,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(NodeConnectorClass)
+                            SerializeType = typeof(NodeConnectorClass)
                         },
                         Title = "流输出"
                     });
@@ -572,7 +571,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(NodeConnectorClass)
+                            SerializeType = typeof(NodeConnectorClass)
                         },
                         Title = "流输入"
                     });
@@ -583,7 +582,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(NodeConnectorClass)
+                            SerializeType = typeof(NodeConnectorClass)
                         },
                         ConnectorType = ConnectorType.Output,
                         Title = "流输出"
@@ -593,7 +592,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(object)
+                            SerializeType = typeof(object)
                         },
 
                         Title = "获取",
@@ -611,7 +610,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(NodeConnectorClass)
+                            SerializeType = typeof(NodeConnectorClass)
                         },
                         Title = "流输入"
                     });
@@ -622,7 +621,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(NodeConnectorClass)
+                            SerializeType = typeof(NodeConnectorClass)
                         },
                         ConnectorType = ConnectorType.Output,
                         Title = "流输出"
@@ -632,7 +631,7 @@ public class ScenarioMethod
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = ValueDataType
+                            SerializeType = ValueDataType
                         },
 
                         Title = "获取",
@@ -648,9 +647,10 @@ public class ScenarioMethod
                     outItems.Add(new ConnectorItem
                     {
                         Source = pointItem,
+                        ConnectorType = ConnectorType.Output,
                         InputObject = new CustomScenarioValue
                         {
-                            Type = typeof(NodeConnectorClass)
+                            SerializeType = typeof(NodeConnectorClass)
                         },
                         Title = "流输出"
                     });
@@ -662,7 +662,7 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(NodeConnectorClass)
+                                SerializeType = typeof(NodeConnectorClass)
                             },
                             Title = "流输入"
                         },
@@ -671,8 +671,8 @@ public class ScenarioMethod
                             Source = pointItem,
                             InputObject = new CustomScenarioValue
                             {
-                                Type = typeof(string),
-                                RealType = typeof(SearchViewItem),
+                                SerializeType = typeof(string),
+                                ShowType = typeof(SearchViewItem),
                                 Value = "",
                                 IsSelf = true
                             },

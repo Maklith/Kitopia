@@ -30,11 +30,11 @@ public class CustomScenarioGloble
 
     public static Dictionary<Type, ICustomScenarioValueSerializer> JsonConverters = new()
     {
-        { typeof(string), new StringCustomScenarioValueSerializer() },
         { typeof(bool), new BoolCustomScenarioValueSerializer() },
         { typeof(NodeConnectorClass), new NodeConnectorClassCustomScenarioValueSerializer() },
         { typeof(int), new Int32CustomScenarioValueSerializer() },
         { typeof(double), new DoubleCustomScenarioValueSerializer() }
+       
     };
 
     public static IEnumerable<CustomScenarioValueTuple> GetAllCouldUseTypeInValue

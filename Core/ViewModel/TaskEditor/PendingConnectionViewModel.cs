@@ -41,21 +41,21 @@ public partial class PendingConnectionViewModel : ObservableRecipient
                     break;
                 }
 
-                if (Source.InputObject.RealType.FullName != con.InputObject.RealType.FullName)
+                if (Source.InputObject.ShowType.FullName != con.InputObject.ShowType.FullName)
                 {
-                    if (con.InputObject.RealType.FullName == "System.Object")
+                    if (con.InputObject.ShowType.FullName == "System.Object")
                     {
                         PreviewText = "连接";
                         break;
                     }
 
-                    if (Source.InputObject.RealType.FullName == "System.Object")
+                    if (Source.InputObject.ShowType.FullName == "System.Object")
                     {
                         PreviewText = "连接";
                         break;
                     }
 
-                    if (con.InputObject.RealType.IsAssignableFrom(Source.InputObject.RealType))
+                    if (con.InputObject.ShowType.IsAssignableFrom(Source.InputObject.ShowType))
                     {
                         PreviewText = "连接";
                         break;
@@ -92,11 +92,11 @@ public partial class PendingConnectionViewModel : ObservableRecipient
 
         if (target == Source || target.Source == Source.Source) return;
 
-        if (Source.InputObject?.RealType.FullName != target.InputObject?.RealType.FullName &&
+        if (Source.InputObject?.ShowType.FullName != target.InputObject?.ShowType.FullName &&
             target.InputObject != null &&
-            !(target.InputObject.RealType.IsAssignableFrom(Source.InputObject?.RealType) ||
-              Source.InputObject?.RealType.FullName == "System.Object" ||
-              target.InputObject?.RealType.FullName == "System.Object"))
+            !(target.InputObject.ShowType.IsAssignableFrom(Source.InputObject?.ShowType) ||
+              Source.InputObject?.ShowType.FullName == "System.Object" ||
+              target.InputObject?.ShowType.FullName == "System.Object"))
             return;
 
         if (Source.ConnectorType != ConnectorType.Both && Source.ConnectorType == target.ConnectorType) return;

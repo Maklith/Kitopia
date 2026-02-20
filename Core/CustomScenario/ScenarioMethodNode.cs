@@ -143,8 +143,8 @@ public partial class KnotNodeViewModel : ScenarioNodeBase
             Source = item,
             InputObject = new CustomScenarioValue
             {
-                RealType = Connector.InputObject.RealType,
-                Type = Connector.InputObject.Type,
+                ShowType = Connector.InputObject.ShowType,
+                SerializeType = Connector.InputObject.SerializeType,
                 Value = Connector.InputObject.Value
             }
         };
@@ -236,7 +236,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                     var type = ScenarioMethod.Method.ReturnParameter.ParameterType;
                     foreach (var memberInfo in type.GetProperties())
                     foreach (var connectorItem in Output)
-                        if (connectorItem.InputObject.Type == memberInfo.PropertyType)
+                        if (connectorItem.InputObject.SerializeType == memberInfo.PropertyType)
                         {
                             var value = invoke.GetType()
                                 .InvokeMember(memberInfo.Name,
@@ -359,7 +359,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                 if (Input == null || Input.Count == 0) break;
 
                 var connectorItem =
-                    Enumerable.First<ConnectorItem>(Input, e => e.InputObject.RealType != typeof(NodeConnectorClass));
+                    Enumerable.First<ConnectorItem>(Input, e => e.InputObject.ShowType != typeof(NodeConnectorClass));
                 if (connectorItem == null) break;
 
                 foreach (var item in Output) item.InputObject.Value = connectorItem.InputObject.Value;
@@ -371,7 +371,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
         //将节点数据赋值给下一个节点
         foreach (var connectorItem in Output)
         {
-            if (connectorItem.InputObject.RealType == typeof(NodeConnectorClass)) continue;
+            if (connectorItem.InputObject.ShowType == typeof(NodeConnectorClass)) continue;
 
             foreach (var sourceOrNextConnectorItem in connectorItem.GetSourceOrNextConnectorItems(connections, false))
                 sourceOrNextConnectorItem.InputObject.Value = connectorItem.InputObject.Value;
@@ -399,8 +399,8 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                 Title = connectorItem.Title,
                 InputObject = new CustomScenarioValue
                 {
-                    RealType = connectorItem.InputObject.RealType,
-                    Type = connectorItem.InputObject.Type,
+                    ShowType = connectorItem.InputObject.ShowType,
+                    SerializeType = connectorItem.InputObject.SerializeType,
                     Value = connectorItem.InputObject.Value,
                     IsSelf = connectorItem.InputObject.IsSelf
                 },
@@ -422,8 +422,8 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                 Title = connectorItem.Title,
                 InputObject = new CustomScenarioValue
                 {
-                    RealType = connectorItem.InputObject.RealType,
-                    Type = connectorItem.InputObject.Type,
+                    ShowType = connectorItem.InputObject.ShowType,
+                    SerializeType = connectorItem.InputObject.SerializeType,
                     Value = connectorItem.InputObject.Value
                 },
 
@@ -461,7 +461,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
         foreach (var connectorItem in Input)
             if (!connectorItem.IsConnected)
             {
-                if (connectorItem.InputObject.Type.FullName != "PluginCore.NodeConnectorClass")
+                if (connectorItem.InputObject.SerializeType.FullName != "PluginCore.NodeConnectorClass")
                 {
                     //当前节点有一个输入参数不存在,验证失败
                     if (!connectorItem.InputObject.IsSelf) return false;
@@ -471,7 +471,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                     connectorItem.IsNotUsed = true;
                 }
             }
-            else if (connectorItem.InputObject.Type.FullName == "PluginCore.NodeConnectorClass")
+            else if (connectorItem.InputObject.SerializeType.FullName == "PluginCore.NodeConnectorClass")
             {
                 connectorItem.IsNotUsed = false;
             }
@@ -508,18 +508,19 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
 
     public void ConnectorInit(ConnectorItem connectorItem)
     {
-        if (connectorItem.InputObject.RealType == typeof(NodeConnectorClass)) return;
+        if (connectorItem.InputObject.ShowType == typeof(NodeConnectorClass)) return;
 
         if (connectorItem.InputObject is null) return;
         if (connectorItem.isPluginInputConnector)
         {
-            var instance = Activator.CreateInstance(connectorItem.InputObject.Type);
+           
+            var instance = Activator.CreateInstance(connectorItem.InputObject.ShowType);
             instance.GetType().GetProperty("Value").SetValue(instance, new ObservableValue
             {
                 Value = new CustomScenarioValue
                 {
-                    Type = connectorItem.InputObject.Type,
-                    RealType = connectorItem.InputObject.RealType,
+                    SerializeType = connectorItem.InputObject.SerializeType,
+                    ShowType = connectorItem.InputObject.ShowType,
                     Value = connectorItem.InputObject.Value
                 }
             });
@@ -533,10 +534,10 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
         var pluginManger = ServiceManager.Services.GetService<IPluginManger>()!;
         return ScenarioMethod.PluginInfo?.ToPlgString() == plugStr ||
                Enumerable.Any<ConnectorItem>(Input, e =>
-                   pluginManger.IsTypeFromThePlugin(e.InputObject?.RealType, plugStr) ||
-                   pluginManger.IsTypeFromThePlugin(e.InputObject?.Type, plugStr)) ||
+                   pluginManger.IsTypeFromThePlugin(e.InputObject?.ShowType, plugStr) ||
+                   pluginManger.IsTypeFromThePlugin(e.InputObject?.SerializeType, plugStr)) ||
                Enumerable.Any<ConnectorItem>(Output, e =>
-                   pluginManger.IsTypeFromThePlugin(e.InputObject?.RealType, plugStr) ||
-                   pluginManger.IsTypeFromThePlugin(e.InputObject?.Type, plugStr));
+                   pluginManger.IsTypeFromThePlugin(e.InputObject?.ShowType, plugStr) ||
+                   pluginManger.IsTypeFromThePlugin(e.InputObject?.SerializeType, plugStr));
     }
 }

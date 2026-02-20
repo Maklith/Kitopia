@@ -113,16 +113,16 @@ public partial class TaskNodeSearchViewModel : ObservableObject
             return false; 
         }
 
-        if (source.InputObject?.RealType.FullName != target.InputObject?.RealType.FullName)
+        if (source.InputObject?.ShowType.FullName != target.InputObject?.ShowType.FullName)
         {
-            if (target.InputObject?.RealType.FullName == "System.Object" || 
-                source.InputObject?.RealType.FullName == "System.Object")
+            if (target.InputObject?.ShowType.FullName == "System.Object" || 
+                source.InputObject?.ShowType.FullName == "System.Object")
             {
                 return true;
             }
 
             if (source.InputObject != null && target.InputObject != null && 
-                target.InputObject.RealType.IsAssignableFrom(source.InputObject.RealType))
+                target.InputObject.ShowType.IsAssignableFrom(source.InputObject.ShowType))
             {
                 return true;
             }
@@ -157,8 +157,8 @@ public partial class TaskNodeSearchViewModel : ObservableObject
                 foreach (var item in items)
                 {
                     var wrapper = new NodeSearchItemViewModel(item);
-                    var inputs = string.Join(", ", item.Input.Skip(1).Select(i => i.InputObject?.RealType.Name ?? "Unknown"));
-                    var outputs = string.Join(", ", item.Output.Select(o => o.InputObject?.RealType.Name ?? "Unknown"));
+                    var inputs = string.Join(", ", item.Input.Skip(1).Select(i => i.InputObject?.ShowType.Name ?? "Unknown"));
+                    var outputs = string.Join(", ", item.Output.Select(o => o.InputObject?.ShowType.Name ?? "Unknown"));
                     
                     if (string.IsNullOrEmpty(inputs)) inputs = "None";
                     if (string.IsNullOrEmpty(outputs)) outputs = "None";

@@ -53,7 +53,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 Source = nodify2,
                 InputObject = new CustomScenarioValue
                 {
-                    Type = typeof(NodeConnectorClass)
+                    SerializeType = typeof(NodeConnectorClass)
                 },
 
                 Title = "开始"
@@ -74,7 +74,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 Source = nodify3,
                 InputObject = new CustomScenarioValue
                 {
-                    Type = typeof(NodeConnectorClass)
+                    SerializeType = typeof(NodeConnectorClass)
                 },
                 Title = "开始"
             }
@@ -148,7 +148,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                 Source = e.ScenarioMethodNode,
                                 InputObject = new CustomScenarioValue
                                 {
-                                    Type = typeof(NodeConnectorClass)
+                                    SerializeType = typeof(NodeConnectorClass)
                                 },
                                 Title = "流输出",
                                 ConnectorType = ConnectorType.Output
@@ -176,7 +176,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                             Source = e.ScenarioMethodNode,
                                             InputObject = new CustomScenarioValue
                                             {
-                                                Type = value.GetType()
+                                                SerializeType = value.GetType()
                                             },
                                             Title = key
                                         });
@@ -463,7 +463,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 .Any(e => e.Source == source && e.Target == target))
                 return;
 
-        if (source.InputObject?.Type.FullName == "PluginCore.NodeConnectorClass")
+        if (source.InputObject?.SerializeType==typeof(NodeConnectorClass))
             if (source.IsConnected)
             {
                 var connectionsToRemove = Scenario.connections
@@ -526,8 +526,8 @@ public partial class TaskEditorViewModel : ObservableRecipient
             Source = knot,
             InputObject = new CustomScenarioValue
             {
-                Type = typeof(object),
-                RealType = typeof(object),
+                SerializeType = typeof(object),
+                ShowType = typeof(object),
                 Value = null
             }
         };

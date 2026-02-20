@@ -484,11 +484,11 @@ public partial class CustomScenario : ObservableRecipient
 
         return nodes.Any(e => e.IsUseThePlugin(plugStr)) ||
                Enumerable.Any<KeyValuePair<string, CustomScenarioValue>>(InputValue, e =>
-                   pluginManger.IsTypeFromThePlugin(e.Value.Type, plugStr) ||
-                   pluginManger.IsTypeFromThePlugin(e.Value.RealType, plugStr)) ||
+                   pluginManger.IsTypeFromThePlugin(e.Value.SerializeType, plugStr) ||
+                   pluginManger.IsTypeFromThePlugin(e.Value.ShowType, plugStr)) ||
                Enumerable.Any<KeyValuePair<string, CustomScenarioValue>>(Values, e =>
-                   pluginManger.IsTypeFromThePlugin(e.Value.Type, plugStr) ||
-                   pluginManger.IsTypeFromThePlugin(e.Value.RealType, plugStr));
+                   pluginManger.IsTypeFromThePlugin(e.Value.SerializeType, plugStr) ||
+                   pluginManger.IsTypeFromThePlugin(e.Value.ShowType, plugStr));
     }
 
     public void OnDeserialized() //反序列化时hotkeys的默认值会被添加,需要先清空

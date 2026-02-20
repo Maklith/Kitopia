@@ -100,12 +100,12 @@ public partial class TaskEditorValueToScenarioMethodNode : UserControl
                 if (x.ValueForward == ValueForward.Set)
                 {
                     x.Node = new ScenarioMethod(ScenarioMethodType.VariableSet)
-                        { ValueName = values2.Key, ValueDataType = values2.Value.Type }.GenerateNode();
+                        { ValueName = values2.Key, ValueDataType = values2.Value.SerializeType }.GenerateNode();
                 }
                 else
                 {
                     x.Node = new ScenarioMethod(ScenarioMethodType.VariableGet)
-                        { ValueName = values2.Key, ValueDataType = values2.Value.Type }.GenerateNode();
+                        { ValueName = values2.Key, ValueDataType = values2.Value.SerializeType }.GenerateNode();
                 }
 
                 break;
@@ -113,7 +113,7 @@ public partial class TaskEditorValueToScenarioMethodNode : UserControl
             {
                 KeyValuePair<string, CustomScenarioValue> values3 = x.Source;
                 x.Node = new ScenarioMethod(ScenarioMethodType.InputVariableGet)
-                    { ValueName = values3.Key, ValueDataType = values3.Value.Type }.GenerateNode();
+                    { ValueName = values3.Key, ValueDataType = values3.Value.SerializeType }.GenerateNode();
 
 
                 break;

@@ -34,8 +34,8 @@ public partial class ScreenCaptureInfoSelfConnector : ObservableObject, PluginCo
     {
         Value = new CustomScenarioValue()
         {
-            RealType = typeof(ScreenCaptureInfo),
-            Type = typeof(ScreenCaptureInfoSelfConnector)
+            ShowType = typeof(ScreenCaptureInfoSelfConnector),
+            SerializeType = typeof(ScreenCaptureInfo)
         }
     };
 

@@ -75,7 +75,7 @@ public partial class ConnectorItem : ObservableRecipient
         get
         {
             if (InputObject == null) return null;
-            var type = InputObject.RealType;
+            var type = InputObject.ShowType;
             
             if (type.FullName == null || type.FullName.StartsWith("System.")) return null;
             List<string> interfaces = new();

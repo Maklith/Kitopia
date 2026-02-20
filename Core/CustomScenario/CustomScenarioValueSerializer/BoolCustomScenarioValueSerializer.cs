@@ -12,8 +12,8 @@ public class BoolCustomScenarioValueSerializer : ICustomScenarioValueSerializer
         return value.ToString();
     }
 
-    public object Deserialize(ReadOnlySpan<byte> value)
+    public object Deserialize(string? value)
     {
-        return bool.Parse(Encoding.UTF8.GetString(value));
+        return bool.Parse(value);
     }
 }
