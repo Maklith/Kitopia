@@ -425,18 +425,35 @@ public partial class ScreenCaptureWindow : Window
 
         if (_nowTool is 截图工具.马赛克 or 截图工具.批准)
         {
-            var round = (int)Math.Round((decimal)StrokeWidth.Value, MidpointRounding.AwayFromZero) + (_nowTool == 截图工具.马赛克 ? 7 : 4);
-            var renderTargetBitmap = new RenderTargetBitmap(new PixelSize(round, round));
+            var scaling = 1.0;
+            var screen = Screens.ScreenFromPoint(Position);
+            if (screen != null) scaling = screen.Scaling;
+
+            // 画笔真实直径
+            double diameter = StrokeWidth.Value + (_nowTool == 截图工具.马赛克 ? 5 : 0);
+            // 光标边框厚度
+            double cursorStrokeThickness = 2;
+            
+            // 为了防止边框被裁剪，逻辑边界需要比真实直径大一个边框厚度（因为 Stroke 是居中绘制的）
+            double logicalSize = diameter + cursorStrokeThickness;
+            
+            var pixelSize = (int)Math.Round(logicalSize * scaling, MidpointRounding.AwayFromZero);
+            if (pixelSize < 1) pixelSize = 1;
+
+            var renderTargetBitmap = new RenderTargetBitmap(new PixelSize(pixelSize, pixelSize), new Vector(96 * scaling, 96 * scaling));
             var ellipse = new Ellipse();
             ellipse.Stroke = new SolidColorBrush(ColorPicker.Color!);
-            ellipse.StrokeThickness = 2;
-            ellipse.Width = round;
-            ellipse.Height = round;
-            ellipse.Measure(new Size(round, round));
-            ellipse.Arrange(new Rect(new Point(0, 0), new Size(round, round)));
+            ellipse.StrokeThickness = cursorStrokeThickness;
+            ellipse.Width = diameter;
+            ellipse.Height = diameter;
+            
+            // 测量和排列使用逻辑总大小，这样圆形就能居中且边框完全保留
+            ellipse.Measure(new Size(logicalSize, logicalSize));
+            ellipse.Arrange(new Rect(new Point(0, 0), new Size(logicalSize, logicalSize)));
             renderTargetBitmap.Render(ellipse);
+            
             SelectBox.Cursor?.Dispose();
-            SelectBox.Cursor = new Cursor(renderTargetBitmap, new PixelPoint(round / 2, round / 2));
+            SelectBox.Cursor = new Cursor(renderTargetBitmap, new PixelPoint(pixelSize / 2, pixelSize / 2));
         }
         else
         {
