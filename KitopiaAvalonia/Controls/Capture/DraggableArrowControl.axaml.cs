@@ -116,7 +116,7 @@ public class DraggableArrowControl : CaptureToolBase
         if (e.GetCurrentPoint(TopLevel.GetTopLevel(this)).Properties.IsLeftButtonPressed)
         {
             e.Pointer.Capture((IInputElement?)sender);
-            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
+            this.GetParentOfType<ScreenCaptureWindow>().RedoStack.Push(new ScreenCaptureRedoInfo
             {
                 EditType = ScreenCaptureEditType.移动,
                 Target = this,
@@ -160,7 +160,7 @@ public class DraggableArrowControl : CaptureToolBase
             _isDragging = true;
             e.Pointer.Capture((IInputElement?)sender);
             _dragStartPoint = e.GetPosition(TopLevel.GetTopLevel(this));
-            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
+            this.GetParentOfType<ScreenCaptureWindow>().RedoStack.Push(new ScreenCaptureRedoInfo
             {
                 EditType = ScreenCaptureEditType.移动,
                 Target = this,

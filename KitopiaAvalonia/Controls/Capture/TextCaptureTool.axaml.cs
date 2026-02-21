@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.VisualTree;
+using Avalonia.Controls.Primitives;
 using Core.Utils;
 using KitopiaAvalonia.SDKs;
 using KitopiaAvalonia.Windows;
@@ -54,11 +55,11 @@ public class TextCaptureTool : CaptureToolBase
                 return;
             }
 
-            if (this.GetParentOfType<ScreenCaptureWindow>().redoStack.TryPeek(out var result))
+            if (this.GetParentOfType<ScreenCaptureWindow>().RedoStack.TryPeek(out var result))
             {
                 if (result.Type != 截图工具.文本)
                 {
-                    this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
+                    this.GetParentOfType<ScreenCaptureWindow>().RedoStack.Push(new ScreenCaptureRedoInfo
                     {
                         EditType = ScreenCaptureEditType.调整大小,
                         Target = this,
@@ -72,7 +73,7 @@ public class TextCaptureTool : CaptureToolBase
             }
             else
             {
-                this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
+                this.GetParentOfType<ScreenCaptureWindow>().RedoStack.Push(new ScreenCaptureRedoInfo
                 {
                     EditType = ScreenCaptureEditType.调整大小,
                     Target = this,
@@ -93,6 +94,11 @@ public class TextCaptureTool : CaptureToolBase
         set => SetValue(StartTranslateTransformProperty, value);
     }
 
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+    }
+
     #region Internal Control: Dragging
 
     private bool _isDragging;
@@ -102,10 +108,17 @@ public class TextCaptureTool : CaptureToolBase
     {
         base.OnPointerPressed(e);
         if (e.Handled) return;
-        var visualParent = (Canvas)this.GetVisualParent();
-        foreach (var canvasChild in visualParent.Children)
-            if (canvasChild is CaptureToolBase captureTool)
-                captureTool.IsSelected = false;
+
+        // Make sure clicking the text box area correctly focuses and selects this tool
+        Focus();
+        
+        var visualParent = (Canvas?)this.GetVisualParent();
+        if (visualParent != null)
+        {
+            foreach (var canvasChild in visualParent.Children)
+                if (canvasChild is CaptureToolBase captureTool)
+                    captureTool.IsSelected = false;
+        }
 
         IsSelected = true;
 
@@ -115,6 +128,7 @@ public class TextCaptureTool : CaptureToolBase
             e.Pointer.Capture(this);
             _dragStartPoint = e.GetPosition(TopLevel.GetTopLevel(this));
         }
+        e.Handled = true;
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)

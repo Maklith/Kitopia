@@ -50,25 +50,25 @@ public partial class ScreenCaptureWindow : Window
     private int count = 0;
     private bool Finish = false;
 
-    private Button lastTool;
-    private CaptureToolBase Now截图工具;
+    private Button? _lastTool;
+    private CaptureToolBase _now截图工具;
 
-    private SelectionState NowSelectionState = SelectionState.None;
+    private SelectionState _nowSelectionState = SelectionState.None;
 
-    public 截图工具 NowTool = 截图工具.无;
-    public Stack<ScreenCaptureRedoInfo> redoStack = new();
-    private RenderTargetBitmap? renderTargetBitmap;
-    private bool selectBytesMode = false;
-    private Action<ScreenCaptureResult> selectBytesModeAction;
-    private Action selectBytesModeCancelAction;
-    private bool selectMode = false;
-    private Action<ScreenCaptureInfo> selectModeAction;
-    private List<CaptureToolBase> tools = new();
+    private 截图工具 _nowTool = 截图工具.无;
+    public readonly Stack<ScreenCaptureRedoInfo> RedoStack = new();
+    private RenderTargetBitmap? _renderTargetBitmap;
+    private bool _selectBytesMode = false;
+    private Action<ScreenCaptureResult> _selectBytesModeAction;
+    private Action _selectBytesModeCancelAction;
+    private bool _selectMode = false;
+    private Action<ScreenCaptureInfo> _selectModeAction;
+    private List<CaptureToolBase> _tools = new();
     
-    private byte[]? _screenPixels;
-    private int _pixelWidth;
-    private int _pixelHeight;
-    private WriteableBitmap? _magnifierBmp;
+    private readonly byte[]? _screenPixels;
+    private readonly int _pixelWidth;
+    private readonly int _pixelHeight;
+    private readonly WriteableBitmap? _magnifierBmp;
     private const int MagnifierSize = 11; // 11x11 grid
 
     public ScreenCaptureWindow(IEnumerable<ScreenCaptureResult> screenCaptureResults)
@@ -194,7 +194,7 @@ public partial class ScreenCaptureWindow : Window
                 }
                 case "Selected":
                 {
-                    NowSelectionState = SelectionState.Selected;
+                    _nowSelectionState = SelectionState.Selected;
                     Cursor?.Dispose();
                     Cursor = Cursor.Default;
 
@@ -344,20 +344,20 @@ public partial class ScreenCaptureWindow : Window
         }
     }
 
-    private bool ShowAlignLine => NowSelectionState == SelectionState.Selected;
+    private bool ShowAlignLine => _nowSelectionState == SelectionState.Selected;
 
     public void SetToSelectMode(Action<ScreenCaptureInfo> selectModeAction)
     {
-        selectMode = true;
-        this.selectModeAction = selectModeAction;
+        _selectMode = true;
+        this._selectModeAction = selectModeAction;
     }
 
     public void SetToSelectBytesMode(Action<ScreenCaptureResult> selectBytesModeAction,
         Action selectBytesModeCancelAction)
     {
-        selectBytesMode = true;
-        this.selectBytesModeAction = selectBytesModeAction;
-        this.selectBytesModeCancelAction = selectBytesModeCancelAction;
+        _selectBytesMode = true;
+        this._selectBytesModeAction = selectBytesModeAction;
+        this._selectBytesModeCancelAction = selectBytesModeCancelAction;
     }
 
 
@@ -407,60 +407,55 @@ public partial class ScreenCaptureWindow : Window
         SelectBox.LocationOrSizeChanged -= LocationOrSizeChanged;
         StrokeWidth.ValueChanged -= StrokeWidthOnValueChanged;
         ColorPicker.ColorChanged -= ColorPickerOnColorChanged;
-        renderTargetBitmap?.Dispose();
+        _renderTargetBitmap?.Dispose();
         MosaicImage.OpacityMask = null;
 
-        if (selectBytesMode && !Finish) selectBytesModeCancelAction.Invoke();
+        if (_selectBytesMode && !Finish) _selectBytesModeCancelAction.Invoke();
 
         base.OnClosed(e);
     }
 
     private void ColorPickerOnColorChanged(object? sender, ColorChangedEventArgs e)
     {
-        switch (Now截图工具)
+    }
+
+    private void UpdateBrushCursor()
+    {
+        if (_nowSelectionState != SelectionState.Selected) return;
+
+        if (_nowTool is 截图工具.马赛克 or 截图工具.批准)
         {
-            case DraggableArrowControl draggableArrowControl:
-                draggableArrowControl.Stroke = new SolidColorBrush(e.NewColor);
-                draggableArrowControl.Fill = new SolidColorBrush(e.NewColor);
-                break;
-            case DraggableResizeableControl draggableResizeableControl:
-                ((Shape)draggableResizeableControl.Content).Stroke = new SolidColorBrush(e.NewColor);
-                break;
-            case PenCaptureTool penCaptureTool:
-                penCaptureTool.Stroke = new SolidColorBrush(e.NewColor);
-                break;
-            case TextCaptureTool textCaptureTool:
-                textCaptureTool.Foreground = new SolidColorBrush(e.NewColor);
-                break;
+            var round = (int)Math.Round((decimal)StrokeWidth.Value, MidpointRounding.AwayFromZero) + (_nowTool == 截图工具.马赛克 ? 7 : 4);
+            var renderTargetBitmap = new RenderTargetBitmap(new PixelSize(round, round));
+            var ellipse = new Ellipse();
+            ellipse.Stroke = new SolidColorBrush(ColorPicker.Color!);
+            ellipse.StrokeThickness = 2;
+            ellipse.Width = round;
+            ellipse.Height = round;
+            ellipse.Measure(new Size(round, round));
+            ellipse.Arrange(new Rect(new Point(0, 0), new Size(round, round)));
+            renderTargetBitmap.Render(ellipse);
+            SelectBox.Cursor?.Dispose();
+            SelectBox.Cursor = new Cursor(renderTargetBitmap, new PixelPoint(round / 2, round / 2));
+        }
+        else
+        {
+            SelectBox.Cursor?.Dispose();
+            SelectBox.Cursor = new Cursor(StandardCursorType.SizeAll);
         }
     }
 
-private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEventArgs valueChangedEventArgs)
+    private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEventArgs valueChangedEventArgs)
     {
         var newValue = valueChangedEventArgs.NewValue;
-        switch (Now截图工具)
-        {
-            case DraggableArrowControl draggableArrowControl:
-                draggableArrowControl.StrokeThickness = (double)newValue;
-                draggableArrowControl.ArrowSize = new Size(8 * draggableArrowControl.StrokeThickness,
-                    8 * draggableArrowControl.StrokeThickness);
-                break;
-            case DraggableResizeableControl draggableResizeableControl:
-                ((Shape)draggableResizeableControl.Content).StrokeThickness = (double)newValue;
-                break;
-            case PenCaptureTool penCaptureTool:
-                penCaptureTool.StrokeThickness = (double)newValue;
-                break;
-            case TextCaptureTool textCaptureTool:
-                textCaptureTool.FontSize = (double)(13 + newValue);
-                break;
-        }
 
-        if (NowTool == 截图工具.马赛克)
+        if (_nowTool == 截图工具.马赛克)
         {
             MosaicCanvas.StrokeThickness = (double)(5 + newValue);
-            renderTargetBitmap?.Render(MosaicCanvas);
+            _renderTargetBitmap?.Render(MosaicCanvas);
         }
+        
+        UpdateBrushCursor();
     }
 
     protected void LocationOrSizeChanged(object? sender, LocationOrSizeChangedEventArgs locationOrSizeChangedEventArgs)
@@ -474,7 +469,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
         base.OnKeyDown(e);
         if (e.Key == Key.Escape)
         {
-            if (NowSelectionState == SelectionState.Selected)
+            if (_nowSelectionState == SelectionState.Selected)
             {
                 if (Redo()) return;
                 WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");
@@ -537,9 +532,9 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
 
     private void CompletedSelection()
     {
-        if (NowSelectionState == SelectionState.Selected) return;
-        if (NowSelectionState == SelectionState.MoveSelecting) _startPoint = _pointerStartPoint;
-        NowSelectionState = SelectionState.Selected;
+        if (_nowSelectionState == SelectionState.Selected) return;
+        if (_nowSelectionState == SelectionState.MoveSelecting) _startPoint = _pointerStartPoint;
+        _nowSelectionState = SelectionState.Selected;
         if (SelectBox.Height < 10) SelectBox.Height = 10;
 
         if (SelectBox.Width < 10) SelectBox.Width = 10;
@@ -555,7 +550,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
         WeakReferenceMessenger.Default.Send<string, string>("Selected", "ScreenCapture");
         UpdateSelectBox();
 
-        if (ConfigManger.Config.截图直接复制到剪贴板 || selectBytesMode || selectMode)
+        if (ConfigManger.Config.截图直接复制到剪贴板 || _selectBytesMode || _selectMode)
             FinnishCapture();
         else
             UpdateToolBar();
@@ -572,11 +567,11 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
             return;
         }
 
-        if (NowSelectionState == SelectionState.Selected) return;
+        if (_nowSelectionState == SelectionState.Selected) return;
         if (e.GetCurrentPoint(this)
             .Properties.IsLeftButtonPressed)
         {
-            NowSelectionState = SelectionState.WindowSelecting;
+            _nowSelectionState = SelectionState.WindowSelecting;
             SelectBox.IsVisible = true;
             Cursor?.Dispose();
             Cursor = new Cursor(StandardCursorType.BottomRightCorner);
@@ -591,27 +586,27 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
     {
         base.OnPointerReleased(e);
         if (e.InitialPressMouseButton == MouseButton.Right)
-            if (NowSelectionState == SelectionState.None)
+            if (_nowSelectionState == SelectionState.None)
                 WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");
-        if (NowSelectionState == SelectionState.Selected) return;
+        if (_nowSelectionState == SelectionState.Selected) return;
         CompletedSelection();
     }
 
     protected override void OnPointerEntered(PointerEventArgs e)
     {
         base.OnPointerEntered(e);
-        if (NowSelectionState == SelectionState.Selected) return;
-        NowSelectionState = SelectionState.WindowSelecting;
-        if (NowSelectionState == SelectionState.WindowSelecting) SelectWindow(e);
+        if (_nowSelectionState == SelectionState.Selected) return;
+        _nowSelectionState = SelectionState.WindowSelecting;
+        if (_nowSelectionState == SelectionState.WindowSelecting) SelectWindow(e);
     }
 
     protected override void OnPointerExited(PointerEventArgs e)
     {
         base.OnPointerExited(e);
 
-        if (NowSelectionState != SelectionState.None) return;
+        if (_nowSelectionState != SelectionState.None) return;
 
-        if (NowSelectionState != SelectionState.Selected) NowSelectionState = SelectionState.None;
+        if (_nowSelectionState != SelectionState.Selected) _nowSelectionState = SelectionState.None;
 
         SelectBox.Width = 0;
         SelectBox.Height = 0;
@@ -633,21 +628,21 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
             return;
         }
 
-        if (NowSelectionState == SelectionState.Selected) return;
+        if (_nowSelectionState == SelectionState.Selected) return;
 
-        if (NowSelectionState == SelectionState.None) NowSelectionState = SelectionState.WindowSelecting;
+        if (_nowSelectionState == SelectionState.None) _nowSelectionState = SelectionState.WindowSelecting;
         var position = e.GetPosition(this);
 
-        if (e.Properties.IsLeftButtonPressed && NowSelectionState is SelectionState.WindowSelecting
+        if (e.Properties.IsLeftButtonPressed && _nowSelectionState is SelectionState.WindowSelecting
                                              && Math.Pow(position.Y - _startPoint.Y, 2) +
                                              Math.Pow(position.X - _startPoint.X, 2) > 1300)
         {
-            NowSelectionState = SelectionState.MoveSelecting;
+            _nowSelectionState = SelectionState.MoveSelecting;
             _startPoint = _pointerStartPoint;
         }
 
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-            if (NowSelectionState == SelectionState.MoveSelecting)
+            if (_nowSelectionState == SelectionState.MoveSelecting)
             {
                 var selectBoxHeight = e.GetPosition(this)
                     .Y - _startPoint.Y;
@@ -679,7 +674,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
                 UpdateSelectBox();
             }
 
-        if (NowSelectionState == SelectionState.WindowSelecting) SelectWindow(e);
+        if (_nowSelectionState == SelectionState.WindowSelecting) SelectWindow(e);
     }
 
     private void SelectWindow(PointerEventArgs e)
@@ -766,7 +761,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
         {
             if (!(StrokeWidth.Value > 1)) StrokeWidth.Value = 1;
 
-            switch (NowTool)
+            switch (_nowTool)
             {
                 case 截图工具.无:
                 {
@@ -790,7 +785,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
 
                     Canvas.Children.Add(dragarea);
                     Adding截图工具 = true;
-                    Now截图工具 = dragarea;
+                    _now截图工具 = dragarea;
 
                     dragarea.Focus();
                     break;
@@ -812,7 +807,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
 
                     Canvas.Children.Add(dragarea);
                     Adding截图工具 = true;
-                    Now截图工具 = dragarea;
+                    _now截图工具 = dragarea;
                     dragarea.Focus();
                     break;
                 }
@@ -830,7 +825,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
                     dragarea.ArrowSize = new Size(8 * dragarea.StrokeThickness, 8 * dragarea.StrokeThickness);
                     Canvas.Children.Add(dragarea);
                     Adding截图工具 = true;
-                    Now截图工具 = dragarea;
+                    _now截图工具 = dragarea;
                     dragarea.Focus();
                     break;
                 }
@@ -848,7 +843,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
                     rectangle.Height = Height;
                     Canvas.Children.Add(rectangle);
                     Adding截图工具 = true;
-                    Now截图工具 = rectangle;
+                    _now截图工具 = rectangle;
                     rectangle.Focus();
                     break;
                 }
@@ -868,7 +863,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
                     dragarea.FontSize = (double)(13 + StrokeWidth.Value);
                     Canvas.Children.Add(dragarea);
                     Adding截图工具 = true;
-                    Now截图工具 = dragarea;
+                    _now截图工具 = dragarea;
                     dragarea.Focus();
                     break;
                 }
@@ -907,15 +902,15 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
                                     MosaicImage.Source = writeableBitmap2;
                                 }
 
-                            renderTargetBitmap = new RenderTargetBitmap(new PixelSize((int)Width, (int)Height),
+                            _renderTargetBitmap = new RenderTargetBitmap(new PixelSize((int)Width, (int)Height),
                                 new Vector(96, 96));
 
-                            var brush = new ImageBrush(renderTargetBitmap);
+                            var brush = new ImageBrush(_renderTargetBitmap);
                             MosaicImage.OpacityMask = brush;
-                            renderTargetBitmap?.Render(MosaicCanvas);
+                            _renderTargetBitmap?.Render(MosaicCanvas);
                         });
                     _startPoint = position;
-                    redoStack.Push(new ScreenCaptureRedoInfo
+                    RedoStack.Push(new ScreenCaptureRedoInfo
                     {
                         EditType = ScreenCaptureEditType.移动,
                         Type = 截图工具.马赛克,
@@ -943,11 +938,11 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
             return;
         }
 
-        if (NowSelectionState == SelectionState.Selected)
+        if (_nowSelectionState == SelectionState.Selected)
         {
             if (!(StrokeWidth.Value > 1)) StrokeWidth.Value = 1;
 
-            switch (NowTool)
+            switch (_nowTool)
             {
                 case 截图工具.无:
                 {
@@ -961,56 +956,18 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
                     break;
                 }
                 case 截图工具.马赛克:
-                {
-                    if (!SelectBox.Cursor.ToString()
-                            .Equals("BitmapCursor"))
-                    {
-                        var round = (int)Math.Round((decimal)StrokeWidth.Value, MidpointRounding.AwayFromZero) + 7;
-                        var renderTargetBitmap = new RenderTargetBitmap(new PixelSize(round, round));
-                        var ellipse = new Ellipse();
-                        ellipse.Stroke = new SolidColorBrush(ColorPicker.Color!);
-                        ellipse.StrokeThickness = 2;
-                        ellipse.Width = round;
-                        ellipse.Height = round;
-                        ellipse.Measure(new Size(round, round));
-                        ellipse.Arrange(new Rect(new Point(0, 0), new Size(round, round)));
-                        renderTargetBitmap.Render(ellipse);
-                        SelectBox.Cursor.Dispose();
-                        SelectBox.Cursor = new Cursor(renderTargetBitmap,
-                            new PixelPoint(round / 2, round / 2));
-                    }
-
-                    break;
-                }
                 case 截图工具.批准:
                 {
-                    if (!SelectBox.Cursor.ToString()
-                            .Equals("BitmapCursor"))
-                    {
-                        var round = (int)Math.Round((decimal)StrokeWidth.Value, MidpointRounding.AwayFromZero) + 2;
-                        var renderTargetBitmap = new RenderTargetBitmap(new PixelSize(round, round));
-                        var ellipse = new Ellipse();
-                        ellipse.Stroke = new SolidColorBrush(ColorPicker.Color!);
-                        ellipse.StrokeThickness = 2;
-                        ellipse.Width = round;
-                        ellipse.Height = round;
-                        ellipse.Measure(new Size(round, round));
-                        ellipse.Arrange(new Rect(new Point(0, 0), new Size(round, round)));
-                        renderTargetBitmap.Render(ellipse);
-                        SelectBox.Cursor.Dispose();
-                        SelectBox.Cursor = new Cursor(renderTargetBitmap,
-                            new PixelPoint(round / 2, round / 2));
-                    }
-
+                    UpdateBrushCursor();
                     break;
                 }
                 default:
                 {
                     if (!SelectBox.Cursor.ToString()
-                            .Equals("SizeAll"))
+                            .Equals("Cross"))
                     {
                         SelectBox.Cursor?.Dispose();
-                        SelectBox.Cursor = Cursor.Default;
+                        SelectBox.Cursor = new Cursor(StandardCursorType.Cross);
                     }
 
                     break;
@@ -1020,34 +977,34 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
 
         if (!Adding截图工具) return;
 
-        if (NowTool == 截图工具.文本) return;
+        if (_nowTool == 截图工具.文本) return;
 
-        if (NowTool == 截图工具.箭头)
+        if (_nowTool == 截图工具.箭头)
         {
-            ((DraggableArrowControl)Now截图工具).Target = e.GetPosition(this);
+            ((DraggableArrowControl)_now截图工具).Target = e.GetPosition(this);
         }
-        else if (NowTool == 截图工具.批准)
+        else if (_nowTool == 截图工具.批准)
         {
-            ((PenCaptureTool)Now截图工具).Points.Add(e.GetPosition(this));
+            ((PenCaptureTool)_now截图工具).Points.Add(e.GetPosition(this));
         }
-        else if (NowTool == 截图工具.马赛克)
+        else if (_nowTool == 截图工具.马赛克)
         {
-            if (redoStack.TryPeek(out var result))
+            if (RedoStack.TryPeek(out var result))
             {
                 if (result.Type != 截图工具.马赛克)
-                    redoStack.Push(new ScreenCaptureRedoInfo
+                    RedoStack.Push(new ScreenCaptureRedoInfo
                     {
                         EditType = ScreenCaptureEditType.移动,
                         Type = 截图工具.马赛克,
                         points = new List<Point> { e.GetPosition(this) }
                     });
                 else
-                    redoStack.Peek()
+                    RedoStack.Peek()
                         .points.Add(e.GetPosition(this));
             }
             else
             {
-                redoStack.Push(new ScreenCaptureRedoInfo
+                RedoStack.Push(new ScreenCaptureRedoInfo
                 {
                     EditType = ScreenCaptureEditType.移动,
                     Type = 截图工具.马赛克,
@@ -1057,7 +1014,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
 
 
             MosaicCanvas.Points.Add(e.GetPosition(this));
-            renderTargetBitmap?.Render(MosaicCanvas);
+            _renderTargetBitmap?.Render(MosaicCanvas);
         }
         else
         {
@@ -1068,25 +1025,25 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
 
             if (selectBoxHeight < 0)
             {
-                Now截图工具.Height = -selectBoxHeight;
-                ((DraggableResizeableControl)Now截图工具)._dragTransform.Y = _startPoint.Y + selectBoxHeight;
+                _now截图工具.Height = -selectBoxHeight;
+                ((DraggableResizeableControl)_now截图工具)._dragTransform.Y = _startPoint.Y + selectBoxHeight;
             }
             else
             {
-                Now截图工具.Height = selectBoxHeight;
-                ((DraggableResizeableControl)Now截图工具)._dragTransform.Y = _startPoint.Y;
+                _now截图工具.Height = selectBoxHeight;
+                ((DraggableResizeableControl)_now截图工具)._dragTransform.Y = _startPoint.Y;
             }
 
 
             if (selectBoxWidth < 0)
             {
-                Now截图工具.Width = -selectBoxWidth;
-                ((DraggableResizeableControl)Now截图工具)._dragTransform.X = _startPoint.X + selectBoxWidth;
+                _now截图工具.Width = -selectBoxWidth;
+                ((DraggableResizeableControl)_now截图工具)._dragTransform.X = _startPoint.X + selectBoxWidth;
             }
             else
             {
-                Now截图工具.Width = selectBoxWidth;
-                ((DraggableResizeableControl)Now截图工具)._dragTransform.X = _startPoint.X;
+                _now截图工具.Width = selectBoxWidth;
+                ((DraggableResizeableControl)_now截图工具)._dragTransform.X = _startPoint.X;
             }
         }
 
@@ -1097,23 +1054,23 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
     {
         if (e.InitialPressMouseButton == MouseButton.Left && Adding截图工具)
         {
-            if (NowTool != 截图工具.马赛克)
-                redoStack.Push(new ScreenCaptureRedoInfo
+            if (_nowTool != 截图工具.马赛克)
+                RedoStack.Push(new ScreenCaptureRedoInfo
                 {
-                    Type = NowTool,
-                    Target = Now截图工具,
+                    Type = _nowTool,
+                    Target = _now截图工具,
                     EditType = ScreenCaptureEditType.添加,
                     startPoint = _startPoint,
-                    Size = Now截图工具.DesiredSize,
+                    Size = _now截图工具.DesiredSize,
                     points = null
                 });
 
-            if (NowTool == 截图工具.马赛克)
+            if (_nowTool == 截图工具.马赛克)
             {
-                if (redoStack.TryPeek(out var result))
+                if (RedoStack.TryPeek(out var result))
                 {
                     if (result.Type != 截图工具.马赛克)
-                        redoStack.Push(new ScreenCaptureRedoInfo
+                        RedoStack.Push(new ScreenCaptureRedoInfo
                         {
                             EditType = ScreenCaptureEditType.移动,
                             Type = 截图工具.马赛克,
@@ -1122,7 +1079,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
                 }
                 else
                 {
-                    redoStack.Push(new ScreenCaptureRedoInfo
+                    RedoStack.Push(new ScreenCaptureRedoInfo
                     {
                         EditType = ScreenCaptureEditType.移动,
                         Type = 截图工具.马赛克,
@@ -1133,7 +1090,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
 
                 MosaicCanvas.Points.Add(new Point(-1, -1));
 
-                renderTargetBitmap?.Render(MosaicCanvas);
+                _renderTargetBitmap?.Render(MosaicCanvas);
             }
 
             Adding截图工具 = false;
@@ -1145,27 +1102,27 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
     {
         if (Adding截图工具)
         {
-            if (NowTool != 截图工具.马赛克)
-                redoStack.Push(new ScreenCaptureRedoInfo
+            if (_nowTool != 截图工具.马赛克)
+                RedoStack.Push(new ScreenCaptureRedoInfo
                 {
-                    Type = NowTool,
-                    Target = Now截图工具,
+                    Type = _nowTool,
+                    Target = _now截图工具,
                     EditType = ScreenCaptureEditType.添加,
                     startPoint = _startPoint,
-                    Size = Now截图工具.DesiredSize,
+                    Size = _now截图工具.DesiredSize,
                     points = null
                 });
 
-            if (NowTool == 截图工具.马赛克)
+            if (_nowTool == 截图工具.马赛克)
             {
-                if (redoStack.TryPeek(out var result))
+                if (RedoStack.TryPeek(out var result))
                     if (result.Type == 截图工具.马赛克)
-                        redoStack.Peek()
+                        RedoStack.Peek()
                             .points.Add(new Point(-1, -1));
 
 
                 MosaicCanvas.Points.Add(new Point(-1, -1));
-                renderTargetBitmap?.Render(MosaicCanvas);
+                _renderTargetBitmap?.Render(MosaicCanvas);
             }
 
             Adding截图工具 = false;
@@ -1263,7 +1220,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
 
     private void Rectangle_OnPointerEntered(object? sender, PointerEventArgs e)
     {
-        if (NowSelectionState == SelectionState.Selected)
+        if (_nowSelectionState == SelectionState.Selected)
             if (!Cursor.ToString()
                     .Equals("Default"))
             {
@@ -1278,7 +1235,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
         if (_screenPixels == null || ColorInspector == null || _pixelWidth == 0 || _pixelHeight == 0) return;
         
         // Don't show if selecting
-        if (NowSelectionState != SelectionState.None && NowSelectionState != SelectionState.WindowSelecting) 
+        if (_nowSelectionState != SelectionState.None && _nowSelectionState != SelectionState.WindowSelecting) 
         {
              ColorInspector.IsVisible = false;
              return;
@@ -1404,7 +1361,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
             var x = Math.Max((int)dragTransformX, 0);
             var y = Math.Max((int)dragTransformY, 0);
 
-            if (selectMode && _currentWindowInfo.Hwnd != IntPtr.Zero)
+            if (_selectMode && _currentWindowInfo.Hwnd != IntPtr.Zero)
             {
                 return new ScreenCaptureInfo
                 {
@@ -1492,9 +1449,9 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
             var x = Math.Max((int)dragTransformX, 0);
             var y = Math.Max((int)dragTransformY, 0);
 
-            if (selectMode)
+            if (_selectMode)
             {
-                selectModeAction.Invoke(info);
+                _selectModeAction.Invoke(info);
             }
             else
             {
@@ -1528,10 +1485,10 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
                         cropW * cropH * 4,
                         (((int)cropW * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3
                     );
-                    if (selectBytesMode)
+                    if (_selectBytesMode)
                         Task.Run(() =>
                         {
-                            selectBytesModeAction.Invoke(new ScreenCaptureResult
+                            _selectBytesModeAction.Invoke(new ScreenCaptureResult
                             {
                                 Info = info,
                                 Source = mat
@@ -1580,116 +1537,114 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
 
     private void RectangleButton_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (lastTool is not null) lastTool.Classes.Remove("Selected");
+        if (_lastTool is not null) _lastTool.Classes.Remove("Selected");
 
-        if (NowTool != 截图工具.矩形)
+        if (_nowTool != 截图工具.矩形)
         {
-            NowTool = 截图工具.矩形;
+            _nowTool = 截图工具.矩形;
             if (sender is not null)
             {
-                lastTool = sender as Button;
-                lastTool.Classes.Add("Selected");
+                _lastTool = sender as Button;
+                _lastTool.Classes.Add("Selected");
             }
         }
         else
         {
-            NowTool = 截图工具.无;
+            _nowTool = 截图工具.无;
         }
     }
 
 
     private void CircleButton_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (lastTool is not null) lastTool.Classes.Remove("Selected");
+        if (_lastTool is not null) _lastTool.Classes.Remove("Selected");
 
-        if (NowTool != 截图工具.圆形)
+        if (_nowTool != 截图工具.圆形)
         {
-            NowTool = 截图工具.圆形;
+            _nowTool = 截图工具.圆形;
             if (sender is not null)
             {
-                lastTool = sender as Button;
-                lastTool.Classes.Add("Selected");
+                _lastTool = sender as Button;
+                _lastTool.Classes.Add("Selected");
             }
         }
         else
         {
-            NowTool = 截图工具.无;
+            _nowTool = 截图工具.无;
         }
     }
 
     private void ArrowButton_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (lastTool is not null) lastTool.Classes.Remove("Selected");
+        if (_lastTool is not null) _lastTool.Classes.Remove("Selected");
 
-        if (NowTool != 截图工具.箭头)
+        if (_nowTool != 截图工具.箭头)
         {
-            NowTool = 截图工具.箭头;
+            _nowTool = 截图工具.箭头;
             if (sender is not null)
             {
-                lastTool = sender as Button;
-                lastTool.Classes.Add("Selected");
+                _lastTool = sender as Button;
+                _lastTool.Classes.Add("Selected");
             }
         }
         else
         {
-            NowTool = 截图工具.无;
+            _nowTool = 截图工具.无;
         }
     }
 
     private void TextButton_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (lastTool is not null) lastTool.Classes.Remove("Selected");
+        if (_lastTool is not null) _lastTool.Classes.Remove("Selected");
 
-        if (NowTool != 截图工具.文本)
+        if (_nowTool != 截图工具.文本)
         {
-            NowTool = 截图工具.文本;
+            _nowTool = 截图工具.文本;
             if (sender is not null)
             {
-                lastTool = sender as Button;
-                lastTool.Classes.Add("Selected");
+                _lastTool = sender as Button;
+                _lastTool.Classes.Add("Selected");
             }
         }
         else
         {
-            NowTool = 截图工具.无;
+            _nowTool = 截图工具.无;
         }
     }
 
     private void CommentButton_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (lastTool is not null) lastTool.Classes.Remove("Selected");
+        if (_lastTool is not null) _lastTool.Classes.Remove("Selected");
 
-        if (NowTool != 截图工具.批准)
+        if (_nowTool != 截图工具.批准)
         {
-            NowTool = 截图工具.批准;
+            _nowTool = 截图工具.批准;
             if (sender is not null)
             {
-                lastTool = sender as Button;
-                lastTool.Classes.Add("Selected");
+                _lastTool = sender as Button;
+                _lastTool.Classes.Add("Selected");
             }
         }
         else
         {
-            NowTool = 截图工具.无;
+            _nowTool = 截图工具.无;
         }
     }
 
     private void MosaicButton_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (lastTool is not null) lastTool.Classes.Remove("Selected");
+        if (_lastTool is not null) _lastTool.Classes.Remove("Selected");
 
-        if (NowTool != 截图工具.马赛克)
+        if (_nowTool != 截图工具.马赛克)
         {
-            NowTool = 截图工具.马赛克;
-            if (sender is not null)
-            {
-                lastTool = sender as Button;
-                lastTool.Classes.Add("Selected");
-            }
+            _nowTool = 截图工具.马赛克;
+            if (sender is not Button button) return;
+            _lastTool = button;
+            _lastTool.Classes.Add("Selected");
         }
         else
         {
-            NowTool = 截图工具.无;
+            _nowTool = 截图工具.无;
         }
     }
 
@@ -1701,7 +1656,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
 
     private bool Redo()
     {
-        if (redoStack.TryPop(out var item))
+        if (RedoStack.TryPop(out var item))
         {
             switch (item.EditType)
             {
@@ -1751,7 +1706,7 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
 
                             item.points.Clear();
                             item.points = null;
-                            renderTargetBitmap?.Render(MosaicCanvas);
+                            _renderTargetBitmap?.Render(MosaicCanvas);
                             break;
                         }
                     }
@@ -1817,9 +1772,9 @@ private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEven
 
     private void ExButton_OnClick(object? sender, RoutedEventArgs e)
     {
-        selectBytesMode = true;
+        _selectBytesMode = true;
         var screenCaptureExMethod = (ScreenCaptureExMethod)((Control)sender).DataContext;
-        selectBytesModeAction = e =>
+        _selectBytesModeAction = e =>
         {
             screenCaptureExMethod.Action.Invoke(e);
             e.Source?.Dispose();

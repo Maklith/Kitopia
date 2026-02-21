@@ -219,7 +219,7 @@ public class PenCaptureTool : CaptureToolBase
             _isDragging = true;
             var points = new List<Point>();
             foreach (var point in Points) points.Add(point);
-            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
+            this.GetParentOfType<ScreenCaptureWindow>().RedoStack.Push(new ScreenCaptureRedoInfo
             {
                 EditType = ScreenCaptureEditType.移动,
                 Target = this,

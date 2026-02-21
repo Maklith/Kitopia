@@ -47,10 +47,8 @@ public class DraggableResizeableControl : CaptureToolBase
         set => SetValue(OnlyShowReSizingBoxOnSelectProperty, value);
     }
 
-
     private bool _isDragging;
     private Point _dragStartPoint;
-    private Border _resizeSizeBoxBorder;
 
     public DraggableResizeableControl()
     {
@@ -64,70 +62,43 @@ public class DraggableResizeableControl : CaptureToolBase
         var content = e.NameScope.Find<ContentPresenter>("Presenter");
 
         RenderTransform = _dragTransform;
-        content.PointerPressed += ContentOnPointerPressed;
-        content.PointerMoved += ContentOnPointerMoved;
-        content.PointerReleased += ContentOnPointerReleased;
-        content.PointerCaptureLost += ContentOnPointerCaptureLost;
-        var border = e.NameScope.Find<Border>("ResizeSizeBoxBorder");
-        _resizeSizeBoxBorder = border;
-        border.PointerPressed += ResizeSizeBoxBorderOnPointerPressed;
-        border.PointerReleased += ResizeSizeBoxBorderOnPointerReleased;
-        border.PointerMoved += ResizeSizeBoxBorderOnPointerMoved;
-        border.PointerExited += ResizeSizeBoxBorderOnPointerExited;
-        border.PointerEntered += ResizeSizeBoxBorderOnPointerEntered;
-        border.PointerCaptureLost += ResizeSizeBoxBorderOnPointerCaptureLost;
+        
+        if (content != null)
+        {
+            content.PointerPressed += ContentOnPointerPressed;
+            content.PointerMoved += ContentOnPointerMoved;
+            content.PointerReleased += ContentOnPointerReleased;
+            content.PointerCaptureLost += ContentOnPointerCaptureLost;
+        }
+
+        void AttachThumb(string name, EventHandler<VectorEventArgs> dragDeltaHandler)
+        {
+            var thumb = e.NameScope.Find<Thumb>(name);
+            if (thumb != null)
+            {
+                thumb.DragStarted += Thumb_DragStarted;
+                thumb.DragDelta += dragDeltaHandler;
+            }
+        }
+
+        AttachThumb("ThumbTL", ThumbTL_DragDelta);
+        AttachThumb("ThumbTC", ThumbTC_DragDelta);
+        AttachThumb("ThumbTR", ThumbTR_DragDelta);
+        AttachThumb("ThumbLC", ThumbLC_DragDelta);
+        AttachThumb("ThumbRC", ThumbRC_DragDelta);
+        AttachThumb("ThumbBL", ThumbBL_DragDelta);
+        AttachThumb("ThumbBC", ThumbBC_DragDelta);
+        AttachThumb("ThumbBR", ThumbBR_DragDelta);
     }
 
+    #region Thumbs: Resize
 
-    #region Border: Resize
-
-    private bool _isResizing;
-    private Point _resizeStartPoint;
-    private bool _isResizingTop;
-    private bool _isResizingBottom;
-    private bool _isResizingLeft;
-    private bool _isResizingRight;
-
-    private void ResizeSizeBoxBorderOnPointerPressed(object? sender, PointerPressedEventArgs e)
+    private void Thumb_DragStarted(object? sender, VectorEventArgs e)
     {
-        if (e.Handled) return;
         Focus();
-        if (e.GetCurrentPoint(TopLevel.GetTopLevel(this)).Properties.IsLeftButtonPressed)
+        if (Name != "SelectBox")
         {
-            e.Pointer.Capture((IInputElement?)sender);
-            _isResizing = true;
-            _isResizingTop = false;
-            _isResizingBottom = false;
-            _isResizingLeft = false;
-            _isResizingRight = false;
-            _resizeStartPoint = new Point();
-            var position = e.GetPosition((Visual?)sender);
-
-            if (position.Y < 3)
-            {
-                _isResizingTop = true;
-                _resizeStartPoint = new Point(_resizeStartPoint.X, _dragTransform.Y + Height);
-            }
-
-            if (position.Y > Height - 3)
-            {
-                _isResizingBottom = true;
-                _resizeStartPoint = new Point(_resizeStartPoint.X, _dragTransform.Y);
-            }
-
-            if (position.X > Width - 3)
-            {
-                _isResizingRight = true;
-                _resizeStartPoint = new Point(_dragTransform.X, _resizeStartPoint.Y);
-            }
-
-            if (position.X < 3)
-            {
-                _isResizingLeft = true;
-                _resizeStartPoint = new Point(_dragTransform.X + Width, _resizeStartPoint.Y);
-            }
-
-            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
+            this.GetParentOfType<ScreenCaptureWindow>()?.RedoStack.Push(new ScreenCaptureRedoInfo
             {
                 EditType = ScreenCaptureEditType.调整大小,
                 Target = this,
@@ -138,172 +109,71 @@ public class DraggableResizeableControl : CaptureToolBase
         }
     }
 
-    private void ResizeSizeBoxBorderOnPointerMoved(object? sender, PointerEventArgs e)
+    private void UpdateSizeAndPosition(double deltaX, double deltaY, bool updateLeft, bool updateTop, bool updateRight, bool updateBottom)
     {
-        if (e.Handled) return;
+        double newWidth = Width;
+        double newHeight = Height;
+        double newX = _dragTransform.X;
+        double newY = _dragTransform.Y;
 
-        if (_isResizing)
+        if (updateLeft)
         {
-            if (_isResizingTop)
+            newWidth -= deltaX;
+            if (newWidth > 0)
             {
-                var h = _resizeStartPoint.Y - e.GetPosition(TopLevel.GetTopLevel(this)).Y;
-                if (h > 0)
-                {
-                    Height = h;
-                    _dragTransform.Y = _resizeStartPoint.Y - h;
-                }
-                else
-                {
-                    Height = -h;
-                    // _dragTransform.Y = _resizeStartPoint.Y - h;
-                }
+                newX += deltaX;
             }
-
-            if (_isResizingBottom)
+            else
             {
-                var h = e.GetPosition(TopLevel.GetTopLevel(this)).Y - _resizeStartPoint.Y;
-                if (h > 0)
-                {
-                    Height = h;
-                }
-                else
-                {
-                    Height = -h;
-                    _dragTransform.Y = _resizeStartPoint.Y + h;
-                }
+                newWidth = 0;
             }
+        }
+        else if (updateRight)
+        {
+            newWidth += deltaX;
+            if (newWidth < 0) newWidth = 0;
+        }
 
-            if (_isResizingLeft)
+        if (updateTop)
+        {
+            newHeight -= deltaY;
+            if (newHeight > 0)
             {
-                var w = _resizeStartPoint.X - e.GetPosition(TopLevel.GetTopLevel(this)).X;
-                if (w > 0)
-                {
-                    Width = w;
-                    _dragTransform.X = _resizeStartPoint.X - w;
-                }
-                else
-                {
-                    Width = -w;
-                }
+                newY += deltaY;
             }
-
-            if (_isResizingRight)
+            else
             {
-                var w = e.GetPosition(TopLevel.GetTopLevel(this)).X - _resizeStartPoint.X;
-                if (w > 0)
-                {
-                    Width = w;
-                }
-                else
-                {
-                    Width = -w;
-                    _dragTransform.X = _resizeStartPoint.X + w;
-                }
+                newHeight = 0;
             }
-
-            RaiseEvent(new LocationOrSizeChangedEventArgs
-                { Source = this, RoutedEvent = LocationOrSizeChangedEvent });
         }
-        else
+        else if (updateBottom)
         {
-            var position = e.GetPosition((Visual?)sender);
-            UpdatePointerOnResizeSizeBoxBorder(position);
+            newHeight += deltaY;
+            if (newHeight < 0) newHeight = 0;
         }
+
+        if (newWidth >= 0)
+        {
+            Width = newWidth;
+            _dragTransform.X = newX;
+        }
+        if (newHeight >= 0)
+        {
+            Height = newHeight;
+            _dragTransform.Y = newY;
+        }
+
+        RaiseEvent(new LocationOrSizeChangedEventArgs { Source = this, RoutedEvent = LocationOrSizeChangedEvent });
     }
 
-    private void ResizeSizeBoxBorderOnPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (e.InitialPressMouseButton == MouseButton.Left) _isResizing = false;
-    }
-
-    private void ResizeSizeBoxBorderOnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
-    {
-        _isResizing = false;
-    }
-
-    private void ResizeSizeBoxBorderOnPointerEntered(object? sender, PointerEventArgs e)
-    {
-        var position = e.GetPosition((Visual?)sender);
-        UpdatePointerOnResizeSizeBoxBorder(position);
-    }
-
-    private void ResizeSizeBoxBorderOnPointerExited(object? sender, PointerEventArgs e)
-    {
-        Cursor?.Dispose();
-        Cursor = Cursor.Default;
-    }
-
-    private void UpdatePointerOnResizeSizeBoxBorder(Point position)
-    {
-        var top = false;
-        var left = false;
-        var right = false;
-        var bottom = false;
-
-        if (position.Y < 3) top = true;
-
-        if (position.Y > Height - 3) bottom = true;
-
-        if (position.X > Width - 3) right = true;
-
-        if (position.X < 3) left = true;
-
-        if (left && top)
-        {
-            UpdateCursor("TopLeftCorner");
-            return;
-        }
-
-        if (right && top)
-        {
-            UpdateCursor("TopRightCorner");
-            return;
-        }
-
-        if (left && bottom)
-        {
-            UpdateCursor("BottomLeftCorner");
-
-            return;
-        }
-
-        if (right && bottom)
-        {
-            UpdateCursor("BottomRightCorner");
-            return;
-        }
-
-        if (left)
-        {
-            UpdateCursor("LeftSide");
-            return;
-        }
-
-        if (right)
-        {
-            UpdateCursor("RightSide");
-            return;
-        }
-
-        if (top)
-        {
-            UpdateCursor("TopSide");
-            return;
-        }
-
-        if (bottom)
-        {
-            UpdateCursor("BottomSide");
-            return;
-        }
-    }
-
-    private void UpdateCursor(string cursor)
-    {
-        if (Cursor == null || Cursor.ToString().Equals(cursor)) return;
-        Cursor?.Dispose();
-        Cursor = new Cursor(Enum.Parse<StandardCursorType>(cursor));
-    }
+    private void ThumbTL_DragDelta(object? sender, VectorEventArgs e) => UpdateSizeAndPosition(e.Vector.X, e.Vector.Y, true, true, false, false);
+    private void ThumbTC_DragDelta(object? sender, VectorEventArgs e) => UpdateSizeAndPosition(0, e.Vector.Y, false, true, false, false);
+    private void ThumbTR_DragDelta(object? sender, VectorEventArgs e) => UpdateSizeAndPosition(e.Vector.X, e.Vector.Y, false, true, true, false);
+    private void ThumbLC_DragDelta(object? sender, VectorEventArgs e) => UpdateSizeAndPosition(e.Vector.X, 0, true, false, false, false);
+    private void ThumbRC_DragDelta(object? sender, VectorEventArgs e) => UpdateSizeAndPosition(e.Vector.X, 0, false, false, true, false);
+    private void ThumbBL_DragDelta(object? sender, VectorEventArgs e) => UpdateSizeAndPosition(e.Vector.X, e.Vector.Y, true, false, false, true);
+    private void ThumbBC_DragDelta(object? sender, VectorEventArgs e) => UpdateSizeAndPosition(0, e.Vector.Y, false, false, false, true);
+    private void ThumbBR_DragDelta(object? sender, VectorEventArgs e) => UpdateSizeAndPosition(e.Vector.X, e.Vector.Y, false, false, true, true);
 
     #endregion
 
@@ -317,25 +187,33 @@ public class DraggableResizeableControl : CaptureToolBase
     private void ContentOnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         Focus();
-        var visualParent = (Canvas)this.GetVisualParent();
-        foreach (var canvasChild in visualParent.Children)
-            if (canvasChild is CaptureToolBase captureTool)
-                captureTool.IsSelected = false;
+        var visualParent = (Canvas?)this.GetVisualParent();
+        if (visualParent != null)
+        {
+            foreach (var canvasChild in visualParent.Children)
+                if (canvasChild is CaptureToolBase captureTool)
+                    captureTool.IsSelected = false;
+        }
 
         IsSelected = true;
         if (e.Handled) return;
-        if (e.GetCurrentPoint(TopLevel.GetTopLevel(this)).Properties.IsLeftButtonPressed)
+        
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel != null && e.GetCurrentPoint(topLevel).Properties.IsLeftButtonPressed)
         {
             e.Pointer.Capture((IInputElement?)sender);
             _isDragging = true;
-            _dragStartPoint = e.GetPosition(TopLevel.GetTopLevel(this));
-            this.GetParentOfType<ScreenCaptureWindow>().redoStack.Push(new ScreenCaptureRedoInfo
+            _dragStartPoint = e.GetPosition(topLevel);
+            if (Name != "SelectBox")
             {
-                EditType = ScreenCaptureEditType.移动,
-                Target = this,
-                startPoint = new Point(_dragTransform.X, _dragTransform.Y),
-                Type = 截图工具.矩形
-            });
+                this.GetParentOfType<ScreenCaptureWindow>()?.RedoStack.Push(new ScreenCaptureRedoInfo
+                {
+                    EditType = ScreenCaptureEditType.移动,
+                    Target = this,
+                    startPoint = new Point(_dragTransform.X, _dragTransform.Y),
+                    Type = 截图工具.矩形
+                });
+            }
         }
     }
 
@@ -344,21 +222,28 @@ public class DraggableResizeableControl : CaptureToolBase
         if (e.Handled) return;
 
         if (OnlyShowReSizingBoxOnSelect)
-            if (!Cursor.ToString().Equals("SizeAll"))
+        {
+            if (Cursor == null || !Cursor.ToString().Equals("SizeAll"))
             {
                 Cursor?.Dispose();
                 Cursor = new Cursor(StandardCursorType.SizeAll);
             }
+        }
 
         if (_isDragging)
         {
-            var dragDelta = e.GetPosition(TopLevel.GetTopLevel(this)) - _dragStartPoint;
-            _dragStartPoint = e.GetPosition(TopLevel.GetTopLevel(this));
-            _dragTransform.X += dragDelta.X;
-            _dragTransform.Y += dragDelta.Y;
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel != null)
+            {
+                var currentPoint = e.GetPosition(topLevel);
+                var dragDelta = currentPoint - _dragStartPoint;
+                _dragStartPoint = currentPoint;
+                _dragTransform.X += dragDelta.X;
+                _dragTransform.Y += dragDelta.Y;
 
-            RaiseEvent(new LocationOrSizeChangedEventArgs
-                { Source = this, RoutedEvent = LocationOrSizeChangedEvent });
+                RaiseEvent(new LocationOrSizeChangedEventArgs
+                    { Source = this, RoutedEvent = LocationOrSizeChangedEvent });
+            }
         }
     }
 

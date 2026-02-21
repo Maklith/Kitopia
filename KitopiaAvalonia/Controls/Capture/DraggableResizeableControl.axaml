@@ -18,14 +18,34 @@
                     <ContentPresenter Name="Presenter" Content="{TemplateBinding Content}" />
                     <TextBlock
                         Text="{Binding #Presenter.Bounds.Size,Converter={StaticResource SizeToIntegerStringConverter}}"
-                        IsVisible="{TemplateBinding IsSelected}" />
-                    <Border BorderThickness="2" Name="ResizeSizeBoxBorder" IsVisible="{TemplateBinding IsSelected}"
-                            Width="{Binding #Presenter.Bounds.Width}" Height="{Binding #Presenter.Bounds.Height}">
-                        <Border.BorderBrush>
-                            <SolidColorBrush Color="LightBlue" Opacity="0.6" />
-                        </Border.BorderBrush>
-                    </Border>
+                        IsVisible="{TemplateBinding IsSelected}" Foreground="White" Background="#80000000" Margin="0,-20,0,0" Padding="2,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                    
+                    <Grid IsVisible="{TemplateBinding IsSelected}" Width="{Binding #Presenter.Bounds.Width}" Height="{Binding #Presenter.Bounds.Height}">
+                        <Border BorderBrush="#1890ff" BorderThickness="1.5" IsHitTestVisible="False" Margin="0" />
+                        
+                        <Thumb Name="ThumbTL" Classes="ResizeThumb" HorizontalAlignment="Left" VerticalAlignment="Top" Cursor="TopLeftCorner" Margin="-4" />
+                        <Thumb Name="ThumbTC" Classes="ResizeThumb" HorizontalAlignment="Center" VerticalAlignment="Top" Cursor="TopSide" Margin="0,-4" />
+                        <Thumb Name="ThumbTR" Classes="ResizeThumb" HorizontalAlignment="Right" VerticalAlignment="Top" Cursor="TopRightCorner" Margin="-4" />
+                        
+                        <Thumb Name="ThumbLC" Classes="ResizeThumb" HorizontalAlignment="Left" VerticalAlignment="Center" Cursor="LeftSide" Margin="-4,0" />
+                        <Thumb Name="ThumbRC" Classes="ResizeThumb" HorizontalAlignment="Right" VerticalAlignment="Center" Cursor="RightSide" Margin="-4,0" />
+                        
+                        <Thumb Name="ThumbBL" Classes="ResizeThumb" HorizontalAlignment="Left" VerticalAlignment="Bottom" Cursor="BottomLeftCorner" Margin="-4" />
+                        <Thumb Name="ThumbBC" Classes="ResizeThumb" HorizontalAlignment="Center" VerticalAlignment="Bottom" Cursor="BottomSide" Margin="0,-4" />
+                        <Thumb Name="ThumbBR" Classes="ResizeThumb" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="BottomRightCorner" Margin="-4" />
+                    </Grid>
                 </Panel>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="Thumb.ResizeThumb">
+        <Setter Property="Width" Value="8" />
+        <Setter Property="Height" Value="8" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}" BorderBrush="#1890ff" BorderThickness="1" CornerRadius="4" />
             </ControlTemplate>
         </Setter>
     </Style>

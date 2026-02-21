@@ -9,22 +9,30 @@
         <!-- Set Defaults -->
         <Setter Property="Template">
             <ControlTemplate>
-                <Panel>
-                    <Panel.Styles>
-                        <Style Selector="Panel:pointerover">
-                            <Setter Property="Background">
-                                <SolidColorBrush Color="Gray" Opacity="0.1" />
-                            </Setter>
-                        </Style>
-                    </Panel.Styles>
-                    <Panel.Background>
-                        <SolidColorBrush Color="White" Opacity="0.01" />
-                    </Panel.Background>
-                    <TextBox ZIndex="1" Theme="{StaticResource LooklessTextBox}"
-                             Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
-                             Text="{TemplateBinding Text}" />
-                </Panel>
-
+                <Border Background="Transparent" Cursor="SizeAll">
+                    <Border BorderBrush="{DynamicResource SemiColorPrimary}" Padding="8">
+                        <!-- Avalonia does not support binding BorderThickness natively without converter out of the box so we use a style class -->
+                        <Border.Styles>
+                            <Style Selector="Border">
+                                <Setter Property="BorderThickness" Value="0" />
+                            </Style>
+                            <Style Selector="controls|TextCaptureTool[IsSelected=True] /template/ Border">
+                                <Setter Property="BorderThickness" Value="1.5" />
+                            </Style>
+                        </Border.Styles>
+                        <TextBox ZIndex="1" Theme="{StaticResource LooklessTextBox}"
+                                 Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
+                                 Text="{Binding $parent[controls:TextCaptureTool].Text, Mode=TwoWay}"
+                                 AcceptsReturn="True"
+                                 TextWrapping="NoWrap"
+                                 MinWidth="30"
+                                 MinHeight="25"
+                                 Padding="4"
+                                 VerticalContentAlignment="Center"
+                                 HorizontalContentAlignment="Left"
+                                 Cursor="IBeam" />
+                    </Border>
+                </Border>
             </ControlTemplate>
         </Setter>
     </Style>

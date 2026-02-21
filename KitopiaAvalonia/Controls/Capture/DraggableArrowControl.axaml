@@ -18,9 +18,9 @@
                         Canvas.Left="{Binding $parent[capture:DraggableArrowControl].Source.X}"
                         Canvas.Top="{Binding $parent[capture:DraggableArrowControl].Source.Y}"
 
-                        Width="6" Height="6" Fill="Cyan" ZIndex="1" Stroke="Red" StrokeThickness="1">
+                        Width="10" Height="10" Fill="White" ZIndex="1" Stroke="#1890ff" StrokeThickness="1.5" Cursor="Hand">
                         <Rectangle.RenderTransform>
-                            <TranslateTransform X="-3" Y="-3" />
+                            <TranslateTransform X="-5" Y="-5" />
                         </Rectangle.RenderTransform>
                     </Rectangle>
                     <Rectangle
@@ -28,9 +28,9 @@
                         IsVisible="{TemplateBinding IsSelected}"
                         Canvas.Left="{Binding $parent[capture:DraggableArrowControl].Target.X}"
                         Canvas.Top="{Binding $parent[capture:DraggableArrowControl].Target.Y}"
-                        Width="6" Height="6" Fill="Cyan" ZIndex="2" Stroke="Red" StrokeThickness="1">
+                        Width="10" Height="10" Fill="White" ZIndex="2" Stroke="#1890ff" StrokeThickness="1.5" Cursor="Hand">
                         <Rectangle.RenderTransform>
-                            <TranslateTransform X="-3" Y="-3" />
+                            <TranslateTransform X="-5" Y="-5" />
                         </Rectangle.RenderTransform>
                     </Rectangle>
                     <capture:ArrowLine
