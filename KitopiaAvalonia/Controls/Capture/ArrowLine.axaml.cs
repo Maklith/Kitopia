@@ -13,7 +13,26 @@ public class ArrowLine : Control
         AffectsGeometry<ArrowLine>(SourceProperty, TargetProperty, StrokeProperty, FillProperty,
             StrokeThicknessProperty);
     }
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        var geometry = DefiningGeometry;
+        if (geometry == null)
+        {
+            return base.MeasureOverride(availableSize);
+        }
 
+        // 计算包含线条、箭头以及画笔粗细的实际渲染边界
+        var pen = new Pen(Stroke, StrokeThickness);
+        var renderBounds = geometry.GetRenderBounds(pen);
+
+        // 考虑到 Source 和 Target 坐标是相对于控件左上角的，
+        // 我们需要返回足以容纳最远点 (Right, Bottom) 的尺寸。
+        // 使用 Math.Max 确保尺寸不会是负数。
+        double width = Math.Max(0, renderBounds.Right);
+        double height = Math.Max(0, renderBounds.Bottom);
+
+        return new Size(width, height);
+    }
     private static void AffectsGeometryInvalidate(ArrowLine control, AvaloniaPropertyChangedEventArgs e)
     {
         // If the geometry is invalidated when Bounds changes, only invalidate when the Size
@@ -63,27 +82,25 @@ public class ArrowLine : Control
         }
     }
 
-    public Geometry? RenderedGeometry
+    private Geometry? RenderedGeometry
     {
         get
         {
-            if (_renderedGeometry == null && DefiningGeometry != null)
+            if (_renderedGeometry != null || DefiningGeometry == null) return _renderedGeometry;
+            if (_transform == Matrix.Identity)
             {
-                if (_transform == Matrix.Identity)
-                {
-                    _renderedGeometry = DefiningGeometry;
-                }
-                else
-                {
-                    _renderedGeometry = DefiningGeometry.Clone();
+                _renderedGeometry = DefiningGeometry;
+            }
+            else
+            {
+                _renderedGeometry = DefiningGeometry.Clone();
 
-                    if (_renderedGeometry.Transform == null ||
-                        _renderedGeometry.Transform.Value == Matrix.Identity)
-                        _renderedGeometry.Transform = new MatrixTransform(_transform);
-                    else
-                        _renderedGeometry.Transform = new MatrixTransform(
-                            _renderedGeometry.Transform.Value * _transform);
-                }
+                if (_renderedGeometry.Transform == null ||
+                    _renderedGeometry.Transform.Value == Matrix.Identity)
+                    _renderedGeometry.Transform = new MatrixTransform(_transform);
+                else
+                    _renderedGeometry.Transform = new MatrixTransform(
+                        _renderedGeometry.Transform.Value * _transform);
             }
 
             return _renderedGeometry;
@@ -94,39 +111,35 @@ public class ArrowLine : Control
     {
         base.Render(context);
         var geometry = RenderedGeometry;
+        if (geometry == null) return;
+        
+        var stroke = Stroke;
 
-        if (geometry != null)
-        {
-            var stroke = Stroke;
+        ImmutablePen? pen = null;
 
-            ImmutablePen? pen = null;
+        if (stroke != null)
+            pen = new ImmutablePen(
+                stroke.ToImmutable(),
+                StrokeThickness);
 
-            if (stroke != null)
-                pen = new ImmutablePen(
-                    stroke.ToImmutable(),
-                    StrokeThickness);
-
-            context.DrawGeometry(Fill, pen, geometry);
-        }
+        context.DrawGeometry(Fill, pen, geometry);
     }
 
-    public Geometry CreateDefiningGeometry()
+    private Geometry CreateDefiningGeometry()
     {
         {
-            var _geometry = new StreamGeometry();
-            using (var context = _geometry.Open())
-            {
-                context.SetFillRule(FillRule.EvenOdd);
-                var (arrowStart, arrowEnd) = DrawLineGeometry(context, Source, Target);
-                if (ArrowSize.Width != 0d && ArrowSize.Height != 0d) DrawDefaultArrowhead(context, Source, Target);
-                context.EndFigure(true);
-            }
-
-            return _geometry;
+            var geometry = new StreamGeometry();
+            using var context = geometry.Open();
+            context.SetFillRule(FillRule.EvenOdd);
+            DrawLineGeometry(context, Source, Target);
+            if (ArrowSize.Width != 0d && ArrowSize.Height != 0d) DrawDefaultArrowhead(context, Source, Target);
+            context.EndFigure(true);
+            
+            return geometry;
         }
     }
 
-    protected ((Point ArrowStartSource, Point ArrowStartTarget), (Point ArrowEndSource, Point ArrowEndTarget))
+    private void
         DrawLineGeometry(StreamGeometryContext context, Point source, Point target)
     {
         var headWidth = ArrowSize.Width / 4;
@@ -142,11 +155,9 @@ public class ArrowLine : Control
         context.LineTo(new Point(target1.X + headWidth * sinT, target1.Y - headWidth * cosT));
         context.LineTo(new Point(target1.X - headWidth * sinT, target1.Y + headWidth * cosT));
         context.EndFigure(false);
-
-        return ((target, source), (source, target));
     }
 
-    protected void DrawDefaultArrowhead(StreamGeometryContext context, Point source, Point target)
+    private void DrawDefaultArrowhead(StreamGeometryContext context, Point source, Point target)
     {
         Vector delta = source - target;
         var headWidth = ArrowSize.Width;

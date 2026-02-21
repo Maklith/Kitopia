@@ -102,7 +102,7 @@ public class DraggableResizeableControl : CaptureToolBase
             {
                 EditType = ScreenCaptureEditType.调整大小,
                 Target = this,
-                startPoint = new Point(_dragTransform.X, _dragTransform.Y),
+                StartPoint = new Point(_dragTransform.X, _dragTransform.Y),
                 Size = DesiredSize,
                 Type = 截图工具.矩形
             });
@@ -210,7 +210,7 @@ public class DraggableResizeableControl : CaptureToolBase
                 {
                     EditType = ScreenCaptureEditType.移动,
                     Target = this,
-                    startPoint = new Point(_dragTransform.X, _dragTransform.Y),
+                    StartPoint = new Point(_dragTransform.X, _dragTransform.Y),
                     Type = 截图工具.矩形
                 });
             }

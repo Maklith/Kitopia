@@ -5,7 +5,6 @@
 
         xmlns:controls1="clr-namespace:KitopiaAvalonia.Controls"
         xmlns:capture="clr-namespace:KitopiaAvalonia.Controls.Capture"
-        xmlns:u="https://irihi.tech/ursa"
         xmlns:plugin1="clr-namespace:Core.Services.Plugin;assembly=Core"
         xmlns:utils="clr-namespace:Core.Utils;assembly=Core"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"

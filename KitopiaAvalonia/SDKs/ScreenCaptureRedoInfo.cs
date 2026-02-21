@@ -8,9 +8,9 @@ public struct ScreenCaptureRedoInfo
     public 截图工具 Type;
     public object? Target;
     public ScreenCaptureEditType EditType;
-    public Point startPoint;
+    public Point StartPoint;
     public Size Size;
-    public IList<Point> points;
+    public IList<Point>? Points;
     public Point Point1;
     public Point Point2;
     public object Data;

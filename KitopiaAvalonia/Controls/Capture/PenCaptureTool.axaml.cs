@@ -223,7 +223,7 @@ public class PenCaptureTool : CaptureToolBase
             {
                 EditType = ScreenCaptureEditType.移动,
                 Target = this,
-                points = points,
+                Points = points,
                 Type = 截图工具.批准
             });
             e.Pointer.Capture(this);
