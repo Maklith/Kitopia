@@ -435,29 +435,30 @@ public partial class ScreenCaptureWindow : Window
         }
     }
 
-    private void StrokeWidthOnValueChanged(object? sender, ValueChangedEventArgs<int> valueChangedEventArgs)
+private void StrokeWidthOnValueChanged(object? sender, RangeBaseValueChangedEventArgs valueChangedEventArgs)
     {
+        var newValue = valueChangedEventArgs.NewValue;
         switch (Now截图工具)
         {
             case DraggableArrowControl draggableArrowControl:
-                draggableArrowControl.StrokeThickness = (double)valueChangedEventArgs.NewValue;
+                draggableArrowControl.StrokeThickness = (double)newValue;
                 draggableArrowControl.ArrowSize = new Size(8 * draggableArrowControl.StrokeThickness,
                     8 * draggableArrowControl.StrokeThickness);
                 break;
             case DraggableResizeableControl draggableResizeableControl:
-                ((Shape)draggableResizeableControl.Content).StrokeThickness = (double)valueChangedEventArgs.NewValue;
+                ((Shape)draggableResizeableControl.Content).StrokeThickness = (double)newValue;
                 break;
             case PenCaptureTool penCaptureTool:
-                penCaptureTool.StrokeThickness = (double)valueChangedEventArgs.NewValue;
+                penCaptureTool.StrokeThickness = (double)newValue;
                 break;
             case TextCaptureTool textCaptureTool:
-                textCaptureTool.FontSize = (double)(13 + valueChangedEventArgs.NewValue);
+                textCaptureTool.FontSize = (double)(13 + newValue);
                 break;
         }
 
         if (NowTool == 截图工具.马赛克)
         {
-            MosaicCanvas.StrokeThickness = (double)(5 + valueChangedEventArgs.NewValue);
+            MosaicCanvas.StrokeThickness = (double)(5 + newValue);
             renderTargetBitmap?.Render(MosaicCanvas);
         }
     }
