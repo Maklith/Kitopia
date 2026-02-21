@@ -1,5 +1,4 @@
-﻿using PluginCore.Attribute;
-using PluginCore.CustomScenario.Attribute.Scenario;
+﻿using PluginCore.CustomScenario.Attribute.Scenario;
 
 namespace KitopiaEx;
 [AutoUnbox]

@@ -1,10 +1,10 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
-using PluginCore.Attribute;
+using PluginCore.CustomScenario.Attribute.Scenario;
 using SharpHook;
 using SharpHook.Native;
 
-namespace KitopiaEx;
+namespace KitopiaEx.CustomScenarioMethods;
 
 public class KeyboardSimulation
 {

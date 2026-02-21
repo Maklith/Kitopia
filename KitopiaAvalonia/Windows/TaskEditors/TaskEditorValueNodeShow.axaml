@@ -8,11 +8,13 @@
              xmlns:customScenario1="clr-namespace:Core.CustomScenario;assembly=Core"
              xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
              xmlns:taskEditor1="clr-namespace:KitopiaAvalonia.Converter.TaskEditor"
+             xmlns:customScenario="clr-namespace:PluginCore.CustomScenario;assembly=PluginCore"
+             xmlns:converter="clr-namespace:KitopiaAvalonia.Converter"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="KitopiaAvalonia.Windows.TaskEditors.TaskEditorValueNodeShow">
     <UserControl.Resources>
-        <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
-        <taskEditor1:EnumEqualCtr x:Key="EnumEqualCtr" />
+        <customScenario:ToolTipConverter x:Key="ToolTipConverter" />
+        <converter:EnumEqualCtr x:Key="EnumEqualCtr" />
     </UserControl.Resources>
     <StackPanel>
         <ListBox Margin="0,0,10,0" x:Name="ValueListBox"
@@ -93,7 +95,7 @@
             <ComboBox Grid.Column="2" VerticalAlignment="Center"
                       Classes.DontShowTypeComboBox="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueType,Converter={StaticResource EnumEqualCtr},ConverterParameter='2'}"
                       SelectedItem="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueTypeToAdd}"
-                      ItemsSource="{Binding Source={x:Static customScenario1:CustomScenarioGloble.GetAllCouldUseTypeInValue}}">
+                      ItemsSource="{Binding Source={x:Static customScenario1:CustomScenarioGlobe.GetAllCouldUseTypeInValue}}">
                 <ComboBox.ItemTemplate>
                     <DataTemplate DataType="taskEditor:CustomScenarioValueTuple">
                         <TextBlock Text="{Binding Value}" ToolTip.Tip="{Binding Type}" />

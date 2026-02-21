@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Threading;
-using Core.Services;
 using Core.Services.Interfaces;
 using Core.Utils;
 using KitopiaAvalonia.Controls;

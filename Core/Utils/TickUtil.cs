@@ -15,32 +15,32 @@ public class TickUtil
     /// <summary>
     /// 是否正在运行定时器
     /// </summary>
-    private bool _BRunTimer = false;
+    private bool _BRunTimer;
 
     /// <summary>
     /// 定时器运行时独占的CPU核心索引序号
     /// </summary>
-    private byte _CpuIndex = 0;
+    private byte _CpuIndex;
 
     /// <summary>
     /// 首次启动延时（微秒）
     /// </summary>
-    private uint _Delay = 0;
+    private uint _Delay;
 
     /// <summary>
     /// 是否销毁定时器
     /// </summary>
-    private bool _Dispose = false;
+    private bool _Dispose;
 
     /// <summary>
     /// 系统性能计数频率（每秒）
     /// </summary>
-    private long _Freq = 0;
+    private long _Freq;
 
     /// <summary>
     /// 系统性能计数频率（每微秒）
     /// </summary>
-    private long _Freqmms = 0;
+    private long _Freqmms;
 
     /// <summary>
     /// 定时器周期（微秒）
@@ -137,7 +137,7 @@ public class TickUtil
     {
         if (Tick != null)
         {
-            _threadRumTimer = new Thread(new ThreadStart(RunTimer));
+            _threadRumTimer = new Thread(RunTimer);
             _threadRumTimer.Start();
         }
     }

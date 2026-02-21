@@ -1,6 +1,4 @@
-﻿using BenchmarkDotNet.Running;
-
-namespace KitopiaBenchmark;
+﻿namespace KitopiaBenchmark;
 
 internal class Program
 {

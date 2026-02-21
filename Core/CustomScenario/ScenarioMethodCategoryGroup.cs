@@ -1,8 +1,8 @@
 ﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using PluginCore;
-using PluginCore.Attribute.Scenario;
+using PluginCore.CustomScenario;
+using PluginCore.CustomScenario.Attribute.Scenario;
 
 namespace Core.CustomScenario;
 
@@ -21,7 +21,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
         var valueScenarioMethodCategoryGroup = new ScenarioMethodCategoryGroup();
         valueScenarioMethodCategoryGroup.Name = "基本数据类型";
         scenarioMethodCategoryGroup.Childrens.Add("基本数据类型", valueScenarioMethodCategoryGroup);
-        foreach (var (key, value) in CustomScenarioGloble._baseType)
+        foreach (var (key, value) in CustomScenarioGlobe._baseType)
         {
             var String = new ScenarioMethodNode
             {
@@ -37,7 +37,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                     {
                         SerializeType = value
                     },
-                    Title = CustomScenarioGloble.GetI18N(value.FullName),
+                    Title = CustomScenarioGlobe.GetI18N(value.FullName),
 
                     ConnectorType = ConnectorType.Output
                 }
@@ -54,7 +54,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                         Value = value.IsValueType ? Activator.CreateInstance(value) : null,
                         IsSelf = true
                     },
-                    Title = CustomScenarioGloble.GetI18N(value.FullName)
+                    Title = CustomScenarioGlobe.GetI18N(value.FullName)
                 }
             };
             if (value.FullName == "System.Int32") StringinItems[0].InputObject.Value = (double)0;

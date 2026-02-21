@@ -2,9 +2,10 @@
 using System.Threading;
 using System.Threading.Tasks;
 using KitopiaEx.Ocr;
-using PluginCore.Attribute;
+using KitopiaEx.Translate;
+using PluginCore.CustomScenario.Attribute.Scenario;
 
-namespace KitopiaEx.Translate;
+namespace KitopiaEx.CustomScenarioMethods;
 
 public class Translate
 {

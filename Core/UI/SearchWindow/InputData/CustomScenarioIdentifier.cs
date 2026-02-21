@@ -1,10 +1,9 @@
 using Core.CustomScenario;
-using Core.Services;
 using Core.Services.Interfaces;
-using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;
 using PluginCore;
+using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 
 namespace Core.UI.SearchWindow.InputData;
@@ -59,7 +58,6 @@ public class CustomScenarioIdentifier : IInputDataIdentifier
             };
 
         // }
-        yield break;
     }
 
     public void UpdateCache(object? sender, EventArgs eventArgs)

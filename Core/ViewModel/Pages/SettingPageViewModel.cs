@@ -7,7 +7,7 @@ using PluginCore.Config;
 
 namespace Core.ViewModel.Pages;
 
-public partial class SettingPageViewModel : ObservableRecipient
+public class SettingPageViewModel : ObservableRecipient
 {
     private ConfigBase _configBase;
 

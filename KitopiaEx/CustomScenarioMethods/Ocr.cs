@@ -8,16 +8,18 @@ using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
+using KitopiaEx.Ocr;
 using OpenCvSharp;
 using PluginCore;
-using PluginCore.Attribute;
-using PluginCore.Attribute.Scenario;
+using PluginCore.CustomScenario.Attribute;
+using PluginCore.CustomScenario.Attribute.Scenario;
 using PluginCore.ExMethod;
 using PluginCore.Onnx;
 using Point = Avalonia.Point;
 using Rect = OpenCvSharp.Rect;
+using TextDetector = KitopiaEx.Ocr.TextDetector;
 
-namespace KitopiaEx.Ocr;
+namespace KitopiaEx.CustomScenarioMethods;
 [ScenarioMethodCategory("文字识别")]
 public class Ocr
 {

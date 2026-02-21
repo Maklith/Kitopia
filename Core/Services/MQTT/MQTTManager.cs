@@ -271,8 +271,6 @@ public class MqttManager
                          }
                     }
                     break;
-                default:
-                     break;
             }
     }
 

@@ -7,7 +7,8 @@ using Core.JsonConverter;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using PluginCore.Attribute;
+using PluginCore.CustomScenario;
+using PluginCore.CustomScenario.Attribute.Scenario;
 
 namespace Core.CustomScenario;
 
@@ -250,7 +251,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                 }
                 else
                 {
-                    if (Enumerable.Count<ConnectorItem>(Output) >= 2) Output[1].InputObject.Value = invoke;
+                    if (Output.Count<ConnectorItem>() >= 2) Output[1].InputObject.Value = invoke;
                 }
 
                 break;
@@ -337,7 +338,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
             }
             case ScenarioMethodType.OpenRunLocalProject:
             {
-                if (Enumerable.Count<ConnectorItem>(Input) >= 3)
+                if (Input.Count<ConnectorItem>() >= 3)
                 {
                     List<object> parameterList = new();
                     for (var index = 2; index < Input.Count; index++) parameterList.Add(Input[index].InputObject);
@@ -359,7 +360,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                 if (Input == null || Input.Count == 0) break;
 
                 var connectorItem =
-                    Enumerable.First<ConnectorItem>(Input, e => e.InputObject.ShowType != typeof(NodeConnectorClass));
+                    Input.First<ConnectorItem>(e => e.InputObject.ShowType != typeof(NodeConnectorClass));
                 if (connectorItem == null) break;
 
                 foreach (var item in Output) item.InputObject.Value = connectorItem.InputObject.Value;
@@ -481,9 +482,9 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
 
     public override bool IsUsed(ObservableCollection<ConnectionItem> connections)
     {
-        var isNotUsed = Enumerable.All<ConnectorItem>(Input, connectorItem => !connectorItem.IsConnected);
+        var isNotUsed = Input.All<ConnectorItem>(connectorItem => !connectorItem.IsConnected);
 
-        if (Enumerable.Any<ConnectorItem>(Output, connectorItem => connectorItem.IsConnected))
+        if (Output.Any<ConnectorItem>(connectorItem => connectorItem.IsConnected))
             isNotUsed = false;
         return !isNotUsed;
     }
@@ -525,7 +526,6 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                 }
             });
             connectorItem.PluginInputConnector = instance as INodeInputConnector;
-            return;
         }
     }
 
@@ -533,10 +533,10 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
     {
         var pluginManger = ServiceManager.Services.GetService<IPluginManger>()!;
         return ScenarioMethod.PluginInfo?.ToPlgString() == plugStr ||
-               Enumerable.Any<ConnectorItem>(Input, e =>
+               Input.Any<ConnectorItem>(e =>
                    pluginManger.IsTypeFromThePlugin(e.InputObject?.ShowType, plugStr) ||
                    pluginManger.IsTypeFromThePlugin(e.InputObject?.SerializeType, plugStr)) ||
-               Enumerable.Any<ConnectorItem>(Output, e =>
+               Output.Any<ConnectorItem>(e =>
                    pluginManger.IsTypeFromThePlugin(e.InputObject?.ShowType, plugStr) ||
                    pluginManger.IsTypeFromThePlugin(e.InputObject?.SerializeType, plugStr));
     }

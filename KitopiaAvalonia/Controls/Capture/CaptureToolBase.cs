@@ -10,7 +10,7 @@ public class CaptureToolBase : ContentControl
 
     public bool IsSelected
     {
-        get => (bool)GetValue(IsSelectedProperty);
+        get => GetValue(IsSelectedProperty);
         set => SetValue(IsSelectedProperty, value);
     }
 }

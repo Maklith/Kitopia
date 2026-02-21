@@ -183,9 +183,9 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
         var args = new RoutedEventArgs(ClickEvent);
         RaiseEvent(args);
 
-        var @param = CommandParameter;
+        var param = CommandParameter;
         var command = Command;
-        if (!args.Handled && command?.CanExecute(@param) == true) command.Execute(@param);
+        if (!args.Handled && command?.CanExecute(param) == true) command.Execute(param);
     }
 
     private void ExpanderLoaded(object sender, RoutedEventArgs e)
@@ -281,6 +281,6 @@ public partial class SettingsExpander : HeaderedItemsControl, ICommandSource
     private Expander _expander;
     private ToggleButton _expanderToggleButton;
     private SettingsExpanderItem _contentHost;
-    private int _iconCount = 0;
+    private int _iconCount;
     private bool _hasAppliedTemplate;
 }

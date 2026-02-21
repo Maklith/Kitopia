@@ -1,8 +1,7 @@
 ﻿using System;
-using Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using PluginCore.Attribute;
+using PluginCore.CustomScenario.Attribute;
 
 namespace KitopiaEx.ScreenCaptureExs;
 

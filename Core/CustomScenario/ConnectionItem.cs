@@ -5,7 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace Core.CustomScenario;
 
-public partial class ConnectionItem
+public class ConnectionItem
 {
     [JsonIgnore] public ICommand? SplitConnectionCommand { get; set; }
 
@@ -29,6 +29,6 @@ public partial class ConnectionItem
     public void Init(Action<ConnectionItem, Point> splitAction)
     {
         if (SplitConnectionCommand != null) return;
-        SplitConnectionCommand = new RelayCommand<Point>((point) => { splitAction(this, point); });
+        SplitConnectionCommand = new RelayCommand<Point>(point => { splitAction(this, point); });
     }
 }

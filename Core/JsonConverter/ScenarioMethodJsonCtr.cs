@@ -1,8 +1,8 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using Core.CustomScenario;
-using Core.SDKs.CustomScenario;
 using Core.Services.Plugin;
+using PluginCore.CustomScenario;
 
 namespace Core.JsonConverter;
 

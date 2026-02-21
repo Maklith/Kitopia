@@ -1,8 +1,7 @@
-using Core.Services;
-using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
+using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 
 namespace Core.UI.SearchWindow.InputData;

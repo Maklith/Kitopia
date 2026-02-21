@@ -1,14 +1,8 @@
 ﻿#region
 
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using Core.SDKs.Services;
 using Core.Services;
 using Core.Services.Config;
 using Core.Services.Interfaces;
@@ -23,24 +17,20 @@ using File = System.IO.File;
 
 #endregion
 
-namespace Core.Window;
+namespace Core.Window.AppTools;
 
-public partial class AppTools
+public class AppSolver
 {
-    private static ILogger Logger = LogManager.Logger.ForContext<AppTools>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<AppSolver>();
     private static readonly List<string> ErrorLnkList = new();
-
-    //Console.WriteLine();
-
-
-    public static PinyinProcessor _pinyinProcessor = new();
+    public static readonly PinyinProcessor PinyinProcessor = new();
 
     internal static void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> collection, Action action)
     {
         if (ConfigManger.Config.autoStartEverything)
         {
             if (string.IsNullOrWhiteSpace(ConfigManger.Config.everythingOnlyKey))
-                foreach (var (key, value) in collection)
+                foreach (var (key, _) in collection)
                     if (key.Contains("Everything.exe"))
                     {
                         ConfigManger.Config.everythingOnlyKey = key;
@@ -50,7 +40,7 @@ public partial class AppTools
 
             if (collection.TryGetValue(ConfigManger.Config.everythingOnlyKey, out var searchViewItem))
             {
-                var isRun = ServiceManager.Services.GetService<IEverythingService>()
+                var isRun = ServiceManager.Services.GetService<IEverythingService>()!
                     .IsRun();
 
 
@@ -70,21 +60,21 @@ public partial class AppTools
                             PrimaryAction = () =>
                             {
                                 Directory.CreateDirectory(AppDomain.CurrentDomain.BaseDirectory + "noUAC");
-                                var TempFileName =
+                                var tempFileName =
                                     $"{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.xml";
-                                var XML_Text =
+                                var xmlText =
                                     $"<?xml version=\"1.0\" encoding=\"UTF-16\"?>\n<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\n  <Triggers />\n  <Principals>\n    <Principal id=\"Author\">\n      <LogonType>InteractiveToken</LogonType>\n      <RunLevel>HighestAvailable</RunLevel>\n    </Principal>\n  </Principals>\n  <Settings>\n    <MultipleInstancesPolicy>Parallel</MultipleInstancesPolicy>\n    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\n    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\n    <AllowHardTerminate>false</AllowHardTerminate>\n    <StartWhenAvailable>false</StartWhenAvailable>\n    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>\n    <IdleSettings>\n      <StopOnIdleEnd>false</StopOnIdleEnd>\n      <RestartOnIdle>false</RestartOnIdle>\n    </IdleSettings>\n    <AllowStartOnDemand>true</AllowStartOnDemand>\n    <Enabled>true</Enabled>\n    <Hidden>false</Hidden>\n    <RunOnlyIfIdle>false</RunOnlyIfIdle>\n    <WakeToRun>false</WakeToRun>\n    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\n    <Priority>7</Priority>\n  </Settings>\n  <Actions Context=\"Author\">\n    <Exec>{Environment.NewLine}      <Command>\"{searchViewItem.OnlyKey}\"</Command>{Environment.NewLine}      <Arguments>-startup</Arguments>{Environment.NewLine}    </Exec>\n  </Actions>\n</Task>";
-                                File.WriteAllText(TempFileName, XML_Text, Encoding.Unicode);
+                                File.WriteAllText(tempFileName, xmlText, Encoding.Unicode);
 
                                 ServiceManager.Services.GetService<IShellUtils>()!.RunAsAdmin("schtasks.exe",
-                                    $"/create /tn \"{程序名称}\" /xml \"{@TempFileName}\"");
+                                    $"/create /tn \"{程序名称}\" /xml \"{tempFileName}\"");
                                 var shellLink = ShellLink.Create(
                                     $"{AppDomain.CurrentDomain.BaseDirectory}noUAC\\{程序名称}.lnk",
                                     "schtasks.exe", null, null, $"/run /tn \"{程序名称}\"");
                                 shellLink.IconLocation = new IconLocation(searchViewItem.OnlyKey, 0);
 
                                 Thread.Sleep(200);
-                                File.Delete(TempFileName);
+                                File.Delete(tempFileName);
                                 Logger.Debug("创建Everything的noUAC任务计划完成");
                                 ServiceManager.Services.GetService<IShellUtils>()!.Open(
                                     $"{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.lnk");
@@ -97,7 +87,7 @@ public partial class AppTools
                                 ConfigManger.Save();
                             }
                         };
-                        ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(
+                        ((IContentDialog)ServiceManager.Services.GetService(typeof(IContentDialog))!).ShowDialogAsync(
                             null,
                             dialog);
                     }
@@ -253,7 +243,7 @@ public partial class AppTools
                     ErrorLnkList.Clear();
                 }
             };
-            ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
+            ((IContentDialog)ServiceManager.Services.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
                 dialog);
         }
     }
@@ -441,10 +431,5 @@ public partial class AppTools
         {
             Logger.Error(e, $"索引失败:{file}");
         }
-    }
-
-    internal static PinyinItem NameSolver(string name)
-    {
-        return _pinyinProcessor.GetPinyin(name, true);
     }
 }

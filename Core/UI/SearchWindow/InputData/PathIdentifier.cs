@@ -1,7 +1,7 @@
 using Core.Services;
-using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 using Serilog;
 using SearchWindowViewModel = Core.ViewModel.Windows.SearchWindowViewModel;
@@ -62,7 +62,5 @@ public class PathIdentifier : IInputDataIdentifier
                 Data = directoryInfo.FullName
             };
         }
-
-        yield break;
     }
 }

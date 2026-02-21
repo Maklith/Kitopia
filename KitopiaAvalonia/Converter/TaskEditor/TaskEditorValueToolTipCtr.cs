@@ -13,6 +13,7 @@ using System.Linq;
 using Avalonia.Data.Converters;
 using Core.CustomScenario;
 using PluginCore;
+using PluginCore.CustomScenario;
 using ValueType = KitopiaAvalonia.Windows.TaskEditors.ValueType;
 
 namespace KitopiaAvalonia.Converter.TaskEditor;

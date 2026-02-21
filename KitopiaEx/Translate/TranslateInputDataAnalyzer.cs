@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Avalonia.Threading;
-using Core.ViewModel;
 using PluginCore;
 using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;

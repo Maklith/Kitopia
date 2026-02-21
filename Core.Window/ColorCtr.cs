@@ -2,7 +2,7 @@
 
 public class ColorSpaceCtr
 {
-    private static float[,] MCAT02 =
+    private static readonly float[,] Mcat02 =
     {
         { 0.7328f, 0.4296f, -0.1624f },
         { -0.7036f, 1.6975f, 0.0061f },
@@ -13,38 +13,37 @@ public class ColorSpaceCtr
     {
         //r r g g b b w w
 
-        var srcWhite = tristimulus(src[6..8]);
+        var srcWhite = Tristimulus(src[6..8]);
 
-        var dstWhite = tristimulus(dst[6..8]);
+        var dstWhite = Tristimulus(dst[6..8]);
 
-        var srcNpm = Npm(new float[,]
+        var srcNpm = Npm(new[,]
         {
             { src[0], src[1] }, // R
             { src[2], src[3] }, // G
             { src[4], src[5] } // B
         }, srcWhite);
-        var dstNpm = Npm(new float[,]
+        var dstNpm = Npm(new[,]
         {
             { dst[0], dst[1] }, // R
             { dst[2], dst[3] }, // G
             { dst[4], dst[5] } // B
         }, dstWhite);
 
-        float[,] adaptedXYZ;
-        float[,] xyz2rgb;
-        float[,] convMat;
+        float[,] adaptedXyz;
+        float[,] xyz2Rgb;
 
         // 模型选择：无适配模型
         {
             // 适配模型计算
-            var aMat = AdaptMat(MCAT02, srcWhite, dstWhite);
-            adaptedXYZ = Mul33(aMat, srcNpm);
-            xyz2rgb = InvertMatrix(dstNpm);
+            var aMat = AdaptMat(Mcat02, srcWhite, dstWhite);
+            adaptedXyz = Mul33(aMat, srcNpm);
+            xyz2Rgb = InvertMatrix(dstNpm);
         }
 
         // 计算转换矩阵
-        convMat = Mul33(xyz2rgb, adaptedXYZ);
-        return convMat;
+        
+        return Mul33(xyz2Rgb, adaptedXyz);
     }
 
     private static float[,] AdaptMat(float[,] mat, float[] source, float[] target)
@@ -89,78 +88,69 @@ public class ColorSpaceCtr
         return result;
     }
 
-    private static void PrintMatrix(float[,] matrix)
-    {
-        for (var i = 0; i < matrix.GetLength(0); i++)
-        {
-            for (var j = 0; j < matrix.GetLength(1); j++) Console.Write($"{matrix[i, j]:F6} ");
-            Console.WriteLine();
-        }
-    }
-
-    private static float[] Mul3(float[,] M, float[] a)
+    private static float[] Mul3(float[,] m, float[] a)
     {
         // 矩阵与列向量相乘 (M * a)
-        return new float[]
-        {
-            M[0, 0] * a[0] + M[0, 1] * a[1] + M[0, 2] * a[2],
-            M[1, 0] * a[0] + M[1, 1] * a[1] + M[1, 2] * a[2],
-            M[2, 0] * a[0] + M[2, 1] * a[1] + M[2, 2] * a[2]
-        };
+        return
+        [
+            m[0, 0] * a[0] + m[0, 1] * a[1] + m[0, 2] * a[2],
+            m[1, 0] * a[0] + m[1, 1] * a[1] + m[1, 2] * a[2],
+            m[2, 0] * a[0] + m[2, 1] * a[1] + m[2, 2] * a[2]
+        ];
     }
 
-    private static float[] Mul3T(float[,] M, float[] a)
+    private static float[] Mul3T(float[,] m, float[] a)
     {
         // 矩阵转置后与列向量相乘 (M' * a)
-        return new float[]
-        {
-            M[0, 0] * a[0] + M[1, 0] * a[1] + M[2, 0] * a[2],
-            M[0, 1] * a[0] + M[1, 1] * a[1] + M[2, 1] * a[2],
-            M[0, 2] * a[0] + M[1, 2] * a[1] + M[2, 2] * a[2]
-        };
+        return
+        [
+            m[0, 0] * a[0] + m[1, 0] * a[1] + m[2, 0] * a[2],
+            m[0, 1] * a[0] + m[1, 1] * a[1] + m[2, 1] * a[2],
+            m[0, 2] * a[0] + m[1, 2] * a[1] + m[2, 2] * a[2]
+        ];
     }
 
-    private static float[,] Mul33(float[,] A, float[,] B)
+    private static float[,] Mul33(float[,] a, float[,] b)
     {
         // 矩阵相乘 (A * B)
         var result = new float[3, 3];
         for (var i = 0; i < 3; i++)
         {
-            float[] row = { A[i, 0], A[i, 1], A[i, 2] };
-            result[i, 0] = Mul3T(B, row)[0];
-            result[i, 1] = Mul3T(B, row)[1];
-            result[i, 2] = Mul3T(B, row)[2];
+            float[] row = [a[i, 0], a[i, 1], a[i, 2]];
+            result[i, 0] = Mul3T(b, row)[0];
+            result[i, 1] = Mul3T(b, row)[1];
+            result[i, 2] = Mul3T(b, row)[2];
         }
 
         return result;
     }
 
-    private static float[,] Mul3Col(float[,] M, float[] q)
+    private static float[,] Mul3Col(float[,] m, float[] q)
     {
         // 对矩阵 M 的列进行缩放，列向量分别乘以 q 的分量
         var result = new float[3, 3];
         for (var i = 0; i < 3; i++)
         {
-            result[i, 0] = M[i, 0] * q[0];
-            result[i, 1] = M[i, 1] * q[1];
-            result[i, 2] = M[i, 2] * q[2];
+            result[i, 0] = m[i, 0] * q[0];
+            result[i, 1] = m[i, 1] * q[1];
+            result[i, 2] = m[i, 2] * q[2];
         }
 
         return result;
     }
 
 
-    private static float[] tristimulus(float[] xy, float Y = 1)
+    private static float[] Tristimulus(float[] xy, float y = 1)
     {
         var z = 1 - xy[0] - xy[1];
-        return [Y * xy[0] / xy[1], Y, Y * z / xy[1]];
+        return [y * xy[0] / xy[1], y, y * z / xy[1]];
     }
 
-    private static float[,] Npm(float[,] Mp, float[] ctr)
+    private static float[,] Npm(float[,] mp, float[] ctr)
     {
         // 提取 x、y 和 z
-        float[] x = { Mp[0, 0], Mp[1, 0], Mp[2, 0] };
-        float[] y = { Mp[0, 1], Mp[1, 1], Mp[2, 1] };
+        float[] x = { mp[0, 0], mp[1, 0], mp[2, 0] };
+        float[] y = { mp[0, 1], mp[1, 1], mp[2, 1] };
         float[] z =
         {
             1 - x[0] - y[0],
@@ -169,7 +159,7 @@ public class ColorSpaceCtr
         };
 
         // 求解线性方程组
-        var d = Solve3(new float[][] { x, y, z }, ctr);
+        var d = Solve3([x, y, z], ctr);
 
         // 生成结果矩阵
         var result = new float[3, 3];
@@ -183,38 +173,38 @@ public class ColorSpaceCtr
         return result;
     }
 
-    private static float[] Solve3(float[][] M, float[] a)
+    private static float[] Solve3(float[][] m, float[] a)
     {
-        var d = Det3(M); // 原矩阵的行列式
+        var d = Det3(m); // 原矩阵的行列式
 
         if (Math.Abs(d) <= 1E-15) throw new Exception("Matrix is singular");
 
         d = (float)(1.0 / d);
 
         // 计算 d1, d2, d3
-        var d1 = Det3(ReplaceColumn(M, a, 0));
-        var d2 = Det3(ReplaceColumn(M, a, 1));
-        var d3 = Det3(ReplaceColumn(M, a, 2));
+        var d1 = Det3(ReplaceColumn(m, a, 0));
+        var d2 = Det3(ReplaceColumn(m, a, 1));
+        var d3 = Det3(ReplaceColumn(m, a, 2));
 
         // 返回结果
-        return new float[] { d1 * d, d2 * d, d3 * d };
+        return [d1 * d, d2 * d, d3 * d];
     }
 
-    private static float Det3(float[][] M)
+    private static float Det3(float[][] m)
     {
         // 计算 3x3 矩阵的行列式
-        return M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1])
-               - M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0])
-               + M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]);
+        return m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+               - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+               + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
     }
 
-    private static float[][] ReplaceColumn(float[][] M, float[] column, int colIndex)
+    private static float[][] ReplaceColumn(float[][] m, float[] column, int colIndex)
     {
         // 替换矩阵 M 的第 colIndex 列为向量 column
         float[][] result = new float[3][];
         for (var i = 0; i < 3; i++)
         {
-            result[i] = (float[])M[i].Clone();
+            result[i] = (float[])m[i].Clone();
             result[i][colIndex] = column[i];
         }
 

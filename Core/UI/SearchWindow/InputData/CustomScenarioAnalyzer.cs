@@ -1,5 +1,5 @@
-using Core.ViewModel;
 using PluginCore;
+using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 
 namespace Core.UI.SearchWindow.InputData;

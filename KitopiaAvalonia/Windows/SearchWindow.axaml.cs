@@ -10,8 +10,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.Services;
-using Core.Services.Interfaces;
 using Core.Utils;
 using Core.ViewModel.Windows;
 using Microsoft.Extensions.DependencyInjection;

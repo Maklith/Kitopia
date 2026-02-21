@@ -3,7 +3,7 @@ using System.Threading;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using PluginCore;
-using PluginCore.Attribute;
+using PluginCore.CustomScenario.Attribute.Scenario;
 using PluginCore.ExMethod;
 
 namespace KitopiaEx.CustomScenarioMethods;

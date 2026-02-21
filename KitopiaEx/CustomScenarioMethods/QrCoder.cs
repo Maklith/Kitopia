@@ -1,9 +1,9 @@
 ﻿using System.Threading;
 using OpenCvSharp;
 using PluginCore;
-using PluginCore.Attribute;
+using PluginCore.CustomScenario.Attribute.Scenario;
 
-namespace KitopiaEx.QRCode;
+namespace KitopiaEx.CustomScenarioMethods;
 
 public class QrCoder
 {

@@ -1,7 +1,5 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Threading;
-using System;
 using Vanara.PInvoke;
 
 namespace Core.Window;

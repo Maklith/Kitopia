@@ -1,8 +1,8 @@
 ﻿using System.Threading;
 using PluginCore;
-using PluginCore.Attribute;
+using PluginCore.CustomScenario.Attribute.Scenario;
 
-namespace KitopiaEx;
+namespace KitopiaEx.CustomScenarioMethods;
 
 public class SearchItemScenarioMethod
 {

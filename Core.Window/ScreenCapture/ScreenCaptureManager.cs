@@ -1,9 +1,8 @@
-﻿using Core.SDKs.Services;
-using Core.Services.Config;
+﻿using Core.Services.Config;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
-namespace Core.Window;
+namespace Core.Window.ScreenCapture;
 
 public class ScreenCaptureManager : IScreenCaptureManager
 {

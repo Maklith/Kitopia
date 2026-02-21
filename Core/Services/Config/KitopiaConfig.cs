@@ -1,11 +1,10 @@
 ﻿using System.Collections.ObjectModel;
 using Avalonia.Threading;
-using Core.SDKs.Services;
 using Core.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using PluginCore.Attribute;
 using PluginCore.Config;
+using PluginCore.CustomScenario.Attribute.ConfigField;
 using Serilog;
 
 // ReSharper disable InconsistentNaming

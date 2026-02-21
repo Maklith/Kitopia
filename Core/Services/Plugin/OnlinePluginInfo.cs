@@ -20,7 +20,7 @@ public struct VersionDetail
     public bool IsAvailable { get; set; }
 }
 
-public partial class OnlinePluginInfo
+public class OnlinePluginInfo
 {
     internal class ApiResponse
     {

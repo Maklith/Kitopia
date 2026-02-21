@@ -6,7 +6,6 @@ using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Core.CustomScenario;
-using Core.Services;
 using Core.Services.Interfaces;
 using Core.ViewModel.TaskEditor;
 using Microsoft.Extensions.DependencyInjection;

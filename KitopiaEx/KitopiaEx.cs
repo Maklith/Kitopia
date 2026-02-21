@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using KitopiaEx.CustomScenarioMethods;
 using KitopiaEx.CustomScenarioValueSerializer;
 using KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
 using KitopiaEx.Ocr;
-using KitopiaEx.QRCode;
 using KitopiaEx.Translate;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using PluginCore;
 
 namespace KitopiaEx;
@@ -82,9 +79,9 @@ public class KitopiaEx : IPlugin
         services.AddTransient<ScreenCaptureInfoSelfConnector>();
         services.AddSingleton<KeyboardSimulation>();
         services.AddSingleton<ScreenCaptureNode>();
-        services.AddTransient<Ocr.Ocr>();
+        services.AddTransient<CustomScenarioMethods.Ocr>();
         services.AddTransient<ImagePin.ImagePin>();
-        services.AddTransient<Translate.Translate>();
+        services.AddTransient<CustomScenarioMethods.Translate>();
         services.AddTransient<TranslateInputDataAnalyzer>();
         services.AddTransient<QrCoder>();
         services.AddTransient<Image>();

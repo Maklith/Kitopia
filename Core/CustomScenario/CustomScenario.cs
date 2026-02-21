@@ -13,6 +13,7 @@ using Core.Services.Interfaces;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using PluginCore.CustomScenario;
 using Serilog;
 
 #endregion
@@ -33,7 +34,7 @@ public partial class CustomScenario : ObservableRecipient
 
     private Dictionary<ScenarioNodeBase, Thread?> _initTasks = new();
 
-    [JsonIgnore] [ObservableProperty] private bool _isRunning = false;
+    [JsonIgnore] [ObservableProperty] private bool _isRunning;
 
     [JsonIgnore] [ObservableProperty] private DateTime _lastRun;
 
@@ -52,7 +53,7 @@ public partial class CustomScenario : ObservableRecipient
     [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> inputValue = new();
     private bool InTick;
 
-    [JsonIgnore] [ObservableProperty] private bool isHaveInputValue = false;
+    [JsonIgnore] [ObservableProperty] private bool isHaveInputValue;
 
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> keys = new();
 
@@ -483,10 +484,10 @@ public partial class CustomScenario : ObservableRecipient
         var pluginManger = ServiceManager.Services.GetService<IPluginManger>()!;
 
         return nodes.Any(e => e.IsUseThePlugin(plugStr)) ||
-               Enumerable.Any<KeyValuePair<string, CustomScenarioValue>>(InputValue, e =>
+               InputValue.Any<KeyValuePair<string, CustomScenarioValue>>(e =>
                    pluginManger.IsTypeFromThePlugin(e.Value.SerializeType, plugStr) ||
                    pluginManger.IsTypeFromThePlugin(e.Value.ShowType, plugStr)) ||
-               Enumerable.Any<KeyValuePair<string, CustomScenarioValue>>(Values, e =>
+               Values.Any<KeyValuePair<string, CustomScenarioValue>>(e =>
                    pluginManger.IsTypeFromThePlugin(e.Value.SerializeType, plugStr) ||
                    pluginManger.IsTypeFromThePlugin(e.Value.ShowType, plugStr));
     }

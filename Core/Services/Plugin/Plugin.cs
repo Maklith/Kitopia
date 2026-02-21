@@ -4,18 +4,18 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Core.CustomScenario;
-using Core.JsonConverter;
 using Core.Services.Config;
 using Core.Services.HotKey;
 using Core.Services.Interfaces;
 using Core.Utils;
-using Core.ViewModel;
 using Core.ViewModel.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using PluginCore.Attribute;
-using PluginCore.Attribute.Scenario;
 using PluginCore.Config;
+using PluginCore.CustomScenario;
+using PluginCore.CustomScenario.Attribute;
+using PluginCore.CustomScenario.Attribute.ConfigField;
+using PluginCore.CustomScenario.Attribute.Scenario;
 using PluginCore.Onnx;
 using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
@@ -176,7 +176,7 @@ public class Plugin
                     ? new CustomScenarioTriggerInfo { Name = $"{PluginInfo.ToPlgString()}_{type.Name}" }
                     : fieldInfo.GetValue(null)!);
                 customScenarioTriggerInfo.PluginInfo = PluginInfo.ToPlgString();
-                CustomScenarioGloble.Triggers.Add($"{PluginInfo.ToPlgString()}_{type.Name}",
+                CustomScenarioGlobe.Triggers.Add($"{PluginInfo.ToPlgString()}_{type.Name}",
                     customScenarioTriggerInfo);
             }
 
@@ -382,8 +382,8 @@ public class Plugin
         }
         PluginOverall.SearchWindowInputDataAnalyzers.Remove(PluginInfo.ToPlgString());
         ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.RemoveMethodsByPluginName(PluginInfo.ToPlgString());
-        var keyValuePairs = CustomScenarioGloble.Triggers.Where(e => e.Value.PluginInfo == PluginInfo.ToPlgString());
-        foreach (var keyValuePair in keyValuePairs) CustomScenarioGloble.Triggers.Remove(keyValuePair.Key);
+        var keyValuePairs = CustomScenarioGlobe.Triggers.Where(e => e.Value.PluginInfo == PluginInfo.ToPlgString());
+        foreach (var keyValuePair in keyValuePairs) CustomScenarioGlobe.Triggers.Remove(keyValuePair.Key);
 
         foreach (var searchViewItem in _searchViewItems)
         {

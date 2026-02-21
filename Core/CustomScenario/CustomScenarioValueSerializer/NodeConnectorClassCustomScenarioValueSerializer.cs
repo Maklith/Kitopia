@@ -1,4 +1,4 @@
-﻿using PluginCore;
+﻿using PluginCore.CustomScenario;
 
 namespace Core.CustomScenario.CustomScenarioValueSerializer;
 

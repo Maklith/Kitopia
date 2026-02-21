@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
-using Core.SDKs.Services;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 

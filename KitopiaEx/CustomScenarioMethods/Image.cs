@@ -6,10 +6,9 @@
 // FileEffect:
 
 using System.Threading;
-using Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using PluginCore.Attribute;
+using PluginCore.CustomScenario.Attribute.Scenario;
 
 namespace KitopiaEx.CustomScenarioMethods;
 

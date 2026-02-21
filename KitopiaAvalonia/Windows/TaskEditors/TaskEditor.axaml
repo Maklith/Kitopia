@@ -15,8 +15,9 @@
               xmlns:taskEditors="clr-namespace:KitopiaAvalonia.Windows.TaskEditors"
               xmlns:converters="clr-namespace:NodifyM.Avalonia.Converters;assembly=NodifyM.Avalonia"
               xmlns:kitopiaAvalonia="clr-namespace:KitopiaAvalonia"
+              xmlns:customScenario="clr-namespace:PluginCore.CustomScenario;assembly=PluginCore"
               mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-              x:Class="KitopiaAvalonia.Windows.TaskEditor"
+              x:Class="KitopiaAvalonia.Windows.TaskEditors.TaskEditor"
               Title="情景编排"
               WindowStartupLocation="CenterScreen"
               TransparencyLevelHint="AcrylicBlur"
@@ -32,7 +33,7 @@
 
 
         <taskEditor:ScenarioMethodCategoryGroupCtr x:Key="ScenarioMethodCategoryGroupCtr" />
-        <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
+        <customScenario:ToolTipConverter x:Key="ToolTipConverter" />
         <taskEditor:NodeTypeNameI18NCtr x:Key="NodeTypeNameI18NCtr" />
     </u:UrsaWindow.Resources>
     <Interaction.Behaviors>
@@ -226,12 +227,12 @@
                                 </settingsExpander:SettingsExpander.IconSource>
 
                                 <ItemsControl Margin="15,0,0,0"
-                                              ItemsSource="{Binding Source={x:Static customScenario1:CustomScenarioGloble.Triggers}}">
+                                              ItemsSource="{Binding Source={x:Static customScenario1:CustomScenarioGlobe.Triggers}}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <DataTemplate.DataType>
                                                 <x:Type TypeName="generic:KeyValuePair"
-                                                        x:TypeArguments="x:String, pluginCore:CustomScenarioTriggerInfo" />
+                                                        x:TypeArguments="x:String, customScenario:CustomScenarioTriggerInfo" />
                                             </DataTemplate.DataType>
                                             <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
                                                 <StackPanel.Resources>

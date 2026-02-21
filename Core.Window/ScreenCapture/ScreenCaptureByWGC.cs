@@ -1,14 +1,7 @@
-﻿using System.Buffers;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
-using Windows.Graphics;
 using Windows.Graphics.Capture;
-using Avalonia;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
-using OpenCvSharp;
 using PluginCore;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
@@ -22,7 +15,7 @@ using IDirect3DSurface = Windows.Graphics.DirectX.Direct3D11.IDirect3DSurface;
 using IInspectable = WinRT.IInspectable;
 using Rect = PluginCore.Rect;
 
-namespace Core.Window;
+namespace Core.Window.ScreenCapture;
 
 public class ScreenCaptureByWGC : IScreenCapture
 {
@@ -262,7 +255,7 @@ public class ScreenCaptureByWGC : IScreenCapture
                 if (desc.Monitor == hMonitor)
                 {
                     ComPtr<IDXGIOutput6> output6 = null;
-                    if (output.QueryInterface<IDXGIOutput6>(out output6) != 0)
+                    if (output.QueryInterface(out output6) != 0)
                         throw new Exception("Failed to get IDXGIOutput6");
                     var outputDesc = new OutputDesc1();
                     if (output6.GetDesc1(ref outputDesc) != 0) throw new Exception("Failed to get Desc1");

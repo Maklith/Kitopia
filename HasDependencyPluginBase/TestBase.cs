@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using PluginCore.Attribute;
 
 namespace HasDependencyPluginBase;
 

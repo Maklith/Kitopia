@@ -8,10 +8,12 @@
                     xmlns:pages="clr-namespace:KitopiaAvalonia.Pages"
                     xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
                     xmlns:u="https://irihi.tech/ursa"
-                    xmlns:converter="clr-namespace:KitopiaAvalonia.Converter">
+                    xmlns:converter="clr-namespace:KitopiaAvalonia.Converter"
+                    xmlns:customScenario="clr-namespace:PluginCore.CustomScenario;assembly=PluginCore"
+                    xmlns:taskEditors="clr-namespace:KitopiaAvalonia.Windows.TaskEditors">
     <!-- Add Resources Here -->
-    <taskEditor:EnumEqualCtr x:Key="NodeStatusBorderCtr" />
-    <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
+    <converter:EnumEqualCtr x:Key="NodeStatusBorderCtr" />
+    <customScenario:ToolTipConverter x:Key="ToolTipConverter" />
     <taskEditor:NodeTypeNameI18NCtr x:Key="NodeTypeNameI18NCtr" />
     <converter:IfNullVisibilityHidden x:Key="IfNullVisibilityHidden" />
     <DataTemplates x:Key="NodifyEditorNodeTemplates">
@@ -159,7 +161,7 @@
                                 </MenuFlyout>
                             </ContentPresenter.ContextFlyout>
                             <ContentPresenter.DataTemplates>
-                                <pages:NodeInputDataTemplateSelector TemplateType="nodify" />
+                                <taskEditors:NodeInputDataTemplateSelector TemplateType="nodify" />
                             </ContentPresenter.DataTemplates>
                         </ContentPresenter>
 

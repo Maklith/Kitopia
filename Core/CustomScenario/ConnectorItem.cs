@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Core.JsonConverter;
-using PluginCore;
+using PluginCore.CustomScenario;
 
 namespace Core.CustomScenario;
 
@@ -43,7 +43,7 @@ public partial class ConnectorItem : ObservableRecipient
     public CustomScenarioValue? InputObject { get; init; }
 
     [ObservableProperty] private bool _isConnected;
-    [ObservableProperty] private bool _isNotUsed = false;
+    [ObservableProperty] private bool _isNotUsed;
     [ObservableProperty] private ConnectorType _connectorType = ConnectorType.Input;
 
     /// <summary>
@@ -101,10 +101,10 @@ public partial class ConnectorItem : ObservableRecipient
         ObservableCollection<ConnectionItem> connectionItems, bool source)
     {
         if (!source)
-            return connectionItems.Where((e) => e.Source == this)
+            return connectionItems.Where(e => e.Source == this)
                 .Select(e => e.Target);
 
-        return connectionItems.Where((e) => e.Target == this)
+        return connectionItems.Where(e => e.Target == this)
             .Select(e => e.Source);
     }
 
@@ -119,10 +119,10 @@ public partial class ConnectorItem : ObservableRecipient
         ObservableCollection<ConnectionItem> connectionItems, bool source)
     {
         if (!source)
-            return connectionItems.Where((e) => e.Source == this)
+            return connectionItems.Where(e => e.Source == this)
                 .Select(e => e.Target.Source);
 
-        return connectionItems.Where((e) => e.Target == this)
+        return connectionItems.Where(e => e.Target == this)
             .Select(e => e.Source.Source);
     }
 

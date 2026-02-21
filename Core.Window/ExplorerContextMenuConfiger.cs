@@ -6,7 +6,6 @@
 // FileEffect:
 
 using System.Text.Json;
-using Core.Services.Interfaces;
 using PluginCore;
 
 namespace Core.Window;

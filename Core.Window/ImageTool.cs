@@ -1,7 +1,4 @@
-﻿using System;
-using Core.SDKs.Services;
-using Core.Services;
-using Core.Services.Interfaces;
+﻿using Core.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
@@ -10,24 +7,24 @@ namespace Core.Window;
 
 public class ImageTool : IImageTool
 {
-    public bool SaveImageAndOpenTheFolder(Mat image, string? filePath = null)
+    public bool SaveImageAndOpenTheFolder(Mat image, string filePath)
     {
         if (SaveImage(image,filePath))
         {
-            ServiceManager.Services.GetService<IShellUtils>()!.OpenFolderAndSelect(filePath!);
+            ServiceManager.Services.GetService<IShellUtils>()!.OpenFolderAndSelect(filePath);
         }
 
         return false;
     }
 
-    public bool SaveImage(Mat image, string? filePath = null)
+    public bool SaveImage(Mat image, string filePath)
     {
         try
         {
             image.SaveImage(filePath);
             return true;
         }
-        catch (Exception e)
+        catch (Exception)
         {
             return false;
         }

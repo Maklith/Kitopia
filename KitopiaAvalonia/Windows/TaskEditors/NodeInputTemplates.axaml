@@ -6,9 +6,10 @@
                     xmlns:controls1="clr-namespace:NodifyM.Avalonia.Controls;assembly=NodifyM.Avalonia"
                     xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
                     xmlns:taskEditor="clr-namespace:KitopiaAvalonia.Converter.TaskEditor"
-                    xmlns:system="clr-namespace:System;assembly=System.Runtime">
+                    xmlns:system="clr-namespace:System;assembly=System.Runtime"
+                    xmlns:customScenario="clr-namespace:PluginCore.CustomScenario;assembly=PluginCore">
     <!-- Add Resources Here -->
-    <pluginCore:ToolTipConverter x:Key="ToolTipConverter" />
+    <customScenario:ToolTipConverter x:Key="ToolTipConverter" />
     <taskEditor:NodeTypeNameI18NCtr x:Key="NodeTypeNameI18NCtr" />
     <DataTemplate x:Key="InputTemplate"
                   DataType="{x:Type customScenario1:ConnectorItem}">

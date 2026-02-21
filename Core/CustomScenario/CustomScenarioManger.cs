@@ -2,7 +2,6 @@
 using System.Text;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.SDKs.CustomScenario;
 using Core.Services;
 using Core.Services.Config;
 using Core.Services.HotKey;
@@ -11,6 +10,7 @@ using Core.Services.Plugin;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using PluginCore.CustomScenario;
 using Serilog;
 
 namespace Core.CustomScenario;
@@ -314,7 +314,7 @@ public class CustomScenarioManger
     {
         var toRemove = new List<CustomScenario>();
         if (onlyError)
-            foreach (var customScenario in CustomScenarios.Where(e => e.HasInit == false))
+            foreach (var customScenario in CustomScenarios.Where(e => !e.HasInit))
                 toRemove.Add(customScenario);
         else
             foreach (var customScenario in CustomScenarios)

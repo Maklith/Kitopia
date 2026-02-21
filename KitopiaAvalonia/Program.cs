@@ -11,7 +11,6 @@ using Avalonia.Media.Imaging;
 using Avalonia.ReactiveUI;
 using Avalonia.Threading;
 using Core.CustomScenario;
-using Core.SDKs.Services;
 using Core.Services;
 using Core.Services.Config;
 using Core.Services.Interfaces;
@@ -25,7 +24,9 @@ using Core.ViewModel.Pages.plugin;
 using Core.ViewModel.TaskEditor;
 using Core.ViewModel.Windows;
 using Core.Window;
+using Core.Window.AppTools;
 using Core.Window.Everything;
+using Core.Window.ScreenCapture;
 using Core.Window.Services;
 using KitopiaAvalonia.Pages;
 using KitopiaAvalonia.Services;
@@ -36,6 +37,7 @@ using PluginCore.Onnx;
 using Serilog;
 using HotKeyManager = Core.Services.HotKey.HotKeyManager;
 using ScreenCaptureWindow = KitopiaAvalonia.Services.ScreenCaptureWindow;
+using TaskEditor = KitopiaAvalonia.Windows.TaskEditors.TaskEditor;
 
 namespace KitopiaAvalonia;
 

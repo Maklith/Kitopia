@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using Core.Window;
+﻿using Core.Window;
 using PluginCore;
 using Silk.NET.Direct3D11;
 using Silk.NET.DXGI;

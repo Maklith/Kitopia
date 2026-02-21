@@ -1,21 +1,12 @@
 using Avalonia;
 using Avalonia.Threading;
-using Core.SDKs.Services;
-using Core.Services;
-using Core.Services.Interfaces;
 using Vanara.PInvoke;
 using PluginCore;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
-using Core.Window;
-using Vanara.PInvoke;
-using System;
 using Avalonia.Media.Imaging;
 using Core.Utils;
-using OpenCvSharp;
 
 namespace Core.Window;
 

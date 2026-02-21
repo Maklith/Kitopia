@@ -4,7 +4,6 @@ using Avalonia;
 using Avalonia.Controls.Primitives;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.Services;
 using Core.Services.Config;
 using Core.Services.HotKey;
 using Core.Services.Interfaces;
@@ -57,11 +56,11 @@ public class HotKeyShow : TemplatedControl
 
     //IsActivated
     public static readonly StyledProperty<bool> IsActivatedProperty =
-        AvaloniaProperty.Register<HotKeyShow, bool>(nameof(IsActivated), false);
+        AvaloniaProperty.Register<HotKeyShow, bool>(nameof(IsActivated));
 
     public bool IsActivated
     {
-        get => (bool)GetValue(IsActivatedProperty);
+        get => GetValue(IsActivatedProperty);
         set => SetValue(IsActivatedProperty, value);
     }
 
@@ -85,7 +84,7 @@ public class HotKeyShow : TemplatedControl
     [Category("KeyType")]
     public HotKeyModel? HotKeyModel
     {
-        get => (HotKeyModel)GetValue(HotKeyModelProperty);
+        get => GetValue(HotKeyModelProperty);
         set => SetValue(HotKeyModelProperty, value);
     }
 
@@ -93,7 +92,7 @@ public class HotKeyShow : TemplatedControl
     [Category("KeyType")]
     public KeyTypeE KeyType
     {
-        get => (KeyTypeE)GetValue(KeyTypeProperty);
+        get => GetValue(KeyTypeProperty);
         private set => SetValue(KeyTypeProperty, value);
     }
 
@@ -214,7 +213,6 @@ public class HotKeyShow : TemplatedControl
         {
             HotKeyManager.HotKetImpl.RequestUserModify(HotKeyModel.Value.UUID);
             ConfigManger.Save();
-            return;
         }
     }
 }

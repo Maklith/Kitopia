@@ -283,8 +283,8 @@ public partial class AdaptiveTextBox : TextBlock
     /// </summary>
     public int SelectionStart
     {
-      get => this.GetValue<int>(SelectionStartProperty);
-      set => this.SetValue<int>(SelectionStartProperty, value);
+      get => this.GetValue(SelectionStartProperty);
+      set => this.SetValue(SelectionStartProperty, value);
     }
 
     /// <summary>
@@ -292,8 +292,8 @@ public partial class AdaptiveTextBox : TextBlock
     /// </summary>
     public int SelectionEnd
     {
-      get => this.GetValue<int>(SelectionEndProperty);
-      set => this.SetValue<int>(SelectionEndProperty, value);
+      get => this.GetValue(SelectionEndProperty);
+      set => this.SetValue(SelectionEndProperty, value);
     }
 
     /// <summary>Gets the content of the current selection.</summary>
@@ -307,7 +307,7 @@ public partial class AdaptiveTextBox : TextBlock
       get => this._canCopy;
       private set
       {
-        this.SetAndRaise<bool>((DirectPropertyBase<bool>) CanCopyProperty, ref this._canCopy, value);
+        this.SetAndRaise((DirectPropertyBase<bool>) CanCopyProperty, ref this._canCopy, value);
       }
     }
 
@@ -335,14 +335,14 @@ public partial class AdaptiveTextBox : TextBlock
     public void SelectAll()
     {
       string text = this.Text;
-      this.SetCurrentValue<int>(SelectionStartProperty, 0);
-      this.SetCurrentValue<int>(SelectionEndProperty, text != null ? text.Length : 0);
+      this.SetCurrentValue(SelectionStartProperty, 0);
+      this.SetCurrentValue(SelectionEndProperty, text != null ? text.Length : 0);
     }
 
     /// <summary>Clears the current selection</summary>
     public void ClearSelection()
     {
-      this.SetCurrentValue<int>(SelectionEndProperty, this.SelectionStart);
+      this.SetCurrentValue(SelectionEndProperty, this.SelectionStart);
     }
 
     internal void SelectText(Point start,Point end)
@@ -353,10 +353,10 @@ public partial class AdaptiveTextBox : TextBlock
       //point = new Point(MathUtilities.Clamp(point.X, 0.0, Math.Max(this.TextLayout.WidthIncludingTrailingWhitespace, 0.0)), MathUtilities.Clamp(point.Y, 0.0, Math.Max(this.TextLayout.Height, 0.0)));
       int textPosition = this.TextLayout.HitTestPoint(in end).TextPosition;
      
-      this.SetCurrentValue<int>(SelectableTextBlock.SelectionEndProperty, textPosition);
+      this.SetCurrentValue(SelectableTextBlock.SelectionEndProperty, textPosition);
       int textPosition2 = this.TextLayout.HitTestPoint(in start).TextPosition;
      
-      this.SetCurrentValue<int>(SelectableTextBlock.SelectionStartProperty, textPosition2);
+      this.SetCurrentValue(SelectableTextBlock.SelectionStartProperty, textPosition2);
     }
 
     protected override void OnGotFocus(GotFocusEventArgs e)

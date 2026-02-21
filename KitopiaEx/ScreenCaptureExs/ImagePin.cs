@@ -3,7 +3,7 @@ using Avalonia;
 using Avalonia.Threading;
 using OpenCvSharp;
 using PluginCore;
-using PluginCore.Attribute;
+using PluginCore.CustomScenario.Attribute;
 using PluginCore.ExMethod;
 
 namespace KitopiaEx.ScreenCaptureExs;

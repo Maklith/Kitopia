@@ -31,7 +31,7 @@ public class TimerHelper
     /// <summary>当计时器触发时执行的操作 / Action executed when timer elapses</summary>
     private void OnTimerElapsed(object source, ElapsedEventArgs e)
     {
-        ThreadPool.QueueUserWorkItem((e) => { _action.Invoke(_hotKeyModel); });
+        ThreadPool.QueueUserWorkItem(e => { _action.Invoke(_hotKeyModel); });
     }
 
     /// <summary>在需要开始计时器的地方调用该方法 / Start the timer</summary>

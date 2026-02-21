@@ -1,15 +1,9 @@
 #region
 
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
-using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
-using System.Threading.Tasks;
 using System.Xml;
 using Core.Services;
 using Core.Utils;
@@ -28,12 +22,17 @@ namespace Core.Window;
 
 internal partial class IconTools
 {
+    // ReSharper disable once InconsistentNaming
     private const uint SHGFI_ICON = 0x100;
+    // ReSharper disable once InconsistentNaming
     private const uint SHGFI_LARGEICON = 0x0;
+    // ReSharper disable once InconsistentNaming
     private const uint SHGFI_SMALLICON = 0x000000001;
+    // ReSharper disable once InconsistentNaming
     private const uint SHGFI_USEFILEATTRIBUTES = 0x000000010;
+    // ReSharper disable once InconsistentNaming
     private const uint SHGFI_OPENICON = 0x000000002;
-    private static ILogger Logger = LogManager.Logger.ForContext<IconTools>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<IconTools>();
 
     private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
         .AddConcurrencyLimiter(new ConcurrencyLimiterOptions()
@@ -55,7 +54,7 @@ internal partial class IconTools
                 UseJitter = true
             }).Build();
 
-    private static readonly Dictionary<string, Bitmap> _icons = new(250);
+    private static readonly Dictionary<string, Bitmap> Icons = new(250);
 
 
     [DllImport("User32.dll")]
@@ -120,21 +119,21 @@ internal partial class IconTools
                         var icon = Icon.FromHandle(iconBm.GetHicon());
                         return icon;
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
                         goto retry;
                     }
                 }
                 case ".msc":
                 {
-                    var index = 0;
+                    int index;
                     string dllPath;
                     var xd = new XmlDocument();
                     xd.Load(path); //加载xml文档
                     var rootNode = xd.SelectSingleNode("MMC_ConsoleFile"); //得到xml文档的根节点
-                    var BinaryStorage = rootNode.SelectSingleNode("VisualAttributes").SelectSingleNode("Icon");
-                    index = int.Parse(((XmlElement)BinaryStorage).GetAttribute("Index"));
-                    dllPath = ((XmlElement)BinaryStorage).GetAttribute("File");
+                    var binaryStorage = rootNode?.SelectSingleNode("VisualAttributes")?.SelectSingleNode("Icon");
+                    index = int.Parse(((XmlElement)binaryStorage)?.GetAttribute("Index"));
+                    dllPath = ((XmlElement)binaryStorage).GetAttribute("File");
 
                     dllPath = Environment.SystemDirectory + "\\" + dllPath.Split("\\").Last();
                     path = dllPath;
@@ -150,7 +149,7 @@ internal partial class IconTools
                     //对应的图标id
                     var ids = new int[iconTotalCount];
                     //成功获取到的图标个数
-                    var successCount = PrivateExtractIcons((string)dllPath, index, 48, 48, hIcons, ids, iconTotalCount, 0);
+                    var successCount = PrivateExtractIcons(dllPath, index, 48, 48, hIcons, ids, iconTotalCount, 0);
                     for (var i = 0; i < successCount; i++)
                     {
                         //指针为空，跳过
@@ -191,10 +190,11 @@ internal partial class IconTools
                             User32.DestroyIcon(large[i].DangerousGetHandle());
                         }
 
-                        foreach (var hicon in small)
-                        {
-                            User32.DestroyIcon(hicon.DangerousGetHandle());
-                        }
+                        if (small != null)
+                            foreach (var hicon in small)
+                            {
+                                User32.DestroyIcon(hicon.DangerousGetHandle());
+                            }
                     }
 
                     var extractIcon = Icon.ExtractIcon(dllPath2, iconIndex);
@@ -210,7 +210,7 @@ internal partial class IconTools
                 path = dllPath2;
             }
 
-            var jumboIcon = GetIconFromImageList(path, Shell32.SHIL.SHIL_EXTRALARGE); // 48x48 或更大
+            var jumboIcon = GetIconFromImageList(path); // 48x48 或更大
             if (jumboIcon != null) return jumboIcon;
 
             return null;
@@ -250,7 +250,7 @@ internal partial class IconTools
                         $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{t.OnlyKey.Split(":")[1]}.png";
                     if (File.Exists(path))
                     {
-                        if (_icons.TryGetValue(path, out var icon2)) t.Icon = icon2;
+                        if (Icons.TryGetValue(path, out var icon2)) t.Icon = icon2;
                         ResiliencePipeline.ExecuteAsync(async e =>
                         {
                             await Task.Run(() =>
@@ -258,8 +258,8 @@ internal partial class IconTools
                                 var iconBase = GetIconBase(path, path);
                                 if (iconBase == null) return;
 
-                                var clone = ((System.Drawing.Bitmap)iconBase.ToBitmap()).ToAvaloniaBitmap();
-                                _icons.TryAdd(path, clone);
+                                var clone = iconBase.ToBitmap().ToAvaloniaBitmap();
+                                Icons.TryAdd(path, clone);
                                 iconBase.Dispose();
                                 t.Icon = clone;
                             }, e);
@@ -362,7 +362,7 @@ internal partial class IconTools
         var path = $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{t.UUID}.png";
         if (File.Exists(path))
         {
-            if (_icons.TryGetValue(path, out var icon2)) t.Icon = icon2;
+            if (Icons.TryGetValue(path, out var icon2)) t.Icon = icon2;
             ResiliencePipeline.ExecuteAsync(async e =>
             {
                 await Task.Run(() =>
@@ -370,8 +370,8 @@ internal partial class IconTools
                     var iconBase = GetIconBase(path, path);
                     if (iconBase == null) return;
 
-                    var clone = ((System.Drawing.Bitmap)iconBase.ToBitmap()).ToAvaloniaBitmap();
-                    _icons.TryAdd(path, clone);
+                    var clone = iconBase.ToBitmap().ToAvaloniaBitmap();
+                    Icons.TryAdd(path, clone);
                     iconBase.Dispose();
                     t.Icon = clone;
                 }, e);
@@ -416,7 +416,7 @@ internal partial class IconTools
         }
 
         //缓存
-        if (_icons.TryGetValue(cacheKey, out var icon2)) item.Icon = icon2;
+        if (Icons.TryGetValue(cacheKey, out var icon2)) item.Icon = icon2;
 
         ResiliencePipeline.ExecuteAsync(async e =>
         {
@@ -425,8 +425,8 @@ internal partial class IconTools
                 var iconBase = GetIconBase(path, cacheKey);
                 if (iconBase == null) return;
 
-                var clone = ((System.Drawing.Bitmap)iconBase.ToBitmap()).ToAvaloniaBitmap();
-                _icons.TryAdd(cacheKey, clone);
+                var clone = iconBase.ToBitmap().ToAvaloniaBitmap();
+                Icons.TryAdd(cacheKey, clone);
                 iconBase.Dispose();
                 item.Icon = clone;
             }, e);
@@ -436,32 +436,32 @@ internal partial class IconTools
 
     private static void GetIconByPath(string path, SearchViewItem item)
     {
-        if (_icons.TryGetValue(path, out var fromPath)) item.Icon = fromPath;
+        if (Icons.TryGetValue(path, out var fromPath)) item.Icon = fromPath;
 
         ResiliencePipeline.ExecuteAsync(async e =>
         {
             await Task.Run(() =>
             {
-                var shinfo = new SHFILEINFO();
+                var shinfo = new Shfileinfo();
                 SHGetFileInfo(
                     path,
                     0, ref shinfo, (uint)Marshal.SizeOf(shinfo),
                     SHGFI_ICON | SHGFI_LARGEICON);
                 var independenceIcon12 = Icon.FromHandle(shinfo.hIcon).ToBitmap().ToAvaloniaBitmap();
                 User32.DestroyIcon(shinfo.hIcon);
-                _icons.TryAdd(path, independenceIcon12);
+                Icons.TryAdd(path, independenceIcon12);
                 item.Icon = independenceIcon12;
             }, e);
         });
     }
 
     [DllImport("shell32.dll")]
-    private static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi,
+    private static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref Shfileinfo psfi,
         uint cbSizeFileInfo, uint uFlags);
 
 //Struct used by SHGetFileInfo function
     [StructLayout(LayoutKind.Sequential)]
-    private struct SHFILEINFO
+    private struct Shfileinfo
     {
         internal IntPtr hIcon;
         internal int iIcon;

@@ -1,6 +1,5 @@
 ﻿using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
-using PluginCore;
 using PluginCore.Onnx;
 
 namespace OnnxRuntime.Gpu.Win;

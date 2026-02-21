@@ -3,7 +3,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Win32.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.Services;
 using Core.Services.Config;
 using Core.Services.HotKey;
 using Core.Services.Interfaces;

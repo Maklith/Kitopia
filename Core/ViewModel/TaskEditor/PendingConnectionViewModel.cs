@@ -31,13 +31,13 @@ public partial class PendingConnectionViewModel : ObservableRecipient
             {
                 if (con == Source || con.Source == Source.Source)
                 {
-                    PreviewText = $"不能自己连接自己";
+                    PreviewText = "不能自己连接自己";
                     break;
                 }
 
                 if (Source.ConnectorType != ConnectorType.Both && Source.ConnectorType == con.ConnectorType)
                 {
-                    PreviewText = $"错误的连接";
+                    PreviewText = "错误的连接";
                     break;
                 }
 
@@ -61,7 +61,7 @@ public partial class PendingConnectionViewModel : ObservableRecipient
                         break;
                     }
 
-                    PreviewText = $"类型错误";
+                    PreviewText = "类型错误";
                     break;
                 }
 
@@ -70,7 +70,7 @@ public partial class PendingConnectionViewModel : ObservableRecipient
                 break;
             }
             default:
-                PreviewText = $"选择节点";
+                PreviewText = "选择节点";
                 break;
         }
     }

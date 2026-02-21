@@ -1,8 +1,8 @@
 ﻿using System.Threading;
-using KitopiaEx.QRCode;
+using KitopiaEx.CustomScenarioMethods;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using PluginCore.Attribute;
+using PluginCore.CustomScenario.Attribute;
 
 namespace KitopiaEx.ScreenCaptureExs;
 

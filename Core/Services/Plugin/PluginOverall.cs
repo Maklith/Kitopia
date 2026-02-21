@@ -1,5 +1,3 @@
-using System.Collections.Specialized;
-using Core.Services.Interfaces;
 using Core.UI.SearchWindow.InputData;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -76,9 +74,9 @@ public class PluginOverall
         ];
         
         
-        var exePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "KitopiaAvalonia.exe");
+        var exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "KitopiaAvalonia.exe");
         
-        ContextMenuItems.Add("kitopia", new ContextMenuItem()
+        ContextMenuItems.Add("kitopia", new ContextMenuItem
         {
             SubItems = [
                 new ContextMenuItem

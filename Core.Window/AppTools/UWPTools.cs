@@ -1,11 +1,6 @@
 ﻿#region
 
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Xml;
 using Core.Services;
 using Core.Services.Config;
@@ -17,12 +12,12 @@ using Vanara.Windows.Shell;
 
 #endregion
 
-namespace Core.Window;
+namespace Core.Window.AppTools;
 
 internal class UwpTools
 {
-    private static HashSet<string> errorUWPs = new();
-    private static ILogger Logger = LogManager.Logger.ForContext<UwpTools>();
+    private static readonly HashSet<string> ErrorUwPs = new();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<UwpTools>();
 
     private static XmlNode? GetApplicationNode(XmlNode node)
     {
@@ -50,12 +45,12 @@ internal class UwpTools
         {
             try
             {
-                if (!errorUWPs.Contains(file.displayName)) AppContainerAnalyse(file, items);
+                if (!ErrorUwPs.Contains(file.displayName)) AppContainerAnalyse(file, items);
             }
             catch (Exception e)
             {
                 Logger.Error(e, "UWP索引时出现错误");
-                errorUWPs.Add(file.displayName);
+                ErrorUwPs.Add(file.displayName);
             }
         });
     }
@@ -83,7 +78,7 @@ internal class UwpTools
         catch (Exception e)
         {
             Logger.Error($"错误的UWP应用{appContainer.displayName}:{e.Message}");
-            errorUWPs.Add(appContainer.displayName);
+            ErrorUwPs.Add(appContainer.displayName);
         }
 
         if (string.IsNullOrWhiteSpace(fileName)) return;

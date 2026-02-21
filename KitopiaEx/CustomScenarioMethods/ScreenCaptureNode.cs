@@ -1,14 +1,12 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Core.SDKs.Services;
 using KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using PluginCore.Attribute;
-using PluginCore.Attribute.Scenario;
+using PluginCore.CustomScenario.Attribute.Scenario;
 
-namespace KitopiaEx;
+namespace KitopiaEx.CustomScenarioMethods;
 
 [ScenarioMethodCategory("截图")]
 public class ScreenCaptureNode

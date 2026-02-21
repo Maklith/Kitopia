@@ -30,7 +30,7 @@ public class AssemblyLoadContextH : AssemblyLoadContext
         _resolver = new AssemblyDependencyResolver(pluginPath);
         _dependencies = dependencies;
         _assembly = LoadFromAssemblyPath(pluginPath);
-        Unloading += (sender) =>
+        Unloading += sender =>
         {
             // AppDomain.CurrentDomain.GetAssemblies()
             //     .FirstOrDefault(x => x.GetName()

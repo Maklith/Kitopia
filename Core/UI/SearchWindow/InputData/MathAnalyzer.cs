@@ -1,5 +1,5 @@
-using Core.ViewModel;
 using PluginCore;
+using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 using Math = Core.Utils.Math;
 

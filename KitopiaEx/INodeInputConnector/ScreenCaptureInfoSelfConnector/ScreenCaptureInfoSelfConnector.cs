@@ -3,13 +3,13 @@ using Avalonia.Controls.Templates;
 using Avalonia.Markup.Xaml.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Core.SDKs.Services;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using PluginCore.CustomScenario;
 
 namespace KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
 
-public partial class ScreenCaptureInfoSelfConnector : ObservableObject, PluginCore.INodeInputConnector
+public partial class ScreenCaptureInfoSelfConnector : ObservableObject, PluginCore.CustomScenario.INodeInputConnector
 {
     public StyleInclude Style =>
         new(new Uri("avares://KitopiaEx"))

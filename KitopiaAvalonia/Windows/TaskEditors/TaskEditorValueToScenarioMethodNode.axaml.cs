@@ -11,6 +11,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Core.CustomScenario;
 using PluginCore;
+using PluginCore.CustomScenario;
 
 namespace KitopiaAvalonia.Windows.TaskEditors;
 

@@ -12,8 +12,8 @@ using Core.Services.Interfaces;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using PluginCore.Attribute;
 using PluginCore.Config;
+using PluginCore.CustomScenario.Attribute.ConfigField;
 using Serilog;
 using SearchWindowViewModel = Core.ViewModel.Windows.SearchWindowViewModel;
 

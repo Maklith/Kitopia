@@ -2,14 +2,10 @@
 
 using System;
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.CustomScenario;
 using Core.ViewModel.TaskEditor;
-using KitopiaAvalonia.Windows.TaskEditors;
 using NodifyM.Avalonia.Events;
 using Ursa.Controls;
 using DragDrop = Avalonia.Input.DragDrop;
@@ -18,7 +14,7 @@ using Point = Avalonia.Point;
 
 #endregion
 
-namespace KitopiaAvalonia.Windows;
+namespace KitopiaAvalonia.Windows.TaskEditors;
 
 public partial class TaskEditor : UrsaWindow
 {

@@ -5,7 +5,7 @@ using Serilog;
 using Silk.NET.Direct3D11;
 using Silk.NET.DXGI;
 
-namespace Core.Window;
+namespace Core.Window.ScreenCapture;
 
 public static class CaptureTool
 {

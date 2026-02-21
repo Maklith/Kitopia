@@ -3,12 +3,12 @@ using System.Reflection;
 using System.Text;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.CustomScenario;
-using Core.SDKs.CustomScenario;
 using Core.Services.Config;
 using Core.Services.Interfaces;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using PluginCore.CustomScenario;
 using PluginCore.Onnx;
 using Serilog;
 
@@ -27,9 +27,9 @@ public class PluginManager
             (ISearchItemTool)ServiceManager.Services.GetService(typeof(ISearchItemTool))!;
         Kitopia.IClipboardService = ServiceManager.Services.GetService<IClipboardService>()!;
         Kitopia.IToastService = (IToastService)ServiceManager.Services.GetService(typeof(IToastService))!;
-        Kitopia._i18n = CustomScenarioGloble._i18n;
-        Kitopia.ToolTipConverters = CustomScenarioGloble.ToolTipConverters;
-        Kitopia.JsonConverters = CustomScenarioGloble.JsonConverters;
+        Kitopia._i18n = CustomScenarioGlobe.I18N;
+        Kitopia.ToolTipConverters = CustomScenarioGlobe.ToolTipConverters;
+        Kitopia.JsonConverters = CustomScenarioGlobe.JsonConverters;
         Kitopia.InferenceSessionManager = ServiceManager.Services.GetService<IInferenceSessionManager>()!;
         Kitopia.Logger = LogManager.Logger;
         Load(true);

@@ -1,7 +1,6 @@
-using System;
 using System.Runtime.InteropServices;
 
-namespace Core.Window;
+namespace Core.Window.ScreenCapture;
 
 public static class DisplayConfigHelper
 {

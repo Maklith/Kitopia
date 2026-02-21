@@ -8,17 +8,15 @@ using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using Core.Services;
 using Core.ViewModel.Windows;
-using KitopiaAvalonia.Services;
 using PluginCore;
 using Serilog;
-using Ursa.Controls;
 using Vanara.PInvoke;
 using Notification = Ursa.Controls.Notification;
 using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
 
 #endregion
 
-namespace Core.Window;
+namespace KitopiaAvalonia.Services;
 
 public class ToastService : IToastService
 {

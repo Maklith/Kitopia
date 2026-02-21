@@ -5,7 +5,6 @@
 // Date: 2025/09/12 09:09
 // FileEffect:
 
-using System;
 using System.Collections.Concurrent;
 using System.Text;
 using Core.Services;
@@ -13,7 +12,7 @@ using Microsoft.Win32;
 using PluginCore;
 using Vanara.PInvoke;
 
-namespace Core.Window;
+namespace Core.Window.AppTools;
 
 public class ControlPanelTools
 {

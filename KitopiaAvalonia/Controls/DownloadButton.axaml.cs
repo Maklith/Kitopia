@@ -4,7 +4,7 @@ using Avalonia.Controls.Primitives;
 
 namespace KitopiaAvalonia.Controls;
 
-public partial class DownloadButton : TemplatedControl
+public class DownloadButton : TemplatedControl
 {
     public static readonly AvaloniaProperty<bool> NeedDownloadProperty =
         AvaloniaProperty.Register<DownloadButton, bool>(nameof(NeedDownload), true);
@@ -25,7 +25,7 @@ public partial class DownloadButton : TemplatedControl
         AvaloniaProperty.Register<DownloadButton, bool>(nameof(IsDownloading), true);
 
     public static readonly AvaloniaProperty<double> ProgressProperty =
-        AvaloniaProperty.Register<DownloadButton, double>(nameof(Progress), 0.0);
+        AvaloniaProperty.Register<DownloadButton, double>(nameof(Progress));
 
 
     public bool NeedDownload

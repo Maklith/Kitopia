@@ -1,8 +1,8 @@
 using Core.Services;
-using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
+using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 using Serilog;
 
@@ -23,7 +23,7 @@ public class ImageIdentifier : IInputDataIdentifier
             {
                 InputType = InputType.图像,
                 Data = image,
-                DisposeAction = (e) =>
+                DisposeAction = e =>
                 {
                     var objData = e.Data as Mat;
                     objData.Dispose();

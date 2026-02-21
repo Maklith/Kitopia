@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.SDKs.Services;
-using Core.Services;
 using Core.Services.Config;
 using Core.Services.Interfaces;
 using Core.Utils;
@@ -21,9 +15,9 @@ namespace Core.Window;
 
 public class HotKeyImpl : IHotKetImpl
 {
-    private static Avalonia.Controls.Window globalHotKeyWindow = null!;
-    public static ObservableDictionary<string, HotkeyInfo> HotKeys { get; set; }= new();
-    private static SimpleReactiveGlobalHook hook = new(GlobalHookType.Mouse);
+    private static Avalonia.Controls.Window _globalHotKeyWindow = null!;
+    private static ObservableDictionary<string, HotkeyInfo> HotKeys { get; set; }= new();
+    private static readonly SimpleReactiveGlobalHook Hook = new(GlobalHookType.Mouse);
 
     public class HotkeyInfo
     {
@@ -33,34 +27,34 @@ public class HotKeyImpl : IHotKetImpl
         public Timer? Timer;
     }
 
-    private static int _id = 0;
+    private static int _id;
 
     public void Init()
     {
         Dispatcher.UIThread.Invoke(() =>
         {
-            globalHotKeyWindow = new Avalonia.Controls.Window()
+            _globalHotKeyWindow = new Avalonia.Controls.Window()
             {
                 Height = 1,
                 Width = 1,
                 ShowInTaskbar = false
             };
-            globalHotKeyWindow.Show();
-            globalHotKeyWindow.Hide();
-            Win32Properties.AddWndProcHookCallback(globalHotKeyWindow, OnWndProc);
+            _globalHotKeyWindow.Show();
+            _globalHotKeyWindow.Hide();
+            Win32Properties.AddWndProcHookCallback(_globalHotKeyWindow, OnWndProc);
         });
     }
 
     public void StartHook()
     {
-        hook.MousePressed.Subscribe(OnMousePressed);
-        hook.MouseReleased.Subscribe(OnMouseReleased);
-        hook.RunAsync();
+        Hook.MousePressed.Subscribe(OnMousePressed);
+        Hook.MouseReleased.Subscribe(OnMouseReleased);
+        Hook.RunAsync();
     }
 
     private static void OnMousePressed(MouseHookEventArgs e)
     {
-        foreach (var (key, value) in HotKeys)
+        foreach (var (_, value) in HotKeys)
         {
             if (value.HotKeyModel.Type != HotKeyType.Mouse) continue;
             if (value.Id == -1) continue;
@@ -77,7 +71,7 @@ public class HotKeyImpl : IHotKetImpl
                     };
                     value.Timer.Elapsed += (_, _) =>
                     {
-                        ThreadPool.QueueUserWorkItem((_) => { value.RallBack.Invoke(value.HotKeyModel); });
+                        ThreadPool.QueueUserWorkItem((_) => { value.RallBack?.Invoke(value.HotKeyModel); });
                     };
                 }
 
@@ -88,7 +82,7 @@ public class HotKeyImpl : IHotKetImpl
 
     private static void OnMouseReleased(MouseHookEventArgs e)
     {
-        foreach (var (key, value) in HotKeys)
+        foreach (var (_, value) in HotKeys)
         {
             if (value.HotKeyModel.Type != HotKeyType.Mouse) continue;
             if (value.Id == -1) continue;
@@ -144,7 +138,7 @@ public class HotKeyImpl : IHotKetImpl
                 {
                     Dispatcher.UIThread.Invoke(() =>
                     {
-                        registerHotKey = User32.RegisterHotKey(globalHotKeyWindow.TryGetPlatformHandle().Handle, _id,
+                        registerHotKey = User32.RegisterHotKey(_globalHotKeyWindow.TryGetPlatformHandle()!.Handle, _id,
                             hotkeyModifiers,
                             (uint)hotKeyModel.SelectKey);
                     });
@@ -222,7 +216,7 @@ public class HotKeyImpl : IHotKetImpl
                 case HotKeyType.Keyboard:
                 {
                     var unregisterHotKey =
-                        User32.UnregisterHotKey(globalHotKeyWindow.TryGetPlatformHandle().Handle, hotkey.Id);
+                        User32.UnregisterHotKey(_globalHotKeyWindow.TryGetPlatformHandle()!.Handle, hotkey.Id);
                     HotKeys[uuid].Id = -1;
                     return unregisterHotKey;
                 }
@@ -253,7 +247,7 @@ public class HotKeyImpl : IHotKetImpl
     {
         if (HotKeys.ContainsKey(uuid))
         {
-            ServiceManager.Services.GetService<IHotKeyEditor>().EditByUuid(uuid, null);
+            ServiceManager.Services.GetService<IHotKeyEditor>()?.EditByUuid(uuid, null);
             return true;
         }
 

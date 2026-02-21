@@ -1,11 +1,11 @@
 ﻿using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.VisualTree;
-using Avalonia.Controls.Primitives;
 using Core.Utils;
 using KitopiaAvalonia.SDKs;
 using KitopiaAvalonia.Windows;
@@ -14,7 +14,7 @@ namespace KitopiaAvalonia.Controls.Capture;
 
 public class TextCaptureTool : CaptureToolBase
 {
-    public bool IsRedoing = false;
+    public bool IsRedoing;
 
     //Text属性
     public static readonly StyledProperty<string> TextProperty =
@@ -66,9 +66,6 @@ public class TextCaptureTool : CaptureToolBase
                         Type = 截图工具.文本,
                         Data = e.OldValue.Value
                     });
-                }
-                else
-                {
                 }
             }
             else

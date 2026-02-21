@@ -3,7 +3,6 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Core.CustomScenario;
-using Core.Services;
 using Core.Services.Interfaces;
 using Core.Utils;
 using PluginCore;

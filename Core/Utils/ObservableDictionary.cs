@@ -189,8 +189,7 @@ public class ObservableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, ILis
     {
         if (ContainsKey(key))
             return base[key];
-        else
-            return default;
+        return default;
     }
 
     public void SetValueWithoutNotify(TKey key, TValue value)

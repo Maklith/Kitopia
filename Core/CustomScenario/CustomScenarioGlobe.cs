@@ -2,22 +2,23 @@
 using Core.Utils;
 using Core.ViewModel.TaskEditor;
 using PluginCore;
+using PluginCore.CustomScenario;
 
 namespace Core.CustomScenario;
 
-public class CustomScenarioGloble
+public static class CustomScenarioGlobe
 {
-    public static Dictionary<string, string> _i18n = new()
+    public static readonly Dictionary<string, string> I18N = new()
     {
-        { "System.String", "字符串" },
-        { "System.Boolean", "布尔" },
-        { "System.Int32", "整数" },
-        { "System.Double", "浮点" },
-        { "System.Object", "任意" },
-        { "PluginCore.NodeConnectorClass", "节点" }
+        { typeof(string).FullName!, "字符串" },
+        { typeof(bool).FullName!, "布尔" },
+        { typeof(int).FullName!, "整数" },
+        { typeof(double).FullName!, "浮点" },
+        { typeof(object).FullName!, "任意" },
+        { typeof(NodeConnectorClass).FullName!, "节点" }
     };
 
-    public static ObservableDictionary<string, CustomScenarioTriggerInfo> Triggers = new()
+    public static readonly ObservableDictionary<string, CustomScenarioTriggerInfo> Triggers = new()
     {
         { "Kitopia_SoftwareStarted", new CustomScenarioTriggerInfo { Name = "Kitopia程序启动时" } },
         {
@@ -63,7 +64,7 @@ public class CustomScenarioGloble
 
     public static string GetI18N(string key)
     {
-        if (_i18n.TryGetValue(key, out var n)) return n;
+        if (I18N.TryGetValue(key, out var n)) return n;
 
         return key;
     }

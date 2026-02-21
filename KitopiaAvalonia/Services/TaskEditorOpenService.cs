@@ -2,10 +2,10 @@
 
 using Avalonia.Threading;
 using Core.CustomScenario;
-using Core.Services;
 using Core.Services.Interfaces;
 using KitopiaAvalonia.Windows;
 using PluginCore;
+using TaskEditor = KitopiaAvalonia.Windows.TaskEditors.TaskEditor;
 
 #endregion
 

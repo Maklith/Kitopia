@@ -1,12 +1,9 @@
-using System;
-using System.IO;
-using Core.SDKs.Services;
 using Core.Services;
 using Core.Services.Interfaces;
 using Serilog;
 using Vanara.PInvoke;
 
-namespace Core.Window;
+namespace Core.Window.AppTools;
 
 public class ShellUtils : IShellUtils
 {
@@ -56,7 +53,7 @@ public class ShellUtils : IShellUtils
             }
 
             var itemsToSelect = new[] { pidlItem.DangerousGetHandle() };
-            Shell32.SHOpenFolderAndSelectItems(pidlFolder, (uint)itemsToSelect.Length, itemsToSelect, 0);
+            Shell32.SHOpenFolderAndSelectItems(pidlFolder, (uint)itemsToSelect.Length, itemsToSelect);
         }
         catch (Exception e)
         {

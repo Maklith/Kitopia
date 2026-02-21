@@ -1,8 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using OnnxRuntime.OpenVino;
 using PluginCore;
 
-namespace OnnxRuntime.Gpu.Win;
+namespace OnnxRuntime.OpenVino;
 
 public class OnnxRuntimeGpuWin : IPlugin
 {

@@ -2,7 +2,7 @@
 using System.Globalization;
 using Avalonia.Data.Converters;
 
-namespace KitopiaAvalonia.Converter.TaskEditor;
+namespace KitopiaAvalonia.Converter;
 
 public class EnumEqualCtr : IValueConverter
 {

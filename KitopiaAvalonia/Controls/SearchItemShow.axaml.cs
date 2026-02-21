@@ -1,12 +1,9 @@
-﻿using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
+﻿using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Core.ViewModel.Windows;
-using Core.Window;
 using KitopiaAvalonia.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;

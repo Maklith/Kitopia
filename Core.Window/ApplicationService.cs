@@ -1,15 +1,8 @@
-﻿using System;
-using System.IO;
-using System.Net.Http;
-using System.Threading.Tasks;
-using Avalonia;
-using Avalonia.Controls.Notifications;
-using Core.SDKs.Services;
+﻿using Avalonia.Controls.Notifications;
 using Core.Services;
 using Core.Services.Config;
 using Core.Services.Interfaces;
 using Core.Utils;
-using KitopiaAvalonia.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using PluginCore;
@@ -20,7 +13,7 @@ namespace Core.Window;
 public class ApplicationService : IApplicationService
 {
     
-    private static ILogger Logger = LogManager.Logger.ForContext<ApplicationService>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<ApplicationService>();
     public void Init()
     {
         InitUrlProtocol();
@@ -69,7 +62,7 @@ public class ApplicationService : IApplicationService
         }
         catch (Exception ex)
         {
-            Logger.Error("定义URL Protocol失败", ex);
+            Logger.Error(ex,"定义URL Protocol失败");
         }
     }
 
@@ -104,14 +97,14 @@ public class ApplicationService : IApplicationService
                 try
                 {
                     registry.SetValue("Kitopia", $"\"{strName}\""); //设置该子项的新的“键值对”
-                    ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))).Show("开机自启",
+                    
+                    ServiceManager.Services.GetService<IToastService>()!.Show("开机自启",
                         "开机自启设置成功");
                 }
                 catch (Exception exception)
                 {
-                    Logger.Error("开机自启设置失败");
-                    Logger.Error(exception.StackTrace);
-                    ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))).Show("开机自启",
+                    Logger.Error(exception,"开机自启设置失败");
+                    ServiceManager.Services.GetService<IToastService>()!.Show("开机自启",
                         "开机自启设置失败");
                     return false;
                 }
@@ -134,8 +127,7 @@ public class ApplicationService : IApplicationService
         catch (Exception e)
         {
             Logger.Error(e,"开机自启设置失败");
-            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))).Show("开机自启",
-                "开机自启设置失败");
+            ServiceManager.Services.GetService<IToastService>()!.Show("开机自启", "开机自启设置失败");
             return false;
         }
 
@@ -155,7 +147,7 @@ public class ApplicationService : IApplicationService
                 Content = $"发现新版本 {latestVersion}，是否前往下载？\n\n更新内容:\n{releaseNotes ?? "无更新说明"}",
                 PrimaryButtonText = "下载并更新",
                 SecondaryButtonText = "取消",
-                PrimaryAction = async () =>
+                PrimaryAction = async void () =>
                 {
                     try
                     {
@@ -209,7 +201,7 @@ public class ApplicationService : IApplicationService
                     }
                 }
             };
-            await ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
+            await ServiceManager.Services.GetService<IContentDialog>()!.ShowDialogAsync(null,
                 dialog);
         }
         else
@@ -217,7 +209,7 @@ public class ApplicationService : IApplicationService
             if (toastIfNoUpdate)
             {
                 var toastService = ServiceManager.Services.GetService<IToastService>()!;
-                toastService.Show("更新", "无更新", NotificationType.Information);
+                toastService.Show("更新", "无更新");
             }
             
         }

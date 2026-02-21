@@ -103,7 +103,6 @@ public class PluginDependencyService
                 // Dependency exists but is not enabled
                 canLoad = false;
                 results.TryAdd(pluginSignName, VersionCheckResult.依赖未启用);
-                continue;
             }
         }
 

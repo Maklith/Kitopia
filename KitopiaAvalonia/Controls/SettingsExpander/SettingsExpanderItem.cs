@@ -207,9 +207,9 @@ public partial class SettingsExpanderItem : ContentControl, ICommandSource
         var args = new RoutedEventArgs(ClickEvent);
         RaiseEvent(args);
 
-        var @param = CommandParameter;
+        var param = CommandParameter;
         var command = Command;
-        if (!args.Handled && command?.CanExecute(@param) == true) command.Execute(@param);
+        if (!args.Handled && command?.CanExecute(param) == true) command.Execute(param);
     }
 
     private void OnIconSourceChanged(AvaloniaPropertyChangedEventArgs args)

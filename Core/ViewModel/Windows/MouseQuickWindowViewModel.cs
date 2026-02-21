@@ -3,7 +3,6 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.Services;
 using Core.Services.Config;
 using Core.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,7 +30,7 @@ public partial class MouseQuickWindowViewModel : ObservableRecipient
                     configMouseQuickItem, out var item))
                 Items.Add(item);
 
-        if (Enumerable.Count<SearchViewItem>(Items) < 9)
+        if (Items.Count<SearchViewItem>() < 9)
             //for (var i = 0; i < 12; i++)
             Items.Add(new SearchViewItem
             {
@@ -49,7 +48,7 @@ public partial class MouseQuickWindowViewModel : ObservableRecipient
     {
         if (searchViewItem.OnlyKey == "Add")
         {
-            ServiceManager.Services.GetService<ISearchItemChooseService>()!.Choose((item) =>
+            ServiceManager.Services.GetService<ISearchItemChooseService>()!.Choose(item =>
             {
                 Dispatcher.UIThread.InvokeAsync(() => { Items.Add(item); });
                 ConfigManger.Config.mouseQuickItems.Add(item.OnlyKey);

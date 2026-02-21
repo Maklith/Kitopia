@@ -6,7 +6,6 @@ using AvaloniaEdit.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Core.Services;
 using Core.Services.Interfaces;
 using PluginCore;
 
@@ -21,7 +20,7 @@ public partial class MainWindowViewModel : ObservableRecipient
 {
     [ObservableProperty] private object? _content;
 
-    [ObservableProperty] private bool _settingPage = false;
+    [ObservableProperty] private bool _settingPage;
 
     public MainWindowViewModel()
     {
@@ -113,7 +112,7 @@ public class PageChangeEventArgs
 
 public partial class MenuItemViewModel : ObservableObject
 {
-    [ObservableProperty] private bool _isSelected = false;
+    [ObservableProperty] private bool _isSelected;
 
     public MenuItemViewModel()
     {

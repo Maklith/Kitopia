@@ -10,7 +10,7 @@ using Core.Utils;
 
 #endregion
 
-namespace KitopiaAvalonia.Pages;
+namespace KitopiaAvalonia.Windows.TaskEditors;
 
 public class NodeInputDataTemplateSelector : IDataTemplate
 {

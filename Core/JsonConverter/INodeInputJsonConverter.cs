@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
-using PluginCore;
+using PluginCore.CustomScenario;
 
 namespace Core.JsonConverter;
 

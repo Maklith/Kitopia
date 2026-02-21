@@ -1,8 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using Core.CustomScenario;
-using Core.SDKs.CustomScenario;
-using PluginCore;
+using PluginCore.CustomScenario;
 
 namespace Core.JsonConverter;
 
@@ -83,7 +82,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
                                 Value = o
                             };
                         }
-                        if (CustomScenarioGloble.JsonConverters.TryGetValue(serializeType, out var jsonConverter))
+                        if (CustomScenarioGlobe.JsonConverters.TryGetValue(serializeType, out var jsonConverter))
                         {
                             
                             // 获取 Read 方法
@@ -153,7 +152,7 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
         {
             writer.WriteStringValue(value.Value?.ToString());
         }
-        else if (CustomScenarioGloble.JsonConverters.TryGetValue(value.SerializeType, out var jsonConverter))
+        else if (CustomScenarioGlobe.JsonConverters.TryGetValue(value.SerializeType, out var jsonConverter))
         {
             var serialize = jsonConverter.Serialize(value.Value);
             writer.WriteStringValue(serialize);

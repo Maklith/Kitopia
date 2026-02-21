@@ -5,8 +5,7 @@ using System.Text.Json.Serialization;
 using Core.JsonConverter;
 using Core.Services.Plugin;
 using PluginCore;
-using PluginCore.Attribute;
-using PluginCore.Attribute.Scenario;
+using PluginCore.CustomScenario;
 using PluginCore.CustomScenario.Attribute.Scenario;
 
 namespace Core.CustomScenario;
@@ -290,7 +289,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(bool)
                             },
-                            Title = CustomScenarioGloble.GetI18N(typeof(bool).FullName)
+                            Title = CustomScenarioGlobe.GetI18N(typeof(bool).FullName)
                         }
                     };
                     pointItem.Input = StringinItems;
@@ -407,7 +406,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(bool)
                             },
-                            Title = CustomScenarioGloble.GetI18N(typeof(bool).FullName),
+                            Title = CustomScenarioGlobe.GetI18N(typeof(bool).FullName),
                             ConnectorType = ConnectorType.Output
                         }
                     };
@@ -430,7 +429,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(object)
                             },
-                            Title = CustomScenarioGloble.GetI18N(typeof(object).FullName)
+                            Title = CustomScenarioGlobe.GetI18N(typeof(object).FullName)
                         },
                         new ConnectorItem
                         {
@@ -439,7 +438,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(object)
                             },
-                            Title = CustomScenarioGloble.GetI18N(typeof(object).FullName)
+                            Title = CustomScenarioGlobe.GetI18N(typeof(object).FullName)
                         }
                     };
                     pointItem.Input = StringinItems;

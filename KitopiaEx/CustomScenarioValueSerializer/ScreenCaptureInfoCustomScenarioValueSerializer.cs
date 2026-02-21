@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using PluginCore;
+using PluginCore.CustomScenario;
 
 namespace KitopiaEx.CustomScenarioValueSerializer;
 

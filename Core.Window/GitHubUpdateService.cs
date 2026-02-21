@@ -1,9 +1,3 @@
-using System;
-using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Reflection;
-using System.Threading.Tasks;
 using Avalonia.Controls.Notifications;
 using Core.Services;
 using Core.Services.Plugin;
@@ -12,14 +6,13 @@ using Newtonsoft.Json.Linq;
 using PluginCore;
 using Serilog;
 
-namespace KitopiaAvalonia.Services
+namespace Core.Window
 {
     public class GitHubUpdateService
     {
-        private static ILogger Logger = LogManager.Logger.ForContext<GitHubUpdateService>();
+        private static readonly ILogger Logger = LogManager.Logger.ForContext<GitHubUpdateService>();
         private const string Owner = "Maklith";
         private const string Repo = "kitopia";
-        private const string UserAgent = "KitopiaUpdateChecker";
 
         public async Task<(bool hasUpdate, string? latestVersion, string? downloadUrl, string? releaseNotes)> CheckForUpdatesAsync()
         {
@@ -67,7 +60,7 @@ namespace KitopiaAvalonia.Services
                 {
                     if (latestVersion> currentVersion)
                     {
-                        var htmlUrl = ((JArray)release["assets"]).FirstOrDefault(e=>e["name"].ToString()==$"Kitopia{cleanTagName}_Installer.exe")?["browser_download_url"]?.ToString();
+                        var htmlUrl = ((JArray)release["assets"]!).FirstOrDefault(e=>e["name"]!.ToString()==$"Kitopia{cleanTagName}_Installer.exe")?["browser_download_url"]?.ToString();
                         var body = release["body"]?.ToString();
                         htmlUrl = htmlUrl?.Replace("https://github.com/Maklith","https://update.kitopia.top/Maklith");
                         return (true, tagName, htmlUrl, body);

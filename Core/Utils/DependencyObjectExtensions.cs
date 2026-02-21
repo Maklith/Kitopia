@@ -60,7 +60,6 @@ public static class DependencyObjectExtensions
         var visualAt = control.GetVisualAt(anchor);
         if (visualAt == null)
             return null;
-        else
-            return ((Control)visualAt).GetParentOfType<T>();
+        return ((Control)visualAt).GetParentOfType<T>();
     }
 }

@@ -1,5 +1,4 @@
 ﻿using Avalonia.Threading;
-using Core.Services;
 using Core.Services.Interfaces;
 using KitopiaAvalonia.Windows;
 

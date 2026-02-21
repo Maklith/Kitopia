@@ -15,7 +15,7 @@ public class ListShow : ListBox
         AvaloniaProperty.Register<ListShow, ICommand>(nameof(DelCommand));
 
     public static readonly StyledProperty<bool> WithAddProperty =
-        AvaloniaProperty.Register<ListShow, bool>(nameof(WithAdd), false);
+        AvaloniaProperty.Register<ListShow, bool>(nameof(WithAdd));
 
     public static readonly StyledProperty<ICommand> AddCommandProperty =
         AvaloniaProperty.Register<ListShow, ICommand>(nameof(AddCommand));

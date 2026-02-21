@@ -48,7 +48,7 @@ public partial class TaskNodeSearchViewModel : ObservableObject
         LoadCompatibleNodes();
         
         // Setup search throttling
-        this.PropertyChanged += (s, e) =>
+        PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(SearchText))
             {

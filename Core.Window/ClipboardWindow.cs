@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Media.Imaging;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input.Platform;
 using Core.Services;
 using OpenCvSharp;
 using PluginCore;
@@ -17,7 +18,7 @@ namespace Core.Window;
 
 public class ClipboardWindow : IClipboardService
 {
-    private static ILogger Logger = LogManager.Logger.ForContext<ClipboardWindow>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<ClipboardWindow>();
 
 
     private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
@@ -44,27 +45,28 @@ public class ClipboardWindow : IClipboardService
     {
         try
         {
-            if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
-                return appLifetime.MainWindow.Clipboard.GetFormatsAsync()
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
+                return appLifetime.MainWindow is { Clipboard: not null } && appLifetime.MainWindow.Clipboard.GetDataFormatsAsync()
                     .WaitAsync(TimeSpan.FromSeconds(1))
                     .GetAwaiter()
                     .GetResult()
-                    .Contains("Text");
+                    .Any( format => format.Identifier == DataFormats.Text || format.Identifier == DataFormats.UnicodeText);
 
             return false;
         }
         catch (Exception e)
         {
+            Logger.Error(e, "检查剪贴板文本时发生错误");
             return false;
         }
     }
 
-    public string GetText()
+    public string? GetText()
     {
         try
         {
-            if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
-                return appLifetime.MainWindow.Clipboard.GetTextAsync()
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
+                return appLifetime.MainWindow?.Clipboard?.TryGetTextAsync()
                     .WaitAsync(TimeSpan.FromSeconds(1))
                     .GetAwaiter()
                     .GetResult();
@@ -73,6 +75,7 @@ public class ClipboardWindow : IClipboardService
         }
         catch (Exception e)
         {
+            Logger.Error(e, "获取剪贴板文本时发生错误");
             return null;
         }
     }
@@ -81,9 +84,9 @@ public class ClipboardWindow : IClipboardService
     {
         try
         {
-            if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
             {
-                appLifetime.MainWindow.Clipboard.SetTextAsync(text)
+                appLifetime.MainWindow?.Clipboard?.SetTextAsync(text)
                     .WaitAsync(TimeSpan.FromSeconds(1))
                     .GetAwaiter()
                     .GetResult();
@@ -94,6 +97,7 @@ public class ClipboardWindow : IClipboardService
         }
         catch (Exception e)
         {
+            Logger.Error(e, "设置剪贴板文本时发生错误");
             return false;
         }
     }
@@ -178,7 +182,7 @@ public class ClipboardWindow : IClipboardService
     [STAThread]
     public async Task<bool> SetImageAsync(ScreenCaptureResult screenCaptureResult)
     {
-        var executeAsync = await ResiliencePipeline.ExecuteAsync(async (e) =>
+        var executeAsync = await ResiliencePipeline.ExecuteAsync(async (_) =>
         {
             var tcs = new TaskCompletionSource<bool>();
             var thread = new Thread(() =>

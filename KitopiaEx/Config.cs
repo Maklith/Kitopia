@@ -1,8 +1,8 @@
 ﻿using System;
 using KitopiaEx.Translate;
 using PluginCore;
-using PluginCore.Attribute;
 using PluginCore.Config;
+using PluginCore.CustomScenario.Attribute.ConfigField;
 
 namespace KitopiaEx;
 

@@ -19,6 +19,6 @@ public partial class OnnxModelRuntimeChangerHelper : ObservableObject
     public OnnxModelInfoWrapper OnnxModelInfoWrapper { get; set; }
 }
 
-public partial class OnnxModelManagerPageViewModel : ObservableObject
+public class OnnxModelManagerPageViewModel : ObservableObject
 {
 }

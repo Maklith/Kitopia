@@ -1,10 +1,7 @@
-using System;
-using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using OpenCvSharp;
-using Core.Utils.ImageTools;
 using PluginCore.ExMethod;
 using Window = Avalonia.Controls.Window;
 

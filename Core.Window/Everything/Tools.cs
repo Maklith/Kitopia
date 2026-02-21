@@ -1,14 +1,10 @@
 ﻿#region
 
-using System;
-using System.Collections;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Text;
-using System.Threading.Tasks;
-using Core.SDKs.Services;
 using Core.Services;
 using Core.Services.Config;
+using Core.Window.AppTools;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Serilog;
@@ -19,13 +15,13 @@ namespace Core.Window.Everything;
 
 public class EverythingTools
 {
-    private static ILogger Logger =  LogManager.Logger.ForContext<EverythingTools>();
+    private static readonly ILogger Logger =  LogManager.Logger.ForContext<EverythingTools>();
     public static bool IsRun()
     {
         if (IntPtr.Size == 8)
         {
             // 64-bit
-            var task = Task.Run<bool>(() =>
+            var task = Task.Run(() =>
             {
                 Everything64.Everything_SetMax(1);
                 return Everything64.Everything_QueryW(true);
@@ -43,7 +39,7 @@ public class EverythingTools
         {
             // 32-bit
 
-            var task = Task.Run<bool>(() =>
+            var task = Task.Run(() =>
             {
                 Everything32.Everything_SetMax(1);
                 return Everything32.Everything_QueryW(true);
@@ -58,17 +54,17 @@ public class EverythingTools
             return task.Result;
         }
     }
-    public static void Index(List<string> Items)
+    public static void Index(List<string> items)
     {
         
         var task = Task.Run(() =>
         {
             if (IntPtr.Size == 8)
                 // 64-bit
-                IndexAmd64(Items);
+                IndexAmd64(items);
             else
                 // 32-bit
-                IndexAmd32(Items);
+                IndexAmd32(items);
         });
         if (!task.Wait(TimeSpan.FromSeconds(1)))
         {
@@ -97,11 +93,11 @@ public class EverythingTools
         return task.Result;
     }
 
-    public static void IndexAmd32(List<string> Items)
+    private static void IndexAmd32(List<string> items)
     {
         
         Everything32.Everything_Reset();
-        Everything32.Everything_SetSearchW(string.Join("|", ConfigManger.Config!.everythingSearchExtensions));
+        Everything32.Everything_SetSearchW(string.Join("|", ConfigManger.Config.everythingSearchExtensions));
         Everything32.Everything_SetMatchCase(true);
         Everything32.Everything_QueryW(true);
         const int bufsize = 260;
@@ -111,12 +107,11 @@ public class EverythingTools
             // get the result's full path and file name.
             Everything32.Everything_GetResultFullPathNameW(i, buf, bufsize);
             var filePath = buf.ToString();
-            Items.Add(filePath);
+            items.Add(filePath);
         }
     }
     public static IEnumerable<SearchViewItem> SearchAmd32(string s,int limit=50)
     {
-        var list = new List<string>();
         Everything32.Everything_Reset();
         Everything32.Everything_SetSearchW(s);
         Everything32.Everything_SetMatchCase(true);
@@ -130,7 +125,7 @@ public class EverythingTools
             // get the result's full path and file name.
             Everything32.Everything_GetResultFullPathNameW(i, buf, bufsize);
             var filePath = buf.ToString();
-            AppTools.AppSolverA(searchViewItems,filePath);
+            AppSolver.AppSolverA(searchViewItems,filePath);
         }
 
         return searchViewItems.Values;
@@ -150,15 +145,16 @@ public class EverythingTools
             // get the result's full path and file name.
             Everything64.Everything_GetResultFullPathNameW(i, buf, bufsize);
             var filePath = buf.ToString();
-            AppTools.AppSolverA(searchViewItems,filePath);
+            AppSolver.AppSolverA(searchViewItems,filePath);
         }
 
         return searchViewItems.Values;
     }
-    public static void IndexAmd64(List<string> Items)
+
+    private static void IndexAmd64(List<string> items)
     {
         Everything64.Everything_Reset();
-        Everything64.Everything_SetSearchW(string.Join("|", ConfigManger.Config!.everythingSearchExtensions));
+        Everything64.Everything_SetSearchW(string.Join("|", ConfigManger.Config.everythingSearchExtensions));
         Everything64.Everything_SetMatchCase(true);
         Everything64.Everything_QueryW(true);
         const int bufsize = 260;
@@ -168,7 +164,7 @@ public class EverythingTools
             // get the result's full path and file name.
             Everything64.Everything_GetResultFullPathNameW(i, buf, bufsize);
             var filePath = buf.ToString();
-            Items.Add(filePath);
+            items.Add(filePath);
         }
     }
 }

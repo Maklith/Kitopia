@@ -1,38 +1,33 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using Core.SDKs.CustomScenario;
-using Core.SDKs.Services;
-using Core.Services;
+﻿using System.Collections.Concurrent;
 using Core.Services.Interfaces;
 using Core.Window.Everything;
 using Pinyin.NET;
 using PluginCore;
 
-namespace Core.Window;
+namespace Core.Window.AppTools;
 
 public class AppToolService : IAppToolService
 {
-    public void AppSolverA(ConcurrentDictionary<string, SearchViewItem> _collection, string search,
+    public void AppSolverA(ConcurrentDictionary<string, SearchViewItem> collection, string search,
         bool isSearch = false)
     {
-        AppTools.AppSolverA(_collection, search, isSearch);
+        AppSolver.AppSolverA(collection, search, isSearch);
     }
 
-    public void DelNullFile(ConcurrentDictionary<string, SearchViewItem> _collection)
+    public void DelNullFile(ConcurrentDictionary<string, SearchViewItem> collection)
     {
-        AppTools.DelNullFile(_collection);
+        AppSolver.DelNullFile(collection);
     }
 
-    public void GetAllApps(ConcurrentDictionary<string, SearchViewItem> _collection, bool logging,
+    public void GetAllApps(ConcurrentDictionary<string, SearchViewItem> collection, bool logging,
         bool useEverything = false)
     {
-        AppTools.GetAllApps(_collection, logging, useEverything);
+        AppSolver.GetAllApps(collection, logging, useEverything);
     }
 
-    public void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> _collection, Action action)
+    public void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> collection, Action action)
     {
-        AppTools.AutoStartEverything(_collection, action);
+        AppSolver.AutoStartEverything(collection, action);
     }
 
     public IEnumerable<SearchViewItem> UseEverythingSearch(string s,int limit=50)
@@ -53,6 +48,6 @@ public class AppToolService : IAppToolService
 
     public PinyinItem GetPinyin(string input)
     {
-        return AppTools._pinyinProcessor.GetPinyin(input);
+        return AppSolver.PinyinProcessor.GetPinyin(input);
     }
 }

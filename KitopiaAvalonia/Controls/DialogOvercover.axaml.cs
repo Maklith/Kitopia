@@ -9,7 +9,7 @@ namespace KitopiaAvalonia.Controls;
 public partial class DialogOvercover : UserControl
 {
     public static readonly StyledProperty<bool> CanDismissProperty =
-        AvaloniaProperty.Register<DialogOvercover, bool>(nameof(CanDismiss), false);
+        AvaloniaProperty.Register<DialogOvercover, bool>(nameof(CanDismiss));
 
     public bool CanDismiss
     {
@@ -20,7 +20,7 @@ public partial class DialogOvercover : UserControl
     private const string s_pcPrimary = ":primary";
     private const string s_pcSecondary = ":secondary";
     private const string s_pcClose = ":close";
-    private bool _mouseDownForWindowMoving = false;
+    private bool _mouseDownForWindowMoving;
     private PointerPoint _originalPoint;
 
     public DialogOvercover()

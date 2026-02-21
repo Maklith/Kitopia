@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
-using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 
 namespace Core.UI.SearchWindow.InputData;

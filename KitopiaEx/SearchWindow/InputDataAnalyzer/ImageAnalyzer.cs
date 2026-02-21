@@ -7,7 +7,6 @@
 
 using System.Collections.Generic;
 using System.Threading;
-using Core.ViewModel;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
@@ -53,7 +52,7 @@ public class ImageAnalyzer : IInputDataAnalyzer
                    ShowAsMiniApp = true,
                    Action = (item, s) =>
                    {
-                       var service = KitopiaEx.ServiceProvider.GetService<global::KitopiaEx.Ocr.Ocr>();
+                       var service = KitopiaEx.ServiceProvider.GetService<global::KitopiaEx.CustomScenarioMethods.Ocr>();
                        var ocrResults = service!.OcrImgBase(image, CancellationToken.None);
                        service.OcrResultShowBase(image, ocrResults, CancellationToken.None);
                    }
