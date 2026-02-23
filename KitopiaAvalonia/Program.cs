@@ -251,17 +251,20 @@ internal class Program
         if (ConfigManger.Config.mouseCapture) HotKeyManager.HotKetImpl.StartHook();
         
         MqttManager.ProcessLocalArgs(arg).GetAwaiter().GetResult();
-
-        if (ServiceManager.Services.GetService<IExplorerContextMenuService>()!.RegisterAsync()
-            .GetAwaiter()
-            .GetResult())
+        if (ConfigManger.Config.checkKitopiaCompanion)
         {
-            Logger.Information("资源管理器右键菜单注册完成");
+            if (ServiceManager.Services.GetService<IExplorerContextMenuService>()!.RegisterAsync()
+                .GetAwaiter()
+                .GetResult())
+            {
+                Logger.Information("资源管理器右键菜单注册完成");
+            }
+            else
+            {
+                Logger.Warning("资源管理器右键菜单注册失败");
+            }
         }
-        else
-        {
-            Logger.Warning("资源管理器右键菜单注册失败");
-        }
+       
         switch (ConfigManger.Config.themeChoice)
         {
             case ThemeEnum.跟随系统:

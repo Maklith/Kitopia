@@ -48,6 +48,8 @@ public class KitopiaConfig : ConfigBase
         IsSelectWin = false,
         IsSelectShift = false, SelectKey = EKey.T
     };
+    [ConfigField("检查Kitopia伴侣程序是否安装", "Kitopia伴侣程序用于拓展Windows资源管理器右键菜单拓展", 0xE61C, ConfigFieldType.布尔)]
+    public bool checkKitopiaCompanion = true;
     [ConfigFieldCategory("搜索框")]
     [ConfigField("搜索框快捷键", "显示搜索框快捷键", 0xF4B8, ConfigFieldType.快捷键, actionName: "searchHotKeyAction")]
     public HotKeyModel searchHotKey = new()
