@@ -102,7 +102,7 @@ public class AppSolver
         }
     }
 
-    internal static void DelNullFile(ConcurrentDictionary<string, SearchViewItem> collection)
+    internal static void CleanupInvalidItems(ConcurrentDictionary<string, SearchViewItem> collection)
     {
         var toRemove = new List<string>();
         foreach (var (key, searchViewItem) in collection)
@@ -129,7 +129,7 @@ public class AppSolver
         foreach (var searchViewItem in toRemove) collection.TryRemove(searchViewItem, out _);
     }
 
-    internal static void GetAllApps(ConcurrentDictionary<string, SearchViewItem> collection,
+    internal static void IndexAllApps(ConcurrentDictionary<string, SearchViewItem> collection,
         bool logging = false, bool useEverything = false)
     {
         Logger.Debug("索引全部软件及收藏项目");
@@ -143,11 +143,11 @@ public class AppSolver
 
         foreach (var enumerateFile in Directory.EnumerateFiles(
                      Environment.GetFolderPath(Environment.SpecialFolder.Desktop)))
-            AppSolverA(collection, enumerateFile, logging: logging);
+            IndexItem(collection, enumerateFile, logging: logging);
 
         foreach (var enumerateFile in Directory.EnumerateDirectories(
                      Environment.GetFolderPath(Environment.SpecialFolder.Desktop)))
-            AppSolverA(collection, enumerateFile, logging: logging);
+            IndexItem(collection, enumerateFile, logging: logging);
 
         foreach (var enumerateFile in Directory.EnumerateFiles(@"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
                      "*", SearchOption.AllDirectories))
@@ -163,7 +163,7 @@ public class AppSolver
                     continue;
             }
 
-            AppSolverA(collection, enumerateFile, logging: logging);
+            IndexItem(collection, enumerateFile, logging: logging);
         }
 
         var folderPath = Environment.GetFolderPath(Environment.SpecialFolder.Programs);
@@ -182,17 +182,17 @@ public class AppSolver
                     continue;
             }
 
-            AppSolverA(collection, enumerateFile, logging: logging);
+            IndexItem(collection, enumerateFile, logging: logging);
         }
 
         foreach (var configCustomCollection in ConfigManger.Config.customCollections)
-            AppSolverA(collection, configCustomCollection, logging: logging);
+            IndexItem(collection, configCustomCollection, logging: logging);
 
         if (useEverything)
         {
             List<string> filePaths = new();
             EverythingTools.Index(filePaths);
-            foreach (var filePath in filePaths) AppSolverA(collection, filePath, logging: logging);
+            foreach (var filePath in filePaths) IndexItem(collection, filePath, logging: logging);
 
             filePaths.Clear();
         }
@@ -248,7 +248,7 @@ public class AppSolver
         }
     }
 
-    internal static void AppSolverA(ConcurrentDictionary<string, SearchViewItem> collection, string file,
+    internal static void IndexItem(ConcurrentDictionary<string, SearchViewItem> collection, string file,
         bool star = false, bool logging = false)
     {
         //Log.Debug(Thread.CurrentThread.ManagedThreadId);

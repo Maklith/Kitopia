@@ -20,7 +20,7 @@ public class PathAnalyzer : IInputDataAnalyzer
             if (inputData.InputType == InputType.目录)
             {
                 ConcurrentDictionary<string, SearchViewItem> a = new();
-                ServiceManager.Services.GetService<IAppToolService>()!.AppSolverA(a, (string)inputData.Data);
+                ServiceManager.Services.GetService<IAppToolService>()!.IndexItem(a, (string)inputData.Data);
                 var directoryInfo = new DirectoryInfo((string)inputData.Data);
                 foreach (var (key, value) in a)
                 {
@@ -34,7 +34,7 @@ public class PathAnalyzer : IInputDataAnalyzer
             else if (inputData.InputType == InputType.文件)
             {
                 ConcurrentDictionary<string, SearchViewItem> a = new();
-                ServiceManager.Services.GetService<IAppToolService>()!.AppSolverA(a, (string)inputData.Data);
+                ServiceManager.Services.GetService<IAppToolService>()!.IndexItem(a, (string)inputData.Data);
                 var fileInfo = new FileInfo((string)inputData.Data);
                 foreach (var (key, value) in a)
                 {

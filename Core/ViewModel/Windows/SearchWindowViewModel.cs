@@ -161,8 +161,8 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
         _reloading = true;
         CheckEverything();
-        ServiceManager.Services.GetService<IAppToolService>()!.DelNullFile(_collection);
-        ServiceManager.Services.GetService<IAppToolService>()!.GetAllApps(_collection, logging,
+        ServiceManager.Services.GetService<IAppToolService>()!.CleanupInvalidItems(_collection);
+        ServiceManager.Services.GetService<IAppToolService>()!.IndexAllApps(_collection, logging,
             ConfigManger.Config.useEverything);
         if (_pinyinSearcher is null)
         {
@@ -371,7 +371,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
             originalValue.Length > ConfigManger.Config.everythingSearchPreString.Length)
         {
             var useEverythingSearch = ServiceManager.Services.GetService<IAppToolService>()
-                .UseEverythingSearch(originalValue.Remove(0, ConfigManger.Config.everythingSearchPreString.Length),
+                .SearchWithEverything(originalValue.Remove(0, ConfigManger.Config.everythingSearchPreString.Length),
                     ConfigManger.Config.everythingSearchMaxCount);
             Items.AddRange(useEverythingSearch);
         }

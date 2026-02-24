@@ -156,7 +156,7 @@ public class SearchItemTool : ISearchItemTool
 
         if (item.IsStared) //收藏操作
         {
-            ServiceManager.Services.GetService<IAppToolService>()!.AppSolverA(collection, item.OnlyKey, true);
+            ServiceManager.Services.GetService<IAppToolService>()!.IndexItem(collection, item.OnlyKey, true);
             ConfigManger.Config.customCollections.Insert(0, item.OnlyKey);
         }
         else

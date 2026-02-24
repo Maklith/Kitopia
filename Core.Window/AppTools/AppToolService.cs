@@ -1,4 +1,6 @@
-﻿using System.Collections.Concurrent;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using Core.Services.Interfaces;
 using Core.Window.Everything;
 using Pinyin.NET;
@@ -8,40 +10,39 @@ namespace Core.Window.AppTools;
 
 public class AppToolService : IAppToolService
 {
-    public void AppSolverA(ConcurrentDictionary<string, SearchViewItem> collection, string search,
-        bool isSearch = false)
+    public void IndexItem(ConcurrentDictionary<string, SearchViewItem> collection, string filePath,
+        bool isStarred = false)
     {
-        AppSolver.AppSolverA(collection, search, isSearch);
+        AppSolver.IndexItem(collection, filePath, isStarred);
     }
 
-    public void DelNullFile(ConcurrentDictionary<string, SearchViewItem> collection)
+    public void CleanupInvalidItems(ConcurrentDictionary<string, SearchViewItem> collection)
     {
-        AppSolver.DelNullFile(collection);
+        AppSolver.CleanupInvalidItems(collection);
     }
 
-    public void GetAllApps(ConcurrentDictionary<string, SearchViewItem> collection, bool logging,
+    public void IndexAllApps(ConcurrentDictionary<string, SearchViewItem> collection, bool logging,
         bool useEverything = false)
     {
-        AppSolver.GetAllApps(collection, logging, useEverything);
+        AppSolver.IndexAllApps(collection, logging, useEverything);
     }
 
-    public void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> collection, Action action)
+    public void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> collection, Action onSuccess)
     {
-        AppSolver.AutoStartEverything(collection, action);
+        AppSolver.AutoStartEverything(collection, onSuccess);
     }
 
-    public IEnumerable<SearchViewItem> UseEverythingSearch(string s,int limit=50)
+    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int limit = 50)
     {
-
-        return EverythingTools.Search(s,limit);
+        return EverythingTools.Search(keyword, limit);
     }
 
-    public void GetIconByItem(SearchViewItem item)
+    public void LoadIcon(SearchViewItem item)
     {
         IconTools.GetIconByItem(item);
     }
 
-    public void GetIconByItem(CustomScenario.CustomScenario item)
+    public void LoadIcon(CustomScenario.CustomScenario item)
     {
         IconTools.GetIconByItem(item);
     }

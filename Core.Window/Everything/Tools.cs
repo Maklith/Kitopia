@@ -125,7 +125,7 @@ public class EverythingTools
             // get the result's full path and file name.
             Everything32.Everything_GetResultFullPathNameW(i, buf, bufsize);
             var filePath = buf.ToString();
-            AppSolver.AppSolverA(searchViewItems,filePath);
+            AppSolver.IndexItem(searchViewItems,filePath);
         }
 
         return searchViewItems.Values;
@@ -145,7 +145,7 @@ public class EverythingTools
             // get the result's full path and file name.
             Everything64.Everything_GetResultFullPathNameW(i, buf, bufsize);
             var filePath = buf.ToString();
-            AppSolver.AppSolverA(searchViewItems,filePath);
+            AppSolver.IndexItem(searchViewItems,filePath);
         }
 
         return searchViewItems.Values;

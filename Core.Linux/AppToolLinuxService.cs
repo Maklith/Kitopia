@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using Core.SDKs.Services;
+using Core.Services.Interfaces;
 using Pinyin.NET;
 using PluginCore;
 
@@ -7,28 +7,35 @@ namespace Core.Linux;
 
 public class AppToolLinuxService : IAppToolService
 {
-    public Task AppSolverA(ConcurrentDictionary<string, SearchViewItem> _collection, string search,
-        bool isSearch = false)
-    {
-        return Task.CompletedTask;
-    }
-
-    public void DelNullFile(ConcurrentDictionary<string, SearchViewItem> _collection)
+    public void IndexItem(ConcurrentDictionary<string, SearchViewItem> collection, string filePath,
+        bool isStarred = false)
     {
     }
 
-    public void GetAllApps(ConcurrentDictionary<string, SearchViewItem> _collection, bool logging,
+    public void CleanupInvalidItems(ConcurrentDictionary<string, SearchViewItem> collection)
+    {
+    }
+
+    public void IndexAllApps(ConcurrentDictionary<string, SearchViewItem> collection, bool logging,
         bool useEverything = false)
     {
     }
 
-    public void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> _collection, Action action)
+    public void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> collection, Action onSuccess)
     {
     }
 
-    public Task GetIconByItemAsync(SearchViewItem item)
+    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int limit = 50)
     {
-        return Task.CompletedTask;
+        return Array.Empty<SearchViewItem>();
+    }
+
+    public void LoadIcon(SearchViewItem item)
+    {
+    }
+
+    public void LoadIcon(CustomScenario.CustomScenario item)
+    {
     }
 
     public PinyinItem GetPinyin(string input)
