@@ -81,7 +81,7 @@ public class SearchItemShow : Button
         var value = (string)e.NewValue;
         if (value is null) return;
 
-        var searchViewItems = ServiceManager.Services.GetService<SearchWindowViewModel>()!._collection;
+        var searchViewItems = ServiceManager.Services.GetService<SearchWindowViewModel>()!.IndexCollection;
         //var enumerable = searchViewItems.Where(e => e.Key.Contains("TopSAP")).ToList();
         if (searchViewItems.TryGetValue(value,
                 out var searchViewItem))

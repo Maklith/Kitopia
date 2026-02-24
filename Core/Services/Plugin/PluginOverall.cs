@@ -14,7 +14,7 @@ public class PluginOverall
     public static readonly Dictionary<string, List<OnnxModelInfoWrapper>> OnnxModelInfos = new();
     public static readonly Dictionary<string, Dictionary<string, Func<IInferenceSession>>> OnnxRuntimes = new();
 
-    public static readonly Dictionary<string, List<Func<InputDataAnalyzeTimeFlags, string, IEnumerable<InputData>>>>
+    public static readonly Dictionary<string, List<Func<InputDataAnalyzeTimeFlags, string?, IEnumerable<InputData>>>>
         SearchWindowInputDataIdentifies = new();
 
     public static readonly
@@ -47,7 +47,7 @@ public class PluginOverall
         var imageIdentifier = new ImageIdentifier();
         var pathIdentifier = new PathIdentifier();
         SearchWindowInputDataIdentifies["Kitopia"] =
-            new List<Func<InputDataAnalyzeTimeFlags, string, IEnumerable<InputData>>>
+            new List<Func<InputDataAnalyzeTimeFlags, string?, IEnumerable<InputData>>>
             {
                 (flags, s) => pathIdentifier.IdentifyInputData(flags, s),
                 (flags, s) => imageIdentifier.IdentifyInputData(flags, s),

@@ -103,7 +103,7 @@ public class SearchItemTool : ISearchItemTool
         {
             ConfigManger.Config.ignoreItems.Add(item.OnlyKey);
             ConfigManger.Save();
-            ServiceManager.Services.GetService<SearchWindowViewModel>()!._collection.TryRemove(item.OnlyKey, out _);
+            ServiceManager.Services.GetService<SearchWindowViewModel>()!.IndexCollection.TryRemove(item.OnlyKey, out _);
         });
     }
 
@@ -148,7 +148,7 @@ public class SearchItemTool : ISearchItemTool
     {
         if (item is null) return;
 
-        var collection = ServiceManager.Services.GetService<SearchWindowViewModel>()!._collection;
+        var collection = ServiceManager.Services.GetService<SearchWindowViewModel>()!.IndexCollection;
         Logger.Information("添加/移除收藏" + item.OnlyKey);
         item.IsStared = !item.IsStared;
         if (ConfigManger.Config!.customCollections.Contains(item.OnlyKey))
@@ -248,7 +248,7 @@ public class SearchItemTool : ISearchItemTool
 
     public void OpenSearchItemByOnlyKey(string onlyKey, params object[] inputValues)
     {
-        if (((SearchWindowViewModel)ServiceManager.Services!.GetService(typeof(SearchWindowViewModel))!)._collection
+        if (((SearchWindowViewModel)ServiceManager.Services!.GetService(typeof(SearchWindowViewModel))!).IndexCollection
             .TryGetValue(onlyKey, out var item))
             OpenFile(item, inputValues);
     }

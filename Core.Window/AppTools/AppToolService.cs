@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using Core.Services.Interfaces;
 using Core.Window.Everything;
 using Pinyin.NET;

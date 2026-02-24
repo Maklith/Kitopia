@@ -272,7 +272,7 @@ public class AppSolver
                         var shellItem = new ShellLink(file);
                         localizedName = shellItem.Name;
                         var targetPath = shellItem.ShortTargetPath;
-                        if (string.IsNullOrWhiteSpace(targetPath))
+                        if (string.IsNullOrWhiteSpace(targetPath)||string.IsNullOrWhiteSpace(localizedName))
                         {
                             return;
                         }

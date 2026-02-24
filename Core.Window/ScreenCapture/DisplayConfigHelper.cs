@@ -166,10 +166,7 @@ public static class DisplayConfigHelper
         mi.cbSize = Marshal.SizeOf(mi);
         if (!GetMonitorInfo(hMonitor, ref mi)) return 1.0f;
 
-        uint numPathArrayElements = 0;
-        uint numModeInfoArrayElements = 0;
-        
-        var ret = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out numPathArrayElements, out numModeInfoArrayElements);
+        var ret = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out var numPathArrayElements, out var numModeInfoArrayElements);
         if (ret != ERROR_SUCCESS) return 1.0f;
 
         var pathArray = new DISPLAYCONFIG_PATH_INFO[numPathArrayElements];

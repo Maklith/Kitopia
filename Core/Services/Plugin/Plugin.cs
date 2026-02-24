@@ -288,7 +288,7 @@ public class Plugin
         foreach (var searchViewItem in _searchViewItems)
         {
             var searchWindowViewModel = ServiceManager.Services.GetService<SearchWindowViewModel>();
-            searchWindowViewModel!._collection.TryAdd(searchViewItem.OnlyKey,searchViewItem);
+            searchWindowViewModel!.IndexCollection.TryAdd(searchViewItem.OnlyKey,searchViewItem);
         }
         
 
@@ -393,7 +393,7 @@ public class Plugin
 
         foreach (var searchViewItem in _searchViewItems)
         {
-            ServiceManager.Services.GetService<SearchWindowViewModel>()!._collection.TryRemove(searchViewItem.OnlyKey,out _);
+            ServiceManager.Services.GetService<SearchWindowViewModel>()!.IndexCollection.TryRemove(searchViewItem.OnlyKey,out _);
             ServiceManager.Services.GetService<SearchWindowViewModel>()!.Items.Remove(searchViewItem);
         }
         _searchViewItems.Clear();

@@ -26,7 +26,7 @@ public partial class MouseQuickWindowViewModel : ObservableRecipient
     public MouseQuickWindowViewModel()
     {
         foreach (var configMouseQuickItem in ConfigManger.Config.mouseQuickItems)
-            if (ServiceManager.Services.GetService<SearchWindowViewModel>()!._collection.TryGetValue(
+            if (ServiceManager.Services.GetService<SearchWindowViewModel>()!.IndexCollection.TryGetValue(
                     configMouseQuickItem, out var item))
                 Items.Add(item);
 
