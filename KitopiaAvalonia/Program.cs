@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -227,7 +228,7 @@ internal class Program
         await ServiceManager.Services.GetService<IApplicationService>()!.CheckUpdate(toastIfNoUpdate);
     }
 
-    public static void OnStartup(string[] arg)
+    private static void OnStartup(string[] arg)
     {
         Logger.Information("启动");
         CheckAndDeleteLogFiles();
@@ -297,9 +298,6 @@ internal class Program
         Logger.Information("插件管理器初始化完成");
         CustomScenarioManger.Init();
         Logger.Information("场景管理器初始化完成");
-
-
-        ServicePointManager.DefaultConnectionLimit = 10240;
 
         if (ConfigManger.Config.autoStart)
         {

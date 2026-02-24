@@ -26,12 +26,6 @@ internal partial class IconTools
     private const uint SHGFI_ICON = 0x100;
     // ReSharper disable once InconsistentNaming
     private const uint SHGFI_LARGEICON = 0x0;
-    // ReSharper disable once InconsistentNaming
-    private const uint SHGFI_SMALLICON = 0x000000001;
-    // ReSharper disable once InconsistentNaming
-    private const uint SHGFI_USEFILEATTRIBUTES = 0x000000010;
-    // ReSharper disable once InconsistentNaming
-    private const uint SHGFI_OPENICON = 0x000000002;
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IconTools>();
 
     private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
@@ -132,7 +126,11 @@ internal partial class IconTools
                     xd.Load(path); //加载xml文档
                     var rootNode = xd.SelectSingleNode("MMC_ConsoleFile"); //得到xml文档的根节点
                     var binaryStorage = rootNode?.SelectSingleNode("VisualAttributes")?.SelectSingleNode("Icon");
-                    index = int.Parse(((XmlElement)binaryStorage)?.GetAttribute("Index"));
+                    if (binaryStorage is null)
+                    {
+                        return  null;
+                    }
+                    index = int.Parse(((XmlElement)binaryStorage).GetAttribute("Index"));
                     dllPath = ((XmlElement)binaryStorage).GetAttribute("File");
 
                     dllPath = Environment.SystemDirectory + "\\" + dllPath.Split("\\").Last();
@@ -411,7 +409,7 @@ internal partial class IconTools
 
         if (cacheKey.EndsWith("mmc.exe"))
         {
-            cacheKey = item.Arguments.Replace("\"", null);
+            cacheKey = item.Arguments?.Replace("\"", null) ?? cacheKey;
             path = cacheKey;
         }
 

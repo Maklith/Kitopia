@@ -23,7 +23,7 @@ public class HotKeyImpl : IHotKetImpl
     {
         public HotKeyModel HotKeyModel;
         public int Id;
-        public Action<HotKeyModel>? RallBack;
+        public required Action<HotKeyModel> CallBack;
         public Timer? Timer;
     }
 
@@ -71,7 +71,7 @@ public class HotKeyImpl : IHotKetImpl
                     };
                     value.Timer.Elapsed += (_, _) =>
                     {
-                        ThreadPool.QueueUserWorkItem((_) => { value.RallBack?.Invoke(value.HotKeyModel); });
+                        ThreadPool.QueueUserWorkItem((_) => { value.CallBack.Invoke(value.HotKeyModel); });
                     };
                 }
 
@@ -99,7 +99,7 @@ public class HotKeyImpl : IHotKetImpl
         {
             var int32 = wparam.ToInt32();
             var keyValuePair = HotKeys.First(e => e.Value.Id == int32);
-            keyValuePair.Value.RallBack?.Invoke(keyValuePair.Value.HotKeyModel);
+            keyValuePair.Value.CallBack.Invoke(keyValuePair.Value.HotKeyModel);
         }
 
         return IntPtr.Zero;
@@ -114,7 +114,7 @@ public class HotKeyImpl : IHotKetImpl
             {
                 HotKeyModel = hotKeyModel,
                 Id = -1,
-                RallBack = rallBack
+                CallBack = rallBack
             });
             return true;
         }
@@ -157,7 +157,7 @@ public class HotKeyImpl : IHotKetImpl
                         {
                             HotKeyModel = hotKeyModel,
                             Id = _id,
-                            RallBack = rallBack
+                            CallBack = rallBack
                         });
                     }
                 }
@@ -167,7 +167,7 @@ public class HotKeyImpl : IHotKetImpl
                     {
                         HotKeyModel = hotKeyModel,
                         Id = -1,
-                        RallBack = rallBack
+                        CallBack = rallBack
                     });
                 }
 
@@ -187,7 +187,7 @@ public class HotKeyImpl : IHotKetImpl
                     {
                         HotKeyModel = hotKeyModel,
                         Id = 1,
-                        RallBack = rallBack
+                        CallBack = rallBack
                     });
                 }
 
@@ -258,7 +258,7 @@ public class HotKeyImpl : IHotKetImpl
     {
         if (HotKeys.ContainsKey(hotKeyModel.UUID))
         {
-            var rallback = HotKeys[hotKeyModel.UUID].RallBack;
+            var rallback = HotKeys[hotKeyModel.UUID].CallBack;
             Del(hotKeyModel);
             hotKeyModel.IsEnabled = true;
             ConfigManger.RequsetUpdateHotKey(hotKeyModel);

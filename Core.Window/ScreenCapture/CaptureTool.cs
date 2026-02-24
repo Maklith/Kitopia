@@ -9,7 +9,7 @@ namespace Core.Window.ScreenCapture;
 
 public static class CaptureTool
 {
-    private static ILogger Log = LogManager.Logger.ForContext("SourceContext", typeof(CaptureTool));
+    private static readonly ILogger Logger = LogManager.Logger.ForContext("SourceContext", typeof(CaptureTool));
 
     public static unsafe Mat GetMat(MappedSubresource mappedSubresource, OutputDesc1 outputDesc,
         ref ScreenCaptureInfo screenCaptureInfo)
@@ -39,7 +39,7 @@ public static class CaptureTool
         {
             var mat = new Mat((int)(mappedSubresource.DepthPitch / mappedSubresource.RowPitch),
                 (int)(mappedSubresource.RowPitch / 8), MatType.MakeType(7, 4));
-            Buffer.MemoryCopy((void*)mappedSubresource.PData, mat.DataPointer,
+            Buffer.MemoryCopy(mappedSubresource.PData, mat.DataPointer,
                 mappedSubresource.DepthPitch, mappedSubresource.DepthPitch);
 
             mat.ConvertTo(mat, MatType.CV_32FC4);
@@ -82,34 +82,6 @@ public static class CaptureTool
             }
 
             return mat;
-        }
-
-
-        return new Mat();
-    }
-
-    private static void ApplySrgbGamma(Mat linear, Mat output)
-    {
-        // 精确sRGB OETF转换
-        linear.ConvertTo(linear, MatType.CV_32FC3);
-        output.Create(linear.Size(), MatType.CV_32FC3);
-
-        for (int y = 0; y < linear.Rows; y++)
-        {
-            for (int x = 0; x < linear.Cols; x++)
-            {
-                Vec3f v = linear.At<Vec3f>(y, x);
-                for (int c = 0; c < 3; c++)
-                {
-                    float val = v[c];
-                    if (val <= 0.0031308f)
-                        v[c] = 12.92f * val;
-                    else
-                        v[c] = 1.055f * MathF.Pow(val, 1.0f / 2.4f) - 0.055f;
-                }
-
-                output.Set(y, x, v);
-            }
         }
     }
 }

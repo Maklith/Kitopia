@@ -96,9 +96,15 @@ public class Plugin
                     {
                         var hotKeyModel = (HotKeyModel)x.GetValue(configBase)!;
 
+                        var value = configBase.GetType().GetProperty($"{x.Name}Action")
+                            ?.GetValue(configBase, null);
+                        if (value is null)
+                        {
+                            Logger.Warning( $"未找到快捷键 {hotKeyModel.SignName} 的触发方法 {configField.ActionName}，请确保方法存在且命名正确");
+                            return;
+                        }
                         if (HotKeyManager.HotKetImpl.Add(hotKeyModel,
-                                (Action<HotKeyModel>)configBase.GetType().GetProperty($"{x.Name}Action")
-                                    ?.GetValue(configBase, null)))
+                                (Action<HotKeyModel>)value))
                             ServiceManager.Services.GetService<IContentDialog>()!.ShowDialog(null, new DialogContent
                             {
                                 Title = $"快捷键{hotKeyModel.SignName}设置失败",

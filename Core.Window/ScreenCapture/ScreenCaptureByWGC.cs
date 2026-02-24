@@ -25,6 +25,10 @@ public class ScreenCaptureByWGC : IScreenCapture
         uint i = 0;
         User32.EnumDisplayMonitors(default, null, (arg1, arg2, arg3, arg4) =>
         {
+            if (arg3==null||arg3.IsEmpty)
+            {
+                return true;
+            }
             screenCaptureInfos.Add(new ScreenCaptureInfo()
             {
                 
@@ -132,12 +136,6 @@ public class ScreenCaptureByWGC : IScreenCapture
            
         }
 
-        // 添加到结果列表
-            
-        
-       
-
-      
         return screenCaptureInfos;
     }
     static RECT IntersectRects(RECT rect1, RECT rect2)
@@ -374,27 +372,25 @@ public class ScreenCaptureByWGC : IScreenCapture
 
             d3dDevice->GetImmediateContext(ref immediateContext);
 
-            IDirect3DDevice CreateDirect3DDeviceFromSharpDXDevice(ID3D11Device* d3dDevice)
+            IDirect3DDevice CreateDirect3DDeviceFromSharpDxDevice(ID3D11Device* d3dDevice)
             {
                 IDirect3DDevice device = null;
 
                 // Acquire the DXGI interface for the Direct3D device.
-                using (var dxgiDevice = d3dDevice->QueryInterface<IDXGIDevice3>())
-                {
-                    // Wrap the native device using a WinRT interop object.
-                    var hr = CreateDirect3D11DeviceFromDXGIDevice((IntPtr)dxgiDevice.Handle, out var pUnknown);
+                using var dxgiDevice = d3dDevice->QueryInterface<IDXGIDevice3>();
+                // Wrap the native device using a WinRT interop object.
+                var hr = CreateDirect3D11DeviceFromDXGIDevice((IntPtr)dxgiDevice.Handle, out var pUnknown);
 
-                    if (hr == 0)
-                    {
-                        device = MarshalInterface<IDirect3DDevice>.FromAbi(pUnknown);
-                        Marshal.Release(pUnknown);
-                    }
+                if (hr == 0)
+                {
+                    device = MarshalInterface<IDirect3DDevice>.FromAbi(pUnknown);
+                    Marshal.Release(pUnknown);
                 }
 
                 return device;
             }
 
-            var direct3DDeviceFromSharpDxDevice = CreateDirect3DDeviceFromSharpDXDevice(d3dDevice);
+            var direct3DDeviceFromSharpDxDevice = CreateDirect3DDeviceFromSharpDxDevice(d3dDevice);
             
             framePool = Direct3D11CaptureFramePool.Create(
                 direct3DDeviceFromSharpDxDevice,
@@ -411,6 +407,7 @@ public class ScreenCaptureByWGC : IScreenCapture
             
             while ((direct3D11CaptureFrame = framePool.TryGetNextFrame()) == null)
             {
+                
             }
             
             using var bitmap = CreateSharpDXTexture2D(direct3D11CaptureFrame.Surface);

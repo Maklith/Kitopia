@@ -16,7 +16,7 @@ public class PluginNetworkService
     {
         DefaultRequestHeaders =
         {
-            { "User-Agent", "Kitopia/1.0.0" }
+            { "User-Agent", $"Kitopia/{ConfigManger.Version}" }
         }
     };
 
