@@ -407,7 +407,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                 },
                 AutoUnboxIndex = connectorItem.AutoUnboxIndex,
                 AutoUnboxPropertyName = connectorItem.AutoUnboxPropertyName,
-                SelfInputAble = connectorItem.SelfInputAble,
+                OnlySelfInput = connectorItem.OnlySelfInput,
                 ConnectorType = connectorItem.ConnectorType,
                 isPluginInputConnector = connectorItem.isPluginInputConnector,
                 PluginInputConnector = connectorItem.PluginInputConnector

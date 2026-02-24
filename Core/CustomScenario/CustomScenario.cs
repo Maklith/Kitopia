@@ -20,7 +20,7 @@ using Serilog;
 
 namespace Core.CustomScenario;
 
-public partial class CustomScenario : ObservableRecipient
+public partial class CustomScenario : ObservableRecipient,IDisposable
 {
     private static ILogger Logger = LogManager.Logger.ForContext<CustomScenario>();
 
@@ -70,7 +70,65 @@ public partial class CustomScenario : ObservableRecipient
 
     public CustomScenario()
     {
-        PropertyChanged += PropertyChangedEventHandler();
+        PropertyChanged += CustomScenarioPropertyChangedEventHandler;
+        nodes.CollectionChanged += (e, s) =>
+        {
+            if (s.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+            {
+                if (e is IEnumerable<ScenarioNodeBase> methodNodes)
+                {
+                    foreach (var scenarioMethodNode in methodNodes)
+                    {
+                        scenarioMethodNode.PropertyChanged += CustomScenarioPropertyChangedEventHandler;
+                        if (scenarioMethodNode is ScenarioMethodNode methodNode)
+                        {
+                            foreach (var connectorItem in methodNode.Input)
+                            {
+                                connectorItem.PropertyChanged += CustomScenarioPropertyChangedEventHandler;
+                                connectorItem.InputObjectHandler = ((_, _) =>
+                                {
+                                    WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
+                                    { Type = 0, Name = nameof(e), ConnectorItem = connectorItem,
+                                        ScenarioMethodNode = connectorItem.Source as ScenarioMethodNode, CustomScenario = this });
+
+                                });
+                                connectorItem.InputObject?.PropertyChanged += connectorItem.InputObjectHandler;
+                                
+                            }
+                        }
+                    }
+
+                   
+                }
+            }
+            else if (s.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
+            {
+                if (e is IEnumerable<ScenarioNodeBase> methodNodes)
+                {
+                    foreach (var scenarioMethodNode in methodNodes)
+                    {
+                        scenarioMethodNode.PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
+                        if (scenarioMethodNode is ScenarioMethodNode methodNode)
+                        {
+                            foreach (var connectorItem in methodNode.Input)
+                            {
+                                connectorItem.PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
+                                if (connectorItem.InputObjectHandler != null)
+                                {
+                                    connectorItem.InputObject?.PropertyChanged -= connectorItem.InputObjectHandler;
+                                    connectorItem.InputObjectHandler = null;
+                                }
+                            }
+                        }
+                    }
+
+                   
+                }
+            }
+
+            WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
+                { Type = 0, Name = nameof(nodes), CustomScenario = this });
+        };
         runHotKey = new HotKeyModel
         {
             MainName = "Kitopia情景", Name = $"{UUID}_开始快捷键", IsSelectCtrl = false, IsSelectAlt = false,
@@ -155,15 +213,27 @@ public partial class CustomScenario : ObservableRecipient
     }
 
 
-    private PropertyChangedEventHandler? PropertyChangedEventHandler()
+    private void CustomScenarioPropertyChangedEventHandler(object? s, PropertyChangedEventArgs e)
     {
-        return (e, s) =>
+        if (e.PropertyName == nameof(IsRunning)) return;
+        if (s is CustomScenario)
         {
-            if (s.PropertyName == nameof(IsRunning)) return;
-
             WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
                 { Type = 1, Name = nameof(e), CustomScenario = this });
-        };
+        }
+        else if (s is ScenarioMethodNode methodNode)
+        {
+            WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
+                { Type = 0, Name = nameof(e), ScenarioMethodNode = methodNode, CustomScenario = this });
+        }
+        else if (s is ConnectorItem connectorItem)
+        {
+            WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
+            { Type = 0, Name = nameof(e), ConnectorItem = connectorItem,
+                ScenarioMethodNode = connectorItem.Source as ScenarioMethodNode, CustomScenario = this });
+        }
+        
+        
     }
 
     public void Dispose()
@@ -494,6 +564,9 @@ public partial class CustomScenario : ObservableRecipient
 
     public void OnDeserialized() //反序列化时hotkeys的默认值会被添加,需要先清空
     {
-        PropertyChanged += PropertyChangedEventHandler();
+        PropertyChanged += CustomScenarioPropertyChangedEventHandler;
+        foreach (var pointItem in nodes)
+            if (pointItem is ScenarioMethodNode methodNode)
+                methodNode.PropertyChanged += CustomScenarioPropertyChangedEventHandler;
     }
 }

@@ -382,12 +382,10 @@ public class ScenarioMethod
                             InputObject = new CustomScenarioValue
                             {
                                 SerializeType = typeof(int),
-                                Value = (double)2,
+                                Value = 2,
                                 IsSelf = true
                             },
-
-
-                            SelfInputAble = false,
+                            OnlySelfInput = true,
                             Title = "输出数量"
                         }
                     };

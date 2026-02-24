@@ -90,6 +90,10 @@ public partial class TaskEditorViewModel : ObservableRecipient
         WeakReferenceMessenger.Default.Register<CustomScenarioChangeMsg>(this,
             (a, e) =>
             {
+                if (e.CustomScenario!=Scenario)
+                {
+                    return;
+                }
                 Dispatcher.UIThread.Post(() => { IsModified = true; });
 
                 //Console.WriteLine(1);
@@ -99,24 +103,34 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
                     return;
                 }
-
-                if (!Scenario.nodes.Contains(e.ScenarioMethodNode)) return;
-
                 if (e.ConnectorItem is not { InputObject: not null }) return;
 
-                if (e.ScenarioMethodNode.ScenarioMethod.Type == ScenarioMethodType.OneToMany &&
+                if (e.ScenarioMethodNode?.ScenarioMethod.Type == ScenarioMethodType.OneToMany &&
                     e.ConnectorItem.Title == "输出数量")
                 {
                     int? value = null;
                     if (e.ConnectorItem.InputObject.Value is int inputObject)
                         value = inputObject;
                     else
-                        value = Convert.ToInt32((double)e.ConnectorItem.InputObject.Value);
+                        value = Convert.ToInt32(e.ConnectorItem.InputObject.Value);
 
                     if (value > 10)
                     {
                         value = 10;
-                        e.ConnectorItem.InputObject.Value = (double)10;
+                        Task.Run((() =>
+                        {
+                            e.ConnectorItem.InputObject.Value = 10;
+                        }));
+                    }
+
+                    if (value<1)
+                    {
+                        value = 1;
+                        Task.Run((() =>
+                        {
+                            e.ConnectorItem.InputObject.Value = 1;
+                        }));
+
                     }
 
                     if (e.ScenarioMethodNode.Output.Count == value) return;
@@ -244,7 +258,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
     {
         if (c.DataContext is not ConnectorItem connector) return;
 
-        if (!connector.SelfInputAble) return;
+        if (connector.OnlySelfInput) return;
 
         IsModified = true;
 
@@ -482,7 +496,11 @@ public partial class TaskEditorViewModel : ObservableRecipient
             }
 
         IsModified = true;
-        var connectionItem = new ConnectionItem(source, target);
+        var connectionItem = new ConnectionItem()
+        {
+            Source = source,
+            Target = target
+        };
         connectionItem.Init(SplitConnection);
         Scenario.connections.Add(connectionItem);
         if (toFirstVerify) ToFirstVerify();

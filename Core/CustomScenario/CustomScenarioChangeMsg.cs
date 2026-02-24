@@ -6,7 +6,7 @@ public class CustomScenarioChangeMsg
     public CustomScenario CustomScenario;
 
     public string Name;
-    public ScenarioMethodNode ScenarioMethodNode;
+    public ScenarioMethodNode? ScenarioMethodNode;
 
     /// <summary>
     /// 0来自连接器的修改

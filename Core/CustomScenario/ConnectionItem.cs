@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
 using System.Windows.Input;
 using Avalonia;
 using CommunityToolkit.Mvvm.Input;
@@ -7,24 +8,31 @@ namespace Core.CustomScenario;
 
 public class ConnectionItem
 {
+    private readonly ConnectorItem _source;
+    private readonly ConnectorItem _target;
     [JsonIgnore] public ICommand? SplitConnectionCommand { get; set; }
 
-    public ConnectionItem(ConnectorItem source, ConnectorItem target)
+    public required ConnectorItem Source
     {
-        Source = source;
-        Target = target;
-
-        Source.IsConnected = true;
-        Target.IsConnected = true;
+        get => _source;
+        [MemberNotNull(nameof(_source))]
+        init
+        {
+            _source = value;
+            _source.IsConnected = true;
+        }
     }
 
-    public ConnectionItem()
+    public required ConnectorItem Target
     {
+        get => _target;
+        [MemberNotNull(nameof(_target))]
+        init
+        {
+            _target = value;
+            _target.IsConnected = true;
+        }
     }
-
-    public ConnectorItem Source { get; set; }
-
-    public ConnectorItem Target { get; set; }
 
     public void Init(Action<ConnectionItem, Point> splitAction)
     {

@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Text.Json.Serialization;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -41,7 +42,8 @@ public partial class ConnectorItem : ObservableRecipient
     /// </summary>
     [JsonConverter(typeof(CustomScenarioInputValueJsonConverter))]
     public CustomScenarioValue? InputObject { get; init; }
-
+    [JsonIgnore]
+    public PropertyChangedEventHandler? InputObjectHandler { get; set; }
     [ObservableProperty] private bool _isConnected;
     [ObservableProperty] private bool _isNotUsed;
     [ObservableProperty] private ConnectorType _connectorType = ConnectorType.Input;
@@ -49,7 +51,7 @@ public partial class ConnectorItem : ObservableRecipient
     /// <summary>
     /// 是否允许自身输入 / Whether self-input is allowed
     /// </summary>
-    public bool SelfInputAble { get; set; } = true;
+    public bool OnlySelfInput { get; set; } = false;
 
     /// <summary>
     /// 自动拆箱索引 / Auto unbox index
