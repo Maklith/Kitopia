@@ -36,6 +36,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
     private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingFileRequests = new();
     private readonly ConcurrentDictionary<Guid, UdpReassemblySession> _udpSessions = new();
+    private readonly ConcurrentDictionary<string, string> _pendingDownloads = new(); // RequestId -> SavePath
 
     public ObservableCollection<DeviceModel> DiscoveredDevices { get; } = new();
 
@@ -143,8 +144,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
     }
 
-    public async Task RespondToFileRequestAsync(DeviceModel target, string requestId, bool accepted)
+    public async Task RespondToFileRequestAsync(DeviceModel target, string requestId, bool accepted, string? savePath = null)
     {
+        if (accepted && !string.IsNullOrEmpty(savePath))
+        {
+            _pendingDownloads[requestId] = savePath;
+        }
+
         var meta = new PacketMetadata
         {
             Type = "FileResp",
@@ -307,7 +313,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
     }
 
-    private void DispatchPacket(PacketMetadata packet, Stream dataStream, DeviceModel sender)
+    private async Task DispatchPacketAsync(PacketMetadata packet, Stream dataStream, DeviceModel sender)
     {
         System.Diagnostics.Debug.WriteLine($"[Dispatch] Processing packet Type={packet.Type}, ID={packet.RequestId}");
         // Dispatch
@@ -331,23 +337,52 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 break;
                 
             case "FileTransfer":
+                if (_pendingDownloads.TryRemove(packet.RequestId, out var savePath))
+                {
+                    try
+                    {
+                        // Stream directly to file
+                        await using var fs = new FileStream(savePath, FileMode.Create, FileAccess.Write);
+                        await dataStream.CopyToAsync(fs);
+                    }
+                    catch (Exception ex)
+                    {
+                         System.Diagnostics.Debug.WriteLine($"[Dispatch] File save error: {ex}");
+                    }
+                    
+                    // Notify
+                    try 
+                    {
+                        using var fsRead = new FileStream(savePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        StreamReceived?.Invoke(this, new DeviceStreamReceivedEventArgs(
+                            sender, 
+                            fsRead, 
+                            JsonSerializer.Serialize(packet),
+                            savePath));
+                    }
+                    catch { }
+                    return;
+                }
+                goto default;
+
             case "Legacy":
             default:
                 System.Diagnostics.Debug.WriteLine($"[Dispatch] Handling Stream for {packet.Type}");
-                // For file transfer, we stream the payload.
+                // For file transfer (without pending path) or unknown types, we buffer if needed.
                 Stream resultStream = dataStream;
                 if (!dataStream.CanSeek)
                 {
                      System.Diagnostics.Debug.WriteLine($"[Dispatch] Buffering stream...");
+                     // Warning: For large files this causes high memory usage. 
+                     // Users should use Request/Response flow with set path.
                      var ms = new MemoryStream();
-                     dataStream.CopyTo(ms);
+                     await dataStream.CopyToAsync(ms); // Async copy
                      ms.Position = 0;
                      resultStream = ms;
                      System.Diagnostics.Debug.WriteLine($"[Dispatch] Buffered {ms.Length} bytes.");
                 }
                 else
                 {
-                    // If it is already seekable (MemoryStream from UDP), ensure position is 0
                     if (dataStream.Position != 0) dataStream.Position = 0;
                 }
                     
@@ -407,7 +442,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             if (packet.SenderPort > 0) sender.Port = packet.SenderPort;
             
             System.Diagnostics.Debug.WriteLine($"[QUIC] Dispatching packet type: {packet.Type} from {sender.Address}:{sender.Port}");
-            DispatchPacket(packet, stream, sender);
+            await DispatchPacketAsync(packet, stream, sender);
         }
         catch (Exception ex)
         {
@@ -506,7 +541,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                          if (packet != null)
                          {
                              if (packet.SenderPort > 0) completedSession.Sender.Port = packet.SenderPort;
-                             DispatchPacket(packet, completedSession.DataStream, completedSession.Sender);
+                             await DispatchPacketAsync(packet, completedSession.DataStream, completedSession.Sender);
                          }
                      }
                 }

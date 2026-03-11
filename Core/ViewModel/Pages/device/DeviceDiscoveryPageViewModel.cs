@@ -78,13 +78,59 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
                 // For dev, let's accept to test flow.
                 accepted = true; 
             }
+
+            string? savePath = null;
+            if (accepted)
+            {
+                try 
+                {
+                    var lifetime = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime);
+                    if (lifetime?.MainWindow != null)
+                    {
+                        var file = await lifetime.MainWindow.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+                        {
+                            Title = "保存文件",
+                            SuggestedFileName = e.FileName
+                        });
+                     
+                        if (file != null)
+                        {
+                            savePath = file.Path.LocalPath;
+                        }
+                        else
+                        {
+                            // User cancelled save dialog
+                            accepted = false; 
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Save Picker Error: {ex}");
+                }
+            }
             
-            await _deviceCommunication.RespondToFileRequestAsync(e.Sender, e.RequestId, accepted);
+            await _deviceCommunication.RespondToFileRequestAsync(e.Sender, e.RequestId, accepted, savePath);
         });
     }
 
     private async void OnStreamReceived(object? sender, DeviceStreamReceivedEventArgs e)
     {
+        if (!string.IsNullOrEmpty(e.SavedPath))
+        {
+             // Already saved by service
+             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+             {
+                 await (ServiceManager.Services.GetService<IContentDialog>()?.ShowDialogAsync(null, new DialogContent
+                 {
+                     Title = "文件接收成功",
+                     Content = $"文件已保存至: {e.SavedPath}",
+                     PrimaryButtonText = "确定"
+                 }) ?? Task.CompletedTask);
+             });
+             return;
+        }
+
         if (string.IsNullOrEmpty(e.MetaData)) return;
 
         try
@@ -108,36 +154,41 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
                     // Sanitize filename to prevent directory traversal
                     var fileName = Path.GetFileName(rawFileName);
                     
-                    var downloads = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                    downloads = Path.Combine(downloads, "Downloads");
-                    if (!Directory.Exists(downloads)) Directory.CreateDirectory(downloads);
-
-                    var path = Path.Combine(downloads, fileName);
-                    string baseName = Path.GetFileNameWithoutExtension(fileName);
-                    string ext = Path.GetExtension(fileName);
-                    int i = 0;
-
-                    // Ensure unique filename
-                    while (File.Exists(path))
+                    // No SavedPath means this stream was not expected (or legacy transfer), so we ask user where to save it now.
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
                     {
-                        path = Path.Combine(downloads, $"{baseName} ({++i}){ext}");
-                    }
-
-                    // Use CreateNew to prevent overwriting existing files if race condition occurs
-                    // (Though checking File.Exists above handles most cases)
-                    using var fs = new FileStream(path, FileMode.Create);
-                    if (e.Stream.CanSeek) e.Stream.Position = 0; // Ensure stream is at start
-                    await e.Stream.CopyToAsync(fs);
-
-                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(new Func<Task>(async () =>
-                    {
-                        await (ServiceManager.Services.GetService<IContentDialog>()?.ShowDialogAsync(null, new DialogContent
+                        try
                         {
-                            Title = "文件接收成功",
-                            Content = $"文件已保存至: {path}",
-                            PrimaryButtonText = "确定"
-                        }) ?? Task.CompletedTask);
-                    }));
+                            var lifetime = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime);
+                            if (lifetime?.MainWindow != null)
+                            {
+                                var file = await lifetime.MainWindow.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+                                {
+                                    Title = "保存接收到的文件",
+                                    SuggestedFileName = fileName
+                                });
+
+                                if (file != null)
+                                {
+                                    var path = file.Path.LocalPath;
+                                    using var fs = new FileStream(path, FileMode.Create);
+                                    if (e.Stream.CanSeek) e.Stream.Position = 0; // Ensure stream is at start
+                                    await e.Stream.CopyToAsync(fs);
+
+                                    await (ServiceManager.Services.GetService<IContentDialog>()?.ShowDialogAsync(null, new DialogContent
+                                    {
+                                        Title = "文件接收成功",
+                                        Content = $"文件已保存至: {path}",
+                                        PrimaryButtonText = "确定"
+                                    }) ?? Task.CompletedTask);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Save Manual Stream Error: {ex}");
+                        }
+                    });
                 }
             }
         }
