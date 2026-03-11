@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Core.Services.Interfaces;
@@ -32,6 +33,8 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
         _deviceCommunication.MessageReceived += OnMessageReceived;
         _deviceCommunication.FileTransferRequested += OnFileTransferRequested;
         _deviceCommunication.StreamReceived += OnStreamReceived;
+        _deviceCommunication.TransferInterrupted += OnDeviceCommunicationOnTransferInterrupted;
+        
     }
 
     public void Dispose()
@@ -39,16 +42,24 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
         _deviceCommunication.MessageReceived -= OnMessageReceived;
         _deviceCommunication.FileTransferRequested -= OnFileTransferRequested;
         _deviceCommunication.StreamReceived -= OnStreamReceived;
+        _deviceCommunication.TransferInterrupted -= OnDeviceCommunicationOnTransferInterrupted;
         StopDiscovery();
     }
 
     private void OnMessageReceived(object? sender, string message)
     {
-        // TODO: Show toast or dialog
-        // For now, write to debug
-        System.Diagnostics.Debug.WriteLine($"Received Message: {message}");
+        ServiceManager.Services.GetService<IToastService>()!.Show( 
+            "消息来自设备", message);
+        
     }
-
+    private void OnDeviceCommunicationOnTransferInterrupted(object? s, TransferInterruptionEventArgs e)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            ServiceManager.Services.GetService<IToastService>()!.Show("传输中断", 
+                $"请求ID: {e.RequestId}\n原因: {e.Reason}\n方向: {(e.IsSending ? "发送" : "接收")}");
+        });
+    }
     private async void OnFileTransferRequested(object? sender, FileTransferRequestEventArgs e)
     {
         // Need to show dialog on UI thread

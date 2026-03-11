@@ -43,10 +43,22 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     public event EventHandler<DeviceStreamReceivedEventArgs>? StreamReceived;
     public event EventHandler<string>? MessageReceived;
     public event EventHandler<FileTransferRequestEventArgs>? FileTransferRequested;
+    public event EventHandler<TransferInterruptionEventArgs>? TransferInterrupted;
 
     public DeviceCommunicationService()
     {
         _serverCert = GenerateCertificate();
+    }
+
+    private void NotifyTransferInterrupted(string requestId, string reason, bool isSending)
+    {
+        if (!string.IsNullOrEmpty(requestId))
+        {
+            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+            {
+                TransferInterrupted?.Invoke(this, new TransferInterruptionEventArgs(requestId, reason, isSending));
+            });
+        }
     }
 
     public void StartDiscovery()
@@ -169,8 +181,34 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         if (await TrySendQuicAsync(target, stream, metaData))
             return;
 
+        // Check if we should fallback to UDP
+        // Fallback is allowed, but we proceed with caution regarding speed.
+        if (!string.IsNullOrEmpty(metaData))
+        {
+             // Optional: Log or notify about fallback if needed
+        }
+
         // Fallback to UDP
-        await SendUdpAsync(target, stream, metaData);
+        try
+        {
+            await SendUdpAsync(target, stream, metaData);
+        }
+        catch (Exception ex)
+        {
+            if (!string.IsNullOrEmpty(metaData))
+            {
+                try
+                {
+                    var meta = JsonSerializer.Deserialize<PacketMetadata>(metaData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (meta != null && !string.IsNullOrEmpty(meta.RequestId))
+                    {
+                        NotifyTransferInterrupted(meta.RequestId, $"Sending failed: {ex.Message}", true);
+                    }
+                }
+                catch { }
+            }
+            throw;
+        }
     }
 
     private async Task<bool> TrySendQuicAsync(DeviceModel target, Stream stream, string? metaData)
@@ -179,7 +217,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         {
             if (!QuicConnection.IsSupported) return false;
 
-            var endPoint = new IPEndPoint(target.Address, target.Port); // Use QUIC port from discovery?
+            var endPoint = new IPEndPoint(target.Address, target.Port); 
             // Assuming target.Port is the QUIC port.
 
             var connectionOptions = new QuicClientConnectionOptions
@@ -194,20 +232,47 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 }
             };
 
-            await using var connection = await QuicConnection.ConnectAsync(connectionOptions);
-            await using var quicStream = await connection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await using var connection = await QuicConnection.ConnectAsync(connectionOptions, cts.Token);
+            
+            using var streamCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await using var quicStream = await connection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, streamCts.Token);
 
             // Send Metadata
-            await WriteMetaDataAsync(quicStream, metaData);
+            await WriteMetaDataAsync(quicStream, metaData, TimeSpan.FromSeconds(5));
             
-            // Send Data
-            await stream.CopyToAsync(quicStream);
+            // Send Data with timeout
+            await CopyStreamWithTimeoutAsync(stream, quicStream, TimeSpan.FromSeconds(10));
             
             return true;
         }
         catch (Exception)
         {
             return false;
+        }
+    }
+
+    private async Task CopyStreamWithTimeoutAsync(Stream source, Stream destination, TimeSpan timeout, int bufferSize = 8192)
+    {
+        var buffer = new byte[bufferSize];
+        int bytesRead;
+        using var cts = new CancellationTokenSource();
+        
+        while (true)
+        {
+            try
+            {
+                cts.CancelAfter(timeout);
+                bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                if (bytesRead == 0) break;
+                
+                cts.CancelAfter(timeout);
+                await destination.WriteAsync(buffer, 0, bytesRead, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new TimeoutException("Data transfer timed out.");
+            }
         }
     }
 
@@ -228,6 +293,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         var buffer = new byte[ChunkSize];
         int read;
         long offset = 0;
+        int packetCount = 0;
 
         if (stream.CanSeek) stream.Position = 0;
 
@@ -235,8 +301,10 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         {
             await SendUdpPacket(tempClient, targetEp, sessionId, offset, 1, buffer.AsSpan(0, read).ToArray(), false);
             offset += read;
-            // Throttle slightly to reduce packet loss?
-            await Task.Delay(1); 
+            
+            // Throttle: Reduce to 1ms delay every 10 packets to improve speed
+            packetCount++;
+            if (packetCount % 10 == 0) await Task.Delay(1); 
         }
 
         // Send End Packet
@@ -260,13 +328,26 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         await client.SendAsync(packet, packet.Length, target);
     }
 
-    private async Task WriteMetaDataAsync(Stream stream, string? metaData)
+    private async Task WriteMetaDataAsync(Stream stream, string? metaData, TimeSpan timeout)
     {
         var json = metaData ?? string.Empty;
         var bytes = System.Text.Encoding.UTF8.GetBytes(json);
         var lenBytes = BitConverter.GetBytes(bytes.Length);
-        await stream.WriteAsync(lenBytes);
-        await stream.WriteAsync(bytes);
+        
+        using var cts = new CancellationTokenSource();
+        
+        try
+        {
+            cts.CancelAfter(timeout);
+            await stream.WriteAsync(lenBytes, 0, lenBytes.Length, cts.Token);
+            
+            cts.CancelAfter(timeout);
+            await stream.WriteAsync(bytes, 0, bytes.Length, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            throw new TimeoutException("Write metadata timed out.");
+        }
     }
     
     private void StartQuicListener()
@@ -339,28 +420,40 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             case "FileTransfer":
                 if (_pendingDownloads.TryRemove(packet.RequestId, out var savePath))
                 {
+                    bool success = false;
                     try
                     {
                         // Stream directly to file
                         await using var fs = new FileStream(savePath, FileMode.Create, FileAccess.Write);
-                        await dataStream.CopyToAsync(fs);
+                        await CopyStreamWithTimeoutAsync(dataStream, fs, TimeSpan.FromSeconds(10));
+
+                        if (packet.Size > 0 && fs.Length != packet.Size)
+                        {
+                            throw new IOException($"File size mismatch. Expected {packet.Size}, got {fs.Length}");
+                        }
+                        success = true;
                     }
                     catch (Exception ex)
                     {
                          System.Diagnostics.Debug.WriteLine($"[Dispatch] File save error: {ex}");
+                         NotifyTransferInterrupted(packet.RequestId, $"Receive failed: {ex.Message}", false);
+                         try { File.Delete(savePath); } catch { }
                     }
                     
                     // Notify
-                    try 
+                    if (success)
                     {
-                        using var fsRead = new FileStream(savePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        StreamReceived?.Invoke(this, new DeviceStreamReceivedEventArgs(
-                            sender, 
-                            fsRead, 
-                            JsonSerializer.Serialize(packet),
-                            savePath));
+                        try 
+                        {
+                            using var fsRead = new FileStream(savePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                            StreamReceived?.Invoke(this, new DeviceStreamReceivedEventArgs(
+                                sender, 
+                                fsRead, 
+                                JsonSerializer.Serialize(packet),
+                                savePath));
+                        }
+                        catch { }
                     }
-                    catch { }
                     return;
                 }
                 goto default;
@@ -399,14 +492,15 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     {
         try
         {
-            await using var stream = await connection.AcceptInboundStreamAsync();
+            using var streamCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await using var stream = await connection.AcceptInboundStreamAsync(streamCts.Token);
             
             // Read Metadata
             var lenBuffer = new byte[4];
-            await ReadExactAsync(stream, lenBuffer);
+            await ReadExactAsync(stream, lenBuffer, TimeSpan.FromSeconds(5));
             var len = BitConverter.ToInt32(lenBuffer);
             var metaBuffer = new byte[len];
-            await ReadExactAsync(stream, metaBuffer);
+            await ReadExactAsync(stream, metaBuffer, TimeSpan.FromSeconds(5));
             var metaJson = System.Text.Encoding.UTF8.GetString(metaBuffer);
             
             System.Diagnostics.Debug.WriteLine($"[QUIC] Received Metadata: {metaJson}");
@@ -474,6 +568,20 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     if (_udpSessions.TryRemove(id, out var session))
                     {
                          session.DataStream.Dispose();
+                         
+                         // Check if this was an interrupted transfer
+                         if (!string.IsNullOrEmpty(session.MetadataJson))
+                         {
+                             try
+                             {
+                                 var meta = JsonSerializer.Deserialize<PacketMetadata>(session.MetadataJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                                 if (meta != null && !string.IsNullOrEmpty(meta.RequestId))
+                                 {
+                                     NotifyTransferInterrupted(meta.RequestId, "Transfer timed out", false);
+                                 }
+                             }
+                             catch { }
+                         }
                     }
                 }
             }
@@ -550,14 +658,23 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
     }
 
-    private async Task ReadExactAsync(Stream stream, byte[] buffer)
+    private async Task ReadExactAsync(Stream stream, byte[] buffer, TimeSpan timeout)
     {
         int offset = 0;
+        using var cts = new CancellationTokenSource();
         while (offset < buffer.Length)
         {
-            int read = await stream.ReadAsync(buffer, offset, buffer.Length - offset);
-            if (read == 0) throw new EndOfStreamException();
-            offset += read;
+            cts.CancelAfter(timeout);
+            try 
+            {
+                int read = await stream.ReadAsync(buffer, offset, buffer.Length - offset, cts.Token);
+                if (read == 0) throw new EndOfStreamException();
+                offset += read;
+            }
+            catch (OperationCanceledException)
+            {
+                 throw new TimeoutException("Read exact timed out.");
+            }
         }
     }
 
@@ -777,3 +894,4 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         public int SenderPort { get; set; }
     }
 }
+
