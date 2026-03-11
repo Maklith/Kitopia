@@ -1,0 +1,39 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Core.ViewModel.Pages.device;assembly=Core"
+             xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="KitopiaAvalonia.Pages.DeviceDiscoveryPage"
+             x:DataType="vm:DeviceDiscoveryPageViewModel">
+    <Grid RowDefinitions="Auto,*">
+        <StackPanel Orientation="Horizontal" Margin="10" Spacing="10">
+            <TextBlock Text="设备发现" VerticalAlignment="Center" FontSize="20" FontWeight="Bold"/>
+            <Button Command="{Binding StartDiscoveryCommand}" IsVisible="{Binding !IsDiscovering}">开始发现</Button>
+            <Button Command="{Binding StopDiscoveryCommand}" IsVisible="{Binding IsDiscovering}">停止发现</Button>
+            <TextBlock Text="正在扫描..." IsVisible="{Binding IsDiscovering}" VerticalAlignment="Center" Foreground="Gray"/>
+            <TextBox Watermark="输入发送消息" Text="{Binding MessageToSend}" Width="200" VerticalAlignment="Center" Margin="20,0,0,0" />
+        </StackPanel>
+        
+        <ListBox Grid.Row="1" ItemsSource="{Binding DiscoveredDevices}" Margin="10">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="pluginCore:DeviceModel">
+                    <StackPanel Orientation="Vertical" Spacing="5">
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="{Binding Address}" Foreground="Gray"/>
+                            <TextBlock Text="{Binding Port, StringFormat='Port: {0}'}" Foreground="Gray"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding Id, StringFormat='ID: {0}'}" FontSize="10" Foreground="LightGray"/>
+                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
+                            <!-- Use RelativeSource to bind to ViewModel commands -->
+                            <Button Content="发送信息" Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).SendMessageCommand}" CommandParameter="{Binding .}" />
+                            <Button Content="发送文件" Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).SendFileCommand}" CommandParameter="{Binding .}" />
+                        </StackPanel>
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>

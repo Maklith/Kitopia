@@ -1,4 +1,4 @@
-﻿#region
+﻿﻿#region
 
 using System.Collections.ObjectModel;
 using System.Windows.Input;
@@ -70,6 +70,13 @@ public partial class MainWindowViewModel : ObservableRecipient
             Key = "OnnxModelManagerPage",
             MenuIconGlyph = "\uf83b",
             MenuIconFilledGlyph = "\uf853"
+        },
+        new MenuItemViewModel
+        {
+            MenuHeader = "设备互联",
+            Key = "DeviceDiscovery",
+            MenuIconGlyph = "\ue975", // Placeholder icon
+            MenuIconFilledGlyph = "\ue975"
         }
     };
 

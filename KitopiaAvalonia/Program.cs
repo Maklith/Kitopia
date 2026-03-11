@@ -14,6 +14,7 @@ using Avalonia.Threading;
 using Core.CustomScenario;
 using Core.Services;
 using Core.Services.Config;
+using Core.Services.DeviceCommunication;
 using Core.Services.Interfaces;
 using Core.Services.MQTT;
 using Core.Services.Onnx;
@@ -21,6 +22,7 @@ using Core.Services.Plugin;
 using Core.ViewModel.Main;
 using Core.ViewModel.Pages;
 using Core.ViewModel.Pages.customScenario;
+using Core.ViewModel.Pages.device;
 using Core.ViewModel.Pages.plugin;
 using Core.ViewModel.TaskEditor;
 using Core.ViewModel.Windows;
@@ -116,6 +118,9 @@ internal class Program
         services.AddTransient<IErrorWindow, ErrorWindow>();
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
 
+        services.AddSingleton<IDeviceCommunication, DeviceCommunicationService>();
+        
+
         services.AddTransient<IPluginToolService, PluginToolService>();
 
         services.AddTransient<INavigationPageService, NavigationPageService>();
@@ -181,7 +186,9 @@ internal class Program
         services.AddTransient<OnnxModelManagerPageViewModel>();
         services.AddKeyedTransient<UserControl, OnnxModelManagerPage>("OnnxModelManagerPage",
             (e, _) => new OnnxModelManagerPage { DataContext = e.GetService<OnnxModelManagerPageViewModel>() });
-
+        services.AddTransient<DeviceDiscoveryPageViewModel>();
+        services.AddKeyedTransient<UserControl, DeviceDiscoveryPage>("DeviceDiscoveryPage",
+            (e, _) => new DeviceDiscoveryPage { DataContext = e.GetService<DeviceDiscoveryPageViewModel>() });
 
         services.AddSingleton<SettingPage>(e => new SettingPage());
         services.AddSingleton<GitHubUpdateService>();
