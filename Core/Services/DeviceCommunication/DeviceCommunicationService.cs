@@ -62,6 +62,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         // 3. Start Discovery Broadcast and Listen
         Task.Run(() => DiscoveryLoop(_discoveryCts.Token));
         Task.Run(() => BroadcastLoop(_discoveryCts.Token));
+        Task.Run(() => CleanupLoop(_discoveryCts.Token));
     }
 
     public void StopDiscovery()
@@ -525,6 +526,23 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
     }
 
+    private async Task CleanupLoop(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), token);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var now = DateTime.Now;
+                var staleDevices = DiscoveredDevices.Where(d => (now - d.LastSeen).TotalSeconds > 10).ToList();
+                foreach (var device in staleDevices)
+                {
+                    DiscoveredDevices.Remove(device);
+                }
+            });
+        }
+    }
+
     private async Task DiscoveryLoop(CancellationToken token)
     {
         _discoveryUdpClient = new UdpClient();
@@ -589,6 +607,15 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                         var existing = DiscoveredDevices.FirstOrDefault(d => d.Id == info.Id);
                         if (existing == null)
                         {
+                            // Check for same endpoint (IP + Service Port) with different ID (likely restart)
+                            var duplicateEndpoint = DiscoveredDevices.FirstOrDefault(d => 
+                                d.Address.Equals(result.RemoteEndPoint.Address) && d.Port == info.Port);
+                            
+                            if (duplicateEndpoint != null)
+                            {
+                                DiscoveredDevices.Remove(duplicateEndpoint);
+                            }
+
                             var device = new DeviceModel
                             {
                                 Id = info.Id,
