@@ -1,6 +1,7 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using Vanara.PInvoke;
 
 namespace KitopiaAvalonia.Services;
@@ -10,7 +11,11 @@ public partial class ToastShowWindow : Window
     public ToastShowWindow()
     {
         InitializeComponent();
-        Opened += (_, _) => Reposition();
+        Opened += (_, _) =>
+        {
+            Reposition();
+            ScrollToLatest();
+        };
         SizeChanged += (_, _) =>
         {
             if (IsVisible)
@@ -48,12 +53,18 @@ public partial class ToastShowWindow : Window
         Position = new PixelPoint(targetX, targetY);
     }
 
+    public void ScrollToLatest()
+    {
+        Dispatcher.UIThread.Post(() => { ToastScrollViewer.ScrollToEnd(); }, DispatcherPriority.Background);
+    }
+
     protected override void IsVisibleChanged(AvaloniaPropertyChangedEventArgs e)
     {
         base.IsVisibleChanged(e);
         if (e.NewValue is true)
         {
             Reposition();
+            ScrollToLatest();
         }
     }
 }

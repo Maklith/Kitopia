@@ -211,6 +211,7 @@ public class ToastService : IToastService
         }
 
         _toastShowWindow.Reposition();
+        _toastShowWindow.ScrollToLatest();
     }
 
     private void RemoveToast(Guid toastId)
