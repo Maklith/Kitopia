@@ -1,36 +1,51 @@
-﻿// Author: liaom
-// SolutionName: Kitopia
-// ProjectName: Core.Window
-// FileName:ToastShowWindow.axaml.cs
-// Date: 2025/10/30 09:10
-// FileEffect:
-
+using System;
 using Avalonia;
+using Avalonia.Controls;
 using Vanara.PInvoke;
 
 namespace KitopiaAvalonia.Services;
 
-public partial class ToastShowWindow : Avalonia.Controls.Window
+public partial class ToastShowWindow : Window
 {
     public ToastShowWindow()
     {
         InitializeComponent();
-        //修改窗口位置
-
-        MoveToRightBottom();
+        Opened += (_, _) => Reposition();
+        SizeChanged += (_, _) =>
+        {
+            if (IsVisible)
+            {
+                Reposition();
+            }
+        };
     }
 
-    private void MoveToRightBottom()
+    public void Reposition()
     {
         User32.GetCursorPos(out var pos);
-        var hmonitor = User32.MonitorFromPoint(pos, User32.MonitorFlags.MONITOR_DEFAULTTOPRIMARY);
-        var monitorInfo = new User32.MONITORINFO();
-        monitorInfo.cbSize = 40;
-        User32.GetMonitorInfo(hmonitor, ref monitorInfo);
-        User32.GetWindowRect(this.TryGetPlatformHandle()!.Handle, out var windowRect);
-        this.Position = new PixelPoint(
-            monitorInfo.rcWork.Right - windowRect.Width - 10,
-            monitorInfo.rcWork.Bottom - windowRect.Height - 10);
+        var screen = Screens.ScreenFromPoint(new PixelPoint(pos.X, pos.Y)) ?? Screens.Primary;
+        if (screen is null)
+        {
+            return;
+        }
+
+        var margin = 10;
+        var workingArea = screen.WorkingArea;
+        var width = Math.Max(1, (int)Math.Ceiling((Bounds.Width > 0 ? Bounds.Width : Width) * RenderScaling));
+        var height = Math.Max(1, (int)Math.Ceiling((Bounds.Height > 0 ? Bounds.Height : Height) * RenderScaling));
+
+        var targetX = workingArea.Right - width - margin;
+        var targetY = workingArea.Bottom - height - margin;
+
+        var minX = workingArea.X + margin;
+        var minY = workingArea.Y + margin;
+        var maxX = Math.Max(minX, workingArea.Right - width - margin);
+        var maxY = Math.Max(minY, workingArea.Bottom - height - margin);
+
+        targetX = Math.Clamp(targetX, minX, maxX);
+        targetY = Math.Clamp(targetY, minY, maxY);
+
+        Position = new PixelPoint(targetX, targetY);
     }
 
     protected override void IsVisibleChanged(AvaloniaPropertyChangedEventArgs e)
@@ -38,7 +53,7 @@ public partial class ToastShowWindow : Avalonia.Controls.Window
         base.IsVisibleChanged(e);
         if (e.NewValue is true)
         {
-            MoveToRightBottom();
+            Reposition();
         }
     }
 }

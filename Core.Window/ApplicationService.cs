@@ -149,9 +149,10 @@ public class ApplicationService : IApplicationService
                 SecondaryButtonText = "取消",
                 PrimaryAction = async void () =>
                 {
+                    IToastProgressHandle? progressToast = null;
                     try
                     {
-                        var toastService = ServiceManager.Services.GetService<IToastService>();
+                        var toastService = ServiceManager.Services.GetService<IToastService>()!;
                         var tempPath = Path.Combine(Path.GetTempPath(), $"Kitopia_{latestVersion}_Installer.exe");
                         
                         using var client = new HttpClient();
@@ -160,6 +161,8 @@ public class ApplicationService : IApplicationService
 
                         var totalBytes = response.Content.Headers.ContentLength ?? -1L;
                         var canReportProgress = totalBytes != -1;
+                        progressToast = toastService.ShowProgress("更新", "开始下载更新...", NotificationType.Information,
+                            initialProgress: 0, isIndeterminate: !canReportProgress);
 
                         await using var contentStream = await response.Content.ReadAsStreamAsync();
                         var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
@@ -169,8 +172,6 @@ public class ApplicationService : IApplicationService
                         int bytesRead;
                         var lastProgress = -1;
 
-                        toastService!.Show("更新", "开始下载更新...");
-
                         while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                         {
                             await fileStream.WriteAsync(buffer, 0, bytesRead);
@@ -179,15 +180,15 @@ public class ApplicationService : IApplicationService
                             if (canReportProgress)
                             {
                                 var progress = (int)((double)totalRead / totalBytes * 100);
-                                if (progress > lastProgress && progress % 10 == 0) // Report every 10%
+                                if (progress > lastProgress)
                                 {
                                     lastProgress = progress;
-                                    toastService.Show("更新", $"下载进度: {progress}%");
+                                    progressToast.Update(progress, $"下载进度: {progress}%");
                                 }
                             }
                         }
                         await fileStream.DisposeAsync();
-                        toastService.Show("更新", "下载完成，正在启动安装程序...");
+                        progressToast.Complete("下载完成，正在启动安装程序...");
                         await Task.Delay(1000);
                         // Close application and start installer
                         ServiceManager.Services.GetService<IShellUtils>()!.Open(tempPath,"--silent");
@@ -197,7 +198,15 @@ public class ApplicationService : IApplicationService
                     catch (Exception ex)
                     {
                         Logger.Error(ex, "更新失败");
-                        ServiceManager.Services.GetService<IToastService>()!.Show("更新失败", $"下载出错: {ex.Message}",  NotificationType.Error);
+                        if (progressToast is not null)
+                        {
+                            progressToast.Fail($"下载出错: {ex.Message}", "更新失败");
+                        }
+                        else
+                        {
+                            ServiceManager.Services.GetService<IToastService>()!
+                                .Show("更新失败", $"下载出错: {ex.Message}", NotificationType.Error);
+                        }
                     }
                 }
             };

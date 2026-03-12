@@ -1,9 +1,41 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:Core.ViewModel.Pages;assembly=Core"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="KitopiaAvalonia.Pages.HomePage" x:DataType="pages:HomePageViewModel">
-    Available
+             mc:Ignorable="d"
+             d:DesignWidth="800"
+             d:DesignHeight="450"
+             x:Class="KitopiaAvalonia.Pages.HomePage"
+             x:DataType="pages:HomePageViewModel">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16" Spacing="12">
+            <Border Theme="{DynamicResource CardBorder1}" Padding="16" CornerRadius="8">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Toast 通知测试"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource SemiColorText0}" />
+                    <TextBlock Text="用于验证基础通知、按钮回调、自动消失时长和进度条通知。"
+                               Foreground="{DynamicResource SemiColorText1}" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="基础通知"
+                                Command="{Binding ShowBasicToastCommand}" />
+                        <Button Content="按钮通知"
+                                Command="{Binding ShowActionToastCommand}" />
+                        <Button Content="8秒自动消失"
+                                Command="{Binding ShowLongTimeoutToastCommand}" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="进度通知"
+                                Command="{Binding ShowProgressToastCommand}" />
+                        <Button Content="打开设置页"
+                                Command="{Binding ClickCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>
