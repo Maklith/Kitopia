@@ -24,13 +24,22 @@ public class ApplicationService : IApplicationService
         ServiceManager.Services.GetService<IShellUtils>()!.Open(
             AppDomain.CurrentDomain.FriendlyName + ".exe", "",
             AppDomain.CurrentDomain.BaseDirectory);
-        Environment.Exit(0);
+        Exit();
     }
 
     public void Stop()
     {
         ConfigManger.Save();
-        Environment.Exit(0);
+        Exit();
+    }
+
+    public void Exit(int exitCode = 0)
+    {
+        ServiceManager.Services.GetService<IDeviceCommunication>()!.StopDiscovery();
+        Logger.Information("程序退出");
+        LogManager.Logger.Dispose();
+        ServiceManager.Services.GetService<IToastService>()!.Unregister();
+        Environment.Exit(exitCode);
     }
 
     public void InitUrlProtocol()
@@ -193,7 +202,7 @@ public class ApplicationService : IApplicationService
                         // Close application and start installer
                         ServiceManager.Services.GetService<IShellUtils>()!.Open(tempPath,"--silent");
                         await Task.Delay(2000);
-                        Environment.Exit(0);
+                        Exit();
                     }
                     catch (Exception ex)
                     {

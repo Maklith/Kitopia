@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Core.Services.Config;
+using Core.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
@@ -17,8 +17,7 @@ public partial class AppViewModel : ObservableObject
     [RelayCommand]
     public void Exit()
     {
-        ConfigManger.Save();
-        Environment.Exit(0);
+        ServiceManager.Services.GetService<IApplicationService>()!.Stop();
     }
 
     [RelayCommand]

@@ -64,17 +64,10 @@ internal class Program
             {
                 Logger.Fatal((Exception)e.ExceptionObject, "错误");
             };
-            AppDomain.CurrentDomain.ProcessExit += (_, _) =>
-            {
-                ServiceManager.Services.GetService<IDeviceCommunication>()!.StopDiscovery();
-                Logger.Information("程序退出");
-                LogManager.Logger.Dispose();
-                ServiceManager.Services.GetService<IToastService>()!.Unregister();
-            };
             
             if (MqttManager.Init(args).GetAwaiter().GetResult())
             {
-                Environment.Exit(0);
+                ExitApplication();
                 return;
             }
             
@@ -90,7 +83,7 @@ internal class Program
                 catch (Exception e)
                 {
                     Logger.Fatal(e, "启动失败");
-                    Environment.Exit(0);
+                    ExitApplication();
                 }
             });
             BuildAvaloniaApp()
@@ -99,8 +92,13 @@ internal class Program
         catch (Exception e)
         {
             Logger.Fatal(e, "");
-            Environment.Exit(0);
+            ExitApplication();
         }
+    }
+
+    private static void ExitApplication(int exitCode = 0)
+    {
+        ServiceManager.Services.GetService<IApplicationService>()!.Exit(exitCode);
     }
 
     [MemberNotNull]
@@ -328,14 +326,14 @@ internal class Program
         buildAvaloniaApp.With(new FontManagerOptions
         {
             DefaultFamilyName = "avares://KitopiaAvalonia/Assets/HarmonyOS_Sans_SC_Regular.ttf#HarmonyOS Sans",
-            FontFallbacks = new[]
-            {
+            FontFallbacks =
+            [
                 new FontFallback
                 {
                     FontFamily =
                         new FontFamily("avares://KitopiaAvalonia/Assets/HarmonyOS_Sans_SC_Regular.ttf#HarmonyOS Sans")
                 }
-            }
+            ]
         });
         buildAvaloniaApp.With(new RenderOptions
         {
