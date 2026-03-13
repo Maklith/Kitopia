@@ -21,15 +21,18 @@ namespace Core.Services.DeviceCommunication;
 public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 {
     private const int DiscoveryPort = 53535;
-    private const string MulticastAddress = "239.255.255.250";
+    private const string MulticastAddressV4 = "239.255.255.250";
+    private const string MulticastAddressV6 = "ff02::1";
     private const string ProtocolId = "kitopia-stream";
     
     private readonly Guid _myId = Guid.NewGuid();
     
-    private UdpClient? _discoveryUdpClient;
+    private UdpClient? _discoveryUdpClientV4;
+    private UdpClient? _discoveryUdpClientV6;
     private CancellationTokenSource? _discoveryCts;
     private QuicListener? _quicListener;
-    private UdpClient? _udpDataClient;
+    private UdpClient? _udpDataClientV4;
+    private UdpClient? _udpDataClientV6;
     private int _quicPort;
     private int _udpDataPort;
     private X509Certificate2? _serverCert;
@@ -99,12 +102,16 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     public void StopDiscovery()
     {
         _discoveryCts?.Cancel();
-        _discoveryUdpClient?.Close();
+        _discoveryUdpClientV4?.Close();
+        _discoveryUdpClientV6?.Close();
         _quicListener?.DisposeAsync().AsTask().Wait();
-        _udpDataClient?.Close();
-        _discoveryUdpClient = null;
+        _udpDataClientV4?.Close();
+        _udpDataClientV6?.Close();
+        _discoveryUdpClientV4 = null;
+        _discoveryUdpClientV6 = null;
         _quicListener = null;
-        _udpDataClient = null;
+        _udpDataClientV4 = null;
+        _udpDataClientV6 = null;
     }
 
     public async Task SendMessageAsync(DeviceModel target, string message)
@@ -243,7 +250,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         {
             if (!QuicConnection.IsSupported) return false;
 
-            var endPoint = new IPEndPoint(target.Address, target.Port); 
+            var endPoint = CreateTargetEndPoint(target.Address, target.Port);
             // Assuming target.Port is the QUIC port.
 
             var connectionOptions = new QuicClientConnectionOptions
@@ -305,14 +312,16 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     private async Task SendUdpAsync(DeviceModel target, Stream stream, string? metaData)
     {
         // Simple UDP impl with chunking and reassembly support
-        using var tempClient = new UdpClient();
-        var targetEp = new IPEndPoint(target.Address, target.Port + 1);
+        var targetEndPoint = CreateTargetEndPoint(target.Address, target.Port + 1);
+        using var tempClient = targetEndPoint.AddressFamily == AddressFamily.InterNetworkV6
+            ? new UdpClient(AddressFamily.InterNetworkV6)
+            : new UdpClient(AddressFamily.InterNetwork);
 
         var sessionId = Guid.NewGuid();
         
         // 1. Send Metadata (Offset 0, Type 0)
         var metaBytes = System.Text.Encoding.UTF8.GetBytes(metaData ?? string.Empty);
-        await SendUdpPacket(tempClient, targetEp, sessionId, 0, 0, metaBytes, false);
+        await SendUdpPacket(tempClient, targetEndPoint, sessionId, 0, 0, metaBytes, false);
         
         // 2. Send Data
         const int ChunkSize = 4096; // Safe payload size
@@ -325,7 +334,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
         while ((read = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
         {
-            await SendUdpPacket(tempClient, targetEp, sessionId, offset, 1, buffer.AsSpan(0, read).ToArray(), false);
+            await SendUdpPacket(tempClient, targetEndPoint, sessionId, offset, 1, buffer.AsSpan(0, read).ToArray(), false);
             offset += read;
             
             // Throttle: Reduce to 1ms delay every 10 packets to improve speed
@@ -334,7 +343,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
 
         // Send End Packet
-        await SendUdpPacket(tempClient, targetEp, sessionId, offset, 1, Array.Empty<byte>(), true);
+        await SendUdpPacket(tempClient, targetEndPoint, sessionId, offset, 1, Array.Empty<byte>(), true);
     }
     
     private async Task SendUdpPacket(UdpClient client, IPEndPoint target, Guid sessionId, long offset, byte type, byte[] data, bool isEnd)
@@ -383,7 +392,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         var options = new QuicListenerOptions
         {
             ApplicationProtocols = new List<SslApplicationProtocol> { new SslApplicationProtocol(ProtocolId) },
-            ListenEndPoint = new IPEndPoint(IPAddress.Any, 0), // Random port
+            ListenEndPoint = new IPEndPoint(IPAddress.IPv6Any, 0), // Random port (prefer dual-stack)
             ConnectionOptionsCallback = (_, _, _) => ValueTask.FromResult(new QuicServerConnectionOptions
             {
                 DefaultStreamErrorCode = 0,
@@ -558,7 +567,11 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 return;
             }
 
-            var sender = new DeviceModel { Address = connection.RemoteEndPoint.Address, Port = connection.RemoteEndPoint.Port };
+            var sender = new DeviceModel
+            {
+                Address = NormalizeAddress(connection.RemoteEndPoint.Address),
+                Port = connection.RemoteEndPoint.Port
+            };
             if (packet.SenderPort > 0) sender.Port = packet.SenderPort;
             sender = ApplySenderIdentity(sender, packet);
             
@@ -590,14 +603,74 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
         return sender;
     }
+
+    private static IPEndPoint CreateTargetEndPoint(IPAddress address, int port)
+    {
+        var normalizedAddress = NormalizeAddress(address);
+
+        if (normalizedAddress.AddressFamily == AddressFamily.InterNetworkV6 &&
+            normalizedAddress.IsIPv6LinkLocal &&
+            normalizedAddress.ScopeId == 0)
+        {
+            normalizedAddress = TryAttachLocalScopeId(normalizedAddress);
+        }
+
+        return new IPEndPoint(normalizedAddress, port);
+    }
+
+    private static IPAddress NormalizeAddress(IPAddress address)
+    {
+        return address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
+    }
+
+    private static IPAddress TryAttachLocalScopeId(IPAddress address)
+    {
+        try
+        {
+            foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (networkInterface.OperationalStatus != OperationalStatus.Up ||
+                    networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                {
+                    continue;
+                }
+
+                var ipProps = networkInterface.GetIPProperties();
+                var ipv6Index = ipProps.GetIPv6Properties()?.Index;
+                if (ipv6Index.HasValue && ipv6Index.Value > 0)
+                {
+                    return new IPAddress(address.GetAddressBytes(), ipv6Index.Value);
+                }
+            }
+        }
+        catch
+        {
+            // Keep original address if we cannot infer a scope id.
+        }
+
+        return address;
+    }
     
     private void StartUdpDataListener()
     {
         // Listen on QuicPort + 1 (Fallback convention)
         // Ensure _quicPort is set.
         _udpDataPort = _quicPort + 1;
-        _udpDataClient = new UdpClient(new IPEndPoint(IPAddress.Any, _udpDataPort));
-        _ = UdpListenLoop(_udpDataClient, _discoveryCts!.Token);
+        _udpDataClientV4 = new UdpClient(new IPEndPoint(IPAddress.Any, _udpDataPort));
+        _ = UdpListenLoop(_udpDataClientV4, _discoveryCts!.Token);
+
+        try
+        {
+            _udpDataClientV6 = new UdpClient(AddressFamily.InterNetworkV6);
+            _udpDataClientV6.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, true);
+            _udpDataClientV6.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, _udpDataPort));
+            _ = UdpListenLoop(_udpDataClientV6, _discoveryCts!.Token);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"UDP IPv6 listener disabled: {ex.Message}");
+            _udpDataClientV6 = null;
+        }
     }
     
     private async Task UdpListenLoop(UdpClient client, CancellationToken token)
@@ -651,7 +724,11 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 var session = _udpSessions.GetOrAdd(sessionId, id => new UdpReassemblySession 
                 { 
                     SessionId = id, 
-                    Sender = new DeviceModel { Address = result.RemoteEndPoint.Address, Port = result.RemoteEndPoint.Port }
+                    Sender = new DeviceModel
+                    {
+                        Address = NormalizeAddress(result.RemoteEndPoint.Address),
+                        Port = result.RemoteEndPoint.Port
+                    }
                 });
                 
                 session.LastActivity = DateTime.UtcNow;
@@ -745,22 +822,49 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
     private async Task DiscoveryLoop(CancellationToken token)
     {
-        _discoveryUdpClient = new UdpClient();
-        _discoveryUdpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-        _discoveryUdpClient.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryPort));
-        
-        var multicastIp = IPAddress.Parse(MulticastAddress);
+        _discoveryUdpClientV4 = new UdpClient(AddressFamily.InterNetwork);
+        _discoveryUdpClientV4.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+        _discoveryUdpClientV4.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryPort));
+
+        try
+        {
+            _discoveryUdpClientV6 = new UdpClient(AddressFamily.InterNetworkV6);
+            _discoveryUdpClientV6.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _discoveryUdpClientV6.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, true);
+            _discoveryUdpClientV6.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, DiscoveryPort));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Discovery IPv6 listener disabled: {ex.Message}");
+            _discoveryUdpClientV6 = null;
+        }
+
+        var multicastIpV4 = IPAddress.Parse(MulticastAddressV4);
+        var multicastIpV6 = IPAddress.Parse(MulticastAddressV6);
         try
         {
             // Try allow loopback for testing
-            _discoveryUdpClient.MulticastLoopback = true;
+            _discoveryUdpClientV4.MulticastLoopback = true;
+            if (_discoveryUdpClientV6 != null)
+            {
+                _discoveryUdpClientV6.MulticastLoopback = true;
+            }
 
             // Simple join (picks default interface)
             try 
             {
-                _discoveryUdpClient.JoinMulticastGroup(multicastIp);
+                _discoveryUdpClientV4.JoinMulticastGroup(multicastIpV4);
             }
             catch { }
+
+            if (_discoveryUdpClientV6 != null)
+            {
+                try
+                {
+                    _discoveryUdpClientV6.JoinMulticastGroup(multicastIpV6);
+                }
+                catch { }
+            }
 
             // Iterate interfaces to ensure we listen on all of them
             foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
@@ -770,13 +874,29 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback)
                 {
                     var props = networkInterface.GetIPProperties();
+                    int? ipv6IfIndex = null;
+                    try
+                    {
+                        ipv6IfIndex = props.GetIPv6Properties()?.Index;
+                    }
+                    catch { }
+
                     foreach (var unicast in props.UnicastAddresses)
                     {
                         if (unicast.Address.AddressFamily == AddressFamily.InterNetwork)
                         {
                             try
                             {
-                                _discoveryUdpClient.JoinMulticastGroup(multicastIp, unicast.Address);
+                                _discoveryUdpClientV4.JoinMulticastGroup(multicastIpV4, unicast.Address);
+                            }
+                            catch { }
+                        }
+                        else if (unicast.Address.AddressFamily == AddressFamily.InterNetworkV6 &&
+                                 ipv6IfIndex.HasValue)
+                        {
+                            try
+                            {
+                                _discoveryUdpClientV6?.JoinMulticastGroup(ipv6IfIndex.Value, multicastIpV6);
                             }
                             catch { }
                         }
@@ -789,63 +909,79 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
              System.Diagnostics.Debug.WriteLine($"Multicast Setup Error: {ex}");
         }
 
-        while (!token.IsCancellationRequested)
+        var receiveTasks = new List<Task>
         {
-            try
+            DiscoveryReceiveLoop(_discoveryUdpClientV4!, token)
+        };
+
+        if (_discoveryUdpClientV6 != null)
+        {
+            receiveTasks.Add(DiscoveryReceiveLoop(_discoveryUdpClientV6, token));
+        }
+
+        await Task.WhenAll(receiveTasks);
+
+        async Task DiscoveryReceiveLoop(UdpClient client, CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
             {
-                var result = await _discoveryUdpClient.ReceiveAsync(token);
-                var json = System.Text.Encoding.UTF8.GetString(result.Buffer);
-                var info = JsonSerializer.Deserialize<DiscoveryInfo>(json);
-                
-                if (info != null && !string.IsNullOrEmpty(info.Id))
+                try
                 {
-                    // Allow self-discovery for debug if needed, but usually filtered
-                    if (info.Id == _myId.ToString()) continue;
+                    var result = await client.ReceiveAsync(ct);
+                    var json = System.Text.Encoding.UTF8.GetString(result.Buffer);
+                    var info = JsonSerializer.Deserialize<DiscoveryInfo>(json);
 
-                    _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                    if (info != null && !string.IsNullOrEmpty(info.Id))
                     {
-                        var existing = DiscoveredDevices.FirstOrDefault(d => d.Id == info.Id);
-                        if (existing == null)
-                        {
-                            // Check for same endpoint (IP + Service Port) with different ID (likely restart)
-                            var duplicateEndpoint = DiscoveredDevices.FirstOrDefault(d => 
-                                d.Address.Equals(result.RemoteEndPoint.Address) && d.Port == info.Port);
-                            
-                            if (duplicateEndpoint != null)
-                            {
-                                DiscoveredDevices.Remove(duplicateEndpoint);
-                            }
+                        if (info.Id == _myId.ToString()) continue;
 
-                            var device = new DeviceModel
-                            {
-                                Id = info.Id,
-                                Name = string.IsNullOrWhiteSpace(info.Name) ? "\u672a\u77e5\u8bbe\u5907" : info.Name.Trim(),
-                                Address = result.RemoteEndPoint.Address,
-                                Port = info.Port,
-                                LastSeen = DateTime.Now
-                            };
-                            DiscoveredDevices.Add(device);
-                        }
-                        else
+                        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                         {
-                            existing.LastSeen = DateTime.Now;
-                            existing.Name = string.IsNullOrWhiteSpace(info.Name) ? "\u672a\u77e5\u8bbe\u5907" : info.Name.Trim();
-                            existing.Address = result.RemoteEndPoint.Address;
-                            existing.Port = info.Port;
-                        }
-                    });
+                            var endpointAddress = NormalizeAddress(result.RemoteEndPoint.Address);
+                            var existing = DiscoveredDevices.FirstOrDefault(d => d.Id == info.Id);
+                            if (existing == null)
+                            {
+                                var duplicateEndpoint = DiscoveredDevices.FirstOrDefault(d =>
+                                    d.Address.Equals(endpointAddress) && d.Port == info.Port);
+
+                                if (duplicateEndpoint != null)
+                                {
+                                    DiscoveredDevices.Remove(duplicateEndpoint);
+                                }
+
+                                var device = new DeviceModel
+                                {
+                                    Id = info.Id,
+                                    Name = string.IsNullOrWhiteSpace(info.Name) ? "\u672a\u77e5\u8bbe\u5907" : info.Name.Trim(),
+                                    Address = endpointAddress,
+                                    Port = info.Port,
+                                    LastSeen = DateTime.Now
+                                };
+                                DiscoveredDevices.Add(device);
+                            }
+                            else
+                            {
+                                existing.LastSeen = DateTime.Now;
+                                existing.Name = string.IsNullOrWhiteSpace(info.Name) ? "\u672a\u77e5\u8bbe\u5907" : info.Name.Trim();
+                                existing.Address = endpointAddress;
+                                existing.Port = info.Port;
+                            }
+                        });
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Discovery Receive Error: {ex}");
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Discovery Receive Error: {ex}");
+                }
             }
         }
     }
 
     private async Task BroadcastLoop(CancellationToken token)
     {
-        var multicastEndpoint = new IPEndPoint(IPAddress.Parse(MulticastAddress), DiscoveryPort);
+        var multicastIpV4 = IPAddress.Parse(MulticastAddressV4);
+        var multicastIpV6 = IPAddress.Parse(MulticastAddressV6);
+        var multicastEndpointV4 = new IPEndPoint(multicastIpV4, DiscoveryPort);
         
         while (!token.IsCancellationRequested)
         {
@@ -869,16 +1005,31 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                             {
                                 try
                                 {
-                                    using var client = new UdpClient();
-                                    // Bind to the specific interface address to ensure the packet goes out through it
-                                    client.Client.Bind(new IPEndPoint(unicast.Address, 0));
-                                    client.Ttl = 20; // Increase TTL slightly
-                                    await client.SendAsync(bytes, bytes.Length, multicastEndpoint);
-                                }
-                                catch { }
-                            }
-                        }
-                    }
+                                     using var client = new UdpClient();
+                                     // Bind to the specific interface address to ensure the packet goes out through it
+                                     client.Client.Bind(new IPEndPoint(unicast.Address, 0));
+                                     client.Ttl = 20; // Increase TTL slightly
+                                     await client.SendAsync(bytes, bytes.Length, multicastEndpointV4);
+                                 }
+                                 catch { }
+                             }
+                             else if (unicast.Address.AddressFamily == AddressFamily.InterNetworkV6)
+                             {
+                                 try
+                                 {
+                                     using var client = new UdpClient(AddressFamily.InterNetworkV6);
+                                     client.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, true);
+                                     client.Client.Bind(new IPEndPoint(unicast.Address, 0));
+
+                                     var multicastAddressV6WithScope =
+                                         new IPAddress(multicastIpV6.GetAddressBytes(), unicast.Address.ScopeId);
+                                     var multicastEndpointV6 = new IPEndPoint(multicastAddressV6WithScope, DiscoveryPort);
+                                     await client.SendAsync(bytes, bytes.Length, multicastEndpointV6);
+                                 }
+                                 catch { }
+                             }
+                         }
+                     }
                 }
             }
             catch (Exception ex)

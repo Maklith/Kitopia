@@ -464,6 +464,6 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
             return $"{bytes:N0} B";
         }
 
-        return $"{value:0.##} {units[unitIndex]} ({bytes:N0} B)";
+        return $"{value:0.##} {units[unitIndex]}";
     }
 }
