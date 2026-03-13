@@ -66,6 +66,7 @@ internal class Program
             };
             AppDomain.CurrentDomain.ProcessExit += (_, _) =>
             {
+                ServiceManager.Services.GetService<IDeviceCommunication>()!.StopDiscovery();
                 Logger.Information("程序退出");
                 LogManager.Logger.Dispose();
                 ServiceManager.Services.GetService<IToastService>()!.Unregister();
@@ -83,6 +84,7 @@ internal class Program
 
                 try
                 {
+                    ServiceManager.Services.GetService<IDeviceCommunication>()!.StartDiscovery();
                     OnStartup(args);
                 }
                 catch (Exception e)

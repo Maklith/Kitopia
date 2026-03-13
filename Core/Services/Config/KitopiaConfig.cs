@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using Core.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +29,11 @@ public class KitopiaConfig : ConfigBase
     public List<string> alwayShows = new();
 
     public Dictionary<string, string> OnnxTargetDevices = new();
+    public Dictionary<string, string> deviceCustomNames = new();
+
+    [ConfigFieldCategory("设备互传")]
+    [ConfigField("对外显示名称", "为空时使用当前计算机名称", 0xf45f, ConfigFieldType.字符串)]
+    public string deviceBroadcastName = string.Empty;
 
     [ConfigFieldCategory("基本")] [ConfigField<ThemeEnum>("主题选择", "跟随系统,深色还是浅色?", 0xf33c)]
     public ThemeEnum themeChoice = ThemeEnum.跟随系统;

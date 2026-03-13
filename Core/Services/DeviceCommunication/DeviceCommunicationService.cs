@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -13,6 +13,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Core.Services.Config;
 using PluginCore;
 
 namespace Core.Services.DeviceCommunication;
@@ -24,7 +25,6 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     private const string ProtocolId = "kitopia-stream";
     
     private readonly Guid _myId = Guid.NewGuid();
-    private readonly string _myName = Environment.MachineName;
     
     private UdpClient? _discoveryUdpClient;
     private CancellationTokenSource? _discoveryCts;
@@ -41,13 +41,31 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     public ObservableCollection<DeviceModel> DiscoveredDevices { get; } = new();
 
     public event EventHandler<DeviceStreamReceivedEventArgs>? StreamReceived;
-    public event EventHandler<string>? MessageReceived;
+    public event EventHandler<DeviceMessageReceivedEventArgs>? MessageReceived;
     public event EventHandler<FileTransferRequestEventArgs>? FileTransferRequested;
     public event EventHandler<TransferInterruptionEventArgs>? TransferInterrupted;
 
     public DeviceCommunicationService()
     {
         _serverCert = GenerateCertificate();
+    }
+
+    private static string GetLocalDisplayName()
+    {
+        try
+        {
+            var configuredName = ConfigManger.Config.deviceBroadcastName;
+            if (!string.IsNullOrWhiteSpace(configuredName))
+            {
+                return configuredName.Trim();
+            }
+        }
+        catch
+        {
+            // Config may not be initialized yet during early startup.
+        }
+
+        return Environment.MachineName;
     }
 
     private void NotifyTransferInterrupted(string requestId, string reason, bool isSending)
@@ -95,7 +113,9 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         { 
             Type = "Message", 
             Content = message,
-            SenderPort = _quicPort
+            SenderPort = _quicPort,
+            SenderId = _myId.ToString(),
+            SenderName = GetLocalDisplayName()
         };
         
         var json = JsonSerializer.Serialize(meta);
@@ -120,7 +140,9 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             RequestId = requestId,
             FileName = fileInfo.Name,
             Size = fileInfo.Length,
-            SenderPort = _quicPort
+            SenderPort = _quicPort,
+            SenderId = _myId.ToString(),
+            SenderName = GetLocalDisplayName()
         };
         
         try
@@ -140,7 +162,9 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     RequestId = requestId,
                     FileName = fileInfo.Name,
                     Size = fileInfo.Length,
-                    SenderPort = _quicPort
+                    SenderPort = _quicPort,
+                    SenderId = _myId.ToString(),
+                    SenderName = GetLocalDisplayName()
                 };
                 await SendStreamAsync(target, fs, JsonSerializer.Serialize(fileMeta));
             }
@@ -168,7 +192,9 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             Type = "FileResp",
             RequestId = requestId,
             Accepted = accepted,
-            SenderPort = _quicPort
+            SenderPort = _quicPort,
+            SenderId = _myId.ToString(),
+            SenderName = GetLocalDisplayName()
         };
         var json = JsonSerializer.Serialize(meta);
         using var memoryStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
@@ -401,7 +427,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         switch (packet.Type)
         {
             case "Message":
-                MessageReceived?.Invoke(this, packet.Content);
+                MessageReceived?.Invoke(this, new DeviceMessageReceivedEventArgs(sender, packet.Content));
                 break;
 
             case "FileReq":
@@ -534,6 +560,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
             var sender = new DeviceModel { Address = connection.RemoteEndPoint.Address, Port = connection.RemoteEndPoint.Port };
             if (packet.SenderPort > 0) sender.Port = packet.SenderPort;
+            sender = ApplySenderIdentity(sender, packet);
             
             System.Diagnostics.Debug.WriteLine($"[QUIC] Dispatching packet type: {packet.Type} from {sender.Address}:{sender.Port}");
             await DispatchPacketAsync(packet, stream, sender);
@@ -542,6 +569,26 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         {
             System.Diagnostics.Debug.WriteLine($"[QUIC] Handle connection error: {ex}");
         }
+    }
+
+    private static DeviceModel ApplySenderIdentity(DeviceModel sender, PacketMetadata packet)
+    {
+        if (!string.IsNullOrWhiteSpace(packet.SenderId))
+        {
+            sender.Id = packet.SenderId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(packet.SenderName))
+        {
+            sender.Name = packet.SenderName.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(sender.Name))
+        {
+            sender.Name = "\u672a\u77e5\u8bbe\u5907";
+        }
+
+        return sender;
     }
     
     private void StartUdpDataListener()
@@ -649,6 +696,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                          if (packet != null)
                          {
                              if (packet.SenderPort > 0) completedSession.Sender.Port = packet.SenderPort;
+                             completedSession.Sender = ApplySenderIdentity(completedSession.Sender, packet);
                              await DispatchPacketAsync(packet, completedSession.DataStream, completedSession.Sender);
                          }
                      }
@@ -771,7 +819,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                             var device = new DeviceModel
                             {
                                 Id = info.Id,
-                                Name = info.Name,
+                                Name = string.IsNullOrWhiteSpace(info.Name) ? "\u672a\u77e5\u8bbe\u5907" : info.Name.Trim(),
                                 Address = result.RemoteEndPoint.Address,
                                 Port = info.Port,
                                 LastSeen = DateTime.Now
@@ -781,6 +829,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                         else
                         {
                             existing.LastSeen = DateTime.Now;
+                            existing.Name = string.IsNullOrWhiteSpace(info.Name) ? "\u672a\u77e5\u8bbe\u5907" : info.Name.Trim();
                             existing.Address = result.RemoteEndPoint.Address;
                             existing.Port = info.Port;
                         }
@@ -802,7 +851,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         {
             try
             {
-                var info = new DiscoveryInfo { Id = _myId.ToString(), Name = _myName, Port = _quicPort };
+                var info = new DiscoveryInfo { Id = _myId.ToString(), Name = GetLocalDisplayName(), Port = _quicPort };
                 var json = JsonSerializer.Serialize(info);
                 var bytes = System.Text.Encoding.UTF8.GetBytes(json);
 
@@ -892,6 +941,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         public string FileName { get; set; } = "";
         public bool Accepted { get; set; }
         public int SenderPort { get; set; }
+        public string SenderId { get; set; } = "";
+        public string SenderName { get; set; } = "";
     }
 }
-
