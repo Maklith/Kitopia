@@ -24,8 +24,12 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     private const string MulticastAddressV4 = "239.255.255.250";
     private const string MulticastAddressV6 = "ff02::1";
     private const string ProtocolId = "kitopia-stream";
+    private const int DiscoveryIpv4Ttl = 1;
+    private static readonly TimeSpan DiscoveryBroadcastInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan DiscoveryCleanupInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan DiscoveryStaleTimeout = TimeSpan.FromSeconds(20);
     
-    private readonly Guid _myId = Guid.NewGuid();
+    private readonly Guid _myId = LoadOrCreateDeviceIdFromConfig();
     
     private UdpClient? _discoveryUdpClientV4;
     private UdpClient? _discoveryUdpClientV6;
@@ -35,11 +39,14 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     private UdpClient? _udpDataClientV6;
     private int _quicPort;
     private int _udpDataPort;
+    private int _advertisedPort;
+    private bool _supportsQuicTransport;
     private X509Certificate2? _serverCert;
 
     private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingFileRequests = new();
     private readonly ConcurrentDictionary<Guid, UdpReassemblySession> _udpSessions = new();
     private readonly ConcurrentDictionary<string, string> _pendingDownloads = new(); // RequestId -> SavePath
+    private readonly ConcurrentDictionary<string, bool> _discoveredDeviceQuicCapabilities = new(); // DeviceId -> SupportsQuic
 
     public ObservableCollection<DeviceModel> DiscoveredDevices { get; } = new();
 
@@ -51,6 +58,32 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     public DeviceCommunicationService()
     {
         _serverCert = GenerateCertificate();
+    }
+
+    private static Guid LoadOrCreateDeviceIdFromConfig()
+    {
+        try
+        {
+            var config = ConfigManger.Config;
+            if (config != null &&
+                Guid.TryParse(config.devicePersistentId, out var existingId) &&
+                existingId != Guid.Empty)
+            {
+                return existingId;
+            }
+
+            var newId = Guid.NewGuid();
+            if (config != null)
+            {
+                config.devicePersistentId = newId.ToString("D");
+                ConfigManger.Save("KitopiaConfig");
+            }
+            return newId;
+        }
+        catch
+        {
+            return Guid.NewGuid();
+        }
     }
 
     private static string GetLocalDisplayName()
@@ -82,16 +115,21 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
     }
 
+    private int GetAdvertisedPort()
+    {
+        return _advertisedPort > 0 ? _advertisedPort : _quicPort;
+    }
+
     public void StartDiscovery()
     {
         StopDiscovery();
         _discoveryCts = new CancellationTokenSource();
 
         // 1. Start QUIC Listener
-        StartQuicListener();
+        _supportsQuicTransport = StartQuicListener();
         
         // 2. Start UDP Data Listener
-        StartUdpDataListener();
+        StartUdpDataListener(_supportsQuicTransport);
 
         // 3. Start Discovery Broadcast and Listen
         Task.Run(() => DiscoveryLoop(_discoveryCts.Token));
@@ -102,6 +140,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     public void StopDiscovery()
     {
         _discoveryCts?.Cancel();
+        _discoveryCts?.Dispose();
         _discoveryUdpClientV4?.Close();
         _discoveryUdpClientV6?.Close();
         _quicListener?.DisposeAsync().AsTask().Wait();
@@ -112,6 +151,12 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         _quicListener = null;
         _udpDataClientV4 = null;
         _udpDataClientV6 = null;
+        _discoveryCts = null;
+        _supportsQuicTransport = false;
+        _quicPort = 0;
+        _udpDataPort = 0;
+        _advertisedPort = 0;
+        _discoveredDeviceQuicCapabilities.Clear();
     }
 
     public async Task SendMessageAsync(DeviceModel target, string message)
@@ -120,7 +165,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         { 
             Type = "Message", 
             Content = message,
-            SenderPort = _quicPort,
+            SenderPort = GetAdvertisedPort(),
             SenderId = _myId.ToString(),
             SenderName = GetLocalDisplayName()
         };
@@ -146,7 +191,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             RequestId = requestId,
             FileName = fileInfo.Name,
             Size = fileInfo.Length,
-            SenderPort = _quicPort,
+            SenderPort = GetAdvertisedPort(),
             SenderId = _myId.ToString(),
             SenderName = GetLocalDisplayName()
         };
@@ -167,7 +212,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     RequestId = requestId,
                     FileName = fileInfo.Name,
                     Size = fileInfo.Length,
-                    SenderPort = _quicPort,
+                    SenderPort = GetAdvertisedPort(),
                     SenderId = _myId.ToString(),
                     SenderName = GetLocalDisplayName()
                 };
@@ -197,7 +242,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             Type = "FileResp",
             RequestId = requestId,
             Accepted = accepted,
-            SenderPort = _quicPort,
+            SenderPort = GetAdvertisedPort(),
             SenderId = _myId.ToString(),
             SenderName = GetLocalDisplayName()
         };
@@ -208,7 +253,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     public async Task SendStreamAsync(DeviceModel target, Stream stream, string? metaData = null)
     {
         // Prioritize QUIC
-        if (await TrySendQuicAsync(target, stream, metaData))
+        if (ShouldTryQuic(target) && await TrySendQuicAsync(target, stream, metaData))
             return;
 
         // Check if we should fallback to UDP
@@ -241,6 +286,21 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
     }
 
+    private bool ShouldTryQuic(DeviceModel target)
+    {
+        if (!QuicConnection.IsSupported) return false;
+        if (target.Port <= 0) return false;
+
+        if (!string.IsNullOrWhiteSpace(target.Id) &&
+            _discoveredDeviceQuicCapabilities.TryGetValue(target.Id, out var supportsQuic) &&
+            !supportsQuic)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     private async Task<bool> TrySendQuicAsync(DeviceModel target, Stream stream, string? metaData)
     {
         try
@@ -262,14 +322,14 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 }
             };
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             await using var connection = await QuicConnection.ConnectAsync(connectionOptions, cts.Token);
             
-            using var streamCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var streamCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             await using var quicStream = await connection.OpenOutboundStreamAsync(QuicStreamType.Bidirectional, streamCts.Token);
 
             // Send Metadata
-            await WriteMetaDataAsync(quicStream, metaData, TimeSpan.FromSeconds(5));
+            await WriteMetaDataAsync(quicStream, metaData, TimeSpan.FromSeconds(2));
             
             // Send Data with timeout
             await CopyStreamWithTimeoutAsync(stream, quicStream, TimeSpan.FromSeconds(10));
@@ -382,34 +442,40 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
     }
     
-    private void StartQuicListener()
+    private bool StartQuicListener()
     {
-        if (!QuicListener.IsSupported) return;
+        if (!QuicListener.IsSupported) return false;
 
-        var options = new QuicListenerOptions
+        try
         {
-            ApplicationProtocols = new List<SslApplicationProtocol> { new SslApplicationProtocol(ProtocolId) },
-            ListenEndPoint = new IPEndPoint(IPAddress.IPv6Any, 0), // Random port (prefer dual-stack)
-            ConnectionOptionsCallback = (_, _, _) => ValueTask.FromResult(new QuicServerConnectionOptions
+            var options = new QuicListenerOptions
             {
-                DefaultStreamErrorCode = 0,
-                DefaultCloseErrorCode = 0,
-                ServerAuthenticationOptions = new SslServerAuthenticationOptions
+                ApplicationProtocols = new List<SslApplicationProtocol> { new SslApplicationProtocol(ProtocolId) },
+                ListenEndPoint = new IPEndPoint(IPAddress.IPv6Any, 0), // Random port (prefer dual-stack)
+                ConnectionOptionsCallback = (_, _, _) => ValueTask.FromResult(new QuicServerConnectionOptions
                 {
-                    ApplicationProtocols = new List<SslApplicationProtocol> { new SslApplicationProtocol(ProtocolId) },
-                    ServerCertificate = _serverCert
-                }
-            })
-        };
+                    DefaultStreamErrorCode = 0,
+                    DefaultCloseErrorCode = 0,
+                    ServerAuthenticationOptions = new SslServerAuthenticationOptions
+                    {
+                        ApplicationProtocols = new List<SslApplicationProtocol> { new SslApplicationProtocol(ProtocolId) },
+                        ServerCertificate = _serverCert
+                    }
+                })
+            };
 
-        _quicListener = ListenAsync(options).Result; // Sync start
-        _quicPort = _quicListener.LocalEndPoint.Port;
-        
-        async Task<QuicListener> ListenAsync(QuicListenerOptions opts)
+            _quicListener = QuicListener.ListenAsync(options).AsTask().GetAwaiter().GetResult();
+            _quicPort = _quicListener.LocalEndPoint.Port;
+            _advertisedPort = _quicPort;
+            _ = AcceptConnectionsAsync(_quicListener, _discoveryCts!.Token);
+            return true;
+        }
+        catch (Exception ex)
         {
-            var listener = await QuicListener.ListenAsync(opts);
-            _ = AcceptConnectionsAsync(listener, _discoveryCts!.Token);
-            return listener;
+            System.Diagnostics.Debug.WriteLine($"QUIC listener disabled: {ex.Message}");
+            _quicListener = null;
+            _quicPort = 0;
+            return false;
         }
     }
     
@@ -664,12 +730,24 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         return address;
     }
     
-    private void StartUdpDataListener()
+    private void StartUdpDataListener(bool quicAvailable)
     {
-        // Listen on QuicPort + 1 (Fallback convention)
-        // Ensure _quicPort is set.
-        _udpDataPort = _quicPort + 1;
-        _udpDataClientV4 = new UdpClient(new IPEndPoint(IPAddress.Any, _udpDataPort));
+        if (quicAvailable && _quicPort > 0)
+        {
+            // Listen on QuicPort + 1 (Fallback convention)
+            _udpDataPort = _quicPort + 1;
+            _advertisedPort = _quicPort;
+            _udpDataClientV4 = new UdpClient(new IPEndPoint(IPAddress.Any, _udpDataPort));
+        }
+        else
+        {
+            // QUIC not available: pick a UDP port dynamically and advertise (port - 1)
+            // so peers still use the same "base + 1" fallback convention.
+            _udpDataClientV4 = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
+            _udpDataPort = ((IPEndPoint)_udpDataClientV4.Client.LocalEndPoint!).Port;
+            _advertisedPort = _udpDataPort - 1;
+        }
+
         _ = UdpListenLoop(_udpDataClientV4, _discoveryCts!.Token);
 
         try
@@ -820,14 +898,18 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     {
         while (!token.IsCancellationRequested)
         {
-            await Task.Delay(TimeSpan.FromSeconds(5), token);
+            await Task.Delay(DiscoveryCleanupInterval, token);
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                var now = DateTime.Now;
-                var staleDevices = DiscoveredDevices.Where(d => (now - d.LastSeen).TotalSeconds > 10).ToList();
+                var now = DateTime.UtcNow;
+                var staleDevices = DiscoveredDevices.Where(d => now - d.LastSeen > DiscoveryStaleTimeout).ToList();
                 foreach (var device in staleDevices)
                 {
                     DiscoveredDevices.Remove(device);
+                    if (!string.IsNullOrWhiteSpace(device.Id))
+                    {
+                        _discoveredDeviceQuicCapabilities.TryRemove(device.Id, out _);
+                    }
                 }
             });
         }
@@ -947,6 +1029,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     if (info != null && !string.IsNullOrEmpty(info.Id))
                     {
                         if (info.Id == _myId.ToString()) continue;
+                        _discoveredDeviceQuicCapabilities[info.Id] = info.SupportsQuic;
 
                         _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                         {
@@ -960,6 +1043,10 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                                 if (duplicateEndpoint != null)
                                 {
                                     DiscoveredDevices.Remove(duplicateEndpoint);
+                                    if (!string.IsNullOrWhiteSpace(duplicateEndpoint.Id))
+                                    {
+                                        _discoveredDeviceQuicCapabilities.TryRemove(duplicateEndpoint.Id, out _);
+                                    }
                                 }
 
                                 var device = new DeviceModel
@@ -968,13 +1055,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                                     Name = string.IsNullOrWhiteSpace(info.Name) ? "\u672a\u77e5\u8bbe\u5907" : info.Name.Trim(),
                                     Address = endpointAddress,
                                     Port = info.Port,
-                                    LastSeen = DateTime.Now
+                                    LastSeen = DateTime.UtcNow
                                 };
                                 DiscoveredDevices.Add(device);
                             }
                             else
                             {
-                                existing.LastSeen = DateTime.Now;
+                                existing.LastSeen = DateTime.UtcNow;
                                 existing.Name = string.IsNullOrWhiteSpace(info.Name) ? "\u672a\u77e5\u8bbe\u5907" : info.Name.Trim();
                                 existing.Address = endpointAddress;
                                 existing.Port = info.Port;
@@ -1000,7 +1087,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         {
             try
             {
-                var info = new DiscoveryInfo { Id = _myId.ToString(), Name = GetLocalDisplayName(), Port = _quicPort };
+                var info = new DiscoveryInfo
+                {
+                    Id = _myId.ToString(),
+                    Name = GetLocalDisplayName(),
+                    Port = GetAdvertisedPort(),
+                    SupportsQuic = _supportsQuicTransport
+                };
                 var json = JsonSerializer.Serialize(info);
                 var bytes = System.Text.Encoding.UTF8.GetBytes(json);
 
@@ -1021,7 +1114,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                                      using var client = new UdpClient();
                                      // Bind to the specific interface address to ensure the packet goes out through it
                                      client.Client.Bind(new IPEndPoint(unicast.Address, 0));
-                                     client.Ttl = 20; // Increase TTL slightly
+                                     client.Ttl = DiscoveryIpv4Ttl;
                                      await client.SendAsync(bytes, bytes.Length, multicastEndpointV4);
                                  }
                                  catch { }
@@ -1049,7 +1142,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             {
                 System.Diagnostics.Debug.WriteLine($"Broadcast Error: {ex}");
             }
-            await Task.Delay(5000, token);
+            await Task.Delay(DiscoveryBroadcastInterval, token);
         }
     }
 
@@ -1093,6 +1186,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         public string Id { get; set; } = "";
         public string Name { get; set; } = "";
         public int Port { get; set; }
+        public bool SupportsQuic { get; set; } = true;
     }
 
     private class PacketMetadata
