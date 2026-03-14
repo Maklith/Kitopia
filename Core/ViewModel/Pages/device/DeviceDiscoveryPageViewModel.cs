@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
@@ -105,10 +106,13 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
 
     private void OnMessageReceived(object? sender, DeviceMessageReceivedEventArgs e)
     {
-        var senderName = GetDeviceDisplayName(e.Sender);
-        ServiceManager.Services.GetService<IToastService>()!.Show(
-            $"\u6d88\u606f\u6765\u81ea {senderName}",
-            e.Message);
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            var senderName = GetDeviceDisplayName(e.Sender);
+            ServiceManager.Services.GetService<IToastService>()!.Show(
+                $"\u6d88\u606f\u6765\u81ea {senderName}",
+                e.Message);
+        });
     }
 
     private void OnTransferInterrupted(object? sender, TransferInterruptionEventArgs e)
@@ -417,8 +421,10 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
         device.CustomName = string.Empty;
     }
 
-    private static string GetDeviceDisplayName(DeviceModel? device)
+    private string GetDeviceDisplayName(DeviceModel? device)
     {
+        device = ResolveDeviceForDisplay(device);
+
         if (device is null)
         {
             return "\u672a\u77e5\u8bbe\u5907";
@@ -440,6 +446,39 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
         }
 
         return "\u672a\u77e5\u8bbe\u5907";
+    }
+
+    private DeviceModel? ResolveDeviceForDisplay(DeviceModel? device)
+    {
+        if (device is null)
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(device.CustomName))
+        {
+            return device;
+        }
+
+        if (!string.IsNullOrWhiteSpace(device.Id))
+        {
+            var existingById = DiscoveredDevices.FirstOrDefault(d => d.Id == device.Id);
+            if (existingById != null)
+            {
+                return existingById;
+            }
+
+            if (CustomNameMap.TryGetValue(device.Id, out var customName) &&
+                !string.IsNullOrWhiteSpace(customName))
+            {
+                device.CustomName = customName.Trim();
+                return device;
+            }
+        }
+
+        var existingByEndpoint = DiscoveredDevices.FirstOrDefault(d =>
+            d.Address.Equals(device.Address) && d.Port == device.Port);
+        return existingByEndpoint ?? device;
     }
 
     private static string FormatFileSize(long bytes)

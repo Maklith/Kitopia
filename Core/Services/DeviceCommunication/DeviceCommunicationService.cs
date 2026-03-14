@@ -126,8 +126,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         };
         
         var json = JsonSerializer.Serialize(meta);
-        using var ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
-        await SendStreamAsync(target, ms, json);
+        await SendStreamAsync(target, Stream.Null, json);
     }
 
     public async Task RequestFileTransferAsync(DeviceModel target, string filePath)
@@ -155,8 +154,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         try
         {
             var json = JsonSerializer.Serialize(meta);
-            using var memoryStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
-            await SendStreamAsync(target, memoryStream, json);
+            await SendStreamAsync(target, Stream.Null, json);
 
             var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromMinutes(1)));
             
@@ -204,8 +202,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             SenderName = GetLocalDisplayName()
         };
         var json = JsonSerializer.Serialize(meta);
-        using var memoryStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
-        await SendStreamAsync(target, memoryStream, json);
+        await SendStreamAsync(target, Stream.Null, json);
     }
 
     public async Task SendStreamAsync(DeviceModel target, Stream stream, string? metaData = null)
@@ -436,16 +433,19 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         switch (packet.Type)
         {
             case "Message":
+                await DrainRemainingDataAsync(dataStream);
                 MessageReceived?.Invoke(this, new DeviceMessageReceivedEventArgs(sender, packet.Content));
                 break;
 
             case "FileReq":
+                await DrainRemainingDataAsync(dataStream);
                 FileTransferRequested?.Invoke(
                     this, 
                     new FileTransferRequestEventArgs(packet.RequestId, packet.FileName, packet.Size, sender));
                 break;
 
             case "FileResp":
+                await DrainRemainingDataAsync(dataStream);
                 if (_pendingFileRequests.TryGetValue(packet.RequestId, out var tcs))
                 {
                     tcs.TrySetResult(packet.Accepted);
@@ -520,6 +520,19 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     resultStream, 
                     JsonSerializer.Serialize(packet))); 
                 break;
+        }
+    }
+
+    private static async Task DrainRemainingDataAsync(Stream stream)
+    {
+        if (!stream.CanRead)
+        {
+            return;
+        }
+
+        var buffer = new byte[8192];
+        while (await stream.ReadAsync(buffer, 0, buffer.Length) > 0)
+        {
         }
     }
 
