@@ -13,6 +13,8 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
 using Core.Services.Config;
 using PluginCore;
@@ -51,11 +53,77 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     private readonly ConcurrentDictionary<string, IToastProgressHandle> _sendingTransferToasts = new();
     private readonly ConcurrentDictionary<string, IToastProgressHandle> _receivingTransferToasts = new();
     private static readonly TimeSpan TransferToastUpdateInterval = TimeSpan.FromMilliseconds(200);
+    private const int MaxBufferedMessages = 100;
+    private readonly object _messageReceivedLock = new();
+    private readonly Queue<DeviceMessageReceivedEventArgs> _bufferedMessages = new();
+    private EventHandler<DeviceMessageReceivedEventArgs>? _messageReceivedHandlers;
 
     public ObservableCollection<DeviceModel> DiscoveredDevices { get; } = new();
 
     public event EventHandler<DeviceStreamReceivedEventArgs>? StreamReceived;
-    public event EventHandler<DeviceMessageReceivedEventArgs>? MessageReceived;
+    public event EventHandler<DeviceMessageReceivedEventArgs>? MessageReceived
+    {
+        add
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            List<DeviceMessageReceivedEventArgs>? bufferedMessages = null;
+            lock (_messageReceivedLock)
+            {
+                if (_messageReceivedHandlers != null)
+                {
+                    foreach (var existingHandler in _messageReceivedHandlers.GetInvocationList())
+                    {
+                        if (existingHandler is EventHandler<DeviceMessageReceivedEventArgs> typedHandler &&
+                            ShouldReplaceMessageSubscriber(typedHandler, value))
+                        {
+                            _messageReceivedHandlers -= typedHandler;
+                        }
+                    }
+                }
+
+                _messageReceivedHandlers += value;
+
+                if (_bufferedMessages.Count > 0)
+                {
+                    bufferedMessages = _bufferedMessages.Select(CloneMessageEventArgs).ToList();
+                    _bufferedMessages.Clear();
+                }
+            }
+
+            if (bufferedMessages is null)
+            {
+                return;
+            }
+
+            foreach (var bufferedMessage in bufferedMessages)
+            {
+                try
+                {
+                    value(this, bufferedMessage);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Message] Replay handler error: {ex}");
+                }
+            }
+        }
+        remove
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            lock (_messageReceivedLock)
+            {
+                _messageReceivedHandlers -= value;
+            }
+        }
+    }
     public event EventHandler<FileTransferRequestEventArgs>? FileTransferRequested;
     public event EventHandler<TransferInterruptionEventArgs>? TransferInterrupted;
 
@@ -111,13 +179,268 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     private void NotifyTransferInterrupted(string requestId, string reason, bool isSending)
     {
         FailTransferToast(requestId, reason, isSending);
-        if (!string.IsNullOrEmpty(requestId))
+        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
-            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+            try
+            {
+                GetToastService()?.Show(
+                    "\u4f20\u8f93\u4e2d\u65ad",
+                    $"\u8bf7\u6c42ID: {requestId}\n\u539f\u56e0: {reason}\n\u65b9\u5411: {(isSending ? "\u53d1\u9001" : "\u63a5\u6536")}",
+                    NotificationType.Error);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Transfer] Interrupt toast error: {ex}");
+            }
+
+            if (!string.IsNullOrEmpty(requestId))
             {
                 TransferInterrupted?.Invoke(this, new TransferInterruptionEventArgs(requestId, reason, isSending));
-            });
+            }
+        });
+    }
+
+    private void PublishMessageReceived(DeviceModel sender, string message)
+    {
+        var args = new DeviceMessageReceivedEventArgs(sender, message);
+        ShowIncomingMessageToast(args);
+        EventHandler<DeviceMessageReceivedEventArgs>? handlers;
+        lock (_messageReceivedLock)
+        {
+            handlers = _messageReceivedHandlers;
+            if (handlers is null)
+            {
+                _bufferedMessages.Enqueue(CloneMessageEventArgs(args));
+                while (_bufferedMessages.Count > MaxBufferedMessages)
+                {
+                    _bufferedMessages.Dequeue();
+                }
+
+                return;
+            }
         }
+
+        foreach (var handler in handlers.GetInvocationList())
+        {
+            if (handler is not EventHandler<DeviceMessageReceivedEventArgs> typedHandler)
+            {
+                continue;
+            }
+
+            try
+            {
+                typedHandler(this, args);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Message] Handler error: {ex}");
+            }
+        }
+    }
+
+    private void ShowIncomingMessageToast(DeviceMessageReceivedEventArgs args)
+    {
+        var senderName = GetDeviceDisplayName(args.Sender);
+        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            try
+            {
+                GetToastService()?.Show(
+                    $"\u6d88\u606f\u6765\u81ea {senderName}",
+                    args.Message);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Message] Toast error: {ex}");
+            }
+        });
+    }
+
+    private async Task HandleIncomingFileRequestAsync(PacketMetadata packet, DeviceModel sender)
+    {
+        try
+        {
+            var (accepted, savePath) = await PromptIncomingFileRequestAsync(packet, sender);
+            await RespondToFileRequestAsync(sender, packet.RequestId, accepted, savePath);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[FileReq] Handle request error: {ex}");
+            try
+            {
+                await RespondToFileRequestAsync(sender, packet.RequestId, false);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private async Task<(bool Accepted, string? SavePath)> PromptIncomingFileRequestAsync(PacketMetadata packet,
+        DeviceModel sender)
+    {
+        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            var senderName = GetDeviceDisplayName(sender);
+            var fileSize = FormatFileSize(packet.Size);
+            var accepted = false;
+
+            try
+            {
+                var toastService = GetToastService();
+                if (toastService is null)
+                {
+                    accepted = true;
+                }
+                else
+                {
+                    var decisionSource = new TaskCompletionSource<bool>();
+                    toastService.Show(new ToastRequest
+                    {
+                        Header = "\u6587\u4ef6\u63a5\u6536\u8bf7\u6c42",
+                        Text = $"\u63a5\u6536\u5230\u6587\u4ef6 '{packet.FileName}' ({fileSize})\uff0c\u53d1\u9001\u65b9\uff1a{senderName}",
+                        NotificationType = NotificationType.Information,
+                        AutoCloseDelay = null,
+                        ShowCloseButton = false,
+                        Actions =
+                        [
+                            new ToastAction
+                            {
+                                Text = "\u63a5\u6536",
+                                IsPrimary = true,
+                                Callback = () => decisionSource.TrySetResult(true)
+                            },
+                            new ToastAction
+                            {
+                                Text = "\u53d6\u6d88",
+                                Callback = () => decisionSource.TrySetResult(false)
+                            }
+                        ]
+                    });
+                    accepted = await decisionSource.Task;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[FileReq] Decision dialog error: {ex}");
+                accepted = true;
+            }
+
+            if (!accepted)
+            {
+                return (false, (string?)null);
+            }
+
+            var suggestedName = string.IsNullOrWhiteSpace(packet.FileName) ? "received_file" : packet.FileName;
+            var savePath = await PickSaveFilePathAsync("\u4fdd\u5b58\u6587\u4ef6", suggestedName);
+            if (string.IsNullOrWhiteSpace(savePath))
+            {
+                return (false, (string?)null);
+            }
+
+            return (true, savePath);
+        });
+    }
+
+    private async Task<string?> PickFileToSendAsync()
+    {
+        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+            if (lifetime?.MainWindow == null)
+            {
+                return null;
+            }
+
+            var files = await lifetime.MainWindow.StorageProvider.OpenFilePickerAsync(
+                new Avalonia.Platform.Storage.FilePickerOpenOptions
+                {
+                    Title = "Select File to Send",
+                    AllowMultiple = false
+                });
+
+            if (files == null || files.Count == 0)
+            {
+                return null;
+            }
+
+            return files[0].Path.LocalPath;
+        });
+    }
+
+    private async Task<string?> PickSaveFilePathAsync(string title, string suggestedFileName)
+    {
+        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+            if (lifetime?.MainWindow == null)
+            {
+                return null;
+            }
+
+            var file = await lifetime.MainWindow.StorageProvider.SaveFilePickerAsync(
+                new Avalonia.Platform.Storage.FilePickerSaveOptions
+                {
+                    Title = title,
+                    SuggestedFileName = suggestedFileName
+                });
+
+            return file?.Path.LocalPath;
+        });
+    }
+
+    private void ShowIncomingFileSavedToast(DeviceModel sender, string savedPath)
+    {
+        var senderName = GetDeviceDisplayName(sender);
+        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            try
+            {
+                GetToastService()?.Show(
+                    "\u6587\u4ef6\u63a5\u6536\u6210\u529f",
+                    $"\u6765\u81ea {senderName} \u7684\u6587\u4ef6\u5df2\u4fdd\u5b58\u81f3: {savedPath}",
+                    NotificationType.Success);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[FileTransfer] Success toast error: {ex}");
+            }
+        });
+    }
+
+    private static bool ShouldReplaceMessageSubscriber(Delegate existingHandler, Delegate newHandler)
+    {
+        if (existingHandler.Method != newHandler.Method)
+        {
+            return false;
+        }
+
+        var existingTargetType = existingHandler.Target?.GetType();
+        var newTargetType = newHandler.Target?.GetType();
+        if (existingTargetType is null || newTargetType is null)
+        {
+            return false;
+        }
+
+        return existingTargetType == newTargetType;
+    }
+
+    private static DeviceMessageReceivedEventArgs CloneMessageEventArgs(DeviceMessageReceivedEventArgs source)
+    {
+        return new DeviceMessageReceivedEventArgs(CloneDeviceModel(source.Sender), source.Message);
+    }
+
+    private static DeviceModel CloneDeviceModel(DeviceModel source)
+    {
+        return new DeviceModel
+        {
+            Id = source.Id,
+            Name = source.Name,
+            CustomName = source.CustomName,
+            Address = source.Address,
+            Port = source.Port,
+            LastSeen = source.LastSeen
+        };
     }
 
     private int GetAdvertisedPort()
@@ -166,17 +489,50 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
     public async Task SendMessageAsync(DeviceModel target, string message)
     {
-        var meta = new PacketMetadata 
-        { 
-            Type = "Message", 
-            Content = message,
-            SenderPort = GetAdvertisedPort(),
-            SenderId = _myId.ToString(),
-            SenderName = GetLocalDisplayName()
-        };
-        
-        var json = JsonSerializer.Serialize(meta);
-        await SendStreamAsync(target, Stream.Null, json);
+        var targetName = GetDeviceDisplayName(target);
+        try
+        {
+            var meta = new PacketMetadata
+            {
+                Type = "Message",
+                Content = message,
+                SenderPort = GetAdvertisedPort(),
+                SenderId = _myId.ToString(),
+                SenderName = GetLocalDisplayName()
+            };
+
+            var json = JsonSerializer.Serialize(meta);
+            await SendStreamAsync(target, Stream.Null, json);
+            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                GetToastService()?.Show(
+                    "\u6d88\u606f\u5df2\u53d1\u9001",
+                    $"\u5df2\u53d1\u9001\u5230 {targetName}",
+                    NotificationType.Success);
+            });
+        }
+        catch (Exception ex)
+        {
+            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                GetToastService()?.Show(
+                    "\u6d88\u606f\u53d1\u9001\u5931\u8d25",
+                    $"\u53d1\u9001\u5230 {targetName} \u65f6\u51fa\u9519: {ex.Message}",
+                    NotificationType.Error);
+            });
+            throw;
+        }
+    }
+
+    public async Task RequestFileTransferAsync(DeviceModel target)
+    {
+        var filePath = await PickFileToSendAsync();
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return;
+        }
+
+        await RequestFileTransferAsync(target, filePath);
     }
 
     public async Task RequestFileTransferAsync(DeviceModel target, string filePath)
@@ -556,14 +912,12 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         {
             case "Message":
                 await DrainRemainingDataAsync(dataStream);
-                MessageReceived?.Invoke(this, new DeviceMessageReceivedEventArgs(sender, packet.Content));
+                PublishMessageReceived(sender, packet.Content);
                 break;
 
             case "FileReq":
                 await DrainRemainingDataAsync(dataStream);
-                FileTransferRequested?.Invoke(
-                    this, 
-                    new FileTransferRequestEventArgs(packet.RequestId, packet.FileName, packet.Size, sender));
+                await HandleIncomingFileRequestAsync(packet, sender);
                 break;
 
             case "FileResp":
@@ -636,6 +990,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     // Notify
                     if (success)
                     {
+                        ShowIncomingFileSavedToast(sender, savePath);
                         try 
                         {
                             using var fsRead = new FileStream(savePath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -653,6 +1008,34 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
             case "Legacy":
             default:
+                if (string.Equals(packet.Type, "FileTransfer", StringComparison.OrdinalIgnoreCase))
+                {
+                    var suggestedName = string.IsNullOrWhiteSpace(packet.FileName)
+                        ? "received_file"
+                        : Path.GetFileName(packet.FileName);
+                    var manualSavePath = await PickSaveFilePathAsync("\u4fdd\u5b58\u63a5\u6536\u5230\u7684\u6587\u4ef6", suggestedName);
+                    if (string.IsNullOrWhiteSpace(manualSavePath))
+                    {
+                        await DrainRemainingDataAsync(dataStream);
+                        return;
+                    }
+
+                    try
+                    {
+                        await using var fs = new FileStream(manualSavePath, FileMode.Create, FileAccess.Write);
+                        await CopyStreamWithTimeoutAsync(dataStream, fs, TimeSpan.FromSeconds(10));
+                        ShowIncomingFileSavedToast(sender, manualSavePath);
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Dispatch] Save manual stream error: {ex}");
+                        try { File.Delete(manualSavePath); } catch { }
+                        NotifyTransferInterrupted(packet.RequestId, $"Receive failed: {ex.Message}", false);
+                        return;
+                    }
+                }
+
                 System.Diagnostics.Debug.WriteLine($"[Dispatch] Handling Stream for {packet.Type}");
                 // For file transfer (without pending path) or unknown types, we buffer if needed.
                 Stream resultStream = dataStream;
