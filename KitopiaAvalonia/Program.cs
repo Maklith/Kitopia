@@ -77,7 +77,7 @@ internal class Program
 
                 try
                 {
-                    ServiceManager.Services.GetService<IDeviceCommunication>()!.StartDiscovery();
+                    
                     OnStartup(args);
                 }
                 catch (Exception e)
@@ -304,7 +304,7 @@ internal class Program
         Logger.Information("插件管理器初始化完成");
         CustomScenarioManger.Init();
         Logger.Information("场景管理器初始化完成");
-
+        ServiceManager.Services.GetService<IDeviceCommunication>()!.StartDiscovery();
         if (ConfigManger.Config.autoStart)
         {
             Logger.Information("设置开机自启");
