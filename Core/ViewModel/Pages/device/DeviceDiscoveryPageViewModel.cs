@@ -134,18 +134,38 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
             var accepted = false;
             try
             {
-                await ServiceManager.Services.GetService<IContentDialog>()!.ShowDialogAsync(null,
-                    new DialogContent
+                var toastService = ServiceManager.Services.GetService<IToastService>();
+                if (toastService is null)
+                {
+                    accepted = true;
+                }
+                else
+                {
+                    var decisionSource = new TaskCompletionSource<bool>();
+                    toastService.Show(new ToastRequest
                     {
-                        Title = "\u6587\u4ef6\u63a5\u6536\u8bf7\u6c42",
-                        Content = $"\u63a5\u6536\u5230\u6587\u4ef6 '{e.FileName}' ({fileSize})\uff0c\u53d1\u9001\u65b9\uff1a{senderName}",
-                        PrimaryButtonText = "\u63a5\u6536",
-                        SecondaryButtonText = "\u53d6\u6d88",
-                        PrimaryAction = () =>
-                        {
-                            accepted = true;
-                        }
+                        Header = "\u6587\u4ef6\u63a5\u6536\u8bf7\u6c42",
+                        Text = $"\u63a5\u6536\u5230\u6587\u4ef6 '{e.FileName}' ({fileSize})\uff0c\u53d1\u9001\u65b9\uff1a{senderName}",
+                        NotificationType = NotificationType.Information,
+                        AutoCloseDelay = null,
+                        ShowCloseButton = false,
+                        Actions =
+                        [
+                            new ToastAction
+                            {
+                                Text = "\u63a5\u6536",
+                                IsPrimary = true,
+                                Callback = () => decisionSource.TrySetResult(true)
+                            },
+                            new ToastAction
+                            {
+                                Text = "\u53d6\u6d88",
+                                Callback = () => decisionSource.TrySetResult(false)
+                            }
+                        ]
                     });
+                    accepted = await decisionSource.Task;
+                }
             }
             catch (Exception ex)
             {
@@ -192,14 +212,14 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
     {
         if (!string.IsNullOrEmpty(e.SavedPath))
         {
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                await (ServiceManager.Services.GetService<IContentDialog>()?.ShowDialogAsync(null, new DialogContent
+                ServiceManager.Services.GetService<IToastService>()?.Show(new DialogContent
                 {
                     Title = "\u6587\u4ef6\u63a5\u6536\u6210\u529f",
                     Content = $"\u6765\u81ea {GetDeviceDisplayName(e.Sender)} \u7684\u6587\u4ef6\u5df2\u4fdd\u5b58\u81f3: {e.SavedPath}",
                     PrimaryButtonText = "\u786e\u5b9a"
-                }) ?? Task.CompletedTask);
+                }.ToToastRequest());
             });
             return;
         }
@@ -267,13 +287,12 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
 
                                     await e.Stream.CopyToAsync(fs);
 
-                                    await (ServiceManager.Services.GetService<IContentDialog>()?.ShowDialogAsync(null,
-                                        new DialogContent
-                                        {
-                                            Title = "\u6587\u4ef6\u63a5\u6536\u6210\u529f",
-                                            Content = $"\u6765\u81ea {GetDeviceDisplayName(e.Sender)} \u7684\u6587\u4ef6\u5df2\u4fdd\u5b58\u81f3: {path}",
-                                            PrimaryButtonText = "\u786e\u5b9a"
-                                        }) ?? Task.CompletedTask);
+                                    ServiceManager.Services.GetService<IToastService>()?.Show(new DialogContent
+                                    {
+                                        Title = "\u6587\u4ef6\u63a5\u6536\u6210\u529f",
+                                        Content = $"\u6765\u81ea {GetDeviceDisplayName(e.Sender)} \u7684\u6587\u4ef6\u5df2\u4fdd\u5b58\u81f3: {path}",
+                                        PrimaryButtonText = "\u786e\u5b9a"
+                                    }.ToToastRequest());
                                 }
                             }
                         }

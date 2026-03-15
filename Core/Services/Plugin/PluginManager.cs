@@ -201,7 +201,8 @@ public class PluginManager
                     }
                 }
             };
-            ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null, dialog);
+            ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                dialog.ToToastRequest());
         }
         else
         {
@@ -489,8 +490,8 @@ public class PluginManager
                 await DeletePluginWithoutUserCheck(pluginInfoEx, true);
             }
         };
-        ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
-            dialog);
+        ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+            dialog.ToToastRequest());
     }
 
     public static async Task DeletePluginWithoutUserCheck(PluginLocalInfo pluginInfoEx, bool reload = true)

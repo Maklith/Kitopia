@@ -9,19 +9,19 @@ namespace Core.Window;
 
 public class ExplorerContextMenuService : IExplorerContextMenuService
 {
-    private readonly IContentDialog _contentDialog;
+    private readonly IToastService _toastService;
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IExplorerContextMenuService>();
 
-    public ExplorerContextMenuService(IContentDialog contentDialog)
+    public ExplorerContextMenuService(IToastService toastService)
     {
-        _contentDialog = contentDialog;
+        _toastService = toastService;
     }
 
-    public async Task<bool> RegisterAsync()
+    public Task<bool> RegisterAsync()
     {
         var packageManager = new PackageManager();
         var packages = packageManager.FindPackagesForUser(string.Empty);
-        if (packages.Any(x => x.Id.Name == "Maklith.KitopiaCompanion")) return true;
+        if (packages.Any(x => x.Id.Name == "Maklith.KitopiaCompanion")) return Task.FromResult(true);
         Logger.Warning("Kitopia伴侣程序未安装，无法注册右键菜单");
         var dialog = new DialogContent
         {
@@ -33,12 +33,12 @@ public class ExplorerContextMenuService : IExplorerContextMenuService
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-windows-store://pdp/?productid=9MV77XCQ37FP") { UseShellExecute = true });
             }
         };
-        await _contentDialog.ShowDialogAsync(null, dialog);
-        return false;
+        _toastService.Show(dialog.ToToastRequest());
+        return Task.FromResult(false);
     }
 
-    public async Task<bool> UnregisterAsync()
+    public Task<bool> UnregisterAsync()
     {
-        return false;
+        return Task.FromResult(false);
     }
 }

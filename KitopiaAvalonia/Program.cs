@@ -106,7 +106,6 @@ internal class Program
     {
         var services = new ServiceCollection();
         services.AddSingleton<IToastService, ToastService>();
-        services.AddTransient<IContentDialog, ContentDialogService>();
         services.AddTransient<IHotKeyEditor, HotKeyEditorService>();
         services.AddSingleton<ITaskEditorOpenService, TaskEditorOpenService>();
         services.AddSingleton<IPluginManger, PluginMangerService>();

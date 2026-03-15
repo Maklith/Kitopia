@@ -219,8 +219,7 @@ public class ApplicationService : IApplicationService
                     }
                 }
             };
-            await ServiceManager.Services.GetService<IContentDialog>()!.ShowDialogAsync(null,
-                dialog);
+            ServiceManager.Services.GetService<IToastService>()!.Show(dialog.ToToastRequest());
         }
         else
         {

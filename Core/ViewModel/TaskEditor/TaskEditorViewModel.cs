@@ -371,8 +371,8 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 });
             }
         };
-        ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(ContentPresenter,
-            dialog);
+        ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+            dialog.ToToastRequest());
     }
 
     [RelayCommand]
@@ -465,8 +465,8 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 },
                 CloseAction = () => { e.Cancel = true; }
             };
-            ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!)
-                .ShowDialogAsync(null, dialog);
+            ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!)
+                .Show(dialog.ToToastRequest());
         }
     }
 

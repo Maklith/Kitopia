@@ -49,7 +49,7 @@ public partial class CustomScenariosManagerPageViewModel : ObservableRecipient
             SecondaryButtonText = "取消",
             PrimaryAction = () => { Dispatcher.UIThread.InvokeAsync(() => { CustomScenarioManger.Remove(scenario); }); }
         };
-        ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
-            dialog);
+        ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+            dialog.ToToastRequest());
     }
 }

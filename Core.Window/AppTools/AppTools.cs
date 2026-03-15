@@ -87,9 +87,8 @@ public class AppSolver
                                 ConfigManger.Save();
                             }
                         };
-                        ((IContentDialog)ServiceManager.Services.GetService(typeof(IContentDialog))!).ShowDialogAsync(
-                            null,
-                            dialog);
+                        ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
+                            dialog.ToToastRequest());
                     }
                     else
 
@@ -243,8 +242,8 @@ public class AppSolver
                     ErrorLnkList.Clear();
                 }
             };
-            ((IContentDialog)ServiceManager.Services.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
-                dialog);
+            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
+                dialog.ToToastRequest());
         }
     }
 

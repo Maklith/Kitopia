@@ -189,21 +189,21 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
     {
         if (RunHotKey.IsEnabled)
             if (!HotKeyManager.HotKetImpl.Add(RunHotKey, e => Run()))
-                ServiceManager.Services.GetService<IContentDialog>()!.ShowDialogAsync(null, new DialogContent
+                ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
                 {
                     Title = $"快捷键{RunHotKey.SignName}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
                     CloseButtonText = "关闭"
-                });
+                }.ToToastRequest());
 
         if (StopHotKey.IsEnabled)
             if (!HotKeyManager.HotKetImpl.Add(StopHotKey, e => Stop()))
-                ServiceManager.Services.GetService<IContentDialog>().ShowDialogAsync(null, new DialogContent
+                ServiceManager.Services.GetService<IToastService>().Show(new DialogContent
                 {
                     Title = $"快捷键{StopHotKey.SignName}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
                     CloseButtonText = "关闭"
-                });
+                }.ToToastRequest());
     }
 
     public void UnRegisterHotKey()

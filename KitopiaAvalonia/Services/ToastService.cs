@@ -471,9 +471,9 @@ public class ToastService : IToastService
 
     private static double ClampProgress(double progress)
     {
-        return Math.Max(0, Math.Min(100, progress));
+        return System.Math.Max(0, System.Math.Min(100, progress));
     }
-
+    
     private sealed class ToastProgressHandle(ToastService service, Guid toastId) : IToastProgressHandle
     {
         private int _isClosed;

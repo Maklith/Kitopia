@@ -156,8 +156,8 @@ public class CustomScenarioManger
                                     $"下载ID:{e1.PluginName.Split("_")[0]}的插件时遇到错误");
                         }
                     };
-                    ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
-                        dialog);
+                    ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                        dialog.ToToastRequest());
                     break;
                 }
                 case CustomScenarioLoadFromJsonFailedType.插件未启用:
@@ -175,8 +175,8 @@ public class CustomScenarioManger
                         CloseButtonText = "我知道了",
                         PrimaryAction = () => { PluginManager.EnablePlugin(pluginByPlgStr); }
                     };
-                    ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
-                        dialog);
+                    ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                        dialog.ToToastRequest());
                     break;
                 }
                 case CustomScenarioLoadFromJsonFailedType.方法未找到:
@@ -197,8 +197,8 @@ public class CustomScenarioManger
                         Content = content,
                         CloseButtonText = "我知道了"
                     };
-                    ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
-                        dialog);
+                    ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                        dialog.ToToastRequest());
                     break;
                 }
                 default:
@@ -216,8 +216,8 @@ public class CustomScenarioManger
                 CloseButtonText = "我知道了",
                 PrimaryAction = () => { }
             };
-            ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
-                dialog);
+            ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                dialog.ToToastRequest());
             CustomScenarios.Add(new CustomScenario
             {
                 Name = fileInfo.Name,
@@ -267,8 +267,8 @@ public class CustomScenarioManger
                         Content = content,
                         CloseButtonText = "我知道了"
                     };
-                    ((IContentDialog)ServiceManager.Services!.GetService(typeof(IContentDialog))!).ShowDialogAsync(null,
-                        dialog);
+                    ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                        dialog.ToToastRequest());
                     break;
                 }
             }

@@ -180,12 +180,12 @@ public partial class HotKeyEditorWindow : UrsaWindow
         };
         if (!HotKeyManager.HotKetImpl.Modify(hotKeyModel))
         {
-            ServiceManager.Services.GetService<IContentDialog>().ShowDialogAsync(this, new DialogContent
+            ServiceManager.Services.GetService<IToastService>().Show(new DialogContent
             {
                 Title = $"快捷键{hotKeyModel.SignName}设置失败",
                 Content = "请重新设置快捷键，按键与系统其他程序冲突",
                 CloseButtonText = "关闭"
-            });
+            }.ToToastRequest());
         }
         else
         {
