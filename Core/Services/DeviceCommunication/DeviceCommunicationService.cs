@@ -13,6 +13,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Controls.Notifications;
 using Core.Services.Config;
 using PluginCore;
 
@@ -47,6 +48,9 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     private readonly ConcurrentDictionary<Guid, UdpReassemblySession> _udpSessions = new();
     private readonly ConcurrentDictionary<string, string> _pendingDownloads = new(); // RequestId -> SavePath
     private readonly ConcurrentDictionary<string, bool> _discoveredDeviceQuicCapabilities = new(); // DeviceId -> SupportsQuic
+    private readonly ConcurrentDictionary<string, IToastProgressHandle> _sendingTransferToasts = new();
+    private readonly ConcurrentDictionary<string, IToastProgressHandle> _receivingTransferToasts = new();
+    private static readonly TimeSpan TransferToastUpdateInterval = TimeSpan.FromMilliseconds(200);
 
     public ObservableCollection<DeviceModel> DiscoveredDevices { get; } = new();
 
@@ -106,6 +110,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
     private void NotifyTransferInterrupted(string requestId, string reason, bool isSending)
     {
+        FailTransferToast(requestId, reason, isSending);
         if (!string.IsNullOrEmpty(requestId))
         {
             _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
@@ -216,13 +221,54 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     SenderId = _myId.ToString(),
                     SenderName = GetLocalDisplayName()
                 };
-                await SendStreamAsync(target, fs, JsonSerializer.Serialize(fileMeta));
+                var targetName = GetDeviceDisplayName(target);
+                StartTransferToast(requestId, true, fileInfo.Name, fileInfo.Length, targetName);
+
+                long transferredBytes = 0;
+                int lastPercent = -1;
+                var lastUpdate = DateTime.MinValue;
+                var progressLock = new object();
+                Action<long>? onProgress = fileInfo.Length > 0
+                    ? bytes =>
+                    {
+                        var copied = Interlocked.Add(ref transferredBytes, bytes);
+                        var percent = (int)Math.Min(100, copied * 100d / fileInfo.Length);
+                        var now = DateTime.UtcNow;
+
+                        lock (progressLock)
+                        {
+                            if (percent == lastPercent && now - lastUpdate < TransferToastUpdateInterval)
+                            {
+                                return;
+                            }
+
+                            lastPercent = percent;
+                            lastUpdate = now;
+                        }
+
+                        UpdateTransferToastProgress(
+                            requestId,
+                            true,
+                            fileInfo.Name,
+                            copied,
+                            fileInfo.Length,
+                            targetName);
+                    }
+                    : null;
+
+                await SendStreamInternalAsync(target, fs, JsonSerializer.Serialize(fileMeta), onProgress);
+                CompleteTransferToast(requestId, true, fileInfo.Name, fileInfo.Length, targetName);
             }
             else
             {
                 _pendingFileRequests.TryRemove(requestId, out _);
                 if (completedTask != tcs.Task) throw new TimeoutException("User did not respond in time.");
             }
+        }
+        catch (Exception ex)
+        {
+            FailTransferToast(requestId, ex.Message, true);
+            throw;
         }
         finally
         {
@@ -252,8 +298,14 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
     public async Task SendStreamAsync(DeviceModel target, Stream stream, string? metaData = null)
     {
+        await SendStreamInternalAsync(target, stream, metaData);
+    }
+
+    private async Task SendStreamInternalAsync(DeviceModel target, Stream stream, string? metaData = null,
+        Action<long>? onProgress = null)
+    {
         // Prioritize QUIC
-        if (ShouldTryQuic(target) && await TrySendQuicAsync(target, stream, metaData))
+        if (ShouldTryQuic(target) && await TrySendQuicAsync(target, stream, metaData, onProgress))
             return;
 
         // Check if we should fallback to UDP
@@ -266,7 +318,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         // Fallback to UDP
         try
         {
-            await SendUdpAsync(target, stream, metaData);
+            await SendUdpAsync(target, stream, metaData, onProgress);
         }
         catch (Exception ex)
         {
@@ -301,7 +353,8 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         return true;
     }
 
-    private async Task<bool> TrySendQuicAsync(DeviceModel target, Stream stream, string? metaData)
+    private async Task<bool> TrySendQuicAsync(DeviceModel target, Stream stream, string? metaData,
+        Action<long>? onProgress = null)
     {
         try
         {
@@ -332,7 +385,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             await WriteMetaDataAsync(quicStream, metaData, TimeSpan.FromSeconds(2));
             
             // Send Data with timeout
-            await CopyStreamWithTimeoutAsync(stream, quicStream, TimeSpan.FromSeconds(10));
+            await CopyStreamWithTimeoutAsync(stream, quicStream, TimeSpan.FromSeconds(10), onProgress: onProgress);
             
             return true;
         }
@@ -342,7 +395,8 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
     }
 
-    private async Task CopyStreamWithTimeoutAsync(Stream source, Stream destination, TimeSpan timeout, int bufferSize = 8192)
+    private async Task CopyStreamWithTimeoutAsync(Stream source, Stream destination, TimeSpan timeout, int bufferSize = 8192,
+        Action<long>? onProgress = null)
     {
         var buffer = new byte[bufferSize];
         int bytesRead;
@@ -358,6 +412,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 
                 cts.CancelAfter(timeout);
                 await destination.WriteAsync(buffer, 0, bytesRead, cts.Token);
+                onProgress?.Invoke(bytesRead);
             }
             catch (OperationCanceledException)
             {
@@ -366,7 +421,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
     }
 
-    private async Task SendUdpAsync(DeviceModel target, Stream stream, string? metaData)
+    private async Task SendUdpAsync(DeviceModel target, Stream stream, string? metaData, Action<long>? onProgress = null)
     {
         // Simple UDP impl with chunking and reassembly support
         var targetEndPoint = CreateTargetEndPoint(target.Address, target.Port + 1);
@@ -393,6 +448,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         {
             await SendUdpPacket(tempClient, targetEndPoint, sessionId, offset, 1, buffer.AsSpan(0, read).ToArray(), false);
             offset += read;
+            onProgress?.Invoke(read);
             
             // Throttle: Reduce to 1ms delay every 10 packets to improve speed
             packetCount++;
@@ -522,17 +578,53 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 if (_pendingDownloads.TryRemove(packet.RequestId, out var savePath))
                 {
                     bool success = false;
+                    var senderName = GetDeviceDisplayName(sender);
+                    StartTransferToast(packet.RequestId, false, packet.FileName, packet.Size, senderName);
+
+                    long transferredBytes = 0;
+                    int lastPercent = -1;
+                    var lastUpdate = DateTime.MinValue;
+                    var progressLock = new object();
+                    Action<long>? onProgress = packet.Size > 0
+                        ? bytes =>
+                        {
+                            var copied = Interlocked.Add(ref transferredBytes, bytes);
+                            var percent = (int)Math.Min(100, copied * 100d / packet.Size);
+                            var now = DateTime.UtcNow;
+
+                            lock (progressLock)
+                            {
+                                if (percent == lastPercent && now - lastUpdate < TransferToastUpdateInterval)
+                                {
+                                    return;
+                                }
+
+                                lastPercent = percent;
+                                lastUpdate = now;
+                            }
+
+                            UpdateTransferToastProgress(
+                                packet.RequestId,
+                                false,
+                                packet.FileName,
+                                copied,
+                                packet.Size,
+                                senderName);
+                        }
+                        : null;
+
                     try
                     {
                         // Stream directly to file
                         await using var fs = new FileStream(savePath, FileMode.Create, FileAccess.Write);
-                        await CopyStreamWithTimeoutAsync(dataStream, fs, TimeSpan.FromSeconds(10));
+                        await CopyStreamWithTimeoutAsync(dataStream, fs, TimeSpan.FromSeconds(10), onProgress: onProgress);
 
                         if (packet.Size > 0 && fs.Length != packet.Size)
                         {
                             throw new IOException($"File size mismatch. Expected {packet.Size}, got {fs.Length}");
                         }
                         success = true;
+                        CompleteTransferToast(packet.RequestId, false, packet.FileName, packet.Size, senderName);
                     }
                     catch (Exception ex)
                     {
@@ -1192,6 +1284,153 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         // Export/Import as PFX to ensure the private key is properly associated and accessible for SChannel/MsQuic on Windows
         return new X509Certificate2(cert.Export(X509ContentType.Pfx));
     }
+
+    private static string GetDeviceDisplayName(DeviceModel? device)
+    {
+        if (device is null)
+        {
+            return "未知设备";
+        }
+
+        if (!string.IsNullOrWhiteSpace(device.CustomName))
+        {
+            return device.CustomName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(device.Name))
+        {
+            return device.Name.Trim();
+        }
+
+        return device.Address.ToString();
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes <= 0)
+        {
+            return "0 B";
+        }
+
+        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
+        var unitIndex = 0;
+        double value = bytes;
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        if (unitIndex == 0)
+        {
+            return $"{bytes:N0} B";
+        }
+
+        return $"{value:0.##} {units[unitIndex]}";
+    }
+
+    private static IToastService? GetToastService()
+    {
+        try
+        {
+            return ServiceManager.Services?.GetService(typeof(IToastService)) as IToastService;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void StartTransferToast(string requestId, bool isSending, string fileName, long totalBytes, string remoteName)
+    {
+        if (string.IsNullOrWhiteSpace(requestId))
+        {
+            return;
+        }
+
+        var toastService = GetToastService();
+        if (toastService is null)
+        {
+            return;
+        }
+
+        var action = isSending ? "发送" : "接收";
+        var direction = isSending ? "到" : "从";
+        var detail = totalBytes > 0
+            ? $"{FormatFileSize(0)} / {FormatFileSize(totalBytes)}"
+            : "准备中...";
+        var handle = toastService.ShowProgress(
+            isSending ? "文件发送" : "文件接收",
+            $"{action} {fileName} {direction} {remoteName} ({detail})",
+            NotificationType.Information,
+            initialProgress: 0,
+            isIndeterminate: totalBytes <= 0);
+
+        var map = isSending ? _sendingTransferToasts : _receivingTransferToasts;
+        map[requestId] = handle;
+    }
+
+    private void UpdateTransferToastProgress(string requestId, bool isSending, string fileName, long transferredBytes,
+        long totalBytes, string remoteName)
+    {
+        if (string.IsNullOrWhiteSpace(requestId))
+        {
+            return;
+        }
+
+        var map = isSending ? _sendingTransferToasts : _receivingTransferToasts;
+        if (!map.TryGetValue(requestId, out var handle))
+        {
+            return;
+        }
+
+        var action = isSending ? "发送" : "接收";
+        var direction = isSending ? "到" : "从";
+        if (totalBytes > 0)
+        {
+            var progress = Math.Min(100, transferredBytes * 100d / totalBytes);
+            handle.Update(
+                progress: progress,
+                text:
+                $"{action} {fileName} {direction} {remoteName} ({FormatFileSize(transferredBytes)} / {FormatFileSize(totalBytes)})");
+            return;
+        }
+
+        handle.Update(
+            text: $"{action} {fileName} {direction} {remoteName} ({FormatFileSize(transferredBytes)})",
+            isIndeterminate: true);
+    }
+
+    private void CompleteTransferToast(string requestId, bool isSending, string fileName, long totalBytes,
+        string remoteName)
+    {
+        var map = isSending ? _sendingTransferToasts : _receivingTransferToasts;
+        if (!map.TryRemove(requestId, out var handle))
+        {
+            return;
+        }
+
+        var action = isSending ? "已发送" : "已接收";
+        var direction = isSending ? "到" : "从";
+        var sizeText = totalBytes > 0 ? $" ({FormatFileSize(totalBytes)})" : string.Empty;
+        handle.Complete($"{action} {fileName}{sizeText} {direction} {remoteName}");
+    }
+
+    private void FailTransferToast(string requestId, string reason, bool isSending)
+    {
+        if (string.IsNullOrWhiteSpace(requestId))
+        {
+            return;
+        }
+
+        var map = isSending ? _sendingTransferToasts : _receivingTransferToasts;
+        if (!map.TryRemove(requestId, out var handle))
+        {
+            return;
+        }
+
+        handle.Fail($"传输中断：{reason}");
+    }
     
     public void Dispose()
     {
@@ -1229,3 +1468,4 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         public string SenderName { get; set; } = "";
     }
 }
+
