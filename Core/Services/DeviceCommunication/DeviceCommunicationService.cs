@@ -702,6 +702,29 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         return address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
     }
 
+    private static bool ShouldReplaceDiscoveredAddress(IPAddress currentAddress, IPAddress candidateAddress)
+    {
+        if (currentAddress.Equals(candidateAddress))
+        {
+            return false;
+        }
+
+        var currentFamily = currentAddress.AddressFamily;
+        var candidateFamily = candidateAddress.AddressFamily;
+
+        if (currentFamily == AddressFamily.InterNetwork && candidateFamily == AddressFamily.InterNetworkV6)
+        {
+            return false;
+        }
+
+        if (currentFamily == AddressFamily.InterNetworkV6 && candidateFamily == AddressFamily.InterNetwork)
+        {
+            return true;
+        }
+
+        return true;
+    }
+
     private static IPAddress TryAttachLocalScopeId(IPAddress address)
     {
         try
@@ -1063,7 +1086,10 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                             {
                                 existing.LastSeen = DateTime.UtcNow;
                                 existing.Name = string.IsNullOrWhiteSpace(info.Name) ? "\u672a\u77e5\u8bbe\u5907" : info.Name.Trim();
-                                existing.Address = endpointAddress;
+                                if (ShouldReplaceDiscoveredAddress(existing.Address, endpointAddress))
+                                {
+                                    existing.Address = endpointAddress;
+                                }
                                 existing.Port = info.Port;
                             }
                         });
