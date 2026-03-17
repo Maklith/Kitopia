@@ -44,13 +44,10 @@ public class ConfigManger
 
     public static void Init()
     {
-        if (!Directory.Exists($"{AppDomain.CurrentDomain.BaseDirectory}configs"))
-            Directory.CreateDirectory($"{AppDomain.CurrentDomain.BaseDirectory}configs");
+        Directory.CreateDirectory(KitopiaPaths.ConfigsDirectory);
 
         Configs.Add("KitopiaConfig", new KitopiaConfig { Name = "KitopiaConfig" });
-        var configF =
-            new FileInfo(
-                $"{AppDomain.CurrentDomain.BaseDirectory}configs{Path.DirectorySeparatorChar}KitopiaConfig.json");
+        var configF = new FileInfo(KitopiaPaths.GetConfigFilePath("KitopiaConfig"));
         if (!configF.Exists)
         {
             var j = JsonSerializer.Serialize(Config, DefaultOptions);
@@ -178,9 +175,7 @@ public class ConfigManger
         foreach (var configsKey in keyCollection)
         {
             var configBase = Configs[configsKey];
-            var configF =
-                new FileInfo(
-                    $"{AppDomain.CurrentDomain.BaseDirectory}configs{Path.DirectorySeparatorChar}{configsKey}.json");
+            var configF = new FileInfo(KitopiaPaths.GetConfigFilePath(configsKey));
 
 
             var j = JsonSerializer.Serialize(configBase, configBase.GetType(), DefaultOptions);
@@ -195,8 +190,7 @@ public class ConfigManger
         var configBase = Configs[key];
         if (configBase is null) return;
 
-        var configF =
-            new FileInfo($"{AppDomain.CurrentDomain.BaseDirectory}configs{Path.DirectorySeparatorChar}{key}.json");
+        var configF = new FileInfo(KitopiaPaths.GetConfigFilePath(key));
 
         var j = JsonSerializer.Serialize(configBase, configBase.GetType(), DefaultOptions);
         File.WriteAllText(configF.FullName, j);

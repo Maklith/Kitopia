@@ -264,7 +264,7 @@ public class PluginManager
 
     public static void Load(bool init = false)
     {
-        var pluginsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins");
+        var pluginsPath = KitopiaPaths.PluginsDirectory;
         
         // Phase 1: Discovery
         var candidates = PluginDiscoveryService.DiscoverPlugins(pluginsPath, handleRemovals: init);
