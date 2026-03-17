@@ -59,10 +59,9 @@ public class CustomScenarioManger
 
     private static void LoadAll()
     {
-        if (!Directory.Exists($"{AppDomain.CurrentDomain.BaseDirectory}customScenarios"))
-            Directory.CreateDirectory($"{AppDomain.CurrentDomain.BaseDirectory}customScenarios");
+        Directory.CreateDirectory(KitopiaPaths.CustomScenariosDirectory);
 
-        var info = new DirectoryInfo($"{AppDomain.CurrentDomain.BaseDirectory}customScenarios");
+        var info = new DirectoryInfo(KitopiaPaths.CustomScenariosDirectory);
         foreach (var fileInfo in info.GetFiles())
             if (fileInfo.Extension == ".json")
                 Load(fileInfo);
@@ -242,8 +241,7 @@ public class CustomScenarioManger
 
         foreach (var tempValueKey in scenario.TempValue.Keys) scenario.TempValue[tempValueKey].Value = null;
 
-        var configF = new FileInfo(AppDomain.CurrentDomain.BaseDirectory +
-                                   $"customScenarios{Path.DirectorySeparatorChar}{scenario.UUID}.json");
+        var configF = new FileInfo(KitopiaPaths.GetCustomScenarioFilePath(scenario.UUID));
 
         try
         {
@@ -286,8 +284,7 @@ public class CustomScenarioManger
         if (CustomScenarios.Contains(scenario)) CustomScenarios.Remove(scenario);
         ConfigManger.Save();
         if (deleteFile)
-            File.Delete(
-                $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{scenario.UUID}.json");
+            File.Delete(KitopiaPaths.GetCustomScenarioFilePath(scenario.UUID));
     }
 
     public static void UnloadWhichUseThePlugin(string plugStr)
@@ -305,8 +302,7 @@ public class CustomScenarioManger
     public static void Reload(CustomScenario scenario)
     {
         Remove(scenario, false);
-        var configF = new FileInfo(
-            $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{scenario.UUID}.json");
+        var configF = new FileInfo(KitopiaPaths.GetCustomScenarioFilePath(scenario.UUID));
         if (configF.Exists) Load(configF);
     }
 
@@ -325,8 +321,7 @@ public class CustomScenarioManger
             if (customScenario.IsRunning) customScenario.Stop();
 
             Remove(customScenario, false);
-            var configF = new FileInfo(
-                $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{customScenario.UUID}.json");
+            var configF = new FileInfo(KitopiaPaths.GetCustomScenarioFilePath(customScenario.UUID));
             if (configF.Exists) Load(configF);
         }
 

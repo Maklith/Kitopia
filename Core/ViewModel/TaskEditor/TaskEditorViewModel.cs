@@ -520,8 +520,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
         if (openFilePickerAsync.Count > 0)
         {
-            var path =
-                $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{Scenario.UUID}.png";
+            var path = KitopiaPaths.GetCustomScenarioIconPath(Scenario.UUID);
             var fileStream = File.OpenWrite(path);
             var openReadAsync = await openFilePickerAsync[0].OpenReadAsync();
             await openReadAsync.CopyToAsync(fileStream);

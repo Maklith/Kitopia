@@ -46,8 +46,7 @@ public class Plugin
         var retryFlag = false;
         retry:
 
-        var configF =
-            new FileInfo($"{AppDomain.CurrentDomain.BaseDirectory}configs{Path.DirectorySeparatorChar}{key}.json");
+        var configF = new FileInfo(KitopiaPaths.GetConfigFilePath(key));
         if (!configF.Exists) SerializeConfigToFile(configF);
 
         var json = File.ReadAllText(configF.FullName);

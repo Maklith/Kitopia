@@ -19,6 +19,7 @@ using Core.Services.Interfaces;
 using Core.Services.MQTT;
 using Core.Services.Onnx;
 using Core.Services.Plugin;
+using Core.Utils;
 using Core.ViewModel.Main;
 using Core.ViewModel.Pages;
 using Core.ViewModel.Pages.customScenario;
@@ -74,7 +75,6 @@ internal class Program
             Task.Run(async () =>
             {
                 while (Application.Current is null) await Task.Delay(100);
-
                 try
                 {
                     
@@ -198,7 +198,7 @@ internal class Program
     private static void CheckAndDeleteLogFiles()
     {
         // 定义日志文件的目录
-        var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+        var logDirectory = KitopiaPaths.LogsDirectory;
         Logger.Debug($"检查日志目录:{logDirectory}");
         // 定义要保留的日志文件的时间范围，这里是一周
         var timeSpan = TimeSpan.FromDays(2);

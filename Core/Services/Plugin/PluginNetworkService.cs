@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO.Compression;
 using Core.Services.Config;
+using Core.Utils;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Serilog;
@@ -58,8 +59,7 @@ public class PluginNetworkService
             var streamAsync =
                 await HttpClient.GetStreamAsync($"{ConfigManger.ApiUrl}/api/plugin/download/1/{id}/{versionId}");
             
-            var tempDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
-            Directory.CreateDirectory(tempDir);
+            var tempDir = KitopiaPaths.TempDirectory;
             var path = Path.Combine(tempDir, $"{plugin}.zip");
             
             using (var fs = new FileStream(path, FileMode.Create))
@@ -67,7 +67,8 @@ public class PluginNetworkService
                 await streamAsync.CopyToAsync(fs);
             }
 
-            var pluginDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins", plugin);
+            var pluginDir = KitopiaPaths.GetPluginDirectory(plugin);
+            Directory.CreateDirectory(pluginDir);
             // Ensure clean install? PluginManager didn't seem to clear it first in DownloadPlugin, 
             // but Load(init=true) handles .remove.
             // Here we just extract.
@@ -122,8 +123,8 @@ public class PluginNetworkService
 
             using (var ms = new MemoryStream(arr))
             {
-                var filename = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins", plugin, "avatar.png");
-                var directoryname = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins", plugin);
+                var filename = KitopiaPaths.GetPluginAvatarPath(plugin);
+                var directoryname = KitopiaPaths.GetPluginDirectory(plugin);
                 
                 if (!Directory.Exists(directoryname))
                     Directory.CreateDirectory(directoryname);

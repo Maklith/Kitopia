@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using AvaloniaEdit.Utils;
 using Core.Services.Interfaces;
 using Core.Services.Plugin;
+using Core.Utils;
 using Core.ViewModel.Windows;
 using MQTTnet;
 using MQTTnet.Client;
@@ -41,14 +42,15 @@ public class MqttManager
     public static async Task<bool> Init(string[] args)
     {
         var mqttFactory = new MqttFactory();
-        if (File.Exists($"{AppDomain.CurrentDomain.BaseDirectory}.port"))
+        var portFilePath = KitopiaPaths.PortFilePath;
+        if (File.Exists(portFilePath))
             try
             {
-                File.Delete($"{AppDomain.CurrentDomain.BaseDirectory}.port");
+                File.Delete(portFilePath);
             }
             catch (Exception e)
             {
-                using (var fs = new FileStream($"{AppDomain.CurrentDomain.BaseDirectory}.port", FileMode.Open,
+                using (var fs = new FileStream(portFilePath, FileMode.Open,
                            FileAccess.Read, FileShare.ReadWrite))
                 {
                     var bt = new byte[fs.Length];
@@ -111,7 +113,7 @@ public class MqttManager
         }
 
 
-        fileStream = new FileStream($"{AppDomain.CurrentDomain.BaseDirectory}.port", FileMode.CreateNew);
+        fileStream = new FileStream(portFilePath, FileMode.CreateNew);
         fileStream.Write(Encoding.UTF8.GetBytes(nowPort.ToString()));
         fileStream.Flush();
         
