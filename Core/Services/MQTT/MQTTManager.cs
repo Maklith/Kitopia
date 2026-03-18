@@ -67,16 +67,9 @@ public class MqttManager
                     if (mqttClientConnectResult.ResultCode == MqttClientConnectResultCode.Success)
                     {
                         Logger.Debug("MQTT连接成功");
-                        var jObject = new JObject();
-                        // Use provided args instead of ApplicationLifetime
                         var result = StartupArgumentManager.Parse(args);
-                        jObject.Add("type", (int)result.Action);
-                        jObject.Add("value", result.Value);
-                        
-                        foreach (var kv in result.Extras)
-                        {
-                            jObject[kv.Key] = kv.Value;
-                        }
+                        var jObject = BuildActionPayload(result);
+                        jObject["type"] = (int)result.Action;
 
                         await mqttClient.PublishAsync(new MqttApplicationMessage
                         {
@@ -127,19 +120,16 @@ public class MqttManager
     {
         var result = StartupArgumentManager.Parse(args);
         if (result.Action == StartupAction.None || result.Action == StartupAction.RepeatStartup) return;
-         
-        // Mock an InterceptingPublishEventArgs or just reuse the logic?
-        // Refactor logic into a shared method would be better.
-        await HandleAction(result.Action, result.Value, JObject.FromObject(new { 
-            pluginId = result.Extras.GetValueOrDefault("pluginId"), 
-            pluginVersionInt = result.Extras.GetValueOrDefault("pluginVersionInt")
-        }));
+
+        await HandleAction(result.Action, BuildActionPayload(result));
     }
 
-    private static async Task HandleAction(StartupAction action, string value, JObject jObject)
+    private static async Task HandleAction(StartupAction action, JObject jObject)
     {
         var searchWindow = ServiceManager.Services.GetService<SearchWindowViewModel>();
         var toast = ServiceManager.Services.GetService<IToastService>();
+        var value = jObject["value"]?.ToString() ?? string.Empty;
+        var values = ExtractActionValues(jObject, value);
 
         switch (action)
         {
@@ -255,7 +245,7 @@ public class MqttManager
                 break;
             case StartupAction.LanFileShare:
             {
-                var filePaths = StartupArgumentManager.UnpackValues(value)
+                var filePaths = values
                     .Where(path => !string.IsNullOrWhiteSpace(path))
                     .Select(path => path.Trim().Trim('"'))
                     .Where(File.Exists)
@@ -302,6 +292,52 @@ public class MqttManager
         }
     }
 
+    private static JObject BuildActionPayload(StartupResult result)
+    {
+        var payload = new JObject
+        {
+            ["value"] = result.Value ?? string.Empty
+        };
+
+        if (result.Values.Count > 0)
+        {
+            payload["values"] = JArray.FromObject(result.Values);
+        }
+
+        foreach (var kv in result.Extras)
+        {
+            payload[kv.Key] = kv.Value;
+        }
+
+        return payload;
+    }
+
+    private static IReadOnlyList<string> ExtractActionValues(JObject payload, string fallbackValue)
+    {
+        if (payload["values"] is JArray array)
+        {
+            var values = array
+                .Values<string>()
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Select(path => path.Trim().Trim('"'))
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (values.Count > 0)
+            {
+                return values;
+            }
+        }
+
+        return StartupArgumentManager.UnpackValues(fallbackValue)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => path.Trim().Trim('"'))
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private static async Task Server_InterceptingPublishAsync(InterceptingPublishEventArgs arg)
     {
         var s = Encoding.UTF8.GetString(arg.ApplicationMessage.Payload);
@@ -311,9 +347,8 @@ public class MqttManager
             var jObject = JObject.Parse(s);
             var jToken = jObject["type"];
             var action = jToken != null ? (StartupAction)jToken.ToObject<int>() : StartupAction.None;
-            var value = jObject["value"]?.ToString();
-            
-            await HandleAction(action, value, jObject);
+
+            await HandleAction(action, jObject);
         }
         catch (Exception e)
         {
