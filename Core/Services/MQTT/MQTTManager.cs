@@ -1,4 +1,6 @@
 using System.Text;
+using System.Linq;
+using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -123,157 +125,181 @@ public class MqttManager
     // Static method to handle local args if we are the server
     public static async Task ProcessLocalArgs(string[] args)
     {
-         var result = StartupArgumentManager.Parse(args);
-         if (result.Action == StartupAction.None || result.Action == StartupAction.RepeatStartup) return;
+        var result = StartupArgumentManager.Parse(args);
+        if (result.Action == StartupAction.None || result.Action == StartupAction.RepeatStartup) return;
          
-         // Mock an InterceptingPublishEventArgs or just reuse the logic?
-         // Refactor logic into a shared method would be better.
-         await HandleAction(result.Action, result.Value, JObject.FromObject(new { 
-             pluginId = result.Extras.GetValueOrDefault("pluginId"), 
-             pluginVersionInt = result.Extras.GetValueOrDefault("pluginVersionInt")
-         }));
+        // Mock an InterceptingPublishEventArgs or just reuse the logic?
+        // Refactor logic into a shared method would be better.
+        await HandleAction(result.Action, result.Value, JObject.FromObject(new { 
+            pluginId = result.Extras.GetValueOrDefault("pluginId"), 
+            pluginVersionInt = result.Extras.GetValueOrDefault("pluginVersionInt")
+        }));
     }
 
     private static async Task HandleAction(StartupAction action, string value, JObject jObject)
     {
-            var searchWindow = ServiceManager.Services.GetService<SearchWindowViewModel>();
-            var toast = ServiceManager.Services.GetService<IToastService>();
+        var searchWindow = ServiceManager.Services.GetService<SearchWindowViewModel>();
+        var toast = ServiceManager.Services.GetService<IToastService>();
 
-            switch (action)
+        switch (action)
+        {
+            // ... same switch case as before ...
+            case StartupAction.RepeatStartup:
             {
-                // ... same switch case as before ...
-                case StartupAction.RepeatStartup:
+                Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    Dispatcher.UIThread.InvokeAsync(() =>
+                    if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                     {
-                        if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                        if (desktop.MainWindow != null)
                         {
-                            if (desktop.MainWindow != null)
-                            {
-                                desktop.MainWindow.Show();
-                                desktop.MainWindow.WindowState = WindowState.Normal;
-                                ServiceManager.Services.GetService<IWindowTool>()
-                                    .SetForegroundWindow(desktop.MainWindow.TryGetPlatformHandle().Handle);
-                            }
+                            desktop.MainWindow.Show();
+                            desktop.MainWindow.WindowState = WindowState.Normal;
+                            ServiceManager.Services.GetService<IWindowTool>()
+                                .SetForegroundWindow(desktop.MainWindow.TryGetPlatformHandle().Handle);
                         }
-                    });
-                    break;
-                }
-                // ... copy cases ...
-                case StartupAction.DownloadPlugin:
-                {
-                    if (jObject["pluginId"] != null)
-                    {
-                         var onlinePluginInfo =
-                            await PluginNetworkService.GetOnlinePluginInfo(int.Parse(jObject["pluginId"].ToString()));
-                        if (onlinePluginInfo == null)
-                        {
-                            toast.Show("来自URL的操作失败",
-                                $"下载安装插件ID:{jObject["pluginVersionInt"]}不存在");
-                            break;
-                        }
-    
-                        PluginManager.DownloadPluginAndEnable(onlinePluginInfo.Id, onlinePluginInfo.NameSign,
-                            int.Parse(jObject["pluginVersionInt"].ToString()));
-                        toast.Show("来自URL的操作",
-                            $"下载安装插件{onlinePluginInfo.Name}ID:{jObject["pluginVersionInt"]}成功");
                     }
-                    break;
-                }
-                case StartupAction.IndexAdd:
-                    if (!string.IsNullOrEmpty(value))
-                    {
-                         searchWindow.AddToIndex(value);
-                         toast.Show("索引操作", $"已添加到索引: {value}");
-                    }
-                    break;
-                case StartupAction.IndexRemove:
-                    if (!string.IsNullOrEmpty(value))
-                    {
-                         searchWindow.RemoveFromIndex(value);
-                         toast.Show("索引操作", $"已从索引移除: {value}");
-                    }
-                    break;
-                case StartupAction.IndexCheck:
-                    if (!string.IsNullOrEmpty(value))
-                    {
-                         var exists = searchWindow.IsIndexed(value);
-                         toast.Show("索引状态", exists ? $"已索引: {value}" : $"未索引: {value}");
-                    }
-                    break;
-                case StartupAction.PinAdd:
-                     if (!string.IsNullOrEmpty(value))
-                    {
-                         searchWindow.SetPinned(value, true);
-                         toast.Show("收藏操作", $"已收藏: {value}");
-                    }
-                    break;
-                case StartupAction.PinRemove:
-                     if (!string.IsNullOrEmpty(value))
-                    {
-                         searchWindow.SetPinned(value, false);
-                         toast.Show("收藏操作", $"已取消收藏: {value}");
-                    }
-                    break;
-                case StartupAction.PinCheck:
-                     if (!string.IsNullOrEmpty(value))
-                    {
-                         var pinned = searchWindow.IsPinned(value);
-                         toast.Show("收藏状态", pinned ? $"已收藏: {value}" : $"未收藏: {value}");
-                    }
-                    break;
-                case StartupAction.PluginCheck:
-                     if (!string.IsNullOrEmpty(value))
-                    {
-                         var info = PluginManager.GetPluginLocalInfoByPlgStr(value);
-                         var installed = info != null;
-                         toast.Show("插件状态", installed ? $"已安装插件: {value}" : $"未安装插件: {value}");
-                    }
-                    break;
-                case StartupAction.PluginAdd:
-                     if (!string.IsNullOrEmpty(value))
-                    {
-                         var onlineInfo = await PluginNetworkService.GetOnlinePluginInfo(value);
-                         if (onlineInfo != null)
-                         {
-                             await PluginManager.DownloadPluginAndEnable(onlineInfo.Id, onlineInfo.NameSign);
-                             toast.Show("插件操作", $"插件安装/启用成功: {value}");
-                         }
-                         else
-                         {
-                             toast.Show("插件操作", $"找不到插件: {value}");
-                         }
-                    }
-                    break;
-                case StartupAction.PluginRemove:
-                     if (!string.IsNullOrEmpty(value))
-                    {
-                         PluginManager.DeletePlugin(value);
-                    }
-                    break;
-                case StartupAction.FileLocksmith:
-                     if (!string.IsNullOrEmpty(value))
-                    {
-                         // Basic implementation: Show toast with locking processes?
-                         // Or ideally open a window. Since we don't have a FileLocksmith Window yet,
-                         // we will list processes in a toast or dialog for now as a proof of concept.
-                         var service = ServiceManager.Services.GetService<IFileLocksmith>();
-                         var windowService = ServiceManager.Services.GetService<IFileLocksmithWindow>();
-                         if (service != null && windowService != null)
-                         {
-                             var lockingProcesses = await service.CheckFileLocksAsync(new[] { value });
-                             if (lockingProcesses.Any())
-                             {
-                                await Dispatcher.UIThread.InvokeAsync(() => windowService.Show(lockingProcesses));
-                             }
-                             else
-                             {
-                                 toast.Show("File Locksmith", $"未发现占用文件: {value}");
-                             }
-                         }
-                    }
-                    break;
+                });
+                break;
             }
+            // ... copy cases ...
+            case StartupAction.DownloadPlugin:
+            {
+                if (jObject["pluginId"] != null)
+                {
+                    var onlinePluginInfo =
+                        await PluginNetworkService.GetOnlinePluginInfo(int.Parse(jObject["pluginId"].ToString()));
+                    if (onlinePluginInfo == null)
+                    {
+                        toast.Show("来自URL的操作失败",
+                            $"下载安装插件ID:{jObject["pluginVersionInt"]}不存在");
+                        break;
+                    }
+    
+                    PluginManager.DownloadPluginAndEnable(onlinePluginInfo.Id, onlinePluginInfo.NameSign,
+                        int.Parse(jObject["pluginVersionInt"].ToString()));
+                    toast.Show("来自URL的操作",
+                        $"下载安装插件{onlinePluginInfo.Name}ID:{jObject["pluginVersionInt"]}成功");
+                }
+                break;
+            }
+            case StartupAction.IndexAdd:
+                if (!string.IsNullOrEmpty(value))
+                {
+                    searchWindow.AddToIndex(value);
+                    toast.Show("索引操作", $"已添加到索引: {value}");
+                }
+                break;
+            case StartupAction.IndexRemove:
+                if (!string.IsNullOrEmpty(value))
+                {
+                    searchWindow.RemoveFromIndex(value);
+                    toast.Show("索引操作", $"已从索引移除: {value}");
+                }
+                break;
+            case StartupAction.IndexCheck:
+                if (!string.IsNullOrEmpty(value))
+                {
+                    var exists = searchWindow.IsIndexed(value);
+                    toast.Show("索引状态", exists ? $"已索引: {value}" : $"未索引: {value}");
+                }
+                break;
+            case StartupAction.PinAdd:
+                if (!string.IsNullOrEmpty(value))
+                {
+                    searchWindow.SetPinned(value, true);
+                    toast.Show("收藏操作", $"已收藏: {value}");
+                }
+                break;
+            case StartupAction.PinRemove:
+                if (!string.IsNullOrEmpty(value))
+                {
+                    searchWindow.SetPinned(value, false);
+                    toast.Show("收藏操作", $"已取消收藏: {value}");
+                }
+                break;
+            case StartupAction.PinCheck:
+                if (!string.IsNullOrEmpty(value))
+                {
+                    var pinned = searchWindow.IsPinned(value);
+                    toast.Show("收藏状态", pinned ? $"已收藏: {value}" : $"未收藏: {value}");
+                }
+                break;
+            case StartupAction.PluginCheck:
+                if (!string.IsNullOrEmpty(value))
+                {
+                    var info = PluginManager.GetPluginLocalInfoByPlgStr(value);
+                    var installed = info != null;
+                    toast.Show("插件状态", installed ? $"已安装插件: {value}" : $"未安装插件: {value}");
+                }
+                break;
+            case StartupAction.PluginAdd:
+                if (!string.IsNullOrEmpty(value))
+                {
+                    var onlineInfo = await PluginNetworkService.GetOnlinePluginInfo(value);
+                    if (onlineInfo != null)
+                    {
+                        await PluginManager.DownloadPluginAndEnable(onlineInfo.Id, onlineInfo.NameSign);
+                        toast.Show("插件操作", $"插件安装/启用成功: {value}");
+                    }
+                    else
+                    {
+                        toast.Show("插件操作", $"找不到插件: {value}");
+                    }
+                }
+                break;
+            case StartupAction.PluginRemove:
+                if (!string.IsNullOrEmpty(value))
+                {
+                    PluginManager.DeletePlugin(value);
+                }
+                break;
+            case StartupAction.LanFileShare:
+            {
+                var filePaths = StartupArgumentManager.UnpackValues(value)
+                    .Where(path => !string.IsNullOrWhiteSpace(path))
+                    .Select(path => path.Trim().Trim('"'))
+                    .Where(File.Exists)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var lanFileShareWindow = ServiceManager.Services.GetService<ILanFileShareWindow>();
+                if (lanFileShareWindow == null)
+                {
+                    toast.Show("局域网分享", "分享窗口不可用。");
+                    break;
+                }
+
+                await Dispatcher.UIThread.InvokeAsync(() => lanFileShareWindow.Show(filePaths));
+
+                if (filePaths.Count == 0)
+                {
+                    toast.Show("局域网分享", "未识别到可发送文件。");
+                }
+            }
+                break;
+            case StartupAction.FileLocksmith:
+                if (!string.IsNullOrEmpty(value))
+                {
+                    // Basic implementation: Show toast with locking processes?
+                    // Or ideally open a window. Since we don't have a FileLocksmith Window yet,
+                    // we will list processes in a toast or dialog for now as a proof of concept.
+                    var service = ServiceManager.Services.GetService<IFileLocksmith>();
+                    var windowService = ServiceManager.Services.GetService<IFileLocksmithWindow>();
+                    if (service != null && windowService != null)
+                    {
+                        var lockingProcesses = await service.CheckFileLocksAsync(new[] { value });
+                        if (lockingProcesses.Any())
+                        {
+                            await Dispatcher.UIThread.InvokeAsync(() => windowService.Show(lockingProcesses));
+                        }
+                        else
+                        {
+                            toast.Show("File Locksmith", $"未发现占用文件: {value}");
+                        }
+                    }
+                }
+                break;
+        }
     }
 
     private static async Task Server_InterceptingPublishAsync(InterceptingPublishEventArgs arg)

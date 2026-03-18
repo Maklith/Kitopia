@@ -93,6 +93,13 @@ public class PluginOverall
                     Icon = exePath,
                     Command = exePath,
                     Arguments = StartupArgumentManager.GenerateCmd(StartupAction.FileLocksmith, "{0}"), // Pass path to FileLocksmith
+                },
+                new ContextMenuItem
+                {
+                    Title = "局域网分享",
+                    Icon = exePath,
+                    Command = exePath,
+                    Arguments = StartupArgumentManager.GenerateCmd(StartupAction.LanFileShare, "{all}"),
                 }
             ]
         });

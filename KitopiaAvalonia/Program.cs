@@ -144,6 +144,10 @@ internal class Program
         {
           return  Dispatcher.UIThread.Invoke((() => new FileLocksmithWindow()));
         });
+        services.AddTransient<ILanFileShareWindow, LanFileShareWindow>(_ =>
+        {
+            return Dispatcher.UIThread.Invoke(() => new LanFileShareWindow());
+        });
         #endif
         
         #if LINUX
