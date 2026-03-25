@@ -11,8 +11,8 @@
 
   <Identity
     Name="Maklith.KitopiaCompanion"
-    Publisher="CN=Maklith"
-    Version="1.0.2.0" />
+    Publisher="CN=6677F66C-E070-44C2-BFE1-A02FA860E5DA"
+    Version="1.1.0.0" />
 
   <Properties>
     <DisplayName>Kitopia Companion</DisplayName>
@@ -35,7 +35,7 @@
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
         DisplayName="Kitopia Companion"
-        Description="Kitopia Companion 是 Kitopia 生产力工具的官方配套应用。它允许用户管理 Windows 11 资源管理器集成，检查核心组件状态，并提供无缝的右键菜单体验。"
+        Description="Kitopia Companion 是 Kitopia 生产力工具的官方配套应用。它允许用户管理 Windows 11 资源管理器集成，检查核心组件状态，并提供无缝的右键菜单体验。https://github.com/Maklith/Kitopia"
         BackgroundColor="transparent"
         Square150x150Logo="Images\Square150x150Logo.png"
         Square44x44Logo="Images\Square44x44Logo.png">

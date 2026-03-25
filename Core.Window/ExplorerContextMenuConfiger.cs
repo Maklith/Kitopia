@@ -6,6 +6,7 @@
 // FileEffect:
 
 using System.Text.Json;
+using Core.Utils;
 using PluginCore;
 
 namespace Core.Window;
@@ -13,18 +14,7 @@ namespace Core.Window;
 public class ExplorerContextMenuConfiger : IExplorerContextMenuConfiger
 {
     private const string ConfigFileName = "KitopiaContextMenu.json";
-    private readonly string _configPath;
-
-    public ExplorerContextMenuConfiger()
-    {
-        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        var configDir = Path.Combine(baseDir, "configs");
-        if (!Directory.Exists(configDir))
-        {
-            Directory.CreateDirectory(configDir);
-        }
-        _configPath = Path.Combine(configDir, ConfigFileName);
-    }
+    private readonly string _configPath = Path.Combine(KitopiaPaths.ConfigsDirectory, ConfigFileName);
 
     private class ContextMenuConfigModel
     {

@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text;
 using ContextMenuDll.Interop;
+using System.Runtime.InteropServices.Marshalling;
 
 namespace ContextMenuDll;
 
@@ -13,10 +14,10 @@ namespace ContextMenuDll;
 [Guid("60DA6757-67FE-B7CE-8195-3EFD30746B23")]
 public partial class KitopiaExplorerCommand : IExplorerCommand, IShellExtInit, IContextMenu
 {
+    private const string AppName = "Kitopia";
     private const string ConfigFileName = "KitopiaContextMenu.json";
     private ContextMenuConfig? _config;
     private readonly string _dllDirectory;
-    private string? _kitopiaPath;
 
     public KitopiaExplorerCommand()
     {
@@ -107,71 +108,9 @@ public partial class KitopiaExplorerCommand : IExplorerCommand, IShellExtInit, I
                 Log($"Failed to access Package LocalState (not packaged?): {ex.Message}");
             }
 
-            // 2. Determine where to look for KitopiaContextMenu.json
-            string configPath = string.Empty;
-
-            if (settings != null && !string.IsNullOrEmpty(settings.ExternalConfigPath) && System.IO.File.Exists(settings.ExternalConfigPath))
-            {
-                configPath = settings.ExternalConfigPath;
-                // Infer Kitopia Path from config path (config is usually in configs/ relative to root)
-                try 
-                {
-                    var configDir = System.IO.Path.GetDirectoryName(configPath);
-                    if (configDir != null)
-                    {
-                        var parent = System.IO.Directory.GetParent(configDir);
-                        if (parent != null) _kitopiaPath = parent.FullName;
-                    }
-                }
-                catch {}
-                 
-                Log($"Using external config path from settings: {configPath}");
-                if (_kitopiaPath != null) Log($"Inferred Kitopia Path: {_kitopiaPath}");
-            }
-            else
-            {
-                // Fallback to local logic
-                // Look in 'configs' folder relative to DLL
-                configPath = System.IO.Path.Combine(_dllDirectory, "configs", ConfigFileName);
-                Log($"Attempting to load config from: {configPath}");
-                
-                // Fallback: look in parent 'configs' (e.g. if DLL is in bin/Debug/netX.X)
-                if (!System.IO.File.Exists(configPath))
-                {
-                    Log("Config not found at primary path. Trying parents...");
-                    var parent = System.IO.Directory.GetParent(_dllDirectory);
-                    if (parent != null)
-                    {
-                        var parentConfig = System.IO.Path.Combine(parent.FullName, "configs", ConfigFileName);
-                        if (System.IO.File.Exists(parentConfig)) 
-                        {
-                            configPath = parentConfig;
-                            _kitopiaPath = parent.FullName; // If found in parent/configs, parent is likely root
-                        }
-                        else
-                        {
-                            // Try up to 3 levels up for development environments
-                            for (int i = 0; i < 3; i++)
-                            {
-                                parent = System.IO.Directory.GetParent(parent.FullName);
-                                if (parent == null) break;
-                                parentConfig = System.IO.Path.Combine(parent.FullName, "configs", ConfigFileName);
-                                if (System.IO.File.Exists(parentConfig))
-                                {
-                                    configPath = parentConfig;
-                                    _kitopiaPath = parent.FullName;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    // If config is in _dllDirectory/configs, maybe root is _dllDirectory
-                    _kitopiaPath = _dllDirectory;
-                }
-            }
+            // 2. Config path is fixed in AppData
+            var configPath = GetAppDataConfigPath();
+            Log($"Attempting to load config from AppData: {configPath}");
 
             // 3. Load Items
             if (System.IO.File.Exists(configPath))
@@ -239,6 +178,20 @@ public partial class KitopiaExplorerCommand : IExplorerCommand, IShellExtInit, I
         }
     }
 
+    private static string GetAppDataConfigPath()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localAppData))
+        {
+            localAppData = AppContext.BaseDirectory;
+        }
+
+        var root = System.IO.Path.Combine(localAppData, AppName);
+        System.IO.Directory.CreateDirectory(root);
+        var configDirectory = System.IO.Path.Combine(root, "configs");
+        System.IO.Directory.CreateDirectory(configDirectory);
+        return System.IO.Path.Combine(configDirectory, ConfigFileName);
+    }
 
     // Implement IExplorerCommand (not Shell32.IExplorerCommand)
     public void GetTitle(IShellItemArray? psiItemArray, out string ppszName)
@@ -298,7 +251,7 @@ public partial class KitopiaExplorerCommand : IExplorerCommand, IShellExtInit, I
         LogStatic("EnumSubCommands called");
         if (_config != null && _config.Items.Count > 0)
         {
-            ppEnum = new ExplorerCommandEnumerator(_config.Items, _kitopiaPath);
+            ppEnum = new ExplorerCommandEnumerator(_config.Items);
         }
         else
         {
@@ -438,13 +391,11 @@ public partial class ClassFactory : IClassFactory
 public partial class ExplorerCommandEnumerator : IEnumExplorerCommand
 {
     private readonly List<ContextMenuItem> _items;
-    private readonly string? _kitopiaPath;
     private int _current = 0;
 
-    public ExplorerCommandEnumerator(List<ContextMenuItem> items, string? kitopiaPath = null)
+    public ExplorerCommandEnumerator(List<ContextMenuItem> items)
     {
         _items = items;
-        _kitopiaPath = kitopiaPath;
     }
 
     public unsafe int Next(uint celt, IntPtr pElements, out uint pceltFetched)
@@ -459,7 +410,7 @@ public partial class ExplorerCommandEnumerator : IEnumExplorerCommand
             IntPtr* ptr = (IntPtr*)pElements;
             
             // Create object
-            var subCmd = new SubExplorerCommand(_items[_current], _kitopiaPath);
+            var subCmd = new SubExplorerCommand(_items[_current]);
             
             // Convert to unmanaged interface pointer using ComInterfaceMarshaller
             // This is the AOT-safe way to get the COM pointer for a [GeneratedComClass] object
@@ -503,7 +454,7 @@ public partial class ExplorerCommandEnumerator : IEnumExplorerCommand
 
     public void Clone(out IEnumExplorerCommand ppEnum)
     {
-        ppEnum = new ExplorerCommandEnumerator(_items, _kitopiaPath);
+        ppEnum = new ExplorerCommandEnumerator(_items);
     }
 }
 
@@ -515,12 +466,10 @@ public partial class ExplorerCommandEnumerator : IEnumExplorerCommand
 public partial class SubExplorerCommand : IExplorerCommand
 {
     private readonly ContextMenuItem _item;
-    private readonly string? _kitopiaPath;
 
-    public SubExplorerCommand(ContextMenuItem item, string? kitopiaPath = null)
+    public SubExplorerCommand(ContextMenuItem item)
     {
         _item = item;
-        _kitopiaPath = kitopiaPath;
     }
 
     private void LogStatic(string message)
@@ -542,7 +491,7 @@ public partial class SubExplorerCommand : IExplorerCommand
     public void GetIcon(IShellItemArray? psiItemArray, out string ppszIcon)
     {
         LogStatic("SubCommand GetIcon called");
-        ppszIcon = CommandHelper.ResolvePath(_item.Icon, _kitopiaPath);
+        ppszIcon = CommandHelper.ResolvePath(_item.Icon);
     }
 
     public void GetToolTip(IShellItemArray? psiItemArray, out string ppszInfotip)
@@ -599,7 +548,7 @@ public partial class SubExplorerCommand : IExplorerCommand
             catch { }
         }
 
-        CommandHelper.ExecuteCommand(_item, paths, _kitopiaPath, LogStatic);
+        CommandHelper.ExecuteCommand(_item, paths, LogStatic);
     }
 
     public void GetFlags(out uint pFlags)
@@ -615,7 +564,7 @@ public partial class SubExplorerCommand : IExplorerCommand
     {
         if (_item.SubItems != null && _item.SubItems.Count > 0)
         {
-            ppEnum = new ExplorerCommandEnumerator(_item.SubItems, _kitopiaPath);
+            ppEnum = new ExplorerCommandEnumerator(_item.SubItems);
         }
         else
         {

@@ -4,18 +4,15 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Avalonia;
-using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Win32;
 using Windows.Storage;
 
 namespace ContextMenu.Avalonia.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
+    private const string AppName = "Kitopia";
     private const string SettingsFileName = "ContextMenuSettings.json";
     private const string ConfigFileName = "KitopiaContextMenu.json";
 
@@ -38,39 +35,19 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            // 0. Check for Saved Manual Path
+            // 0. Resolve install path
             var settings = LoadSettings();
-            string? installPath = null;
-            
-            if (!string.IsNullOrEmpty(settings.ExternalConfigPath))
-            {
-                // Try to infer install path from config path (..\configs\file.json)
-                var configDir = Path.GetDirectoryName(settings.ExternalConfigPath);
-                if (configDir != null)
-                {
-                    var inferredPath = Path.GetDirectoryName(configDir); // Parent of configs
-                    if (inferredPath != null && Directory.Exists(inferredPath))
-                    {
-                        installPath = inferredPath;
-                    }
-                }
-            }
+            KitopiaPath = GetAppRootPath();
 
-            // 1. If no manual path, Find Kitopia Path from Registry
-            if (string.IsNullOrEmpty(installPath))
-            {
-                installPath = FindKitopiaInstallPath();
-            }
-
-            if (string.IsNullOrEmpty(installPath))
+            if (string.IsNullOrWhiteSpace(KitopiaPath))
             {
                 StatusMessage = "未找到 Kitopia 安装位置，请手动设置。";
                 return;
             }
-            KitopiaPath = installPath;
+            // install path search is removed; config path is fixed under AppData
 
             // 2. Locate Config
-            var configPath = Path.Combine(installPath, "configs", ConfigFileName);
+            var configPath = GetConfigPath();
             if (!File.Exists(configPath))
             {
                 StatusMessage = $"未找到配置文件: {configPath}";
@@ -123,100 +100,9 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task BrowsePath()
+    private void BrowsePath()
     {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            var folders = await desktop.MainWindow.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-            {
-                Title = "选择 Kitopia 安装文件夹",
-                AllowMultiple = false
-            });
-
-            if (folders.Count > 0)
-            {
-                var path = folders[0].Path.LocalPath;
-                
-                // Verify it looks like Kitopia (check for executable or configs folder)
-                if (File.Exists(Path.Combine(path, "Kitopia.StoreCompanion.exe")) || 
-                    File.Exists(Path.Combine(path, "KitopiaAvalonia.exe")) ||
-                    Directory.Exists(Path.Combine(path, "configs")))
-                {
-                    KitopiaPath = path;
-                    
-                    // Update settings with new config path
-                    var settings = LoadSettings();
-                    settings.ExternalConfigPath = Path.Combine(KitopiaPath, "configs", ConfigFileName);
-                    SaveSettings(settings);
-                    
-                    // Reload
-                    await LoadDataAsync();
-                }
-                else
-                {
-                    StatusMessage = "选择的文件夹似乎不是有效的 Kitopia 安装目录。";
-                }
-            }
-        }
-    }
-
-    private string? FindKitopiaInstallPath()
-    {
-        try
-        {
-            // Check HKLM and HKCU Uninstall keys
-            string[] roots = { 
-                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", 
-                @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" 
-            };
-            
-            foreach (var root in roots)
-            {
-                using var key = Registry.LocalMachine.OpenSubKey(root);
-                if (key != null) 
-                {
-                    SearchRegistryKey(key, out var path);
-                    if (!string.IsNullOrEmpty(path)) return path;
-                }
-            }
-            
-            // Try HKCU
-             using var cuKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall");
-             if (cuKey != null) 
-             {
-                 SearchRegistryKey(cuKey, out var path);
-                 if (!string.IsNullOrEmpty(path)) return path;
-             }
-
-        }
-        catch { }
-        return null;
-        
-        void SearchRegistryKey(RegistryKey root, out string? foundPath)
-        {
-            foundPath = null;
-            foreach (var subKeyName in root.GetSubKeyNames())
-            {
-                using var subKey = root.OpenSubKey(subKeyName);
-                if (subKey == null) continue;
-                
-                var displayName = subKey.GetValue("DisplayName") as string;
-                if (displayName != null && displayName.Contains("Kitopia") && !displayName.Contains("Packing")) 
-                {
-                    var installLocation = subKey.GetValue("InstallLocation") as string;
-                    if (string.IsNullOrEmpty(installLocation))
-                    {
-                        installLocation = subKey.GetValue("Path") as string; // ModernInstaller uses "Path"
-                    }
-                    
-                    if (!string.IsNullOrEmpty(installLocation) && Directory.Exists(installLocation))
-                    {
-                        foundPath = installLocation;
-                        return;
-                    }
-                }
-            }
-        }
+        StatusMessage = $"配置路径已固定: {GetConfigPath()}";
     }
 
     private ContextMenuSettings LoadSettings()
@@ -242,7 +128,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 settings = new ContextMenuSettings
                 {
-                    ExternalConfigPath = Path.Combine(KitopiaPath, "configs", ConfigFileName)
+                    ExternalConfigPath = GetConfigPath()
                 };
                 foreach (var item in Items)
                 {
@@ -261,6 +147,26 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             StatusMessage = $"保存设置失败: {ex.Message}";
         }
+    }
+
+    private static string GetConfigPath()
+    {
+        var configsDirectory = Path.Combine(GetAppRootPath(), "configs");
+        Directory.CreateDirectory(configsDirectory);
+        return Path.Combine(configsDirectory, ConfigFileName);
+    }
+
+    private static string GetAppRootPath()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localAppData))
+        {
+            localAppData = AppDomain.CurrentDomain.BaseDirectory;
+        }
+
+        var root = Path.Combine(localAppData, AppName);
+        Directory.CreateDirectory(root);
+        return root;
     }
 
     private string GetSettingsPath()

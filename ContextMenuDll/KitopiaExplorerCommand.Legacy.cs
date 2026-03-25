@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿﻿using System.Runtime.InteropServices;
 using System.Text;
 using ContextMenuDll.Interop;
 
@@ -158,7 +158,7 @@ public partial class KitopiaExplorerCommand
                 {
                     var item = _cmdIdMap[id];
                     Log($"InvokeCommand: {item.Title}");
-                    CommandHelper.ExecuteCommand(item, _legacySelectedPaths, _kitopiaPath, Log);
+                    CommandHelper.ExecuteCommand(item, _legacySelectedPaths, Log);
                 }
             }
         }

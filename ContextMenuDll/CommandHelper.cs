@@ -5,23 +5,17 @@ namespace ContextMenuDll;
 
 public static class CommandHelper
 {
-    public static string ResolvePath(string path, string? kitopiaPath)
+    public static string ResolvePath(string path)
     {
         if (string.IsNullOrEmpty(path)) return path;
         
         // If absolute, return as is
         if (Path.IsPathRooted(path)) return path;
         
-        // If we have kitopia path, combine
-        if (!string.IsNullOrEmpty(kitopiaPath))
-        {
-            return Path.Combine(kitopiaPath, path);
-        }
-        
         return path;
     }
 
-    public static void ExecuteCommand(ContextMenuItem item, List<string> paths, string? kitopiaPath, Action<string> logAction)
+    public static void ExecuteCommand(ContextMenuItem item, List<string> paths, Action<string> logAction)
     {
         if (string.IsNullOrEmpty(item.Command)) return;
         
@@ -31,7 +25,7 @@ public static class CommandHelper
             {
                 // Simple replacement logic
                 string args = item.Arguments ?? string.Empty;
-                string command = ResolvePath(item.Command, kitopiaPath);
+                string command = ResolvePath(item.Command);
 
                 // Case 1: Multi-file placeholder {all} or %*
                 if (args.Contains("{all}") || args.Contains("%*"))
@@ -97,7 +91,7 @@ public static class CommandHelper
             else
             {
                 // No files selected (background click?), just run command
-                string command = ResolvePath(item.Command, kitopiaPath);
+                string command = ResolvePath(item.Command);
                 logAction($"Executing (No files): {command} Args: {item.Arguments}");
                 
                 Process.Start(new ProcessStartInfo
