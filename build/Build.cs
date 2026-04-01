@@ -17,6 +17,7 @@ using Serilog;
 using SharpCompress.Archives;
 using SharpCompress.Archives.SevenZip;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
+using FileMode = System.IO.FileMode;
 using Project = Nuke.Common.ProjectModel.Project;
 
 [GitHubActions(
@@ -225,7 +226,7 @@ class Build : NukeBuild
                 var rootDirectory = RootDirectory / "Publish";
                 rootDirectory.DeleteDirectory();
                 DotNetPublish(c => new DotNetPublishSettings()
-                    .SetProject("KitopiaEx")
+                    .SetProject(RootDirectory / "KitopiaEx" / "KitopiaEx.csproj")
                     .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaex")
                     .SetRuntime("win-x64")
                     .SetFramework("net10.0")
@@ -233,7 +234,7 @@ class Build : NukeBuild
                     .SetSelfContained(false)
                 );
                 DotNetPublish(c => new DotNetPublishSettings()
-                    .SetProject("OnnxRuntime.CPU")
+                    .SetProject(RootDirectory / "OnnxRuntime.CPU" / "OnnxRuntime.CPU.csproj")
                     .SetOutput(RootDirectory / "Publish" / "plugins" / "kitopiaonnxruntimecpu")
                     .SetRuntime("win-x64")
                     .SetFramework("net10.0")
@@ -241,7 +242,7 @@ class Build : NukeBuild
                     .SetSelfContained(false)
                 );
                 DotNetPublish(c => new DotNetPublishSettings()
-                    .SetProject(AvaloniaProject.Name)
+                    .SetProject(AvaloniaProject.Path)
                     .SetOutput(RootDirectory / "Publish")
                     .SetRuntime("win-x64")
                     .SetFramework("net10.0-windows10.0.19041.0")
@@ -338,71 +339,31 @@ class Build : NukeBuild
         .OnlyWhenDynamic(() => !IsRelease || release != null)
         .Executes(() =>
         {
-            Directory.CreateDirectory(RootDirectory / "ModernInstaller" / "Assets");
+            Directory.CreateDirectory(RootDirectory / "ModernInstallerR" / "installer_assets");
             var directoryInfo = new DirectoryInfo(RootDirectory / "build" / "InstallerAssets");
             foreach (var enumerateFile in directoryInfo.EnumerateFiles())
             {
-                File.Copy(enumerateFile.FullName, RootDirectory / "ModernInstaller" / "Assets" / enumerateFile.Name,
+                File.Copy(enumerateFile.FullName, RootDirectory / "ModernInstallerR" / "installer_assets" / enumerateFile.Name,
                     true);
             }
-
-            File.Copy(RootDirectory / "Kitopia" + AvaloniaProject.GetProperty("Version") +
-                      "_WithoutContained.zip", RootDirectory / "ModernInstaller" / "Assets" / "App.zip", true);
+            var rootDirectory = RootDirectory / "Publish";
+            var pluginDirectory = rootDirectory / "plugins";
+            
+            var destPluginZip = RootDirectory /  "ModernInstallerR" / "installer_assets" / "plugins.zip";
+            pluginDirectory.ZipTo(destPluginZip, compressionLevel: CompressionLevel.SmallestSize,fileMode: FileMode.Create);
+            pluginDirectory.DeleteDirectory();
+          
+            var destAppZip=RootDirectory / "ModernInstallerR" / "installer_assets" / "App.zip";
+            rootDirectory.ZipTo(destAppZip, compressionLevel: CompressionLevel.SmallestSize,fileMode: FileMode.Create);
+            
+            
         });
-
-    Target PrepareNative => _ => _
+    Target BuildNativeInstaller => _ => _
         .DependsOn(PreparePackInstallerGithub)
         .OnlyWhenDynamic(() => !IsRelease || release != null)
         .Executes(() =>
         {
-            if (!File.Exists(RootDirectory / "ModernInstaller" / "Natives" / "Windows-x86" / "libHarfBuzzSharp.lib"))
-            {
-                using var sevenZipArchive = SevenZipArchive.Open(RootDirectory / "ModernInstaller" / "Natives" /
-                                                                 "Windows-x86" / "Windows-x86.7z");
-                sevenZipArchive.ExtractToDirectory(RootDirectory / "ModernInstaller" / "Natives" / "Windows-x86");
-            }
-        });
-
-    Target BuildNativeUninstaller => _ => _
-        .DependsOn(PrepareNative)
-        .OnlyWhenDynamic(() => !IsRelease || release != null)
-        .Executes(() =>
-        {
-            DotNetPublish(c => new DotNetPublishSettings()
-                .SetProject($"ModernInstaller{Path.DirectorySeparatorChar}ModernInstaller.Uninstaller")
-                .SetOutput(RootDirectory / "ModernInstaller" / "Publish")
-                .SetFramework("net10.0-windows")
-                .SetRuntime("win-x86")
-                .SetConfiguration("Release")
-                .SetSelfContained(true)
-            );
-        });
-
-    Target PrepareBuildNativeInstaller => _ => _
-        .DependsOn(BuildNativeUninstaller)
-        .OnlyWhenDynamic(() => !IsRelease || release != null)
-        .Executes(() =>
-        {
-            File.Copy(RootDirectory / "ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe",
-                RootDirectory / "Assets" / "ModernInstaller.Uninstaller.exe", true);
-            PowerShellTasks.PowerShell(
-                $"ModernInstaller{Path.DirectorySeparatorChar}build{Path.DirectorySeparatorChar}upx.exe --force --lzma {RootDirectory /"ModernInstaller" / "Publish" / "ModernInstaller.Uninstaller.exe"} ");
-        });
-
-    Target BuildNativeInstaller => _ => _
-        .DependsOn(PrepareBuildNativeInstaller)
-        .OnlyWhenDynamic(() => !IsRelease || release != null)
-        .Executes(() =>
-        {
-            DotNetPublish(c => new DotNetPublishSettings()
-                .SetProject($"ModernInstaller{Path.DirectorySeparatorChar}ModernInstaller")
-                .SetOutput(RootDirectory / "ModernInstaller" / "Publish")
-                .SetFramework("net10.0-windows")
-                .SetRuntime("win-x86")
-                .SetConfiguration("Release")
-                .SetSelfContained(true)
-                .SetPublishSingleFile(true)
-            );
+            PowerShellTasks.PowerShell("scripts/build_release.ps1", workingDirectory:  RootDirectory / "ModernInstallerR");
         });
 
     Target PackInstaller => _ => _
@@ -412,9 +373,8 @@ class Build : NukeBuild
         .OnlyWhenDynamic(() => !IsRelease || release != null)
         .Executes((() =>
         {
-            var moderninstallerExe = RootDirectory / "ModernInstaller" / "Publish" / "ModernInstaller.exe";
-            PowerShellTasks.PowerShell(
-                $"ModernInstaller{Path.DirectorySeparatorChar}build{Path.DirectorySeparatorChar}upx.exe --force --lzma {moderninstallerExe} ");
+            var moderninstallerExe = RootDirectory / "ModernInstallerR" / "dist"/
+                                     "x86_64-pc-windows-msvc"  / "ModernInstaller.exe";
             
             Log.Debug("Installer created: {0}", moderninstallerExe);
 

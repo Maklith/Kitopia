@@ -7,6 +7,6 @@
 [submodule "PinyinM.NET"]
 	path = PinyinM.NET
 	url = https://github.com/Maklith/Pinyin.NET
-[submodule "ModernInstaller"]
-	path = ModernInstaller
-	url = https://github.com/Maklith/ModernInstaller
+[submodule "ModernInstallerR"]
+	path = ModernInstallerR
+	url = https://github.com/Maklith/ModernInstallerR/

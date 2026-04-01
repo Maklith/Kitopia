@@ -4,5 +4,29 @@
   "DisplayVersion": "0.1.3.1",
   "Publisher": "MakesYT",
   "CanExecutePath": "KitopiaAvalonia.exe",
-  "Is64": true
+  "Is64": true,
+  "InstallDependencies": [
+    {
+      "Name": ".NET 10 Windows Desktop Runtime (x64)",
+      "Url": "https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe",
+      "FileName": "windowsdesktop-runtime-win-x64.exe",
+      "RuntimeName": "Microsoft.WindowsDesktop.App",
+      "RuntimeVersionPrefix": "10.",
+      "InstallArgs": [
+        "/install",
+        "/quiet",
+        "/norestart"
+      ]
+    }
+  ],
+  "InstallPackages": [
+    {
+      "Package": "App.zip",
+      "Target": "{InstallDir}"
+    },
+    {
+      "Package": "plugins.zip",
+      "Target": "{localUserData}\\Kitopia\\plugins"
+    }
+  ]
 }
