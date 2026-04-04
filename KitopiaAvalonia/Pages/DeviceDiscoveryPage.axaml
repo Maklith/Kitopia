@@ -1,65 +1,106 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:Core.ViewModel.Pages.device;assembly=Core"
              xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
+             xmlns:converter="clr-namespace:KitopiaAvalonia.Converter"
              mc:Ignorable="d"
              d:DesignWidth="800"
              d:DesignHeight="450"
              x:Class="KitopiaAvalonia.Pages.DeviceDiscoveryPage"
              x:DataType="vm:DeviceDiscoveryPageViewModel">
-    <Grid RowDefinitions="Auto,*">
-        <StackPanel Orientation="Horizontal" Margin="10" Spacing="10">
-            <TextBlock Text="设备发现" VerticalAlignment="Center" FontSize="20" FontWeight="Bold" />
-            <Button Command="{Binding StartDiscoveryCommand}" IsVisible="{Binding !IsDiscovering}">开始发现</Button>
-            <Button Command="{Binding StopDiscoveryCommand}" IsVisible="{Binding IsDiscovering}">停止发现</Button>
-            <TextBlock Text="正在扫描..."
-                       IsVisible="{Binding IsDiscovering}"
-                       VerticalAlignment="Center"
-                       Foreground="Gray" />
-            <TextBox Watermark="输入要发送的消息"
-                     Text="{Binding MessageToSend}"
-                     Width="220"
-                     VerticalAlignment="Center"
-                     Margin="20,0,0,0" />
-        </StackPanel>
+    <UserControl.Resources>
+        <converter:DeviceClipboardSyncStateConverter x:Key="DeviceClipboardSyncStateConverter" />
+    </UserControl.Resources>
 
-        <ListBox Grid.Row="1" ItemsSource="{Binding DiscoveredDevices}" Margin="10">
-            <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="pluginCore:DeviceModel">
-                    <StackPanel Orientation="Vertical" Spacing="5">
-                        <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" />
-                        <TextBlock Text="{Binding ComputerName, StringFormat='计算机名: {0}'}" Foreground="Gray" />
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <TextBlock Text="{Binding Address}" Foreground="Gray" />
-                            <TextBlock Text="{Binding Port, StringFormat='端口: {0}'}" Foreground="Gray" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding Id, StringFormat='ID: {0}'}" FontSize="10" Foreground="LightGray" />
+    <Grid RowDefinitions="Auto,*" RowSpacing="8" Margin="10">
+        <Border Padding="10"
+                CornerRadius="10"
+                Background="#F8FAFC"
+                BorderBrush="#D9E2EC"
+                BorderThickness="1">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <TextBlock Text="设备发现" VerticalAlignment="Center" FontSize="20" FontWeight="Bold" />
+                <Button Command="{Binding StartDiscoveryCommand}" IsVisible="{Binding !IsDiscovering}">开始发现</Button>
+                <Button Command="{Binding StopDiscoveryCommand}" IsVisible="{Binding IsDiscovering}">停止发现</Button>
+                <TextBlock Text="正在扫描..."
+                           IsVisible="{Binding IsDiscovering}"
+                           VerticalAlignment="Center"
+                           Foreground="Gray" />
+                <TextBlock Text="{Binding ClipboardSyncStatus}"
+                           VerticalAlignment="Center"
+                           Foreground="Gray"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </Border>
 
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBox Width="220"
-                                     Watermark="给该设备设置备注名"
-                                     Text="{Binding CustomName}" />
-                            <Button Content="保存备注"
-                                    Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).SaveCustomNameCommand}"
-                                    CommandParameter="{Binding .}" />
-                            <Button Content="清除"
-                                    Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).ClearCustomNameCommand}"
-                                    CommandParameter="{Binding .}" />
-                        </StackPanel>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding DiscoveredDevices}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="pluginCore:DeviceModel">
+                        <Border Margin="0,0,10,10"
+                                Padding="12"
+                                CornerRadius="12"
+                                Background="White"
+                                BorderBrush="#D9E2EC"
+                                BorderThickness="1"
+                                HorizontalAlignment="Left"
+                                MinWidth="360"
+                                MaxWidth="420">
+                            <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <StackPanel Orientation="Vertical" Spacing="2">
+                                        <TextBlock Text="{Binding DisplayName}" FontSize="16" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding ComputerName, StringFormat='计算机名: {0}'}"
+                                                   Foreground="#6B7280"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
 
-                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
-                            <Button Content="发送消息"
-                                    Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).SendMessageCommand}"
-                                    CommandParameter="{Binding .}" />
-                            <Button Content="发送文件"
-                                    Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).SendFileCommand}"
-                                    CommandParameter="{Binding .}" />
-                        </StackPanel>
-                    </StackPanel>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+                                    <ToggleSwitch Grid.Column="1"
+                                                  HorizontalAlignment="Right"
+                                                  VerticalAlignment="Top"
+                                                  OnContent="同步剪贴板"
+                                                  OffContent="同步剪贴板"
+                                                  Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).ToggleClipboardSyncForDeviceCommand}"
+                                                  CommandParameter="{Binding .}">
+                                        <ToggleSwitch.IsChecked>
+                                            <MultiBinding Converter="{StaticResource DeviceClipboardSyncStateConverter}">
+                                                <Binding />
+                                                <Binding Path="$parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).ClipboardSyncTargetDevice" />
+                                                <Binding Path="$parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).IsClipboardSyncEnabled" />
+                                            </MultiBinding>
+                                        </ToggleSwitch.IsChecked>
+                                    </ToggleSwitch>
+                                </Grid>
+
+                                <StackPanel Grid.Row="1" Orientation="Vertical" Spacing="4">
+                                    <TextBlock Text="{Binding Address}" Foreground="#6B7280" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Port, StringFormat='端口: {0}'}" Foreground="#6B7280" />
+                                </StackPanel>
+
+                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                                    <TextBox Watermark="给该设备设置备注名"
+                                             Text="{Binding CustomName}" />
+                                    <Button Grid.Column="1"
+                                            Content="保存备注"
+                                            Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).SaveCustomNameCommand}"
+                                            CommandParameter="{Binding .}" />
+                                    <Button Grid.Column="2"
+                                            Content="清除"
+                                            Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).ClearCustomNameCommand}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
     </Grid>
 </UserControl>

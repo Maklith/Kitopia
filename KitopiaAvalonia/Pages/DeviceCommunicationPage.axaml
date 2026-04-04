@@ -8,15 +8,6 @@
              d:DesignWidth="1200"
              d:DesignHeight="800"
              x:Class="KitopiaAvalonia.Pages.DeviceCommunicationPage"
-             x:DataType="vm:DeviceCommunicationPageViewModel">
-    <Grid Margin="10">
-        <TabControl SelectedIndex="{Binding SelectedTabIndex}">
-            <TabItem Header="设备互联">
-                <pages:DeviceDiscoveryPage DataContext="{Binding Discovery}" />
-            </TabItem>
-            <TabItem Header="设备聊天">
-                <pages:DeviceChatPage DataContext="{Binding Chat}" />
-            </TabItem>
-        </TabControl>
-    </Grid>
+             x:DataType="vm:DeviceDiscoveryPageViewModel">
+    <pages:DeviceDiscoveryPage />
 </UserControl>

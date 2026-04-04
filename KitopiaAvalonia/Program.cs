@@ -192,16 +192,10 @@ internal class Program
             (e, _) => new OnnxModelManagerPage { DataContext = e.GetService<OnnxModelManagerPageViewModel>() });
         services.AddTransient<DeviceDiscoveryPageViewModel>();
         services.AddTransient<DeviceChatPageViewModel>();
-        services.AddTransient<DeviceCommunicationPageViewModel>();
         services.AddKeyedTransient<UserControl, DeviceCommunicationPage>("DeviceDiscoveryPage",
-            (e, _) => new DeviceCommunicationPage { DataContext = e.GetService<DeviceCommunicationPageViewModel>() });
-        services.AddKeyedTransient<UserControl, DeviceCommunicationPage>("DeviceChatPage",
-            (e, _) =>
-            {
-                var vm = e.GetService<DeviceCommunicationPageViewModel>()!;
-                vm.SelectedTabIndex = 1;
-                return new DeviceCommunicationPage { DataContext = vm };
-            });
+            (e, _) => new DeviceCommunicationPage { DataContext = e.GetService<DeviceDiscoveryPageViewModel>() });
+        services.AddKeyedTransient<UserControl, DeviceChatPage>("DeviceChatPage",
+            (e, _) => new DeviceChatPage { DataContext = e.GetService<DeviceChatPageViewModel>() });
 
         services.AddSingleton<SettingPage>(e => new SettingPage());
         services.AddSingleton<GitHubUpdateService>();

@@ -125,6 +125,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             }
         }
     }
+    public event EventHandler<DeviceClipboardReceivedEventArgs>? ClipboardTextReceived;
     public event EventHandler<FileTransferRequestEventArgs>? FileTransferRequested;
     public event EventHandler<TransferInterruptionEventArgs>? TransferInterrupted;
 
@@ -280,6 +281,38 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[Message] Handler error: {ex}");
+            }
+        }
+    }
+
+    private void PublishClipboardReceived(DeviceModel sender, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        var handlers = ClipboardTextReceived;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        var args = new DeviceClipboardReceivedEventArgs(sender, text);
+        foreach (var handler in handlers.GetInvocationList())
+        {
+            if (handler is not EventHandler<DeviceClipboardReceivedEventArgs> typedHandler)
+            {
+                continue;
+            }
+
+            try
+            {
+                typedHandler(this, args);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Clipboard] Handler error: {ex}");
             }
         }
     }
@@ -611,6 +644,26 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             });
             throw;
         }
+    }
+
+    public async Task SendClipboardTextAsync(DeviceModel target, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        var meta = new PacketMetadata
+        {
+            Type = "ClipboardText",
+            Content = text,
+            SenderPort = GetAdvertisedPort(),
+            SenderId = _myId.ToString(),
+            SenderName = GetLocalDisplayName()
+        };
+
+        var json = JsonSerializer.Serialize(meta);
+        await SendStreamAsync(target, Stream.Null, json);
     }
 
     public async Task RequestFileTransferAsync(DeviceModel target)
@@ -1073,6 +1126,11 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     content: packet.Content,
                     status: "received");
                 PublishMessageReceived(sender, packet.Content);
+                break;
+
+            case "ClipboardText":
+                await DrainRemainingDataAsync(dataStream);
+                PublishClipboardReceived(sender, packet.Content);
                 break;
 
             case "FileReq":
