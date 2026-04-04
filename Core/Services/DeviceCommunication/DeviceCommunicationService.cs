@@ -676,17 +676,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
     private async Task SendClipboardSyncResponseAsync(DeviceModel target, string requestId, bool accepted)
     {
-        var responseMeta = new PacketMetadata
-        {
-            Type = "ClipboardSyncResp",
-            RequestId = requestId,
-            Accepted = accepted,
-            SenderPort = GetAdvertisedPort(),
-            SenderId = _myId.ToString(),
-            SenderName = GetLocalDisplayName()
-        };
-
-        await SendStreamAsync(target, Stream.Null, JsonSerializer.Serialize(responseMeta));
+        await SendBooleanResponseAsync(target, "ClipboardSyncResp", requestId, accepted);
     }
 
     private async Task<bool> PromptIncomingClipboardSyncRequestAsync(DeviceModel sender)
@@ -1009,6 +999,143 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         return normalized[..maxLen] + "...";
     }
 
+    private PacketMetadata CreatePacketMetadata(
+        string type,
+        string content = "",
+        string requestId = "",
+        string fileName = "",
+        long size = 0,
+        bool accepted = false)
+    {
+        return new PacketMetadata
+        {
+            Type = type,
+            Content = content,
+            RequestId = requestId,
+            FileName = fileName,
+            Size = size,
+            Accepted = accepted,
+            SenderPort = GetAdvertisedPort(),
+            SenderId = _myId.ToString(),
+            SenderName = GetLocalDisplayName()
+        };
+    }
+
+    private Task SendPacketMetadataAsync(DeviceModel target, PacketMetadata metadata)
+    {
+        return SendStreamAsync(target, Stream.Null, JsonSerializer.Serialize(metadata));
+    }
+
+    private async Task<RequestDecision> SendBooleanRequestAsync(
+        DeviceModel target,
+        PacketMetadata requestMeta,
+        ConcurrentDictionary<string, TaskCompletionSource<bool>> pendingRequests,
+        TimeSpan timeout,
+        string duplicateRequestError,
+        Func<Task>? onRequestSent = null)
+    {
+        if (string.IsNullOrWhiteSpace(requestMeta.RequestId))
+        {
+            throw new InvalidOperationException("RequestId is required.");
+        }
+
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!pendingRequests.TryAdd(requestMeta.RequestId, tcs))
+        {
+            throw new InvalidOperationException(duplicateRequestError);
+        }
+
+        try
+        {
+            await SendPacketMetadataAsync(target, requestMeta);
+            if (onRequestSent is not null)
+            {
+                await onRequestSent();
+            }
+
+            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(timeout));
+            if (completedTask != tcs.Task)
+            {
+                return RequestDecision.TimedOut;
+            }
+
+            return tcs.Task.Result ? RequestDecision.Accepted : RequestDecision.Rejected;
+        }
+        finally
+        {
+            pendingRequests.TryRemove(requestMeta.RequestId, out _);
+        }
+    }
+
+    private static void ResolvePendingBooleanRequest(
+        ConcurrentDictionary<string, TaskCompletionSource<bool>> pendingRequests,
+        string requestId,
+        bool accepted)
+    {
+        if (string.IsNullOrWhiteSpace(requestId))
+        {
+            return;
+        }
+
+        if (pendingRequests.TryGetValue(requestId, out var request))
+        {
+            request.TrySetResult(accepted);
+        }
+    }
+
+    private Task SendBooleanResponseAsync(DeviceModel target, string responseType, string requestId, bool accepted)
+    {
+        var responseMeta = CreatePacketMetadata(
+            type: responseType,
+            requestId: requestId,
+            accepted: accepted);
+        return SendPacketMetadataAsync(target, responseMeta);
+    }
+
+    private Action<long>? CreateTransferProgressHandler(
+        string requestId,
+        bool isSending,
+        string fileName,
+        long totalBytes,
+        string remoteName)
+    {
+        if (totalBytes <= 0)
+        {
+            return null;
+        }
+
+        long transferredBytes = 0;
+        int lastPercent = -1;
+        var lastUpdate = DateTime.MinValue;
+        var progressLock = new object();
+
+        return bytes =>
+        {
+            var copied = Interlocked.Add(ref transferredBytes, bytes);
+            var percent = (int)Math.Min(100, copied * 100d / totalBytes);
+            var now = DateTime.UtcNow;
+
+            lock (progressLock)
+            {
+                if (percent == lastPercent && now - lastUpdate < TransferToastUpdateInterval)
+                {
+                    return;
+                }
+
+                lastPercent = percent;
+                lastUpdate = now;
+            }
+
+            UpdateTransferToastProgress(
+                requestId,
+                isSending,
+                fileName,
+                copied,
+                totalBytes,
+                remoteName);
+        };
+    }
+
     private int GetAdvertisedPort()
     {
         return _advertisedPort > 0 ? _advertisedPort : _quicPort;
@@ -1065,17 +1192,8 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         var targetName = GetDeviceDisplayName(target);
         try
         {
-            var meta = new PacketMetadata
-            {
-                Type = "Message",
-                Content = message,
-                SenderPort = GetAdvertisedPort(),
-                SenderId = _myId.ToString(),
-                SenderName = GetLocalDisplayName()
-            };
-
-            var json = JsonSerializer.Serialize(meta);
-            await SendStreamAsync(target, Stream.Null, json);
+            var meta = CreatePacketMetadata(type: "Message", content: message);
+            await SendPacketMetadataAsync(target, meta);
             await SaveChatRecordAsync(
                 target,
                 DeviceChatDirection.Outgoing,
@@ -1116,17 +1234,8 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             return;
         }
 
-        var meta = new PacketMetadata
-        {
-            Type = "ClipboardText",
-            Content = text,
-            SenderPort = GetAdvertisedPort(),
-            SenderId = _myId.ToString(),
-            SenderName = GetLocalDisplayName()
-        };
-
-        var json = JsonSerializer.Serialize(meta);
-        await SendStreamAsync(target, Stream.Null, json);
+        var meta = CreatePacketMetadata(type: "ClipboardText", content: text);
+        await SendPacketMetadataAsync(target, meta);
         Logger.Information(
             "[ClipboardSync] Sent to {Target} ({TargetId}): {ClipboardPreview}",
             GetDeviceDisplayName(target),
@@ -1136,38 +1245,16 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
     public async Task<bool> RequestClipboardSyncAsync(DeviceModel target)
     {
-        var requestId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        if (!_pendingClipboardSyncRequests.TryAdd(requestId, tcs))
-        {
-            throw new InvalidOperationException("Failed to track clipboard sync request.");
-        }
-
-        var requestMeta = new PacketMetadata
-        {
-            Type = "ClipboardSyncReq",
-            RequestId = requestId,
-            SenderPort = GetAdvertisedPort(),
-            SenderId = _myId.ToString(),
-            SenderName = GetLocalDisplayName()
-        };
-
-        try
-        {
-            await SendStreamAsync(target, Stream.Null, JsonSerializer.Serialize(requestMeta));
-
-            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(ClipboardSyncRequestTimeout));
-            if (completedTask != tcs.Task)
-            {
-                return false;
-            }
-
-            return tcs.Task.Result;
-        }
-        finally
-        {
-            _pendingClipboardSyncRequests.TryRemove(requestId, out _);
-        }
+        var requestMeta = CreatePacketMetadata(
+            type: "ClipboardSyncReq",
+            requestId: Guid.NewGuid().ToString("N"));
+        var decision = await SendBooleanRequestAsync(
+            target,
+            requestMeta,
+            _pendingClipboardSyncRequests,
+            ClipboardSyncRequestTimeout,
+            "Failed to track clipboard sync request.");
+        return decision == RequestDecision.Accepted;
     }
 
     public async Task<bool> EnableClipboardSyncAsync(DeviceModel target)
@@ -1220,116 +1307,58 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         
         var fileInfo = new FileInfo(filePath);
         var requestId = Guid.NewGuid().ToString();
-        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        if (!_pendingFileRequests.TryAdd(requestId, tcs))
-            throw new InvalidOperationException("Failed to track request");
-
-        var meta = new PacketMetadata
-        {
-            Type = "FileReq",
-            RequestId = requestId,
-            FileName = fileInfo.Name,
-            Size = fileInfo.Length,
-            SenderPort = GetAdvertisedPort(),
-            SenderId = _myId.ToString(),
-            SenderName = GetLocalDisplayName()
-        };
+        var requestMeta = CreatePacketMetadata(
+            type: "FileReq",
+            requestId: requestId,
+            fileName: fileInfo.Name,
+            size: fileInfo.Length);
         
         try
         {
-            var json = JsonSerializer.Serialize(meta);
-            await SendStreamAsync(target, Stream.Null, json);
-            await SaveChatRecordAsync(
+            var decision = await SendBooleanRequestAsync(
                 target,
-                DeviceChatDirection.Outgoing,
-                DeviceChatEntryType.FileRequest,
-                content: "Outgoing file transfer request.",
-                fileName: fileInfo.Name,
-                filePath: fileInfo.FullName,
-                fileSize: fileInfo.Length,
-                requestId: requestId,
-                status: "requested");
-
-            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromMinutes(1)));
-            
-            if (completedTask == tcs.Task && tcs.Task.Result)
-            {
-                await SaveChatRecordAsync(
-                    target,
-                    DeviceChatDirection.System,
-                    DeviceChatEntryType.TransferStatus,
-                    content: "Peer accepted file transfer request.",
-                    fileName: fileInfo.Name,
-                    filePath: fileInfo.FullName,
-                    fileSize: fileInfo.Length,
-                    requestId: requestId,
-                    status: "accepted");
-
-                using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var fileMeta = new PacketMetadata
-                {
-                    Type = "FileTransfer",
-                    RequestId = requestId,
-                    FileName = fileInfo.Name,
-                    Size = fileInfo.Length,
-                    SenderPort = GetAdvertisedPort(),
-                    SenderId = _myId.ToString(),
-                    SenderName = GetLocalDisplayName()
-                };
-                var targetName = GetDeviceDisplayName(target);
-                StartTransferToast(requestId, true, fileInfo.Name, fileInfo.Length, targetName);
-
-                long transferredBytes = 0;
-                int lastPercent = -1;
-                var lastUpdate = DateTime.MinValue;
-                var progressLock = new object();
-                Action<long>? onProgress = fileInfo.Length > 0
-                    ? bytes =>
-                    {
-                        var copied = Interlocked.Add(ref transferredBytes, bytes);
-                        var percent = (int)Math.Min(100, copied * 100d / fileInfo.Length);
-                        var now = DateTime.UtcNow;
-
-                        lock (progressLock)
-                        {
-                            if (percent == lastPercent && now - lastUpdate < TransferToastUpdateInterval)
-                            {
-                                return;
-                            }
-
-                            lastPercent = percent;
-                            lastUpdate = now;
-                        }
-
-                        UpdateTransferToastProgress(
-                            requestId,
-                            true,
-                            fileInfo.Name,
-                            copied,
-                            fileInfo.Length,
-                            targetName);
-                    }
-                    : null;
-
-                await SendStreamInternalAsync(target, fs, JsonSerializer.Serialize(fileMeta), onProgress);
-                CompleteTransferToast(requestId, true, fileInfo.Name, fileInfo.Length, targetName);
-                await SaveChatRecordAsync(
+                requestMeta,
+                _pendingFileRequests,
+                TimeSpan.FromMinutes(1),
+                "Failed to track request",
+                onRequestSent: () => SaveChatRecordAsync(
                     target,
                     DeviceChatDirection.Outgoing,
-                    DeviceChatEntryType.File,
-                    content: "File transfer completed.",
+                    DeviceChatEntryType.FileRequest,
+                    content: "Outgoing file transfer request.",
                     fileName: fileInfo.Name,
                     filePath: fileInfo.FullName,
                     fileSize: fileInfo.Length,
                     requestId: requestId,
-                    status: "completed");
-            }
-            else
+                    status: "requested"));
+            
+            switch (decision)
             {
-                _pendingFileRequests.TryRemove(requestId, out _);
-                if (completedTask != tcs.Task)
-                {
+                case RequestDecision.Accepted:
+                    await SaveChatRecordAsync(
+                        target,
+                        DeviceChatDirection.System,
+                        DeviceChatEntryType.TransferStatus,
+                        content: "Peer accepted file transfer request.",
+                        fileName: fileInfo.Name,
+                        filePath: fileInfo.FullName,
+                        fileSize: fileInfo.Length,
+                        requestId: requestId,
+                        status: "accepted");
+                    await SendFileTransferPayloadAsync(target, filePath, fileInfo, requestId);
+                    await SaveChatRecordAsync(
+                        target,
+                        DeviceChatDirection.Outgoing,
+                        DeviceChatEntryType.File,
+                        content: "File transfer completed.",
+                        fileName: fileInfo.Name,
+                        filePath: fileInfo.FullName,
+                        fileSize: fileInfo.Length,
+                        requestId: requestId,
+                        status: "completed");
+                    return;
+
+                case RequestDecision.TimedOut:
                     await SaveChatRecordAsync(
                         target,
                         DeviceChatDirection.System,
@@ -1341,18 +1370,19 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                         requestId: requestId,
                         status: "timeout");
                     throw new TimeoutException("User did not respond in time.");
-                }
 
-                await SaveChatRecordAsync(
-                    target,
-                    DeviceChatDirection.System,
-                    DeviceChatEntryType.TransferStatus,
-                    content: "Peer rejected file transfer request.",
-                    fileName: fileInfo.Name,
-                    filePath: fileInfo.FullName,
-                    fileSize: fileInfo.Length,
-                    requestId: requestId,
-                    status: "rejected");
+                default:
+                    await SaveChatRecordAsync(
+                        target,
+                        DeviceChatDirection.System,
+                        DeviceChatEntryType.TransferStatus,
+                        content: "Peer rejected file transfer request.",
+                        fileName: fileInfo.Name,
+                        filePath: fileInfo.FullName,
+                        fileSize: fileInfo.Length,
+                        requestId: requestId,
+                        status: "rejected");
+                    return;
             }
         }
         catch (Exception ex)
@@ -1370,10 +1400,28 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 status: "failed");
             throw;
         }
-        finally
-        {
-            _pendingFileRequests.TryRemove(requestId, out _);
-        }
+    }
+
+    private async Task SendFileTransferPayloadAsync(DeviceModel target, string filePath, FileInfo fileInfo, string requestId)
+    {
+        using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var fileMeta = CreatePacketMetadata(
+            type: "FileTransfer",
+            requestId: requestId,
+            fileName: fileInfo.Name,
+            size: fileInfo.Length);
+        var targetName = GetDeviceDisplayName(target);
+        StartTransferToast(requestId, true, fileInfo.Name, fileInfo.Length, targetName);
+
+        var onProgress = CreateTransferProgressHandler(
+            requestId,
+            isSending: true,
+            fileName: fileInfo.Name,
+            totalBytes: fileInfo.Length,
+            remoteName: targetName);
+
+        await SendStreamInternalAsync(target, fs, JsonSerializer.Serialize(fileMeta), onProgress);
+        CompleteTransferToast(requestId, true, fileInfo.Name, fileInfo.Length, targetName);
     }
 
     public async Task RespondToFileRequestAsync(DeviceModel target, string requestId, bool accepted, string? savePath = null)
@@ -1383,17 +1431,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             _pendingDownloads[requestId] = savePath;
         }
 
-        var meta = new PacketMetadata
-        {
-            Type = "FileResp",
-            RequestId = requestId,
-            Accepted = accepted,
-            SenderPort = GetAdvertisedPort(),
-            SenderId = _myId.ToString(),
-            SenderName = GetLocalDisplayName()
-        };
-        var json = JsonSerializer.Serialize(meta);
-        await SendStreamAsync(target, Stream.Null, json);
+        await SendBooleanResponseAsync(target, "FileResp", requestId, accepted);
     }
 
     public async Task SendStreamAsync(DeviceModel target, Stream stream, string? metaData = null)
@@ -1678,10 +1716,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
             case "ClipboardSyncResp":
                 await DrainRemainingDataAsync(dataStream);
-                if (_pendingClipboardSyncRequests.TryGetValue(packet.RequestId, out var clipboardRequest))
-                {
-                    clipboardRequest.TrySetResult(packet.Accepted);
-                }
+                ResolvePendingBooleanRequest(_pendingClipboardSyncRequests, packet.RequestId, packet.Accepted);
 
                 if (packet.Accepted)
                 {
@@ -1697,10 +1732,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
             case "FileResp":
                 await DrainRemainingDataAsync(dataStream);
-                if (_pendingFileRequests.TryGetValue(packet.RequestId, out var tcs))
-                {
-                    tcs.TrySetResult(packet.Accepted);
-                }
+                ResolvePendingBooleanRequest(_pendingFileRequests, packet.RequestId, packet.Accepted);
 
                 await SaveChatRecordAsync(
                     sender,
@@ -1716,177 +1748,192 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             case "FileTransfer":
                 if (_pendingDownloads.TryRemove(packet.RequestId, out var savePath))
                 {
-                    bool success = false;
-                    var senderName = GetDeviceDisplayName(sender);
-                    StartTransferToast(packet.RequestId, false, packet.FileName, packet.Size, senderName);
-
-                    long transferredBytes = 0;
-                    int lastPercent = -1;
-                    var lastUpdate = DateTime.MinValue;
-                    var progressLock = new object();
-                    Action<long>? onProgress = packet.Size > 0
-                        ? bytes =>
-                        {
-                            var copied = Interlocked.Add(ref transferredBytes, bytes);
-                            var percent = (int)Math.Min(100, copied * 100d / packet.Size);
-                            var now = DateTime.UtcNow;
-
-                            lock (progressLock)
-                            {
-                                if (percent == lastPercent && now - lastUpdate < TransferToastUpdateInterval)
-                                {
-                                    return;
-                                }
-
-                                lastPercent = percent;
-                                lastUpdate = now;
-                            }
-
-                            UpdateTransferToastProgress(
-                                packet.RequestId,
-                                false,
-                                packet.FileName,
-                                copied,
-                                packet.Size,
-                                senderName);
-                        }
-                        : null;
-
-                    try
-                    {
-                        // Stream directly to file
-                        await using var fs = new FileStream(savePath, FileMode.Create, FileAccess.Write);
-                        await CopyStreamWithTimeoutAsync(dataStream, fs, TimeSpan.FromSeconds(10), onProgress: onProgress);
-
-                        if (packet.Size > 0 && fs.Length != packet.Size)
-                        {
-                            throw new IOException($"File size mismatch. Expected {packet.Size}, got {fs.Length}");
-                        }
-                        success = true;
-                        CompleteTransferToast(packet.RequestId, false, packet.FileName, packet.Size, senderName);
-                    }
-                    catch (Exception ex)
-                    {
-                         System.Diagnostics.Debug.WriteLine($"[Dispatch] File save error: {ex}");
-                         NotifyTransferInterrupted(packet.RequestId, $"Receive failed: {ex.Message}", false);
-                         await SaveChatRecordAsync(
-                             sender,
-                             DeviceChatDirection.Incoming,
-                             DeviceChatEntryType.File,
-                             content: $"File receive failed: {ex.Message}",
-                             fileName: packet.FileName,
-                             filePath: savePath,
-                             fileSize: packet.Size,
-                             requestId: packet.RequestId,
-                             status: "failed");
-                         try { File.Delete(savePath); } catch { }
-                    }
-                    
-                    // Notify
-                    if (success)
-                    {
-                        await SaveChatRecordAsync(
-                            sender,
-                            DeviceChatDirection.Incoming,
-                            DeviceChatEntryType.File,
-                            content: "File received.",
-                            fileName: packet.FileName,
-                            filePath: savePath,
-                            fileSize: packet.Size,
-                            requestId: packet.RequestId,
-                            status: "completed");
-                        ShowIncomingFileSavedToast(sender, savePath);
-                        try 
-                        {
-                            using var fsRead = new FileStream(savePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                            StreamReceived?.Invoke(this, new DeviceStreamReceivedEventArgs(
-                                sender, 
-                                fsRead, 
-                                JsonSerializer.Serialize(packet),
-                                savePath));
-                        }
-                        catch { }
-                    }
+                    await HandleIncomingFileTransferToPendingPathAsync(packet, dataStream, sender, savePath);
                     return;
                 }
                 goto default;
 
             case "Legacy":
             default:
-                if (string.Equals(packet.Type, "FileTransfer", StringComparison.OrdinalIgnoreCase))
+                if (await TryHandleManualFileTransferAsync(packet, dataStream, sender))
                 {
-                    var suggestedName = string.IsNullOrWhiteSpace(packet.FileName)
-                        ? "received_file"
-                        : Path.GetFileName(packet.FileName);
-                    var manualSavePath = await PickSaveFilePathAsync("\u4fdd\u5b58\u63a5\u6536\u5230\u7684\u6587\u4ef6", suggestedName);
-                    if (string.IsNullOrWhiteSpace(manualSavePath))
-                    {
-                        await DrainRemainingDataAsync(dataStream);
-                        return;
-                    }
-
-                    try
-                    {
-                        await using var fs = new FileStream(manualSavePath, FileMode.Create, FileAccess.Write);
-                        await CopyStreamWithTimeoutAsync(dataStream, fs, TimeSpan.FromSeconds(10));
-                        await SaveChatRecordAsync(
-                            sender,
-                            DeviceChatDirection.Incoming,
-                            DeviceChatEntryType.File,
-                            content: "File received.",
-                            fileName: packet.FileName,
-                            filePath: manualSavePath,
-                            fileSize: packet.Size,
-                            requestId: packet.RequestId,
-                            status: "completed");
-                        ShowIncomingFileSavedToast(sender, manualSavePath);
-                        return;
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[Dispatch] Save manual stream error: {ex}");
-                        await SaveChatRecordAsync(
-                            sender,
-                            DeviceChatDirection.Incoming,
-                            DeviceChatEntryType.File,
-                            content: $"File receive failed: {ex.Message}",
-                            fileName: packet.FileName,
-                            filePath: manualSavePath,
-                            fileSize: packet.Size,
-                            requestId: packet.RequestId,
-                            status: "failed");
-                        try { File.Delete(manualSavePath); } catch { }
-                        NotifyTransferInterrupted(packet.RequestId, $"Receive failed: {ex.Message}", false);
-                        return;
-                    }
+                    return;
                 }
 
-                System.Diagnostics.Debug.WriteLine($"[Dispatch] Handling Stream for {packet.Type}");
-                // For file transfer (without pending path) or unknown types, we buffer if needed.
-                Stream resultStream = dataStream;
-                if (!dataStream.CanSeek)
-                {
-                     System.Diagnostics.Debug.WriteLine($"[Dispatch] Buffering stream...");
-                     // Warning: For large files this causes high memory usage. 
-                     // Users should use Request/Response flow with set path.
-                     var ms = new MemoryStream();
-                     await dataStream.CopyToAsync(ms); // Async copy
-                     ms.Position = 0;
-                     resultStream = ms;
-                     System.Diagnostics.Debug.WriteLine($"[Dispatch] Buffered {ms.Length} bytes.");
-                }
-                else
-                {
-                    if (dataStream.Position != 0) dataStream.Position = 0;
-                }
-                    
-                System.Diagnostics.Debug.WriteLine($"[Dispatch] Invoking StreamReceived event...");
-                StreamReceived?.Invoke(this, new DeviceStreamReceivedEventArgs(
-                    sender, 
-                    resultStream, 
-                    JsonSerializer.Serialize(packet))); 
+                await DispatchGenericStreamAsync(packet, dataStream, sender);
                 break;
         }
+    }
+
+    private async Task HandleIncomingFileTransferToPendingPathAsync(
+        PacketMetadata packet,
+        Stream dataStream,
+        DeviceModel sender,
+        string savePath)
+    {
+        bool success = false;
+        var senderName = GetDeviceDisplayName(sender);
+        StartTransferToast(packet.RequestId, false, packet.FileName, packet.Size, senderName);
+        var onProgress = CreateTransferProgressHandler(
+            packet.RequestId,
+            isSending: false,
+            fileName: packet.FileName,
+            totalBytes: packet.Size,
+            remoteName: senderName);
+
+        try
+        {
+            // Stream directly to file
+            await using var fs = new FileStream(savePath, FileMode.Create, FileAccess.Write);
+            await CopyStreamWithTimeoutAsync(dataStream, fs, TimeSpan.FromSeconds(10), onProgress: onProgress);
+
+            if (packet.Size > 0 && fs.Length != packet.Size)
+            {
+                throw new IOException($"File size mismatch. Expected {packet.Size}, got {fs.Length}");
+            }
+
+            success = true;
+            CompleteTransferToast(packet.RequestId, false, packet.FileName, packet.Size, senderName);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Dispatch] File save error: {ex}");
+            NotifyTransferInterrupted(packet.RequestId, $"Receive failed: {ex.Message}", false);
+            await SaveChatRecordAsync(
+                sender,
+                DeviceChatDirection.Incoming,
+                DeviceChatEntryType.File,
+                content: $"File receive failed: {ex.Message}",
+                fileName: packet.FileName,
+                filePath: savePath,
+                fileSize: packet.Size,
+                requestId: packet.RequestId,
+                status: "failed");
+            try
+            {
+                File.Delete(savePath);
+            }
+            catch
+            {
+            }
+        }
+
+        if (!success)
+        {
+            return;
+        }
+
+        await SaveChatRecordAsync(
+            sender,
+            DeviceChatDirection.Incoming,
+            DeviceChatEntryType.File,
+            content: "File received.",
+            fileName: packet.FileName,
+            filePath: savePath,
+            fileSize: packet.Size,
+            requestId: packet.RequestId,
+            status: "completed");
+        ShowIncomingFileSavedToast(sender, savePath);
+        try
+        {
+            using var fsRead = new FileStream(savePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            StreamReceived?.Invoke(this, new DeviceStreamReceivedEventArgs(
+                sender,
+                fsRead,
+                JsonSerializer.Serialize(packet),
+                savePath));
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task<bool> TryHandleManualFileTransferAsync(PacketMetadata packet, Stream dataStream, DeviceModel sender)
+    {
+        if (!string.Equals(packet.Type, "FileTransfer", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var suggestedName = string.IsNullOrWhiteSpace(packet.FileName)
+            ? "received_file"
+            : Path.GetFileName(packet.FileName);
+        var manualSavePath = await PickSaveFilePathAsync("\u4fdd\u5b58\u63a5\u6536\u5230\u7684\u6587\u4ef6", suggestedName);
+        if (string.IsNullOrWhiteSpace(manualSavePath))
+        {
+            await DrainRemainingDataAsync(dataStream);
+            return true;
+        }
+
+        try
+        {
+            await using var fs = new FileStream(manualSavePath, FileMode.Create, FileAccess.Write);
+            await CopyStreamWithTimeoutAsync(dataStream, fs, TimeSpan.FromSeconds(10));
+            await SaveChatRecordAsync(
+                sender,
+                DeviceChatDirection.Incoming,
+                DeviceChatEntryType.File,
+                content: "File received.",
+                fileName: packet.FileName,
+                filePath: manualSavePath,
+                fileSize: packet.Size,
+                requestId: packet.RequestId,
+                status: "completed");
+            ShowIncomingFileSavedToast(sender, manualSavePath);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Dispatch] Save manual stream error: {ex}");
+            await SaveChatRecordAsync(
+                sender,
+                DeviceChatDirection.Incoming,
+                DeviceChatEntryType.File,
+                content: $"File receive failed: {ex.Message}",
+                fileName: packet.FileName,
+                filePath: manualSavePath,
+                fileSize: packet.Size,
+                requestId: packet.RequestId,
+                status: "failed");
+            try
+            {
+                File.Delete(manualSavePath);
+            }
+            catch
+            {
+            }
+
+            NotifyTransferInterrupted(packet.RequestId, $"Receive failed: {ex.Message}", false);
+            return true;
+        }
+    }
+
+    private async Task DispatchGenericStreamAsync(PacketMetadata packet, Stream dataStream, DeviceModel sender)
+    {
+        System.Diagnostics.Debug.WriteLine($"[Dispatch] Handling Stream for {packet.Type}");
+        // For file transfer (without pending path) or unknown types, we buffer if needed.
+        Stream resultStream = dataStream;
+        if (!dataStream.CanSeek)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Dispatch] Buffering stream...");
+            // Warning: For large files this causes high memory usage.
+            // Users should use Request/Response flow with set path.
+            var ms = new MemoryStream();
+            await dataStream.CopyToAsync(ms); // Async copy
+            ms.Position = 0;
+            resultStream = ms;
+            System.Diagnostics.Debug.WriteLine($"[Dispatch] Buffered {ms.Length} bytes.");
+        }
+        else if (dataStream.Position != 0)
+        {
+            dataStream.Position = 0;
+        }
+
+        System.Diagnostics.Debug.WriteLine($"[Dispatch] Invoking StreamReceived event...");
+        StreamReceived?.Invoke(this, new DeviceStreamReceivedEventArgs(
+            sender,
+            resultStream,
+            JsonSerializer.Serialize(packet)));
     }
 
     private static async Task DrainRemainingDataAsync(Stream stream)
@@ -2643,6 +2690,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     public void Dispose()
     {
         StopDiscovery();
+    }
+
+    private enum RequestDecision
+    {
+        Rejected,
+        Accepted,
+        TimedOut
     }
     
     private class UdpReassemblySession
