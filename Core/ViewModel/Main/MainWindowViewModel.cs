@@ -73,7 +73,7 @@ public partial class MainWindowViewModel : ObservableRecipient
         },
         new MenuItemViewModel
         {
-            MenuHeader = "设备互联",
+            MenuHeader = "设备通信",
             Key = "DeviceDiscovery",
             MenuIconGlyph = "\ue975", // Placeholder icon
             MenuIconFilledGlyph = "\ue975"

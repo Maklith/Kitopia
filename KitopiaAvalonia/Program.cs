@@ -117,6 +117,7 @@ internal class Program
         services.AddTransient<IErrorWindow, ErrorWindow>();
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
 
+        services.AddSingleton<IDeviceChatHistoryStore, SqliteDeviceChatHistoryStore>();
         services.AddSingleton<IDeviceCommunication, DeviceCommunicationService>();
         
 
@@ -190,8 +191,17 @@ internal class Program
         services.AddKeyedTransient<UserControl, OnnxModelManagerPage>("OnnxModelManagerPage",
             (e, _) => new OnnxModelManagerPage { DataContext = e.GetService<OnnxModelManagerPageViewModel>() });
         services.AddTransient<DeviceDiscoveryPageViewModel>();
-        services.AddKeyedTransient<UserControl, DeviceDiscoveryPage>("DeviceDiscoveryPage",
-            (e, _) => new DeviceDiscoveryPage { DataContext = e.GetService<DeviceDiscoveryPageViewModel>() });
+        services.AddTransient<DeviceChatPageViewModel>();
+        services.AddTransient<DeviceCommunicationPageViewModel>();
+        services.AddKeyedTransient<UserControl, DeviceCommunicationPage>("DeviceDiscoveryPage",
+            (e, _) => new DeviceCommunicationPage { DataContext = e.GetService<DeviceCommunicationPageViewModel>() });
+        services.AddKeyedTransient<UserControl, DeviceCommunicationPage>("DeviceChatPage",
+            (e, _) =>
+            {
+                var vm = e.GetService<DeviceCommunicationPageViewModel>()!;
+                vm.SelectedTabIndex = 1;
+                return new DeviceCommunicationPage { DataContext = vm };
+            });
 
         services.AddSingleton<SettingPage>(e => new SettingPage());
         services.AddSingleton<GitHubUpdateService>();

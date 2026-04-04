@@ -57,6 +57,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     private readonly object _messageReceivedLock = new();
     private readonly Queue<DeviceMessageReceivedEventArgs> _bufferedMessages = new();
     private EventHandler<DeviceMessageReceivedEventArgs>? _messageReceivedHandlers;
+    private readonly IDeviceChatHistoryStore _chatHistoryStore;
 
     public ObservableCollection<DeviceModel> DiscoveredDevices { get; } = new();
 
@@ -127,8 +128,9 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     public event EventHandler<FileTransferRequestEventArgs>? FileTransferRequested;
     public event EventHandler<TransferInterruptionEventArgs>? TransferInterrupted;
 
-    public DeviceCommunicationService()
+    public DeviceCommunicationService(IDeviceChatHistoryStore chatHistoryStore)
     {
+        _chatHistoryStore = chatHistoryStore;
         _serverCert = GenerateCertificate();
     }
 
@@ -176,6 +178,47 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         return Environment.MachineName;
     }
 
+    private async Task SaveChatRecordAsync(
+        DeviceModel? peer,
+        DeviceChatDirection direction,
+        DeviceChatEntryType entryType,
+        string content = "",
+        string fileName = "",
+        string filePath = "",
+        long fileSize = 0,
+        string requestId = "",
+        string status = "")
+    {
+        try
+        {
+            var peerId = peer?.Id ?? string.Empty;
+            var peerAddress = peer?.Address?.ToString() ?? string.Empty;
+            var peerPort = peer?.Port ?? 0;
+
+            await _chatHistoryStore.AppendAsync(new DeviceChatMessage
+            {
+                PeerKey = DeviceChatPeerKey.Build(peerId, peerAddress, peerPort),
+                PeerId = peerId,
+                PeerName = GetDeviceDisplayName(peer),
+                PeerAddress = peerAddress,
+                PeerPort = peerPort,
+                Direction = direction,
+                EntryType = entryType,
+                Content = content ?? string.Empty,
+                FileName = fileName ?? string.Empty,
+                FilePath = filePath ?? string.Empty,
+                FileSize = fileSize,
+                RequestId = requestId ?? string.Empty,
+                Status = status ?? string.Empty,
+                TimestampUtc = DateTime.UtcNow
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ChatHistory] Save failed: {ex}");
+        }
+    }
+
     private void NotifyTransferInterrupted(string requestId, string reason, bool isSending)
     {
         FailTransferToast(requestId, reason, isSending);
@@ -203,7 +246,6 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     private void PublishMessageReceived(DeviceModel sender, string message)
     {
         var args = new DeviceMessageReceivedEventArgs(sender, message);
-        ShowIncomingMessageToast(args);
         EventHandler<DeviceMessageReceivedEventArgs>? handlers;
         lock (_messageReceivedLock)
         {
@@ -215,9 +257,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 {
                     _bufferedMessages.Dequeue();
                 }
-
-                return;
             }
+        }
+
+        if (handlers is null)
+        {
+            ShowIncomingMessageToast(args);
+            return;
         }
 
         foreach (var handler in handlers.GetInvocationList())
@@ -260,12 +306,43 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     {
         try
         {
+            await SaveChatRecordAsync(
+                sender,
+                DeviceChatDirection.Incoming,
+                DeviceChatEntryType.FileRequest,
+                content: "Incoming file transfer request.",
+                fileName: packet.FileName,
+                fileSize: packet.Size,
+                requestId: packet.RequestId,
+                status: "requested");
+
             var (accepted, savePath) = await PromptIncomingFileRequestAsync(packet, sender);
+
+            await SaveChatRecordAsync(
+                sender,
+                DeviceChatDirection.System,
+                DeviceChatEntryType.TransferStatus,
+                content: accepted ? "Accepted incoming file request." : "Rejected incoming file request.",
+                fileName: packet.FileName,
+                filePath: savePath ?? string.Empty,
+                fileSize: packet.Size,
+                requestId: packet.RequestId,
+                status: accepted ? "accepted" : "rejected");
+
             await RespondToFileRequestAsync(sender, packet.RequestId, accepted, savePath);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[FileReq] Handle request error: {ex}");
+            await SaveChatRecordAsync(
+                sender,
+                DeviceChatDirection.System,
+                DeviceChatEntryType.TransferStatus,
+                content: $"Failed to handle incoming file request: {ex.Message}",
+                fileName: packet.FileName,
+                fileSize: packet.Size,
+                requestId: packet.RequestId,
+                status: "failed");
             try
             {
                 await RespondToFileRequestAsync(sender, packet.RequestId, false);
@@ -503,6 +580,12 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
             var json = JsonSerializer.Serialize(meta);
             await SendStreamAsync(target, Stream.Null, json);
+            await SaveChatRecordAsync(
+                target,
+                DeviceChatDirection.Outgoing,
+                DeviceChatEntryType.Text,
+                content: message,
+                status: "sent");
             _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 GetToastService()?.Show(
@@ -513,6 +596,12 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
         catch (Exception ex)
         {
+            await SaveChatRecordAsync(
+                target,
+                DeviceChatDirection.Outgoing,
+                DeviceChatEntryType.Text,
+                content: message,
+                status: $"failed:{ex.Message}");
             _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 GetToastService()?.Show(
@@ -561,11 +650,32 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         {
             var json = JsonSerializer.Serialize(meta);
             await SendStreamAsync(target, Stream.Null, json);
+            await SaveChatRecordAsync(
+                target,
+                DeviceChatDirection.Outgoing,
+                DeviceChatEntryType.FileRequest,
+                content: "Outgoing file transfer request.",
+                fileName: fileInfo.Name,
+                filePath: fileInfo.FullName,
+                fileSize: fileInfo.Length,
+                requestId: requestId,
+                status: "requested");
 
             var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(TimeSpan.FromMinutes(1)));
             
             if (completedTask == tcs.Task && tcs.Task.Result)
             {
+                await SaveChatRecordAsync(
+                    target,
+                    DeviceChatDirection.System,
+                    DeviceChatEntryType.TransferStatus,
+                    content: "Peer accepted file transfer request.",
+                    fileName: fileInfo.Name,
+                    filePath: fileInfo.FullName,
+                    fileSize: fileInfo.Length,
+                    requestId: requestId,
+                    status: "accepted");
+
                 using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
                 var fileMeta = new PacketMetadata
                 {
@@ -614,16 +724,60 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
                 await SendStreamInternalAsync(target, fs, JsonSerializer.Serialize(fileMeta), onProgress);
                 CompleteTransferToast(requestId, true, fileInfo.Name, fileInfo.Length, targetName);
+                await SaveChatRecordAsync(
+                    target,
+                    DeviceChatDirection.Outgoing,
+                    DeviceChatEntryType.File,
+                    content: "File transfer completed.",
+                    fileName: fileInfo.Name,
+                    filePath: fileInfo.FullName,
+                    fileSize: fileInfo.Length,
+                    requestId: requestId,
+                    status: "completed");
             }
             else
             {
                 _pendingFileRequests.TryRemove(requestId, out _);
-                if (completedTask != tcs.Task) throw new TimeoutException("User did not respond in time.");
+                if (completedTask != tcs.Task)
+                {
+                    await SaveChatRecordAsync(
+                        target,
+                        DeviceChatDirection.System,
+                        DeviceChatEntryType.TransferStatus,
+                        content: "Peer did not respond to file transfer request.",
+                        fileName: fileInfo.Name,
+                        filePath: fileInfo.FullName,
+                        fileSize: fileInfo.Length,
+                        requestId: requestId,
+                        status: "timeout");
+                    throw new TimeoutException("User did not respond in time.");
+                }
+
+                await SaveChatRecordAsync(
+                    target,
+                    DeviceChatDirection.System,
+                    DeviceChatEntryType.TransferStatus,
+                    content: "Peer rejected file transfer request.",
+                    fileName: fileInfo.Name,
+                    filePath: fileInfo.FullName,
+                    fileSize: fileInfo.Length,
+                    requestId: requestId,
+                    status: "rejected");
             }
         }
         catch (Exception ex)
         {
             FailTransferToast(requestId, ex.Message, true);
+            await SaveChatRecordAsync(
+                target,
+                DeviceChatDirection.Outgoing,
+                DeviceChatEntryType.File,
+                content: $"File transfer failed: {ex.Message}",
+                fileName: fileInfo.Name,
+                filePath: fileInfo.FullName,
+                fileSize: fileInfo.Length,
+                requestId: requestId,
+                status: "failed");
             throw;
         }
         finally
@@ -912,6 +1066,12 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         {
             case "Message":
                 await DrainRemainingDataAsync(dataStream);
+                await SaveChatRecordAsync(
+                    sender,
+                    DeviceChatDirection.Incoming,
+                    DeviceChatEntryType.Text,
+                    content: packet.Content,
+                    status: "received");
                 PublishMessageReceived(sender, packet.Content);
                 break;
 
@@ -926,6 +1086,16 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 {
                     tcs.TrySetResult(packet.Accepted);
                 }
+
+                await SaveChatRecordAsync(
+                    sender,
+                    DeviceChatDirection.Incoming,
+                    DeviceChatEntryType.TransferStatus,
+                    content: packet.Accepted
+                        ? "Peer accepted the file transfer request."
+                        : "Peer rejected the file transfer request.",
+                    requestId: packet.RequestId,
+                    status: packet.Accepted ? "accepted" : "rejected");
                 break;
                 
             case "FileTransfer":
@@ -984,12 +1154,32 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     {
                          System.Diagnostics.Debug.WriteLine($"[Dispatch] File save error: {ex}");
                          NotifyTransferInterrupted(packet.RequestId, $"Receive failed: {ex.Message}", false);
+                         await SaveChatRecordAsync(
+                             sender,
+                             DeviceChatDirection.Incoming,
+                             DeviceChatEntryType.File,
+                             content: $"File receive failed: {ex.Message}",
+                             fileName: packet.FileName,
+                             filePath: savePath,
+                             fileSize: packet.Size,
+                             requestId: packet.RequestId,
+                             status: "failed");
                          try { File.Delete(savePath); } catch { }
                     }
                     
                     // Notify
                     if (success)
                     {
+                        await SaveChatRecordAsync(
+                            sender,
+                            DeviceChatDirection.Incoming,
+                            DeviceChatEntryType.File,
+                            content: "File received.",
+                            fileName: packet.FileName,
+                            filePath: savePath,
+                            fileSize: packet.Size,
+                            requestId: packet.RequestId,
+                            status: "completed");
                         ShowIncomingFileSavedToast(sender, savePath);
                         try 
                         {
@@ -1024,12 +1214,32 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     {
                         await using var fs = new FileStream(manualSavePath, FileMode.Create, FileAccess.Write);
                         await CopyStreamWithTimeoutAsync(dataStream, fs, TimeSpan.FromSeconds(10));
+                        await SaveChatRecordAsync(
+                            sender,
+                            DeviceChatDirection.Incoming,
+                            DeviceChatEntryType.File,
+                            content: "File received.",
+                            fileName: packet.FileName,
+                            filePath: manualSavePath,
+                            fileSize: packet.Size,
+                            requestId: packet.RequestId,
+                            status: "completed");
                         ShowIncomingFileSavedToast(sender, manualSavePath);
                         return;
                     }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"[Dispatch] Save manual stream error: {ex}");
+                        await SaveChatRecordAsync(
+                            sender,
+                            DeviceChatDirection.Incoming,
+                            DeviceChatEntryType.File,
+                            content: $"File receive failed: {ex.Message}",
+                            fileName: packet.FileName,
+                            filePath: manualSavePath,
+                            fileSize: packet.Size,
+                            requestId: packet.RequestId,
+                            status: "failed");
                         try { File.Delete(manualSavePath); } catch { }
                         NotifyTransferInterrupted(packet.RequestId, $"Receive failed: {ex.Message}", false);
                         return;

@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Core.ViewModel.Pages.device;assembly=Core"
+             xmlns:pages="clr-namespace:KitopiaAvalonia.Pages"
+             mc:Ignorable="d"
+             d:DesignWidth="1200"
+             d:DesignHeight="800"
+             x:Class="KitopiaAvalonia.Pages.DeviceCommunicationPage"
+             x:DataType="vm:DeviceCommunicationPageViewModel">
+    <Grid Margin="10">
+        <TabControl SelectedIndex="{Binding SelectedTabIndex}">
+            <TabItem Header="设备互联">
+                <pages:DeviceDiscoveryPage DataContext="{Binding Discovery}" />
+            </TabItem>
+            <TabItem Header="设备聊天">
+                <pages:DeviceChatPage DataContext="{Binding Chat}" />
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

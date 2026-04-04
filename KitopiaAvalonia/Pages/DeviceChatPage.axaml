@@ -1,0 +1,283 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Core.ViewModel.Pages.device;assembly=Core"
+             mc:Ignorable="d"
+             d:DesignWidth="1100"
+             d:DesignHeight="760"
+             x:Class="KitopiaAvalonia.Pages.DeviceChatPage"
+             x:DataType="vm:DeviceChatPageViewModel">
+    <UserControl.Styles>
+        <Style Selector="ListBox.PlainListBox > ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </ControlTemplate>
+            </Setter>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Margin="10" ColumnDefinitions="300,*" ColumnSpacing="10">
+        <Border Grid.Column="0"
+                Padding="10"
+                CornerRadius="10"
+                Background="#F8FAFC"
+                BorderBrush="#D9E2EC"
+                BorderThickness="1">
+            <Grid RowDefinitions="Auto,*" RowSpacing="8">
+                <DockPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="会话列表"
+                                   FontSize="17"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="刷新中..."
+                                   FontSize="12"
+                                   Foreground="#6B7280"
+                                   IsVisible="{Binding IsRefreshing}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button DockPanel.Dock="Right"
+                            Content="刷新"
+                            Command="{Binding RefreshCommand}" />
+                </DockPanel>
+
+                <ListBox Grid.Row="1"
+                         Classes="PlainListBox"
+                         ItemsSource="{Binding Conversations}"
+                         SelectedItem="{Binding SelectedConversation}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DeviceChatConversationItem">
+                            <Border Margin="0,3"
+                                    Padding="8"
+                                    CornerRadius="8"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="1"
+                                    Background="White">
+                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                        <TextBlock Text="在线"
+                                                   Foreground="#1F9D55"
+                                                   IsVisible="{Binding IsOnline}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="1"
+                                               Text="{Binding LastPreview}"
+                                               FontSize="12"
+                                               Foreground="#6B7280"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Row="2"
+                                               Text="{Binding LastTimestampText}"
+                                               FontSize="11"
+                                               Foreground="#9CA3AF" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <Border Grid.Column="1"
+                Padding="10"
+                CornerRadius="10"
+                BorderBrush="#D9E2EC"
+                BorderThickness="1"
+                Background="#FFFFFF">
+            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding SelectedConversationTitle}"
+                               FontSize="18"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding SelectedConversationSubtitle}"
+                               FontSize="12"
+                               Foreground="#6B7280"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+
+                <Border Grid.Row="1"
+                        Padding="8"
+                        CornerRadius="8"
+                        Background="#F8FAFC"
+                        BorderBrush="#E5E7EB"
+                        BorderThickness="1">
+                    <Grid RowDefinitions="Auto,*" RowSpacing="8">
+                        <DockPanel Grid.Row="0" IsVisible="{Binding HasSelectedConversation}">
+                            <TextBlock Text="加载中..."
+                                       FontSize="12"
+                                       Foreground="#6B7280"
+                                       IsVisible="{Binding IsLoadingHistory}"
+                                       VerticalAlignment="Center" />
+                            <Button DockPanel.Dock="Right"
+                                    Content="加载更早消息"
+                                    Command="{Binding LoadMoreMessagesCommand}"
+                                    IsVisible="{Binding HasMoreHistory}"
+                                    IsEnabled="{Binding CanLoadMoreHistory}" />
+                        </DockPanel>
+
+                        <ListBox Grid.Row="1"
+                                 x:Name="MessagesListBox"
+                                 Classes="PlainListBox"
+                                 ItemsSource="{Binding Messages}"
+                                 IsVisible="{Binding HasSelectedConversation}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:DeviceChatMessageItem">
+                                    <Grid Margin="0,4">
+                                        <StackPanel IsVisible="{Binding IsSystem}"
+                                                    HorizontalAlignment="Center"
+                                                    MaxWidth="620"
+                                                    Spacing="3">
+                                            <Border Padding="10,6"
+                                                    CornerRadius="10"
+                                                    Background="#E5EAF0">
+                                                <SelectableTextBlock Text="{Binding Text}"
+                                                                     Foreground="#4B5563"
+                                                                     TextWrapping="Wrap"
+                                                                     IsVisible="{Binding HasText}"
+                                                                     Focusable="True" />
+                                            </Border>
+                                            <TextBlock Text="{Binding Footer}"
+                                                       FontSize="11"
+                                                       Foreground="#9CA3AF"
+                                                       HorizontalAlignment="Center" />
+                                        </StackPanel>
+
+                                        <StackPanel IsVisible="{Binding IsIncoming}"
+                                                    HorizontalAlignment="Left"
+                                                    MaxWidth="700"
+                                                    Spacing="4">
+                                            <TextBlock Text="{Binding SenderLabel}"
+                                                       FontSize="11"
+                                                       Foreground="#6B7280"
+                                                       Margin="8,0,0,0" />
+                                            <Border Padding="10,8"
+                                                    CornerRadius="14,14,14,4"
+                                                    BorderBrush="#D9E2EC"
+                                                    BorderThickness="1"
+                                                    Background="#F1F5F9">
+                                                <StackPanel Spacing="6">
+                                                    <SelectableTextBlock Text="{Binding Text}"
+                                                                         TextWrapping="Wrap"
+                                                                         Foreground="#1F2937"
+                                                                         IsVisible="{Binding HasText}"
+                                                                         Focusable="True" />
+                                                    <Border IsVisible="{Binding IsFile}"
+                                                            Padding="8"
+                                                            CornerRadius="8"
+                                                            BorderBrush="#CBD5E1"
+                                                            BorderThickness="1"
+                                                            Background="#FFFFFF">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <SelectableTextBlock Text="{Binding FileDisplay}"
+                                                                                 VerticalAlignment="Center"
+                                                                                 Foreground="#334155"
+                                                                                 Focusable="True" />
+                                                            <Button Content="打开文件"
+                                                                    IsVisible="{Binding CanOpenFile}"
+                                                                    Command="{Binding $parent[UserControl].((vm:DeviceChatPageViewModel)DataContext).OpenFileCommand}"
+                                                                    CommandParameter="{Binding .}" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+                                            <TextBlock Text="{Binding Footer}"
+                                                       FontSize="11"
+                                                       Foreground="#9CA3AF"
+                                                       Margin="8,0,0,0" />
+                                        </StackPanel>
+
+                                        <StackPanel IsVisible="{Binding IsOutgoing}"
+                                                    HorizontalAlignment="Right"
+                                                    MaxWidth="700"
+                                                    Spacing="4">
+                                            <TextBlock Text="{Binding SenderLabel}"
+                                                       FontSize="11"
+                                                       Foreground="#6B7280"
+                                                       Margin="0,0,8,0"
+                                                       HorizontalAlignment="Right" />
+                                            <Border Padding="10,8"
+                                                    CornerRadius="14,14,4,14"
+                                                    Background="#3B82F6">
+                                                <StackPanel Spacing="6">
+                                                    <SelectableTextBlock Text="{Binding Text}"
+                                                                         TextWrapping="Wrap"
+                                                                         Foreground="White"
+                                                                         IsVisible="{Binding HasText}"
+                                                                         Focusable="True" />
+                                                    <Border IsVisible="{Binding IsFile}"
+                                                            Padding="8"
+                                                            CornerRadius="8"
+                                                            Background="#2B6FD7"
+                                                            BorderBrush="#93C5FD"
+                                                            BorderThickness="1">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <SelectableTextBlock Text="{Binding FileDisplay}"
+                                                                                 VerticalAlignment="Center"
+                                                                                 Foreground="White"
+                                                                                 Focusable="True" />
+                                                            <Button Content="打开文件"
+                                                                    IsVisible="{Binding CanOpenFile}"
+                                                                    Foreground="White"
+                                                                    Background="#00000000"
+                                                                    BorderBrush="#93C5FD"
+                                                                    Command="{Binding $parent[UserControl].((vm:DeviceChatPageViewModel)DataContext).OpenFileCommand}"
+                                                                    CommandParameter="{Binding .}" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+                                            <TextBlock Text="{Binding Footer}"
+                                                       FontSize="11"
+                                                       Foreground="#9CA3AF"
+                                                       Margin="0,0,8,0"
+                                                       HorizontalAlignment="Right" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <TextBlock Grid.Row="1"
+                                   Text="请先选择一个会话。"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="#6B7280"
+                                   IsVisible="{Binding !HasSelectedConversation}" />
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <TextBox Text="{Binding MessageToSend, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             MinHeight="40"
+                             AcceptsReturn="False"
+                             VerticalContentAlignment="Center"
+                             Watermark="输入消息..."
+                             IsEnabled="{Binding HasSelectedConversation}">
+                        <TextBox.KeyBindings>
+                            <KeyBinding Gesture="Enter"
+                                        Command="{Binding SendMessageCommand}" />
+                        </TextBox.KeyBindings>
+                    </TextBox>
+                    <Button Grid.Column="1"
+                            Content="发送"
+                            Command="{Binding SendMessageCommand}"
+                            IsEnabled="{Binding CanSendMessage}" />
+                    <Button Grid.Column="2"
+                            Content="发送文件"
+                            Command="{Binding SendFileCommand}"
+                            IsEnabled="{Binding CanSendFile}" />
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

@@ -4,29 +4,39 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:Core.ViewModel.Pages.device;assembly=Core"
              xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             mc:Ignorable="d"
+             d:DesignWidth="800"
+             d:DesignHeight="450"
              x:Class="KitopiaAvalonia.Pages.DeviceDiscoveryPage"
              x:DataType="vm:DeviceDiscoveryPageViewModel">
     <Grid RowDefinitions="Auto,*">
         <StackPanel Orientation="Horizontal" Margin="10" Spacing="10">
-            <TextBlock Text="设备发现" VerticalAlignment="Center" FontSize="20" FontWeight="Bold"/>
+            <TextBlock Text="设备发现" VerticalAlignment="Center" FontSize="20" FontWeight="Bold" />
             <Button Command="{Binding StartDiscoveryCommand}" IsVisible="{Binding !IsDiscovering}">开始发现</Button>
             <Button Command="{Binding StopDiscoveryCommand}" IsVisible="{Binding IsDiscovering}">停止发现</Button>
-            <TextBlock Text="正在扫描..." IsVisible="{Binding IsDiscovering}" VerticalAlignment="Center" Foreground="Gray"/>
-            <TextBox Watermark="输入发送消息" Text="{Binding MessageToSend}" Width="200" VerticalAlignment="Center" Margin="20,0,0,0" />
+            <TextBlock Text="正在扫描..."
+                       IsVisible="{Binding IsDiscovering}"
+                       VerticalAlignment="Center"
+                       Foreground="Gray" />
+            <TextBox Watermark="输入要发送的消息"
+                     Text="{Binding MessageToSend}"
+                     Width="220"
+                     VerticalAlignment="Center"
+                     Margin="20,0,0,0" />
         </StackPanel>
 
         <ListBox Grid.Row="1" ItemsSource="{Binding DiscoveredDevices}" Margin="10">
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="pluginCore:DeviceModel">
                     <StackPanel Orientation="Vertical" Spacing="5">
-                        <TextBlock Text="{Binding DisplayName}" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding ComputerName, StringFormat='计算机名: {0}'}" Foreground="Gray"/>
+                        <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" />
+                        <TextBlock Text="{Binding ComputerName, StringFormat='计算机名: {0}'}" Foreground="Gray" />
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <TextBlock Text="{Binding Address}" Foreground="Gray"/>
-                            <TextBlock Text="{Binding Port, StringFormat='Port: {0}'}" Foreground="Gray"/>
+                            <TextBlock Text="{Binding Address}" Foreground="Gray" />
+                            <TextBlock Text="{Binding Port, StringFormat='端口: {0}'}" Foreground="Gray" />
                         </StackPanel>
-                        <TextBlock Text="{Binding Id, StringFormat='ID: {0}'}" FontSize="10" Foreground="LightGray"/>
+                        <TextBlock Text="{Binding Id, StringFormat='ID: {0}'}" FontSize="10" Foreground="LightGray" />
+
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBox Width="220"
                                      Watermark="给该设备设置备注名"
@@ -38,8 +48,9 @@
                                     Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).ClearCustomNameCommand}"
                                     CommandParameter="{Binding .}" />
                         </StackPanel>
+
                         <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
-                            <Button Content="发送信息"
+                            <Button Content="发送消息"
                                     Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).SendMessageCommand}"
                                     CommandParameter="{Binding .}" />
                             <Button Content="发送文件"
