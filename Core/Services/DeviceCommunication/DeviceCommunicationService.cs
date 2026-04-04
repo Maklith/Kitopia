@@ -16,13 +16,18 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
+using Core.Services;
 using Core.Services.Config;
 using PluginCore;
+using Serilog;
 
 namespace Core.Services.DeviceCommunication;
 
 public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 {
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<DeviceCommunicationService>();
+    private const int ClipboardPollIntervalMs = 800;
+    private static readonly TimeSpan ClipboardEchoSuppressionWindow = TimeSpan.FromSeconds(2);
     private const int DiscoveryPort = 53535;
     private const string MulticastAddressV4 = "239.255.255.250";
     private const string MulticastAddressV6 = "ff02::1";
@@ -47,19 +52,51 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     private X509Certificate2? _serverCert;
 
     private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingFileRequests = new();
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingClipboardSyncRequests = new();
     private readonly ConcurrentDictionary<Guid, UdpReassemblySession> _udpSessions = new();
     private readonly ConcurrentDictionary<string, string> _pendingDownloads = new(); // RequestId -> SavePath
     private readonly ConcurrentDictionary<string, bool> _discoveredDeviceQuicCapabilities = new(); // DeviceId -> SupportsQuic
     private readonly ConcurrentDictionary<string, IToastProgressHandle> _sendingTransferToasts = new();
     private readonly ConcurrentDictionary<string, IToastProgressHandle> _receivingTransferToasts = new();
     private static readonly TimeSpan TransferToastUpdateInterval = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan ClipboardSyncRequestTimeout = TimeSpan.FromSeconds(30);
     private const int MaxBufferedMessages = 100;
     private readonly object _messageReceivedLock = new();
     private readonly Queue<DeviceMessageReceivedEventArgs> _bufferedMessages = new();
     private EventHandler<DeviceMessageReceivedEventArgs>? _messageReceivedHandlers;
     private readonly IDeviceChatHistoryStore _chatHistoryStore;
+    private readonly IClipboardService _clipboardService;
+    private readonly object _clipboardSyncLock = new();
+    private CancellationTokenSource? _clipboardSyncCts;
+    private DeviceModel? _clipboardSyncTargetDevice;
+    private string _lastSyncedClipboardText = string.Empty;
+    private string _lastInboundClipboardText = string.Empty;
+    private DateTime _lastInboundClipboardUtc = DateTime.MinValue;
+    private int _isApplyingRemoteClipboard;
+    private bool _isClipboardSyncEnabled;
 
     public ObservableCollection<DeviceModel> DiscoveredDevices { get; } = new();
+    public bool IsClipboardSyncEnabled
+    {
+        get
+        {
+            lock (_clipboardSyncLock)
+            {
+                return _isClipboardSyncEnabled;
+            }
+        }
+    }
+
+    public DeviceModel? ClipboardSyncTargetDevice
+    {
+        get
+        {
+            lock (_clipboardSyncLock)
+            {
+                return _clipboardSyncTargetDevice is null ? null : CloneDeviceModel(_clipboardSyncTargetDevice);
+            }
+        }
+    }
 
     public event EventHandler<DeviceStreamReceivedEventArgs>? StreamReceived;
     public event EventHandler<DeviceMessageReceivedEventArgs>? MessageReceived
@@ -126,13 +163,19 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
     }
     public event EventHandler<DeviceClipboardReceivedEventArgs>? ClipboardTextReceived;
+    public event EventHandler<DeviceClipboardSyncAuthorizedEventArgs>? ClipboardSyncAuthorized;
+    public event EventHandler<DeviceClipboardSyncStateChangedEventArgs>? ClipboardSyncStateChanged;
     public event EventHandler<FileTransferRequestEventArgs>? FileTransferRequested;
     public event EventHandler<TransferInterruptionEventArgs>? TransferInterrupted;
 
-    public DeviceCommunicationService(IDeviceChatHistoryStore chatHistoryStore)
+    public DeviceCommunicationService(
+        IDeviceChatHistoryStore chatHistoryStore,
+        IClipboardService clipboardService)
     {
         _chatHistoryStore = chatHistoryStore;
+        _clipboardService = clipboardService;
         _serverCert = GenerateCertificate();
+        _lastSyncedClipboardText = _clipboardService.GetText() ?? string.Empty;
     }
 
     private static Guid LoadOrCreateDeviceIdFromConfig()
@@ -317,6 +360,284 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
     }
 
+    private void PublishClipboardSyncAuthorized(DeviceModel peer, bool initiatedByPeer)
+    {
+        var handlers = ClipboardSyncAuthorized;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        var args = new DeviceClipboardSyncAuthorizedEventArgs(peer, initiatedByPeer);
+        foreach (var handler in handlers.GetInvocationList())
+        {
+            if (handler is not EventHandler<DeviceClipboardSyncAuthorizedEventArgs> typedHandler)
+            {
+                continue;
+            }
+
+            try
+            {
+                typedHandler(this, args);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ClipboardSync] Authorization handler error: {ex}");
+            }
+        }
+    }
+
+    private void PublishClipboardSyncStateChanged(bool isEnabled, DeviceModel? target, string status)
+    {
+        var handlers = ClipboardSyncStateChanged;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        var clonedTarget = target is null ? null : CloneDeviceModel(target);
+        var args = new DeviceClipboardSyncStateChangedEventArgs(isEnabled, clonedTarget, status);
+        foreach (var handler in handlers.GetInvocationList())
+        {
+            if (handler is not EventHandler<DeviceClipboardSyncStateChangedEventArgs> typedHandler)
+            {
+                continue;
+            }
+
+            try
+            {
+                typedHandler(this, args);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ClipboardSync] State handler error: {ex}");
+            }
+        }
+    }
+
+    private void UpdateClipboardSyncState(bool isEnabled, DeviceModel? target, string status, bool keepTargetWhenDisabled)
+    {
+        DeviceModel? targetSnapshot;
+        lock (_clipboardSyncLock)
+        {
+            _isClipboardSyncEnabled = isEnabled;
+            if (target is not null)
+            {
+                _clipboardSyncTargetDevice = CloneDeviceModel(target);
+            }
+            else if (!keepTargetWhenDisabled)
+            {
+                _clipboardSyncTargetDevice = null;
+            }
+
+            targetSnapshot = _clipboardSyncTargetDevice is null ? null : CloneDeviceModel(_clipboardSyncTargetDevice);
+        }
+
+        PublishClipboardSyncStateChanged(isEnabled, targetSnapshot, status);
+    }
+
+    private void ActivateClipboardSync(DeviceModel target, string status)
+    {
+        var resolvedTarget = ResolveDiscoveredDevice(target) ?? target;
+        var initialClipboardText = _clipboardService.GetText() ?? string.Empty;
+        bool shouldStartMonitor = false;
+        CancellationToken monitorToken = default;
+
+        lock (_clipboardSyncLock)
+        {
+            _isClipboardSyncEnabled = true;
+            _clipboardSyncTargetDevice = CloneDeviceModel(resolvedTarget);
+            _lastSyncedClipboardText = initialClipboardText;
+
+            if (_clipboardSyncCts is null)
+            {
+                _clipboardSyncCts = new CancellationTokenSource();
+                shouldStartMonitor = true;
+                monitorToken = _clipboardSyncCts.Token;
+            }
+        }
+
+        if (shouldStartMonitor)
+        {
+            _ = MonitorClipboardLoopAsync(monitorToken);
+        }
+
+        UpdateClipboardSyncState(true, resolvedTarget, status, keepTargetWhenDisabled: true);
+    }
+
+    private void DeactivateClipboardSync(string status, bool keepTargetWhenDisabled)
+    {
+        CancellationTokenSource? ctsToDispose;
+        lock (_clipboardSyncLock)
+        {
+            _isClipboardSyncEnabled = false;
+            ctsToDispose = _clipboardSyncCts;
+            _clipboardSyncCts = null;
+        }
+
+        if (ctsToDispose is not null)
+        {
+            try
+            {
+                ctsToDispose.Cancel();
+            }
+            catch
+            {
+            }
+            ctsToDispose.Dispose();
+        }
+
+        UpdateClipboardSyncState(false, null, status, keepTargetWhenDisabled);
+    }
+
+    private async Task MonitorClipboardLoopAsync(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                DeviceModel? target;
+                bool enabled;
+                lock (_clipboardSyncLock)
+                {
+                    enabled = _isClipboardSyncEnabled;
+                    target = _clipboardSyncTargetDevice is null ? null : CloneDeviceModel(_clipboardSyncTargetDevice);
+                }
+
+                if (enabled && target is not null)
+                {
+                    var discoveredTarget = ResolveDiscoveredDevice(target);
+                    if (discoveredTarget is null)
+                    {
+                        DeactivateClipboardSync("同步目标设备已离线，请重新选择", keepTargetWhenDisabled: false);
+                        continue;
+                    }
+
+                    var isApplyingRemote = Interlocked.CompareExchange(ref _isApplyingRemoteClipboard, 0, 0) == 1;
+                    if (!isApplyingRemote)
+                    {
+                        var currentText = _clipboardService.GetText() ?? string.Empty;
+                        if (!string.IsNullOrEmpty(currentText))
+                        {
+                            bool shouldSend;
+                            bool suppressedEcho;
+                            lock (_clipboardSyncLock)
+                            {
+                                shouldSend = !string.Equals(currentText, _lastSyncedClipboardText, StringComparison.Ordinal);
+                                suppressedEcho = shouldSend &&
+                                                 string.Equals(currentText, _lastInboundClipboardText, StringComparison.Ordinal) &&
+                                                 DateTime.UtcNow - _lastInboundClipboardUtc <= ClipboardEchoSuppressionWindow;
+                                if (suppressedEcho)
+                                {
+                                    shouldSend = false;
+                                }
+
+                                if (shouldSend)
+                                {
+                                    _lastSyncedClipboardText = currentText;
+                                }
+                            }
+
+                            if (suppressedEcho)
+                            {
+                                Logger.Debug(
+                                    "[ClipboardSync] Suppressed echo loop for {Target} ({TargetId}): {ClipboardPreview}",
+                                    GetDeviceDisplayName(discoveredTarget),
+                                    discoveredTarget.Id,
+                                    ToClipboardLogPreview(currentText));
+                            }
+
+                            if (shouldSend)
+                            {
+                                await SendClipboardTextAsync(discoveredTarget, currentText);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ClipboardSync] Monitor loop error: {ex}");
+            }
+
+            try
+            {
+                await Task.Delay(ClipboardPollIntervalMs, token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    private void ApplyIncomingClipboardText(DeviceModel sender, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        Logger.Information(
+            "[ClipboardSync] Received from {Sender} ({SenderId}): {ClipboardPreview}",
+            GetDeviceDisplayName(sender),
+            sender.Id,
+            ToClipboardLogPreview(text));
+
+        DeviceModel? target;
+        bool enabled;
+        lock (_clipboardSyncLock)
+        {
+            enabled = _isClipboardSyncEnabled;
+            target = _clipboardSyncTargetDevice is null ? null : CloneDeviceModel(_clipboardSyncTargetDevice);
+        }
+
+        if (!enabled || target is null || !IsSameDevice(target, sender))
+        {
+            return;
+        }
+
+        lock (_clipboardSyncLock)
+        {
+            if (string.Equals(text, _lastSyncedClipboardText, StringComparison.Ordinal))
+            {
+                return;
+            }
+        }
+
+        Interlocked.Exchange(ref _isApplyingRemoteClipboard, 1);
+        try
+        {
+            if (!_clipboardService.SetText(text))
+            {
+                UpdateClipboardSyncState(true, target, "接收远端剪贴板失败", keepTargetWhenDisabled: true);
+                return;
+            }
+
+            lock (_clipboardSyncLock)
+            {
+                _lastSyncedClipboardText = text;
+                _lastInboundClipboardText = text;
+                _lastInboundClipboardUtc = DateTime.UtcNow;
+            }
+
+            UpdateClipboardSyncState(true, target, $"已从 {sender.DisplayName} 同步剪贴板", keepTargetWhenDisabled: true);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ClipboardSync] Apply incoming text error: {ex}");
+            UpdateClipboardSyncState(true, target, "接收远端剪贴板失败", keepTargetWhenDisabled: true);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _isApplyingRemoteClipboard, 0);
+        }
+    }
+
     private void ShowIncomingMessageToast(DeviceMessageReceivedEventArgs args)
     {
         var senderName = GetDeviceDisplayName(args.Sender);
@@ -331,6 +652,89 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[Message] Toast error: {ex}");
+            }
+        });
+    }
+
+    private async Task HandleIncomingClipboardSyncRequestAsync(PacketMetadata packet, DeviceModel sender)
+    {
+        if (string.IsNullOrWhiteSpace(packet.RequestId))
+        {
+            return;
+        }
+
+        var accepted = await PromptIncomingClipboardSyncRequestAsync(sender);
+        await SendClipboardSyncResponseAsync(sender, packet.RequestId, accepted);
+        if (!accepted)
+        {
+            return;
+        }
+
+        ActivateClipboardSync(sender, $"已同意 {GetDeviceDisplayName(sender)} 的请求，双向同步已开启");
+        PublishClipboardSyncAuthorized(sender, initiatedByPeer: true);
+    }
+
+    private async Task SendClipboardSyncResponseAsync(DeviceModel target, string requestId, bool accepted)
+    {
+        var responseMeta = new PacketMetadata
+        {
+            Type = "ClipboardSyncResp",
+            RequestId = requestId,
+            Accepted = accepted,
+            SenderPort = GetAdvertisedPort(),
+            SenderId = _myId.ToString(),
+            SenderName = GetLocalDisplayName()
+        };
+
+        await SendStreamAsync(target, Stream.Null, JsonSerializer.Serialize(responseMeta));
+    }
+
+    private async Task<bool> PromptIncomingClipboardSyncRequestAsync(DeviceModel sender)
+    {
+        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            try
+            {
+                var toastService = GetToastService();
+                if (toastService is null)
+                {
+                    return false;
+                }
+
+                var senderName = GetDeviceDisplayName(sender);
+                var decisionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                toastService.Show(new ToastRequest
+                {
+                    Header = "剪贴板同步请求",
+                    Text = $"{senderName} 请求建立双向剪贴板同步",
+                    NotificationType = NotificationType.Information,
+                    AutoCloseDelay = ClipboardSyncRequestTimeout,
+                    ShowCloseButton = false,
+                    Actions =
+                    [
+                        new ToastAction
+                        {
+                            Text = "同意",
+                            IsPrimary = true,
+                            Callback = () => decisionSource.TrySetResult(true)
+                        },
+                        new ToastAction
+                        {
+                            Text = "拒绝",
+                            Callback = () => decisionSource.TrySetResult(false)
+                        }
+                    ]
+                });
+
+                var completedTask = await Task.WhenAny(
+                    decisionSource.Task,
+                    Task.Delay(ClipboardSyncRequestTimeout));
+                return completedTask == decisionSource.Task && decisionSource.Task.Result;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ClipboardSync] Consent prompt error: {ex}");
+                return false;
             }
         });
     }
@@ -553,6 +957,58 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         };
     }
 
+    private DeviceModel? ResolveDiscoveredDevice(DeviceModel candidate)
+    {
+        if (!string.IsNullOrWhiteSpace(candidate.Id))
+        {
+            var matchedById = DiscoveredDevices.FirstOrDefault(device =>
+                string.Equals(device.Id, candidate.Id, StringComparison.Ordinal));
+            if (matchedById is not null)
+            {
+                return matchedById;
+            }
+        }
+
+        if (candidate.Port <= 0)
+        {
+            return null;
+        }
+
+        return DiscoveredDevices.FirstOrDefault(device =>
+            string.Equals(device.Address.ToString(), candidate.Address.ToString(), StringComparison.OrdinalIgnoreCase) &&
+            device.Port == candidate.Port);
+    }
+
+    private static bool IsSameDevice(DeviceModel a, DeviceModel b)
+    {
+        if (!string.IsNullOrWhiteSpace(a.Id) && !string.IsNullOrWhiteSpace(b.Id))
+        {
+            return string.Equals(a.Id, b.Id, StringComparison.Ordinal);
+        }
+
+        return a.Port > 0 &&
+               b.Port > 0 &&
+               a.Port == b.Port &&
+               string.Equals(a.Address.ToString(), b.Address.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ToClipboardLogPreview(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return "<empty>";
+        }
+
+        var normalized = text.Replace("\r", "\\r").Replace("\n", "\\n");
+        const int maxLen = 120;
+        if (normalized.Length <= maxLen)
+        {
+            return normalized;
+        }
+
+        return normalized[..maxLen] + "...";
+    }
+
     private int GetAdvertisedPort()
     {
         return _advertisedPort > 0 ? _advertisedPort : _quicPort;
@@ -595,6 +1051,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         _udpDataPort = 0;
         _advertisedPort = 0;
         _discoveredDeviceQuicCapabilities.Clear();
+        DeactivateClipboardSync("实时同步剪贴板已关闭", keepTargetWhenDisabled: false);
+
+        foreach (var pending in _pendingClipboardSyncRequests.Values)
+        {
+            pending.TrySetResult(false);
+        }
+        _pendingClipboardSyncRequests.Clear();
     }
 
     public async Task SendMessageAsync(DeviceModel target, string message)
@@ -664,6 +1127,80 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
         var json = JsonSerializer.Serialize(meta);
         await SendStreamAsync(target, Stream.Null, json);
+        Logger.Information(
+            "[ClipboardSync] Sent to {Target} ({TargetId}): {ClipboardPreview}",
+            GetDeviceDisplayName(target),
+            target.Id,
+            ToClipboardLogPreview(text));
+    }
+
+    public async Task<bool> RequestClipboardSyncAsync(DeviceModel target)
+    {
+        var requestId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_pendingClipboardSyncRequests.TryAdd(requestId, tcs))
+        {
+            throw new InvalidOperationException("Failed to track clipboard sync request.");
+        }
+
+        var requestMeta = new PacketMetadata
+        {
+            Type = "ClipboardSyncReq",
+            RequestId = requestId,
+            SenderPort = GetAdvertisedPort(),
+            SenderId = _myId.ToString(),
+            SenderName = GetLocalDisplayName()
+        };
+
+        try
+        {
+            await SendStreamAsync(target, Stream.Null, JsonSerializer.Serialize(requestMeta));
+
+            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(ClipboardSyncRequestTimeout));
+            if (completedTask != tcs.Task)
+            {
+                return false;
+            }
+
+            return tcs.Task.Result;
+        }
+        finally
+        {
+            _pendingClipboardSyncRequests.TryRemove(requestId, out _);
+        }
+    }
+
+    public async Task<bool> EnableClipboardSyncAsync(DeviceModel target)
+    {
+        var resolvedTarget = ResolveDiscoveredDevice(target) ?? target;
+        UpdateClipboardSyncState(
+            isEnabled: false,
+            target: resolvedTarget,
+            status: $"等待 {GetDeviceDisplayName(resolvedTarget)} 同意同步请求...",
+            keepTargetWhenDisabled: true);
+
+        var accepted = await RequestClipboardSyncAsync(resolvedTarget);
+        if (!accepted)
+        {
+            UpdateClipboardSyncState(
+                isEnabled: false,
+                target: resolvedTarget,
+                status: "对方未同意同步请求或请求超时",
+                keepTargetWhenDisabled: true);
+            return false;
+        }
+
+        if (!IsClipboardSyncEnabled || ClipboardSyncTargetDevice is not { } current || !IsSameDevice(current, resolvedTarget))
+        {
+            ActivateClipboardSync(resolvedTarget, $"已与 {GetDeviceDisplayName(resolvedTarget)} 建立双向剪贴板同步");
+        }
+
+        return true;
+    }
+
+    public void DisableClipboardSync()
+    {
+        DeactivateClipboardSync("实时同步剪贴板已关闭", keepTargetWhenDisabled: false);
     }
 
     public async Task RequestFileTransferAsync(DeviceModel target)
@@ -1131,6 +1668,26 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             case "ClipboardText":
                 await DrainRemainingDataAsync(dataStream);
                 PublishClipboardReceived(sender, packet.Content);
+                ApplyIncomingClipboardText(sender, packet.Content);
+                break;
+
+            case "ClipboardSyncReq":
+                await DrainRemainingDataAsync(dataStream);
+                await HandleIncomingClipboardSyncRequestAsync(packet, sender);
+                break;
+
+            case "ClipboardSyncResp":
+                await DrainRemainingDataAsync(dataStream);
+                if (_pendingClipboardSyncRequests.TryGetValue(packet.RequestId, out var clipboardRequest))
+                {
+                    clipboardRequest.TrySetResult(packet.Accepted);
+                }
+
+                if (packet.Accepted)
+                {
+                    ActivateClipboardSync(sender, $"对方已同意，已与 {GetDeviceDisplayName(sender)} 开启双向同步");
+                    PublishClipboardSyncAuthorized(sender, initiatedByPeer: false);
+                }
                 break;
 
             case "FileReq":

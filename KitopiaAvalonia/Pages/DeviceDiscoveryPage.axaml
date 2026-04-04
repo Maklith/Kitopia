@@ -65,8 +65,8 @@
                                     <ToggleSwitch Grid.Column="1"
                                                   HorizontalAlignment="Right"
                                                   VerticalAlignment="Top"
-                                                  OnContent="同步剪贴板"
-                                                  OffContent="同步剪贴板"
+                                                  OnContent="同步"
+                                                  OffContent="同步"
                                                   Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).ToggleClipboardSyncForDeviceCommand}"
                                                   CommandParameter="{Binding .}">
                                         <ToggleSwitch.IsChecked>

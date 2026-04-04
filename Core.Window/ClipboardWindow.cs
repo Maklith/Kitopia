@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Media.Imaging;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
+using Avalonia.Threading;
 using Core.Services;
 using OpenCvSharp;
 using PluginCore;
@@ -46,12 +47,18 @@ public class ClipboardWindow : IClipboardService
         try
         {
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
-                return appLifetime.MainWindow is { Clipboard: not null } && appLifetime.MainWindow.Clipboard.GetDataFormatsAsync()
-                    .WaitAsync(TimeSpan.FromSeconds(1))
-                    .GetAwaiter()
-                    .GetResult()
-                    .Any( format => format.Identifier == DataFormats.Text || format.Identifier == DataFormats.UnicodeText);
+                return Dispatcher.UIThread.Invoke((() =>
+                {
+                    return appLifetime.MainWindow is { Clipboard: not null } && appLifetime.MainWindow.Clipboard
+                        .GetDataFormatsAsync()
+                        .WaitAsync(TimeSpan.FromSeconds(1))
+                        .GetAwaiter()
+                        .GetResult()
+                        .Any(format =>
+                            format.Identifier == DataFormats.Text || format.Identifier == DataFormats.UnicodeText);
 
+                }));
+                
             return false;
         }
         catch (Exception e)
@@ -66,10 +73,11 @@ public class ClipboardWindow : IClipboardService
         try
         {
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
-                return appLifetime.MainWindow?.Clipboard?.TryGetTextAsync()
+                return Dispatcher.UIThread.Invoke((() => appLifetime.MainWindow?.Clipboard?.TryGetTextAsync()
                     .WaitAsync(TimeSpan.FromSeconds(1))
                     .GetAwaiter()
-                    .GetResult();
+                    .GetResult()));
+                
 
             return null;
         }
@@ -86,11 +94,15 @@ public class ClipboardWindow : IClipboardService
         {
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
             {
-                appLifetime.MainWindow?.Clipboard?.SetTextAsync(text)
-                    .WaitAsync(TimeSpan.FromSeconds(1))
-                    .GetAwaiter()
-                    .GetResult();
-                return true;
+                return Dispatcher.UIThread.Invoke(() =>
+                {
+                    appLifetime.MainWindow?.Clipboard?.SetTextAsync(text)
+                        .WaitAsync(TimeSpan.FromSeconds(1))
+                        .GetAwaiter()
+                        .GetResult();
+                    return true;
+                });
+
             }
 
             return false;
