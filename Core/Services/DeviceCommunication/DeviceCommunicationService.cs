@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -55,6 +55,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingClipboardSyncRequests = new();
     private readonly ConcurrentDictionary<Guid, UdpReassemblySession> _udpSessions = new();
     private readonly ConcurrentDictionary<string, string> _pendingDownloads = new(); // RequestId -> SavePath
+    private readonly ConcurrentDictionary<string, IncomingFileRequestContext> _pendingIncomingFileRequests = new();
     private readonly ConcurrentDictionary<string, bool> _discoveredDeviceQuicCapabilities = new(); // DeviceId -> SupportsQuic
     private readonly ConcurrentDictionary<string, IToastProgressHandle> _sendingTransferToasts = new();
     private readonly ConcurrentDictionary<string, IToastProgressHandle> _receivingTransferToasts = new();
@@ -731,119 +732,71 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
     private async Task HandleIncomingFileRequestAsync(PacketMetadata packet, DeviceModel sender)
     {
+        if (string.IsNullOrWhiteSpace(packet.RequestId))
+        {
+            return;
+        }
+
         try
         {
+            _pendingIncomingFileRequests[packet.RequestId] = new IncomingFileRequestContext
+            {
+                FileName = packet.FileName,
+                FileSize = packet.Size,
+                Sender = CloneDeviceModel(sender)
+            };
+
             await SaveChatRecordAsync(
                 sender,
                 DeviceChatDirection.Incoming,
                 DeviceChatEntryType.FileRequest,
-                content: "Incoming file transfer request.",
+                content: "收到文件传输请求。",
                 fileName: packet.FileName,
                 fileSize: packet.Size,
                 requestId: packet.RequestId,
                 status: "requested");
 
-            var (accepted, savePath) = await PromptIncomingFileRequestAsync(packet, sender);
+            var hasActiveChatHandler = FileTransferRequested is not null;
+            if (hasActiveChatHandler)
+            {
+                try
+                {
+                    FileTransferRequested?.Invoke(this,
+                        new FileTransferRequestEventArgs(packet.RequestId, packet.FileName, packet.Size,
+                            CloneDeviceModel(sender)));
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[FileReq] Event handler error: {ex}");
+                }
+            }
 
-            await SaveChatRecordAsync(
-                sender,
-                DeviceChatDirection.System,
-                DeviceChatEntryType.TransferStatus,
-                content: accepted ? "Accepted incoming file request." : "Rejected incoming file request.",
-                fileName: packet.FileName,
-                filePath: savePath ?? string.Empty,
-                fileSize: packet.Size,
-                requestId: packet.RequestId,
-                status: accepted ? "accepted" : "rejected");
-
-            await RespondToFileRequestAsync(sender, packet.RequestId, accepted, savePath);
+            if (!hasActiveChatHandler)
+            {
+                ShowIncomingFileRequestActionToast(packet.RequestId, sender, packet.FileName, packet.Size);
+            }
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[FileReq] Handle request error: {ex}");
+            _pendingIncomingFileRequests.TryRemove(packet.RequestId, out _);
             await SaveChatRecordAsync(
                 sender,
                 DeviceChatDirection.System,
                 DeviceChatEntryType.TransferStatus,
-                content: $"Failed to handle incoming file request: {ex.Message}",
+                content: $"处理文件请求失败：{ex.Message}",
                 fileName: packet.FileName,
                 fileSize: packet.Size,
                 requestId: packet.RequestId,
                 status: "failed");
             try
             {
-                await RespondToFileRequestAsync(sender, packet.RequestId, false);
+                await SendBooleanResponseAsync(sender, "FileResp", packet.RequestId, false);
             }
             catch
             {
             }
         }
-    }
-
-    private async Task<(bool Accepted, string? SavePath)> PromptIncomingFileRequestAsync(PacketMetadata packet,
-        DeviceModel sender)
-    {
-        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
-        {
-            var senderName = GetDeviceDisplayName(sender);
-            var fileSize = FormatFileSize(packet.Size);
-            var accepted = false;
-
-            try
-            {
-                var toastService = GetToastService();
-                if (toastService is null)
-                {
-                    accepted = true;
-                }
-                else
-                {
-                    var decisionSource = new TaskCompletionSource<bool>();
-                    toastService.Show(new ToastRequest
-                    {
-                        Header = "\u6587\u4ef6\u63a5\u6536\u8bf7\u6c42",
-                        Text = $"\u63a5\u6536\u5230\u6587\u4ef6 '{packet.FileName}' ({fileSize})\uff0c\u53d1\u9001\u65b9\uff1a{senderName}",
-                        NotificationType = NotificationType.Information,
-                        AutoCloseDelay = null,
-                        ShowCloseButton = false,
-                        Actions =
-                        [
-                            new ToastAction
-                            {
-                                Text = "\u63a5\u6536",
-                                IsPrimary = true,
-                                Callback = () => decisionSource.TrySetResult(true)
-                            },
-                            new ToastAction
-                            {
-                                Text = "\u53d6\u6d88",
-                                Callback = () => decisionSource.TrySetResult(false)
-                            }
-                        ]
-                    });
-                    accepted = await decisionSource.Task;
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[FileReq] Decision dialog error: {ex}");
-                accepted = true;
-            }
-
-            if (!accepted)
-            {
-                return (false, (string?)null);
-            }
-
-            var suggestedName = string.IsNullOrWhiteSpace(packet.FileName) ? "received_file" : packet.FileName;
-            var savePath = await PickSaveFilePathAsync("\u4fdd\u5b58\u6587\u4ef6", suggestedName);
-            if (string.IsNullOrWhiteSpace(savePath))
-            {
-                return (false, (string?)null);
-            }
-
-            return (true, savePath);
-        });
     }
 
     private async Task<string?> PickFileToSendAsync()
@@ -859,7 +812,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             var files = await lifetime.MainWindow.StorageProvider.OpenFilePickerAsync(
                 new Avalonia.Platform.Storage.FilePickerOpenOptions
                 {
-                    Title = "Select File to Send",
+                    Title = "选择要发送的文件",
                     AllowMultiple = false
                 });
 
@@ -891,6 +844,110 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
             return file?.Path.LocalPath;
         });
+    }
+
+    private void ShowIncomingFileRequestToast(string requestId, DeviceModel sender, string fileName, long fileSize)
+    {
+        var senderName = GetDeviceDisplayName(sender);
+        var displayFileName = string.IsNullOrWhiteSpace(fileName) ? "未命名文件" : fileName;
+        var sizeText = fileSize > 0 ? $" ({FormatFileSize(fileSize)})" : string.Empty;
+        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            try
+            {
+                GetToastService()?.Show(
+                    "收到文件请求",
+                    $"{senderName} 请求发送 {displayFileName}{sizeText}，请在聊天页面确认是否接收。",
+                    NotificationType.Information);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[FileReq] Request toast error: {ex}");
+            }
+        });
+    }
+
+    private void ShowIncomingFileRequestActionToast(string requestId, DeviceModel sender, string fileName, long fileSize)
+    {
+        var senderName = GetDeviceDisplayName(sender);
+        var displayFileName = string.IsNullOrWhiteSpace(fileName) ? "未命名文件" : fileName;
+        var sizeText = fileSize > 0 ? $" ({FormatFileSize(fileSize)})" : string.Empty;
+        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            try
+            {
+                var toastService = GetToastService();
+                if (toastService is null)
+                {
+                    return;
+                }
+
+                toastService.Show(new ToastRequest
+                {
+                    Header = "收到文件请求",
+                    Text = $"{senderName} 请求发送 {displayFileName}{sizeText}",
+                    NotificationType = NotificationType.Information,
+                    AutoCloseDelay = TimeSpan.FromSeconds(30),
+                    ShowCloseButton = false,
+                    Actions =
+                    [
+                        new ToastAction
+                        {
+                            Text = "同意",
+                            IsPrimary = true,
+                            Callback = () => _ = HandleIncomingFileRequestDecisionFromToastAsync(requestId, true)
+                        },
+                        new ToastAction
+                        {
+                            Text = "拒绝",
+                            Callback = () => _ = HandleIncomingFileRequestDecisionFromToastAsync(requestId, false)
+                        }
+                    ]
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[FileReq] Action toast error: {ex}");
+            }
+        });
+    }
+
+    private async Task HandleIncomingFileRequestDecisionFromToastAsync(string requestId, bool accepted)
+    {
+        if (!_pendingIncomingFileRequests.TryGetValue(requestId, out var context))
+        {
+            return;
+        }
+
+        string? savePath = null;
+        if (accepted)
+        {
+            var suggestedName = string.IsNullOrWhiteSpace(context.FileName) ? "接收文件" : context.FileName;
+            savePath = await PickSaveFilePathAsync("保存文件", suggestedName);
+            if (string.IsNullOrWhiteSpace(savePath))
+            {
+                return;
+            }
+        }
+
+        try
+        {
+            await RespondToFileRequestAsync(context.Sender, requestId, accepted, savePath);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[FileReq] Toast decision error: {ex}");
+            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                try
+                {
+                    GetToastService()?.Show("处理文件请求失败", ex.Message, NotificationType.Error);
+                }
+                catch
+                {
+                }
+            });
+        }
     }
 
     private void ShowIncomingFileSavedToast(DeviceModel sender, string savedPath)
@@ -1036,7 +1093,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     {
         if (string.IsNullOrWhiteSpace(requestMeta.RequestId))
         {
-            throw new InvalidOperationException("RequestId is required.");
+            throw new InvalidOperationException("请求标识不能为空。");
         }
 
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1185,6 +1242,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             pending.TrySetResult(false);
         }
         _pendingClipboardSyncRequests.Clear();
+        _pendingIncomingFileRequests.Clear();
     }
 
     public async Task SendMessageAsync(DeviceModel target, string message)
@@ -1253,7 +1311,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             requestMeta,
             _pendingClipboardSyncRequests,
             ClipboardSyncRequestTimeout,
-            "Failed to track clipboard sync request.");
+            "无法跟踪剪贴板同步请求。");
         return decision == RequestDecision.Accepted;
     }
 
@@ -1320,12 +1378,12 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 requestMeta,
                 _pendingFileRequests,
                 TimeSpan.FromMinutes(1),
-                "Failed to track request",
+                "无法跟踪文件传输请求。",
                 onRequestSent: () => SaveChatRecordAsync(
                     target,
                     DeviceChatDirection.Outgoing,
                     DeviceChatEntryType.FileRequest,
-                    content: "Outgoing file transfer request.",
+                    content: "已发起文件传输请求。",
                     fileName: fileInfo.Name,
                     filePath: fileInfo.FullName,
                     fileSize: fileInfo.Length,
@@ -1339,7 +1397,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                         target,
                         DeviceChatDirection.System,
                         DeviceChatEntryType.TransferStatus,
-                        content: "Peer accepted file transfer request.",
+                        content: "对方已同意文件传输请求。",
                         fileName: fileInfo.Name,
                         filePath: fileInfo.FullName,
                         fileSize: fileInfo.Length,
@@ -1350,7 +1408,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                         target,
                         DeviceChatDirection.Outgoing,
                         DeviceChatEntryType.File,
-                        content: "File transfer completed.",
+                        content: "文件传输完成。",
                         fileName: fileInfo.Name,
                         filePath: fileInfo.FullName,
                         fileSize: fileInfo.Length,
@@ -1363,20 +1421,20 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                         target,
                         DeviceChatDirection.System,
                         DeviceChatEntryType.TransferStatus,
-                        content: "Peer did not respond to file transfer request.",
+                        content: "对方未响应文件传输请求。",
                         fileName: fileInfo.Name,
                         filePath: fileInfo.FullName,
                         fileSize: fileInfo.Length,
                         requestId: requestId,
                         status: "timeout");
-                    throw new TimeoutException("User did not respond in time.");
+                    throw new TimeoutException("对方未在规定时间内响应。");
 
                 default:
                     await SaveChatRecordAsync(
                         target,
                         DeviceChatDirection.System,
                         DeviceChatEntryType.TransferStatus,
-                        content: "Peer rejected file transfer request.",
+                        content: "对方已拒绝文件传输请求。",
                         fileName: fileInfo.Name,
                         filePath: fileInfo.FullName,
                         fileSize: fileInfo.Length,
@@ -1392,7 +1450,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 target,
                 DeviceChatDirection.Outgoing,
                 DeviceChatEntryType.File,
-                content: $"File transfer failed: {ex.Message}",
+                content: $"文件传输失败：{ex.Message}",
                 fileName: fileInfo.Name,
                 filePath: fileInfo.FullName,
                 fileSize: fileInfo.Length,
@@ -1426,12 +1484,34 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
     public async Task RespondToFileRequestAsync(DeviceModel target, string requestId, bool accepted, string? savePath = null)
     {
+        if (!_pendingIncomingFileRequests.TryGetValue(requestId, out var requestContext))
+        {
+            return;
+        }
+
         if (accepted && !string.IsNullOrEmpty(savePath))
         {
             _pendingDownloads[requestId] = savePath;
         }
 
-        await SendBooleanResponseAsync(target, "FileResp", requestId, accepted);
+        await SendBooleanResponseAsync(requestContext.Sender, "FileResp", requestId, accepted);
+
+        if (_pendingIncomingFileRequests.TryRemove(requestId, out _))
+        {
+            var statusContent = accepted
+                ? "已同意接收文件请求。"
+                : "已拒绝文件请求。";
+            await SaveChatRecordAsync(
+                requestContext.Sender,
+                DeviceChatDirection.System,
+                DeviceChatEntryType.TransferStatus,
+                content: statusContent,
+                fileName: requestContext.FileName,
+                filePath: savePath ?? string.Empty,
+                fileSize: requestContext.FileSize,
+                requestId: requestId,
+                status: accepted ? "accepted" : "rejected");
+        }
     }
 
     public async Task SendStreamAsync(DeviceModel target, Stream stream, string? metaData = null)
@@ -1467,7 +1547,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     var meta = JsonSerializer.Deserialize<PacketMetadata>(metaData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                     if (meta != null && !string.IsNullOrEmpty(meta.RequestId))
                     {
-                        NotifyTransferInterrupted(meta.RequestId, $"Sending failed: {ex.Message}", true);
+                        NotifyTransferInterrupted(meta.RequestId, $"发送失败：{ex.Message}", true);
                     }
                 }
                 catch { }
@@ -1554,7 +1634,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             }
             catch (OperationCanceledException)
             {
-                throw new TimeoutException("Data transfer timed out.");
+                throw new TimeoutException("数据传输超时。");
             }
         }
     }
@@ -1632,7 +1712,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
         catch (OperationCanceledException)
         {
-            throw new TimeoutException("Write metadata timed out.");
+            throw new TimeoutException("写入元数据超时。");
         }
     }
     
@@ -1739,8 +1819,8 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     DeviceChatDirection.Incoming,
                     DeviceChatEntryType.TransferStatus,
                     content: packet.Accepted
-                        ? "Peer accepted the file transfer request."
-                        : "Peer rejected the file transfer request.",
+                        ? "对方已同意文件传输请求。"
+                        : "对方已拒绝文件传输请求。",
                     requestId: packet.RequestId,
                     status: packet.Accepted ? "accepted" : "rejected");
                 break;
@@ -1789,7 +1869,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
 
             if (packet.Size > 0 && fs.Length != packet.Size)
             {
-                throw new IOException($"File size mismatch. Expected {packet.Size}, got {fs.Length}");
+                throw new IOException($"文件大小不匹配，期望 {packet.Size} 字节，实际 {fs.Length} 字节。");
             }
 
             success = true;
@@ -1798,12 +1878,12 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[Dispatch] File save error: {ex}");
-            NotifyTransferInterrupted(packet.RequestId, $"Receive failed: {ex.Message}", false);
+            NotifyTransferInterrupted(packet.RequestId, $"接收失败：{ex.Message}", false);
             await SaveChatRecordAsync(
                 sender,
                 DeviceChatDirection.Incoming,
                 DeviceChatEntryType.File,
-                content: $"File receive failed: {ex.Message}",
+                content: $"文件接收失败：{ex.Message}",
                 fileName: packet.FileName,
                 filePath: savePath,
                 fileSize: packet.Size,
@@ -1827,7 +1907,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             sender,
             DeviceChatDirection.Incoming,
             DeviceChatEntryType.File,
-            content: "File received.",
+            content: "文件接收完成。",
             fileName: packet.FileName,
             filePath: savePath,
             fileSize: packet.Size,
@@ -1856,7 +1936,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         }
 
         var suggestedName = string.IsNullOrWhiteSpace(packet.FileName)
-            ? "received_file"
+            ? "接收文件"
             : Path.GetFileName(packet.FileName);
         var manualSavePath = await PickSaveFilePathAsync("\u4fdd\u5b58\u63a5\u6536\u5230\u7684\u6587\u4ef6", suggestedName);
         if (string.IsNullOrWhiteSpace(manualSavePath))
@@ -1873,7 +1953,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 sender,
                 DeviceChatDirection.Incoming,
                 DeviceChatEntryType.File,
-                content: "File received.",
+                content: "文件接收完成。",
                 fileName: packet.FileName,
                 filePath: manualSavePath,
                 fileSize: packet.Size,
@@ -1889,7 +1969,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 sender,
                 DeviceChatDirection.Incoming,
                 DeviceChatEntryType.File,
-                content: $"File receive failed: {ex.Message}",
+                content: $"文件接收失败：{ex.Message}",
                 fileName: packet.FileName,
                 filePath: manualSavePath,
                 fileSize: packet.Size,
@@ -1903,7 +1983,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             {
             }
 
-            NotifyTransferInterrupted(packet.RequestId, $"Receive failed: {ex.Message}", false);
+            NotifyTransferInterrupted(packet.RequestId, $"接收失败：{ex.Message}", false);
             return true;
         }
     }
@@ -2158,7 +2238,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                                  var meta = JsonSerializer.Deserialize<PacketMetadata>(session.MetadataJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                                  if (meta != null && !string.IsNullOrEmpty(meta.RequestId))
                                  {
-                                     NotifyTransferInterrupted(meta.RequestId, "Transfer timed out", false);
+                        NotifyTransferInterrupted(meta.RequestId, "传输超时", false);
                                  }
                              }
                              catch { }
@@ -2259,7 +2339,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             }
             catch (OperationCanceledException)
             {
-                 throw new TimeoutException("Read exact timed out.");
+                 throw new TimeoutException("读取数据超时。");
             }
         }
     }
@@ -2697,6 +2777,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         Rejected,
         Accepted,
         TimedOut
+    }
+
+    private class IncomingFileRequestContext
+    {
+        public string FileName { get; set; } = string.Empty;
+        public long FileSize { get; set; }
+        public DeviceModel Sender { get; set; } = new();
     }
     
     private class UdpReassemblySession

@@ -1,8 +1,10 @@
-﻿using System.Collections.ObjectModel;
+﻿﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,6 +23,7 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private string? _loadedMessagesPeerKey;
     private long? _oldestLoadedMessageId;
+    private bool _isChatInterfaceActive;
 
     public ObservableCollection<DeviceChatConversationItem> Conversations { get; } = [];
     public ObservableCollection<DeviceChatMessageItem> Messages { get; } = [];
@@ -67,9 +70,28 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        SetChatInterfaceActive(false);
         _deviceCommunication.DiscoveredDevices.CollectionChanged -= OnDiscoveredDevicesCollectionChanged;
         _deviceCommunication.MessageReceived -= OnDeviceMessageReceivedForActivePage;
         _chatHistoryStore.MessageStored -= OnMessageStored;
+    }
+
+    public void SetChatInterfaceActive(bool isActive)
+    {
+        if (_isChatInterfaceActive == isActive)
+        {
+            return;
+        }
+
+        _isChatInterfaceActive = isActive;
+        if (_isChatInterfaceActive)
+        {
+            _deviceCommunication.FileTransferRequested += OnFileTransferRequestedForActivePage;
+        }
+        else
+        {
+            _deviceCommunication.FileTransferRequested -= OnFileTransferRequestedForActivePage;
+        }
     }
 
     partial void OnSelectedConversationChanged(DeviceChatConversationItem? value)
@@ -157,6 +179,7 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
 
                 _oldestLoadedMessageId = Messages.Count > 0 ? Messages[0].Id : null;
                 HasMoreHistory = hasMore && _oldestLoadedMessageId is not null;
+                ReevaluatePendingFileRequestStates();
             });
         }
         finally
@@ -232,6 +255,81 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private async Task AcceptFileRequestAsync(DeviceChatMessageItem? message)
+    {
+        if (message is null || !message.IsIncomingFileRequestPending || string.IsNullOrWhiteSpace(message.RequestId))
+        {
+            return;
+        }
+
+        var conversation = SelectedConversation;
+        if (conversation is null)
+        {
+            _toastService.Show("设备聊天", "未找到对应会话。", NotificationType.Warning);
+            return;
+        }
+
+        var target = ResolveTargetDevice(conversation);
+        if (target is null)
+        {
+            _toastService.Show("设备聊天", "目标设备当前不可达。", NotificationType.Warning);
+            return;
+        }
+
+        var suggestedFileName = string.IsNullOrWhiteSpace(message.FileName) ? "接收文件" : message.FileName;
+        var savePath = await PickSaveFilePathAsync("保存接收文件", suggestedFileName);
+        if (string.IsNullOrWhiteSpace(savePath))
+        {
+            return;
+        }
+
+        try
+        {
+            await _deviceCommunication.RespondToFileRequestAsync(target, message.RequestId, true, savePath);
+            ClearPendingFileRequestState(message.RequestId);
+            _toastService.Show("文件接收", "已同意文件请求，等待对方开始传输。", NotificationType.Information);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show("文件接收失败", ex.Message, NotificationType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task RejectFileRequestAsync(DeviceChatMessageItem? message)
+    {
+        if (message is null || !message.IsIncomingFileRequestPending || string.IsNullOrWhiteSpace(message.RequestId))
+        {
+            return;
+        }
+
+        var conversation = SelectedConversation;
+        if (conversation is null)
+        {
+            _toastService.Show("设备聊天", "未找到对应会话。", NotificationType.Warning);
+            return;
+        }
+
+        var target = ResolveTargetDevice(conversation);
+        if (target is null)
+        {
+            _toastService.Show("设备聊天", "目标设备当前不可达。", NotificationType.Warning);
+            return;
+        }
+
+        try
+        {
+            await _deviceCommunication.RespondToFileRequestAsync(target, message.RequestId, false);
+            ClearPendingFileRequestState(message.RequestId);
+            _toastService.Show("文件接收", "已拒绝文件请求。", NotificationType.Information);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show("文件接收失败", ex.Message, NotificationType.Error);
+        }
+    }
+
+    [RelayCommand]
     private void OpenFile(DeviceChatMessageItem? message)
     {
         if (message is null || !message.CanOpenFile)
@@ -294,6 +392,8 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
                         _oldestLoadedMessageId = message.Id;
                     }
                 }
+
+                ReevaluatePendingFileRequestStates();
             });
         }
 
@@ -302,7 +402,36 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
 
     private void OnDeviceMessageReceivedForActivePage(object? sender, DeviceMessageReceivedEventArgs e)
     {
-        // This handler marks the chat page as active so the service can suppress duplicate incoming toasts.
+        var selected = SelectedConversation;
+        if (selected is not null && IsSameConversationPeer(selected, e.Sender))
+        {
+            return;
+        }
+
+        var senderName = string.IsNullOrWhiteSpace(e.Sender.DisplayName) ? "未知设备" : e.Sender.DisplayName;
+        var preview = e.Message?.Trim() ?? string.Empty;
+        if (preview.Length > 80)
+        {
+            preview = preview[..80] + "...";
+        }
+
+        if (string.IsNullOrWhiteSpace(preview))
+        {
+            preview = "（空消息）";
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            _toastService.Show(
+                "收到新消息",
+                $"{senderName}: {preview}",
+                NotificationType.Information);
+        });
+    }
+
+    private void OnFileTransferRequestedForActivePage(object? sender, FileTransferRequestEventArgs e)
+    {
+        // 仅用于标记聊天界面激活，收到文件请求时由聊天消息列表中的操作按钮处理。
     }
 
     private async Task RefreshDataAsync(string? preserveSelectedPeerKey = null, string? forceSelectPeerKey = null)
@@ -423,6 +552,7 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
 
                 _oldestLoadedMessageId = oldestMessageId;
                 HasMoreHistory = hasMore && _oldestLoadedMessageId is not null;
+                ReevaluatePendingFileRequestStates();
             });
         }
         finally
@@ -463,6 +593,115 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
             Address = address,
             Port = conversation.PeerPort,
             LastSeen = DateTime.UtcNow
+        };
+    }
+
+    private static bool IsSameConversationPeer(DeviceChatConversationItem conversation, DeviceModel sender)
+    {
+        if (!string.IsNullOrWhiteSpace(conversation.PeerId) && !string.IsNullOrWhiteSpace(sender.Id))
+        {
+            return string.Equals(conversation.PeerId, sender.Id, StringComparison.Ordinal);
+        }
+
+        if (conversation.PeerPort <= 0 || sender.Port <= 0)
+        {
+            return false;
+        }
+
+        return conversation.PeerPort == sender.Port &&
+               string.Equals(conversation.PeerAddress, sender.Address.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<string?> PickSaveFilePathAsync(string title, string suggestedFileName)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+            if (lifetime?.MainWindow == null)
+            {
+                return null;
+            }
+
+            var file = await lifetime.MainWindow.StorageProvider.SaveFilePickerAsync(
+                new Avalonia.Platform.Storage.FilePickerSaveOptions
+                {
+                    Title = title,
+                    SuggestedFileName = suggestedFileName
+                });
+
+            return file?.Path.LocalPath;
+        });
+    }
+
+    private void ClearPendingFileRequestState(string requestId)
+    {
+        if (string.IsNullOrWhiteSpace(requestId))
+        {
+            return;
+        }
+
+        for (var i = 0; i < Messages.Count; i++)
+        {
+            var item = Messages[i];
+            if (!item.IsIncomingFileRequestPending)
+            {
+                continue;
+            }
+
+            if (!string.Equals(item.RequestId, requestId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            Messages[i] = item with { IsIncomingFileRequestPending = false };
+        }
+    }
+
+    private void ReevaluatePendingFileRequestStates()
+    {
+        var resolvedRequestIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var message in Messages)
+        {
+            if (string.IsNullOrWhiteSpace(message.RequestId))
+            {
+                continue;
+            }
+
+            if (IsResolvedFileRequestStatus(message.Status))
+            {
+                resolvedRequestIds.Add(message.RequestId);
+            }
+        }
+
+        for (var i = 0; i < Messages.Count; i++)
+        {
+            var message = Messages[i];
+            var shouldPending =
+                message.IsIncoming &&
+                message.EntryType == DeviceChatEntryType.FileRequest &&
+                string.Equals(message.Status, "requested", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(message.RequestId) &&
+                !resolvedRequestIds.Contains(message.RequestId);
+
+            if (message.IsIncomingFileRequestPending == shouldPending)
+            {
+                continue;
+            }
+
+            Messages[i] = message with { IsIncomingFileRequestPending = shouldPending };
+        }
+    }
+
+    private static bool IsResolvedFileRequestStatus(string status)
+    {
+        return status switch
+        {
+            "accepted" => true,
+            "rejected" => true,
+            "failed" => true,
+            "timeout" => true,
+            "completed" => true,
+            _ => false
         };
     }
 
@@ -539,7 +778,15 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
             Footer = footer,
             IsOutgoing = message.Direction == DeviceChatDirection.Outgoing,
             IsIncoming = message.Direction == DeviceChatDirection.Incoming,
-            IsSystem = message.Direction == DeviceChatDirection.System
+            IsSystem = message.Direction == DeviceChatDirection.System,
+            EntryType = message.EntryType,
+            FileName = message.FileName,
+            RequestId = message.RequestId,
+            Status = message.Status,
+            IsIncomingFileRequestPending =
+                message.Direction == DeviceChatDirection.Incoming &&
+                message.EntryType == DeviceChatEntryType.FileRequest &&
+                string.Equals(message.Status, "requested", StringComparison.OrdinalIgnoreCase)
         };
     }
 
@@ -640,4 +887,9 @@ public sealed record DeviceChatMessageItem
     public bool IsOutgoing { get; init; }
     public bool IsIncoming { get; init; }
     public bool IsSystem { get; init; }
+    public DeviceChatEntryType EntryType { get; init; }
+    public string FileName { get; init; } = string.Empty;
+    public string RequestId { get; init; } = string.Empty;
+    public string Status { get; init; } = string.Empty;
+    public bool IsIncomingFileRequestPending { get; init; }
 }
