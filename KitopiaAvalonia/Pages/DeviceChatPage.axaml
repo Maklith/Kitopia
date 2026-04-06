@@ -198,6 +198,17 @@
                                                                 Command="{Binding $parent[UserControl].((vm:DeviceChatPageViewModel)DataContext).RejectFileRequestCommand}"
                                                                 CommandParameter="{Binding .}" />
                                                     </StackPanel>
+                                                    <StackPanel Spacing="4"
+                                                                IsVisible="{Binding IsTransferProgress}">
+                                                        <ProgressBar Minimum="0"
+                                                                     Maximum="100"
+                                                                     Height="6"
+                                                                     Value="{Binding TransferProgress}"
+                                                                     IsIndeterminate="{Binding IsTransferProgressIndeterminate}" />
+                                                        <TextBlock Text="{Binding TransferProgressText}"
+                                                                   FontSize="11"
+                                                                   Foreground="#64748B" />
+                                                    </StackPanel>
                                                 </StackPanel>
                                             </Border>
                                             <TextBlock Text="{Binding Footer}"
@@ -244,6 +255,17 @@
                                                                     CommandParameter="{Binding .}" />
                                                         </StackPanel>
                                                     </Border>
+                                                    <StackPanel Spacing="4"
+                                                                IsVisible="{Binding IsTransferProgress}">
+                                                        <ProgressBar Minimum="0"
+                                                                     Maximum="100"
+                                                                     Height="6"
+                                                                     Value="{Binding TransferProgress}"
+                                                                     IsIndeterminate="{Binding IsTransferProgressIndeterminate}" />
+                                                        <TextBlock Text="{Binding TransferProgressText}"
+                                                                   FontSize="11"
+                                                                   Foreground="#DBEAFE" />
+                                                    </StackPanel>
                                                 </StackPanel>
                                             </Border>
                                             <TextBlock Text="{Binding Footer}"

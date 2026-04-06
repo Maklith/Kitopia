@@ -24,6 +24,7 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
     private string? _loadedMessagesPeerKey;
     private long? _oldestLoadedMessageId;
     private bool _isChatInterfaceActive;
+    private long _nextTransientMessageId = -1;
 
     public ObservableCollection<DeviceChatConversationItem> Conversations { get; } = [];
     public ObservableCollection<DeviceChatMessageItem> Messages { get; } = [];
@@ -62,7 +63,7 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
         _toastService = toastService;
 
         _deviceCommunication.DiscoveredDevices.CollectionChanged += OnDiscoveredDevicesCollectionChanged;
-        _deviceCommunication.MessageReceived += OnDeviceMessageReceivedForActivePage;
+        _deviceCommunication.CommunicationEvent += OnDeviceCommunicationEvent;
         _chatHistoryStore.MessageStored += OnMessageStored;
 
         _ = RefreshDataAsync();
@@ -70,28 +71,22 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
-        SetChatInterfaceActive(false);
+        SetChatInterfaceActive(false, null);
         _deviceCommunication.DiscoveredDevices.CollectionChanged -= OnDiscoveredDevicesCollectionChanged;
-        _deviceCommunication.MessageReceived -= OnDeviceMessageReceivedForActivePage;
+        _deviceCommunication.CommunicationEvent -= OnDeviceCommunicationEvent;
         _chatHistoryStore.MessageStored -= OnMessageStored;
     }
 
-    public void SetChatInterfaceActive(bool isActive)
+    public void SetChatInterfaceActive(bool isActive, DeviceModel? device)
     {
-        if (_isChatInterfaceActive == isActive)
-        {
-            return;
-        }
-
         _isChatInterfaceActive = isActive;
-        if (_isChatInterfaceActive)
-        {
-            _deviceCommunication.FileTransferRequested += OnFileTransferRequestedForActivePage;
-        }
-        else
-        {
-            _deviceCommunication.FileTransferRequested -= OnFileTransferRequestedForActivePage;
-        }
+        _deviceCommunication.SetChatWindowActive(_isChatInterfaceActive, _isChatInterfaceActive ? device : null);
+    }
+
+    public DeviceModel? GetCurrentChatDevice()
+    {
+        var selected = SelectedConversation;
+        return selected is null ? null : ResolveTargetDevice(selected);
     }
 
     partial void OnSelectedConversationChanged(DeviceChatConversationItem? value)
@@ -105,6 +100,11 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
         LoadMoreMessagesCommand.NotifyCanExecuteChanged();
 
         var peerKey = value?.PeerKey;
+        if (_isChatInterfaceActive)
+        {
+            _deviceCommunication.SetChatWindowActive(true, ResolveTargetDevice(value));
+        }
+
         if (string.Equals(_loadedMessagesPeerKey, peerKey, StringComparison.Ordinal))
         {
             return;
@@ -113,6 +113,7 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
         _oldestLoadedMessageId = null;
         HasMoreHistory = false;
         _loadedMessagesPeerKey = peerKey;
+
         _ = LoadMessagesForConversationAsync(peerKey);
     }
 
@@ -287,7 +288,11 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
         {
             await _deviceCommunication.RespondToFileRequestAsync(target, message.RequestId, true, savePath);
             ClearPendingFileRequestState(message.RequestId);
-            _toastService.Show("文件接收", "已同意文件请求，等待对方开始传输。", NotificationType.Information);
+
+            if (ShouldShowExternalToastForPeer(target))
+            {
+                _toastService.Show("文件接收", "已同意文件请求，等待对方开始传输。", NotificationType.Information);
+            }
         }
         catch (Exception ex)
         {
@@ -321,7 +326,10 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
         {
             await _deviceCommunication.RespondToFileRequestAsync(target, message.RequestId, false);
             ClearPendingFileRequestState(message.RequestId);
-            _toastService.Show("文件接收", "已拒绝文件请求。", NotificationType.Information);
+            if (ShouldShowExternalToastForPeer(target))
+            {
+                _toastService.Show("文件接收", "已拒绝文件请求。", NotificationType.Information);
+            }
         }
         catch (Exception ex)
         {
@@ -373,6 +381,43 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
         _ = HandleMessageStoredAsync(message);
     }
 
+    private void OnDeviceCommunicationEvent(object? sender, DeviceCommunicationEventArgs e)
+    {
+        switch (e.Type)
+        {
+            case DeviceCommunicationEventType.MessageReceived:
+                if (e.Payload is DeviceMessageReceivedEventArgs messageArgs)
+                {
+                    OnDeviceMessageReceivedForActivePage(sender, messageArgs);
+                }
+                break;
+            case DeviceCommunicationEventType.FileTransferRequested:
+                if (e.Payload is FileTransferRequestEventArgs fileRequestArgs)
+                {
+                    OnFileTransferRequestedForActivePage(sender, fileRequestArgs);
+                }
+                break;
+            case DeviceCommunicationEventType.FileTransferProgress:
+                if (e.Payload is FileTransferProgressEventArgs progressArgs)
+                {
+                    OnFileTransferProgressForActivePage(progressArgs);
+                }
+                break;
+            case DeviceCommunicationEventType.FileTransferCompleted:
+                if (e.Payload is FileTransferCompletedEventArgs completedArgs)
+                {
+                    OnFileTransferCompletedForActivePage(completedArgs);
+                }
+                break;
+            case DeviceCommunicationEventType.TransferInterrupted:
+                if (e.Payload is TransferInterruptionEventArgs interruptionArgs)
+                {
+                    OnTransferInterruptedForActivePage(interruptionArgs);
+                }
+                break;
+        }
+    }
+
     private async Task HandleMessageStoredAsync(DeviceChatMessage message)
     {
         var selectedPeerKey = SelectedConversation?.PeerKey;
@@ -403,7 +448,11 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
     private void OnDeviceMessageReceivedForActivePage(object? sender, DeviceMessageReceivedEventArgs e)
     {
         var selected = SelectedConversation;
-        if (selected is not null && IsSameConversationPeer(selected, e.Sender))
+        var shouldSuppressToast =
+            _isChatInterfaceActive &&
+            selected is not null &&
+            IsSameConversationPeer(selected, e.Sender);
+        if (shouldSuppressToast)
         {
             return;
         }
@@ -432,6 +481,173 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
     private void OnFileTransferRequestedForActivePage(object? sender, FileTransferRequestEventArgs e)
     {
         // 仅用于标记聊天界面激活，收到文件请求时由聊天消息列表中的操作按钮处理。
+    }
+
+    private bool ShouldShowExternalToastForPeer(DeviceModel? peer)
+    {
+        if (!_isChatInterfaceActive)
+        {
+            return true;
+        }
+
+        var selected = SelectedConversation;
+        if (selected is null || peer is null)
+        {
+            return true;
+        }
+
+        return !IsSameConversationPeer(selected, peer);
+    }
+
+    private void OnFileTransferProgressForActivePage(FileTransferProgressEventArgs e)
+    {
+        if (e.IsSending)
+        {
+            return;
+        }
+
+        if (!IsCurrentConversationPeer(e.Peer))
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsCurrentConversationPeer(e.Peer))
+            {
+                return;
+            }
+
+            var index = FindTransferProgressMessageIndex(e.RequestId);
+            var progress = e.TotalBytes > 0 ? Math.Min(100d, e.TransferredBytes * 100d / e.TotalBytes) : 0d;
+            var fileName = string.IsNullOrWhiteSpace(e.FileName) ? "未命名文件" : e.FileName;
+            var displaySize = e.TotalBytes > 0 ? $" ({FormatFileSize(e.TotalBytes)})" : string.Empty;
+            var progressText = e.TotalBytes > 0
+                ? $"{FormatFileSize(e.TransferredBytes)} / {FormatFileSize(e.TotalBytes)}"
+                : FormatFileSize(e.TransferredBytes);
+
+            if (index >= 0)
+            {
+                var existing = Messages[index];
+                Messages[index] = existing with
+                {
+                    Text = $"正在接收文件：{fileName}",
+                    HasText = true,
+                    IsFile = true,
+                    FileDisplay = $"{fileName}{displaySize}",
+                    Footer = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [接收中]",
+                    EntryType = DeviceChatEntryType.TransferStatus,
+                    Status = "progress",
+                    IsTransferProgress = true,
+                    TransferProgress = progress,
+                    IsTransferProgressIndeterminate = e.TotalBytes <= 0,
+                    TransferProgressText = progressText
+                };
+                return;
+            }
+
+            var senderLabel = string.IsNullOrWhiteSpace(e.Peer.DisplayName) ? "对方" : e.Peer.DisplayName;
+            Messages.Add(new DeviceChatMessageItem
+            {
+                Id = GetNextTransientMessageId(),
+                SenderLabel = senderLabel,
+                Text = $"正在接收文件：{fileName}",
+                HasText = true,
+                IsFile = true,
+                FileDisplay = $"{fileName}{displaySize}",
+                FilePath = string.Empty,
+                CanOpenFile = false,
+                Footer = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [接收中]",
+                IsOutgoing = false,
+                IsIncoming = true,
+                IsSystem = false,
+                EntryType = DeviceChatEntryType.TransferStatus,
+                FileName = e.FileName,
+                RequestId = e.RequestId,
+                Status = "progress",
+                IsIncomingFileRequestPending = false,
+                IsTransferProgress = true,
+                TransferProgress = progress,
+                IsTransferProgressIndeterminate = e.TotalBytes <= 0,
+                TransferProgressText = progressText
+            });
+        });
+    }
+
+    private void OnFileTransferCompletedForActivePage(FileTransferCompletedEventArgs e)
+    {
+        if (e.IsSending || !IsCurrentConversationPeer(e.Peer))
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            RemoveTransferProgressMessage(e.RequestId);
+        });
+    }
+
+    private void OnTransferInterruptedForActivePage(TransferInterruptionEventArgs e)
+    {
+        if (e.IsSending)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            RemoveTransferProgressMessage(e.RequestId);
+        });
+    }
+
+    private bool IsCurrentConversationPeer(DeviceModel peer)
+    {
+        var selected = SelectedConversation;
+        return _isChatInterfaceActive &&
+               selected is not null &&
+               IsSameConversationPeer(selected, peer);
+    }
+
+    private int FindTransferProgressMessageIndex(string requestId)
+    {
+        if (string.IsNullOrWhiteSpace(requestId))
+        {
+            return -1;
+        }
+
+        for (var i = 0; i < Messages.Count; i++)
+        {
+            var message = Messages[i];
+            if (!message.IsTransferProgress)
+            {
+                continue;
+            }
+
+            if (string.Equals(message.RequestId, requestId, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void RemoveTransferProgressMessage(string requestId)
+    {
+        var index = FindTransferProgressMessageIndex(requestId);
+        if (index < 0)
+        {
+            return;
+        }
+
+        Messages.RemoveAt(index);
+    }
+
+    private long GetNextTransientMessageId()
+    {
+        var id = _nextTransientMessageId;
+        _nextTransientMessageId--;
+        return id;
     }
 
     private async Task RefreshDataAsync(string? preserveSelectedPeerKey = null, string? forceSelectPeerKey = null)
@@ -561,8 +777,13 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
         }
     }
 
-    private DeviceModel? ResolveTargetDevice(DeviceChatConversationItem conversation)
+    private DeviceModel? ResolveTargetDevice(DeviceChatConversationItem? conversation)
     {
+        if (conversation is null)
+        {
+            return null;
+        }
+
         if (!string.IsNullOrWhiteSpace(conversation.PeerId))
         {
             var knownById = _deviceCommunication.DiscoveredDevices
@@ -814,6 +1035,7 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
             "requested" => "已请求",
             "accepted" => "已接受",
             "rejected" => "已拒绝",
+            "progress" => "接收中",
             "completed" => "已完成",
             "failed" => "失败",
             "timeout" => "超时",
@@ -892,4 +1114,8 @@ public sealed record DeviceChatMessageItem
     public string RequestId { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
     public bool IsIncomingFileRequestPending { get; init; }
+    public bool IsTransferProgress { get; init; }
+    public double TransferProgress { get; init; }
+    public bool IsTransferProgressIndeterminate { get; init; }
+    public string TransferProgressText { get; init; } = string.Empty;
 }

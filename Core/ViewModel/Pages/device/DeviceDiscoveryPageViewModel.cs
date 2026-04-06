@@ -51,7 +51,7 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
 
         ApplySavedCustomNames();
         DiscoveredDevices.CollectionChanged += OnDiscoveredDevicesCollectionChanged;
-        _deviceCommunication.ClipboardSyncStateChanged += OnClipboardSyncStateChanged;
+        _deviceCommunication.CommunicationEvent += OnDeviceCommunicationEvent;
 
         IsClipboardSyncEnabled = _deviceCommunication.IsClipboardSyncEnabled;
         var currentTarget = _deviceCommunication.ClipboardSyncTargetDevice;
@@ -66,7 +66,7 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
     public void Dispose()
     {
         DiscoveredDevices.CollectionChanged -= OnDiscoveredDevicesCollectionChanged;
-        _deviceCommunication.ClipboardSyncStateChanged -= OnClipboardSyncStateChanged;
+        _deviceCommunication.CommunicationEvent -= OnDeviceCommunicationEvent;
     }
 
     [RelayCommand]
@@ -103,6 +103,19 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
         finally
         {
             Interlocked.Exchange(ref _isRequestingClipboardSync, 0);
+        }
+    }
+
+    private void OnDeviceCommunicationEvent(object? sender, DeviceCommunicationEventArgs e)
+    {
+        if (e.Type != DeviceCommunicationEventType.ClipboardSyncStateChanged)
+        {
+            return;
+        }
+
+        if (e.Payload is DeviceClipboardSyncStateChangedEventArgs stateArgs)
+        {
+            OnClipboardSyncStateChanged(sender, stateArgs);
         }
     }
 
