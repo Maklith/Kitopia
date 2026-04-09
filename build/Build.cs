@@ -50,7 +50,7 @@ class Build : NukeBuild
         {
             Log.Debug("Restoring solution {0}", Solution);
             Log.Debug("Restoring project {0}", AvaloniaProject);
-            GitTasks.Git("submodule update --init --recursive --remote");
+            GitTasks.Git("submodule update --init --recursive");
             DotNetRestore(c => new DotNetRestoreSettings()
                 .SetProjectFile(AvaloniaProject.Path)
                 .SetRuntime("win-x64"));
