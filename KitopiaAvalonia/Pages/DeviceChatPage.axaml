@@ -8,6 +8,15 @@
              d:DesignHeight="760"
              x:Class="KitopiaAvalonia.Pages.DeviceChatPage"
              x:DataType="vm:DeviceChatPageViewModel">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="ChatSurfaceBrush" Color="{DynamicResource SemiBackground0Color}" Opacity="0.8" />
+        <SolidColorBrush x:Key="ChatSurfaceAltBrush" Color="{DynamicResource SemiBackground1Color}" Opacity="0.76" />
+        <SolidColorBrush x:Key="ChatSurfaceSoftBrush" Color="{DynamicResource SemiBackground2Color}" Opacity="0.7" />
+        <SolidColorBrush x:Key="ChatPrimaryBubbleBrush" Color="{DynamicResource SemiBlue5Color}" Opacity="0.86" />
+        <SolidColorBrush x:Key="ChatPrimaryBubbleActiveBrush" Color="{DynamicResource SemiBlue7Color}" Opacity="0.82" />
+        <SolidColorBrush x:Key="ChatPrimaryBubbleBorderBrush" Color="{DynamicResource SemiBlue1Color}" Opacity="0.72" />
+    </UserControl.Resources>
+
     <UserControl.Styles>
         <Style Selector="ListBox.PlainListBox > ListBoxItem">
             <Setter Property="Padding" Value="0" />
@@ -31,8 +40,8 @@
         <Border Grid.Column="0"
                 Padding="10"
                 CornerRadius="10"
-                Background="#F8FAFC"
-                BorderBrush="#D9E2EC"
+                Background="{StaticResource ChatSurfaceAltBrush}"
+                BorderBrush="{DynamicResource SemiColorBorder}"
                 BorderThickness="1">
             <Grid RowDefinitions="Auto,*" RowSpacing="8">
                 <DockPanel>
@@ -43,7 +52,7 @@
                                    VerticalAlignment="Center" />
                         <TextBlock Text="刷新中..."
                                    FontSize="12"
-                                   Foreground="#6B7280"
+                                   Foreground="{DynamicResource SemiColorText1}"
                                    IsVisible="{Binding IsRefreshing}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
@@ -61,25 +70,25 @@
                             <Border Margin="0,3"
                                     Padding="8"
                                     CornerRadius="8"
-                                    BorderBrush="#E2E8F0"
+                                    BorderBrush="{DynamicResource SemiColorBorder}"
                                     BorderThickness="1"
-                                    Background="White">
+                                    Background="{StaticResource ChatSurfaceSoftBrush}">
                                 <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="2">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
                                         <TextBlock Text="在线"
-                                                   Foreground="#1F9D55"
+                                                   Foreground="{DynamicResource SemiColorSuccess}"
                                                    IsVisible="{Binding IsOnline}" />
                                     </StackPanel>
                                     <TextBlock Grid.Row="1"
                                                Text="{Binding LastPreview}"
                                                FontSize="12"
-                                               Foreground="#6B7280"
+                                               Foreground="{DynamicResource SemiColorText1}"
                                                TextTrimming="CharacterEllipsis" />
                                     <TextBlock Grid.Row="2"
                                                Text="{Binding LastTimestampText}"
                                                FontSize="11"
-                                               Foreground="#9CA3AF" />
+                                               Foreground="{DynamicResource SemiColorText2}" />
                                 </Grid>
                             </Border>
                         </DataTemplate>
@@ -91,9 +100,9 @@
         <Border Grid.Column="1"
                 Padding="10"
                 CornerRadius="10"
-                BorderBrush="#D9E2EC"
+                BorderBrush="{DynamicResource SemiColorBorder}"
                 BorderThickness="1"
-                Background="#FFFFFF">
+                Background="{StaticResource ChatSurfaceAltBrush}">
             <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
                 <StackPanel Spacing="2">
                     <TextBlock Text="{Binding SelectedConversationTitle}"
@@ -101,21 +110,21 @@
                                FontWeight="SemiBold" />
                     <TextBlock Text="{Binding SelectedConversationSubtitle}"
                                FontSize="12"
-                               Foreground="#6B7280"
+                               Foreground="{DynamicResource SemiColorText1}"
                                TextTrimming="CharacterEllipsis" />
                 </StackPanel>
 
                 <Border Grid.Row="1"
                         Padding="8"
                         CornerRadius="8"
-                        Background="#F8FAFC"
-                        BorderBrush="#E5E7EB"
+                        Background="{StaticResource ChatSurfaceSoftBrush}"
+                        BorderBrush="{DynamicResource SemiColorBorder}"
                         BorderThickness="1">
                     <Grid RowDefinitions="Auto,*" RowSpacing="8">
                         <DockPanel Grid.Row="0" IsVisible="{Binding HasSelectedConversation}">
                             <TextBlock Text="加载中..."
                                        FontSize="12"
-                                       Foreground="#6B7280"
+                                       Foreground="{DynamicResource SemiColorText1}"
                                        IsVisible="{Binding IsLoadingHistory}"
                                        VerticalAlignment="Center" />
                             <Button DockPanel.Dock="Right"
@@ -139,16 +148,16 @@
                                                     Spacing="3">
                                             <Border Padding="10,6"
                                                     CornerRadius="10"
-                                                    Background="#E5EAF0">
+                                                    Background="{StaticResource ChatSurfaceSoftBrush}">
                                                 <SelectableTextBlock Text="{Binding Text}"
-                                                                     Foreground="#4B5563"
+                                                                     Foreground="{DynamicResource SemiColorText1}"
                                                                      TextWrapping="Wrap"
                                                                      IsVisible="{Binding HasText}"
                                                                      Focusable="True" />
                                             </Border>
                                             <TextBlock Text="{Binding Footer}"
                                                        FontSize="11"
-                                                       Foreground="#9CA3AF"
+                                                       Foreground="{DynamicResource SemiColorText2}"
                                                        HorizontalAlignment="Center" />
                                         </StackPanel>
 
@@ -158,29 +167,29 @@
                                                     Spacing="4">
                                             <TextBlock Text="{Binding SenderLabel}"
                                                        FontSize="11"
-                                                       Foreground="#6B7280"
+                                                       Foreground="{DynamicResource SemiColorText1}"
                                                        Margin="8,0,0,0" />
                                             <Border Padding="10,8"
                                                     CornerRadius="14,14,14,4"
-                                                    BorderBrush="#D9E2EC"
+                                                    BorderBrush="{DynamicResource SemiColorBorder}"
                                                     BorderThickness="1"
-                                                    Background="#F1F5F9">
+                                                    Background="{StaticResource ChatSurfaceSoftBrush}">
                                                 <StackPanel Spacing="6">
                                                     <SelectableTextBlock Text="{Binding Text}"
                                                                          TextWrapping="Wrap"
-                                                                         Foreground="#1F2937"
+                                                                         Foreground="{DynamicResource SemiColorText0}"
                                                                          IsVisible="{Binding HasText}"
                                                                          Focusable="True" />
                                                     <Border IsVisible="{Binding IsFile}"
                                                             Padding="8"
                                                             CornerRadius="8"
-                                                            BorderBrush="#CBD5E1"
+                                                            BorderBrush="{DynamicResource SemiColorBorder}"
                                                             BorderThickness="1"
-                                                            Background="#FFFFFF">
+                                                            Background="{StaticResource ChatSurfaceBrush}">
                                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                                             <SelectableTextBlock Text="{Binding FileDisplay}"
                                                                                  VerticalAlignment="Center"
-                                                                                 Foreground="#334155"
+                                                                                 Foreground="{DynamicResource SemiColorText1}"
                                                                                  Focusable="True" />
                                                             <Button Content="打开文件"
                                                                     IsVisible="{Binding CanOpenFile}"
@@ -207,13 +216,13 @@
                                                                      IsIndeterminate="{Binding IsTransferProgressIndeterminate}" />
                                                         <TextBlock Text="{Binding TransferProgressText}"
                                                                    FontSize="11"
-                                                                   Foreground="#64748B" />
+                                                                   Foreground="{DynamicResource SemiColorText2}" />
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Border>
                                             <TextBlock Text="{Binding Footer}"
                                                        FontSize="11"
-                                                       Foreground="#9CA3AF"
+                                                       Foreground="{DynamicResource SemiColorText2}"
                                                        Margin="8,0,0,0" />
                                         </StackPanel>
 
@@ -223,34 +232,34 @@
                                                     Spacing="4">
                                             <TextBlock Text="{Binding SenderLabel}"
                                                        FontSize="11"
-                                                       Foreground="#6B7280"
+                                                       Foreground="{DynamicResource SemiColorText1}"
                                                        Margin="0,0,8,0"
                                                        HorizontalAlignment="Right" />
                                             <Border Padding="10,8"
                                                     CornerRadius="14,14,4,14"
-                                                    Background="#3B82F6">
+                                                    Background="{StaticResource ChatPrimaryBubbleBrush}">
                                                 <StackPanel Spacing="6">
                                                     <SelectableTextBlock Text="{Binding Text}"
                                                                          TextWrapping="Wrap"
-                                                                         Foreground="White"
+                                                                         Foreground="{DynamicResource SemiColorWhite}"
                                                                          IsVisible="{Binding HasText}"
                                                                          Focusable="True" />
                                                     <Border IsVisible="{Binding IsFile}"
                                                             Padding="8"
                                                             CornerRadius="8"
-                                                            Background="#2B6FD7"
-                                                            BorderBrush="#93C5FD"
+                                                            Background="{StaticResource ChatPrimaryBubbleActiveBrush}"
+                                                            BorderBrush="{StaticResource ChatPrimaryBubbleBorderBrush}"
                                                             BorderThickness="1">
                                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                                             <SelectableTextBlock Text="{Binding FileDisplay}"
                                                                                  VerticalAlignment="Center"
-                                                                                 Foreground="White"
+                                                                                 Foreground="{DynamicResource SemiColorWhite}"
                                                                                  Focusable="True" />
                                                             <Button Content="打开文件"
                                                                     IsVisible="{Binding CanOpenFile}"
-                                                                    Foreground="White"
-                                                                    Background="#00000000"
-                                                                    BorderBrush="#93C5FD"
+                                                                    Foreground="{DynamicResource SemiColorWhite}"
+                                                                    Background="Transparent"
+                                                                    BorderBrush="{StaticResource ChatPrimaryBubbleBorderBrush}"
                                                                     Command="{Binding $parent[UserControl].((vm:DeviceChatPageViewModel)DataContext).OpenFileCommand}"
                                                                     CommandParameter="{Binding .}" />
                                                         </StackPanel>
@@ -264,13 +273,13 @@
                                                                      IsIndeterminate="{Binding IsTransferProgressIndeterminate}" />
                                                         <TextBlock Text="{Binding TransferProgressText}"
                                                                    FontSize="11"
-                                                                   Foreground="#DBEAFE" />
+                                                                   Foreground="{DynamicResource SemiBlue1}" />
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Border>
                                             <TextBlock Text="{Binding Footer}"
                                                        FontSize="11"
-                                                       Foreground="#9CA3AF"
+                                                       Foreground="{DynamicResource SemiColorText2}"
                                                        Margin="0,0,8,0"
                                                        HorizontalAlignment="Right" />
                                         </StackPanel>
@@ -283,7 +292,7 @@
                                    Text="请先选择一个会话。"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
-                                   Foreground="#6B7280"
+                                   Foreground="{DynamicResource SemiColorText1}"
                                    IsVisible="{Binding !HasSelectedConversation}" />
                     </Grid>
                 </Border>
