@@ -3,6 +3,8 @@ using System.Collections.Specialized;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Core.ViewModel.Pages.device;
@@ -135,5 +137,15 @@ public partial class DeviceChatPage : UserControl
 
         var targetY = Math.Max(0, scrollViewer.Extent.Height - scrollViewer.Viewport.Height);
         scrollViewer.Offset = new Vector(scrollViewer.Offset.X, targetY);
+    }
+    
+
+    private async void MessageInputBox_OnPastingFromClipboard(object? sender, RoutedEventArgs e)
+    {
+        bool shouldHandle = await _viewModel?.TrySendClipboardTransferForInputPasteAsync();
+        if (shouldHandle)
+        {
+            e.Handled = true;
+        }
     }
 }

@@ -16,10 +16,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input.Platform;
 using Avalonia.Controls.Notifications;
 using Core.Services;
 using Core.Services.Config;
 using Microsoft.Extensions.DependencyInjection;
+using OpenCvSharp;
 using PluginCore;
 using Serilog;
 
@@ -35,9 +37,14 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
     private const string MulticastAddressV6 = "ff02::1";
     private const string ProtocolId = "kitopia-stream";
     private const int DiscoveryIpv4Ttl = 1;
+    private const string ClipboardImageTempFolderName = "KitopiaClipboardTransfers";
     private static readonly TimeSpan DiscoveryBroadcastInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan DiscoveryCleanupInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan DiscoveryStaleTimeout = TimeSpan.FromSeconds(20);
+    private static readonly HashSet<string> ImageFileExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp", ".tif", ".tiff", ".ico", ".heic", ".heif"
+    };
     
     private readonly Guid _myId = LoadOrCreateDeviceIdFromConfig();
     
@@ -757,6 +764,170 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
         });
     }
 
+    private async Task<string?> PickImageToSendAsync()
+    {
+        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+            if (lifetime?.MainWindow == null)
+            {
+                return null;
+            }
+
+            var files = await lifetime.MainWindow.StorageProvider.OpenFilePickerAsync(
+                new Avalonia.Platform.Storage.FilePickerOpenOptions
+                {
+                    Title = "选择要发送的图片",
+                    AllowMultiple = false,
+                    FileTypeFilter =
+                    [
+                        new Avalonia.Platform.Storage.FilePickerFileType("图片文件")
+                        {
+                            Patterns =
+                            [
+                                "*.png",
+                                "*.jpg",
+                                "*.jpeg",
+                                "*.bmp",
+                                "*.gif",
+                                "*.webp",
+                                "*.tif",
+                                "*.tiff",
+                                "*.ico",
+                                "*.heic",
+                                "*.heif"
+                            ]
+                        }
+                    ]
+                });
+
+            if (files == null || files.Count == 0)
+            {
+                return null;
+            }
+
+            return files[0].Path.LocalPath;
+        });
+    }
+
+    private async Task<IReadOnlyList<string>> TryGetClipboardFilePathsAsync()
+    {
+        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+            var clipboard = lifetime?.MainWindow?.Clipboard;
+            if (clipboard is null)
+            {
+                return (IReadOnlyList<string>)Array.Empty<string>();
+            }
+
+            try
+            {
+                var clipboardFiles = await clipboard.TryGetFilesAsync();
+                var clipboardFileList = clipboardFiles?.ToList() ?? [];
+                if (clipboardFileList.Count > 0)
+                {
+                    var localPaths = clipboardFileList
+                        .Select(item => item.Path)
+                        .Where(path => path is { IsAbsoluteUri: true, IsFile: true })
+                        .Select(path => path!.LocalPath)
+                        .Where(path => !string.IsNullOrWhiteSpace(path))
+                        .Where(File.Exists)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    if (localPaths.Count > 0)
+                    {
+                        return (IReadOnlyList<string>)localPaths;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Clipboard] Read file list failed: {ex}");
+            }
+
+            try
+            {
+                var text = await clipboard.TryGetTextAsync();
+                return ParseFilePathsFromClipboardText(text);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Clipboard] Read text failed: {ex}");
+                return (IReadOnlyList<string>)Array.Empty<string>();
+            }
+        });
+    }
+
+    private string? TryExtractClipboardImageToTempFilePath()
+    {
+        if (!_clipboardService.HasImage())
+        {
+            return null;
+        }
+
+        try
+        {
+            using var image = _clipboardService.GetImage();
+            if (image is null || image.Width <= 0 || image.Height <= 0)
+            {
+                return null;
+            }
+
+            var tempFolder = Path.Combine(Path.GetTempPath(), ClipboardImageTempFolderName);
+            Directory.CreateDirectory(tempFolder);
+            var filePath = Path.Combine(
+                tempFolder,
+                $"clipboard-image-{DateTime.Now:yyyyMMdd-HHmmssfff}.png");
+
+            return Cv2.ImWrite(filePath, image)
+                ? filePath
+                : null;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Clipboard] Export image failed: {ex}");
+            return null;
+        }
+    }
+
+    private static IReadOnlyList<string> ParseFilePathsFromClipboardText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return Array.Empty<string>();
+        }
+
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var lines = text.Split(
+            ['\r', '\n'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (var rawLine in lines)
+        {
+            var candidatePath = rawLine.Trim().Trim('"');
+            if (string.IsNullOrWhiteSpace(candidatePath))
+            {
+                continue;
+            }
+
+            if (File.Exists(candidatePath))
+            {
+                result.Add(candidatePath);
+            }
+        }
+
+        return result.Count == 0
+            ? Array.Empty<string>()
+            : result.ToList();
+    }
+
+    private static bool IsImageFilePath(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return !string.IsNullOrWhiteSpace(extension) && ImageFileExtensions.Contains(extension);
+    }
+
     private async Task<string?> PickSaveFilePathAsync(string title, string suggestedFileName)
     {
         return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
@@ -1314,6 +1485,90 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             return;
         }
 
+        await RequestFileTransferInternalAsync(
+            target,
+            filePath,
+            transferKindLabel: IsImageFilePath(filePath) ? "图片" : "文件");
+    }
+
+    public async Task RequestImageTransferAsync(DeviceModel target, string? imagePath = null)
+    {
+        imagePath = string.IsNullOrWhiteSpace(imagePath) ? await PickImageToSendAsync() : imagePath;
+        if (string.IsNullOrWhiteSpace(imagePath))
+        {
+            return;
+        }
+
+        await RequestFileTransferInternalAsync(target, imagePath, transferKindLabel: "图片");
+    }
+
+    public async Task<int> RequestClipboardTransferAsync(DeviceModel target)
+    {
+        var clipboardPaths = (await TryGetClipboardFilePathsAsync()).ToList();
+
+        var clipboardImagePath = TryExtractClipboardImageToTempFilePath();
+        if (!string.IsNullOrWhiteSpace(clipboardImagePath))
+        {
+            clipboardPaths.Add(clipboardImagePath);
+        }
+
+        var filesToSend = clipboardPaths
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (filesToSend.Count == 0)
+        {
+            throw new InvalidOperationException("剪贴板中没有可发送的文件或图片。");
+        }
+
+        var sentCount = 0;
+        var failed = new List<string>();
+        foreach (var path in filesToSend)
+        {
+            try
+            {
+                await RequestFileTransferInternalAsync(
+                    target,
+                    path,
+                    transferKindLabel: IsImageFilePath(path) ? "图片" : "文件");
+                sentCount++;
+            }
+            catch (Exception ex)
+            {
+                var fileName = Path.GetFileName(path);
+                failed.Add($"{fileName}: {ex.Message}");
+            }
+        }
+
+        if (sentCount == 0 && failed.Count > 0)
+        {
+            throw new InvalidOperationException($"剪贴板内容发送失败：{string.Join("；", failed)}");
+        }
+
+        if (failed.Count > 0)
+        {
+            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                try
+                {
+                    ServiceManager.Services.GetService<IToastService>()!.Show(
+                        "剪贴板发送部分失败",
+                        string.Join("；", failed),
+                        NotificationType.Warning);
+                }
+                catch
+                {
+                }
+            });
+        }
+
+        return sentCount;
+    }
+
+    private async Task RequestFileTransferInternalAsync(DeviceModel target, string filePath, string transferKindLabel)
+    {
         if (!File.Exists(filePath)) throw new FileNotFoundException(filePath);
 
         var fileInfo = new FileInfo(filePath);
@@ -1353,7 +1608,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                 onRequestSent: () => SaveFileRecordAsync(
                     DeviceChatDirection.Outgoing,
                     DeviceChatEntryType.FileRequest,
-                    "已发起文件传输请求。",
+                    $"已发起{transferKindLabel}传输请求。",
                     "requested"));
 
             switch (decision)
@@ -1362,13 +1617,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     await SaveFileRecordAsync(
                         DeviceChatDirection.System,
                         DeviceChatEntryType.TransferStatus,
-                        "对方已同意文件传输请求。",
+                        $"对方已同意{transferKindLabel}传输请求。",
                         "accepted");
                     await SendFileTransferPayloadAsync(target, filePath, fileInfo, requestId);
                     await SaveFileRecordAsync(
                         DeviceChatDirection.Outgoing,
                         DeviceChatEntryType.File,
-                        "文件传输完成。",
+                        $"{transferKindLabel}传输完成。",
                         "completed");
                     return;
 
@@ -1376,7 +1631,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     await SaveFileRecordAsync(
                         DeviceChatDirection.System,
                         DeviceChatEntryType.TransferStatus,
-                        "对方未响应文件传输请求。",
+                        $"对方未响应{transferKindLabel}传输请求。",
                         "timeout");
                     throw new TimeoutException("对方未在规定时间内响应。");
 
@@ -1384,7 +1639,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
                     await SaveFileRecordAsync(
                         DeviceChatDirection.System,
                         DeviceChatEntryType.TransferStatus,
-                        "对方已拒绝文件传输请求。",
+                        $"对方已拒绝{transferKindLabel}传输请求。",
                         "rejected");
                     return;
             }
@@ -1395,7 +1650,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDisposable
             await SaveFileRecordAsync(
                 DeviceChatDirection.Outgoing,
                 DeviceChatEntryType.File,
-                $"文件传输失败：{ex.Message}",
+                $"{transferKindLabel}传输失败：{ex.Message}",
                 "failed");
             throw;
         }

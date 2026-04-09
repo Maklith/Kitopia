@@ -298,11 +298,13 @@
                 </Border>
 
                 <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                    <TextBox Text="{Binding MessageToSend, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBox x:Name="MessageInputBox"
+                             Text="{Binding MessageToSend, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              MinHeight="40"
                              AcceptsReturn="False"
                              VerticalContentAlignment="Center"
                              Watermark="输入消息..."
+                             PastingFromClipboard="MessageInputBox_OnPastingFromClipboard"
                              IsEnabled="{Binding HasSelectedConversation}">
                         <TextBox.KeyBindings>
                             <KeyBinding Gesture="Enter"

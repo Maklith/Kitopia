@@ -255,6 +255,47 @@ public partial class DeviceChatPageViewModel : ObservableObject, IDisposable
         }
     }
 
+    public async Task<bool> TrySendClipboardTransferForInputPasteAsync()
+    {
+        var conversation = SelectedConversation;
+        if (conversation is null)
+        {
+            return false;
+        }
+
+        var target = ResolveTargetDevice(conversation);
+        if (target is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            var sentCount = await _deviceCommunication.RequestClipboardTransferAsync(target);
+            if (sentCount > 1)
+            {
+                _toastService.Show(
+                    "粘贴发送",
+                    $"已发送 {sentCount} 个剪贴板项目。",
+                    NotificationType.Success);
+            }
+
+            return sentCount > 0;
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("剪贴板中没有可发送的文件或图片", StringComparison.Ordinal))
+        {
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show(
+                "粘贴发送失败",
+                ex.Message,
+                NotificationType.Warning);
+            return true;
+        }
+    }
+
     [RelayCommand]
     private async Task AcceptFileRequestAsync(DeviceChatMessageItem? message)
     {
