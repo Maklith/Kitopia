@@ -15,6 +15,11 @@ using Core.CustomScenario;
 using Core.Services;
 using Core.Services.Config;
 using Core.Services.DeviceCommunication;
+using Core.Services.DeviceCommunication.Discovery;
+using Core.Services.DeviceCommunication.FileTransfer;
+using Core.Services.DeviceCommunication.Presentation;
+using Core.Services.DeviceCommunication.Requests;
+using Core.Services.DeviceCommunication.Transport;
 using Core.Services.Interfaces;
 using Core.Services.MQTT;
 using Core.Services.Onnx;
@@ -118,6 +123,14 @@ internal class Program
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
 
         services.AddSingleton<IDeviceChatHistoryStore, SqliteDeviceChatHistoryStore>();
+        services.AddSingleton<IRequestTracker, RequestTracker>();
+        services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>();
+        services.AddSingleton<ITransportService, TransportService>();
+        services.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
+        services.AddSingleton<IClipboardAssetExtractor, ClipboardAssetExtractor>();
+        services.AddSingleton<IChatHistoryService, ChatHistoryService>();
+        services.AddSingleton<INotificationService, ToastNotificationService>();
+        services.AddSingleton<IDeviceEventBus, DeviceEventBus>();
         services.AddSingleton<IDeviceCommunication, DeviceCommunicationService>();
         
 
