@@ -21,8 +21,7 @@ using PluginCore;
 
 namespace Core.Services.DeviceCommunication;
 
-public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketActions, IDisposable
-{
+public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketActions, IDisposable {
     private readonly Guid _myId = LoadOrCreateDeviceIdFromConfig();
 
     private readonly IRequestTracker _requestTracker;
@@ -54,8 +53,8 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
     public DeviceModel? ClipboardSyncTargetDevice => _clipboardSyncService.TargetDevice;
 
     public event EventHandler<DeviceStreamReceivedEventArgs>? StreamReceived;
-    public event EventHandler<DeviceCommunicationEventArgs>? CommunicationEvent
-    {
+
+    public event EventHandler<DeviceCommunicationEventArgs>? CommunicationEvent {
         add => _eventBus.CommunicationEvent += value;
         remove => _eventBus.CommunicationEvent -= value;
     }
@@ -69,8 +68,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         IClipboardAssetExtractor clipboardAssetExtractor,
         IChatHistoryService chatHistoryService,
         INotificationService notificationService,
-        IDeviceEventBus eventBus)
-    {
+        IDeviceEventBus eventBus) {
         _requestTracker = requestTracker;
         _discoveryService = discoveryService;
         _transportService = transportService;
@@ -99,8 +97,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
             GetLocalDisplayName,
             ShouldShowExternalToastForSender);
         _packetRouter = new PacketRouter(
-            new IPacketHandler[]
-            {
+            new IPacketHandler[] {
                 new MessagePacketHandler(this),
                 new ClipboardPacketHandler(this),
                 new ClipboardSyncRequestHandler(this),
@@ -124,44 +121,32 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         _fileTransferService.StreamReceived += OnFileTransferStreamReceived;
     }
 
-    private static Guid LoadOrCreateDeviceIdFromConfig()
-    {
-        try
-        {
+    private static Guid LoadOrCreateDeviceIdFromConfig() {
+        try {
             var config = ConfigManger.Config;
-            if (config != null &&
-                Guid.TryParse(config.devicePersistentId, out var existingId) &&
-                existingId != Guid.Empty)
-            {
+            if (Guid.TryParse(config.devicePersistentId, out var existingId) &&
+                existingId != Guid.Empty) {
                 return existingId;
             }
 
             var newId = Guid.NewGuid();
-            if (config != null)
-            {
-                config.devicePersistentId = newId.ToString("D");
-                ConfigManger.Save("KitopiaConfig");
-            }
+            config.devicePersistentId = newId.ToString("D");
+            ConfigManger.Save("KitopiaConfig");
             return newId;
         }
-        catch
-        {
+        catch {
             return Guid.NewGuid();
         }
     }
 
-    private static string GetLocalDisplayName()
-    {
-        try
-        {
+    private static string GetLocalDisplayName() {
+        try {
             var configuredName = ConfigManger.Config.deviceBroadcastName;
-            if (!string.IsNullOrWhiteSpace(configuredName))
-            {
+            if (!string.IsNullOrWhiteSpace(configuredName)) {
                 return configuredName.Trim();
             }
         }
-        catch
-        {
+        catch {
             // Config may not be initialized yet during early startup.
         }
 
@@ -177,16 +162,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         string filePath = "",
         long fileSize = 0,
         string requestId = "",
-        string status = "")
-    {
-        try
-        {
+        string status = "") {
+        try {
             var peerId = peer?.Id ?? string.Empty;
             var peerAddress = peer?.Address?.ToString() ?? string.Empty;
             var peerPort = peer?.Port ?? 0;
 
-            await _chatHistoryService.AppendAsync(new DeviceChatMessage
-            {
+            await _chatHistoryService.AppendAsync(new DeviceChatMessage {
                 PeerKey = DeviceChatPeerKey.Build(peerId, peerAddress, peerPort),
                 PeerId = peerId,
                 PeerName = GetDeviceDisplayName(peer),
@@ -203,47 +185,38 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
                 TimestampUtc = DateTime.UtcNow
             });
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             System.Diagnostics.Debug.WriteLine($"[ChatHistory] Save failed: {ex}");
         }
     }
 
-    private void NotifyTransferInterrupted(string requestId, string reason, bool isSending)
-    {
+    private void NotifyTransferInterrupted(string requestId, string reason, bool isSending) {
         FailTransferToast(requestId, reason, isSending);
-        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            try
-            {
+        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => {
+            try {
                 _notificationService.Show(
                     "\u4f20\u8f93\u4e2d\u65ad",
                     $"\u8bf7\u6c42ID: {requestId}\n\u539f\u56e0: {reason}\n\u65b9\u5411: {(isSending ? "\u53d1\u9001" : "\u63a5\u6536")}",
                     NotificationType.Error);
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 System.Diagnostics.Debug.WriteLine($"[Transfer] Interrupt toast error: {ex}");
             }
 
-            if (!string.IsNullOrEmpty(requestId))
-            {
+            if (!string.IsNullOrEmpty(requestId)) {
                 var args = new TransferInterruptionEventArgs(requestId, reason, isSending);
                 PublishCommunicationEvent(DeviceCommunicationEventType.TransferInterrupted, args);
             }
         });
     }
 
-    private void PublishMessageReceived(DeviceModel sender, string message)
-    {
+    private void PublishMessageReceived(DeviceModel sender, string message) {
         var args = new DeviceMessageReceivedEventArgs(sender, message);
         PublishCommunicationEvent(DeviceCommunicationEventType.MessageReceived, args);
     }
 
-    private void PublishClipboardReceived(DeviceModel sender, string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
+    private void PublishClipboardReceived(DeviceModel sender, string text) {
+        if (string.IsNullOrWhiteSpace(text)) {
             return;
         }
 
@@ -251,60 +224,49 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         PublishCommunicationEvent(DeviceCommunicationEventType.ClipboardTextReceived, args);
     }
 
-    private void PublishClipboardSyncAuthorized(DeviceModel peer, bool initiatedByPeer)
-    {
+    private void PublishClipboardSyncAuthorized(DeviceModel peer, bool initiatedByPeer) {
         var args = new DeviceClipboardSyncAuthorizedEventArgs(peer, initiatedByPeer);
         PublishCommunicationEvent(DeviceCommunicationEventType.ClipboardSyncAuthorized, args);
     }
 
-    private void PublishClipboardSyncStateChanged(bool isEnabled, DeviceModel? target, string status)
-    {
+    private void PublishClipboardSyncStateChanged(bool isEnabled, DeviceModel? target, string status) {
         var clonedTarget = target is null ? null : CloneDeviceModel(target);
         var args = new DeviceClipboardSyncStateChangedEventArgs(isEnabled, clonedTarget, status);
         PublishCommunicationEvent(DeviceCommunicationEventType.ClipboardSyncStateChanged, args);
     }
 
-    private void OnClipboardSyncStateChanged(object? sender, DeviceClipboardSyncStateChangedEventArgs e)
-    {
+    private void OnClipboardSyncStateChanged(object? sender, DeviceClipboardSyncStateChangedEventArgs e) {
         PublishClipboardSyncStateChanged(e.IsEnabled, e.TargetDevice, e.Status);
     }
 
-    private void OnClipboardSyncAuthorized(object? sender, DeviceClipboardSyncAuthorizedEventArgs e)
-    {
+    private void OnClipboardSyncAuthorized(object? sender, DeviceClipboardSyncAuthorizedEventArgs e) {
         PublishClipboardSyncAuthorized(e.Peer, e.InitiatedByPeer);
     }
 
-    private void OnFileTransferRequestReceived(object? sender, FileTransferRequestEventArgs e)
-    {
+    private void OnFileTransferRequestReceived(object? sender, FileTransferRequestEventArgs e) {
         ExecuteByChatWindowState(
             e.Sender,
-            whenChatWindowMatchesSender: () =>
-            {
+            whenChatWindowMatchesSender: () => {
                 PublishCommunicationEvent(DeviceCommunicationEventType.FileTransferRequested, e);
             },
-            whenChatWindowMismatchedOrInactive: () =>
-            {
+            whenChatWindowMismatchedOrInactive: () => {
                 ShowIncomingFileRequestActionToast(e.RequestId, e.Sender, e.FileName, e.FileSize);
             });
     }
 
-    private void OnFileTransferProgress(object? sender, FileTransferProgressEventArgs e)
-    {
+    private void OnFileTransferProgress(object? sender, FileTransferProgressEventArgs e) {
         PublishCommunicationEvent(DeviceCommunicationEventType.FileTransferProgress, e);
     }
 
-    private void OnFileTransferCompleted(object? sender, FileTransferCompletedEventArgs e)
-    {
+    private void OnFileTransferCompleted(object? sender, FileTransferCompletedEventArgs e) {
         PublishCommunicationEvent(DeviceCommunicationEventType.FileTransferCompleted, e);
     }
 
-    private void OnFileTransferInterrupted(object? sender, TransferInterruptionEventArgs e)
-    {
+    private void OnFileTransferInterrupted(object? sender, TransferInterruptionEventArgs e) {
         PublishCommunicationEvent(DeviceCommunicationEventType.TransferInterrupted, e);
     }
 
-    private void OnFileTransferStreamReceived(object? sender, DeviceStreamReceivedEventArgs e)
-    {
+    private void OnFileTransferStreamReceived(object? sender, DeviceStreamReceivedEventArgs e) {
         StreamReceived?.Invoke(this, e);
     }
 
@@ -314,10 +276,8 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         string fileName,
         long transferredBytes,
         long totalBytes,
-        bool isSending)
-    {
-        if (string.IsNullOrWhiteSpace(requestId))
-        {
+        bool isSending) {
+        if (string.IsNullOrWhiteSpace(requestId)) {
             return;
         }
 
@@ -337,10 +297,8 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         string fileName,
         long fileSize,
         string filePath,
-        bool isSending)
-    {
-        if (string.IsNullOrWhiteSpace(requestId))
-        {
+        bool isSending) {
+        if (string.IsNullOrWhiteSpace(requestId)) {
             return;
         }
 
@@ -354,18 +312,14 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         PublishCommunicationEvent(DeviceCommunicationEventType.FileTransferCompleted, args);
     }
 
-    private void PublishCommunicationEvent(DeviceCommunicationEventType type, EventArgs payload)
-    {
+    private void PublishCommunicationEvent(DeviceCommunicationEventType type, EventArgs payload) {
         _eventBus.Publish(type, payload);
     }
 
-    private void OnDeviceDiscovered(object? sender, DeviceDiscoveryEventArgs e)
-    {
-        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-        {
+    private void OnDeviceDiscovered(object? sender, DeviceDiscoveryEventArgs e) {
+        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => {
             var existing = ResolveDiscoveredDevice(e.Device);
-            if (existing is not null)
-            {
+            if (existing is not null) {
                 UpdateDiscoveredDevice(existing, e.Device);
                 return;
             }
@@ -374,13 +328,10 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         });
     }
 
-    private void OnDeviceUpdated(object? sender, DeviceDiscoveryEventArgs e)
-    {
-        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-        {
+    private void OnDeviceUpdated(object? sender, DeviceDiscoveryEventArgs e) {
+        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => {
             var existing = ResolveDiscoveredDevice(e.Device);
-            if (existing is null)
-            {
+            if (existing is null) {
                 DiscoveredDevices.Add(CloneDeviceModel(e.Device));
                 return;
             }
@@ -389,13 +340,10 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         });
     }
 
-    private void OnDeviceLost(object? sender, DeviceDiscoveryEventArgs e)
-    {
-        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-        {
+    private void OnDeviceLost(object? sender, DeviceDiscoveryEventArgs e) {
+        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => {
             var existing = ResolveDiscoveredDevice(e.Device);
-            if (existing is null)
-            {
+            if (existing is null) {
                 return;
             }
 
@@ -403,26 +351,21 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         });
     }
 
-    private static void UpdateDiscoveredDevice(DeviceModel target, DeviceModel source)
-    {
+    private static void UpdateDiscoveredDevice(DeviceModel target, DeviceModel source) {
         target.LastSeen = source.LastSeen;
         target.Name = source.Name;
-        if (ShouldReplaceDiscoveredAddress(target.Address, source.Address))
-        {
+        if (ShouldReplaceDiscoveredAddress(target.Address, source.Address)) {
             target.Address = source.Address;
         }
 
         target.Port = source.Port;
     }
 
-    private void OnTransportPacketReceived(object? sender, TransportPacketReceivedEventArgs e)
-    {
-        try
-        {
+    private void OnTransportPacketReceived(object? sender, TransportPacketReceivedEventArgs e) {
+        try {
             DispatchPacketAsync(e.Packet, e.Payload, e.Sender).GetAwaiter().GetResult();
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             System.Diagnostics.Debug.WriteLine($"[Transport] Dispatch error: {ex}");
         }
     }
@@ -430,10 +373,8 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
     private void ExecuteByChatWindowState(
         DeviceModel sender,
         Action whenChatWindowMatchesSender,
-        Action whenChatWindowMismatchedOrInactive)
-    {
-        if (IsChatWindowMatchingSender(sender))
-        {
+        Action whenChatWindowMismatchedOrInactive) {
+        if (IsChatWindowMatchingSender(sender)) {
             whenChatWindowMatchesSender();
             return;
         }
@@ -441,46 +382,36 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         whenChatWindowMismatchedOrInactive();
     }
 
-    private bool IsChatWindowMatchingSender(DeviceModel sender)
-    {
-        lock (_chatWindowStateLock)
-        {
+    private bool IsChatWindowMatchingSender(DeviceModel sender) {
+        lock (_chatWindowStateLock) {
             return _isChatWindowActive == 1 &&
                    _activeChatWindowDevice is not null &&
                    IsSameDevice(_activeChatWindowDevice, sender);
         }
     }
 
-    private bool ShouldShowExternalToastForSender(DeviceModel sender)
-    {
+    private bool ShouldShowExternalToastForSender(DeviceModel sender) {
         return !IsChatWindowMatchingSender(sender);
     }
 
-    private async Task<bool> PromptIncomingClipboardSyncRequestAsync(DeviceModel sender)
-    {
-        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
-        {
-            try
-            {
+    private async Task<bool> PromptIncomingClipboardSyncRequestAsync(DeviceModel sender) {
+        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => {
+            try {
                 var senderName = GetDeviceDisplayName(sender);
                 var decisionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                _notificationService.Show(new ToastRequest
-                {
+                _notificationService.Show(new ToastRequest {
                     Header = "剪贴板同步请求",
                     Text = $"{senderName} 请求建立双向剪贴板同步",
                     NotificationType = NotificationType.Information,
                     AutoCloseDelay = ClipboardSyncRequestTimeout,
                     ShowCloseButton = false,
-                    Actions =
-                    [
-                        new ToastAction
-                        {
+                    Actions = [
+                        new ToastAction {
                             Text = "同意",
                             IsPrimary = true,
                             Callback = () => decisionSource.TrySetResult(true)
                         },
-                        new ToastAction
-                        {
+                        new ToastAction {
                             Text = "拒绝",
                             Callback = () => decisionSource.TrySetResult(false)
                         }
@@ -492,25 +423,20 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
                     Task.Delay(ClipboardSyncRequestTimeout));
                 return completedTask == decisionSource.Task && decisionSource.Task.Result;
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 System.Diagnostics.Debug.WriteLine($"[ClipboardSync] Consent prompt error: {ex}");
                 return false;
             }
         });
     }
 
-    private async Task HandleIncomingFileRequestAsync(PacketMetadata packet, DeviceModel sender)
-    {
-        if (string.IsNullOrWhiteSpace(packet.RequestId))
-        {
+    private async Task HandleIncomingFileRequestAsync(PacketMetadata packet, DeviceModel sender) {
+        if (string.IsNullOrWhiteSpace(packet.RequestId)) {
             return;
         }
 
-        try
-        {
-            _pendingIncomingFileRequests[packet.RequestId] = new IncomingFileRequestContext
-            {
+        try {
+            _pendingIncomingFileRequests[packet.RequestId] = new IncomingFileRequestContext {
                 FileName = packet.FileName,
                 FileSize = packet.Size,
                 Sender = CloneDeviceModel(sender)
@@ -534,17 +460,14 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
 
             ExecuteByChatWindowState(
                 sender,
-                whenChatWindowMatchesSender: () =>
-                {
+                whenChatWindowMatchesSender: () => {
                     PublishCommunicationEvent(DeviceCommunicationEventType.FileTransferRequested, requestEventArgs);
                 },
-                whenChatWindowMismatchedOrInactive: () =>
-                {
+                whenChatWindowMismatchedOrInactive: () => {
                     ShowIncomingFileRequestActionToast(packet.RequestId, sender, packet.FileName, packet.Size);
                 });
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             System.Diagnostics.Debug.WriteLine($"[FileReq] Handle request error: {ex}");
             _pendingIncomingFileRequests.TryRemove(packet.RequestId, out _);
             await SaveChatRecordAsync(
@@ -556,121 +479,97 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
                 fileSize: packet.Size,
                 requestId: packet.RequestId,
                 status: "failed");
-            try
-            {
+            try {
                 await SendBooleanResponseAsync(sender, PacketTypes.FileResponse, packet.RequestId, false);
             }
-            catch
-            {
-            }
+            catch { }
         }
     }
 
-    private async Task<string?> PickFileToSendAsync()
-    {
+    private async Task<string?> PickFileToSendAsync() {
         return await _filePickerService.PickFileToSendAsync();
     }
 
-    private void ShowIncomingFileRequestActionToast(string requestId, DeviceModel sender, string fileName, long fileSize)
-    {
+    private void ShowIncomingFileRequestActionToast(string requestId, DeviceModel sender, string fileName,
+        long fileSize) {
         var senderName = GetDeviceDisplayName(sender);
         var displayFileName = string.IsNullOrWhiteSpace(fileName) ? "未命名文件" : fileName;
         var sizeText = fileSize > 0 ? $" ({FormatFileSize(fileSize)})" : string.Empty;
-        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            try
-            {
-                _notificationService.Show(new ToastRequest
-                {
+        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => {
+            try {
+                _notificationService.Show(new ToastRequest {
                     Header = "收到文件请求",
                     Text = $"{senderName} 请求发送 {displayFileName}{sizeText}",
                     NotificationType = NotificationType.Information,
                     AutoCloseDelay = TimeSpan.FromSeconds(30),
                     ShowCloseButton = false,
-                    Actions =
-                    [
-                        new ToastAction
-                        {
+                    Actions = [
+                        new ToastAction {
                             Text = "同意",
                             IsPrimary = true,
-                            Callback = () => _ = HandleIncomingFileRequestDecisionFromToastAsync(requestId, displayFileName, true)
+                            Callback = () =>
+                                _ = HandleIncomingFileRequestDecisionFromToastAsync(requestId, displayFileName, true)
                         },
-                        new ToastAction
-                        {
+                        new ToastAction {
                             Text = "拒绝",
-                            Callback = () => _ = HandleIncomingFileRequestDecisionFromToastAsync(requestId, displayFileName, false)
+                            Callback = () =>
+                                _ = HandleIncomingFileRequestDecisionFromToastAsync(requestId, displayFileName, false)
                         }
                     ]
                 });
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 System.Diagnostics.Debug.WriteLine($"[FileReq] Action toast error: {ex}");
             }
         });
     }
 
-    private async Task HandleIncomingFileRequestDecisionFromToastAsync(string requestId, string fileName, bool accepted)
-    {
+    private async Task
+        HandleIncomingFileRequestDecisionFromToastAsync(string requestId, string fileName, bool accepted) {
         string? savePath = null;
-        if (accepted)
-        {
+        if (accepted) {
             var suggestedName = string.IsNullOrWhiteSpace(fileName) ? "接收文件" : fileName;
             savePath = await _filePickerService.PickSaveFilePathAsync("保存文件", suggestedName);
-            if (string.IsNullOrWhiteSpace(savePath))
-            {
+            if (string.IsNullOrWhiteSpace(savePath)) {
                 return;
             }
         }
 
-        try
-        {
+        try {
             await _fileTransferService.RespondToFileRequestAsync(requestId, accepted, savePath);
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             System.Diagnostics.Debug.WriteLine($"[FileReq] Toast decision error: {ex}");
-            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                try
-                {
+            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => {
+                try {
                     _notificationService.Show("处理文件请求失败", ex.Message, NotificationType.Error);
                 }
-                catch
-                {
-                }
+                catch { }
             });
         }
     }
 
-    private async Task<string?> PickSaveFilePathAsync(string title, string suggestedFileName)
-    {
+    private async Task<string?> PickSaveFilePathAsync(string title, string suggestedFileName) {
         return await _filePickerService.PickSaveFilePathAsync(title, suggestedFileName);
     }
 
-    private void ShowIncomingFileSavedToast(DeviceModel sender, string savedPath)
-    {
+    private void ShowIncomingFileSavedToast(DeviceModel sender, string savedPath) {
         var senderName = GetDeviceDisplayName(sender);
-        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            try
-            {
+        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => {
+            try {
                 _notificationService.Show(
                     "文件接收成功",
                     $"来自 {senderName} 的文件已保存至: {savedPath}",
                     NotificationType.Success);
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 System.Diagnostics.Debug.WriteLine($"[FileTransfer] Success toast error: {ex}");
             }
         });
     }
 
-    private static DeviceModel CloneDeviceModel(DeviceModel source)
-    {
-        return new DeviceModel
-        {
+    private static DeviceModel CloneDeviceModel(DeviceModel source) {
+        return new DeviceModel {
             Id = source.Id,
             Name = source.Name,
             CustomName = source.CustomName,
@@ -680,32 +579,27 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         };
     }
 
-    private DeviceModel? ResolveDiscoveredDevice(DeviceModel candidate)
-    {
-        if (!string.IsNullOrWhiteSpace(candidate.Id))
-        {
+    private DeviceModel? ResolveDiscoveredDevice(DeviceModel candidate) {
+        if (!string.IsNullOrWhiteSpace(candidate.Id)) {
             var matchedById = DiscoveredDevices.FirstOrDefault(device =>
                 string.Equals(device.Id, candidate.Id, StringComparison.Ordinal));
-            if (matchedById is not null)
-            {
+            if (matchedById is not null) {
                 return matchedById;
             }
         }
 
-        if (candidate.Port <= 0)
-        {
+        if (candidate.Port <= 0) {
             return null;
         }
 
         return DiscoveredDevices.FirstOrDefault(device =>
-            string.Equals(device.Address.ToString(), candidate.Address.ToString(), StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(device.Address.ToString(), candidate.Address.ToString(),
+                StringComparison.OrdinalIgnoreCase) &&
             device.Port == candidate.Port);
     }
 
-    private static bool IsSameDevice(DeviceModel a, DeviceModel b)
-    {
-        if (!string.IsNullOrWhiteSpace(a.Id) && !string.IsNullOrWhiteSpace(b.Id))
-        {
+    private static bool IsSameDevice(DeviceModel a, DeviceModel b) {
+        if (!string.IsNullOrWhiteSpace(a.Id) && !string.IsNullOrWhiteSpace(b.Id)) {
             return string.Equals(a.Id, b.Id, StringComparison.Ordinal);
         }
 
@@ -721,10 +615,8 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         string requestId = "",
         string fileName = "",
         long size = 0,
-        bool accepted = false)
-    {
-        return new PacketMetadata
-        {
+        bool accepted = false) {
+        return new PacketMetadata {
             Type = type,
             Content = content,
             RequestId = requestId,
@@ -737,8 +629,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         };
     }
 
-    private Task SendPacketMetadataAsync(DeviceModel target, PacketMetadata metadata)
-    {
+    private Task SendPacketMetadataAsync(DeviceModel target, PacketMetadata metadata) {
         return SendStreamAsync(target, Stream.Null, JsonSerializer.Serialize(metadata));
     }
 
@@ -747,20 +638,16 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         PacketMetadata requestMeta,
         TimeSpan timeout,
         string duplicateRequestError,
-        Func<Task>? onRequestSent = null)
-    {
-        if (string.IsNullOrWhiteSpace(requestMeta.RequestId))
-        {
+        Func<Task>? onRequestSent = null) {
+        if (string.IsNullOrWhiteSpace(requestMeta.RequestId)) {
             throw new InvalidOperationException("请求标识不能为空。");
         }
 
         return await _requestTracker.WaitForBooleanResponseAsync(
             requestMeta.RequestId,
-            async () =>
-            {
+            async () => {
                 await SendPacketMetadataAsync(target, requestMeta);
-                if (onRequestSent is not null)
-                {
+                if (onRequestSent is not null) {
                     await onRequestSent();
                 }
             },
@@ -768,45 +655,36 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
             duplicateRequestError);
     }
 
-    private void ResolvePendingBooleanRequest(string requestId, bool accepted)
-    {
+    private void ResolvePendingBooleanRequest(string requestId, bool accepted) {
         _requestTracker.Resolve(requestId, accepted);
     }
 
-    private static bool TryDeserializePacketMetadata(string? metaData, out PacketMetadata packet)
-    {
-        if (!string.IsNullOrWhiteSpace(metaData))
-        {
-            try
-            {
+    private static bool TryDeserializePacketMetadata(string? metaData, out PacketMetadata packet) {
+        if (!string.IsNullOrWhiteSpace(metaData)) {
+            try {
                 var parsed = JsonSerializer.Deserialize<PacketMetadata>(
                     metaData,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (parsed is not null)
-                {
+                if (parsed is not null) {
                     packet = parsed;
-                    if (string.IsNullOrWhiteSpace(packet.Type))
-                    {
+                    if (string.IsNullOrWhiteSpace(packet.Type)) {
                         packet.Type = PacketTypes.Legacy;
                     }
+
                     return true;
                 }
             }
-            catch
-            {
-            }
+            catch { }
         }
 
-        packet = new PacketMetadata
-        {
+        packet = new PacketMetadata {
             Type = PacketTypes.Legacy,
             Meta = metaData ?? string.Empty
         };
         return true;
     }
 
-    private Task SendBooleanResponseAsync(DeviceModel target, string responseType, string requestId, bool accepted)
-    {
+    private Task SendBooleanResponseAsync(DeviceModel target, string responseType, string requestId, bool accepted) {
         var responseMeta = CreatePacketMetadata(
             type: responseType,
             requestId: requestId,
@@ -820,10 +698,8 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         string fileName,
         long totalBytes,
         string remoteName,
-        DeviceModel? peer = null)
-    {
-        if (totalBytes <= 0)
-        {
+        DeviceModel? peer = null) {
+        if (totalBytes <= 0) {
             return null;
         }
 
@@ -832,16 +708,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         var lastUpdate = DateTime.MinValue;
         var progressLock = new object();
 
-        return bytes =>
-        {
+        return bytes => {
             var copied = Interlocked.Add(ref transferredBytes, bytes);
             var percent = (int)Math.Min(100, copied * 100d / totalBytes);
             var now = DateTime.UtcNow;
 
-            lock (progressLock)
-            {
-                if (percent == lastPercent && now - lastUpdate < TransferToastUpdateInterval)
-                {
+            lock (progressLock) {
+                if (percent == lastPercent && now - lastUpdate < TransferToastUpdateInterval) {
                     return;
                 }
 
@@ -857,22 +730,18 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
                 totalBytes,
                 remoteName);
 
-            if (peer is not null)
-            {
+            if (peer is not null) {
                 PublishFileTransferProgress(peer, requestId, fileName, copied, totalBytes, isSending);
             }
         };
     }
 
-    private int GetAdvertisedPort()
-    {
+    private int GetAdvertisedPort() {
         return _transportService.AdvertisedPort;
     }
 
-    public void SetChatWindowActive(bool isActive, DeviceModel? device)
-    {
-        lock (_chatWindowStateLock)
-        {
+    public void SetChatWindowActive(bool isActive, DeviceModel? device) {
+        lock (_chatWindowStateLock) {
             _isChatWindowActive = isActive ? 1 : 0;
             _activeChatWindowDevice = isActive && device is not null
                 ? CloneDeviceModel(device)
@@ -880,15 +749,12 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         }
     }
 
-    public void StartDiscovery()
-    {
-        lock (_lifecycleLock)
-        {
+    public void StartDiscovery() {
+        lock (_lifecycleLock) {
             StopDiscoveryCore();
             _lifecycleCts = new CancellationTokenSource();
             _transportService.StartAsync(_lifecycleCts.Token).GetAwaiter().GetResult();
-            _discoveryService.Start(new DiscoveryAnnouncement
-            {
+            _discoveryService.Start(new DiscoveryAnnouncement {
                 DeviceId = _myId.ToString(),
                 DeviceName = GetLocalDisplayName(),
                 Port = _transportService.AdvertisedPort,
@@ -897,27 +763,21 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         }
     }
 
-    public void StopDiscovery()
-    {
-        lock (_lifecycleLock)
-        {
+    public void StopDiscovery() {
+        lock (_lifecycleLock) {
             StopDiscoveryCore();
         }
     }
 
-    private void StopDiscoveryCore()
-    {
+    private void StopDiscoveryCore() {
         var cts = _lifecycleCts;
         _lifecycleCts = null;
-        if (cts is not null)
-        {
-            try
-            {
+        if (cts is not null) {
+            try {
                 cts.Cancel();
             }
-            catch
-            {
-            }
+            catch { }
+
             cts.Dispose();
         }
 
@@ -928,11 +788,9 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         _fileTransferService.CancelAll();
     }
 
-    public async Task SendMessageAsync(DeviceModel target, string message)
-    {
+    public async Task SendMessageAsync(DeviceModel target, string message) {
         var targetName = GetDeviceDisplayName(target);
-        try
-        {
+        try {
             var meta = CreatePacketMetadata(type: PacketTypes.Message, content: message);
             await SendPacketMetadataAsync(target, meta);
             await SaveChatRecordAsync(
@@ -941,24 +799,21 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
                 DeviceChatEntryType.Text,
                 content: message,
                 status: "sent");
-            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
+            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => {
                 _notificationService.Show(
                     "\u6d88\u606f\u5df2\u53d1\u9001",
                     $"\u5df2\u53d1\u9001\u5230 {targetName}",
                     NotificationType.Success);
             });
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             await SaveChatRecordAsync(
                 target,
                 DeviceChatDirection.Outgoing,
                 DeviceChatEntryType.Text,
                 content: message,
                 status: $"failed:{ex.Message}");
-            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
+            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => {
                 _notificationService.Show(
                     "\u6d88\u606f\u53d1\u9001\u5931\u8d25",
                     $"\u53d1\u9001\u5230 {targetName} \u65f6\u51fa\u9519: {ex.Message}",
@@ -968,49 +823,41 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         }
     }
 
-    public async Task SendClipboardTextAsync(DeviceModel target, string text)
-    {
+    public async Task SendClipboardTextAsync(DeviceModel target, string text) {
         await _clipboardSyncService.SendTextAsync(target, text);
     }
 
-    public async Task<bool> RequestClipboardSyncAsync(DeviceModel target)
-    {
+    public async Task<bool> RequestClipboardSyncAsync(DeviceModel target) {
         return await _clipboardSyncService.RequestAsync(
             target,
             ClipboardSyncRequestTimeout,
             "无法跟踪剪贴板同步请求。");
     }
 
-    public async Task<bool> EnableClipboardSyncAsync(DeviceModel target)
-    {
+    public async Task<bool> EnableClipboardSyncAsync(DeviceModel target) {
         return await _clipboardSyncService.EnableAsync(
             target,
             ClipboardSyncRequestTimeout,
             "无法跟踪剪贴板同步请求。");
     }
 
-    public void DisableClipboardSync()
-    {
+    public void DisableClipboardSync() {
         _clipboardSyncService.Disable();
     }
 
-    public async Task RequestFileTransferAsync(DeviceModel target, string? filePath = null)
-    {
+    public async Task RequestFileTransferAsync(DeviceModel target, string? filePath = null) {
         await _fileTransferService.RequestFileTransferAsync(target, filePath);
     }
 
-    public async Task RequestImageTransferAsync(DeviceModel target, string? imagePath = null)
-    {
+    public async Task RequestImageTransferAsync(DeviceModel target, string? imagePath = null) {
         await _fileTransferService.RequestImageTransferAsync(target, imagePath);
     }
 
-    public async Task<int> RequestClipboardTransferAsync(DeviceModel target)
-    {
+    public async Task<int> RequestClipboardTransferAsync(DeviceModel target) {
         return await _fileTransferService.RequestClipboardTransferAsync(target);
     }
 
-    private async Task RequestFileTransferInternalAsync(DeviceModel target, string filePath, string transferKindLabel)
-    {
+    private async Task RequestFileTransferInternalAsync(DeviceModel target, string filePath, string transferKindLabel) {
         if (!File.Exists(filePath)) throw new FileNotFoundException(filePath);
 
         var fileInfo = new FileInfo(filePath);
@@ -1025,8 +872,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
             DeviceChatDirection direction,
             DeviceChatEntryType entryType,
             string content,
-            string status)
-        {
+            string status) {
             return SaveChatRecordAsync(
                 target,
                 direction,
@@ -1039,8 +885,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
                 status: status);
         }
 
-        try
-        {
+        try {
             var decision = await SendBooleanRequestAsync(
                 target,
                 requestMeta,
@@ -1052,8 +897,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
                     $"已发起{transferKindLabel}传输请求。",
                     "requested"));
 
-            switch (decision)
-            {
+            switch (decision) {
                 case RequestDecision.Accepted:
                     await SaveFileRecordAsync(
                         DeviceChatDirection.System,
@@ -1085,8 +929,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
                     return;
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             FailTransferToast(requestId, ex.Message, true);
             await SaveFileRecordAsync(
                 DeviceChatDirection.Outgoing,
@@ -1097,8 +940,8 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         }
     }
 
-    private async Task SendFileTransferPayloadAsync(DeviceModel target, string filePath, FileInfo fileInfo, string requestId)
-    {
+    private async Task SendFileTransferPayloadAsync(DeviceModel target, string filePath, FileInfo fileInfo,
+        string requestId) {
         using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
         var fileMeta = CreatePacketMetadata(
             type: PacketTypes.FileTransfer,
@@ -1120,30 +963,25 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         CompleteTransferToast(requestId, true, fileInfo.Name, fileInfo.Length, targetName);
     }
 
-    public async Task RespondToFileRequestAsync(DeviceModel target, string requestId, bool accepted, string? savePath = null)
-    {
+    public async Task RespondToFileRequestAsync(DeviceModel target, string requestId, bool accepted,
+        string? savePath = null) {
         await _fileTransferService.RespondToFileRequestAsync(requestId, accepted, savePath);
     }
 
-    public async Task SendStreamAsync(DeviceModel target, Stream stream, string? metaData = null)
-    {
+    public async Task SendStreamAsync(DeviceModel target, Stream stream, string? metaData = null) {
         await SendStreamInternalAsync(target, stream, metaData);
     }
 
     private async Task SendStreamInternalAsync(DeviceModel target, Stream stream, string? metaData = null,
-        Action<long>? onProgress = null)
-    {
+        Action<long>? onProgress = null) {
         TryDeserializePacketMetadata(metaData, out var packet);
         packet = EnsureOutgoingPacketIdentity(packet);
 
-        try
-        {
+        try {
             await _transportService.SendAsync(target, packet, stream, onProgress);
         }
-        catch (Exception ex)
-        {
-            if (!string.IsNullOrWhiteSpace(packet.RequestId))
-            {
+        catch (Exception ex) {
+            if (!string.IsNullOrWhiteSpace(packet.RequestId)) {
                 NotifyTransferInterrupted(packet.RequestId, $"发送失败：{ex.Message}", true);
             }
 
@@ -1151,60 +989,51 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         }
     }
 
-    private PacketMetadata EnsureOutgoingPacketIdentity(PacketMetadata packet)
-    {
-        if (packet.SenderPort <= 0)
-        {
+    private PacketMetadata EnsureOutgoingPacketIdentity(PacketMetadata packet) {
+        if (packet.SenderPort <= 0) {
             packet.SenderPort = GetAdvertisedPort();
         }
 
-        if (string.IsNullOrWhiteSpace(packet.SenderId))
-        {
+        if (string.IsNullOrWhiteSpace(packet.SenderId)) {
             packet.SenderId = _myId.ToString();
         }
 
-        if (string.IsNullOrWhiteSpace(packet.SenderName))
-        {
+        if (string.IsNullOrWhiteSpace(packet.SenderName)) {
             packet.SenderName = GetLocalDisplayName();
         }
 
         return packet;
     }
 
-    private async Task CopyStreamWithTimeoutAsync(Stream source, Stream destination, TimeSpan timeout, int bufferSize = 8192,
-        Action<long>? onProgress = null)
-    {
+    private async Task CopyStreamWithTimeoutAsync(Stream source, Stream destination, TimeSpan timeout,
+        int bufferSize = 8192,
+        Action<long>? onProgress = null) {
         var buffer = new byte[bufferSize];
         int bytesRead;
         using var cts = new CancellationTokenSource();
-        
-        while (true)
-        {
-            try
-            {
+
+        while (true) {
+            try {
                 cts.CancelAfter(timeout);
                 bytesRead = await source.ReadAsync(buffer, 0, buffer.Length, cts.Token);
                 if (bytesRead == 0) break;
-                
+
                 cts.CancelAfter(timeout);
                 await destination.WriteAsync(buffer, 0, bytesRead, cts.Token);
                 onProgress?.Invoke(bytesRead);
             }
-            catch (OperationCanceledException)
-            {
+            catch (OperationCanceledException) {
                 throw new TimeoutException("数据传输超时。");
             }
         }
     }
 
-    private async Task DispatchPacketAsync(PacketMetadata packet, Stream dataStream, DeviceModel sender)
-    {
+    private async Task DispatchPacketAsync(PacketMetadata packet, Stream dataStream, DeviceModel sender) {
         System.Diagnostics.Debug.WriteLine($"[Dispatch] Processing packet Type={packet.Type}, ID={packet.RequestId}");
         await _packetRouter.DispatchAsync(packet, dataStream, sender);
     }
 
-    public async Task HandleMessagePacketAsync(PacketContext context)
-    {
+    public async Task HandleMessagePacketAsync(PacketContext context) {
         await DrainRemainingDataAsync(context.DataStream);
         await SaveChatRecordAsync(
             context.Sender,
@@ -1215,15 +1044,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         PublishMessageReceived(context.Sender, context.Packet.Content);
     }
 
-    public async Task HandleClipboardTextPacketAsync(PacketContext context)
-    {
+    public async Task HandleClipboardTextPacketAsync(PacketContext context) {
         await DrainRemainingDataAsync(context.DataStream);
         PublishClipboardReceived(context.Sender, context.Packet.Content);
         _clipboardSyncService.ApplyIncomingClipboardText(context.Sender, context.Packet.Content);
     }
 
-    public async Task HandleClipboardSyncRequestPacketAsync(PacketContext context)
-    {
+    public async Task HandleClipboardSyncRequestPacketAsync(PacketContext context) {
         await DrainRemainingDataAsync(context.DataStream);
         await _clipboardSyncService.HandleIncomingRequestAsync(
             context.Packet,
@@ -1231,43 +1058,37 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
             PromptIncomingClipboardSyncRequestAsync);
     }
 
-    public async Task HandleClipboardSyncResponsePacketAsync(PacketContext context)
-    {
+    public async Task HandleClipboardSyncResponsePacketAsync(PacketContext context) {
         await DrainRemainingDataAsync(context.DataStream);
         await _clipboardSyncService.HandleIncomingResponseAsync(context.Packet, context.Sender);
     }
 
-    public async Task HandleFileRequestPacketAsync(PacketContext context)
-    {
+    public async Task HandleFileRequestPacketAsync(PacketContext context) {
         await DrainRemainingDataAsync(context.DataStream);
         await _fileTransferService.HandleIncomingFileRequestAsync(context.Packet, context.Sender);
     }
 
-    public async Task HandleFileResponsePacketAsync(PacketContext context)
-    {
+    public async Task HandleFileResponsePacketAsync(PacketContext context) {
         await DrainRemainingDataAsync(context.DataStream);
         await _fileTransferService.HandleIncomingFileResponseAsync(context.Packet, context.Sender);
     }
 
-    public async Task HandleFileTransferPacketAsync(PacketContext context)
-    {
-        if (await _fileTransferService.HandleIncomingFileTransferAsync(context.Packet, context.DataStream, context.Sender))
-        {
+    public async Task HandleFileTransferPacketAsync(PacketContext context) {
+        if (await _fileTransferService.HandleIncomingFileTransferAsync(context.Packet, context.DataStream,
+                context.Sender)) {
             return;
         }
 
         await HandleUnknownPacketAsync(context);
     }
 
-    public Task HandleLegacyPacketAsync(PacketContext context)
-    {
+    public Task HandleLegacyPacketAsync(PacketContext context) {
         return HandleUnknownPacketAsync(context);
     }
 
-    public async Task HandleUnknownPacketAsync(PacketContext context)
-    {
-        if (await _fileTransferService.HandleIncomingFileTransferAsync(context.Packet, context.DataStream, context.Sender))
-        {
+    public async Task HandleUnknownPacketAsync(PacketContext context) {
+        if (await _fileTransferService.HandleIncomingFileTransferAsync(context.Packet, context.DataStream,
+                context.Sender)) {
             return;
         }
 
@@ -1278,13 +1099,11 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         PacketMetadata packet,
         Stream dataStream,
         DeviceModel sender,
-        string savePath)
-    {
+        string savePath) {
         bool success = false;
         var senderName = GetDeviceDisplayName(sender);
         var shouldShowExternalToast = ShouldShowExternalToastForSender(sender);
-        if (shouldShowExternalToast)
-        {
+        if (shouldShowExternalToast) {
             StartTransferToast(packet.RequestId, false, packet.FileName, packet.Size, senderName);
         }
 
@@ -1296,25 +1115,21 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
             remoteName: senderName,
             peer: sender);
 
-        try
-        {
+        try {
             // Stream directly to file
             await using var fs = new FileStream(savePath, FileMode.Create, FileAccess.Write);
             await CopyStreamWithTimeoutAsync(dataStream, fs, TimeSpan.FromSeconds(10), onProgress: onProgress);
 
-            if (packet.Size > 0 && fs.Length != packet.Size)
-            {
+            if (packet.Size > 0 && fs.Length != packet.Size) {
                 throw new IOException($"文件大小不匹配，期望 {packet.Size} 字节，实际 {fs.Length} 字节。");
             }
 
             success = true;
-            if (shouldShowExternalToast)
-            {
+            if (shouldShowExternalToast) {
                 CompleteTransferToast(packet.RequestId, false, packet.FileName, packet.Size, senderName);
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             System.Diagnostics.Debug.WriteLine($"[Dispatch] File save error: {ex}");
             NotifyTransferInterrupted(packet.RequestId, $"接收失败：{ex.Message}", false);
             await SaveChatRecordAsync(
@@ -1327,17 +1142,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
                 fileSize: packet.Size,
                 requestId: packet.RequestId,
                 status: "failed");
-            try
-            {
+            try {
                 File.Delete(savePath);
             }
-            catch
-            {
-            }
+            catch { }
         }
 
-        if (!success)
-        {
+        if (!success) {
             return;
         }
 
@@ -1351,15 +1162,14 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
             fileSize: packet.Size,
             requestId: packet.RequestId,
             status: "completed");
-        PublishFileTransferCompleted(sender, packet.RequestId, packet.FileName, packet.Size, savePath, isSending: false);
+        PublishFileTransferCompleted(sender, packet.RequestId, packet.FileName, packet.Size, savePath,
+            isSending: false);
 
-        if (ShouldShowExternalToastForSender(sender))
-        {
+        if (ShouldShowExternalToastForSender(sender)) {
             ShowIncomingFileSavedToast(sender, savePath);
         }
 
-        try
-        {
+        try {
             using var fsRead = new FileStream(savePath, FileMode.Open, FileAccess.Read, FileShare.Read);
             StreamReceived?.Invoke(this, new DeviceStreamReceivedEventArgs(
                 sender,
@@ -1367,30 +1177,26 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
                 JsonSerializer.Serialize(packet),
                 savePath));
         }
-        catch
-        {
-        }
+        catch { }
     }
 
-    private async Task<bool> TryHandleManualFileTransferAsync(PacketMetadata packet, Stream dataStream, DeviceModel sender)
-    {
-        if (!string.Equals(packet.Type, PacketTypes.FileTransfer, StringComparison.OrdinalIgnoreCase))
-        {
+    private async Task<bool> TryHandleManualFileTransferAsync(PacketMetadata packet, Stream dataStream,
+        DeviceModel sender) {
+        if (!string.Equals(packet.Type, PacketTypes.FileTransfer, StringComparison.OrdinalIgnoreCase)) {
             return false;
         }
 
         var suggestedName = string.IsNullOrWhiteSpace(packet.FileName)
             ? "接收文件"
             : Path.GetFileName(packet.FileName);
-        var manualSavePath = await PickSaveFilePathAsync("\u4fdd\u5b58\u63a5\u6536\u5230\u7684\u6587\u4ef6", suggestedName);
-        if (string.IsNullOrWhiteSpace(manualSavePath))
-        {
+        var manualSavePath =
+            await PickSaveFilePathAsync("\u4fdd\u5b58\u63a5\u6536\u5230\u7684\u6587\u4ef6", suggestedName);
+        if (string.IsNullOrWhiteSpace(manualSavePath)) {
             await DrainRemainingDataAsync(dataStream);
             return true;
         }
 
-        try
-        {
+        try {
             await using var fs = new FileStream(manualSavePath, FileMode.Create, FileAccess.Write, FileShare.None);
             await CopyStreamWithTimeoutAsync(dataStream, fs, TimeSpan.FromSeconds(10));
             await SaveChatRecordAsync(
@@ -1410,15 +1216,13 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
                 packet.Size,
                 manualSavePath,
                 isSending: false);
-            if (ShouldShowExternalToastForSender(sender))
-            {
+            if (ShouldShowExternalToastForSender(sender)) {
                 ShowIncomingFileSavedToast(sender, manualSavePath);
             }
 
             return true;
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             System.Diagnostics.Debug.WriteLine($"[Dispatch] Save manual stream error: {ex}");
             await SaveChatRecordAsync(
                 sender,
@@ -1430,26 +1234,21 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
                 fileSize: packet.Size,
                 requestId: packet.RequestId,
                 status: "failed");
-            try
-            {
+            try {
                 File.Delete(manualSavePath);
             }
-            catch
-            {
-            }
+            catch { }
 
             NotifyTransferInterrupted(packet.RequestId, $"接收失败：{ex.Message}", false);
             return true;
         }
     }
 
-    private async Task DispatchGenericStreamAsync(PacketMetadata packet, Stream dataStream, DeviceModel sender)
-    {
+    private async Task DispatchGenericStreamAsync(PacketMetadata packet, Stream dataStream, DeviceModel sender) {
         System.Diagnostics.Debug.WriteLine($"[Dispatch] Handling Stream for {packet.Type}");
         // For file transfer (without pending path) or unknown types, we buffer if needed.
         Stream resultStream = dataStream;
-        if (!dataStream.CanSeek)
-        {
+        if (!dataStream.CanSeek) {
             System.Diagnostics.Debug.WriteLine($"[Dispatch] Buffering stream...");
             // Warning: For large files this causes high memory usage.
             // Users should use Request/Response flow with set path.
@@ -1459,8 +1258,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
             resultStream = ms;
             System.Diagnostics.Debug.WriteLine($"[Dispatch] Buffered {ms.Length} bytes.");
         }
-        else if (dataStream.Position != 0)
-        {
+        else if (dataStream.Position != 0) {
             dataStream.Position = 0;
         }
 
@@ -1471,23 +1269,17 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
             JsonSerializer.Serialize(packet)));
     }
 
-    private static async Task DrainRemainingDataAsync(Stream stream)
-    {
-        if (!stream.CanRead)
-        {
+    private static async Task DrainRemainingDataAsync(Stream stream) {
+        if (!stream.CanRead) {
             return;
         }
 
         var buffer = new byte[8192];
-        while (await stream.ReadAsync(buffer, 0, buffer.Length) > 0)
-        {
-        }
+        while (await stream.ReadAsync(buffer, 0, buffer.Length) > 0) { }
     }
 
-    private static bool ShouldReplaceDiscoveredAddress(IPAddress currentAddress, IPAddress candidateAddress)
-    {
-        if (currentAddress.Equals(candidateAddress))
-        {
+    private static bool ShouldReplaceDiscoveredAddress(IPAddress currentAddress, IPAddress candidateAddress) {
+        if (currentAddress.Equals(candidateAddress)) {
             return false;
         }
 
@@ -1495,83 +1287,70 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         var candidateFamily = candidateAddress.AddressFamily;
 
         if (currentFamily == System.Net.Sockets.AddressFamily.InterNetwork &&
-            candidateFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
-        {
+            candidateFamily == System.Net.Sockets.AddressFamily.InterNetworkV6) {
             return false;
         }
 
         if (currentFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 &&
-            candidateFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-        {
+            candidateFamily == System.Net.Sockets.AddressFamily.InterNetwork) {
             return true;
         }
 
         return true;
     }
 
-    private static string GetDeviceDisplayName(DeviceModel? device)
-    {
-        if (device is null)
-        {
+    private static string GetDeviceDisplayName(DeviceModel? device) {
+        if (device is null) {
             return "未知设备";
         }
 
-        if (!string.IsNullOrWhiteSpace(device.CustomName))
-        {
+        if (!string.IsNullOrWhiteSpace(device.CustomName)) {
             return device.CustomName.Trim();
         }
 
-        if (!string.IsNullOrWhiteSpace(device.Name))
-        {
+        if (!string.IsNullOrWhiteSpace(device.Name)) {
             return device.Name.Trim();
         }
 
         return device.Address.ToString();
     }
 
-    private static string FormatFileSize(long bytes)
-    {
-        if (bytes <= 0)
-        {
+    private static string FormatFileSize(long bytes) {
+        if (bytes <= 0) {
             return "0 B";
         }
 
         string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
         var unitIndex = 0;
         double value = bytes;
-        while (value >= 1024 && unitIndex < units.Length - 1)
-        {
+        while (value >= 1024 && unitIndex < units.Length - 1) {
             value /= 1024;
             unitIndex++;
         }
 
-        if (unitIndex == 0)
-        {
+        if (unitIndex == 0) {
             return $"{bytes:N0} B";
         }
 
         return $"{value:0.##} {units[unitIndex]}";
     }
 
-    private ConcurrentDictionary<string, IToastProgressHandle> GetTransferToastMap(bool isSending)
-    {
+    private ConcurrentDictionary<string, IToastProgressHandle> GetTransferToastMap(bool isSending) {
         return isSending ? _sendingTransferToasts : _receivingTransferToasts;
     }
 
-    private static (string Action, string Direction, string Title) GetTransferToastText(bool isSending, bool completed)
-    {
-        if (completed)
-        {
+    private static (string Action, string Direction, string Title)
+        GetTransferToastText(bool isSending, bool completed) {
+        if (completed) {
             return isSending ? ("已发送", "到", "文件发送") : ("已接收", "从", "文件接收");
         }
 
         return isSending ? ("发送", "到", "文件发送") : ("接收", "从", "文件接收");
     }
 
-    private void StartTransferToast(string requestId, bool isSending, string fileName, long totalBytes, string remoteName)
-    {
-        if (string.IsNullOrWhiteSpace(requestId))
-        {
+    private void StartTransferToast(string requestId, bool isSending, string fileName, long totalBytes,
+        string remoteName) {
+        if (string.IsNullOrWhiteSpace(requestId)) {
             return;
         }
 
@@ -1590,22 +1369,18 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
     }
 
     private void UpdateTransferToastProgress(string requestId, bool isSending, string fileName, long transferredBytes,
-        long totalBytes, string remoteName)
-    {
-        if (string.IsNullOrWhiteSpace(requestId))
-        {
+        long totalBytes, string remoteName) {
+        if (string.IsNullOrWhiteSpace(requestId)) {
             return;
         }
 
         var map = GetTransferToastMap(isSending);
-        if (!map.TryGetValue(requestId, out var handle))
-        {
+        if (!map.TryGetValue(requestId, out var handle)) {
             return;
         }
 
         var (action, direction, _) = GetTransferToastText(isSending, completed: false);
-        if (totalBytes > 0)
-        {
+        if (totalBytes > 0) {
             var progress = Math.Min(100, transferredBytes * 100d / totalBytes);
             handle.Update(
                 progress: progress,
@@ -1620,11 +1395,9 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
     }
 
     private void CompleteTransferToast(string requestId, bool isSending, string fileName, long totalBytes,
-        string remoteName)
-    {
+        string remoteName) {
         var map = GetTransferToastMap(isSending);
-        if (!map.TryRemove(requestId, out var handle))
-        {
+        if (!map.TryRemove(requestId, out var handle)) {
             return;
         }
 
@@ -1633,24 +1406,20 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         handle.Complete($"{action} {fileName}{sizeText} {direction} {remoteName}");
     }
 
-    private void FailTransferToast(string requestId, string reason, bool isSending)
-    {
-        if (string.IsNullOrWhiteSpace(requestId))
-        {
+    private void FailTransferToast(string requestId, string reason, bool isSending) {
+        if (string.IsNullOrWhiteSpace(requestId)) {
             return;
         }
 
         var map = GetTransferToastMap(isSending);
-        if (!map.TryRemove(requestId, out var handle))
-        {
+        if (!map.TryRemove(requestId, out var handle)) {
             return;
         }
 
         handle.Fail($"传输中断：{reason}");
     }
-    
-    public void Dispose()
-    {
+
+    public void Dispose() {
         StopDiscovery();
         _fileTransferService.FileRequestReceived -= OnFileTransferRequestReceived;
         _fileTransferService.TransferProgress -= OnFileTransferProgress;

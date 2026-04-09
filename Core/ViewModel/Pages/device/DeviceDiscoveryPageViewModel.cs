@@ -8,51 +8,37 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Core.Services;
 using Core.Services.Config;
+using Core.Services.DeviceCommunication.Discovery;
 using PluginCore;
+using Serilog;
+using Serilog.Core;
 
 namespace Core.ViewModel.Pages.device;
 
-public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposable
-{
+public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposable {
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<DeviceDiscoveryPageViewModel>();
     private readonly IDeviceCommunication _deviceCommunication;
     private int _isRequestingClipboardSync;
-
-    private static Dictionary<string, string> CustomNameMap
-    {
-        get
-        {
-            ConfigManger.Config.deviceCustomNames ??= new Dictionary<string, string>();
-            return ConfigManger.Config.deviceCustomNames;
-        }
-    }
-
     public ObservableCollection<DeviceModel> DiscoveredDevices => _deviceCommunication.DiscoveredDevices;
 
-    [ObservableProperty]
-    private bool _isDiscovering;
+    [ObservableProperty] private bool _isDiscovering;
 
-    [ObservableProperty]
-    private bool _isClipboardSyncEnabled;
+    [ObservableProperty] private bool _isClipboardSyncEnabled;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ClipboardSyncTargetDisplay))]
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ClipboardSyncTargetDisplay))]
     private DeviceModel? _clipboardSyncTargetDevice;
 
-    [ObservableProperty]
-    private string _clipboardSyncStatus = "实时同步剪贴板已关闭";
+    [ObservableProperty] private string _clipboardSyncStatus = "实时同步剪贴板已关闭";
 
     public string ClipboardSyncTargetDisplay => ClipboardSyncTargetDevice?.DisplayName ?? "未选择";
 
-    public DeviceDiscoveryPageViewModel(IDeviceCommunication deviceCommunication)
-    {
+    public DeviceDiscoveryPageViewModel(IDeviceCommunication deviceCommunication) {
         _deviceCommunication = deviceCommunication;
         IsDiscovering = true;
-
-        ApplySavedCustomNames();
         DiscoveredDevices.CollectionChanged += OnDiscoveredDevicesCollectionChanged;
         _deviceCommunication.CommunicationEvent += OnDeviceCommunicationEvent;
-
         IsClipboardSyncEnabled = _deviceCommunication.IsClipboardSyncEnabled;
         var currentTarget = _deviceCommunication.ClipboardSyncTargetDevice;
         ClipboardSyncTargetDevice = currentTarget is null
@@ -63,31 +49,25 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
             : "实时同步剪贴板已关闭";
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         DiscoveredDevices.CollectionChanged -= OnDiscoveredDevicesCollectionChanged;
         _deviceCommunication.CommunicationEvent -= OnDeviceCommunicationEvent;
     }
 
     [RelayCommand]
-    private async Task ToggleClipboardSyncForDevice(DeviceModel? device)
-    {
-        if (device is null)
-        {
+    private async Task ToggleClipboardSyncForDevice(DeviceModel? device) {
+        if (device is null) {
             return;
         }
 
-        if (Interlocked.CompareExchange(ref _isRequestingClipboardSync, 1, 0) != 0)
-        {
+        if (Interlocked.CompareExchange(ref _isRequestingClipboardSync, 1, 0) != 0) {
             return;
         }
 
-        try
-        {
+        try {
             var currentTarget = ResolveClipboardSyncTarget();
             var isCurrentTarget = currentTarget is not null && IsSameDevice(currentTarget, device);
-            if (isCurrentTarget && IsClipboardSyncEnabled)
-            {
+            if (isCurrentTarget && IsClipboardSyncEnabled) {
                 _deviceCommunication.DisableClipboardSync();
                 return;
             }
@@ -95,34 +75,27 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
             var resolvedTarget = ResolveDiscoveredDevice(device) ?? device;
             await _deviceCommunication.EnableClipboardSyncAsync(resolvedTarget);
         }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Enable clipboard sync failed: {ex}");
+        catch (Exception ex) {
+            Logger.Error(ex, "请求剪贴板同步失败");
             UpdateClipboardSyncStatus("同步请求失败，请重试");
         }
-        finally
-        {
+        finally {
             Interlocked.Exchange(ref _isRequestingClipboardSync, 0);
         }
     }
 
-    private void OnDeviceCommunicationEvent(object? sender, DeviceCommunicationEventArgs e)
-    {
-        if (e.Type != DeviceCommunicationEventType.ClipboardSyncStateChanged)
-        {
+    private void OnDeviceCommunicationEvent(object? sender, DeviceCommunicationEventArgs e) {
+        if (e.Type != DeviceCommunicationEventType.ClipboardSyncStateChanged) {
             return;
         }
 
-        if (e.Payload is DeviceClipboardSyncStateChangedEventArgs stateArgs)
-        {
+        if (e.Payload is DeviceClipboardSyncStateChangedEventArgs stateArgs) {
             OnClipboardSyncStateChanged(sender, stateArgs);
         }
     }
 
-    private void OnClipboardSyncStateChanged(object? sender, DeviceClipboardSyncStateChangedEventArgs e)
-    {
-        _ = Dispatcher.UIThread.InvokeAsync(() =>
-        {
+    private void OnClipboardSyncStateChanged(object? sender, DeviceClipboardSyncStateChangedEventArgs e) {
+        _ = Dispatcher.UIThread.InvokeAsync(() => {
             IsClipboardSyncEnabled = e.IsEnabled;
             ClipboardSyncTargetDevice = e.TargetDevice is null
                 ? null
@@ -131,10 +104,8 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
         });
     }
 
-    private void UpdateClipboardSyncStatus(string text)
-    {
-        if (Dispatcher.UIThread.CheckAccess())
-        {
+    private void UpdateClipboardSyncStatus(string text) {
+        if (Dispatcher.UIThread.CheckAccess()) {
             ClipboardSyncStatus = text;
             return;
         }
@@ -142,36 +113,20 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
         _ = Dispatcher.UIThread.InvokeAsync(() => ClipboardSyncStatus = text);
     }
 
-    private void OnDiscoveredDevicesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (e.NewItems != null)
-        {
-            foreach (var item in e.NewItems)
-            {
-                if (item is DeviceModel device)
-                {
-                    ApplySavedCustomName(device);
-                }
-            }
-        }
-
+    private void OnDiscoveredDevicesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) {
         EnsureClipboardTargetStillAvailable();
     }
 
-    private void EnsureClipboardTargetStillAvailable()
-    {
-        if (ClipboardSyncTargetDevice is null)
-        {
+    private void EnsureClipboardTargetStillAvailable() {
+        if (ClipboardSyncTargetDevice is null) {
             return;
         }
 
-        if (ResolveClipboardSyncTarget() is not null)
-        {
+        if (ResolveClipboardSyncTarget() is not null) {
             return;
         }
 
-        if (IsClipboardSyncEnabled)
-        {
+        if (IsClipboardSyncEnabled) {
             _deviceCommunication.DisableClipboardSync();
             return;
         }
@@ -180,68 +135,36 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
         UpdateClipboardSyncStatus("同步目标设备已离线，请重新选择");
     }
 
-    private void ApplySavedCustomNames()
-    {
-        foreach (var device in DiscoveredDevices)
-        {
-            ApplySavedCustomName(device);
-        }
-    }
-
-    private static void ApplySavedCustomName(DeviceModel device)
-    {
-        if (string.IsNullOrWhiteSpace(device.Id))
-        {
-            return;
-        }
-
-        if (CustomNameMap.TryGetValue(device.Id, out var customName) &&
-            !string.IsNullOrWhiteSpace(customName))
-        {
-            device.CustomName = customName.Trim();
-            return;
-        }
-
-        device.CustomName = string.Empty;
-    }
-
-    private DeviceModel? ResolveDiscoveredDevice(DeviceModel candidate)
-    {
-        if (!string.IsNullOrWhiteSpace(candidate.Id))
-        {
+    private DeviceModel? ResolveDiscoveredDevice(DeviceModel candidate) {
+        if (!string.IsNullOrWhiteSpace(candidate.Id)) {
             var matchedById = DiscoveredDevices.FirstOrDefault(device =>
                 string.Equals(device.Id, candidate.Id, StringComparison.Ordinal));
-            if (matchedById is not null)
-            {
+            if (matchedById is not null) {
                 return matchedById;
             }
         }
 
-        if (candidate.Port <= 0)
-        {
+        if (candidate.Port <= 0) {
             return null;
         }
 
         return DiscoveredDevices.FirstOrDefault(device =>
-            string.Equals(device.Address.ToString(), candidate.Address.ToString(), StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(device.Address.ToString(), candidate.Address.ToString(),
+                StringComparison.OrdinalIgnoreCase) &&
             device.Port == candidate.Port);
     }
 
-    private DeviceModel? ResolveClipboardSyncTarget()
-    {
+    private DeviceModel? ResolveClipboardSyncTarget() {
         var selected = ClipboardSyncTargetDevice;
-        if (selected is null)
-        {
+        if (selected is null) {
             return null;
         }
 
         return ResolveDiscoveredDevice(selected);
     }
 
-    private static bool IsSameDevice(DeviceModel a, DeviceModel b)
-    {
-        if (!string.IsNullOrWhiteSpace(a.Id) && !string.IsNullOrWhiteSpace(b.Id))
-        {
+    private static bool IsSameDevice(DeviceModel a, DeviceModel b) {
+        if (!string.IsNullOrWhiteSpace(a.Id) && !string.IsNullOrWhiteSpace(b.Id)) {
             return string.Equals(a.Id, b.Id, StringComparison.Ordinal);
         }
 
@@ -252,62 +175,42 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposabl
     }
 
     [RelayCommand]
-    public void StartDiscovery()
-    {
-        try
-        {
+    public void StartDiscovery() {
+        try {
             _deviceCommunication.StartDiscovery();
             IsDiscovering = true;
         }
-        catch
-        {
+        catch {
             IsDiscovering = false;
         }
     }
 
     [RelayCommand]
-    public void StopDiscovery()
-    {
+    public void StopDiscovery() {
         _deviceCommunication.StopDiscovery();
         IsDiscovering = false;
     }
 
     [RelayCommand]
-    private void SaveCustomName(DeviceModel? device)
-    {
-        if (device is null || string.IsNullOrWhiteSpace(device.Id))
-        {
+    private void SaveCustomName(DeviceModel? device) {
+        if (device is null || string.IsNullOrWhiteSpace(device.Id)) {
             return;
         }
 
         var name = device.CustomName?.Trim() ?? string.Empty;
-        if (string.IsNullOrEmpty(name))
-        {
-            CustomNameMap.Remove(device.Id);
-            device.CustomName = string.Empty;
-        }
-        else
-        {
-            CustomNameMap[device.Id] = name;
-            device.CustomName = name;
-        }
-
+        device.CustomName = string.IsNullOrEmpty(name) ? string.Empty : name;
+        ConfigManger.Config.deviceCustomNames[device.Id] = device.CustomName;
         ConfigManger.Save("KitopiaConfig");
     }
 
     [RelayCommand]
-    private void ClearCustomName(DeviceModel? device)
-    {
-        if (device is null || string.IsNullOrWhiteSpace(device.Id))
-        {
+    private void ClearCustomName(DeviceModel? device) {
+        if (device is null || string.IsNullOrWhiteSpace(device.Id)) {
             return;
         }
 
-        if (CustomNameMap.Remove(device.Id))
-        {
-            ConfigManger.Save("KitopiaConfig");
-        }
-
         device.CustomName = string.Empty;
+        ConfigManger.Config.deviceCustomNames.Remove(device.Id);
+        ConfigManger.Save("KitopiaConfig");
     }
 }
