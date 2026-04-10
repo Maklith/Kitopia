@@ -1,14 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Quic;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Core.Services.Config;
+using DynamicData;
 using PluginCore;
 using Serilog;
 using Serilog.Core;
@@ -26,27 +29,21 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
     private static readonly TimeSpan DiscoveryStaleTimeout = TimeSpan.FromSeconds(20);
 
     private readonly object _sync = new();
-    private readonly List<DeviceModel> _devices = [];
+    private readonly ObservableCollection<DeviceModel> _devices = [];
 
     private CancellationTokenSource? _cts;
     private UdpClient? _udpClientV4;
     private UdpClient? _udpClientV6;
-    private DiscoveryAnnouncement? _announcement;
 
-    public IReadOnlyList<DeviceModel> Devices => _devices;
+    public ObservableCollection<DeviceModel> Devices => _devices;
 
     public event EventHandler<DeviceDiscoveryEventArgs>? DeviceDiscovered;
     public event EventHandler<DeviceDiscoveryEventArgs>? DeviceUpdated;
     public event EventHandler<DeviceDiscoveryEventArgs>? DeviceLost;
 
-    public void Start(DiscoveryAnnouncement announcement) {
-        if (announcement is null) {
-            throw new ArgumentNullException(nameof(announcement));
-        }
-
+    public void Start() {
         lock (_sync) {
             StopCore();
-            _announcement = announcement;
             _cts = new CancellationTokenSource();
             var token = _cts.Token;
             _ = Task.Run(() => DiscoveryLoop(token), token);
@@ -108,20 +105,16 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             catch (OperationCanceledException) {
                 break;
             }
-
-            List<DeviceModel> staleDevices;
             lock (_sync) {
                 var now = DateTime.UtcNow;
-                staleDevices = _devices
-                    .Where(device => now - device.LastSeen > DiscoveryStaleTimeout)
-                    .ToList();
-                if (staleDevices.Count > 0) {
-                    _devices.RemoveAll(device => staleDevices.Contains(device));
+                var staleDevices = _devices
+                    .Where(device => now - device.LastSeen > DiscoveryStaleTimeout);
+                foreach (var staleDevice in staleDevices) {
+                    _devices.Remove(staleDevice);
+                    DeviceLost?.Invoke(this, new DeviceDiscoveryEventArgs(staleDevice));
                 }
             }
-            foreach (var staleDevice in staleDevices) {
-                DeviceLost?.Invoke(this, new DeviceDiscoveryEventArgs(staleDevice));
-            }
+            
         }
     }
 
@@ -200,12 +193,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                 if (info is null || string.IsNullOrWhiteSpace(info.Id)) {
                     continue;
                 }
-
-                var announcement = _announcement;
-                if (announcement is null || string.Equals(info.Id, announcement.DeviceId, StringComparison.Ordinal)) {
-                    continue;
-                }
-
                 var endpointAddress = NormalizeAddress(result.RemoteEndPoint.Address);
                 DeviceModel? discoveredDevice = null;
                 bool isNew = false;
@@ -265,17 +252,13 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
 
         while (!token.IsCancellationRequested) {
             try {
-                var announcement = _announcement;
-                if (announcement is null) {
-                    await Task.Delay(DiscoveryBroadcastInterval, token);
-                    continue;
-                }
+                await Task.Delay(DiscoveryBroadcastInterval, token);
 
                 var info = new DiscoveryInfo {
-                    Id = announcement.DeviceId,
-                    Name = announcement.DeviceName,
-                    Port = announcement.Port,
-                    SupportsQuic = announcement.SupportsQuic
+                    Id = ConfigManger.Config.devicePersistentId,
+                    Name = ConfigManger.Config.deviceBroadcastName,
+                    Port = ,
+                    SupportsQuic = QuicConnection.IsSupported && QuicListener.IsSupported
                 };
                 var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(info));
 

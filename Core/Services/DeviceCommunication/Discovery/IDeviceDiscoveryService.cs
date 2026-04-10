@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using PluginCore;
 
 namespace Core.Services.DeviceCommunication.Discovery;
 
 public interface IDeviceDiscoveryService : IDisposable
 {
-    IReadOnlyList<DeviceModel> Devices { get; }
+    ObservableCollection<DeviceModel> Devices { get; }
 
     event EventHandler<DeviceDiscoveryEventArgs>? DeviceDiscovered;
     event EventHandler<DeviceDiscoveryEventArgs>? DeviceUpdated;
