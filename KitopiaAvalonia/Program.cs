@@ -129,7 +129,6 @@ internal class Program
         services.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
         services.AddSingleton<IClipboardAssetExtractor, ClipboardAssetExtractor>();
         services.AddSingleton<IChatHistoryService, ChatHistoryService>();
-        services.AddSingleton<INotificationService, ToastNotificationService>();
         services.AddSingleton<IDeviceEventBus, DeviceEventBus>();
         services.AddSingleton<IDeviceCommunication, DeviceCommunicationService>();
         

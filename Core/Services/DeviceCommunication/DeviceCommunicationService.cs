@@ -32,7 +32,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
     private readonly IClipboardAssetExtractor _clipboardAssetExtractor;
     private readonly IFileTransferService _fileTransferService;
     private readonly IChatHistoryService _chatHistoryService;
-    private readonly INotificationService _notificationService;
+    private readonly IToastService _notificationService;
     private readonly IDeviceEventBus _eventBus;
     private readonly IPacketRouter _packetRouter;
     private CancellationTokenSource? _lifecycleCts;
@@ -67,7 +67,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         IFilePickerService filePickerService,
         IClipboardAssetExtractor clipboardAssetExtractor,
         IChatHistoryService chatHistoryService,
-        INotificationService notificationService,
+        IToastService notificationService,
         IDeviceEventBus eventBus) {
         _requestTracker = requestTracker;
         _discoveryService = discoveryService;
@@ -171,7 +171,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
             await _chatHistoryService.AppendAsync(new DeviceChatMessage {
                 PeerKey = DeviceChatPeerKey.Build(peerId, peerAddress, peerPort),
                 PeerId = peerId,
-                PeerName = GetDeviceDisplayName(peer),
+                PeerName = peer.ToString(),
                 PeerAddress = peerAddress,
                 PeerPort = peerPort,
                 Direction = direction,
@@ -397,7 +397,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
     private async Task<bool> PromptIncomingClipboardSyncRequestAsync(DeviceModel sender) {
         return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => {
             try {
-                var senderName = GetDeviceDisplayName(sender);
+                var senderName = sender.ToString();
                 var decisionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 _notificationService.Show(new ToastRequest {
                     Header = "剪贴板同步请求",
@@ -492,7 +492,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
 
     private void ShowIncomingFileRequestActionToast(string requestId, DeviceModel sender, string fileName,
         long fileSize) {
-        var senderName = GetDeviceDisplayName(sender);
+        var senderName = sender.ToString();
         var displayFileName = string.IsNullOrWhiteSpace(fileName) ? "未命名文件" : fileName;
         var sizeText = fileSize > 0 ? $" ({FormatFileSize(fileSize)})" : string.Empty;
         _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => {
@@ -554,7 +554,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
     }
 
     private void ShowIncomingFileSavedToast(DeviceModel sender, string savedPath) {
-        var senderName = GetDeviceDisplayName(sender);
+        var senderName = sender.ToString();
         _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => {
             try {
                 _notificationService.Show(
@@ -789,7 +789,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
     }
 
     public async Task SendMessageAsync(DeviceModel target, string message) {
-        var targetName = GetDeviceDisplayName(target);
+        var targetName = target.ToString();
         try {
             var meta = CreatePacketMetadata(type: PacketTypes.Message, content: message);
             await SendPacketMetadataAsync(target, meta);
@@ -948,7 +948,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
             requestId: requestId,
             fileName: fileInfo.Name,
             size: fileInfo.Length);
-        var targetName = GetDeviceDisplayName(target);
+        var targetName = target.ToString();
         StartTransferToast(requestId, true, fileInfo.Name, fileInfo.Length, targetName);
 
         var onProgress = CreateTransferProgressHandler(
@@ -1101,7 +1101,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         DeviceModel sender,
         string savePath) {
         bool success = false;
-        var senderName = GetDeviceDisplayName(sender);
+        var senderName = sender.ToString();
         var shouldShowExternalToast = ShouldShowExternalToastForSender(sender);
         if (shouldShowExternalToast) {
             StartTransferToast(packet.RequestId, false, packet.FileName, packet.Size, senderName);
@@ -1299,22 +1299,7 @@ public class DeviceCommunicationService : IDeviceCommunication, IDevicePacketAct
         return true;
     }
 
-    private static string GetDeviceDisplayName(DeviceModel? device) {
-        if (device is null) {
-            return "未知设备";
-        }
-
-        if (!string.IsNullOrWhiteSpace(device.CustomName)) {
-            return device.CustomName.Trim();
-        }
-
-        if (!string.IsNullOrWhiteSpace(device.Name)) {
-            return device.Name.Trim();
-        }
-
-        return device.Address.ToString();
-    }
-
+    
     private static string FormatFileSize(long bytes) {
         if (bytes <= 0) {
             return "0 B";

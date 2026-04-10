@@ -29,7 +29,7 @@ public sealed partial class FileTransferService : IFileTransferService
     private readonly IFilePickerService _filePickerService;
     private readonly IClipboardAssetExtractor _clipboardAssetExtractor;
     private readonly IChatHistoryService _chatHistoryService;
-    private readonly INotificationService _notificationService;
+    private readonly IToastService _toastService;
     private readonly Func<int> _getAdvertisedPort;
     private readonly Func<Guid> _getLocalDeviceId;
     private readonly Func<string> _getLocalDeviceName;
@@ -46,7 +46,7 @@ public sealed partial class FileTransferService : IFileTransferService
         IFilePickerService filePickerService,
         IClipboardAssetExtractor clipboardAssetExtractor,
         IChatHistoryService chatHistoryService,
-        INotificationService notificationService,
+        IToastService notificationService,
         Func<int> getAdvertisedPort,
         Func<Guid> getLocalDeviceId,
         Func<string> getLocalDeviceName,
@@ -57,7 +57,7 @@ public sealed partial class FileTransferService : IFileTransferService
         _filePickerService = filePickerService;
         _clipboardAssetExtractor = clipboardAssetExtractor;
         _chatHistoryService = chatHistoryService;
-        _notificationService = notificationService;
+        _toastService = notificationService;
         _getAdvertisedPort = getAdvertisedPort;
         _getLocalDeviceId = getLocalDeviceId;
         _getLocalDeviceName = getLocalDeviceName;
@@ -143,7 +143,7 @@ public sealed partial class FileTransferService : IFileTransferService
             {
                 try
                 {
-                    _notificationService.Show("剪贴板发送部分失败", string.Join("；", failed), NotificationType.Warning);
+                    _toastService.Show("剪贴板发送部分失败", string.Join("；", failed), NotificationType.Warning);
                 }
                 catch
                 {
@@ -199,7 +199,7 @@ public sealed partial class FileTransferService : IFileTransferService
             {
                 FileName = packet.FileName,
                 FileSize = packet.Size,
-                Sender = CloneDeviceModel(sender)
+                Sender = sender
             };
 
             await SaveChatRecordAsync(
@@ -218,7 +218,7 @@ public sealed partial class FileTransferService : IFileTransferService
                     packet.RequestId,
                     packet.FileName,
                     packet.Size,
-                    CloneDeviceModel(sender)));
+                    sender));
         }
         catch (Exception ex)
         {

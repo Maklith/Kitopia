@@ -32,7 +32,7 @@ public sealed partial class FileTransferService
                 transferredBytes,
                 totalBytes,
                 isSending,
-                CloneDeviceModel(peer)));
+                peer));
     }
 
     private void PublishTransferCompleted(
@@ -56,7 +56,7 @@ public sealed partial class FileTransferService
                 fileSize,
                 filePath,
                 isSending,
-                CloneDeviceModel(peer)));
+                peer));
     }
 
     private PacketMetadata CreatePacketMetadata(
@@ -139,7 +139,7 @@ public sealed partial class FileTransferService
     }
 
     private async Task SaveChatRecordAsync(
-        DeviceModel? peer,
+        DeviceModel peer,
         DeviceChatDirection direction,
         DeviceChatEntryType entryType,
         string content = "",
@@ -159,7 +159,7 @@ public sealed partial class FileTransferService
             {
                 PeerKey = DeviceChatPeerKey.Build(peerId, peerAddress, peerPort),
                 PeerId = peerId,
-                PeerName = GetDeviceDisplayName(peer),
+                PeerName = peer.ToString(),
                 PeerAddress = peerAddress,
                 PeerPort = peerPort,
                 Direction = direction,
@@ -200,14 +200,13 @@ public sealed partial class FileTransferService
 
     private void ShowIncomingFileSavedToast(DeviceModel sender, string savedPath)
     {
-        var senderName = GetDeviceDisplayName(sender);
         _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
             try
             {
-                _notificationService.Show(
+                _toastService.Show(
                     "文件接收成功",
-                    $"来自 {senderName} 的文件已保存至: {savedPath}",
+                    $"来自 {sender} 的文件已保存至: {savedPath}",
                     NotificationType.Success);
             }
             catch (Exception ex)
@@ -215,39 +214,6 @@ public sealed partial class FileTransferService
                 System.Diagnostics.Debug.WriteLine($"[FileTransfer] Success toast error: {ex}");
             }
         });
-    }
-
-    private static DeviceModel CloneDeviceModel(DeviceModel source)
-    {
-        return new DeviceModel
-        {
-            Id = source.Id,
-            Name = source.Name,
-            CustomName = source.CustomName,
-            Address = source.Address,
-            Port = source.Port,
-            LastSeen = source.LastSeen
-        };
-    }
-
-    private static string GetDeviceDisplayName(DeviceModel? device)
-    {
-        if (device is null)
-        {
-            return "未知设备";
-        }
-
-        if (!string.IsNullOrWhiteSpace(device.CustomName))
-        {
-            return device.CustomName.Trim();
-        }
-
-        if (!string.IsNullOrWhiteSpace(device.Name))
-        {
-            return device.Name.Trim();
-        }
-
-        return device.Address.ToString();
     }
 
     private static string FormatFileSize(long bytes)
@@ -300,7 +266,7 @@ public sealed partial class FileTransferService
         var detail = totalBytes > 0
             ? $"{FormatFileSize(0)} / {FormatFileSize(totalBytes)}"
             : "准备中...";
-        var handle = _notificationService.ShowProgress(
+        var handle = _toastService.ShowProgress(
             title,
             $"{action} {fileName} {direction} {remoteName} ({detail})",
             NotificationType.Information,

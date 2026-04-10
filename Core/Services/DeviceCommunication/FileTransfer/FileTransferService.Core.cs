@@ -114,7 +114,7 @@ public sealed partial class FileTransferService
             requestId: requestId,
             fileName: fileInfo.Name,
             size: fileInfo.Length);
-        var targetName = GetDeviceDisplayName(target);
+        var targetName = target.ToString();
         StartTransferToast(requestId, isSending: true, fileInfo.Name, fileInfo.Length, targetName);
 
         var onProgress = CreateTransferProgressHandler(
@@ -144,7 +144,7 @@ public sealed partial class FileTransferService
         DeviceModel sender,
         string savePath)
     {
-        var senderName = GetDeviceDisplayName(sender);
+        var senderName = sender.ToString();
         var shouldShowExternalToast = _shouldShowExternalToastForSender(sender);
         if (shouldShowExternalToast)
         {
@@ -342,7 +342,7 @@ public sealed partial class FileTransferService
         {
             try
             {
-                _notificationService.Show(
+                _toastService.Show(
                     "传输中断",
                     $"请求ID: {requestId}\n原因: {reason}\n方向: {(isSending ? "发送" : "接收")}",
                     NotificationType.Error);
