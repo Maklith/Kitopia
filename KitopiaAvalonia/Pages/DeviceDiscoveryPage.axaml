@@ -75,7 +75,7 @@
                                     </StackPanel>
                                 </StackPanel>
 
-                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
                                     <TextBox Watermark="给该设备设置备注名"
                                              Text="{Binding CustomName}" />
                                     <Button Grid.Column="1"
@@ -85,6 +85,10 @@
                                     <Button Grid.Column="2"
                                             Content="清除"
                                             Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).ClearCustomNameCommand}"
+                                            CommandParameter="{Binding .}" />
+                                    <Button Grid.Column="3"
+                                            Content="测试连接"
+                                            Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).TestConnectionCommand}"
                                             CommandParameter="{Binding .}" />
                                 </Grid>
                             </Grid>

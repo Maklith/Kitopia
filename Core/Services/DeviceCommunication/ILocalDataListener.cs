@@ -20,10 +20,12 @@ public interface ILocalDataListener {
         LocalDataTransportProtocol protocol,
         ReadOnlyMemory<byte> payload,
         IPEndPoint remoteEndPoint,
+        string? remoteIdentityPublicKey = null,
         CancellationToken token = default);
     public Task SendAsync(
         LocalDataTransportProtocol protocol,
         Stream stream,
         IPEndPoint remoteEndPoint,
+        string? remoteIdentityPublicKey = null,
         CancellationToken token = default);
 }

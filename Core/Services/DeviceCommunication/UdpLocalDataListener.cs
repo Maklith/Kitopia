@@ -1,9 +1,14 @@
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using Core.Services;
+using Core.Services.Config;
+using Core.Services.DeviceCommunication.Discovery;
+using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 using Serilog;
 
 namespace Core.Services.DeviceCommunication;
@@ -19,16 +24,24 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
     private const byte FlagAckRequired = 1 << 0;
     private const int HeaderLength = 39;
     private const int MaxChunkPayloadSize = 1024;
+    private const int MaxDataChunkCount = 4096;
     private const int ReliableMaxRetryCount = 2;
     private const int HandshakeMaxRetryCount = 2;
+    private const byte HandshakePayloadVersion = 1;
     private const byte EncryptedPayloadVersion = 1;
+    private const long EncryptedPayloadTimestampToleranceSeconds = 120;
+    private const byte TransportAckPayloadVersion = 1;
+    private const int TransportAckTokenLength = 16;
+    private const long TransportAckTimestampToleranceSeconds = 120;
+    private const int TransportAckPayloadLength = 1 + 8 + 16 + TransportAckTokenLength;
     private const int AesNonceLength = 12;
     private const int AesTagLength = 16;
+    private const long HandshakeTimestampToleranceSeconds = 60;
 
     private static readonly TimeSpan ReliableAckTimeout = TimeSpan.FromMilliseconds(800);
     private static readonly TimeSpan HandshakeTimeout = TimeSpan.FromMilliseconds(800);
     private static readonly TimeSpan PendingMessageTtl = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan CompletedMessageTtl = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan CompletedMessageTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan SessionKeyTtl = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan PendingCleanupInterval = TimeSpan.FromSeconds(3);
 
@@ -38,7 +51,7 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
     private readonly object _sync = new();
     private readonly object _pendingSync = new();
     private readonly ConcurrentDictionary<UdpMessageKey, TaskCompletionSource<bool>> _pendingAcks = [];
-    private readonly ConcurrentDictionary<UdpMessageKey, TaskCompletionSource<byte[]>> _pendingHandshakeAcks = [];
+    private readonly ConcurrentDictionary<UdpMessageKey, UdpPendingHandshakeAck> _pendingHandshakeAcks = [];
     private readonly Dictionary<UdpMessageKey, UdpPendingMessage> _pendingMessages = [];
     private readonly Dictionary<UdpMessageKey, DateTime> _completedMessages = [];
     private readonly Dictionary<UdpRemoteKey, UdpSessionKey> _sessionKeys = [];
@@ -79,7 +92,7 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _udpClient = new UdpClient(AddressFamily.InterNetwork);
             _udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            _udpClient.Client.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+            _udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
             if (_udpClient.Client.LocalEndPoint is not IPEndPoint localEndPoint)
             {
                 throw new InvalidOperationException("Failed to resolve local UDP endpoint.");
@@ -100,9 +113,15 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
     public async Task SendAsync(
         ReadOnlyMemory<byte> payload,
         IPEndPoint remoteEndPoint,
+        string? remoteIdentityPublicKey = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(remoteEndPoint);
+        if (string.IsNullOrWhiteSpace(remoteIdentityPublicKey))
+        {
+            throw new ArgumentException("Remote identity public key is required.", nameof(remoteIdentityPublicKey));
+        }
+
         if (payload.IsEmpty)
         {
             return;
@@ -144,8 +163,8 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
                     InvalidateSessionKey(remoteKey);
                 }
 
-                var sessionKey = await EnsureSessionKeyAsync(client, remoteEndPoint, cancellationToken);
-                var encryptedPayload = EncryptPayload(payload.Span, sessionKey);
+                var sessionKey = await EnsureSessionKeyAsync(client, remoteEndPoint, remoteIdentityPublicKey, cancellationToken);
+                var encryptedPayload = EncryptPayload(payload.Span, sessionKey, ackKey.MessageId);
                 var datagrams = BuildDataDatagrams(encryptedPayload, ackKey.MessageId);
                 await SendDatagramsAsync(client, datagrams, remoteEndPoint, cancellationToken);
 
@@ -175,6 +194,7 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
     private async Task<byte[]> EnsureSessionKeyAsync(
         UdpClient client,
         IPEndPoint remoteEndPoint,
+        string expectedRemoteIdentityPublicKey,
         CancellationToken cancellationToken)
     {
         if (TryGetSessionKey(remoteEndPoint, out var existingKey))
@@ -188,13 +208,15 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
         {
             cancellationToken.ThrowIfCancellationRequested();
             UdpMessageKey handshakeKey;
-            TaskCompletionSource<byte[]> waiter;
+            UdpPendingHandshakeAck pendingHandshakeAck;
             while (true)
             {
                 var messageId = Guid.NewGuid();
                 handshakeKey = new UdpMessageKey(remoteEndPoint.Address, remoteEndPoint.Port, messageId);
-                waiter = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-                if (_pendingHandshakeAcks.TryAdd(handshakeKey, waiter))
+                pendingHandshakeAck = new UdpPendingHandshakeAck(
+                    expectedRemoteIdentityPublicKey,
+                    new TaskCompletionSource<UdpHandshakeEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously));
+                if (_pendingHandshakeAcks.TryAdd(handshakeKey, pendingHandshakeAck))
                 {
                     break;
                 }
@@ -202,11 +224,11 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
 
             try
             {
-                var helloDatagram = BuildHandshakeDatagram(PacketTypeHandshakeHello, handshakeKey.MessageId, localPublicKey);
+                var helloDatagram = BuildSignedHandshakeDatagram(PacketTypeHandshakeHello, handshakeKey.MessageId, localPublicKey);
                 await client.SendAsync(helloDatagram, helloDatagram.Length, remoteEndPoint);
 
-                var remotePublicKey = await waiter.Task.WaitAsync(HandshakeTimeout, cancellationToken);
-                var sessionKey = DeriveSessionKey(remotePublicKey);
+                var remoteHandshake = await pendingHandshakeAck.Waiter.Task.WaitAsync(HandshakeTimeout, cancellationToken);
+                var sessionKey = DeriveSessionKey(remoteHandshake.EcdhPublicKey);
                 SetSessionKey(new UdpRemoteKey(remoteEndPoint.Address, remoteEndPoint.Port), sessionKey);
                 return sessionKey;
             }
@@ -214,6 +236,14 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
             {
                 Logger.Warning(
                     "UDP handshake timed out for {RemoteEndPoint}, retry {Retry}/{TotalRetry}",
+                    remoteEndPoint,
+                    attempt + 1,
+                    HandshakeMaxRetryCount);
+            }
+            catch (CryptographicException) when (attempt + 1 < attemptCount)
+            {
+                Logger.Warning(
+                    "UDP handshake verification failed for {RemoteEndPoint}, retry {Retry}/{TotalRetry}",
                     remoteEndPoint,
                     attempt + 1,
                     HandshakeMaxRetryCount);
@@ -290,7 +320,7 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
 
         foreach (var pendingHandshakeAck in _pendingHandshakeAcks)
         {
-            pendingHandshakeAck.Value.TrySetCanceled();
+            pendingHandshakeAck.Value.Waiter.TrySetCanceled();
         }
 
         _pendingAcks.Clear();
@@ -349,20 +379,23 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
         }
 
         var messageKey = new UdpMessageKey(remoteEndPoint.Address, remoteEndPoint.Port, messageId);
-        if (packetType == PacketTypeTransportAck)
-        {
-            if (_pendingAcks.TryRemove(messageKey, out var ackWaiter))
-            {
-                ackWaiter.TrySetResult(true);
-            }
-
-            return;
-        }
-
         var payloadSpan = datagram.AsSpan(payloadOffset, payloadLength);
         if (Crc32.Compute(payloadSpan) != payloadChecksum)
         {
             Logger.Warning("UDP local listener dropped corrupted datagram from {RemoteEndPoint}", remoteEndPoint);
+            return;
+        }
+
+        if (packetType == PacketTypeTransportAck)
+        {
+            if (_pendingAcks.TryGetValue(messageKey, out var ackWaiter) &&
+                TryGetSessionKey(remoteEndPoint, out var ackSessionKey) &&
+                TryParseAndVerifyTransportAckPayload(payloadSpan, messageId, ackSessionKey))
+            {
+                _pendingAcks.TryRemove(messageKey, out _);
+                ackWaiter.TrySetResult(true);
+            }
+
             return;
         }
 
@@ -417,7 +450,10 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
         {
             if (requireAck)
             {
-                await SendTransportAckAsync(client, remoteEndPoint, messageId);
+                if (TryGetSessionKey(remoteEndPoint, out var duplicateSessionKey))
+                {
+                    await SendTransportAckAsync(client, remoteEndPoint, messageId, duplicateSessionKey);
+                }
             }
 
             return;
@@ -435,7 +471,7 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
             return;
         }
 
-        if (!TryDecryptPayload(encryptedPayload, sessionKey, out var plainPayload))
+        if (!TryDecryptPayload(encryptedPayload, sessionKey, messageId, out var plainPayload))
         {
             InvalidateSessionKey(new UdpRemoteKey(remoteEndPoint.Address, remoteEndPoint.Port));
             await TrySendHandshakeHelloAsync(client, remoteEndPoint);
@@ -449,7 +485,7 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
 
         if (requireAck)
         {
-            await SendTransportAckAsync(client, remoteEndPoint, messageId);
+            await SendTransportAckAsync(client, remoteEndPoint, messageId, sessionKey);
         }
 
         await PublishPacketAsync(plainPayload, remoteEndPoint, token);
@@ -459,15 +495,27 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
         UdpClient client,
         IPEndPoint remoteEndPoint,
         Guid messageId,
-        byte[] remotePublicKey)
+        byte[] payload)
     {
         try
         {
-            var sessionKey = DeriveSessionKey(remotePublicKey);
+            var expectedRemoteIdentityPublicKey = ResolveExpectedIdentityPublicKey(remoteEndPoint);
+            if (string.IsNullOrWhiteSpace(expectedRemoteIdentityPublicKey) ||
+                !TryParseAndVerifyHandshakePayload(
+                    payload,
+                    PacketTypeHandshakeHello,
+                    messageId,
+                    expectedRemoteIdentityPublicKey,
+                    out var remoteHandshake))
+            {
+                return;
+            }
+
+            var sessionKey = DeriveSessionKey(remoteHandshake.EcdhPublicKey);
             SetSessionKey(new UdpRemoteKey(remoteEndPoint.Address, remoteEndPoint.Port), sessionKey);
 
             var localPublicKey = GetLocalPublicKey();
-            var ackDatagram = BuildHandshakeDatagram(PacketTypeHandshakeAck, messageId, localPublicKey);
+            var ackDatagram = BuildSignedHandshakeDatagram(PacketTypeHandshakeAck, messageId, localPublicKey);
             await client.SendAsync(ackDatagram, ackDatagram.Length, remoteEndPoint);
         }
         catch (Exception e)
@@ -476,18 +524,43 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
         }
     }
 
-    private void HandleHandshakeAck(IPEndPoint remoteEndPoint, Guid messageId, ReadOnlySpan<byte> remotePublicKey)
+    private void HandleHandshakeAck(IPEndPoint remoteEndPoint, Guid messageId, ReadOnlySpan<byte> payload)
     {
         var messageKey = new UdpMessageKey(remoteEndPoint.Address, remoteEndPoint.Port, messageId);
-        if (_pendingHandshakeAcks.TryRemove(messageKey, out var waiter))
+        if (_pendingHandshakeAcks.TryGetValue(messageKey, out var pendingHandshakeAck))
         {
-            waiter.TrySetResult(remotePublicKey.ToArray());
+            if (TryParseAndVerifyHandshakePayload(
+                    payload,
+                    PacketTypeHandshakeAck,
+                    messageId,
+                    pendingHandshakeAck.ExpectedIdentityPublicKey,
+                    out var handshakeEnvelope))
+            {
+                pendingHandshakeAck.Waiter.TrySetResult(handshakeEnvelope);
+            }
+            else
+            {
+                pendingHandshakeAck.Waiter.TrySetException(new CryptographicException("UDP handshake ACK verification failed."));
+            }
+
             return;
         }
 
         try
         {
-            var sessionKey = DeriveSessionKey(remotePublicKey);
+            var expectedRemoteIdentityPublicKey = ResolveExpectedIdentityPublicKey(remoteEndPoint);
+            if (string.IsNullOrWhiteSpace(expectedRemoteIdentityPublicKey) ||
+                !TryParseAndVerifyHandshakePayload(
+                    payload,
+                    PacketTypeHandshakeAck,
+                    messageId,
+                    expectedRemoteIdentityPublicKey,
+                    out var handshakeEnvelope))
+            {
+                return;
+            }
+
+            var sessionKey = DeriveSessionKey(handshakeEnvelope.EcdhPublicKey);
             SetSessionKey(new UdpRemoteKey(remoteEndPoint.Address, remoteEndPoint.Port), sessionKey);
         }
         catch (Exception e)
@@ -501,7 +574,7 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
         try
         {
             var localPublicKey = GetLocalPublicKey();
-            var helloDatagram = BuildHandshakeDatagram(PacketTypeHandshakeHello, Guid.NewGuid(), localPublicKey);
+            var helloDatagram = BuildSignedHandshakeDatagram(PacketTypeHandshakeHello, Guid.NewGuid(), localPublicKey);
             await client.SendAsync(helloDatagram, helloDatagram.Length, remoteEndPoint);
         }
         catch (Exception e)
@@ -510,9 +583,13 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
         }
     }
 
-    private async Task SendTransportAckAsync(UdpClient client, IPEndPoint remoteEndPoint, Guid messageId)
+    private async Task SendTransportAckAsync(
+        UdpClient client,
+        IPEndPoint remoteEndPoint,
+        Guid messageId,
+        byte[] sessionKey)
     {
-        var ackDatagram = BuildTransportAckDatagram(messageId);
+        var ackDatagram = BuildTransportAckDatagram(messageId, sessionKey);
         try
         {
             await client.SendAsync(ackDatagram, ackDatagram.Length, remoteEndPoint);
@@ -781,7 +858,7 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
 
         if (packetType == PacketTypeTransportAck)
         {
-            return chunkIndex == 0 && totalChunkCount == 0 && payloadLength == 0;
+            return chunkIndex == 0 && totalChunkCount == 0 && payloadLength == TransportAckPayloadLength;
         }
 
         if (packetType is PacketTypeHandshakeHello or PacketTypeHandshakeAck)
@@ -789,12 +866,25 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
             return chunkIndex == 0 && totalChunkCount == 1 && payloadLength > 0;
         }
 
-        return totalChunkCount > 0 && chunkIndex >= 0 && chunkIndex < totalChunkCount;
+        return totalChunkCount > 0 &&
+               totalChunkCount <= MaxDataChunkCount &&
+               chunkIndex >= 0 &&
+               chunkIndex < totalChunkCount &&
+               payloadLength > 0 &&
+               payloadLength <= MaxChunkPayloadSize;
     }
 
     private static byte[][] BuildDataDatagrams(ReadOnlySpan<byte> payload, Guid messageId)
     {
         var totalChunkCount = (payload.Length + MaxChunkPayloadSize - 1) / MaxChunkPayloadSize;
+        if (totalChunkCount <= 0 || totalChunkCount > MaxDataChunkCount)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(payload),
+                payload.Length,
+                $"Payload is too large for UDP transport. Max chunk count is {MaxDataChunkCount}.");
+        }
+
         var datagrams = new byte[totalChunkCount][];
         const byte flags = FlagAckRequired;
         for (var chunkIndex = 0; chunkIndex < totalChunkCount; chunkIndex++)
@@ -821,16 +911,105 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
         return datagrams;
     }
 
-    private static byte[] BuildTransportAckDatagram(Guid messageId)
+    private static byte[] BuildTransportAckDatagram(Guid messageId, ReadOnlySpan<byte> sessionKey)
     {
-        var datagram = new byte[HeaderLength];
-        WriteDatagramHeader(datagram, PacketTypeTransportAck, 0, messageId, 0, 0, 0, 0);
+        var ackPayload = BuildTransportAckPayload(messageId, sessionKey);
+        var datagram = new byte[HeaderLength + ackPayload.Length];
+        var span = datagram.AsSpan();
+        WriteDatagramHeader(
+            span,
+            PacketTypeTransportAck,
+            0,
+            messageId,
+            0,
+            0,
+            ackPayload.Length,
+            Crc32.Compute(ackPayload));
+        ackPayload.CopyTo(span.Slice(HeaderLength, ackPayload.Length));
         return datagram;
     }
 
-    private static byte[] BuildHandshakeDatagram(byte packetType, Guid messageId, ReadOnlySpan<byte> publicKey)
+    private static byte[] BuildTransportAckPayload(Guid messageId, ReadOnlySpan<byte> sessionKey)
     {
-        var datagram = new byte[HeaderLength + publicKey.Length];
+        var timestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var payload = new byte[TransportAckPayloadLength];
+        var span = payload.AsSpan();
+        span[0] = TransportAckPayloadVersion;
+        BinaryPrimitives.WriteInt64BigEndian(span.Slice(1, 8), timestampUnixSeconds);
+        messageId.TryWriteBytes(span.Slice(9, 16));
+        var token = ComputeTransportAckToken(messageId, timestampUnixSeconds, sessionKey);
+        token.CopyTo(span.Slice(25, TransportAckTokenLength));
+        CryptographicOperations.ZeroMemory(token);
+        return payload;
+    }
+
+    private static bool TryParseAndVerifyTransportAckPayload(
+        ReadOnlySpan<byte> payload,
+        Guid expectedMessageId,
+        ReadOnlySpan<byte> sessionKey)
+    {
+        if (payload.Length != TransportAckPayloadLength || payload[0] != TransportAckPayloadVersion)
+        {
+            return false;
+        }
+
+        var timestampUnixSeconds = BinaryPrimitives.ReadInt64BigEndian(payload.Slice(1, 8));
+        var nowUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var skew = nowUnixSeconds >= timestampUnixSeconds
+            ? nowUnixSeconds - timestampUnixSeconds
+            : timestampUnixSeconds - nowUnixSeconds;
+        if (skew > TransportAckTimestampToleranceSeconds)
+        {
+            return false;
+        }
+
+        var messageId = new Guid(payload.Slice(9, 16));
+        if (messageId != expectedMessageId)
+        {
+            return false;
+        }
+
+        var expectedToken = ComputeTransportAckToken(messageId, timestampUnixSeconds, sessionKey);
+        var isValid = CryptographicOperations.FixedTimeEquals(payload.Slice(25, TransportAckTokenLength), expectedToken);
+        CryptographicOperations.ZeroMemory(expectedToken);
+        return isValid;
+    }
+
+    private static byte[] ComputeTransportAckToken(Guid messageId, long timestampUnixSeconds, ReadOnlySpan<byte> sessionKey)
+    {
+        var signPayload = new byte[1 + 8 + 16];
+        var span = signPayload.AsSpan();
+        span[0] = TransportAckPayloadVersion;
+        BinaryPrimitives.WriteInt64BigEndian(span.Slice(1, 8), timestampUnixSeconds);
+        messageId.TryWriteBytes(span.Slice(9, 16));
+
+        using var hmac = new HMACSHA256(sessionKey.ToArray());
+        var digest = hmac.ComputeHash(signPayload);
+        var token = new byte[TransportAckTokenLength];
+        digest.AsSpan(0, TransportAckTokenLength).CopyTo(token);
+        CryptographicOperations.ZeroMemory(digest);
+        CryptographicOperations.ZeroMemory(signPayload);
+        return token;
+    }
+
+    private static byte[] BuildSignedHandshakeDatagram(byte packetType, Guid messageId, ReadOnlySpan<byte> ecdhPublicKey)
+    {
+        var localIdentityPublicKey = GetLocalIdentityPublicKey();
+        var localIdentityPrivateKey = GetLocalIdentityPrivateKey();
+        if (string.IsNullOrWhiteSpace(localIdentityPublicKey) || string.IsNullOrWhiteSpace(localIdentityPrivateKey))
+        {
+            throw new InvalidOperationException("Device identity key is not initialized.");
+        }
+
+        var timestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var signPayload = BuildHandshakeSignPayload(packetType, messageId, timestampUnixSeconds, localIdentityPublicKey, ecdhPublicKey);
+        if (!DeviceDiscoverySignature.TrySignData(signPayload, localIdentityPrivateKey, out var signature))
+        {
+            throw new InvalidOperationException("Failed to sign UDP handshake.");
+        }
+
+        var handshakePayload = BuildHandshakePayload(timestampUnixSeconds, localIdentityPublicKey, ecdhPublicKey, signature);
+        var datagram = new byte[HeaderLength + handshakePayload.Length];
         var span = datagram.AsSpan();
         WriteDatagramHeader(
             span,
@@ -839,10 +1018,162 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
             messageId,
             0,
             1,
-            publicKey.Length,
-            Crc32.Compute(publicKey));
-        publicKey.CopyTo(span.Slice(HeaderLength, publicKey.Length));
+            handshakePayload.Length,
+            Crc32.Compute(handshakePayload));
+        handshakePayload.CopyTo(span.Slice(HeaderLength, handshakePayload.Length));
         return datagram;
+    }
+
+    private static bool TryParseAndVerifyHandshakePayload(
+        ReadOnlySpan<byte> payload,
+        byte packetType,
+        Guid messageId,
+        string? expectedIdentityPublicKey,
+        out UdpHandshakeEnvelope envelope)
+    {
+        envelope = default;
+
+        if (payload.Length < 21)
+        {
+            return false;
+        }
+
+        if (payload[0] != HandshakePayloadVersion)
+        {
+            return false;
+        }
+
+        var timestampUnixSeconds = BinaryPrimitives.ReadInt64BigEndian(payload.Slice(1, 8));
+        var identityLength = BinaryPrimitives.ReadInt32BigEndian(payload.Slice(9, 4));
+        var ecdhPublicKeyLength = BinaryPrimitives.ReadInt32BigEndian(payload.Slice(13, 4));
+        var signatureLength = BinaryPrimitives.ReadInt32BigEndian(payload.Slice(17, 4));
+
+        if (identityLength <= 0 || ecdhPublicKeyLength <= 0 || signatureLength <= 0)
+        {
+            return false;
+        }
+
+        var totalLength = 21 + identityLength + ecdhPublicKeyLength + signatureLength;
+        if (totalLength != payload.Length)
+        {
+            return false;
+        }
+
+        var offset = 21;
+        var identityBytes = payload.Slice(offset, identityLength).ToArray();
+        offset += identityLength;
+        var ecdhPublicKey = payload.Slice(offset, ecdhPublicKeyLength).ToArray();
+        offset += ecdhPublicKeyLength;
+        var signature = payload.Slice(offset, signatureLength).ToArray();
+        var identityPublicKey = System.Text.Encoding.UTF8.GetString(identityBytes).Trim();
+
+        if (string.IsNullOrWhiteSpace(identityPublicKey))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(expectedIdentityPublicKey) &&
+            !string.Equals(identityPublicKey, expectedIdentityPublicKey, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var nowUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var skew = nowUnixSeconds >= timestampUnixSeconds
+            ? nowUnixSeconds - timestampUnixSeconds
+            : timestampUnixSeconds - nowUnixSeconds;
+
+        if (skew > HandshakeTimestampToleranceSeconds)
+        {
+            return false;
+        }
+
+        var signPayload = BuildHandshakeSignPayload(packetType, messageId, timestampUnixSeconds, identityPublicKey, ecdhPublicKey);
+        if (!DeviceDiscoverySignature.VerifyData(signPayload, identityPublicKey, signature))
+        {
+            return false;
+        }
+
+        envelope = new UdpHandshakeEnvelope(identityPublicKey, ecdhPublicKey);
+        return true;
+    }
+
+    private static byte[] BuildHandshakePayload(
+        long timestampUnixSeconds,
+        string identityPublicKey,
+        ReadOnlySpan<byte> ecdhPublicKey,
+        ReadOnlySpan<byte> signature)
+    {
+        var identityBytes = System.Text.Encoding.UTF8.GetBytes(identityPublicKey);
+        var payload = new byte[21 + identityBytes.Length + ecdhPublicKey.Length + signature.Length];
+        var span = payload.AsSpan();
+        span[0] = HandshakePayloadVersion;
+        BinaryPrimitives.WriteInt64BigEndian(span.Slice(1, 8), timestampUnixSeconds);
+        BinaryPrimitives.WriteInt32BigEndian(span.Slice(9, 4), identityBytes.Length);
+        BinaryPrimitives.WriteInt32BigEndian(span.Slice(13, 4), ecdhPublicKey.Length);
+        BinaryPrimitives.WriteInt32BigEndian(span.Slice(17, 4), signature.Length);
+
+        var offset = 21;
+        identityBytes.CopyTo(span.Slice(offset, identityBytes.Length));
+        offset += identityBytes.Length;
+        ecdhPublicKey.CopyTo(span.Slice(offset, ecdhPublicKey.Length));
+        offset += ecdhPublicKey.Length;
+        signature.CopyTo(span.Slice(offset, signature.Length));
+        return payload;
+    }
+
+    private static byte[] BuildHandshakeSignPayload(
+        byte packetType,
+        Guid messageId,
+        long timestampUnixSeconds,
+        string identityPublicKey,
+        ReadOnlySpan<byte> ecdhPublicKey)
+    {
+        var identityBytes = System.Text.Encoding.UTF8.GetBytes(identityPublicKey);
+        var signPayload = new byte[1 + 16 + 8 + 4 + identityBytes.Length + 4 + ecdhPublicKey.Length];
+        var span = signPayload.AsSpan();
+        span[0] = packetType;
+        messageId.TryWriteBytes(span.Slice(1, 16));
+        BinaryPrimitives.WriteInt64BigEndian(span.Slice(17, 8), timestampUnixSeconds);
+        BinaryPrimitives.WriteInt32BigEndian(span.Slice(25, 4), identityBytes.Length);
+        identityBytes.CopyTo(span.Slice(29, identityBytes.Length));
+        var offset = 29 + identityBytes.Length;
+        BinaryPrimitives.WriteInt32BigEndian(span.Slice(offset, 4), ecdhPublicKey.Length);
+        offset += 4;
+        ecdhPublicKey.CopyTo(span.Slice(offset, ecdhPublicKey.Length));
+        return signPayload;
+    }
+
+    private static string GetLocalIdentityPublicKey()
+    {
+        return ConfigManger.Config.devicePersistentId?.Trim() ?? string.Empty;
+    }
+
+    private static string GetLocalIdentityPrivateKey()
+    {
+        return ConfigManger.Config.devicePrivateKey?.Trim() ?? string.Empty;
+    }
+
+    private static string? ResolveExpectedIdentityPublicKey(IPEndPoint remoteEndPoint)
+    {
+        var discoveryService = ServiceManager.Services.GetService<IDeviceDiscoveryService>();
+        if (discoveryService is null)
+        {
+            return null;
+        }
+
+        var normalizedAddress = NormalizeAddress(remoteEndPoint.Address);
+        var matchedDevice = discoveryService.Devices.FirstOrDefault(device =>
+            NormalizeAddress(device.Address).Equals(normalizedAddress));
+
+        return matchedDevice is null || string.IsNullOrWhiteSpace(matchedDevice.Id)
+            ? null
+            : matchedDevice.Id;
+    }
+
+    private static IPAddress NormalizeAddress(IPAddress address)
+    {
+        return address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
     }
 
     private static void WriteDatagramHeader(
@@ -866,16 +1197,23 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
         BinaryPrimitives.WriteUInt32BigEndian(span.Slice(35, 4), payloadChecksum);
     }
 
-    private static byte[] EncryptPayload(ReadOnlySpan<byte> plainPayload, ReadOnlySpan<byte> key)
+    private static byte[] EncryptPayload(ReadOnlySpan<byte> plainPayload, ReadOnlySpan<byte> key, Guid messageId)
     {
+        var timestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var plaintextEnvelope = new byte[8 + 16 + plainPayload.Length];
+        var envelopeSpan = plaintextEnvelope.AsSpan();
+        BinaryPrimitives.WriteInt64BigEndian(envelopeSpan.Slice(0, 8), timestampUnixSeconds);
+        messageId.TryWriteBytes(envelopeSpan.Slice(8, 16));
+        plainPayload.CopyTo(envelopeSpan.Slice(24));
+
         var nonce = new byte[AesNonceLength];
         RandomNumberGenerator.Fill(nonce);
-        var cipher = new byte[plainPayload.Length];
+        var cipher = new byte[plaintextEnvelope.Length];
         var tag = new byte[AesTagLength];
 
         using (var aes = new AesGcm(key, AesTagLength))
         {
-            aes.Encrypt(nonce, plainPayload, cipher, tag);
+            aes.Encrypt(nonce, plaintextEnvelope, cipher, tag);
         }
 
         var encryptedPayload = new byte[1 + AesNonceLength + AesTagLength + cipher.Length];
@@ -883,10 +1221,15 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
         nonce.CopyTo(encryptedPayload, 1);
         tag.CopyTo(encryptedPayload, 1 + AesNonceLength);
         cipher.CopyTo(encryptedPayload, 1 + AesNonceLength + AesTagLength);
+        CryptographicOperations.ZeroMemory(plaintextEnvelope);
         return encryptedPayload;
     }
 
-    private static bool TryDecryptPayload(ReadOnlySpan<byte> encryptedPayload, ReadOnlySpan<byte> key, out byte[] plainPayload)
+    private static bool TryDecryptPayload(
+        ReadOnlySpan<byte> encryptedPayload,
+        ReadOnlySpan<byte> key,
+        Guid expectedMessageId,
+        out byte[] plainPayload)
     {
         plainPayload = [];
         if (encryptedPayload.Length < 1 + AesNonceLength + AesTagLength)
@@ -902,15 +1245,42 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
         var nonce = encryptedPayload.Slice(1, AesNonceLength);
         var tag = encryptedPayload.Slice(1 + AesNonceLength, AesTagLength);
         var cipher = encryptedPayload.Slice(1 + AesNonceLength + AesTagLength);
-        plainPayload = new byte[cipher.Length];
+        var decryptedPayload = new byte[cipher.Length];
         try
         {
             using var aes = new AesGcm(key, AesTagLength);
-            aes.Decrypt(nonce, cipher, tag, plainPayload);
+            aes.Decrypt(nonce, cipher, tag, decryptedPayload);
+            if (decryptedPayload.Length < 24)
+            {
+                CryptographicOperations.ZeroMemory(decryptedPayload);
+                return false;
+            }
+
+            var timestampUnixSeconds = BinaryPrimitives.ReadInt64BigEndian(decryptedPayload.AsSpan(0, 8));
+            var nowUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var skew = nowUnixSeconds >= timestampUnixSeconds
+                ? nowUnixSeconds - timestampUnixSeconds
+                : timestampUnixSeconds - nowUnixSeconds;
+            if (skew > EncryptedPayloadTimestampToleranceSeconds)
+            {
+                CryptographicOperations.ZeroMemory(decryptedPayload);
+                return false;
+            }
+
+            var messageId = new Guid(decryptedPayload.AsSpan(8, 16));
+            if (messageId != expectedMessageId)
+            {
+                CryptographicOperations.ZeroMemory(decryptedPayload);
+                return false;
+            }
+
+            plainPayload = decryptedPayload.AsSpan(24).ToArray();
+            CryptographicOperations.ZeroMemory(decryptedPayload);
             return true;
         }
         catch (CryptographicException)
         {
+            CryptographicOperations.ZeroMemory(decryptedPayload);
             plainPayload = [];
             return false;
         }
@@ -918,6 +1288,19 @@ public sealed class UdpLocalDataListener : ILocalDataTransport
 
     private readonly record struct UdpMessageKey(IPAddress Address, int Port, Guid MessageId);
     private readonly record struct UdpRemoteKey(IPAddress Address, int Port);
+    private readonly record struct UdpHandshakeEnvelope(string IdentityPublicKey, byte[] EcdhPublicKey);
+
+    private sealed class UdpPendingHandshakeAck
+    {
+        public UdpPendingHandshakeAck(string expectedIdentityPublicKey, TaskCompletionSource<UdpHandshakeEnvelope> waiter)
+        {
+            ExpectedIdentityPublicKey = expectedIdentityPublicKey;
+            Waiter = waiter;
+        }
+
+        public string ExpectedIdentityPublicKey { get; }
+        public TaskCompletionSource<UdpHandshakeEnvelope> Waiter { get; }
+    }
 
     private sealed class UdpSessionKey
     {

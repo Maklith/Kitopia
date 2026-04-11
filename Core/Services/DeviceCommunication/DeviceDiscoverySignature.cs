@@ -41,6 +41,18 @@ internal static class DeviceDiscoverySignature
     public static bool TrySign(DiscoveryInfo info, string? privateKey, out string signature)
     {
         signature = string.Empty;
+        if (!TrySignData(BuildPayload(info), privateKey, out var signatureBytes))
+        {
+            return false;
+        }
+
+        signature = Convert.ToBase64String(signatureBytes);
+        return true;
+    }
+
+    public static bool TrySignData(ReadOnlySpan<byte> data, string? privateKey, out byte[] signature)
+    {
+        signature = [];
         if (string.IsNullOrWhiteSpace(privateKey))
         {
             return false;
@@ -50,8 +62,7 @@ internal static class DeviceDiscoverySignature
         {
             using var rsa = RSA.Create();
             rsa.ImportPkcs8PrivateKey(Convert.FromBase64String(privateKey), out _);
-            var payload = BuildPayload(info);
-            signature = Convert.ToBase64String(rsa.SignData(payload, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
+            signature = rsa.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
             return true;
         }
         catch
@@ -69,11 +80,28 @@ internal static class DeviceDiscoverySignature
 
         try
         {
-            using var rsa = RSA.Create();
-            rsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(info.Id), out _);
             var payload = BuildPayload(info);
             var signature = Convert.FromBase64String(info.Signature);
-            return rsa.VerifyData(payload, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            return VerifyData(payload, info.Id, signature);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static bool VerifyData(ReadOnlySpan<byte> data, string? publicKey, ReadOnlySpan<byte> signature)
+    {
+        if (string.IsNullOrWhiteSpace(publicKey) || signature.IsEmpty)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var rsa = RSA.Create();
+            rsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(publicKey), out _);
+            return rsa.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         }
         catch
         {

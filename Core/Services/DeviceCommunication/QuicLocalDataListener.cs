@@ -4,7 +4,12 @@ using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Linq;
 using Core.Services;
+using Core.Services.Config;
+using Core.Services.DeviceCommunication.Discovery;
+using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 using Serilog;
 
 namespace Core.Services.DeviceCommunication;
@@ -54,18 +59,19 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
             }
 
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            _certificate = CreateSelfSignedCertificate();
+            _certificate = CreateIdentityCertificate();
         }
 
         try
         {
             var listenerOptions = new QuicListenerOptions
             {
-                ListenEndPoint = new IPEndPoint(IPAddress.Loopback, 0),
+                ListenEndPoint = new IPEndPoint(IPAddress.Any, 0),
                 ApplicationProtocols = [ApplicationProtocol],
-                ConnectionOptionsCallback = (_, _, _) =>
+                ConnectionOptionsCallback = (connection, _, _) =>
                 {
                     var certificate = _certificate ?? throw new InvalidOperationException("Certificate is not ready.");
+                    var expectedRemoteIdentityPublicKey = ResolveExpectedIdentityPublicKey(connection.RemoteEndPoint as IPEndPoint);
                     return ValueTask.FromResult(new QuicServerConnectionOptions
                     {
                         DefaultCloseErrorCode = 0,
@@ -74,7 +80,10 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
                         {
                             ApplicationProtocols = [ApplicationProtocol],
                             ServerCertificate = certificate,
-                            EnabledSslProtocols = SslProtocols.Tls13
+                            EnabledSslProtocols = SslProtocols.Tls13,
+                            ClientCertificateRequired = true,
+                            RemoteCertificateValidationCallback = (_, remoteCertificate, _, _) =>
+                                ValidateRemoteCertificate(remoteCertificate, expectedRemoteIdentityPublicKey)
                         }
                     });
                 }
@@ -109,23 +118,45 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
     public async Task SendAsync(
         ReadOnlyMemory<byte> payload,
         IPEndPoint remoteEndPoint,
+        string? remoteIdentityPublicKey = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(remoteEndPoint);
+        if (string.IsNullOrWhiteSpace(remoteIdentityPublicKey))
+        {
+            throw new ArgumentException("Remote identity public key is required.", nameof(remoteIdentityPublicKey));
+        }
+
         if (payload.IsEmpty)
         {
             return;
         }
 
+        X509Certificate2? localCertificate;
+        lock (_sync)
+        {
+            localCertificate = _certificate;
+        }
+
+        if (localCertificate is null)
+        {
+            throw new InvalidOperationException("QUIC local certificate is not ready.");
+        }
+
+        var expectedRemoteIdentity = remoteIdentityPublicKey.Trim();
         var connectionOptions = new QuicClientConnectionOptions
         {
             RemoteEndPoint = remoteEndPoint,
+            DefaultCloseErrorCode = 0,
+            DefaultStreamErrorCode = 0,
             ClientAuthenticationOptions = new SslClientAuthenticationOptions
             {
                 ApplicationProtocols = [ApplicationProtocol],
                 TargetHost = "Kitopia-Local-Quic",
                 EnabledSslProtocols = SslProtocols.Tls13,
-                RemoteCertificateValidationCallback = (_, _, _, _) => true
+                ClientCertificates = new X509CertificateCollection { localCertificate },
+                RemoteCertificateValidationCallback = (_, remoteCertificate, _, _) =>
+                    ValidateRemoteCertificate(remoteCertificate, expectedRemoteIdentity)
             }
         };
 
@@ -303,13 +334,21 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
         }
     }
 
-    private static X509Certificate2 CreateSelfSignedCertificate()
+    private static X509Certificate2 CreateIdentityCertificate()
     {
-        using var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var privateKey = ConfigManger.Config.devicePrivateKey?.Trim();
+        if (string.IsNullOrWhiteSpace(privateKey))
+        {
+            throw new InvalidOperationException("Device identity private key is not initialized.");
+        }
+
+        using var rsa = RSA.Create();
+        rsa.ImportPkcs8PrivateKey(Convert.FromBase64String(privateKey), out _);
         var request = new CertificateRequest(
             "CN=Kitopia-Local-Quic",
-            ecdsa,
-            HashAlgorithmName.SHA256);
+            rsa,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1);
 
         request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
         request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, false));
@@ -322,5 +361,68 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
 
         var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1));
         return new X509Certificate2(certificate.Export(X509ContentType.Pfx));
+    }
+
+    private static string? ResolveExpectedIdentityPublicKey(IPEndPoint? remoteEndPoint)
+    {
+        if (remoteEndPoint is null)
+        {
+            return null;
+        }
+
+        var discoveryService = ServiceManager.Services.GetService<IDeviceDiscoveryService>();
+        if (discoveryService is null)
+        {
+            return null;
+        }
+
+        var remoteAddress = NormalizeAddress(remoteEndPoint.Address);
+        var matchedDevice = discoveryService.Devices.FirstOrDefault(device =>
+            NormalizeAddress(device.Address).Equals(remoteAddress));
+
+        return matchedDevice is null || string.IsNullOrWhiteSpace(matchedDevice.Id)
+            ? null
+            : matchedDevice.Id;
+    }
+
+    private static bool ValidateRemoteCertificate(X509Certificate? certificate, string? expectedIdentityPublicKey)
+    {
+        if (certificate is null || string.IsNullOrWhiteSpace(expectedIdentityPublicKey))
+        {
+            return false;
+        }
+
+        if (!TryGetCertificateIdentityPublicKey(certificate, out var certificateIdentityPublicKey))
+        {
+            return false;
+        }
+
+        return string.Equals(certificateIdentityPublicKey, expectedIdentityPublicKey.Trim(), StringComparison.Ordinal);
+    }
+
+    private static bool TryGetCertificateIdentityPublicKey(X509Certificate certificate, out string publicKey)
+    {
+        publicKey = string.Empty;
+        try
+        {
+            using var certificate2 = certificate as X509Certificate2 ?? new X509Certificate2(certificate);
+            using var rsa = certificate2.GetRSAPublicKey();
+            if (rsa is null)
+            {
+                return false;
+            }
+
+            publicKey = Convert.ToBase64String(rsa.ExportSubjectPublicKeyInfo());
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static IPAddress NormalizeAddress(IPAddress address)
+    {
+        return address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
     }
 }

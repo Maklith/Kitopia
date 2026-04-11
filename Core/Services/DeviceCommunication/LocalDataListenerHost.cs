@@ -69,13 +69,19 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
         LocalDataTransportProtocol protocol,
         ReadOnlyMemory<byte> payload,
         IPEndPoint remoteEndPoint,
+        string? remoteIdentityPublicKey = null,
         CancellationToken token = default)
     {
         ArgumentNullException.ThrowIfNull(remoteEndPoint);
+        if (string.IsNullOrWhiteSpace(remoteIdentityPublicKey))
+        {
+            throw new ArgumentException("Remote identity public key is required.", nameof(remoteIdentityPublicKey));
+        }
+
         return protocol switch
         {
-            LocalDataTransportProtocol.Udp => _udpListener.SendAsync(payload, remoteEndPoint, token),
-            LocalDataTransportProtocol.Quic => _quicListener.SendAsync(payload, remoteEndPoint, token),
+            LocalDataTransportProtocol.Udp => _udpListener.SendAsync(payload, remoteEndPoint, remoteIdentityPublicKey, token),
+            LocalDataTransportProtocol.Quic => _quicListener.SendAsync(payload, remoteEndPoint, remoteIdentityPublicKey, token),
             _ => throw new ArgumentOutOfRangeException(nameof(protocol), protocol, "Unsupported transport protocol.")
         };
     }
@@ -84,12 +90,13 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
         LocalDataTransportProtocol protocol,
         Stream stream,
         IPEndPoint remoteEndPoint,
+        string? remoteIdentityPublicKey = null,
         CancellationToken token = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
         using var memory = new MemoryStream();
         await stream.CopyToAsync(memory, token);
-        await SendAsync(protocol, memory.ToArray(), remoteEndPoint, token);
+        await SendAsync(protocol, memory.ToArray(), remoteEndPoint, remoteIdentityPublicKey, token);
     }
 
     public async Task StopListeningAsync() {

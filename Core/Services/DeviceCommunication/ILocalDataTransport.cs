@@ -27,5 +27,6 @@ public interface ILocalDataTransport : IDisposable
     Task SendAsync(
         ReadOnlyMemory<byte> payload,
         IPEndPoint remoteEndPoint,
+        string? remoteIdentityPublicKey = null,
         CancellationToken cancellationToken = default);
 }
