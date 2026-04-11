@@ -15,7 +15,7 @@ namespace Core.ViewModel.Windows;
 
 public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
 {
-    private readonly IDeviceCommunication _deviceCommunication;
+   
     private readonly IToastService _toastService;
 
     private static Dictionary<string, string> CustomNameMap
@@ -27,7 +27,7 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public ObservableCollection<DeviceModel> DiscoveredDevices => _deviceCommunication.DiscoveredDevices;
+    public ObservableCollection<DeviceModel> DiscoveredDevices => [];
     public ObservableCollection<ShareFileItem> SelectedFiles { get; } = new();
 
     [ObservableProperty]
@@ -39,24 +39,24 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
     public string FilesHeader => HasFiles ? $"待发送文件 ({SelectedFiles.Count})" : "待发送文件";
     public string DevicesHeader => HasDevices ? $"在线设备 ({DiscoveredDevices.Count})" : "在线设备";
 
-    public LanFileShareWindowViewModel(IDeviceCommunication deviceCommunication, IToastService toastService)
-    {
-        _deviceCommunication = deviceCommunication;
-        _toastService = toastService;
-
-        ApplySavedCustomNames();
-        SelectedFiles.CollectionChanged += OnSelectedFilesCollectionChanged;
-        DiscoveredDevices.CollectionChanged += OnDiscoveredDevicesCollectionChanged;
-
-        try
-        {
-            _deviceCommunication.StartDiscovery();
-        }
-        catch
-        {
-            // Ignore and keep current discovered list.
-        }
-    }
+    // public LanFileShareWindowViewModel(IDeviceCommunication deviceCommunication, IToastService toastService)
+    // {
+    //     _deviceCommunication = deviceCommunication;
+    //     _toastService = toastService;
+    //
+    //     ApplySavedCustomNames();
+    //     SelectedFiles.CollectionChanged += OnSelectedFilesCollectionChanged;
+    //     DiscoveredDevices.CollectionChanged += OnDiscoveredDevicesCollectionChanged;
+    //
+    //     try
+    //     {
+    //         _deviceCommunication.StartDiscovery();
+    //     }
+    //     catch
+    //     {
+    //         // Ignore and keep current discovered list.
+    //     }
+    // }
 
     public void Dispose()
     {
@@ -129,7 +129,7 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         {
             foreach (var filePath in filesToSend)
             {
-                await _deviceCommunication.RequestFileTransferAsync(device, filePath);
+                // await _deviceCommunication.RequestFileTransferAsync(device, filePath);
             }
 
             _toastService.Show(

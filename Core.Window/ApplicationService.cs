@@ -1,6 +1,8 @@
 ﻿using Avalonia.Controls.Notifications;
 using Core.Services;
 using Core.Services.Config;
+using Core.Services.DeviceCommunication;
+using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.Interfaces;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,7 +37,8 @@ public class ApplicationService : IApplicationService
 
     public void Exit(int exitCode = 0)
     {
-        ServiceManager.Services.GetService<IDeviceCommunication>()!.StopDiscovery();
+        ServiceManager.Services.GetService<LocalDataListenerHost>()?.StopListeningAsync().GetAwaiter().GetResult();
+        ServiceManager.Services.GetService<IDeviceDiscoveryService>()!.StopAsync();
         Logger.Information("程序退出");
         LogManager.Logger.Dispose();
         ServiceManager.Services.GetService<IToastService>()!.Unregister();

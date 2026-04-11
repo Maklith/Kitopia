@@ -120,7 +120,8 @@ internal class Program
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
         
         services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>();
-       
+        services.AddSingleton<ILocalDataListener,LocalDataListenerHost>();
+        services.AddSingleton<IDeviceCommunication, DeviceCommunication>();
         
 
         services.AddTransient<IPluginToolService, PluginToolService>();
@@ -313,7 +314,8 @@ internal class Program
         Logger.Information("插件管理器初始化完成");
         CustomScenarioManger.Init();
         Logger.Information("场景管理器初始化完成");
-        ServiceManager.Services.GetService<IDeviceCommunication>()!.StartDiscovery();
+        ServiceManager.Services.GetService<IDeviceCommunication>()!.StartAsync().GetAwaiter().GetResult();
+        
         if (ConfigManger.Config.autoStart)
         {
             Logger.Information("设置开机自启");

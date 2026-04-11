@@ -11,9 +11,10 @@
              x:Class="KitopiaAvalonia.Pages.DeviceDiscoveryPage"
              x:DataType="vm:DeviceDiscoveryPageViewModel">
     <UserControl.Resources>
-        <converter:DeviceClipboardSyncStateConverter x:Key="DeviceClipboardSyncStateConverter" />
-        <SolidColorBrush x:Key="DiscoveryPanelBackgroundBrush" Color="{DynamicResource SemiBackground1Color}" Opacity="0.76" />
-        <SolidColorBrush x:Key="DiscoveryCardBackgroundBrush" Color="{DynamicResource SemiBackground0Color}" Opacity="0.8" />
+        <SolidColorBrush x:Key="DiscoveryPanelBackgroundBrush" Color="{DynamicResource SemiBackground1Color}"
+                         Opacity="0.76" />
+        <SolidColorBrush x:Key="DiscoveryCardBackgroundBrush" Color="{DynamicResource SemiBackground0Color}"
+                         Opacity="0.8" />
     </UserControl.Resources>
 
     <Grid RowDefinitions="Auto,*" RowSpacing="8" Margin="10">
@@ -24,16 +25,9 @@
                 BorderThickness="1">
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                 <TextBlock Text="设备发现" VerticalAlignment="Center" FontSize="20" FontWeight="Bold" />
-                <Button Command="{Binding StartDiscoveryCommand}" IsVisible="{Binding !IsDiscovering}">开始发现</Button>
-                <Button Command="{Binding StopDiscoveryCommand}" IsVisible="{Binding IsDiscovering}">停止发现</Button>
                 <TextBlock Text="正在扫描..."
-                           IsVisible="{Binding IsDiscovering}"
                            VerticalAlignment="Center"
                            Foreground="{DynamicResource SemiColorText1}" />
-                <TextBlock Text="{Binding ClipboardSyncStatus}"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource SemiColorText1}"
-                           TextTrimming="CharacterEllipsis" />
             </StackPanel>
         </Border>
 
@@ -58,32 +52,27 @@
                             <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <StackPanel Orientation="Vertical" Spacing="2">
-                                        <TextBlock Text="{Binding DisplayName}" FontSize="16" FontWeight="SemiBold" />
+                                        <StackPanel Orientation="Horizontal">
+                                            <Label Theme="{DynamicResource TagLabel}" Classes="Blue" 
+                                                   IsVisible="{Binding SupportQuic}">Quic</Label>
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="16" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                        
                                         <TextBlock Text="{Binding ComputerName, StringFormat='计算机名: {0}'}"
                                                    Foreground="{DynamicResource SemiColorText1}"
                                                    TextWrapping="Wrap" />
                                     </StackPanel>
-
-                                    <ToggleSwitch Grid.Column="1"
-                                                  HorizontalAlignment="Right"
-                                                  VerticalAlignment="Top"
-                                                  OnContent="同步"
-                                                  OffContent="同步"
-                                                  Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).ToggleClipboardSyncForDeviceCommand}"
-                                                  CommandParameter="{Binding .}">
-                                        <ToggleSwitch.IsChecked>
-                                            <MultiBinding Converter="{StaticResource DeviceClipboardSyncStateConverter}">
-                                                <Binding />
-                                                <Binding Path="$parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).ClipboardSyncTargetDevice" />
-                                                <Binding Path="$parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).IsClipboardSyncEnabled" />
-                                            </MultiBinding>
-                                        </ToggleSwitch.IsChecked>
-                                    </ToggleSwitch>
                                 </Grid>
 
                                 <StackPanel Grid.Row="1" Orientation="Vertical" Spacing="4">
-                                    <TextBlock Text="{Binding Address}" Foreground="{DynamicResource SemiColorText1}" TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding Port, StringFormat='端口: {0}'}" Foreground="{DynamicResource SemiColorText1}" />
+                                    <TextBlock Text="{Binding Address}" Foreground="{DynamicResource SemiColorText1}"
+                                               TextWrapping="Wrap" />
+                                    <StackPanel Orientation="Horizontal" Spacing="4" >
+                                        <TextBlock Text="{Binding UdpPort, StringFormat='UDP端口: {0}'}"
+                                                   Foreground="{DynamicResource SemiColorText1}" />
+                                        <TextBlock Text="{Binding QuicPort, StringFormat='QUIC端口: {0}'}"
+                                                   IsVisible="{Binding SupportQuic}" Foreground="{DynamicResource SemiColorText1}" />
+                                    </StackPanel>
                                 </StackPanel>
 
                                 <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">

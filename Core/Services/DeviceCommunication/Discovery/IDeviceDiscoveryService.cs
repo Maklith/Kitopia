@@ -8,11 +8,7 @@ namespace Core.Services.DeviceCommunication.Discovery;
 public interface IDeviceDiscoveryService : IDisposable
 {
     ObservableCollection<DeviceModel> Devices { get; }
-
-    event EventHandler<DeviceDiscoveryEventArgs>? DeviceDiscovered;
-    event EventHandler<DeviceDiscoveryEventArgs>? DeviceUpdated;
-    event EventHandler<DeviceDiscoveryEventArgs>? DeviceLost;
-
-    void Start(DiscoveryAnnouncement announcement);
-    void Stop();
+    
+    Task StartAsync(CancellationToken token);
+    Task StopAsync();
 }

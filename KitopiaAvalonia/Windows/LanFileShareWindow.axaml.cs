@@ -25,18 +25,18 @@ public partial class LanFileShareWindow : Window, ILanFileShareWindow
     {
         if (DataContext is not LanFileShareWindowViewModel vm)
         {
-            var deviceCommunication = ServiceManager.Services.GetService<IDeviceCommunication>();
-            var toastService = ServiceManager.Services.GetService<IToastService>();
-            if (deviceCommunication is null || toastService is null)
-            {
-                return;
-            }
-
-            vm = new LanFileShareWindowViewModel(deviceCommunication, toastService);
-            DataContext = vm;
+            // var deviceCommunication = ServiceManager.Services.GetService<IDeviceCommunication>();
+            // var toastService = ServiceManager.Services.GetService<IToastService>();
+            // if (deviceCommunication is null || toastService is null)
+            // {
+            //     return;
+            // }
+            //
+            // vm = new LanFileShareWindowViewModel(deviceCommunication, toastService);
+           // DataContext = vm;
         }
 
-        vm.SetSelectedFiles(filePaths);
+      //  vm.SetSelectedFiles(filePaths);
         base.Show();
         Activate();
     }

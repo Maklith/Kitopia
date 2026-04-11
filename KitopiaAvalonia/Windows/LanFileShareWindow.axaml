@@ -75,7 +75,7 @@
                                         <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding ComputerName}" FontSize="12" Foreground="Gray" />
                                         <TextBlock Text="{Binding Address, StringFormat='地址: {0}'}" FontSize="12" Foreground="Gray" />
-                                        <TextBlock Text="{Binding Port, StringFormat='端口: {0}'}" FontSize="11" Foreground="Gray" />
+                                        <TextBlock Text="{Binding UdpPort, StringFormat='端口: {0}'}" FontSize="11" Foreground="Gray" />
                                     </StackPanel>
                                     <Button Grid.Column="1"
                                             Margin="8,0,0,0"

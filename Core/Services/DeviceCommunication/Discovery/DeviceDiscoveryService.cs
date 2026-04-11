@@ -4,14 +4,15 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
-using System.Net.Quic;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Core.Services.Config;
+using Core.Services.DeviceCommunication;
 using DynamicData;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Serilog;
 using Serilog.Core;
@@ -36,12 +37,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
     private UdpClient? _udpClientV6;
 
     public ObservableCollection<DeviceModel> Devices => _devices;
+    
 
-    public event EventHandler<DeviceDiscoveryEventArgs>? DeviceDiscovered;
-    public event EventHandler<DeviceDiscoveryEventArgs>? DeviceUpdated;
-    public event EventHandler<DeviceDiscoveryEventArgs>? DeviceLost;
-
-    public void Start() {
+    public async Task StartAsync(CancellationToken token1) {
         lock (_sync) {
             StopCore();
             _cts = new CancellationTokenSource();
@@ -52,14 +50,14 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
         }
     }
 
-    public void Stop() {
+    public async Task StopAsync() {
         lock (_sync) {
             StopCore();
         }
     }
 
     public void Dispose() {
-        Stop();
+        StopAsync().GetAwaiter().GetResult();
     }
 
     private void StopCore() {
@@ -76,10 +74,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
 
         CloseUdpClient(ref _udpClientV4);
         CloseUdpClient(ref _udpClientV6);
-        
-        foreach (var device in _devices) {
-            DeviceLost?.Invoke(this, new DeviceDiscoveryEventArgs(device));
-        }
         _devices.Clear();
     }
 
@@ -111,7 +105,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                     .Where(device => now - device.LastSeen > DiscoveryStaleTimeout);
                 foreach (var staleDevice in staleDevices) {
                     _devices.Remove(staleDevice);
-                    DeviceLost?.Invoke(this, new DeviceDiscoveryEventArgs(staleDevice));
                 }
             }
             
@@ -190,19 +183,18 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             try {
                 var result = await client.ReceiveAsync(token);
                 var info = JsonSerializer.Deserialize<DiscoveryInfo>(Encoding.UTF8.GetString(result.Buffer));
-                if (info is null || string.IsNullOrWhiteSpace(info.Id)) {
+                if (info is null || string.IsNullOrWhiteSpace(info.Id)|| info.Id == ConfigManger.Config.devicePersistentId||
+                    info.UdpPort <= 0 || info is { SupportsQuic: true, QuicPort: <= 0 }) {
                     continue;
                 }
                 var endpointAddress = NormalizeAddress(result.RemoteEndPoint.Address);
-                DeviceModel? discoveredDevice = null;
-                bool isNew = false;
-
+                
                 lock (_sync) {
                     var existing = _devices.FirstOrDefault(device =>
                         string.Equals(device.Id, info.Id, StringComparison.Ordinal));
                     if (existing is null) {
                         var duplicateEndpoint = _devices.FirstOrDefault(device =>
-                            device.Address.Equals(endpointAddress) && device.Port == info.Port);
+                            device.Address.Equals(endpointAddress) && device.UdpPort == info.UdpPort&& device.SupportQuic == info.SupportsQuic);
                         if (duplicateEndpoint is not null) {
                             _devices.Remove(duplicateEndpoint);
                         }
@@ -212,11 +204,12 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                             Name = string.IsNullOrWhiteSpace(info.Name) ? "未知设备" : info.Name.Trim(),
                             CustomName = ConfigManger.Config.deviceCustomNames.TryGetValue(info.Id, out var customName) ? customName : string.Empty,
                             Address = endpointAddress,
-                            Port = info.Port,
+                            UdpPort = info.UdpPort,
+                            QuicPort = info.QuicPort,
+                            SupportQuic = info.SupportsQuic,
                             LastSeen = DateTime.UtcNow
                         };
                         _devices.Add(existing);
-                        isNew = true;
                     }
                     else {
                         existing.LastSeen = DateTime.UtcNow;
@@ -225,17 +218,10 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                             existing.Address = endpointAddress;
                         }
 
-                        existing.Port = info.Port;
+                        existing.UdpPort = info.UdpPort;
+                        existing.QuicPort = info.QuicPort;
+                        existing.SupportQuic = info.SupportsQuic;
                     }
-
-                    discoveredDevice = existing;
-                }
-
-                if (isNew) {
-                    DeviceDiscovered?.Invoke(this, new DeviceDiscoveryEventArgs(discoveredDevice));
-                }
-                else {
-                    DeviceUpdated?.Invoke(this, new DeviceDiscoveryEventArgs(discoveredDevice));
                 }
             }
             catch (OperationCanceledException) {
@@ -253,12 +239,18 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
         while (!token.IsCancellationRequested) {
             try {
                 await Task.Delay(DiscoveryBroadcastInterval, token);
+                var localDataListener = ServiceManager.Services.GetService<ILocalDataListener>()!;
+                var udpPort = localDataListener.UdpPort;
+                if (udpPort <= 0) {
+                    continue;
+                }
 
                 var info = new DiscoveryInfo {
                     Id = ConfigManger.Config.devicePersistentId,
-                    Name = ConfigManger.Config.deviceBroadcastName,
-                    Port = ,
-                    SupportsQuic = QuicConnection.IsSupported && QuicListener.IsSupported
+                    Name = string.IsNullOrWhiteSpace(ConfigManger.Config.deviceBroadcastName)? Environment.MachineName : ConfigManger.Config.deviceBroadcastName.Trim(),
+                    UdpPort = udpPort,
+                    QuicPort = localDataListener.QuicPort,
+                    SupportsQuic = localDataListener.SupportsQuic,
                 };
                 var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(info));
 

@@ -18,69 +18,18 @@ using Serilog.Core;
 
 namespace Core.ViewModel.Pages.device;
 
-public partial class DeviceDiscoveryPageViewModel : ObservableObject, IDisposable {
+public partial class DeviceDiscoveryPageViewModel : ObservableObject {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<DeviceDiscoveryPageViewModel>();
     private readonly IDeviceDiscoveryService  _deviceDiscoveryService;
     public ObservableCollection<DeviceModel> DiscoveredDevices => _deviceDiscoveryService.Devices;
-
-    [ObservableProperty] private bool _isDiscovering;
-
-    [ObservableProperty] private bool _isClipboardSyncEnabled;
-
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ClipboardSyncTargetDisplay))]
-    private DeviceModel? _clipboardSyncTargetDevice;
-
-    [ObservableProperty] private string _clipboardSyncStatus = "实时同步剪贴板已关闭";
-
-    public string ClipboardSyncTargetDisplay => ClipboardSyncTargetDevice?.DisplayName ?? "未选择";
+    
 
     public DeviceDiscoveryPageViewModel(IDeviceDiscoveryService deviceDiscoveryService) {
         _deviceDiscoveryService = deviceDiscoveryService;
-        IsDiscovering = true;
-        DiscoveredDevices.CollectionChanged += OnDiscoveredDevicesCollectionChanged;
-    }
-
-    public void Dispose() {
-        DiscoveredDevices.CollectionChanged -= OnDiscoveredDevicesCollectionChanged;
        
     }
 
-    [RelayCommand]
-    private async Task ToggleClipboardSyncForDevice(DeviceModel? device) {
-        if (device is null) {
-            return;
-        }
-        
-    }
-
     
-    private void OnDiscoveredDevicesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) {
-        
-    }
-    
-    
-    [RelayCommand]
-    public void StartDiscovery() {
-        // try {
-        //     _deviceDiscoveryService.Start(new DiscoveryAnnouncement {
-        //         DeviceId =ConfigManger.Config.devicePersistentId,
-        //         DeviceName = ConfigManger.Config.deviceBroadcastName,
-        //         Port = _transportService.AdvertisedPort,
-        //         SupportsQuic = QuicConnection.IsSupported&& QuicListener.IsSupported
-        //     });
-        //     IsDiscovering = true;
-        // }
-        // catch {
-        //     IsDiscovering = false;
-        // }
-    }
-
-    [RelayCommand]
-    public void StopDiscovery() {
-        _deviceDiscoveryService.Stop();
-        IsDiscovering = false;
-    }
-
     [RelayCommand]
     private void SaveCustomName(DeviceModel? device) {
         if (device is null || string.IsNullOrWhiteSpace(device.Id)) {
