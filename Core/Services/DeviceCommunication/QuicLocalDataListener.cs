@@ -9,7 +9,7 @@ using Serilog;
 
 namespace Core.Services.DeviceCommunication;
 
-public sealed class QuicLocalDataListener : IDisposable
+public sealed class QuicLocalDataListener : ILocalDataTransport
 {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<QuicLocalDataListener>();
     private static readonly SslApplicationProtocol ApplicationProtocol = new("kitopia-local-data");
@@ -34,6 +34,8 @@ public sealed class QuicLocalDataListener : IDisposable
     }
 
     public bool IsRunning { get; private set; }
+    public LocalDataTransportProtocol Protocol => LocalDataTransportProtocol.Quic;
+    public event LocalDataPacketReceivedHandler? PacketReceived;
 
 
     public async Task<bool> StartAsync(CancellationToken cancellationToken = default)
@@ -102,6 +104,35 @@ public sealed class QuicLocalDataListener : IDisposable
             await StopAsync();
             return false;
         }
+    }
+
+    public async Task SendAsync(
+        ReadOnlyMemory<byte> payload,
+        IPEndPoint remoteEndPoint,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(remoteEndPoint);
+        if (payload.IsEmpty)
+        {
+            return;
+        }
+
+        var connectionOptions = new QuicClientConnectionOptions
+        {
+            RemoteEndPoint = remoteEndPoint,
+            ClientAuthenticationOptions = new SslClientAuthenticationOptions
+            {
+                ApplicationProtocols = [ApplicationProtocol],
+                TargetHost = "Kitopia-Local-Quic",
+                EnabledSslProtocols = SslProtocols.Tls13,
+                RemoteCertificateValidationCallback = (_, _, _, _) => true
+            }
+        };
+
+        await using var connection = await QuicConnection.ConnectAsync(connectionOptions, cancellationToken);
+        await using var stream = await connection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, cancellationToken);
+        await stream.WriteAsync(payload, cancellationToken);
+        stream.CompleteWrites();
     }
 
     public async Task StopAsync()
@@ -232,9 +263,9 @@ public sealed class QuicLocalDataListener : IDisposable
                     memory.Write(buffer, 0, read);
                 }
 
-                if (memory.Length > 0)
+                if (memory.Length > 0 && remoteEndPoint is IPEndPoint remoteIpEndPoint)
                 {
-                    
+                    await PublishPacketAsync(memory.ToArray(), remoteIpEndPoint, token);
                 }
             }
             catch (OperationCanceledException)
@@ -246,6 +277,28 @@ public sealed class QuicLocalDataListener : IDisposable
             catch (Exception e)
             {
                 Logger.Error(e, "QUIC local listener stream read failed");
+            }
+        }
+    }
+
+    private async Task PublishPacketAsync(byte[] payload, IPEndPoint remoteEndPoint, CancellationToken token)
+    {
+        var handler = PacketReceived;
+        if (handler is null)
+        {
+            return;
+        }
+
+        var packet = new LocalDataPacket(Protocol, remoteEndPoint, payload);
+        foreach (LocalDataPacketReceivedHandler subscriber in handler.GetInvocationList())
+        {
+            try
+            {
+                await subscriber(packet, token);
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e, "QUIC local listener packet callback failed");
             }
         }
     }

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
+using Core.Services.DeviceCommunication;
 using Core.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -34,7 +35,32 @@ public class KitopiaConfig : ConfigBase
     [ConfigFieldCategory("设备互传")]
     [ConfigField("对外显示名称", "为空时使用当前计算机名称", 0xf45f, ConfigFieldType.字符串)]
     public string deviceBroadcastName = string.Empty;
-    public string devicePersistentId = Guid.NewGuid().ToString("D");
+    public string devicePersistentId = string.Empty;
+    public string devicePrivateKey = string.Empty;
+
+    public bool EnsureDeviceIdentity()
+    {
+        devicePersistentId = devicePersistentId?.Trim() ?? string.Empty;
+        devicePrivateKey = devicePrivateKey?.Trim() ?? string.Empty;
+
+        var changed = false;
+
+        if (!DeviceDiscoverySignature.TryDerivePublicKey(devicePrivateKey, out var publicKey))
+        {
+            var keyPair = DeviceDiscoverySignature.CreateKeyPair();
+            devicePrivateKey = keyPair.PrivateKey;
+            publicKey = keyPair.PublicKey;
+            changed = true;
+        }
+
+        if (!string.Equals(devicePersistentId, publicKey, StringComparison.Ordinal))
+        {
+            devicePersistentId = publicKey;
+            changed = true;
+        }
+
+        return changed;
+    }
 
     [ConfigFieldCategory("基本")] [ConfigField<ThemeEnum>("主题选择", "跟随系统,深色还是浅色?", 0xf33c)]
     public ThemeEnum themeChoice = ThemeEnum.跟随系统;

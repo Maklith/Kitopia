@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Quic;
 using Core.Services;
 using Serilog;
@@ -13,13 +14,14 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
     private readonly QuicLocalDataListener _quicListener;
 
     private bool _isStarted;
-    private bool _supportsQuic;
+    public event LocalDataPacketReceivedHandler? PacketReceived;
 
     public LocalDataListenerHost()
     {
         _udpListener = new UdpLocalDataListener();
         _quicListener = new QuicLocalDataListener();
-        
+        _udpListener.PacketReceived += OnPacketReceivedAsync;
+        _quicListener.PacketReceived += OnPacketReceivedAsync;
     }
 
     public int UdpPort => _udpListener.Port;
@@ -32,6 +34,8 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
     public void Dispose()
     {
         StopListeningAsync().GetAwaiter().GetResult();
+        _udpListener.PacketReceived -= OnPacketReceivedAsync;
+        _quicListener.PacketReceived -= OnPacketReceivedAsync;
         _quicListener.Dispose();
         _udpListener.Dispose();
     }
@@ -47,7 +51,7 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
             _isStarted = true;
         }
 
-        _udpListener.Start();
+        await _udpListener.StartAsync(token);
 
         if (QuicConnection.IsSupported && QuicListener.IsSupported)
         {
@@ -60,6 +64,34 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
             QuicConnection.IsSupported,
             QuicListener.IsSupported);
     }
+
+    public Task SendAsync(
+        LocalDataTransportProtocol protocol,
+        ReadOnlyMemory<byte> payload,
+        IPEndPoint remoteEndPoint,
+        CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(remoteEndPoint);
+        return protocol switch
+        {
+            LocalDataTransportProtocol.Udp => _udpListener.SendAsync(payload, remoteEndPoint, token),
+            LocalDataTransportProtocol.Quic => _quicListener.SendAsync(payload, remoteEndPoint, token),
+            _ => throw new ArgumentOutOfRangeException(nameof(protocol), protocol, "Unsupported transport protocol.")
+        };
+    }
+
+    public async Task SendAsync(
+        LocalDataTransportProtocol protocol,
+        Stream stream,
+        IPEndPoint remoteEndPoint,
+        CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory, token);
+        await SendAsync(protocol, memory.ToArray(), remoteEndPoint, token);
+    }
+
     public async Task StopListeningAsync() {
         bool shouldStop;
 
@@ -76,5 +108,26 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
 
         await _quicListener.StopAsync();
         await _udpListener.StopAsync();
+    }
+
+    private async ValueTask OnPacketReceivedAsync(LocalDataPacket packet, CancellationToken token)
+    {
+        var handler = PacketReceived;
+        if (handler is null)
+        {
+            return;
+        }
+
+        foreach (LocalDataPacketReceivedHandler subscriber in handler.GetInvocationList())
+        {
+            try
+            {
+                await subscriber(packet, token);
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e, "Local data listener host packet callback failed");
+            }
+        }
     }
 }

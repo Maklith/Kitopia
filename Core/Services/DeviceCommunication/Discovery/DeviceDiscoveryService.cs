@@ -25,6 +25,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
     private const string MulticastAddressV4 = "239.255.255.250";
     private const string MulticastAddressV6 = "ff02::1";
     private const int DiscoveryIpv4Ttl = 1;
+    private const long DiscoverySignatureToleranceSeconds = 60;
     private static readonly TimeSpan DiscoveryBroadcastInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan DiscoveryCleanupInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan DiscoveryStaleTimeout = TimeSpan.FromSeconds(20);
@@ -183,8 +184,16 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             try {
                 var result = await client.ReceiveAsync(token);
                 var info = JsonSerializer.Deserialize<DiscoveryInfo>(Encoding.UTF8.GetString(result.Buffer));
-                if (info is null || string.IsNullOrWhiteSpace(info.Id)|| info.Id == ConfigManger.Config.devicePersistentId||
-                    info.UdpPort <= 0 || info is { SupportsQuic: true, QuicPort: <= 0 }) {
+                if (info is null || string.IsNullOrWhiteSpace(info.Id) || info.UdpPort <= 0 ||
+                    info is { SupportsQuic: true, QuicPort: <= 0 }) {
+                    continue;
+                }
+
+                if (string.Equals(info.Id, ConfigManger.Config.devicePersistentId, StringComparison.Ordinal)) {
+                    continue;
+                }
+
+                if (!IsAuthenticated(info)) {
                     continue;
                 }
                 var endpointAddress = NormalizeAddress(result.RemoteEndPoint.Address);
@@ -251,7 +260,15 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                     UdpPort = udpPort,
                     QuicPort = localDataListener.QuicPort,
                     SupportsQuic = localDataListener.SupportsQuic,
+                    TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 };
+
+                if (string.IsNullOrWhiteSpace(info.Id) ||
+                    !DeviceDiscoverySignature.TrySign(info, ConfigManger.Config.devicePrivateKey, out var signature)) {
+                    continue;
+                }
+
+                info.Signature = signature;
                 var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(info));
 
                 foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces()) {
@@ -299,6 +316,23 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                 break;
             }
         }
+    }
+
+    private static bool IsAuthenticated(DiscoveryInfo info) {
+        if (string.IsNullOrWhiteSpace(info.Signature)) {
+            return false;
+        }
+
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var skew = now >= info.TimestampUnixSeconds
+            ? now - info.TimestampUnixSeconds
+            : info.TimestampUnixSeconds - now;
+
+        if (skew > DiscoverySignatureToleranceSeconds) {
+            return false;
+        }
+
+        return DeviceDiscoverySignature.Verify(info);
     }
     
     private static IPAddress NormalizeAddress(IPAddress address) {
