@@ -11,6 +11,7 @@ public static class KitopiaPaths
     public static string LogsDirectory => EnsureDirectory("logs");
     public static string CustomScenariosDirectory => EnsureDirectory("customScenarios");
     public static string TempDirectory => EnsureDirectory("temp");
+    public static string ReceivedFilesDirectory => EnsureDirectory("receivedFiles");
 
     public static string PortFilePath => Path.Combine(AppRoot, ".port");
 

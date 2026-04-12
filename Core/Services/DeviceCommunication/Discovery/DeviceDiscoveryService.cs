@@ -168,7 +168,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             }
         }
         catch (Exception e) {
-            Logger.Error(e, "加入组播组失败");
+            Logger.Error(e, "加入组播组失");
         }
 
         var receiveTasks = new List<Task> { ReceiveLoop(_udpClientV4, token) };
@@ -184,7 +184,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             try {
                 var result = await client.ReceiveAsync(token);
                 var info = JsonSerializer.Deserialize<DiscoveryInfo>(Encoding.UTF8.GetString(result.Buffer));
-                if (info is null || string.IsNullOrWhiteSpace(info.Id) || info.UdpPort <= 0 ||
+                if (info is null || string.IsNullOrWhiteSpace(info.Id) || info.TcpPort <= 0 ||
                     info is { SupportsQuic: true, QuicPort: <= 0 }) {
                     continue;
                 }
@@ -203,7 +203,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                         string.Equals(device.Id, info.Id, StringComparison.Ordinal));
                     if (existing is null) {
                         var duplicateEndpoint = _devices.FirstOrDefault(device =>
-                            device.Address.Equals(endpointAddress) && device.UdpPort == info.UdpPort&& device.SupportQuic == info.SupportsQuic);
+                            device.Address.Equals(endpointAddress) && device.TcpPort == info.TcpPort&& device.SupportQuic == info.SupportsQuic);
                         if (duplicateEndpoint is not null) {
                             _devices.Remove(duplicateEndpoint);
                         }
@@ -213,7 +213,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                             Name = string.IsNullOrWhiteSpace(info.Name) ? "未知设备" : info.Name.Trim(),
                             CustomName = ConfigManger.Config.deviceCustomNames.TryGetValue(info.Id, out var customName) ? customName : string.Empty,
                             Address = endpointAddress,
-                            UdpPort = info.UdpPort,
+                            TcpPort = info.TcpPort,
                             QuicPort = info.QuicPort,
                             SupportQuic = info.SupportsQuic,
                             LastSeen = DateTime.UtcNow
@@ -227,7 +227,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                             existing.Address = endpointAddress;
                         }
 
-                        existing.UdpPort = info.UdpPort;
+                        existing.TcpPort = info.TcpPort;
                         existing.QuicPort = info.QuicPort;
                         existing.SupportQuic = info.SupportsQuic;
                     }
@@ -249,15 +249,15 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             try {
                 await Task.Delay(DiscoveryBroadcastInterval, token);
                 var localDataListener = ServiceManager.Services.GetService<ILocalDataListener>()!;
-                var udpPort = localDataListener.UdpPort;
-                if (udpPort <= 0) {
+                var tcpPort = localDataListener.TcpPort;
+                if (tcpPort <= 0) {
                     continue;
                 }
 
                 var info = new DiscoveryInfo {
                     Id = ConfigManger.Config.devicePersistentId,
                     Name = string.IsNullOrWhiteSpace(ConfigManger.Config.deviceBroadcastName)? Environment.MachineName : ConfigManger.Config.deviceBroadcastName.Trim(),
-                    UdpPort = udpPort,
+                    TcpPort = tcpPort,
                     QuicPort = localDataListener.QuicPort,
                     SupportsQuic = localDataListener.SupportsQuic,
                     TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
@@ -358,3 +358,5 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
         return true;
     }
 }
+
+

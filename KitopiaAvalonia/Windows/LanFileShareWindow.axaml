@@ -17,8 +17,8 @@
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,*">
         <Border Grid.ColumnSpan="2" Margin="10" Padding="10" CornerRadius="8" BorderBrush="#DDDDDD" BorderThickness="1">
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <TextBlock Text="选择右侧设备后发送左侧文件" FontWeight="SemiBold" VerticalAlignment="Center" />
-                <TextBlock Text="正在发送，请稍候..." Foreground="#CC8A2B" IsVisible="{Binding IsSending}" VerticalAlignment="Center" />
+                <TextBlock Text="选择右侧设备后发送左侧文" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="正在发送，请稍�?.." Foreground="#CC8A2B" IsVisible="{Binding IsSending}" VerticalAlignment="Center" />
             </StackPanel>
         </Border>
 
@@ -53,7 +53,7 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
 
-                    <TextBlock Text="没有可发送的文件。"
+                    <TextBlock Text="没有可发送的文件"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
                                Foreground="Gray"
@@ -75,7 +75,7 @@
                                         <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding ComputerName}" FontSize="12" Foreground="Gray" />
                                         <TextBlock Text="{Binding Address, StringFormat='地址: {0}'}" FontSize="12" Foreground="Gray" />
-                                        <TextBlock Text="{Binding UdpPort, StringFormat='端口: {0}'}" FontSize="11" Foreground="Gray" />
+                                        <TextBlock Text="{Binding TcpPort, StringFormat='端口: {0}'}" FontSize="11" Foreground="Gray" />
                                     </StackPanel>
                                     <Button Grid.Column="1"
                                             Margin="8,0,0,0"
@@ -89,7 +89,7 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
 
-                    <TextBlock Text="尚未发现在线设备。"
+                    <TextBlock Text="尚未发现在线设备"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
                                Foreground="Gray"
@@ -99,3 +99,4 @@
         </Border>
     </Grid>
 </Window>
+

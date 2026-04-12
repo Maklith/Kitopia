@@ -1,7 +1,7 @@
-using System.Net;
-using System.Net.Quic;
-using System.Net.Security;
 using System.IO.Pipelines;
+using System.Net;
+using System.Net.Security;
+using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -15,16 +15,16 @@ using Serilog;
 
 namespace Core.Services.DeviceCommunication;
 
-public sealed class QuicLocalDataListener : ILocalDataTransport
+public sealed class TcpLocalDataListener : ILocalDataTransport
 {
-    private static readonly ILogger Logger = LogManager.Logger.ForContext<QuicLocalDataListener>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<TcpLocalDataListener>();
     private static readonly SslApplicationProtocol ApplicationProtocol = new("kitopia-local-data");
 
     private readonly object _sync = new();
     private readonly ILocalDataStreamControl _streamControl;
     private int _port;
 
-    private QuicListener? _listener;
+    private TcpListener? _listener;
     private X509Certificate2? _certificate;
     private CancellationTokenSource? _cts;
     private Task? _acceptTask;
@@ -40,23 +40,16 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
         }
     }
 
-    public QuicLocalDataListener(ILocalDataStreamControl streamControl)
+    public TcpLocalDataListener(ILocalDataStreamControl streamControl)
     {
         _streamControl = streamControl;
     }
 
     public bool IsRunning { get; private set; }
-    public LocalDataTransportProtocol Protocol => LocalDataTransportProtocol.Quic;
-
+    public LocalDataTransportProtocol Protocol => LocalDataTransportProtocol.Tcp;
 
     public async Task<bool> StartAsync(CancellationToken cancellationToken = default)
     {
-        if (!QuicConnection.IsSupported || !QuicListener.IsSupported)
-        {
-            Logger.Information("QUIC local listener skipped because QUIC is not supported.");
-            return false;
-        }
-
         lock (_sync)
         {
             if (IsRunning)
@@ -70,52 +63,29 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
 
         try
         {
-            var listenerOptions = new QuicListenerOptions
+            var listener = new TcpListener(IPAddress.Any, 0);
+            listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            listener.Start();
+            if (listener.LocalEndpoint is not IPEndPoint localEndPoint)
             {
-                ListenEndPoint = new IPEndPoint(IPAddress.Any, 0),
-                ApplicationProtocols = [ApplicationProtocol],
-                ConnectionOptionsCallback = (connection, _, _) =>
-                {
-                    var certificate = _certificate ?? throw new InvalidOperationException("Certificate is not ready.");
-                    var expectedRemoteIdentityPublicKey = ResolveExpectedIdentityPublicKey(connection.RemoteEndPoint as IPEndPoint);
-                    return ValueTask.FromResult(new QuicServerConnectionOptions
-                    {
-                        DefaultCloseErrorCode = 0,
-                        DefaultStreamErrorCode = 0,
-                        ServerAuthenticationOptions = new SslServerAuthenticationOptions
-                        {
-                            ApplicationProtocols = [ApplicationProtocol],
-                            ServerCertificate = certificate,
-                            EnabledSslProtocols = SslProtocols.Tls13,
-                            ClientCertificateRequired = true,
-                            RemoteCertificateValidationCallback = (_, remoteCertificate, _, _) =>
-                                ValidateRemoteCertificate(remoteCertificate, expectedRemoteIdentityPublicKey)
-                        }
-                    });
-                }
-            };
-
-            var listener = await QuicListener.ListenAsync(listenerOptions, _cts!.Token);
-            if (listener.LocalEndPoint is not IPEndPoint localEndPoint)
-            {
-                await listener.DisposeAsync();
-                throw new InvalidOperationException("Failed to resolve local QUIC endpoint.");
+                listener.Stop();
+                throw new InvalidOperationException("Failed to resolve local TCP endpoint.");
             }
 
             lock (_sync)
             {
                 _listener = listener;
                 _port = localEndPoint.Port;
-                _acceptTask = Task.Run(() => AcceptLoop(listener, _cts.Token), _cts.Token);
+                _acceptTask = Task.Run(() => AcceptLoop(listener, _cts!.Token), _cts.Token);
                 IsRunning = true;
             }
 
-            Logger.Information("QUIC local listener started on {Port}", Port);
+            Logger.Information("TCP local listener started on {Port}", Port);
             return true;
         }
         catch (Exception e)
         {
-            Logger.Error(e, "QUIC local listener start failed");
+            Logger.Error(e, "TCP local listener start failed");
             await StopAsync();
             return false;
         }
@@ -138,12 +108,14 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
             return;
         }
 
-        var connectionOptions = CreateClientConnectionOptions(remoteEndPoint, remoteIdentityPublicKey.Trim());
-
-        await using var connection = await QuicConnection.ConnectAsync(connectionOptions, cancellationToken);
-        await using var stream = await connection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, cancellationToken);
-        await stream.WriteAsync(payload, cancellationToken);
-        stream.CompleteWrites();
+        using var client = new TcpClient(remoteEndPoint.AddressFamily);
+        await client.ConnectAsync(remoteEndPoint.Address, remoteEndPoint.Port, cancellationToken);
+        await using var sslStream = await AuthenticateAsClientAsync(
+            client,
+            remoteIdentityPublicKey.Trim(),
+            cancellationToken);
+        await sslStream.WriteAsync(payload, cancellationToken);
+        await sslStream.FlushAsync(cancellationToken);
     }
 
     public async Task SendAsync(
@@ -159,9 +131,12 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
             throw new ArgumentException("Remote identity public key is required.", nameof(remoteIdentityPublicKey));
         }
 
-        var connectionOptions = CreateClientConnectionOptions(remoteEndPoint, remoteIdentityPublicKey.Trim());
-        await using var connection = await QuicConnection.ConnectAsync(connectionOptions, cancellationToken);
-        await using var stream = await connection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, cancellationToken);
+        using var client = new TcpClient(remoteEndPoint.AddressFamily);
+        await client.ConnectAsync(remoteEndPoint.Address, remoteEndPoint.Port, cancellationToken);
+        await using var sslStream = await AuthenticateAsClientAsync(
+            client,
+            remoteIdentityPublicKey.Trim(),
+            cancellationToken);
         while (true)
         {
             var readResult = await payloadReader.ReadAsync(cancellationToken);
@@ -170,7 +145,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
             {
                 if (!segment.IsEmpty)
                 {
-                    await stream.WriteAsync(segment, cancellationToken);
+                    await sslStream.WriteAsync(segment, cancellationToken);
                 }
             }
 
@@ -181,13 +156,13 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
             }
         }
 
-        stream.CompleteWrites();
+        await sslStream.FlushAsync(cancellationToken);
     }
 
     public async Task StopAsync()
     {
         Task? acceptTask;
-        QuicListener? listener;
+        TcpListener? listener;
 
         lock (_sync)
         {
@@ -204,10 +179,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
             _acceptTask = null;
         }
 
-        if (listener is not null)
-        {
-            await listener.DisposeAsync();
-        }
+        listener?.Stop();
 
         if (acceptTask is not null)
         {
@@ -232,7 +204,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
             _port = 0;
         }
 
-        Logger.Information("QUIC local listener stopped");
+        Logger.Information("TCP local listener stopped");
     }
 
     public void Dispose()
@@ -240,7 +212,10 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
         StopAsync().GetAwaiter().GetResult();
     }
 
-    private QuicClientConnectionOptions CreateClientConnectionOptions(IPEndPoint remoteEndPoint, string expectedRemoteIdentity)
+    private async Task<SslStream> AuthenticateAsClientAsync(
+        TcpClient client,
+        string expectedRemoteIdentity,
+        CancellationToken token)
     {
         X509Certificate2? localCertificate;
         lock (_sync)
@@ -250,34 +225,40 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
 
         if (localCertificate is null)
         {
-            throw new InvalidOperationException("QUIC local certificate is not ready.");
+            throw new InvalidOperationException("TCP local certificate is not ready.");
         }
 
-        return new QuicClientConnectionOptions
-        {
-            RemoteEndPoint = remoteEndPoint,
-            DefaultCloseErrorCode = 0,
-            DefaultStreamErrorCode = 0,
-            ClientAuthenticationOptions = new SslClientAuthenticationOptions
+        var stream = new SslStream(client.GetStream(), leaveInnerStreamOpen: false);
+        await stream.AuthenticateAsClientAsync(
+            new SslClientAuthenticationOptions
             {
-                ApplicationProtocols = [ApplicationProtocol],
-                TargetHost = "Kitopia-Local-Quic",
+                TargetHost = "Kitopia-Local-Tcp",
                 EnabledSslProtocols = SslProtocols.Tls13,
+                ApplicationProtocols = [ApplicationProtocol],
+                CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
                 ClientCertificates = new X509CertificateCollection { localCertificate },
                 RemoteCertificateValidationCallback = (_, remoteCertificate, _, _) =>
                     ValidateRemoteCertificate(remoteCertificate, expectedRemoteIdentity)
-            }
-        };
+            },
+            token);
+
+        if (!stream.NegotiatedApplicationProtocol.Equals(ApplicationProtocol))
+        {
+            throw new AuthenticationException(
+                $"TCP ALPN negotiation failed. Expected={ApplicationProtocol}, Actual={stream.NegotiatedApplicationProtocol}.");
+        }
+
+        return stream;
     }
 
-    private async Task AcceptLoop(QuicListener listener, CancellationToken token)
+    private async Task AcceptLoop(TcpListener listener, CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
             try
             {
-                var connection = await listener.AcceptConnectionAsync(token);
-                _ = Task.Run(() => HandleConnectionAsync(connection, token), token);
+                var client = await listener.AcceptTcpClientAsync(token);
+                _ = Task.Run(() => HandleClientAsync(client, token), token);
             }
             catch (OperationCanceledException)
             {
@@ -289,48 +270,52 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
             }
             catch (Exception e)
             {
-                Logger.Error(e, "QUIC local listener accept failed");
+                Logger.Error(e, "TCP local listener accept failed");
             }
         }
     }
 
-    private async Task HandleConnectionAsync(QuicConnection connection, CancellationToken token)
+    private async Task HandleClientAsync(TcpClient client, CancellationToken token)
     {
-        await using (connection)
-        {
-            while (!token.IsCancellationRequested)
-            {
-                try
-                {
-                    var stream = await connection.AcceptInboundStreamAsync(token);
-                    _ = Task.Run(() => HandleStreamAsync(stream, connection.RemoteEndPoint, token), token);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch (ObjectDisposedException)
-                {
-                    break;
-                }
-                catch (Exception e)
-                {
-                    Logger.Error(e, "QUIC local listener stream accept failed");
-                    break;
-                }
-            }
-        }
-    }
-
-    private async Task HandleStreamAsync(QuicStream stream, EndPoint remoteEndPoint, CancellationToken token)
-    {
-        await using (stream)
+        using (client)
         {
             try
             {
-                if (remoteEndPoint is not IPEndPoint remoteIpEndPoint)
+                if (client.Client.RemoteEndPoint is not IPEndPoint remoteEndPoint)
                 {
                     return;
+                }
+
+                var expectedRemoteIdentityPublicKey = ResolveExpectedIdentityPublicKey(remoteEndPoint);
+                X509Certificate2? certificate;
+                lock (_sync)
+                {
+                    certificate = _certificate;
+                }
+
+                if (certificate is null)
+                {
+                    throw new InvalidOperationException("TCP local certificate is not ready.");
+                }
+
+                await using var sslStream = new SslStream(client.GetStream(), leaveInnerStreamOpen: false);
+                await sslStream.AuthenticateAsServerAsync(
+                    new SslServerAuthenticationOptions
+                    {
+                        ServerCertificate = certificate,
+                        ClientCertificateRequired = true,
+                        EnabledSslProtocols = SslProtocols.Tls13,
+                        ApplicationProtocols = [ApplicationProtocol],
+                        CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
+                        RemoteCertificateValidationCallback = (_, remoteCertificate, _, _) =>
+                            ValidateRemoteCertificate(remoteCertificate, expectedRemoteIdentityPublicKey)
+                    },
+                    token);
+
+                if (!sslStream.NegotiatedApplicationProtocol.Equals(ApplicationProtocol))
+                {
+                    throw new AuthenticationException(
+                        $"TCP ALPN negotiation failed. Expected={ApplicationProtocol}, Actual={sslStream.NegotiatedApplicationProtocol}.");
                 }
 
                 var pipe = new Pipe();
@@ -340,7 +325,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
                     Exception? producerError = null;
                     try
                     {
-                        await CopyStreamToPipeAsync(stream, pipe.Writer, token);
+                        await CopyStreamToPipeAsync(sslStream, pipe.Writer, token);
                     }
                     catch (Exception ex)
                     {
@@ -356,7 +341,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
                 Exception? consumerError = null;
                 try
                 {
-                    await _streamControl.HandleAsync(Protocol, remoteIpEndPoint, pipe.Reader, token);
+                    await _streamControl.HandleAsync(Protocol, remoteEndPoint, pipe.Reader, token);
                 }
                 catch (Exception ex)
                 {
@@ -378,7 +363,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
             }
             catch (Exception e)
             {
-                Logger.Error(e, "QUIC local listener stream read failed");
+                Logger.Error(e, "TCP local listener stream read failed");
             }
         }
     }
@@ -415,7 +400,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
         using var rsa = RSA.Create();
         rsa.ImportPkcs8PrivateKey(Convert.FromBase64String(privateKey), out _);
         var request = new CertificateRequest(
-            "CN=Kitopia-Local-Quic",
+            "CN=Kitopia-Local-Tcp",
             rsa,
             HashAlgorithmName.SHA256,
             RSASignaturePadding.Pkcs1);

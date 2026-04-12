@@ -1,4 +1,4 @@
-﻿// Author: liaom
+// Author: liaom
 // SolutionName: Kitopia
 // ProjectName: Core
 // FileName:DeviceCommunication.cs
@@ -12,18 +12,22 @@ using PluginCore;
 
 namespace Core.Services.DeviceCommunication;
 
-public class DeviceCommunication : IDeviceCommunication {
-    public async Task StartAsync(CancellationToken token=default) {
-        if (ConfigManger.Config.EnsureDeviceIdentity()) {
+public class DeviceCommunication : IDeviceCommunication
+{
+    public async Task StartAsync(CancellationToken token = default)
+    {
+        if (ConfigManger.Config.EnsureDeviceIdentity())
+        {
             ConfigManger.Save("KitopiaConfig");
         }
 
         await ServiceManager.Services.GetService<ILocalDataListener>()!.StartListeningAsync(token);
         await ServiceManager.Services.GetService<IDeviceDiscoveryService>()!.StartAsync(token);
     }
-    public async Task StopAsync() {
+
+    public async Task StopAsync()
+    {
         await ServiceManager.Services.GetService<ILocalDataListener>()!.StopListeningAsync();
         await ServiceManager.Services.GetService<IDeviceDiscoveryService>()!.StopAsync();
-        
     }
 }

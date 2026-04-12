@@ -68,7 +68,7 @@
                                     <TextBlock Text="{Binding Address}" Foreground="{DynamicResource SemiColorText1}"
                                                TextWrapping="Wrap" />
                                     <StackPanel Orientation="Horizontal" Spacing="4" >
-                                        <TextBlock Text="{Binding UdpPort, StringFormat='UDP端口: {0}'}"
+                                        <TextBlock Text="{Binding TcpPort, StringFormat='TCP端口: {0}'}"
                                                    Foreground="{DynamicResource SemiColorText1}" />
                                         <TextBlock Text="{Binding QuicPort, StringFormat='QUIC端口: {0}'}"
                                                    IsVisible="{Binding SupportQuic}" Foreground="{DynamicResource SemiColorText1}" />

@@ -1,3 +1,4 @@
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Quic;
 using Core.Services;
@@ -10,37 +11,32 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
     private static readonly ILogger Logger = LogManager.Logger.ForContext<LocalDataListenerHost>();
 
     private readonly object _sync = new();
-    private readonly UdpLocalDataListener _udpListener;
+    private readonly TcpLocalDataListener _tcpListener;
     private readonly QuicLocalDataListener _quicListener;
 
     private bool _isStarted;
-    public event LocalDataPacketReceivedHandler? PacketReceived;
 
-    public LocalDataListenerHost()
+    public LocalDataListenerHost(ILocalDataStreamControl streamControl)
     {
-        _udpListener = new UdpLocalDataListener();
-        _quicListener = new QuicLocalDataListener();
-        _udpListener.PacketReceived += OnPacketReceivedAsync;
-        _quicListener.PacketReceived += OnPacketReceivedAsync;
+        _tcpListener = new TcpLocalDataListener(streamControl);
+        _quicListener = new QuicLocalDataListener(streamControl);
     }
 
-    public int UdpPort => _udpListener.Port;
+    public int TcpPort => _tcpListener.Port;
 
     public int QuicPort => _quicListener.Port;
 
     public bool SupportsQuic => _quicListener.IsRunning;
-    
-    
+
     public void Dispose()
     {
         StopListeningAsync().GetAwaiter().GetResult();
-        _udpListener.PacketReceived -= OnPacketReceivedAsync;
-        _quicListener.PacketReceived -= OnPacketReceivedAsync;
         _quicListener.Dispose();
-        _udpListener.Dispose();
+        _tcpListener.Dispose();
     }
 
-    public async Task StartListeningAsync(CancellationToken token= default) {
+    public async Task StartListeningAsync(CancellationToken token = default)
+    {
         lock (_sync)
         {
             if (_isStarted)
@@ -51,7 +47,7 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
             _isStarted = true;
         }
 
-        await _udpListener.StartAsync(token);
+        await _tcpListener.StartAsync(token);
 
         if (QuicConnection.IsSupported && QuicListener.IsSupported)
         {
@@ -80,10 +76,37 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
 
         return protocol switch
         {
-            LocalDataTransportProtocol.Udp => _udpListener.SendAsync(payload, remoteEndPoint, remoteIdentityPublicKey, token),
+            LocalDataTransportProtocol.Tcp => _tcpListener.SendAsync(payload, remoteEndPoint, remoteIdentityPublicKey, token),
             LocalDataTransportProtocol.Quic => _quicListener.SendAsync(payload, remoteEndPoint, remoteIdentityPublicKey, token),
             _ => throw new ArgumentOutOfRangeException(nameof(protocol), protocol, "Unsupported transport protocol.")
         };
+    }
+
+    public async Task SendAsync(
+        LocalDataTransportProtocol protocol,
+        PipeReader payloadReader,
+        IPEndPoint remoteEndPoint,
+        string? remoteIdentityPublicKey = null,
+        CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(payloadReader);
+        ArgumentNullException.ThrowIfNull(remoteEndPoint);
+        if (string.IsNullOrWhiteSpace(remoteIdentityPublicKey))
+        {
+            throw new ArgumentException("Remote identity public key is required.", nameof(remoteIdentityPublicKey));
+        }
+
+        switch (protocol)
+        {
+            case LocalDataTransportProtocol.Tcp:
+                await _tcpListener.SendAsync(payloadReader, remoteEndPoint, remoteIdentityPublicKey, token);
+                break;
+            case LocalDataTransportProtocol.Quic:
+                await _quicListener.SendAsync(payloadReader, remoteEndPoint, remoteIdentityPublicKey, token);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(protocol), protocol, "Unsupported transport protocol.");
+        }
     }
 
     public async Task SendAsync(
@@ -94,12 +117,53 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
         CancellationToken token = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        using var memory = new MemoryStream();
-        await stream.CopyToAsync(memory, token);
-        await SendAsync(protocol, memory.ToArray(), remoteEndPoint, remoteIdentityPublicKey, token);
+        ArgumentNullException.ThrowIfNull(remoteEndPoint);
+        if (string.IsNullOrWhiteSpace(remoteIdentityPublicKey))
+        {
+            throw new ArgumentException("Remote identity public key is required.", nameof(remoteIdentityPublicKey));
+        }
+
+        var pipe = new Pipe();
+
+        async Task ProduceAsync()
+        {
+            Exception? producerError = null;
+            try
+            {
+                await CopyStreamToPipeAsync(stream, pipe.Writer, token);
+            }
+            catch (Exception ex)
+            {
+                producerError = ex;
+            }
+            finally
+            {
+                await pipe.Writer.CompleteAsync(producerError);
+            }
+        }
+
+        var producerTask = ProduceAsync();
+
+        Exception? consumerError = null;
+        try
+        {
+            await SendAsync(protocol, pipe.Reader, remoteEndPoint, remoteIdentityPublicKey, token);
+        }
+        catch (Exception ex)
+        {
+            consumerError = ex;
+            throw;
+        }
+        finally
+        {
+            await pipe.Reader.CompleteAsync(consumerError);
+        }
+
+        await producerTask;
     }
 
-    public async Task StopListeningAsync() {
+    public async Task StopListeningAsync()
+    {
         bool shouldStop;
 
         lock (_sync)
@@ -114,26 +178,26 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
         }
 
         await _quicListener.StopAsync();
-        await _udpListener.StopAsync();
+        await _tcpListener.StopAsync();
     }
 
-    private async ValueTask OnPacketReceivedAsync(LocalDataPacket packet, CancellationToken token)
+    private static async Task CopyStreamToPipeAsync(Stream source, PipeWriter writer, CancellationToken token)
     {
-        var handler = PacketReceived;
-        if (handler is null)
+        const int BufferSize = 64 * 1024;
+        while (true)
         {
-            return;
-        }
-
-        foreach (LocalDataPacketReceivedHandler subscriber in handler.GetInvocationList())
-        {
-            try
+            var memory = writer.GetMemory(BufferSize);
+            var read = await source.ReadAsync(memory, token);
+            if (read == 0)
             {
-                await subscriber(packet, token);
+                break;
             }
-            catch (Exception e)
+
+            writer.Advance(read);
+            var flushResult = await writer.FlushAsync(token);
+            if (flushResult.IsCanceled || flushResult.IsCompleted)
             {
-                Logger.Error(e, "Local data listener host packet callback failed");
+                break;
             }
         }
     }

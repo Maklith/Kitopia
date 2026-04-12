@@ -120,6 +120,7 @@ internal class Program
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
         
         services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>();
+        services.AddSingleton<ILocalDataStreamControl, LocalDataStreamControl>();
         services.AddSingleton<ILocalDataListener,LocalDataListenerHost>();
         services.AddSingleton<IDeviceCommunication, DeviceCommunication>();
         
