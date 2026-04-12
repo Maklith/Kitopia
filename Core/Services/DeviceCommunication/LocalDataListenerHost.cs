@@ -16,10 +16,10 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
 
     private bool _isStarted;
 
-    public LocalDataListenerHost(ILocalDataStreamControl streamControl)
+    public LocalDataListenerHost(Protocol.ProtocolSession protocolSession)
     {
-        _tcpListener = new TcpLocalDataListener(streamControl);
-        _quicListener = new QuicLocalDataListener(streamControl);
+        _tcpListener = new TcpLocalDataListener(protocolSession);
+        _quicListener = new QuicLocalDataListener(protocolSession);
     }
 
     public int TcpPort => _tcpListener.Port;

@@ -10,7 +10,10 @@ using CommunityToolkit.Mvvm.Input;
 using Core.Services;
 using Core.Services.Config;
 using Core.Services.DeviceCommunication;
+using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Discovery;
+using Core.Services.DeviceCommunication.Messages.Chat;
+using Core.Services.DeviceCommunication.Routing;
 using Core.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -69,10 +72,9 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject
             return;
         }
 
-        var listener = ServiceManager.Services.GetService<ILocalDataListener>();
-        var streamControl = ServiceManager.Services.GetService<ILocalDataStreamControl>();
+        var messageAppService = ServiceManager.Services.GetService<IMessageAppService>();
         var toastService = ServiceManager.Services.GetService<IToastService>();
-        if (listener is null || streamControl is null)
+        if (messageAppService is null)
         {
             toastService?.Show("设备通信", "本地通信服务未初始化", NotificationType.Error);
             return;
@@ -97,13 +99,13 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject
         {
             await CreateLargeTestFileAsync(testFilePath, payloadText, testFileSizeBytes);
             var endpoint = new IPEndPoint(device.Address, targetPort);
-            var sendContext = new LocalDataSendContext(listener, protocol, endpoint, device.Id);
+            var sendContext = new MessageContext(protocol, endpoint, device.Id);
             await using (var fileStream = File.OpenRead(testFilePath))
             {
-                await streamControl.SendFileAsync(
+                await messageAppService.SendFileChatAsync(
                     sendContext,
-                    fileStream,
-                    testFileName);
+                    new FileChatMessage(device.Id, Guid.NewGuid(), testFileName, fileStream.Length),
+                    fileStream);
             }
 
             toastService?.Show("设备通信", $"测试文件已发送到 {device.DisplayName} ({protocol})", NotificationType.Success);
@@ -117,14 +119,14 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject
             try
             {
                 var tcpEndpoint = new IPEndPoint(device.Address, device.TcpPort);
-                var sendContext = new LocalDataSendContext(listener, LocalDataTransportProtocol.Tcp, tcpEndpoint,
+                var sendContext = new MessageContext(LocalDataTransportProtocol.Tcp, tcpEndpoint,
                     device.Id);
                 await using (var fileStream = File.OpenRead(testFilePath))
                 {
-                    await streamControl.SendFileAsync(
+                    await messageAppService.SendFileChatAsync(
                         sendContext,
-                        fileStream,
-                        testFileName);
+                        new FileChatMessage(device.Id, Guid.NewGuid(), testFileName, fileStream.Length),
+                        fileStream);
                 }
 
                 toastService?.Show("设备通信", $"QUIC失败，已通过 TCP 发送测试文件到 {device.DisplayName}", NotificationType.Warning);

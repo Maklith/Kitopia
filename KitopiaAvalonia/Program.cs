@@ -15,7 +15,14 @@ using Core.CustomScenario;
 using Core.Services;
 using Core.Services.Config;
 using Core.Services.DeviceCommunication;
+using Core.Services.DeviceCommunication.Application;
+using Core.Services.DeviceCommunication.Codecs;
 using Core.Services.DeviceCommunication.Discovery;
+using Core.Services.DeviceCommunication.Handlers;
+using Core.Services.DeviceCommunication.Protocol;
+using Core.Services.DeviceCommunication.Routing;
+using Core.Services.DeviceCommunication.Security;
+using Core.Services.DeviceCommunication.Sessions;
 
 using Core.Services.Interfaces;
 using Core.Services.MQTT;
@@ -120,10 +127,23 @@ internal class Program
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
         
         services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>();
-        services.AddSingleton<ILocalDataStreamControl, LocalDataStreamControl>();
-        services.AddSingleton<ILocalDataBusMessageCodec, LocalDataChatCommandParser>();
-        services.AddSingleton<ILocalDataBusService, LocalDataBusService>();
-        services.AddSingleton<ILocalDataListener,LocalDataListenerHost>();
+        services.AddSingleton<ILocalDataListener, LocalDataListenerHost>();
+        services.AddSingleton<ProtocolSession>();
+        services.AddSingleton<ProtocolSender>();
+        services.AddSingleton<IProtocolErrorPolicy, ProtocolErrorPolicy>();
+        services.AddSingleton<ISessionSecurity, SessionSecurity>();
+        services.AddSingleton<IPayloadSessionStore, PayloadSessionStore>();
+        services.AddSingleton<IRouteHandler, ChatRouteHandler>();
+        services.AddSingleton<IRouteHandler, ClipboardRouteHandler>();
+        services.AddSingleton<RouteHandlerRegistry>();
+        services.AddSingleton<IMessageRouter, MessageRouter>();
+        services.AddSingleton<IMessageCodec, ChatMessageCodec>();
+        services.AddSingleton<IMessageCodec, FileChatMessageCodec>();
+        services.AddSingleton<IMessageCodec, ClipboardMessageCodec>();
+        services.AddSingleton<MessageCodecRegistry>();
+        services.AddSingleton<IncomingMessageBuffer>();
+        services.AddSingleton<IMessageAppService, MessageAppService>();
+        services.AddSingleton<IIncomingMessageSink>(sp => sp.GetRequiredService<IncomingMessageBuffer>());
         services.AddSingleton<IDeviceCommunication, DeviceCommunication>();
         
 
@@ -320,7 +340,6 @@ internal class Program
         CustomScenarioManger.Init();
         Logger.Information("场景管理器初始化完成");
         ServiceManager.Services.GetService<IDeviceCommunication>()!.StartAsync().GetAwaiter().GetResult();
-        ServiceManager.Services.GetService<ILocalDataBusService>()!.StartAsync().GetAwaiter().GetResult();
         
         if (ConfigManger.Config.autoStart)
         {

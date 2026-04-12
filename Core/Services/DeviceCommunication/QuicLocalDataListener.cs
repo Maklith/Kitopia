@@ -9,6 +9,7 @@ using System.Linq;
 using Core.Services;
 using Core.Services.Config;
 using Core.Services.DeviceCommunication.Discovery;
+using Core.Services.DeviceCommunication.Protocol;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Serilog;
@@ -21,7 +22,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
     private static readonly SslApplicationProtocol ApplicationProtocol = new("kitopia-local-data");
 
     private readonly object _sync = new();
-    private readonly ILocalDataStreamControl _streamControl;
+    private readonly ProtocolSession _protocolSession;
     private int _port;
 
     private QuicListener? _listener;
@@ -40,9 +41,9 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
         }
     }
 
-    public QuicLocalDataListener(ILocalDataStreamControl streamControl)
+    public QuicLocalDataListener(ProtocolSession protocolSession)
     {
-        _streamControl = streamControl;
+        _protocolSession = protocolSession;
     }
 
     public bool IsRunning { get; private set; }
@@ -356,7 +357,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
                 Exception? consumerError = null;
                 try
                 {
-                    await _streamControl.HandleAsync(Protocol, remoteIpEndPoint, pipe.Reader, token);
+                    await _protocolSession.HandleAsync(Protocol, remoteIpEndPoint, pipe.Reader, token);
                 }
                 catch (Exception ex)
                 {

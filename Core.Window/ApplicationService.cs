@@ -37,7 +37,7 @@ public class ApplicationService : IApplicationService
 
     public void Exit(int exitCode = 0)
     {
-        ServiceManager.Services.GetService<LocalDataListenerHost>()?.StopListeningAsync().GetAwaiter().GetResult();
+        ServiceManager.Services.GetService<IDeviceCommunication>()?.StopAsync().GetAwaiter().GetResult();
         ServiceManager.Services.GetService<IDeviceDiscoveryService>()!.StopAsync();
         Logger.Information("程序退出");
         LogManager.Logger.Dispose();

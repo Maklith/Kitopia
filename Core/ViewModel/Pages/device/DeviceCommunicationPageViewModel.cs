@@ -8,7 +8,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Core.Services;
 using Core.Services.DeviceCommunication;
+using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Discovery;
+using Core.Services.DeviceCommunication.Messages.Chat;
+using Core.Services.DeviceCommunication.Routing;
 using PluginCore;
 using Serilog;
 using Serilog.Core;
@@ -19,10 +22,10 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<DeviceCommunicationPageViewModel>();
     private readonly IDeviceDiscoveryService _deviceDiscoveryService;
-    private readonly ILocalDataListener _localDataListener;
-    private readonly ILocalDataBusService _localDataBusService;
+    private readonly IMessageAppService _messageAppService;
     private readonly IToastService _toastService;
-    private readonly IDisposable _chatSubscription;
+    private readonly CancellationTokenSource _receiveCancellation = new();
+    private readonly Task _receiveTask;
     private readonly Dictionary<string, DeviceConversationItem> _conversationLookup = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DeviceModel> _trackedDevices = new(StringComparer.Ordinal);
     private readonly ObservableCollection<DeviceChatMessageItem> _emptyMessages = [];
@@ -46,17 +49,15 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
     public DeviceCommunicationPageViewModel(
         IDeviceDiscoveryService deviceDiscoveryService,
-        ILocalDataListener localDataListener,
-        ILocalDataBusService localDataBusService,
+        IMessageAppService messageAppService,
         IToastService toastService)
     {
         _deviceDiscoveryService = deviceDiscoveryService;
-        _localDataListener = localDataListener;
-        _localDataBusService = localDataBusService;
+        _messageAppService = messageAppService;
         _toastService = toastService;
 
         _deviceDiscoveryService.Devices.CollectionChanged += OnDiscoveredDevicesCollectionChanged;
-        _chatSubscription = _localDataBusService.Subscribe<LocalDataChatMessage>(OnChatMessageReceived);
+        _receiveTask = RunReceiveLoopAsync(_receiveCancellation.Token);
         SyncConversationsFromDiscovery();
     }
 
@@ -153,13 +154,35 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         int port)
     {
         var remoteEndPoint = new IPEndPoint(conversation.Address, port);
-        var sendContext = new LocalDataBusSendContext(
-            _localDataListener,
+        var sendContext = new MessageContext(
             protocol,
             remoteEndPoint,
             conversation.DeviceId);
 
-        await _localDataBusService.PublishAsync(sendContext, new LocalDataChatMessage(text));
+        await _messageAppService.SendTextChatAsync(sendContext, new TextChatMessage(conversation.DeviceId, text));
+    }
+
+    private async Task RunReceiveLoopAsync(CancellationToken token)
+    {
+        try
+        {
+            await foreach (var evt in _messageAppService.ReceiveAsync(token))
+            {
+                if (evt.Message is not TextChatMessage chatMessage)
+                {
+                    continue;
+                }
+
+                OnChatMessageReceived(chatMessage, DateTimeOffset.UtcNow);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning(ex, "Message receive loop failed.");
+        }
     }
 
     private void OnDiscoveredDevicesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -193,7 +216,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         });
     }
 
-    private void OnChatMessageReceived(object? sender, LocalDataBusMessageReceivedEventArgs<LocalDataChatMessage> e)
+    private void OnChatMessageReceived(TextChatMessage message, DateTimeOffset timestampUtc)
     {
         if (_disposed)
         {
@@ -207,22 +230,25 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 return;
             }
 
-            var conversation = FindConversationByAddress(e.RemoteEndPoint.Address);
+            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation))
+            {
+                conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
+            }
             if (conversation is null)
             {
                 Logger.Debug(
-                    "Drop chat message because sender device is not discovered. RemoteEndPoint={RemoteEndPoint}",
-                    e.RemoteEndPoint);
+                    "Drop chat message because sender device is not discovered. DeviceId={DeviceId}",
+                    message.ConversationId);
                 return;
             }
 
-            var text = e.Message.Text.Trim();
+            var text = message.Text.Trim();
             if (string.IsNullOrWhiteSpace(text))
             {
                 return;
             }
 
-            var timestamp = e.TimestampUtc.ToLocalTime();
+            var timestamp = timestampUtc.ToLocalTime();
             conversation.Messages.Add(new DeviceChatMessageItem(text, isOutgoing: false, timestamp));
             conversation.SetLastMessage(text, timestamp);
 
@@ -362,7 +388,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         _disposed = true;
-        _chatSubscription.Dispose();
+        _receiveCancellation.Cancel();
         _deviceDiscoveryService.Devices.CollectionChanged -= OnDiscoveredDevicesCollectionChanged;
         foreach (var trackedDevice in _trackedDevices.Values)
         {
@@ -370,6 +396,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         _trackedDevices.Clear();
+        _receiveCancellation.Dispose();
     }
 }
 
