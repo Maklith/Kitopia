@@ -121,6 +121,8 @@ internal class Program
         
         services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>();
         services.AddSingleton<ILocalDataStreamControl, LocalDataStreamControl>();
+        services.AddSingleton<ILocalDataBusMessageCodec, LocalDataChatCommandParser>();
+        services.AddSingleton<ILocalDataBusService, LocalDataBusService>();
         services.AddSingleton<ILocalDataListener,LocalDataListenerHost>();
         services.AddSingleton<IDeviceCommunication, DeviceCommunication>();
         
@@ -195,9 +197,11 @@ internal class Program
         services.AddKeyedTransient<UserControl, OnnxModelManagerPage>("OnnxModelManagerPage",
             (e, _) => new OnnxModelManagerPage { DataContext = e.GetService<OnnxModelManagerPageViewModel>() });
         services.AddTransient<DeviceDiscoveryPageViewModel>();
-        
-        services.AddKeyedTransient<UserControl, DeviceCommunicationPage>("DeviceDiscoveryPage",
-            (e, _) => new DeviceCommunicationPage { DataContext = e.GetService<DeviceDiscoveryPageViewModel>() });
+        services.AddTransient<DeviceCommunicationPageViewModel>();
+        services.AddKeyedTransient<UserControl, DeviceDiscoveryPage>("DeviceDiscoveryPage",
+            (e, _) => new DeviceDiscoveryPage { DataContext = e.GetService<DeviceDiscoveryPageViewModel>() });
+        services.AddKeyedTransient<UserControl, DeviceCommunicationPage>("DeviceChatPage",
+            (e, _) => new DeviceCommunicationPage { DataContext = e.GetService<DeviceCommunicationPageViewModel>() });
        
 
         services.AddSingleton<SettingPage>(e => new SettingPage());
@@ -316,6 +320,7 @@ internal class Program
         CustomScenarioManger.Init();
         Logger.Information("场景管理器初始化完成");
         ServiceManager.Services.GetService<IDeviceCommunication>()!.StartAsync().GetAwaiter().GetResult();
+        ServiceManager.Services.GetService<ILocalDataBusService>()!.StartAsync().GetAwaiter().GetResult();
         
         if (ConfigManger.Config.autoStart)
         {

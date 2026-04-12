@@ -18,7 +18,7 @@
         <Border Grid.ColumnSpan="2" Margin="10" Padding="10" CornerRadius="8" BorderBrush="#DDDDDD" BorderThickness="1">
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                 <TextBlock Text="选择右侧设备后发送左侧文" FontWeight="SemiBold" VerticalAlignment="Center" />
-                <TextBlock Text="正在发送，请稍�?.." Foreground="#CC8A2B" IsVisible="{Binding IsSending}" VerticalAlignment="Center" />
+                <TextBlock Text="正在发送，请稍后.." Foreground="#CC8A2B" IsVisible="{Binding IsSending}" VerticalAlignment="Center" />
             </StackPanel>
         </Border>
 

@@ -3,11 +3,209 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:Core.ViewModel.Pages.device;assembly=Core"
-             xmlns:pages="clr-namespace:KitopiaAvalonia.Pages"
              mc:Ignorable="d"
              d:DesignWidth="1200"
              d:DesignHeight="800"
              x:Class="KitopiaAvalonia.Pages.DeviceCommunicationPage"
-             x:DataType="vm:DeviceDiscoveryPageViewModel">
-    <pages:DeviceDiscoveryPage />
+             x:DataType="vm:DeviceCommunicationPageViewModel">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="ConversationPanelBrush" Color="{DynamicResource SemiBackground1Color}"
+                         Opacity="0.78" />
+        <SolidColorBrush x:Key="ConversationCardBrush" Color="{DynamicResource SemiBackground0Color}"
+                         Opacity="0.78" />
+        <SolidColorBrush x:Key="IncomingBubbleBrush" Color="{DynamicResource SemiBackground2Color}"
+                         Opacity="0.9" />
+        <SolidColorBrush x:Key="OutgoingBubbleBrush" Color="{DynamicResource SemiBlue5Color}"
+                         Opacity="0.86" />
+    </UserControl.Resources>
+
+    <Grid ColumnDefinitions="320,4,*" Margin="10">
+        <Border Grid.Column="0"
+                Background="{StaticResource ConversationPanelBrush}"
+                BorderBrush="{DynamicResource SemiColorBorder}"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="10">
+            <Grid RowDefinitions="Auto,*" RowSpacing="10">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="Device Chat" FontSize="20" FontWeight="Bold" />
+                    <TextBlock Text="LAN online sessions" Foreground="{DynamicResource SemiColorText1}" />
+                </StackPanel>
+
+                <Grid Grid.Row="1">
+                    <ListBox ItemsSource="{Binding Conversations}"
+                             SelectedItem="{Binding SelectedConversation}"
+                             BorderThickness="0"
+                             Background="Transparent">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DeviceConversationItem">
+                                <Border Margin="0,0,0,8"
+                                        CornerRadius="10"
+                                        Padding="10"
+                                        Background="{StaticResource ConversationCardBrush}"
+                                        BorderBrush="{DynamicResource SemiColorBorder}"
+                                        BorderThickness="1">
+                                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="5"
+                                          ColumnSpacing="8">
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding LastMessageTimeText}"
+                                                   Foreground="{DynamicResource SemiColorText2}"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center" />
+
+                                        <StackPanel Grid.Row="1" Orientation="Vertical" Spacing="3">
+                                            <TextBlock Text="{Binding LastMessagePreview}"
+                                                       Foreground="{DynamicResource SemiColorText1}"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding StatusText}"
+                                                       Foreground="{DynamicResource SemiColorText2}"
+                                                       FontSize="11" />
+                                        </StackPanel>
+
+                                        <Border Grid.Row="1"
+                                                Grid.Column="1"
+                                                Background="{DynamicResource SemiColorError}"
+                                                Padding="6,1"
+                                                CornerRadius="8"
+                                                VerticalAlignment="Top"
+                                                IsVisible="{Binding HasUnread}">
+                                            <TextBlock Text="{Binding UnreadCountText}"
+                                                       Foreground="White"
+                                                       FontSize="11"
+                                                       FontWeight="Bold" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <TextBlock Text="No online devices"
+                               IsVisible="{Binding HasNoConversations}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource SemiColorText1}" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <GridSplitter Grid.Column="1"
+                      ResizeDirection="Columns"
+                      Width="4"
+                      Background="{DynamicResource SemiColorBorder}" />
+
+        <Border Grid.Column="2"
+                Background="{StaticResource ConversationPanelBrush}"
+                BorderBrush="{DynamicResource SemiColorBorder}"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="12">
+            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
+                <Border Padding="10"
+                        CornerRadius="10"
+                        Background="{StaticResource ConversationCardBrush}">
+                    <StackPanel Spacing="3">
+                        <TextBlock Text="{Binding CurrentConversationTitle}" FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding CurrentConversationSubtitle}"
+                                   Foreground="{DynamicResource SemiColorText1}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="1"
+                        Background="{StaticResource ConversationCardBrush}"
+                        CornerRadius="10"
+                        Padding="12">
+                    <Grid>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding CurrentMessages}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:DeviceChatMessageItem">
+                                        <Grid Margin="0,0,0,10" ColumnDefinitions="*,*">
+                                            <Border Grid.Column="0"
+                                                    IsVisible="{Binding IsIncoming}"
+                                                    Background="{StaticResource IncomingBubbleBrush}"
+                                                    BorderBrush="{DynamicResource SemiColorBorder}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="10"
+                                                    MaxWidth="420"
+                                                    HorizontalAlignment="Left">
+                                                <StackPanel Spacing="5">
+                                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding TimeText}"
+                                                               FontSize="11"
+                                                               Foreground="{DynamicResource SemiColorText2}" />
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Border Grid.Column="1"
+                                                    IsVisible="{Binding IsOutgoing}"
+                                                    Background="{StaticResource OutgoingBubbleBrush}"
+                                                    CornerRadius="10"
+                                                    Padding="10"
+                                                    MaxWidth="420"
+                                                    HorizontalAlignment="Right">
+                                                <StackPanel Spacing="5">
+                                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap"
+                                                               Foreground="White" />
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <TextBlock Text="{Binding TimeText}"
+                                                                   FontSize="11"
+                                                                   Foreground="White"
+                                                                   Opacity="0.85" />
+                                                        <TextBlock Text="{Binding StateText}"
+                                                                   FontSize="11"
+                                                                   Foreground="White"
+                                                                   Opacity="0.85"
+                                                                   IsVisible="{Binding HasState}" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <TextBlock Text="Select an online device to start chatting"
+                                   IsVisible="{Binding ShowConversationPlaceholder}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SemiColorText1}" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2"
+                        Background="{StaticResource ConversationCardBrush}"
+                        CornerRadius="10"
+                        Padding="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <TextBox Text="{Binding MessageText}"
+                                 Watermark="Type a message..."
+                                 AcceptsReturn="False"
+                                 TextWrapping="Wrap"
+                                 MinHeight="42"
+                                 VerticalAlignment="Stretch"
+                                 IsEnabled="{Binding HasConversationSelected}">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter" Command="{Binding SendMessageCommand}" />
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                        <Button Grid.Column="1"
+                                Content="Send"
+                                MinWidth="80"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Command="{Binding SendMessageCommand}"
+                                IsEnabled="{Binding HasConversationSelected}" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
 </UserControl>

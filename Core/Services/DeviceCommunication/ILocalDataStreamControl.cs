@@ -7,15 +7,12 @@ namespace Core.Services.DeviceCommunication;
 
 public interface ILocalDataStreamControl
 {
+    event EventHandler<LocalDataBusEnvelopeReceivedEventArgs>? EnvelopeReceived;
+
     ValueTask HandleAsync(
         LocalDataTransportProtocol protocol,
         IPEndPoint remoteEndPoint,
         PipeReader payloadReader,
-        CancellationToken cancellationToken = default);
-
-    Task SendMessageAsync(
-        LocalDataSendContext sendContext,
-        string message,
         CancellationToken cancellationToken = default);
 
     Task SendCommandAsync(
@@ -26,6 +23,7 @@ public interface ILocalDataStreamControl
         Guid? channelId = null,
         string? contentType = null,
         string? message = null,
+        string? fileName = null,
         CancellationToken cancellationToken = default);
 
     Task SendFileAsync(

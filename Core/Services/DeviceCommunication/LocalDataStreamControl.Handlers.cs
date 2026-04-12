@@ -1,5 +1,6 @@
 using System.IO.Pipelines;
 using System.Net;
+using System.Text.Json;
 
 namespace Core.Services.DeviceCommunication;
 
@@ -79,7 +80,7 @@ public sealed partial class LocalDataStreamControl
             BusEnvelope envelope,
             CancellationToken cancellationToken)
         {
-            var command = NormalizeFileCommand(envelope.Command);
+            var command = LocalDataStreamRouteResolver.NormalizeFileCommand(envelope.Command);
             switch (command)
             {
                 case FileCommandBegin:
@@ -93,7 +94,11 @@ public sealed partial class LocalDataStreamControl
                     }
 
                     var key = CreateChannelContextKey(context, channelId);
-                    var path = BuildTransferFilePath(context.Protocol, context.RemoteEndPoint, channelId, envelope.FileName);
+                    var path = LocalDataStreamStorage.BuildTransferFilePath(
+                        context.Protocol,
+                        context.RemoteEndPoint,
+                        channelId,
+                        envelope.FileName);
                     await StartOrReplaceSessionAsync(key, path);
                     break;
                 case FileCommandEnd:
@@ -109,7 +114,11 @@ public sealed partial class LocalDataStreamControl
                     }
                     break;
                 default:
-                    await SaveCommandAsync(context.Protocol, context.RemoteEndPoint, envelope, cancellationToken);
+                    await LocalDataStreamStorage.SaveCommandJsonAsync(
+                        context.Protocol,
+                        context.RemoteEndPoint,
+                        JsonSerializer.Serialize(envelope),
+                        cancellationToken);
                     break;
             }
         }
@@ -124,7 +133,7 @@ public sealed partial class LocalDataStreamControl
             var effectiveChannelId = channelId == Guid.Empty ? Guid.NewGuid() : channelId;
             var key = CreateChannelContextKey(context, effectiveChannelId);
             var session = await GetOrCreateSessionAsync(key, context, effectiveChannelId);
-            await CopyExactlyToStreamAsync(payloadReader, session.Stream, payloadLength, cancellationToken);
+            await LocalDataPipeIo.CopyExactlyToStreamAsync(payloadReader, session.Stream, payloadLength, cancellationToken);
             session.UpdatedUtc = DateTime.UtcNow;
             session.Stage = FileTransferStage.Receiving;
         }
@@ -206,7 +215,11 @@ public sealed partial class LocalDataStreamControl
                 }
             }
 
-            var autoPath = BuildTransferFilePath(context.Protocol, context.RemoteEndPoint, effectiveChannelId, null);
+            var autoPath = LocalDataStreamStorage.BuildTransferFilePath(
+                context.Protocol,
+                context.RemoteEndPoint,
+                effectiveChannelId,
+                null);
             var created = new FileTransferSession(
                 autoPath,
                 new FileStream(autoPath, FileMode.Create, FileAccess.Write, FileShare.Read))
@@ -265,26 +278,13 @@ public sealed partial class LocalDataStreamControl
 
     private sealed class MessageRouteHandler : IBusRouteHandler
     {
-        public async Task HandleEnvelopeAsync(
+        public Task HandleEnvelopeAsync(
             BusRouteContext context,
             Guid channelId,
             BusEnvelope envelope,
             CancellationToken cancellationToken)
         {
-            var message = envelope.Message;
-            if (string.IsNullOrWhiteSpace(message) &&
-                envelope.Metadata is not null &&
-                envelope.Metadata.TryGetValue("message", out var fromMetadata))
-            {
-                message = fromMetadata;
-            }
-
-            if (string.IsNullOrWhiteSpace(message))
-            {
-                return;
-            }
-
-            await SaveMessageAsync(context.Protocol, context.RemoteEndPoint, message, cancellationToken);
+            return Task.CompletedTask;
         }
 
         public async Task HandlePayloadAsync(
@@ -294,8 +294,7 @@ public sealed partial class LocalDataStreamControl
             int payloadLength,
             CancellationToken cancellationToken)
         {
-            var payloadPath = BuildMessagePayloadFilePath(context.Protocol, context.RemoteEndPoint);
-            await SavePayloadToFileAsync(payloadReader, payloadLength, payloadPath, cancellationToken);
+            await LocalDataPipeIo.DrainExactlyAsync(payloadReader, payloadLength, cancellationToken);
         }
 
         public Task CleanupAsync(DateTime nowUtc)
@@ -312,7 +311,11 @@ public sealed partial class LocalDataStreamControl
             BusEnvelope envelope,
             CancellationToken cancellationToken)
         {
-            await SaveCommandAsync(context.Protocol, context.RemoteEndPoint, envelope, cancellationToken);
+            await LocalDataStreamStorage.SaveCommandJsonAsync(
+                context.Protocol,
+                context.RemoteEndPoint,
+                JsonSerializer.Serialize(envelope),
+                cancellationToken);
         }
 
         public async Task HandlePayloadAsync(
@@ -322,8 +325,8 @@ public sealed partial class LocalDataStreamControl
             int payloadLength,
             CancellationToken cancellationToken)
         {
-            var payloadPath = BuildCommandPayloadFilePath(context.Protocol, context.RemoteEndPoint);
-            await SavePayloadToFileAsync(payloadReader, payloadLength, payloadPath, cancellationToken);
+            var payloadPath = LocalDataStreamStorage.BuildCommandPayloadFilePath(context.Protocol, context.RemoteEndPoint);
+            await LocalDataStreamStorage.SavePayloadToFileAsync(payloadReader, payloadLength, payloadPath, cancellationToken);
         }
 
         public Task CleanupAsync(DateTime nowUtc)

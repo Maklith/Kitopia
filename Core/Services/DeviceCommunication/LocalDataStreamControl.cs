@@ -1,5 +1,3 @@
-using System.Buffers;
-using System.Buffers.Binary;
 using System.IO.Pipelines;
 using System.Net;
 using Core.Services;
@@ -10,10 +8,6 @@ namespace Core.Services.DeviceCommunication;
 
 public sealed partial class LocalDataStreamControl : ILocalDataStreamControl
 {
-    private const int MultiplexMagic = 0x4B544D58; // KTMX
-    private const byte MultiplexVersion = 1;
-    private const int MultiplexHeaderLength = 5;
-    private const int FrameHeaderLength = 21;
     private const int MaxEnvelopePayloadLength = 1024 * 1024;
 
     private const string RouteFile = "file";
@@ -23,11 +17,6 @@ public sealed partial class LocalDataStreamControl : ILocalDataStreamControl
     private const string FileCommandBegin = "begin";
     private const string FileCommandEnd = "end";
     private const string FileCommandCancel = "cancel";
-    private const string MessageCommandPublish = "publish";
-
-    private const string LegacyStartFileCommand = "start_file";
-    private const string LegacyFinishFileCommand = "finish_file";
-    private const string LegacyCancelFileCommand = "cancel_file";
 
     private static readonly TimeSpan ChannelRouteTtl = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan ChannelCleanupInterval = TimeSpan.FromMinutes(1);
@@ -40,6 +29,8 @@ public sealed partial class LocalDataStreamControl : ILocalDataStreamControl
     private readonly FileRouteHandler _fileRouteHandler;
     private readonly Dictionary<string, IBusRouteHandler> _routeHandlers;
     private DateTime _lastCleanupUtc = DateTime.UtcNow;
+
+    public event EventHandler<LocalDataBusEnvelopeReceivedEventArgs>? EnvelopeReceived;
 
     public LocalDataStreamControl()
     {
@@ -63,29 +54,44 @@ public sealed partial class LocalDataStreamControl : ILocalDataStreamControl
 
         await CleanupStateAsync();
 
-        var streamHeader = await ReadUpToAsync(payloadReader, MultiplexHeaderLength, cancellationToken);
+        var streamHeader = await LocalDataPipeIo.ReadUpToAsync(
+            payloadReader,
+            LocalDataFrameProtocol.MultiplexHeaderLength,
+            cancellationToken);
         if (streamHeader.Length == 0)
         {
             return;
         }
 
-        if (streamHeader.Length < MultiplexHeaderLength || !IsMultiplexStream(streamHeader))
+        if (streamHeader.Length < LocalDataFrameProtocol.MultiplexHeaderLength ||
+            !LocalDataFrameProtocol.IsMultiplexStream(streamHeader))
         {
-            await SaveLegacyPayloadAsync(protocol, remoteEndPoint, streamHeader, payloadReader, cancellationToken);
+            await LocalDataStreamStorage.SaveLegacyPayloadAsync(
+                protocol,
+                remoteEndPoint,
+                streamHeader,
+                payloadReader,
+                cancellationToken);
             return;
         }
 
         while (true)
         {
-            var frameHeader = await ReadExactlyOrEndAsync(payloadReader, FrameHeaderLength, cancellationToken);
+            var frameHeader = await LocalDataPipeIo.ReadExactlyOrEndAsync(
+                payloadReader,
+                LocalDataFrameProtocol.FrameHeaderLength,
+                cancellationToken);
             if (frameHeader is null)
             {
                 break;
             }
 
-            var frameType = (BusFrameType)frameHeader[0];
-            var frameChannelId = new Guid(frameHeader.AsSpan(1, 16));
-            var payloadLength = BinaryPrimitives.ReadInt32BigEndian(frameHeader.AsSpan(17, 4));
+            LocalDataFrameProtocol.ParseFrameHeader(
+                frameHeader,
+                out var frameTypeRaw,
+                out var frameChannelId,
+                out var payloadLength);
+            var frameType = (BusFrameType)frameTypeRaw;
             if (payloadLength < 0)
             {
                 throw new InvalidDataException($"Invalid frame payload length: {payloadLength}.");
@@ -117,31 +123,10 @@ public sealed partial class LocalDataStreamControl : ILocalDataStreamControl
                         protocol,
                         remoteEndPoint,
                         frameType);
-                    await DrainExactlyAsync(payloadReader, payloadLength, cancellationToken);
+                    await LocalDataPipeIo.DrainExactlyAsync(payloadReader, payloadLength, cancellationToken);
                     break;
             }
         }
-    }
-
-    public Task SendMessageAsync(
-        LocalDataSendContext sendContext,
-        string message,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return Task.CompletedTask;
-        }
-
-        var envelope = new BusEnvelope
-        {
-            Route = RouteMessage,
-            Command = MessageCommandPublish,
-            ContentType = "text/plain",
-            Message = message
-        };
-
-        return SendEnvelopePacketAsync(sendContext, Guid.Empty, envelope, cancellationToken);
     }
 
     public Task SendCommandAsync(
@@ -152,6 +137,7 @@ public sealed partial class LocalDataStreamControl : ILocalDataStreamControl
         Guid? channelId = null,
         string? contentType = null,
         string? message = null,
+        string? fileName = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(route);
@@ -164,6 +150,7 @@ public sealed partial class LocalDataStreamControl : ILocalDataStreamControl
             Command = command.Trim(),
             ChannelId = effectiveChannelId == Guid.Empty ? null : effectiveChannelId.ToString("D"),
             ContentType = string.IsNullOrWhiteSpace(contentType) ? "application/json" : contentType,
+            FileName = string.IsNullOrWhiteSpace(fileName) ? null : fileName.Trim(),
             Message = message,
             Metadata = metadata is null ? null : new Dictionary<string, string?>(metadata)
         };
@@ -211,15 +198,19 @@ public sealed partial class LocalDataStreamControl : ILocalDataStreamControl
             throw new InvalidDataException($"Envelope payload is too large: {payloadLength}.");
         }
 
-        var payload = await ReadExactlyAsync(payloadReader, payloadLength, cancellationToken);
-        if (!TryParseEnvelope(payload, out var envelope))
+        var payload = await LocalDataPipeIo.ReadExactlyAsync(payloadReader, payloadLength, cancellationToken);
+        if (!LocalDataBusEnvelopeSerializer.TryDeserialize(
+                payload,
+                static parsed =>
+                    !string.IsNullOrWhiteSpace(parsed.Route) || !string.IsNullOrWhiteSpace(parsed.Command),
+                out BusEnvelope envelope))
         {
             return;
         }
 
         var context = new BusRouteContext(protocol, remoteEndPoint);
-        var channelId = ResolveChannelId(frameChannelId, envelope.ChannelId);
-        var route = ResolveRoute(envelope.Route, envelope.Command);
+        var channelId = LocalDataStreamRouteResolver.ResolveChannelId(frameChannelId, envelope.ChannelId);
+        var route = LocalDataStreamRouteResolver.ResolveRoute(envelope.Route, envelope.Command);
         envelope.Route = route;
         if (channelId != Guid.Empty)
         {
@@ -227,9 +218,11 @@ public sealed partial class LocalDataStreamControl : ILocalDataStreamControl
             SetChannelRoute(context, channelId, route);
         }
 
+        PublishEnvelopeReceived(context, channelId, envelope);
+
         var routeHandler = ResolveRouteHandler(route);
         await routeHandler.HandleEnvelopeAsync(context, channelId, envelope, cancellationToken);
-        if (channelId != Guid.Empty && IsTerminalEnvelope(route, envelope.Command))
+        if (channelId != Guid.Empty && LocalDataStreamRouteResolver.IsTerminalEnvelope(route, envelope.Command))
         {
             RemoveChannelRoute(context, channelId);
         }
@@ -258,5 +251,58 @@ public sealed partial class LocalDataStreamControl : ILocalDataStreamControl
 
         var routeHandler = ResolveRouteHandler(route);
         await routeHandler.HandlePayloadAsync(context, frameChannelId, payloadReader, payloadLength, cancellationToken);
+    }
+
+    private void PublishEnvelopeReceived(
+        BusRouteContext context,
+        Guid channelId,
+        BusEnvelope envelope)
+    {
+        if (string.IsNullOrWhiteSpace(envelope.Route))
+        {
+            return;
+        }
+
+        var normalizedAddress = NormalizeAddress(context.RemoteEndPoint.Address);
+        var snapshotEndPoint = new IPEndPoint(normalizedAddress, context.RemoteEndPoint.Port);
+        var envelopeSnapshot = new LocalDataBusEnvelope
+        {
+            Route = envelope.Route ?? string.Empty,
+            Command = envelope.Command ?? string.Empty,
+            ChannelId = envelope.ChannelId,
+            ContentType = envelope.ContentType,
+            FileName = envelope.FileName,
+            Message = envelope.Message,
+            Metadata = envelope.Metadata is null ? null : new Dictionary<string, string?>(envelope.Metadata)
+        };
+
+        var args = new LocalDataBusEnvelopeReceivedEventArgs(
+            context.Protocol,
+            snapshotEndPoint,
+            channelId,
+            envelopeSnapshot,
+            DateTimeOffset.UtcNow);
+        var handlers = EnvelopeReceived;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (var handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                ((EventHandler<LocalDataBusEnvelopeReceivedEventArgs>)handler).Invoke(this, args);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning(
+                    ex,
+                    "EnvelopeReceived handler failed. Protocol={Protocol}, RemoteEndPoint={RemoteEndPoint}, Route={Route}",
+                    context.Protocol,
+                    snapshotEndPoint,
+                    envelopeSnapshot.Route);
+            }
+        }
     }
 }
