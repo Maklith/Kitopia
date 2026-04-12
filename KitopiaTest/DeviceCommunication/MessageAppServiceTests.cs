@@ -1,12 +1,15 @@
 using System.IO.Pipelines;
 using System.Net;
+using System.Buffers.Binary;
 using System.Text.Json;
 using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Codecs;
+using Core.Services.DeviceCommunication.Handlers;
 using Core.Services.DeviceCommunication.Messages.Chat;
 using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
+using Core.Services.DeviceCommunication.Sessions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace KitopiaTest.DeviceCommunication;
@@ -20,7 +23,12 @@ public sealed class MessageAppServiceTests
         var listener = new FakeLocalDataListener();
         var sender = new ProtocolSender(listener);
         var registry = new MessageCodecRegistry(new IMessageCodec[] { new ChatMessageCodec() });
-        var service = new MessageAppService(registry, sender, new IncomingMessageBuffer());
+        var service = new MessageAppService(
+            registry,
+            sender,
+            new IncomingMessageBuffer(),
+            new ImageTransferPolicy(),
+            new FileTransferSessionStore());
 
         var context = new MessageContext(
             LocalDataTransportProtocol.Tcp,
@@ -31,7 +39,9 @@ public sealed class MessageAppServiceTests
 
         Assert.AreEqual(1, listener.SendCount);
         Assert.IsNotNull(listener.LastPayload);
-        var envelope = JsonSerializer.Deserialize<DataEnvelope>(listener.LastPayload!.Value.Span);
+        var span = listener.LastPayload!.Value.Span;
+        var envelopeLength = BinaryPrimitives.ReadInt32LittleEndian(span.Slice(4, 4));
+        var envelope = JsonSerializer.Deserialize<DataEnvelope>(span.Slice(16, envelopeLength));
         Assert.IsNotNull(envelope);
         Assert.AreEqual("chat", envelope.Route);
         Assert.AreEqual("text", envelope.Command);
@@ -69,7 +79,15 @@ public sealed class MessageAppServiceTests
         public Task SendAsync(LocalDataTransportProtocol protocol, Stream stream, IPEndPoint remoteEndPoint,
             string? remoteIdentityPublicKey = null, CancellationToken token = default)
         {
-            throw new NotSupportedException();
+            _ = protocol;
+            _ = remoteEndPoint;
+            _ = remoteIdentityPublicKey;
+            _ = token;
+            using var memory = new MemoryStream();
+            stream.CopyTo(memory);
+            SendCount++;
+            LastPayload = memory.ToArray();
+            return Task.CompletedTask;
         }
     }
 }

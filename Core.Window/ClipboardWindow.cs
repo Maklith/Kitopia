@@ -1,4 +1,5 @@
-﻿using System.Threading.RateLimiting;
+using System.Collections.Generic;
+using System.Threading.RateLimiting;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -112,6 +113,65 @@ public class ClipboardWindow : IClipboardService
             Logger.Error(e, "设置剪贴板文本时发生错误");
             return false;
         }
+    }
+
+    public bool HasFiles()
+    {
+        bool result = false;
+        var tcs = new TaskCompletionSource<bool>();
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                result = Clipboard.ContainsFileDropList();
+            }
+            catch (Exception)
+            {
+                result = false;
+            }
+            finally
+            {
+                tcs.SetResult(true);
+            }
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        tcs.Task.Wait();
+        return result;
+    }
+
+    public IReadOnlyList<string> GetFiles()
+    {
+        var files = new List<string>();
+        var tcs = new TaskCompletionSource<bool>();
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                if (Clipboard.ContainsFileDropList())
+                {
+                    var list = Clipboard.GetFileDropList();
+                    foreach (string path in list)
+                    {
+                        files.Add(path);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "读取剪贴板文件列表失败");
+            }
+            finally
+            {
+                tcs.SetResult(true);
+            }
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        tcs.Task.Wait();
+        return files;
     }
 
     public bool HasImage()

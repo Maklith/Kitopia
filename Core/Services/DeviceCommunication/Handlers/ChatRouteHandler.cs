@@ -44,6 +44,7 @@ public sealed class ChatRouteHandler : IRouteHandler
             DataStreamType.Text => _incomingMessageSink.PublishAsync(message, cancellationToken),
             DataStreamType.Image => _incomingMessageSink.PublishAsync(message, cancellationToken),
             DataStreamType.File => _incomingMessageSink.PublishAsync(message, cancellationToken),
+            DataStreamType.Control => _incomingMessageSink.PublishAsync(message, cancellationToken),
             _ => ValueTask.FromException(new InvalidOperationException($"Unsupported chat stream type: {envelope.StreamType}"))
         };
     }

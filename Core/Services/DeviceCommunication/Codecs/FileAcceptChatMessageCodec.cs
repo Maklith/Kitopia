@@ -6,15 +6,15 @@ using Core.Services.DeviceCommunication.Routing;
 
 namespace Core.Services.DeviceCommunication.Codecs;
 
-public sealed class FileChatMessageCodec : IMessageCodec
+public sealed class FileAcceptChatMessageCodec : IMessageCodec
 {
     public string Route => "chat";
-    public string Command => "file";
-    public Type MessageType => typeof(FileChatMessage);
+    public string Command => "file.accept";
+    public Type MessageType => typeof(FileAcceptChatMessage);
 
     public bool TryEncode(AppMessage message, out DataEnvelope envelope)
     {
-        if (message is not FileChatMessage fileMessage || string.IsNullOrWhiteSpace(fileMessage.FileName))
+        if (message is not FileAcceptChatMessage accept)
         {
             envelope = new DataEnvelope();
             return false;
@@ -24,16 +24,12 @@ public sealed class FileChatMessageCodec : IMessageCodec
         {
             Route = Route,
             Command = Command,
-            StreamType = DataStreamType.File,
-            ChannelId = fileMessage.ChannelId,
-            Sequence = 0,
-            ContentType = "application/octet-stream",
+            StreamType = DataStreamType.Control,
+            ChannelId = accept.TransferId,
             Metadata = new Dictionary<string, string?>(StringComparer.Ordinal)
             {
-                ["conversationId"] = fileMessage.ConversationId,
-                ["senderId"] = ResolveSenderId(),
-                ["fileName"] = fileMessage.FileName,
-                ["length"] = fileMessage.Length?.ToString()
+                ["conversationId"] = accept.ConversationId,
+                ["senderId"] = ResolveSenderId()
             }
         };
         return true;
@@ -51,24 +47,12 @@ public sealed class FileChatMessageCodec : IMessageCodec
         var conversationId = envelope.Metadata?.TryGetValue("senderId", out var sid) == true && !string.IsNullOrWhiteSpace(sid)
             ? sid
             : (envelope.Metadata?.TryGetValue("conversationId", out var cid) == true ? cid : string.Empty);
-
-        var fileName = envelope.Metadata?.TryGetValue("fileName", out var fileNameValue) == true
-            ? fileNameValue
-            : string.Empty;
-
-        long? length = null;
-        if (envelope.Metadata?.TryGetValue("length", out var lengthValue) == true &&
-            long.TryParse(lengthValue, out var parsedLength))
-        {
-            length = parsedLength;
-        }
-
-        if (string.IsNullOrWhiteSpace(conversationId) || string.IsNullOrWhiteSpace(fileName))
+        if (string.IsNullOrWhiteSpace(conversationId))
         {
             return false;
         }
 
-        message = new FileChatMessage(conversationId!, envelope.ChannelId, fileName!, length);
+        message = new FileAcceptChatMessage(conversationId!, envelope.ChannelId);
         return true;
     }
 

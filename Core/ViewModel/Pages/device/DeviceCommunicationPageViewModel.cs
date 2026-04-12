@@ -12,6 +12,7 @@ using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Messages.Chat;
 using Core.Services.DeviceCommunication.Routing;
+using OpenCvSharp;
 using PluginCore;
 using Serilog;
 using Serilog.Core;
@@ -23,6 +24,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private static readonly ILogger Logger = LogManager.Logger.ForContext<DeviceCommunicationPageViewModel>();
     private readonly IDeviceDiscoveryService _deviceDiscoveryService;
     private readonly IMessageAppService _messageAppService;
+    private readonly IClipboardService _clipboardService;
     private readonly IToastService _toastService;
     private readonly CancellationTokenSource _receiveCancellation = new();
     private readonly Task _receiveTask;
@@ -32,6 +34,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private bool _disposed;
 
     public ObservableCollection<DeviceConversationItem> Conversations { get; } = [];
+    public ObservableCollection<PendingFileOfferItem> PendingFileOffers { get; } = [];
 
     public ObservableCollection<DeviceChatMessageItem> CurrentMessages =>
         SelectedConversation?.Messages ?? _emptyMessages;
@@ -50,10 +53,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     public DeviceCommunicationPageViewModel(
         IDeviceDiscoveryService deviceDiscoveryService,
         IMessageAppService messageAppService,
+        IClipboardService clipboardService,
         IToastService toastService)
     {
         _deviceDiscoveryService = deviceDiscoveryService;
         _messageAppService = messageAppService;
+        _clipboardService = clipboardService;
         _toastService = toastService;
 
         _deviceDiscoveryService.Devices.CollectionChanged += OnDiscoveredDevicesCollectionChanged;
@@ -118,6 +123,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                !string.IsNullOrWhiteSpace(MessageText);
     }
 
+    private bool CanOperateConversation()
+    {
+        return !IsSending && SelectedConversation is not null;
+    }
+
     private async Task SendToConversationAsync(DeviceConversationItem conversation, string text)
     {
         if (string.IsNullOrWhiteSpace(conversation.DeviceId))
@@ -147,19 +157,82 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
     }
 
+    private async Task SendImageToConversationAsync(DeviceConversationItem conversation, ImageChatMessage message,
+        Stream stream)
+    {
+        var protocol = conversation.SupportQuic && conversation.QuicPort > 0
+            ? LocalDataTransportProtocol.Quic
+            : LocalDataTransportProtocol.Tcp;
+        var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
+
+        try
+        {
+            await SendImageCoreAsync(conversation, message, stream, protocol, port);
+        }
+        catch (Exception ex) when (protocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0)
+        {
+            Logger.Warning(ex, "Send image over QUIC failed, fallback to TCP. DeviceId={DeviceId}", conversation.DeviceId);
+            await SendImageCoreAsync(conversation, message, stream, LocalDataTransportProtocol.Tcp, conversation.TcpPort);
+        }
+    }
+
+    private async Task SendFileToConversationAsync(DeviceConversationItem conversation, FileChatMessage message,
+        Stream stream)
+    {
+        var protocol = conversation.SupportQuic && conversation.QuicPort > 0
+            ? LocalDataTransportProtocol.Quic
+            : LocalDataTransportProtocol.Tcp;
+        var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
+
+        try
+        {
+            await SendFileCoreAsync(conversation, message, stream, protocol, port);
+        }
+        catch (Exception ex) when (protocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0)
+        {
+            Logger.Warning(ex, "Send file over QUIC failed, fallback to TCP. DeviceId={DeviceId}", conversation.DeviceId);
+            await SendFileCoreAsync(conversation, message, stream, LocalDataTransportProtocol.Tcp, conversation.TcpPort);
+        }
+    }
+
     private async Task SendMessageCoreAsync(
         DeviceConversationItem conversation,
         string text,
         LocalDataTransportProtocol protocol,
         int port)
     {
-        var remoteEndPoint = new IPEndPoint(conversation.Address, port);
-        var sendContext = new MessageContext(
-            protocol,
-            remoteEndPoint,
-            conversation.DeviceId);
+        var sendContext = BuildContext(conversation, protocol, port);
 
         await _messageAppService.SendTextChatAsync(sendContext, new TextChatMessage(conversation.DeviceId, text));
+    }
+
+    private async Task SendImageCoreAsync(
+        DeviceConversationItem conversation,
+        ImageChatMessage message,
+        Stream stream,
+        LocalDataTransportProtocol protocol,
+        int port)
+    {
+        var sendContext = BuildContext(conversation, protocol, port);
+        await _messageAppService.SendImageChatAsync(sendContext, message, stream);
+    }
+
+    private async Task SendFileCoreAsync(
+        DeviceConversationItem conversation,
+        FileChatMessage message,
+        Stream stream,
+        LocalDataTransportProtocol protocol,
+        int port)
+    {
+        var sendContext = BuildContext(conversation, protocol, port);
+        await _messageAppService.SendFileChatAsync(sendContext, message, stream);
+    }
+
+    private static MessageContext BuildContext(DeviceConversationItem conversation, LocalDataTransportProtocol protocol,
+        int port)
+    {
+        var remoteEndPoint = new IPEndPoint(conversation.Address, port);
+        return new MessageContext(protocol, remoteEndPoint, conversation.DeviceId);
     }
 
     private async Task RunReceiveLoopAsync(CancellationToken token)
@@ -168,12 +241,18 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         {
             await foreach (var evt in _messageAppService.ReceiveAsync(token))
             {
-                if (evt.Message is not TextChatMessage chatMessage)
+                switch (evt.Message)
                 {
-                    continue;
+                    case TextChatMessage chatMessage:
+                        OnChatMessageReceived(chatMessage, DateTimeOffset.UtcNow);
+                        break;
+                    case ImageChatMessage imageMessage:
+                        OnImageMessageReceived(imageMessage, DateTimeOffset.UtcNow);
+                        break;
+                    case FileOfferChatMessage offerMessage:
+                        OnFileOfferReceived(offerMessage);
+                        break;
                 }
-
-                OnChatMessageReceived(chatMessage, DateTimeOffset.UtcNow);
             }
         }
         catch (OperationCanceledException)
@@ -182,6 +261,139 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         catch (Exception ex)
         {
             Logger.Warning(ex, "Message receive loop failed.");
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanOperateConversation))]
+    private async Task PasteSendAsync()
+    {
+        var conversation = SelectedConversation;
+        if (conversation is null)
+        {
+            return;
+        }
+
+        var errors = new List<string>();
+
+        if (_clipboardService.HasText())
+        {
+            var text = _clipboardService.GetText()?.Trim();
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                try
+                {
+                    await SendToConversationAsync(conversation, text);
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"text:{ex.Message}");
+                }
+            }
+        }
+
+        if (_clipboardService.HasImage())
+        {
+            try
+            {
+                using var image = _clipboardService.GetImage();
+                if (image is not null && !image.Empty())
+                {
+                    Cv2.ImEncode(".png", image, out var imageBytes);
+                    await using var imageStream = new MemoryStream(imageBytes, writable: false);
+                    var imageMessage = new ImageChatMessage(conversation.DeviceId, Guid.NewGuid(), imageBytes.LongLength,
+                        "image/png", false);
+                    await SendImageToConversationAsync(conversation, imageMessage, imageStream);
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"image:{ex.Message}");
+            }
+        }
+
+        if (_clipboardService.HasFiles())
+        {
+            foreach (var filePath in _clipboardService.GetFiles())
+            {
+                try
+                {
+                    if (!File.Exists(filePath))
+                    {
+                        continue;
+                    }
+
+                    var fileInfo = new FileInfo(filePath);
+                    await using var fileStream = File.OpenRead(filePath);
+                    var fileMessage = new FileChatMessage(
+                        conversation.DeviceId,
+                        Guid.NewGuid(),
+                        fileInfo.Name,
+                        fileInfo.Length);
+                    await SendFileToConversationAsync(conversation, fileMessage, fileStream);
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"file:{Path.GetFileName(filePath)}:{ex.Message}");
+                }
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            _toastService.Show("Device Chat", $"Paste send partial failed: {string.Join(";", errors)}",
+                NotificationType.Warning);
+        }
+    }
+
+    [RelayCommand]
+    private async Task AcceptFileOfferAsync(PendingFileOfferItem? offer)
+    {
+        if (offer is null)
+        {
+            return;
+        }
+
+        var conversation = Conversations.FirstOrDefault(c => c.DeviceId == offer.SenderId);
+        if (conversation is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var context = BuildContext(conversation, offer.Protocol, offer.Port);
+            await _messageAppService.AcceptFileAsync(context, offer.TransferId, offer.SavePath);
+            PendingFileOffers.Remove(offer);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show("Device Chat", $"Accept failed: {ex.Message}", NotificationType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task RejectFileOfferAsync(PendingFileOfferItem? offer)
+    {
+        if (offer is null)
+        {
+            return;
+        }
+
+        var conversation = Conversations.FirstOrDefault(c => c.DeviceId == offer.SenderId);
+        if (conversation is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var context = BuildContext(conversation, offer.Protocol, offer.Port);
+            await _messageAppService.RejectFileAsync(context, offer.TransferId, "rejected_by_user");
+            PendingFileOffers.Remove(offer);
+        }
+        catch (Exception ex)
+        {
+            _toastService.Show("Device Chat", $"Reject failed: {ex.Message}", NotificationType.Error);
         }
     }
 
@@ -262,6 +474,60 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
 
             SortConversations();
+        });
+    }
+
+    private void OnImageMessageReceived(ImageChatMessage message, DateTimeOffset timestampUtc)
+    {
+        var text = $"[Image] {Math.Max(1, message.SizeBytes / 1024)} KB";
+        OnChatMessageReceived(new TextChatMessage(message.ConversationId, text), timestampUtc);
+    }
+
+    private void OnFileOfferReceived(FileOfferChatMessage message)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            var senderId = message.ConversationId;
+            if (!_conversationLookup.TryGetValue(senderId, out var conversation))
+            {
+                conversation = Conversations.FirstOrDefault(c => c.DeviceId == senderId);
+            }
+
+            if (conversation is null)
+            {
+                Logger.Debug("Drop file offer because sender is unknown. SenderId={SenderId}", senderId);
+                return;
+            }
+
+            var protocol = conversation.SupportQuic && conversation.QuicPort > 0
+                ? LocalDataTransportProtocol.Quic
+                : LocalDataTransportProtocol.Tcp;
+            var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
+
+            PendingFileOffers.Add(new PendingFileOfferItem
+            {
+                TransferId = message.TransferId,
+                SenderId = senderId,
+                FileName = message.FileName,
+                SizeBytes = message.SizeBytes,
+                SavePath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                    message.FileName),
+                Protocol = protocol,
+                Port = port
+            });
+
+            _toastService.Show("Device Chat", $"Incoming file: {message.FileName}", NotificationType.Information);
         });
     }
 
@@ -368,6 +634,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         OnPropertyChanged(nameof(CurrentConversationTitle));
         OnPropertyChanged(nameof(CurrentConversationSubtitle));
         SendMessageCommand.NotifyCanExecuteChanged();
+        PasteSendCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnMessageTextChanged(string value)
@@ -378,6 +645,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     partial void OnIsSendingChanged(bool value)
     {
         SendMessageCommand.NotifyCanExecuteChanged();
+        PasteSendCommand.NotifyCanExecuteChanged();
     }
 
     public void Dispose()
@@ -398,6 +666,30 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         _trackedDevices.Clear();
         _receiveCancellation.Dispose();
     }
+}
+
+public partial class PendingFileOfferItem : ObservableObject
+{
+    [ObservableProperty]
+    private Guid _transferId;
+
+    [ObservableProperty]
+    private string _senderId = string.Empty;
+
+    [ObservableProperty]
+    private string _fileName = string.Empty;
+
+    [ObservableProperty]
+    private long _sizeBytes;
+
+    [ObservableProperty]
+    private string _savePath = string.Empty;
+
+    [ObservableProperty]
+    private LocalDataTransportProtocol _protocol;
+
+    [ObservableProperty]
+    private int _port;
 }
 
 public partial class DeviceConversationItem : ObservableObject

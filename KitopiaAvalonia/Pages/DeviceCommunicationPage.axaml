@@ -105,7 +105,7 @@
                 BorderThickness="1"
                 CornerRadius="12"
                 Padding="12">
-            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
+            <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="10">
                 <Border Padding="10"
                         CornerRadius="10"
                         Background="{StaticResource ConversationCardBrush}">
@@ -184,16 +184,17 @@
                         Background="{StaticResource ConversationCardBrush}"
                         CornerRadius="10"
                         Padding="10">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                         <TextBox Text="{Binding MessageText}"
-                                 Watermark="Type a message..."
-                                 AcceptsReturn="False"
-                                 TextWrapping="Wrap"
-                                 MinHeight="42"
-                                 VerticalAlignment="Stretch"
-                                 IsEnabled="{Binding HasConversationSelected}">
+                                  Watermark="Type a message..."
+                                  AcceptsReturn="False"
+                                  TextWrapping="Wrap"
+                                  MinHeight="42"
+                                  VerticalAlignment="Stretch"
+                                  IsEnabled="{Binding HasConversationSelected}">
                             <TextBox.KeyBindings>
                                 <KeyBinding Gesture="Enter" Command="{Binding SendMessageCommand}" />
+                                <KeyBinding Gesture="Ctrl+V" Command="{Binding PasteSendCommand}" />
                             </TextBox.KeyBindings>
                         </TextBox>
                         <Button Grid.Column="1"
@@ -203,7 +204,38 @@
                                 VerticalAlignment="Bottom"
                                 Command="{Binding SendMessageCommand}"
                                 IsEnabled="{Binding HasConversationSelected}" />
+                        <Button Grid.Column="2"
+                                Content="Paste Send"
+                                MinWidth="96"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Command="{Binding PasteSendCommand}"
+                                IsEnabled="{Binding HasConversationSelected}" />
                     </Grid>
+                </Border>
+
+                <Border Grid.Row="3"
+                        Background="{StaticResource ConversationCardBrush}"
+                        CornerRadius="10"
+                        Padding="10">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Incoming File Offers" FontWeight="SemiBold" />
+                        <ItemsControl ItemsSource="{Binding PendingFileOffers}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PendingFileOfferItem">
+                                    <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" CornerRadius="8" Padding="8">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
+                                            <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" />
+                                            <TextBlock Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding SizeBytes}" />
+                                            <TextBox Grid.Row="1" Watermark="Save path" Text="{Binding SavePath}" />
+                                            <Button Grid.Row="1" Grid.Column="1" Content="Accept" Command="{Binding $parent[UserControl].DataContext.AcceptFileOfferCommand}" CommandParameter="{Binding .}" />
+                                            <Button Grid.Row="1" Grid.Column="2" Content="Reject" Command="{Binding $parent[UserControl].DataContext.RejectFileOfferCommand}" CommandParameter="{Binding .}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
                 </Border>
             </Grid>
         </Border>

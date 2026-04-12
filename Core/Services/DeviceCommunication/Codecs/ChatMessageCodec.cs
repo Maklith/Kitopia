@@ -62,8 +62,15 @@ public sealed class ChatMessageCodec : IMessageCodec
 
     private static string ResolveSenderId()
     {
-        return DeviceDiscoverySignature.TryDerivePublicKey(ConfigManger.Config.devicePrivateKey, out var publicKey)
-            ? publicKey
-            : string.Empty;
+        try
+        {
+            return DeviceDiscoverySignature.TryDerivePublicKey(ConfigManger.Config.devicePrivateKey, out var publicKey)
+                ? publicKey
+                : string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 }
