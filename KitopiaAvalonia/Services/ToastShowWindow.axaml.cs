@@ -1,6 +1,7 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Vanara.PInvoke;
 
@@ -65,6 +66,25 @@ public partial class ToastShowWindow : Window
         {
             Reposition();
             ScrollToLatest();
+        }
+    }
+
+    private void ToastCard_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not StyledElement element || element.DataContext is not ToastItemViewModel toastItem)
+        {
+            return;
+        }
+
+        if (e.Source is Button)
+        {
+            return;
+        }
+
+        if (toastItem.ClickCommand is not null && toastItem.ClickCommand.CanExecute(null))
+        {
+            toastItem.ClickCommand.Execute(null);
+            e.Handled = true;
         }
     }
 }

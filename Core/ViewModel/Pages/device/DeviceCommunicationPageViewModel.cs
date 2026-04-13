@@ -1047,6 +1047,18 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             SelectedConversation = Conversations[0];
         }
 
+        var requestedConversationId = _messageAppService.GetRequestedConversationId();
+        if (!string.IsNullOrWhiteSpace(requestedConversationId))
+        {
+            var requestedConversation = Conversations.FirstOrDefault(item =>
+                string.Equals(item.DeviceId, requestedConversationId, StringComparison.Ordinal));
+            if (requestedConversation is not null)
+            {
+                SelectedConversation = requestedConversation;
+                _messageAppService.ClearRequestedConversationId();
+            }
+        }
+
         OnPropertyChanged(nameof(CurrentConversationTitle));
         OnPropertyChanged(nameof(CurrentConversationSubtitle));
         OnPropertyChanged(nameof(HasConversations));

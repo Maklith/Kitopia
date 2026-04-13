@@ -14,7 +14,6 @@ using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
 using Core.Services.DeviceCommunication.Sessions;
-using Core.Services.Interfaces;
 using Core.ViewModel.Main;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -34,6 +33,7 @@ public sealed class MessageAppService : IMessageAppService {
     private bool _isMainWindowActive;
     private bool _isDeviceChatPageOpen;
     private string? _selectedConversationId;
+    private string? _requestedConversationId;
 
     public MessageAppService(
         MessageCodecRegistry codecRegistry,
@@ -189,6 +189,28 @@ public sealed class MessageAppService : IMessageAppService {
         return IncomingMessageDisplayMode.NotifyByToast;
     }
 
+    public void RequestOpenConversation(string conversationId) {
+        if (string.IsNullOrWhiteSpace(conversationId)) {
+            return;
+        }
+
+        lock (_stateSync) {
+            _requestedConversationId = conversationId;
+        }
+    }
+
+    public string? GetRequestedConversationId() {
+        lock (_stateSync) {
+            return _requestedConversationId;
+        }
+    }
+
+    public void ClearRequestedConversationId() {
+        lock (_stateSync) {
+            _requestedConversationId = null;
+        }
+    }
+
     private async Task ProcessIncomingMessagesAsync() {
         await foreach (var messageEvent in _incomingMessageBuffer.ReceiveAsync()) {
             var transformedEvent = await TransformIncomingEventAsync(messageEvent);
@@ -225,19 +247,19 @@ public sealed class MessageAppService : IMessageAppService {
             case TextChatMessage textMessage: {
                 var text = textMessage.Text.Trim();
                 if (!string.IsNullOrWhiteSpace(text)) {
-                    ShowDeviceChatToast(displayName, text);
+                    ShowDeviceChatToast(conversationId, displayName, text);
                 }
 
                 break;
             }
             case ImageChatMessage:
-                ShowDeviceChatToast(displayName, "[图片]");
+                ShowDeviceChatToast(conversationId, displayName, "[图片]");
                 break;
             case FileOfferChatMessage fileOffer:
-                ShowDeviceChatToast(displayName, $"文件: {fileOffer.FileName}");
+                ShowDeviceChatToast(conversationId, displayName, $"文件: {fileOffer.FileName}");
                 break;
             case FileRejectChatMessage fileReject:
-                ShowDeviceChatToast(displayName, ResolveRejectToastText(fileReject.Reason));
+                ShowDeviceChatToast(conversationId, displayName, ResolveRejectToastText(fileReject.Reason));
                 break;
         }
 
@@ -252,27 +274,24 @@ public sealed class MessageAppService : IMessageAppService {
         };
     }
 
-    private void ShowDeviceChatToast(string displayName, string text) {
+    private void ShowDeviceChatToast(string conversationId, string displayName, string text) {
         _toastService.Show(new ToastRequest {
             Header = $"设备聊天:{displayName}",
             Text = text,
-            Actions = [
-                new ToastAction {
-                    Text = "打开聊天",
-                    IsPrimary = true,
-                    Callback = () => {
-                        WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs("DeviceChat"));
-                        if (Avalonia.Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-                        {
-                            desktop.MainWindow!.Show();
-                            desktop.MainWindow.WindowState = WindowState.Normal;
-                            ServiceManager.Services.GetService<IWindowTool>()
-                                .SetForegroundWindow(desktop.MainWindow.TryGetPlatformHandle().Handle);
-                        }
-                    }
-                }
-            ]
+            ClickCallback = () => OpenConversationFromToast(conversationId)
         });
+    }
+
+    private void OpenConversationFromToast(string conversationId) {
+        RequestOpenConversation(conversationId);
+        WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs("DeviceChat"));
+        if (Avalonia.Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.MainWindow!.Show();
+            desktop.MainWindow.WindowState = WindowState.Normal;
+            ServiceManager.Services.GetService<IWindowTool>()!
+                .SetForegroundWindow(desktop.MainWindow.TryGetPlatformHandle()!.Handle);
+        }
     }
 
     private string ResolveConversationDisplayName(string conversationId) {

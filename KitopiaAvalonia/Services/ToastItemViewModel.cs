@@ -19,7 +19,8 @@ internal sealed class ToastItemViewModel : ObservableObject
     private bool _showCloseButton;
 
     public ToastItemViewModel(Guid id, string header, string text, NotificationType notificationType, bool showCloseButton,
-        bool showProgressBar, bool isProgressIndeterminate, double? progressValue, Action closeAction)
+        bool showProgressBar, bool isProgressIndeterminate, double? progressValue, Action closeAction,
+        Action? clickAction = null)
     {
         Id = id;
         _header = header;
@@ -30,6 +31,7 @@ internal sealed class ToastItemViewModel : ObservableObject
         _isProgressIndeterminate = isProgressIndeterminate;
         _progressValue = progressValue;
         CloseCommand = new RelayCommand(closeAction);
+        ClickCommand = clickAction is null ? null : new RelayCommand(clickAction);
         Actions.CollectionChanged += OnActionsCollectionChanged;
     }
 
@@ -40,6 +42,8 @@ internal sealed class ToastItemViewModel : ObservableObject
     public bool HasActions => Actions.Count > 0;
 
     public IRelayCommand CloseCommand { get; }
+
+    public IRelayCommand? ClickCommand { get; }
 
     public string Header
     {

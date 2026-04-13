@@ -137,7 +137,10 @@ public class ToastService : IToastService
         var toastId = Guid.NewGuid();
         var toastItem = new ToastItemViewModel(toastId, request.Header, request.Text, request.NotificationType,
             request.ShowCloseButton, request.ShowProgressBar, request.IsProgressIndeterminate, request.ProgressValue,
-            () => RemoveToast(toastId));
+            () => RemoveToast(toastId),
+            request.ClickCallback is null
+                ? null
+                : () => ExecuteToastClick(toastId, request.ClickCallback, request.CloseOnClick));
 
         if (request.Actions is not null)
         {
@@ -168,6 +171,23 @@ public class ToastService : IToastService
         }
 
         if (action.CloseOnClick)
+        {
+            RemoveToast(toastId);
+        }
+    }
+
+    private void ExecuteToastClick(Guid toastId, Action? clickCallback, bool closeOnClick)
+    {
+        try
+        {
+            clickCallback?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, $"执行Toast点击动作失败, toastId: {toastId}");
+        }
+
+        if (closeOnClick)
         {
             RemoveToast(toastId);
         }

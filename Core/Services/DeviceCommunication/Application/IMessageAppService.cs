@@ -21,6 +21,9 @@ public interface IMessageAppService
     ValueTask SendClipboardTextAsync(MessageContext context, TextClipboardMessage message, CancellationToken cancellationToken = default);
     IAsyncEnumerable<IncomingMessageEvent> ReceiveAsync(CancellationToken cancellationToken = default);
     void UpdateDisplayContext(bool isMainWindowActive, bool isDeviceChatPageOpen, string? selectedConversationId);
+    void RequestOpenConversation(string conversationId);
+    string? GetRequestedConversationId();
+    void ClearRequestedConversationId();
     IncomingMessageDisplayMode ResolveIncomingDisplayMode(string conversationId);
     IncomingMessageDisplayMode ResolveIncomingDisplayMode(
         bool isMainWindowActive,

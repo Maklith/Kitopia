@@ -123,8 +123,9 @@
                                                 Classes.warning="{Binding IsWarning}"
                                                 Classes.error="{Binding IsError}">
                             <Border Margin="{DynamicResource ToastCardMargin}"
-                                    Background="{DynamicResource ToastCardBackground}"
-                                    CornerRadius="{DynamicResource ToastCardCornerRadius}">
+                                     Background="{DynamicResource ToastCardBackground}"
+                                     CornerRadius="{DynamicResource ToastCardCornerRadius}"
+                                     PointerPressed="ToastCard_OnPointerPressed">
                                 <Border BorderBrush="{DynamicResource SemiColorBorder}"
                                         BorderThickness="{DynamicResource ToastCardBorderThickness}"
                                         MinHeight="{DynamicResource ToastCardMinHeight}"

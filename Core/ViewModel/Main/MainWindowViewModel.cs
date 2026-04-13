@@ -100,6 +100,7 @@ public partial class MainWindowViewModel : ObservableRecipient
                 isMainWindowActive: true,
                 isDeviceChatPageOpen: string.Equals(message.Key, "DeviceChat", StringComparison.Ordinal),
                 selectedConversationId: null);
+
         }
         catch
         {
