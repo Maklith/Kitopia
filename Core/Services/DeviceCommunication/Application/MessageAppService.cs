@@ -2,6 +2,9 @@ using System.IO;
 using System.Linq;
 using System.Collections.ObjectModel;
 using System.Threading.Channels;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using CommunityToolkit.Mvvm.Messaging;
 using Core.Services.DeviceCommunication.Codecs;
 using Core.Services.DeviceCommunication.Handlers;
 using Core.Services.DeviceCommunication.Messages;
@@ -11,6 +14,9 @@ using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
 using Core.Services.DeviceCommunication.Sessions;
+using Core.Services.Interfaces;
+using Core.ViewModel.Main;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
 namespace Core.Services.DeviceCommunication.Application;
@@ -144,8 +150,8 @@ public sealed class MessageAppService : IMessageAppService {
         string? selectedConversationId) {
         lock (_stateSync) {
             _isMainWindowActive = isMainWindowActive;
-            _isDeviceChatPageOpen = isDeviceChatPageOpen;
-            _selectedConversationId = string.IsNullOrWhiteSpace(selectedConversationId)
+            _isDeviceChatPageOpen = isMainWindowActive && isDeviceChatPageOpen;
+            _selectedConversationId = !_isDeviceChatPageOpen || string.IsNullOrWhiteSpace(selectedConversationId)
                 ? null
                 : selectedConversationId;
         }
@@ -219,20 +225,54 @@ public sealed class MessageAppService : IMessageAppService {
             case TextChatMessage textMessage: {
                 var text = textMessage.Text.Trim();
                 if (!string.IsNullOrWhiteSpace(text)) {
-                    _toastService.Show($"设备聊天:{displayName}", text);
+                    ShowDeviceChatToast(displayName, text);
                 }
 
                 break;
             }
             case ImageChatMessage:
-                _toastService.Show($"设备聊天:{displayName}", $"[图片]");
+                ShowDeviceChatToast(displayName, "[图片]");
                 break;
             case FileOfferChatMessage fileOffer:
-                _toastService.Show($"设备聊天:{displayName}", $"文件: {fileOffer.FileName}");
+                ShowDeviceChatToast(displayName, $"文件: {fileOffer.FileName}");
+                break;
+            case FileRejectChatMessage fileReject:
+                ShowDeviceChatToast(displayName, ResolveRejectToastText(fileReject.Reason));
                 break;
         }
 
         return Task.CompletedTask;
+    }
+
+    private static string ResolveRejectToastText(string? reason) {
+        return reason switch {
+            "rejected_by_peer" or "rejected_by_user" => "对方已拒绝接收文件",
+            "timeout" => "文件发送超时，请稍后重试",
+            _ => "文件发送失败"
+        };
+    }
+
+    private void ShowDeviceChatToast(string displayName, string text) {
+        _toastService.Show(new ToastRequest {
+            Header = $"设备聊天:{displayName}",
+            Text = text,
+            Actions = [
+                new ToastAction {
+                    Text = "打开聊天",
+                    IsPrimary = true,
+                    Callback = () => {
+                        WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs("DeviceChat"));
+                        if (Avalonia.Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                        {
+                            desktop.MainWindow!.Show();
+                            desktop.MainWindow.WindowState = WindowState.Normal;
+                            ServiceManager.Services.GetService<IWindowTool>()
+                                .SetForegroundWindow(desktop.MainWindow.TryGetPlatformHandle().Handle);
+                        }
+                    }
+                }
+            ]
+        });
     }
 
     private string ResolveConversationDisplayName(string conversationId) {
@@ -296,22 +336,27 @@ public sealed class MessageAppService : IMessageAppService {
         try {
             await SendCoreAsync(context, offer, cancellationToken);
 
-            var accepted = await _incomingMessageBuffer.WaitForDecisionAsync(
+            var decision = await _incomingMessageBuffer.WaitForDecisionAsync(
                 transferId,
                 TimeSpan.FromSeconds(30),
                 cancellationToken);
 
-            if (!accepted) {
+            if (decision != TransferDecision.Accepted) {
                 _fileTransferSessionStore.TryUpdateState(transferId, FileTransferState.Offered,
                     FileTransferState.Rejected);
-                await _incomingMessageBuffer.PublishEventAsync(
-                    new IncomingMessageEvent(
-                        new FileRejectChatMessage(conversationId, transferId, "timeout_or_rejected"),
-                        IncomingMessageEventType.TransferTimeout,
-                        transferId,
-                        Reason: "timeout_or_rejected"),
-                    cancellationToken);
-                throw new InvalidOperationException("Transfer rejected or timed out.");
+
+                if (decision == TransferDecision.Timeout) {
+                    await _incomingMessageBuffer.PublishEventAsync(
+                        new IncomingMessageEvent(
+                            new FileRejectChatMessage(conversationId, transferId, "timeout"),
+                            IncomingMessageEventType.TransferTimeout,
+                            transferId,
+                            Reason: "timeout"),
+                        cancellationToken);
+                    throw new InvalidOperationException("文件发送超时，请稍后重试。");
+                }
+
+                throw new InvalidOperationException("对方已拒绝接收文件。");
             }
 
             _fileTransferSessionStore.TryUpdateState(transferId, FileTransferState.Offered, FileTransferState.Accepted);

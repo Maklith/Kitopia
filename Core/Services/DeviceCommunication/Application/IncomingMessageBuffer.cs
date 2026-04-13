@@ -4,11 +4,19 @@ using Core.Services.DeviceCommunication.Messages.Chat;
 
 namespace Core.Services.DeviceCommunication.Application;
 
+public enum TransferDecision
+{
+    Accepted = 1,
+    Rejected = 2,
+    Timeout = 3
+}
+
 public sealed class IncomingMessageBuffer : IIncomingMessageSink
 {
     private readonly Channel<IncomingMessageEvent> _channel = Channel.CreateBounded<IncomingMessageEvent>(1024);
     private readonly object _sync = new();
-    private readonly Dictionary<Guid, TaskCompletionSource<bool>> _transferDecisions = new();
+    private readonly Dictionary<Guid, TaskCompletionSource<TransferDecision>> _transferDecisions = new();
+    private readonly Dictionary<Guid, TransferDecision> _pendingTransferDecisions = new();
 
     public ValueTask PublishAsync(AppMessage message, CancellationToken cancellationToken = default)
     {
@@ -27,9 +35,18 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
         return _channel.Reader.ReadAllAsync(cancellationToken);
     }
 
-    public Task<bool> WaitForDecisionAsync(Guid transferId, TimeSpan timeout, CancellationToken cancellationToken = default)
+    public Task<TransferDecision> WaitForDecisionAsync(Guid transferId, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
-        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_sync)
+        {
+            if (_pendingTransferDecisions.TryGetValue(transferId, out var pendingDecision))
+            {
+                _pendingTransferDecisions.Remove(transferId);
+                return Task.FromResult(pendingDecision);
+            }
+        }
+
+        var completion = new TaskCompletionSource<TransferDecision>(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_sync)
         {
             _transferDecisions[transferId] = completion;
@@ -38,9 +55,9 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
         return WaitCoreAsync(transferId, completion, timeout, cancellationToken);
     }
 
-    private async Task<bool> WaitCoreAsync(
+    private async Task<TransferDecision> WaitCoreAsync(
         Guid transferId,
-        TaskCompletionSource<bool> completion,
+        TaskCompletionSource<TransferDecision> completion,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
@@ -49,7 +66,7 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
             var completed = await Task.WhenAny(completion.Task, Task.Delay(timeout, cancellationToken));
             if (completed != completion.Task)
             {
-                return false;
+                return TransferDecision.Timeout;
             }
 
             return await completion.Task;
@@ -66,17 +83,17 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
     private void TrackTransferDecision(AppMessage message)
     {
         Guid transferId;
-        bool accepted;
+        TransferDecision decision;
 
         switch (message)
         {
             case FileAcceptChatMessage fileAccept:
                 transferId = fileAccept.TransferId;
-                accepted = true;
+                decision = TransferDecision.Accepted;
                 break;
             case FileRejectChatMessage fileReject:
                 transferId = fileReject.TransferId;
-                accepted = false;
+                decision = TransferDecision.Rejected;
                 break;
             default:
                 return;
@@ -86,8 +103,11 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
         {
             if (_transferDecisions.TryGetValue(transferId, out var waiter))
             {
-                waiter.TrySetResult(accepted);
+                waiter.TrySetResult(decision);
+                return;
             }
+
+            _pendingTransferDecisions[transferId] = decision;
         }
     }
 }

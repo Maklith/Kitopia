@@ -34,9 +34,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private readonly CancellationTokenSource _receiveCancellation = new();
     private readonly Task _receiveTask;
     private readonly DispatcherTimer _displayContextSyncTimer;
+    private readonly DispatcherTimer _messageListAutoScrollTimer;
     private readonly Dictionary<string, DeviceConversationItem> _conversationLookup = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DeviceModel> _trackedDevices = new(StringComparer.Ordinal);
     private readonly ObservableCollection<DeviceChatMessageItem> _emptyMessages = [];
+    private int _messageListVersion;
     private bool _disposed;
 
     public ObservableCollection<DeviceConversationItem> Conversations { get; } = [];
@@ -55,6 +57,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     public bool HasConversations => Conversations.Count > 0;
     public bool HasNoConversations => !HasConversations;
 
+    public int MessageListVersion
+    {
+        get => _messageListVersion;
+        private set => SetProperty(ref _messageListVersion, value);
+    }
+
     public DeviceCommunicationPageViewModel(
         IDeviceDiscoveryService deviceDiscoveryService,
         IMessageAppService messageAppService,
@@ -70,6 +78,15 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             Interval = TimeSpan.FromMilliseconds(300)
         };
         _displayContextSyncTimer.Tick += (_, _) => SyncDisplayContext();
+        _messageListAutoScrollTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(120)
+        };
+        _messageListAutoScrollTimer.Tick += (_, _) =>
+        {
+            _messageListAutoScrollTimer.Stop();
+            MessageListVersion++;
+        };
 
         _deviceDiscoveryService.Devices.CollectionChanged += OnDiscoveredDevicesCollectionChanged;
         _receiveTask = RunReceiveLoopAsync(_receiveCancellation.Token);
@@ -200,7 +217,10 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         {
             await SendFileCoreAsync(conversation, message, stream, protocol, port);
         }
-        catch (Exception ex) when (protocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0)
+        catch (Exception ex) when (
+            protocol == LocalDataTransportProtocol.Quic &&
+            conversation.TcpPort > 0 &&
+            ex is not InvalidOperationException)
         {
             Logger.Warning(ex, "Send file over QUIC failed, fallback to TCP. DeviceId={DeviceId}", conversation.DeviceId);
             await SendFileCoreAsync(conversation, message, stream, LocalDataTransportProtocol.Tcp, conversation.TcpPort);
@@ -326,7 +346,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     var imageBubble = DeviceChatMessageItem.CreateImage(imageBytes, isOutgoing: true, DateTimeOffset.Now);
                     imageBubble.IsPending = true;
                     conversation.Messages.Add(imageBubble);
-                    conversation.SetLastMessage("[Image]", imageBubble.Timestamp);
+                    conversation.SetLastMessage("[图片]", imageBubble.Timestamp);
                     SortConversations();
 
                     await using var imageStream = new MemoryStream(imageBytes, writable: false);
@@ -376,7 +396,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     fileBubble.ReceiveProgress = 0d;
                     fileBubble.IsPending = true;
                     conversation.Messages.Add(fileBubble);
-                    conversation.SetLastMessage($"[File] {fileInfo.Name}", fileBubble.Timestamp);
+                    conversation.SetLastMessage($"[文件] {fileInfo.Name}", fileBubble.Timestamp);
                     SortConversations();
 
                     await using var fileStream = File.OpenRead(filePath);
@@ -398,7 +418,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"file:{Path.GetFileName(filePath)}:{ex.Message}");
+                    if (ex is not InvalidOperationException ||
+                        (ex.Message != "对方已拒绝接收文件。" && ex.Message != "文件发送超时，请稍后重试。"))
+                    {
+                        errors.Add($"file:{Path.GetFileName(filePath)}:{ex.Message}");
+                    }
                 }
             }
         }
@@ -439,8 +463,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             offer.IsHandled = true;
             offer.IsReceiving = true;
             offer.ReceiveProgress = 0d;
-            offer.Text = $"[File] Receiving {offer.FileName}";
-            conversation.SetLastMessage($"[File] {offer.FileName}", DateTimeOffset.Now);
+            offer.Text = $"[文件] 接收中 {offer.FileName}";
+            conversation.SetLastMessage($"[文件] {offer.FileName}", DateTimeOffset.Now);
             SortConversations();
         }
         catch (Exception ex)
@@ -470,8 +494,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 offer,
                 async context => await _messageAppService.RejectFileAsync(context, offer.TransferId, "rejected_by_user"));
             offer.IsHandled = true;
-            offer.Text = $"[File] Rejected {offer.FileName}";
-            conversation.SetLastMessage($"[File] {offer.FileName}", DateTimeOffset.Now);
+            offer.Text = $"[文件] 拒绝 {offer.FileName}";
+            conversation.SetLastMessage($"[文件] {offer.FileName}", DateTimeOffset.Now);
             SortConversations();
         }
         catch (Exception ex)
@@ -557,6 +581,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
 
             SortConversations();
+            RequestMessageListAutoScroll();
         });
     }
 
@@ -590,11 +615,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             var imageItem = DeviceChatMessageItem.CreateImage(payloadBytes, isOutgoing: false, timestamp);
             if (imageItem.ImagePreview is null)
             {
-                imageItem.Text = $"[Image] {DeviceChatMessageItem.FormatFileSizeLabel(message.SizeBytes)}";
+                imageItem.Text = $"[图片] {DeviceChatMessageItem.FormatFileSizeLabel(message.SizeBytes)}";
             }
 
             conversation.Messages.Add(imageItem);
-            conversation.SetLastMessage("[Image]", timestamp);
+            conversation.SetLastMessage("[图片]", timestamp);
 
             if (!IsForegroundCurrentConversation(conversation))
             {
@@ -606,6 +631,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
 
             SortConversations();
+            RequestMessageListAutoScroll();
         });
     }
 
@@ -651,13 +677,14 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 timestamp);
             offerMessage.TrackingTransferId = message.TransferId;
             conversation.Messages.Add(offerMessage);
-            conversation.SetLastMessage($"[File] {message.FileName}", timestamp);
+            conversation.SetLastMessage($"[文件] {message.FileName}", timestamp);
 
             if (!IsForegroundCurrentConversation(conversation))
             {
                 conversation.UnreadCount++;
             }
             SortConversations();
+            RequestMessageListAutoScroll();
         });
     }
 
@@ -693,7 +720,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 offerItem.ReceiveProgress = 1d;
                 offerItem.IsReceiving = false;
                 offerItem.ResetTransferSpeed();
-                offerItem.Text = $"[File] Received {offerItem.FileName}";
+                offerItem.Text = $"[文件] Received {offerItem.FileName}";
                 offerItem.IsHandled = true;
                 offerItem.IsPending = false;
             }
@@ -712,8 +739,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
 
             var timestamp = timestampUtc.ToLocalTime();
-            conversation.SetLastMessage("[File] Received", timestamp);
+            conversation.SetLastMessage("[文件] Received", timestamp);
             SortConversations();
+            RequestMessageListAutoScroll();
         });
     }
 
@@ -749,7 +777,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 offerItem.ReceiveProgress = 0d;
                 offerItem.IsReceiving = false;
                 offerItem.ResetTransferSpeed();
-                offerItem.Text = $"[File] Receive failed {offerItem.FileName}";
+                offerItem.Text = message.Reason switch
+                {
+                    "rejected_by_peer" or "rejected_by_user" => $"[文件] 对方已拒绝 {offerItem.FileName}",
+                    "timeout" => $"[文件] 发送超时 {offerItem.FileName}",
+                    _ => $"[文件] 接收失败 {offerItem.FileName}"
+                };
                 offerItem.IsHandled = true;
                 offerItem.IsPending = false;
             }
@@ -764,12 +797,31 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     outgoingItem.ResetTransferSpeed();
                     outgoingItem.IsPending = false;
                     outgoingItem.IsFailed = true;
+                    outgoingItem.Text = message.Reason switch
+                    {
+                        "rejected_by_peer" or "rejected_by_user" => $"[文件] 对方已拒绝 {outgoingItem.FileName}",
+                        "timeout" => $"[文件] 发送超时 {outgoingItem.FileName}",
+                        _ => $"[文件] 发送失败 {outgoingItem.FileName}"
+                    };
+
+                    var rejectToastText = message.Reason switch
+                    {
+                        "rejected_by_peer" or "rejected_by_user" => $"对方已拒绝接收文件：{outgoingItem.FileName}",
+                        "timeout" => $"文件发送超时：{outgoingItem.FileName}",
+                        _ => $"文件发送失败：{outgoingItem.FileName}"
+                    };
                 }
             }
 
             var timestamp = timestampUtc.ToLocalTime();
-            conversation.SetLastMessage("[File] Receive failed", timestamp);
+            conversation.SetLastMessage(message.Reason switch
+            {
+                "rejected_by_peer" or "rejected_by_user" => "[文件] 对方已拒绝",
+                "timeout" => "[文件] 发送超时",
+                _ => "[文件] 接收失败"
+            }, timestamp);
             SortConversations();
+            RequestMessageListAutoScroll();
         });
     }
 
@@ -812,10 +864,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 offerItem.IsReceiving = true;
                 offerItem.ReceiveProgress = progress;
                 offerItem.UpdateTransferSpeed(transferred, timestampUtc);
-                offerItem.Text = $"[File] Receiving {offerItem.FileName}";
+                offerItem.Text = $"[文件] Receiving {offerItem.FileName}";
 
                 var timestamp = timestampUtc.ToLocalTime();
-                conversation.SetLastMessage($"[File] {offerItem.FileName} ({progress * 100:0.0}%)", timestamp);
+                conversation.SetLastMessage($"[文件] {offerItem.FileName} ({progress * 100:0.0}%)", timestamp);
+                RequestMessageListAutoScroll();
                 return;
             }
 
@@ -829,10 +882,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 fallbackIncoming.IsReceiving = true;
                 fallbackIncoming.ReceiveProgress = progressFallback;
                 fallbackIncoming.UpdateTransferSpeed(transferredFallback, timestampUtc);
-                fallbackIncoming.Text = $"[File] Receiving {fallbackIncoming.FileName}";
+                fallbackIncoming.Text = $"[文件] Receiving {fallbackIncoming.FileName}";
 
                 var timestampFallback = timestampUtc.ToLocalTime();
-                conversation.SetLastMessage($"[File] {fallbackIncoming.FileName} ({progressFallback * 100:0.0}%)", timestampFallback);
+                conversation.SetLastMessage($"[文件] {fallbackIncoming.FileName} ({progressFallback * 100:0.0}%)", timestampFallback);
+                RequestMessageListAutoScroll();
                 return;
             }
 
@@ -849,10 +903,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             outgoingItem.IsReceiving = true;
             outgoingItem.ReceiveProgress = progressOut;
             outgoingItem.UpdateTransferSpeed(transferredOut, timestampUtc);
-            outgoingItem.Text = $"[File] Sending {outgoingItem.FileName}";
+            outgoingItem.Text = $"[文件] Sending {outgoingItem.FileName}";
 
             var timestampOut = timestampUtc.ToLocalTime();
-            conversation.SetLastMessage($"[File] {outgoingItem.FileName} ({progressOut * 100:0.0}%)", timestampOut);
+            conversation.SetLastMessage($"[文件] {outgoingItem.FileName} ({progressOut * 100:0.0}%)", timestampOut);
+            RequestMessageListAutoScroll();
         });
     }
 
@@ -860,6 +915,17 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     {
         var mode = _messageAppService.ResolveIncomingDisplayMode(conversation.DeviceId);
         return mode == IncomingMessageDisplayMode.ShowInCurrentConversation;
+    }
+
+    private void RequestMessageListAutoScroll()
+    {
+        if (_disposed || SelectedConversation is null)
+        {
+            return;
+        }
+
+        _messageListAutoScrollTimer.Stop();
+        _messageListAutoScrollTimer.Start();
     }
 
     private void SyncDisplayContext()
@@ -1038,6 +1104,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         OnPropertyChanged(nameof(CurrentMessages));
         OnPropertyChanged(nameof(CurrentConversationTitle));
         OnPropertyChanged(nameof(CurrentConversationSubtitle));
+        RequestMessageListAutoScroll();
         SendMessageCommand.NotifyCanExecuteChanged();
         PasteSendCommand.NotifyCanExecuteChanged();
     }
@@ -1063,6 +1130,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         _disposed = true;
         _receiveCancellation.Cancel();
         _displayContextSyncTimer.Stop();
+        _messageListAutoScrollTimer.Stop();
         _deviceDiscoveryService.Devices.CollectionChanged -= OnDiscoveredDevicesCollectionChanged;
         foreach (var trackedDevice in _trackedDevices.Values)
         {
@@ -1177,7 +1245,7 @@ public partial class DeviceChatMessageItem : ObservableObject
 
     public static DeviceChatMessageItem CreateImage(byte[]? imageBytes, bool isOutgoing, DateTimeOffset timestamp)
     {
-        var item = new DeviceChatMessageItem("[Image]", isOutgoing, timestamp);
+        var item = new DeviceChatMessageItem("[图片]", isOutgoing, timestamp);
         if (imageBytes is null || imageBytes.Length == 0)
         {
             return item;
@@ -1199,7 +1267,7 @@ public partial class DeviceChatMessageItem : ObservableObject
     public static DeviceChatMessageItem CreateFile(string fileName, long sizeBytes, bool isOutgoing,
         DateTimeOffset timestamp)
     {
-        return new DeviceChatMessageItem($"[File] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing, timestamp)
+        return new DeviceChatMessageItem($"[文件] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing, timestamp)
         {
             FileName = fileName,
             FileSizeBytes = sizeBytes
@@ -1209,6 +1277,7 @@ public partial class DeviceChatMessageItem : ObservableObject
     public static string FormatFileSizeLabel(long sizeBytes)
     {
         var bytes = Math.Max(0L, sizeBytes);
+        const long oneKb = 1024;
         const long oneMb = 1024L * 1024L;
         const long oneGb = 1024L * 1024L * 1024L;
 
@@ -1220,6 +1289,10 @@ public partial class DeviceChatMessageItem : ObservableObject
         if (bytes >= oneMb)
         {
             return $"{bytes / (double)oneMb:0.00} MB";
+        }
+
+        if (bytes >= oneKb) {
+            return $"{bytes / (double)oneKb:0.00} KB";
         }
 
         return $"{bytes} 字节";
@@ -1272,11 +1345,11 @@ public partial class DeviceChatMessageItem : ObservableObject
     public bool HasText => !string.IsNullOrWhiteSpace(Text);
     public string TimeText => Timestamp.ToLocalTime().ToString("HH:mm");
     public string StateText => IsFailed
-        ? "Failed"
+        ? "失败"
         : IsReceiving
             ? BuildTransferStateText()
             : IsPending
-                ? "Sending..."
+                ? "发送中..."
                 : string.Empty;
     public bool HasState => !string.IsNullOrEmpty(StateText);
 
@@ -1408,7 +1481,7 @@ public partial class IncomingFileOfferChatMessageItem : DeviceChatMessageItem
         LocalDataTransportProtocol protocol,
         int port,
         DateTimeOffset timestamp)
-        : base($"[File] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing: false, timestamp)
+        : base($"[文件] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing: false, timestamp)
     {
         _conversationId = conversationId;
         _transferId = transferId;

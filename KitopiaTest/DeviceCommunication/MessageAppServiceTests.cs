@@ -1,6 +1,7 @@
 using System.IO.Pipelines;
 using System.Net;
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -70,6 +71,44 @@ public sealed class MessageAppServiceTests
             selectedConversationId: "peer-1");
 
         Assert.AreEqual(IncomingMessageDisplayMode.ShowInCurrentConversation, mode);
+    }
+
+    [TestMethod]
+    public void ResolveIncomingDisplayMode_AfterClosingChatPage_NotifiesByToast()
+    {
+        var service = CreateService();
+
+        service.UpdateDisplayContext(
+            isMainWindowActive: true,
+            isDeviceChatPageOpen: true,
+            selectedConversationId: "peer-1");
+        Assert.AreEqual(
+            IncomingMessageDisplayMode.ShowInCurrentConversation,
+            service.ResolveIncomingDisplayMode("peer-1"));
+
+        service.UpdateDisplayContext(
+            isMainWindowActive: true,
+            isDeviceChatPageOpen: false,
+            selectedConversationId: "peer-1");
+
+        Assert.AreEqual(
+            IncomingMessageDisplayMode.NotifyByToast,
+            service.ResolveIncomingDisplayMode("peer-1"));
+    }
+
+    [TestMethod]
+    public void ResolveIncomingDisplayMode_MainWindowInactive_NotifiesByToast()
+    {
+        var service = CreateService();
+
+        service.UpdateDisplayContext(
+            isMainWindowActive: false,
+            isDeviceChatPageOpen: true,
+            selectedConversationId: "peer-1");
+
+        Assert.AreEqual(
+            IncomingMessageDisplayMode.NotifyByToast,
+            service.ResolveIncomingDisplayMode("peer-1"));
     }
 
     [TestMethod]
@@ -163,6 +202,36 @@ public sealed class MessageAppServiceTests
                 File.Delete(tempFile);
             }
         }
+    }
+
+    [TestMethod]
+    public async Task WaitForDecisionAsync_WhenDecisionArrivesBeforeWaiter_ReturnsImmediately()
+    {
+        var incomingBuffer = new IncomingMessageBuffer();
+        var transferId = Guid.NewGuid();
+        await incomingBuffer.PublishAsync(new FileRejectChatMessage("peer-1", transferId, "rejected_by_user"));
+
+        var stopwatch = Stopwatch.StartNew();
+        var decision = await incomingBuffer.WaitForDecisionAsync(transferId, TimeSpan.FromSeconds(3));
+        stopwatch.Stop();
+
+        Assert.AreEqual(TransferDecision.Rejected, decision);
+        Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromMilliseconds(200));
+    }
+
+    [TestMethod]
+    public async Task WaitForDecisionAsync_WhenAcceptArrivesBeforeWaiter_ReturnsImmediatelyAsAccepted()
+    {
+        var incomingBuffer = new IncomingMessageBuffer();
+        var transferId = Guid.NewGuid();
+        await incomingBuffer.PublishAsync(new FileAcceptChatMessage("peer-1", transferId));
+
+        var stopwatch = Stopwatch.StartNew();
+        var decision = await incomingBuffer.WaitForDecisionAsync(transferId, TimeSpan.FromSeconds(3));
+        stopwatch.Stop();
+
+        Assert.AreEqual(TransferDecision.Accepted, decision);
+        Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromMilliseconds(200));
     }
 
     private static MessageAppService CreateService()

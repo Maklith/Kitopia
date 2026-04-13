@@ -17,7 +17,7 @@ public sealed class IncomingMessageBufferTests
         await buffer.PublishEventAsync(new IncomingMessageEvent(new FileAcceptChatMessage("peer", transferId)));
 
         var accepted = await waitTask;
-        Assert.IsTrue(accepted);
+        Assert.AreEqual(TransferDecision.Accepted, accepted);
     }
 
     [TestMethod]
@@ -30,6 +30,16 @@ public sealed class IncomingMessageBufferTests
         await buffer.PublishEventAsync(new IncomingMessageEvent(new FileRejectChatMessage("peer", transferId, "r")));
 
         var accepted = await waitTask;
-        Assert.IsFalse(accepted);
+        Assert.AreEqual(TransferDecision.Rejected, accepted);
+    }
+
+    [TestMethod]
+    public async Task WaitForDecisionAsync_WhenTimedOut_ShouldReturnTimeout()
+    {
+        var buffer = new IncomingMessageBuffer();
+
+        var decision = await buffer.WaitForDecisionAsync(Guid.NewGuid(), TimeSpan.FromMilliseconds(10));
+
+        Assert.AreEqual(TransferDecision.Timeout, decision);
     }
 }

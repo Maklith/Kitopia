@@ -6,6 +6,7 @@ using AvaloniaEdit.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Core.Services.DeviceCommunication.Application;
 using Core.Services.Interfaces;
 using PluginCore;
 
@@ -91,6 +92,18 @@ public partial class MainWindowViewModel : ObservableRecipient
     {
         Content = message.Key;
         SettingPage = message.Key == "Setting";
+
+        try
+        {
+            var messageAppService = ServiceManager.Services.GetService<IMessageAppService>();
+            messageAppService?.UpdateDisplayContext(
+                isMainWindowActive: true,
+                isDeviceChatPageOpen: string.Equals(message.Key, "DeviceChat", StringComparison.Ordinal),
+                selectedConversationId: null);
+        }
+        catch
+        {
+        }
     }
 
     [RelayCommand]
