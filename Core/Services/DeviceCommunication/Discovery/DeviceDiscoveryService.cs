@@ -28,6 +28,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
     private const long DiscoverySignatureToleranceSeconds = 60;
     private static readonly TimeSpan DiscoveryBroadcastInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan DiscoveryCleanupInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan DiscoveryListenerRefreshInterval = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan DiscoveryStaleTimeout = TimeSpan.FromSeconds(20);
 
     private readonly object _sync = new();
@@ -135,37 +136,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             _udpClientV6?.MulticastLoopback = true;
             _udpClientV4.JoinMulticastGroup(multicastIpV4);
             _udpClientV6?.JoinMulticastGroup(multicastIpV6);
-            foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces()) {
-                if (networkInterface.OperationalStatus != OperationalStatus.Up ||
-                    !networkInterface.SupportsMulticast ||
-                    networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback) {
-                    continue;
-                }
-
-                var props = networkInterface.GetIPProperties();
-                int? ipv6IfIndex = null;
-                try {
-                    ipv6IfIndex = props.GetIPv6Properties().Index;
-                }
-                catch {
-                    // ignored
-                }
-
-                foreach (var unicast in props.UnicastAddresses) {
-                    if (unicast.Address.AddressFamily == AddressFamily.InterNetwork) {
-                        try {
-                            _udpClientV4.JoinMulticastGroup(multicastIpV4, unicast.Address);
-                        }
-                        catch { }
-                    }
-                    else if (unicast.Address.AddressFamily == AddressFamily.InterNetworkV6 && ipv6IfIndex.HasValue) {
-                        try {
-                            _udpClientV6?.JoinMulticastGroup(ipv6IfIndex.Value, multicastIpV6);
-                        }
-                        catch { }
-                    }
-                }
-            }
+            RefreshDiscoveryMulticastMembership(_udpClientV4, _udpClientV6, multicastIpV4, multicastIpV6);
         }
         catch (Exception e) {
             Logger.Error(e, "加入组播组失");
@@ -176,7 +147,58 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             receiveTasks.Add(ReceiveLoop(_udpClientV6, token));
         }
 
+        receiveTasks.Add(RefreshDiscoveryMulticastMembershipLoop(_udpClientV4, _udpClientV6, multicastIpV4, multicastIpV6, token));
+
         await Task.WhenAll(receiveTasks);
+    }
+
+    private async Task RefreshDiscoveryMulticastMembershipLoop(UdpClient udpClientV4, UdpClient? udpClientV6,
+        IPAddress multicastIpV4, IPAddress multicastIpV6, CancellationToken token) {
+        while (!token.IsCancellationRequested) {
+            try {
+                await Task.Delay(DiscoveryListenerRefreshInterval, token);
+            }
+            catch (OperationCanceledException) {
+                break;
+            }
+
+            RefreshDiscoveryMulticastMembership(udpClientV4, udpClientV6, multicastIpV4, multicastIpV6);
+        }
+    }
+
+    private void RefreshDiscoveryMulticastMembership(UdpClient udpClientV4, UdpClient? udpClientV6,
+        IPAddress multicastIpV4, IPAddress multicastIpV6) {
+        foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces()) {
+            if (networkInterface.OperationalStatus != OperationalStatus.Up ||
+                !networkInterface.SupportsMulticast ||
+                networkInterface.NetworkInterfaceType == NetworkInterfaceType.Loopback) {
+                continue;
+            }
+
+            var props = networkInterface.GetIPProperties();
+            foreach (var unicast in props.UnicastAddresses) {
+                if (unicast.Address.AddressFamily == AddressFamily.InterNetwork) {
+                    try {
+                        udpClientV4.JoinMulticastGroup(multicastIpV4, unicast.Address);
+                    }
+                    catch { }
+                }
+            }
+
+            if (udpClientV6 is null) {
+                continue;
+            }
+
+            try {
+                var ipv6Properties = props.GetIPv6Properties();
+                if (ipv6Properties?.Index <= 0) {
+                    continue;
+                }
+
+                udpClientV6.JoinMulticastGroup(ipv6Properties.Index, multicastIpV6);
+            }
+            catch { }
+        }
     }
 
     private async Task ReceiveLoop(UdpClient client, CancellationToken token) {
