@@ -347,6 +347,7 @@ internal class Program
         Logger.Information("插件管理器初始化完成");
         CustomScenarioManger.Init();
         Logger.Information("场景管理器初始化完成");
+        ServiceManager.Services.GetService<IMessageAppService>();
         ServiceManager.Services.GetService<IDeviceCommunication>()!.StartAsync().GetAwaiter().GetResult();
         
         if (ConfigManger.Config.autoStart)

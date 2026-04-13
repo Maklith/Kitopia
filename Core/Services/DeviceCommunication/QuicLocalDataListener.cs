@@ -299,12 +299,19 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
     {
         await using (connection)
         {
+            var streamTasks = new List<Task>();
             while (!token.IsCancellationRequested)
             {
                 try
                 {
+                    if (streamTasks.Count > 0)
+                    {
+                        streamTasks.RemoveAll(task => task.IsCompleted);
+                    }
+
                     var stream = await connection.AcceptInboundStreamAsync(token);
-                    _ = Task.Run(() => HandleStreamAsync(stream, connection.RemoteEndPoint, token), token);
+                    var streamTask = Task.Run(() => HandleStreamAsync(stream, connection.RemoteEndPoint, token), token);
+                    streamTasks.Add(streamTask);
                 }
                 catch (OperationCanceledException)
                 {
@@ -316,8 +323,24 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
                 }
                 catch (Exception e)
                 {
+                    if (e is QuicException { QuicError: QuicError.ConnectionAborted or QuicError.OperationAborted })
+                    {
+                        break;
+                    }
+
                     Logger.Error(e, "QUIC local listener stream accept failed");
                     break;
+                }
+            }
+
+            if (streamTasks.Count > 0)
+            {
+                try
+                {
+                    await Task.WhenAll(streamTasks);
+                }
+                catch
+                {
                 }
             }
         }

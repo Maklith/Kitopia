@@ -18,6 +18,7 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
 
     public ValueTask PublishEventAsync(IncomingMessageEvent messageEvent, CancellationToken cancellationToken = default)
     {
+        TrackTransferDecision(messageEvent.Message);
         return _channel.Writer.WriteAsync(messageEvent, cancellationToken);
     }
 

@@ -105,7 +105,7 @@
                 BorderThickness="1"
                 CornerRadius="12"
                 Padding="12">
-            <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="10">
+            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
                 <Border Padding="10"
                         CornerRadius="10"
                         Background="{StaticResource ConversationCardBrush}">
@@ -136,7 +136,31 @@
                                                     MaxWidth="420"
                                                     HorizontalAlignment="Left">
                                                 <StackPanel Spacing="5">
-                                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                                                    <Image Source="{Binding ImagePreview}"
+                                                           IsVisible="{Binding HasImage}"
+                                                           MaxWidth="320"
+                                                           Stretch="Uniform" />
+                                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" IsVisible="{Binding HasText}" />
+                                                    <StackPanel Orientation="Horizontal"
+                                                                Spacing="8"
+                                                                IsVisible="{Binding CanHandleIncomingOffer}">
+                                                        <Button Content="Accept"
+                                                                Command="{Binding $parent[UserControl].DataContext.AcceptIncomingOfferCommand}"
+                                                                CommandParameter="{Binding .}" />
+                                                        <Button Content="Reject"
+                                                                Command="{Binding $parent[UserControl].DataContext.RejectIncomingOfferCommand}"
+                                                                CommandParameter="{Binding .}" />
+                                                    </StackPanel>
+                                                    <StackPanel Spacing="4" IsVisible="{Binding IsReceiving}">
+                                                        <ProgressBar Minimum="0"
+                                                                     Maximum="1"
+                                                                     Value="{Binding ReceiveProgress}"
+                                                                     Height="6"
+                                                                     MinWidth="220" />
+                                                        <TextBlock Text="{Binding ReceiveProgress, StringFormat='{}{0:P0}'}"
+                                                                   FontSize="11"
+                                                                   Foreground="{DynamicResource SemiColorText2}" />
+                                                    </StackPanel>
                                                     <TextBlock Text="{Binding TimeText}"
                                                                FontSize="11"
                                                                Foreground="{DynamicResource SemiColorText2}" />
@@ -151,8 +175,23 @@
                                                     MaxWidth="420"
                                                     HorizontalAlignment="Right">
                                                 <StackPanel Spacing="5">
-                                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap"
+                                                    <Image Source="{Binding ImagePreview}"
+                                                           IsVisible="{Binding HasImage}"
+                                                           MaxWidth="320"
+                                                           Stretch="Uniform" />
+                                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" IsVisible="{Binding HasText}"
                                                                Foreground="White" />
+                                                    <StackPanel Spacing="4" IsVisible="{Binding IsReceiving}">
+                                                        <ProgressBar Minimum="0"
+                                                                     Maximum="1"
+                                                                     Value="{Binding ReceiveProgress}"
+                                                                     Height="6"
+                                                                     MinWidth="220" />
+                                                        <TextBlock Text="{Binding ReceiveProgress, StringFormat='{}{0:P0}'}"
+                                                                   FontSize="11"
+                                                                   Foreground="White"
+                                                                   Opacity="0.85" />
+                                                    </StackPanel>
                                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                                         <TextBlock Text="{Binding TimeText}"
                                                                    FontSize="11"
@@ -214,29 +253,6 @@
                     </Grid>
                 </Border>
 
-                <Border Grid.Row="3"
-                        Background="{StaticResource ConversationCardBrush}"
-                        CornerRadius="10"
-                        Padding="10">
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="Incoming File Offers" FontWeight="SemiBold" />
-                        <ItemsControl ItemsSource="{Binding PendingFileOffers}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:PendingFileOfferItem">
-                                    <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" CornerRadius="8" Padding="8">
-                                        <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
-                                            <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" />
-                                            <TextBlock Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding SizeBytes}" />
-                                            <TextBox Grid.Row="1" Watermark="Save path" Text="{Binding SavePath}" />
-                                            <Button Grid.Row="1" Grid.Column="1" Content="Accept" Command="{Binding $parent[UserControl].DataContext.AcceptFileOfferCommand}" CommandParameter="{Binding .}" />
-                                            <Button Grid.Row="1" Grid.Column="2" Content="Reject" Command="{Binding $parent[UserControl].DataContext.RejectFileOfferCommand}" CommandParameter="{Binding .}" />
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
             </Grid>
         </Border>
     </Grid>

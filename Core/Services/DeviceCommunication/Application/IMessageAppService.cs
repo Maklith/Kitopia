@@ -4,6 +4,12 @@ using Core.Services.DeviceCommunication.Routing;
 
 namespace Core.Services.DeviceCommunication.Application;
 
+public enum IncomingMessageDisplayMode
+{
+    ShowInCurrentConversation = 1,
+    NotifyByToast = 2
+}
+
 public interface IMessageAppService
 {
     ValueTask SendTextChatAsync(MessageContext context, TextChatMessage message, CancellationToken cancellationToken = default);
@@ -14,4 +20,11 @@ public interface IMessageAppService
     ValueTask CancelTransferAsync(MessageContext context, Guid transferId, string reason, CancellationToken cancellationToken = default);
     ValueTask SendClipboardTextAsync(MessageContext context, TextClipboardMessage message, CancellationToken cancellationToken = default);
     IAsyncEnumerable<IncomingMessageEvent> ReceiveAsync(CancellationToken cancellationToken = default);
+    void UpdateDisplayContext(bool isMainWindowActive, bool isDeviceChatPageOpen, string? selectedConversationId);
+    IncomingMessageDisplayMode ResolveIncomingDisplayMode(string conversationId);
+    IncomingMessageDisplayMode ResolveIncomingDisplayMode(
+        bool isMainWindowActive,
+        bool isDeviceChatPageOpen,
+        string conversationId,
+        string? selectedConversationId);
 }

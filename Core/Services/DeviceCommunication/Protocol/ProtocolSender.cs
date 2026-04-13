@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.IO.Pipelines;
 using System.Text;
@@ -41,6 +42,7 @@ public sealed class ProtocolSender
         MessageContext context,
         DataEnvelope envelope,
         Stream payloadStream,
+        Func<long, long, ValueTask>? progressCallback = null,
         CancellationToken cancellationToken = default)
     {
         if (!payloadStream.CanRead)
@@ -71,16 +73,43 @@ public sealed class ProtocolSender
                 await pipe.Writer.WriteAsync(frameHeader, cancellationToken);
                 await pipe.Writer.WriteAsync(envelopeBytes, cancellationToken);
 
-                var buffer = new byte[64 * 1024];
-                while (true)
+                var buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
+                var sentBytes = 0L;
+                var lastReportedBytes = 0L;
+                var lastReportedPercent = -1;
+                const int progressStepBytes = 1024 * 1024;
+                try
                 {
-                    var read = await payloadStream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
-                    if (read == 0)
+                    while (true)
                     {
-                        break;
-                    }
+                        var read = await payloadStream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
+                        if (read == 0)
+                        {
+                            break;
+                        }
 
-                    await pipe.Writer.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                        await pipe.Writer.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                        sentBytes += read;
+                        if (progressCallback is not null)
+                        {
+                            var percent = payloadLength > 0
+                                ? (int)Math.Clamp((sentBytes * 100L) / payloadLength, 0, 100)
+                                : 100;
+                            var shouldReport = sentBytes == payloadLength ||
+                                               sentBytes - lastReportedBytes >= progressStepBytes ||
+                                               percent > lastReportedPercent;
+                            if (shouldReport)
+                            {
+                                await progressCallback(sentBytes, payloadLength);
+                                lastReportedBytes = sentBytes;
+                                lastReportedPercent = percent;
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(buffer);
                 }
             }
             catch (Exception ex)

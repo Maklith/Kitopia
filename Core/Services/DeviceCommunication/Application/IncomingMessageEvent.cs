@@ -19,4 +19,5 @@ public sealed record IncomingMessageEvent(
     Guid? TransferId = null,
     long? BytesTransferred = null,
     long? TotalBytes = null,
-    string? Reason = null);
+    string? Reason = null,
+    byte[]? PayloadBytes = null);
