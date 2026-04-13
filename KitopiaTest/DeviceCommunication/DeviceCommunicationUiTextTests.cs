@@ -43,4 +43,15 @@ public class DeviceCommunicationUiTextTests
         Assert.IsFalse(item.Text.Contains("KB", StringComparison.OrdinalIgnoreCase));
         StringAssert.Contains(item.Text, "archive.zip");
     }
+
+    [TestMethod]
+    public void CreateImage_DoesNotDisplayImagePlaceholderText()
+    {
+        using var source = OpenCvSharp.Mat.Zeros(4, 4, OpenCvSharp.MatType.CV_8UC3);
+        OpenCvSharp.Cv2.ImEncode(".png", source, out var bytes);
+
+        var item = DeviceChatMessageItem.CreateImage(bytes, isOutgoing: false, DateTimeOffset.Now);
+
+        Assert.AreEqual(string.Empty, item.Text);
+    }
 }

@@ -504,6 +504,41 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanCopyImage))]
+    private async Task CopyImageAsync(DeviceChatMessageItem? messageItem)
+    {
+        if (messageItem?.ImageBytes is not { Length: > 0 } imageBytes)
+        {
+            return;
+        }
+
+        try
+        {
+            using var mat = Cv2.ImDecode(imageBytes, ImreadModes.Unchanged);
+            if (mat.Empty())
+            {
+                _toastService.Show("设备聊天", "图片复制失败: 图片数据无效", NotificationType.Warning);
+                return;
+            }
+
+            var copied = await _clipboardService.SetImageAsync(new ScreenCaptureResult
+            {
+                Source = mat
+            });
+            _toastService.Show("设备聊天", copied ? "图片已复制到剪贴板" : "图片复制失败", copied ? NotificationType.Information : NotificationType.Warning);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning(ex, "Copy image to clipboard failed.");
+            _toastService.Show("设备聊天", $"图片复制失败: {ex.Message}", NotificationType.Warning);
+        }
+    }
+
+    private static bool CanCopyImage(DeviceChatMessageItem? messageItem)
+    {
+        return messageItem?.ImageBytes is { Length: > 0 };
+    }
+
     private void OnDiscoveredDevicesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (_disposed)
@@ -1257,11 +1292,13 @@ public partial class DeviceChatMessageItem : ObservableObject
 
     public static DeviceChatMessageItem CreateImage(byte[]? imageBytes, bool isOutgoing, DateTimeOffset timestamp)
     {
-        var item = new DeviceChatMessageItem("[图片]", isOutgoing, timestamp);
+        var item = new DeviceChatMessageItem(string.Empty, isOutgoing, timestamp);
         if (imageBytes is null || imageBytes.Length == 0)
         {
             return item;
         }
+
+        item.ImageBytes = imageBytes.ToArray();
 
         try
         {
@@ -1327,6 +1364,9 @@ public partial class DeviceChatMessageItem : ObservableObject
 
     [ObservableProperty]
     private Bitmap? _imagePreview;
+
+    [ObservableProperty]
+    private byte[]? _imageBytes;
 
     [ObservableProperty]
     private string _fileName = string.Empty;

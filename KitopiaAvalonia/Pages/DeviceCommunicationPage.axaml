@@ -140,16 +140,27 @@
                                                     <Image Source="{Binding ImagePreview}"
                                                            IsVisible="{Binding HasImage}"
                                                            MaxWidth="320"
-                                                           Stretch="Uniform" />
+                                                           Stretch="Uniform"
+                                                           Cursor="Hand"
+                                                           PointerPressed="OnPreviewImagePointerPressed">
+                                                        <Image.ContextFlyout>
+                                                            <MenuFlyout>
+                                                                <MenuItem Header="放大查看" Click="OnPreviewImageZoomClicked" />
+                                                                <MenuItem Header="复制图片"
+                                                                          Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).CopyImageCommand}"
+                                                                          CommandParameter="{Binding .}" />
+                                                            </MenuFlyout>
+                                                        </Image.ContextFlyout>
+                                                    </Image>
                                                     <TextBlock Text="{Binding Text}" TextWrapping="Wrap" IsVisible="{Binding HasText}" />
                                                     <StackPanel Orientation="Horizontal"
                                                                 Spacing="8"
                                                                 IsVisible="{Binding CanHandleIncomingOffer}">
                                                         <Button Content="接受"
-                                                                Command="{Binding $parent[UserControl].DataContext.AcceptIncomingOfferCommand}"
+                                                                Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).AcceptIncomingOfferCommand}"
                                                                 CommandParameter="{Binding .}" />
                                                         <Button Content="拒绝"
-                                                                Command="{Binding $parent[UserControl].DataContext.RejectIncomingOfferCommand}"
+                                                                Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).RejectIncomingOfferCommand}"
                                                                 CommandParameter="{Binding .}" />
                                                     </StackPanel>
                                                     <StackPanel Spacing="4" IsVisible="{Binding IsReceiving}">
@@ -182,7 +193,18 @@
                                                     <Image Source="{Binding ImagePreview}"
                                                            IsVisible="{Binding HasImage}"
                                                            MaxWidth="320"
-                                                           Stretch="Uniform" />
+                                                           Stretch="Uniform"
+                                                           Cursor="Hand"
+                                                           PointerPressed="OnPreviewImagePointerPressed">
+                                                        <Image.ContextFlyout>
+                                                            <MenuFlyout>
+                                                                <MenuItem Header="放大查看" Click="OnPreviewImageZoomClicked" />
+                                                                <MenuItem Header="复制图片"
+                                                                          Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).CopyImageCommand}"
+                                                                          CommandParameter="{Binding .}" />
+                                                            </MenuFlyout>
+                                                        </Image.ContextFlyout>
+                                                    </Image>
                                                     <TextBlock Text="{Binding Text}" TextWrapping="Wrap" IsVisible="{Binding HasText}"
                                                                Foreground="White" />
                                                     <StackPanel Spacing="4" IsVisible="{Binding IsReceiving}">
