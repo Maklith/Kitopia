@@ -692,6 +692,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             {
                 offerItem.ReceiveProgress = 1d;
                 offerItem.IsReceiving = false;
+                offerItem.ResetTransferSpeed();
                 offerItem.Text = $"[File] Received {offerItem.FileName}";
                 offerItem.IsHandled = true;
                 offerItem.IsPending = false;
@@ -704,6 +705,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 {
                     outgoingItem.ReceiveProgress = 1d;
                     outgoingItem.IsReceiving = false;
+                    outgoingItem.ResetTransferSpeed();
                     outgoingItem.IsPending = false;
                     outgoingItem.IsFailed = false;
                 }
@@ -746,6 +748,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             {
                 offerItem.ReceiveProgress = 0d;
                 offerItem.IsReceiving = false;
+                offerItem.ResetTransferSpeed();
                 offerItem.Text = $"[File] Receive failed {offerItem.FileName}";
                 offerItem.IsHandled = true;
                 offerItem.IsPending = false;
@@ -758,6 +761,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 {
                     outgoingItem.ReceiveProgress = 0d;
                     outgoingItem.IsReceiving = false;
+                    outgoingItem.ResetTransferSpeed();
                     outgoingItem.IsPending = false;
                     outgoingItem.IsFailed = true;
                 }
@@ -807,10 +811,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 var progress = Math.Clamp((double)transferred / total, 0d, 1d);
                 offerItem.IsReceiving = true;
                 offerItem.ReceiveProgress = progress;
-                offerItem.Text = $"[File] Receiving {offerItem.FileName} ({progress * 100:0}%)";
+                offerItem.UpdateTransferSpeed(transferred, timestampUtc);
+                offerItem.Text = $"[File] Receiving {offerItem.FileName}";
 
                 var timestamp = timestampUtc.ToLocalTime();
-                conversation.SetLastMessage($"[File] {offerItem.FileName} ({progress * 100:0}%)", timestamp);
+                conversation.SetLastMessage($"[File] {offerItem.FileName} ({progress * 100:0.0}%)", timestamp);
                 return;
             }
 
@@ -823,10 +828,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 var progressFallback = Math.Clamp((double)transferredFallback / totalFallback, 0d, 1d);
                 fallbackIncoming.IsReceiving = true;
                 fallbackIncoming.ReceiveProgress = progressFallback;
-                fallbackIncoming.Text = $"[File] Receiving {fallbackIncoming.FileName} ({progressFallback * 100:0}%)";
+                fallbackIncoming.UpdateTransferSpeed(transferredFallback, timestampUtc);
+                fallbackIncoming.Text = $"[File] Receiving {fallbackIncoming.FileName}";
 
                 var timestampFallback = timestampUtc.ToLocalTime();
-                conversation.SetLastMessage($"[File] {fallbackIncoming.FileName} ({progressFallback * 100:0}%)", timestampFallback);
+                conversation.SetLastMessage($"[File] {fallbackIncoming.FileName} ({progressFallback * 100:0.0}%)", timestampFallback);
                 return;
             }
 
@@ -842,10 +848,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             var progressOut = Math.Clamp((double)transferredOut / totalOut, 0d, 1d);
             outgoingItem.IsReceiving = true;
             outgoingItem.ReceiveProgress = progressOut;
-            outgoingItem.Text = $"[File] Sending {outgoingItem.FileName} ({progressOut * 100:0}%)";
+            outgoingItem.UpdateTransferSpeed(transferredOut, timestampUtc);
+            outgoingItem.Text = $"[File] Sending {outgoingItem.FileName}";
 
             var timestampOut = timestampUtc.ToLocalTime();
-            conversation.SetLastMessage($"[File] {outgoingItem.FileName} ({progressOut * 100:0}%)", timestampOut);
+            conversation.SetLastMessage($"[File] {outgoingItem.FileName} ({progressOut * 100:0.0}%)", timestampOut);
         });
     }
 
@@ -1233,6 +1240,12 @@ public partial class DeviceChatMessageItem : ObservableObject
     [ObservableProperty]
     private bool _isReceiving;
 
+    [ObservableProperty]
+    private double _transferSpeedBytesPerSecond;
+
+    private long _transferStartBytes = -1;
+    private DateTimeOffset? _transferStartTimestampUtc;
+
     public bool IsIncoming => !IsOutgoing;
     public bool HasImage => ImagePreview is not null;
     public bool HasFile => !string.IsNullOrWhiteSpace(FileName);
@@ -1240,7 +1253,13 @@ public partial class DeviceChatMessageItem : ObservableObject
     public bool CanHandleIncomingOffer => this is IncomingFileOfferChatMessageItem offer && offer.CanHandle;
     public bool HasText => !string.IsNullOrWhiteSpace(Text);
     public string TimeText => Timestamp.ToLocalTime().ToString("HH:mm");
-    public string StateText => IsFailed ? "Failed" : IsReceiving ? $"{ReceiveProgress * 100:0}%" : IsPending ? "Sending..." : string.Empty;
+    public string StateText => IsFailed
+        ? "Failed"
+        : IsReceiving
+            ? BuildTransferStateText()
+            : IsPending
+                ? "Sending..."
+                : string.Empty;
     public bool HasState => !string.IsNullOrEmpty(StateText);
 
     partial void OnIsOutgoingChanged(bool value)
@@ -1290,6 +1309,74 @@ public partial class DeviceChatMessageItem : ObservableObject
     {
         OnPropertyChanged(nameof(StateText));
         OnPropertyChanged(nameof(HasState));
+    }
+
+    partial void OnTransferSpeedBytesPerSecondChanged(double value)
+    {
+        OnPropertyChanged(nameof(StateText));
+        OnPropertyChanged(nameof(HasState));
+    }
+
+    public void UpdateTransferSpeed(long transferredBytes, DateTimeOffset timestampUtc)
+    {
+        if (!_transferStartTimestampUtc.HasValue || transferredBytes < _transferStartBytes)
+        {
+            _transferStartBytes = Math.Max(0L, transferredBytes);
+            _transferStartTimestampUtc = timestampUtc;
+            TransferSpeedBytesPerSecond = 0d;
+            return;
+        }
+
+        var elapsedSeconds = (timestampUtc - _transferStartTimestampUtc.Value).TotalSeconds;
+        if (elapsedSeconds <= 0.0001d)
+        {
+            return;
+        }
+
+        var elapsedBytes = Math.Max(0L, transferredBytes - _transferStartBytes);
+        TransferSpeedBytesPerSecond = Math.Max(0d, elapsedBytes / elapsedSeconds);
+    }
+
+    public void ResetTransferSpeed()
+    {
+        _transferStartBytes = -1;
+        _transferStartTimestampUtc = null;
+        TransferSpeedBytesPerSecond = 0d;
+    }
+
+    private string BuildTransferStateText()
+    {
+        var progressText = $"{ReceiveProgress * 100:0.0}%";
+        if (TransferSpeedBytesPerSecond <= 0d)
+        {
+            return progressText;
+        }
+
+        return $"{progressText} | {FormatBytes(TransferSpeedBytesPerSecond)}/s";
+    }
+
+    private static string FormatBytes(double bytes)
+    {
+        var units = new[] { "B", "KB", "MB", "GB", "TB" };
+        var value = Math.Max(0d, bytes);
+        var unitIndex = 0;
+        while (value >= 1024d && unitIndex < units.Length - 1)
+        {
+            value /= 1024d;
+            unitIndex++;
+        }
+
+        if (value >= 100d)
+        {
+            return $"{value:0} {units[unitIndex]}";
+        }
+
+        if (value >= 10d)
+        {
+            return $"{value:0.0} {units[unitIndex]}";
+        }
+
+        return $"{value:0.00} {units[unitIndex]}";
     }
 }
 

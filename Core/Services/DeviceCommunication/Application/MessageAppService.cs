@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using System.Collections.ObjectModel;
 using System.Threading.Channels;
 using Core.Services.DeviceCommunication.Codecs;
@@ -235,7 +236,13 @@ public sealed class MessageAppService : IMessageAppService {
     }
 
     private string ResolveConversationDisplayName(string conversationId) {
-        return conversationId;
+        if (string.IsNullOrWhiteSpace(conversationId)) {
+            return conversationId;
+        }
+
+        var device = _deviceDiscoveryService.Devices.FirstOrDefault(item =>
+            string.Equals(item.Id, conversationId, StringComparison.Ordinal));
+        return string.IsNullOrWhiteSpace(device?.DisplayName) ? conversationId : device.DisplayName;
     }
 
     private static string? TryGetConversationId(AppMessage message) {

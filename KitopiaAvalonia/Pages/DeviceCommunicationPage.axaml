@@ -157,13 +157,16 @@
                                                                      Value="{Binding ReceiveProgress}"
                                                                      Height="6"
                                                                      MinWidth="220" />
-                                                        <TextBlock Text="{Binding ReceiveProgress, StringFormat='{}{0:P0}'}"
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <TextBlock Text="{Binding TimeText}"
                                                                    FontSize="11"
                                                                    Foreground="{DynamicResource SemiColorText2}" />
+                                                        <TextBlock Text="{Binding StateText}"
+                                                                   FontSize="11"
+                                                                   Foreground="{DynamicResource SemiColorText2}"
+                                                                   IsVisible="{Binding HasState}" />
                                                     </StackPanel>
-                                                    <TextBlock Text="{Binding TimeText}"
-                                                               FontSize="11"
-                                                               Foreground="{DynamicResource SemiColorText2}" />
                                                 </StackPanel>
                                             </Border>
 
@@ -187,10 +190,6 @@
                                                                      Value="{Binding ReceiveProgress}"
                                                                      Height="6"
                                                                      MinWidth="220" />
-                                                        <TextBlock Text="{Binding ReceiveProgress, StringFormat='{}{0:P0}'}"
-                                                                   FontSize="11"
-                                                                   Foreground="White"
-                                                                   Opacity="0.85" />
                                                     </StackPanel>
                                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                                         <TextBlock Text="{Binding TimeText}"
