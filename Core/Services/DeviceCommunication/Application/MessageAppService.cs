@@ -219,16 +219,16 @@ public sealed class MessageAppService : IMessageAppService {
             case TextChatMessage textMessage: {
                 var text = textMessage.Text.Trim();
                 if (!string.IsNullOrWhiteSpace(text)) {
-                    _toastService.Show("Device Chat", $"{displayName}: {text}");
+                    _toastService.Show($"设备聊天:{displayName}", text);
                 }
 
                 break;
             }
             case ImageChatMessage:
-                _toastService.Show("Device Chat", $"{displayName}: [Image]");
+                _toastService.Show($"设备聊天:{displayName}", $"[图片]");
                 break;
             case FileOfferChatMessage fileOffer:
-                _toastService.Show("Device Chat", $"{displayName} sends file: {fileOffer.FileName}");
+                _toastService.Show($"设备聊天:{displayName}", $"文件: {fileOffer.FileName}");
                 break;
         }
 

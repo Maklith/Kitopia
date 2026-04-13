@@ -44,7 +44,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     public ObservableCollection<DeviceChatMessageItem> CurrentMessages =>
         SelectedConversation?.Messages ?? _emptyMessages;
 
-    public string CurrentConversationTitle => SelectedConversation?.DisplayName ?? "Device Chat";
+    public string CurrentConversationTitle => SelectedConversation?.DisplayName ?? "设备聊天";
 
     public string CurrentConversationSubtitle => SelectedConversation is null
         ? "Select a device to start chatting"
@@ -120,7 +120,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             message.IsPending = false;
             message.IsFailed = true;
             Logger.Warning(ex, "Send chat message failed. DeviceId={DeviceId}", conversation.DeviceId);
-            _toastService.Show("Device Chat", $"Send failed: {ex.Message}", NotificationType.Error);
+            _toastService.Show("设备聊天", $"文件发送失败: {ex.Message}", NotificationType.Error);
         }
         finally
         {
@@ -405,7 +405,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
         if (errors.Count > 0)
         {
-            _toastService.Show("Device Chat", $"Paste send partial failed: {string.Join(";", errors)}",
+            _toastService.Show("设备聊天", $"监听和发送部分失败: {string.Join(";", errors)}",
                 NotificationType.Warning);
         }
     }
@@ -445,7 +445,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
         catch (Exception ex)
         {
-            _toastService.Show("Device Chat", $"Accept failed: {ex.Message}", NotificationType.Error);
+            _toastService.Show("设备聊天t", $"同意失败: {ex.Message}", NotificationType.Error);
         }
     }
 
@@ -476,7 +476,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
         catch (Exception ex)
         {
-            _toastService.Show("Device Chat", $"Reject failed: {ex.Message}", NotificationType.Error);
+            _toastService.Show("设备聊天", $"拒绝失败: {ex.Message}", NotificationType.Error);
         }
     }
 
@@ -590,7 +590,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             var imageItem = DeviceChatMessageItem.CreateImage(payloadBytes, isOutgoing: false, timestamp);
             if (imageItem.ImagePreview is null)
             {
-                imageItem.Text = $"[Image] {Math.Max(1, message.SizeBytes / 1024)} KB";
+                imageItem.Text = $"[Image] {DeviceChatMessageItem.FormatFileSizeLabel(message.SizeBytes)}";
             }
 
             conversation.Messages.Add(imageItem);
@@ -1112,7 +1112,7 @@ public partial class DeviceConversationItem : ObservableObject
     private int _unreadCount;
 
     public string AddressText => Address == IPAddress.None ? "Unknown Address" : Address.ToString();
-    public string StatusText => IsOnline ? "Online" : "Offline";
+    public string StatusText => IsOnline ? "在线" : "离线";
     public bool HasUnread => UnreadCount > 0;
     public string UnreadCountText => UnreadCount > 99 ? "99+" : UnreadCount.ToString();
     public string LastMessageTimeText => LastMessageAt?.ToLocalTime().ToString("HH:mm") ?? string.Empty;
@@ -1199,12 +1199,30 @@ public partial class DeviceChatMessageItem : ObservableObject
     public static DeviceChatMessageItem CreateFile(string fileName, long sizeBytes, bool isOutgoing,
         DateTimeOffset timestamp)
     {
-        var sizeKb = Math.Max(1, sizeBytes / 1024);
-        return new DeviceChatMessageItem($"[File] {fileName} ({sizeKb} KB)", isOutgoing, timestamp)
+        return new DeviceChatMessageItem($"[File] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing, timestamp)
         {
             FileName = fileName,
             FileSizeBytes = sizeBytes
         };
+    }
+
+    public static string FormatFileSizeLabel(long sizeBytes)
+    {
+        var bytes = Math.Max(0L, sizeBytes);
+        const long oneMb = 1024L * 1024L;
+        const long oneGb = 1024L * 1024L * 1024L;
+
+        if (bytes >= oneGb)
+        {
+            return $"{bytes / (double)oneGb:0.00} GB";
+        }
+
+        if (bytes >= oneMb)
+        {
+            return $"{bytes / (double)oneMb:0.00} MB";
+        }
+
+        return $"{bytes} 字节";
     }
 
     [ObservableProperty]
@@ -1390,7 +1408,7 @@ public partial class IncomingFileOfferChatMessageItem : DeviceChatMessageItem
         LocalDataTransportProtocol protocol,
         int port,
         DateTimeOffset timestamp)
-        : base($"[File] {fileName} ({Math.Max(1, sizeBytes / 1024)} KB)", isOutgoing: false, timestamp)
+        : base($"[File] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing: false, timestamp)
     {
         _conversationId = conversationId;
         _transferId = transferId;

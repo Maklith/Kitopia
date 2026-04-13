@@ -86,10 +86,6 @@
                                             Content="清除"
                                             Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).ClearCustomNameCommand}"
                                             CommandParameter="{Binding .}" />
-                                    <Button Grid.Column="3"
-                                            Content="测试连接"
-                                            Command="{Binding $parent[UserControl].((vm:DeviceDiscoveryPageViewModel)DataContext).TestConnectionCommand}"
-                                            CommandParameter="{Binding .}" />
                                 </Grid>
                             </Grid>
                         </Border>
