@@ -23,24 +23,29 @@ public class ApplicationService : IApplicationService
         InitUrlProtocol();
     }
 
-    public void Restart()
+    public async Task RestartAsync()
     {
         ServiceManager.Services.GetService<IShellUtils>()!.Open(
             AppDomain.CurrentDomain.FriendlyName + ".exe", "",
             AppDomain.CurrentDomain.BaseDirectory);
-        Exit();
+        await ExitAsync().ConfigureAwait(false);
     }
 
-    public void Stop()
+    public async Task StopAsync()
     {
         ConfigManger.Save();
-        Exit();
+        await ExitAsync().ConfigureAwait(false);
     }
 
-    public void Exit(int exitCode = 0)
+    public async Task ExitAsync(int exitCode = 0)
     {
-        MqttManager.Server.StopAsync(new MqttServerStopOptions()).GetAwaiter().GetResult();
-        ServiceManager.Services.GetService<IDeviceCommunication>()?.StopAsync().GetAwaiter().GetResult();
+        await MqttManager.Server.StopAsync(new MqttServerStopOptions()).ConfigureAwait(false);
+        var deviceCommunication = ServiceManager.Services.GetService<IDeviceCommunication>();
+        if (deviceCommunication is not null)
+        {
+            await deviceCommunication.StopAsync().ConfigureAwait(false);
+        }
+
         Logger.Information("程序退出");
         LogManager.Logger.Dispose();
         ServiceManager.Services.GetService<IToastService>()!.Unregister();
@@ -207,7 +212,7 @@ public class ApplicationService : IApplicationService
                         // Close application and start installer
                         ServiceManager.Services.GetService<IShellUtils>()!.Open(tempPath,"--silent");
                         await Task.Delay(2000);
-                        Exit();
+                        await ExitAsync().ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {

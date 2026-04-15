@@ -42,9 +42,9 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     }
 
     [RelayCommand]
-    private void RestartApp()
+    private async Task RestartApp()
     {
-        ServiceManager.Services.GetService<IApplicationService>()!.Restart();
+        await ServiceManager.Services.GetService<IApplicationService>()!.RestartAsync();
     }
 
     [RelayCommand]

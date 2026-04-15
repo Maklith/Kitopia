@@ -15,9 +15,9 @@ namespace Core.ViewModel.Main;
 public partial class AppViewModel : ObservableObject
 {
     [RelayCommand]
-    public void Exit()
+    public async Task Exit()
     {
-        ServiceManager.Services.GetService<IApplicationService>()!.Stop();
+        await ServiceManager.Services.GetService<IApplicationService>()!.StopAsync();
     }
 
     [RelayCommand]

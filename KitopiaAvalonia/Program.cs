@@ -107,7 +107,7 @@ internal class Program
 
     private static void ExitApplication(int exitCode = 0)
     {
-        ServiceManager.Services.GetService<IApplicationService>()!.Exit(exitCode);
+        ServiceManager.Services.GetService<IApplicationService>()!.ExitAsync(exitCode).GetAwaiter().GetResult();
     }
 
     [MemberNotNull]

@@ -1,4 +1,4 @@
-﻿﻿#region
+﻿#region
 
 using System.Collections.ObjectModel;
 using System.Windows.Input;
@@ -114,9 +114,9 @@ public partial class MainWindowViewModel : ObservableRecipient
     }
 
     [RelayCommand]
-    public void Exit()
+    public async Task Exit()
     {
-        ServiceManager.Services.GetService<IApplicationService>().Stop();
+        await ServiceManager.Services.GetService<IApplicationService>()!.StopAsync();
     }
 }
 
