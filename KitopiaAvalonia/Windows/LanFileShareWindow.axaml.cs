@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Core.Services.DeviceCommunication.Application;
+using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.Interfaces;
 using Core.ViewModel.Windows;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,18 +27,19 @@ public partial class LanFileShareWindow : Window, ILanFileShareWindow
     {
         if (DataContext is not LanFileShareWindowViewModel vm)
         {
-            // var deviceCommunication = ServiceManager.Services.GetService<IDeviceCommunication>();
-            // var toastService = ServiceManager.Services.GetService<IToastService>();
-            // if (deviceCommunication is null || toastService is null)
-            // {
-            //     return;
-            // }
-            //
-            // vm = new LanFileShareWindowViewModel(deviceCommunication, toastService);
-           // DataContext = vm;
+            var deviceDiscoveryService = ServiceManager.Services.GetService<IDeviceDiscoveryService>();
+            var messageAppService = ServiceManager.Services.GetService<IMessageAppService>();
+            var toastService = ServiceManager.Services.GetService<IToastService>();
+            if (deviceDiscoveryService is null || messageAppService is null || toastService is null)
+            {
+                return;
+            }
+
+            vm = new LanFileShareWindowViewModel(deviceDiscoveryService, messageAppService, toastService);
+            DataContext = vm;
         }
 
-      //  vm.SetSelectedFiles(filePaths);
+        vm.SetSelectedFiles(filePaths);
         base.Show();
         Activate();
     }

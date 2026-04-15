@@ -4,18 +4,25 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Core.Services.Config;
+using Core.Services.DeviceCommunication;
+using Core.Services.DeviceCommunication.Application;
+using Core.Services.DeviceCommunication.Discovery;
+using Core.Services.DeviceCommunication.Messages.Chat;
+using Core.Services.DeviceCommunication.Routing;
 using PluginCore;
 
 namespace Core.ViewModel.Windows;
 
 public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
 {
-   
+    private readonly IDeviceDiscoveryService _deviceDiscoveryService;
+    private readonly IMessageAppService _messageAppService;
     private readonly IToastService _toastService;
 
     private static Dictionary<string, string> CustomNameMap
@@ -27,7 +34,7 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public ObservableCollection<DeviceModel> DiscoveredDevices => [];
+    public ObservableCollection<DeviceModel> DiscoveredDevices => _deviceDiscoveryService.Devices;
     public ObservableCollection<ShareFileItem> SelectedFiles { get; } = new();
 
     [ObservableProperty]
@@ -39,24 +46,19 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
     public string FilesHeader => HasFiles ? $"待发送文件 ({SelectedFiles.Count})" : "待发送文件";
     public string DevicesHeader => HasDevices ? $"在线设备 ({DiscoveredDevices.Count})" : "在线设备";
 
-    // public LanFileShareWindowViewModel(IDeviceCommunication deviceCommunication, IToastService toastService)
-    // {
-    //     _deviceCommunication = deviceCommunication;
-    //     _toastService = toastService;
-    //
-    //     ApplySavedCustomNames();
-    //     SelectedFiles.CollectionChanged += OnSelectedFilesCollectionChanged;
-    //     DiscoveredDevices.CollectionChanged += OnDiscoveredDevicesCollectionChanged;
-    //
-    //     try
-    //     {
-    //         _deviceCommunication.StartDiscovery();
-    //     }
-    //     catch
-    //     {
-    //         // Ignore and keep current discovered list.
-    //     }
-    // }
+    public LanFileShareWindowViewModel(
+        IDeviceDiscoveryService deviceDiscoveryService,
+        IMessageAppService messageAppService,
+        IToastService toastService)
+    {
+        _deviceDiscoveryService = deviceDiscoveryService;
+        _messageAppService = messageAppService;
+        _toastService = toastService;
+
+        ApplySavedCustomNames();
+        SelectedFiles.CollectionChanged += OnSelectedFilesCollectionChanged;
+        DiscoveredDevices.CollectionChanged += OnDiscoveredDevicesCollectionChanged;
+    }
 
     public void Dispose()
     {
@@ -129,7 +131,11 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         {
             foreach (var filePath in filesToSend)
             {
-                // await _deviceCommunication.RequestFileTransferAsync(device, filePath);
+                var fileInfo = new FileInfo(filePath);
+                await using var fileStream = fileInfo.OpenRead();
+                var transferId = Guid.NewGuid();
+                var fileMessage = new FileChatMessage(device.Id, transferId, fileInfo.Name, fileInfo.Length);
+                await SendFileToDeviceAsync(device, fileMessage, fileStream);
             }
 
             _toastService.Show(
@@ -148,6 +154,53 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         {
             IsSending = false;
         }
+    }
+
+    private async Task SendFileToDeviceAsync(DeviceModel device, FileChatMessage message, Stream stream)
+    {
+        if (string.IsNullOrWhiteSpace(device.Id))
+        {
+            throw new InvalidOperationException("Invalid target device identity.");
+        }
+
+        var protocol = device.SupportQuic && device.QuicPort > 0
+            ? LocalDataTransportProtocol.Quic
+            : LocalDataTransportProtocol.Tcp;
+        var port = protocol == LocalDataTransportProtocol.Quic ? device.QuicPort : device.TcpPort;
+
+        if (port <= 0 || device.Address == IPAddress.None)
+        {
+            throw new InvalidOperationException("Invalid target address or port.");
+        }
+
+        try
+        {
+            await SendFileCoreAsync(device, message, stream, protocol, port);
+        }
+        catch (Exception ex) when (
+            protocol == LocalDataTransportProtocol.Quic &&
+            device.TcpPort > 0 &&
+            ex is not InvalidOperationException)
+        {
+            await SendFileCoreAsync(device, message, stream, LocalDataTransportProtocol.Tcp, device.TcpPort);
+        }
+    }
+
+    private async Task SendFileCoreAsync(
+        DeviceModel device,
+        FileChatMessage message,
+        Stream stream,
+        LocalDataTransportProtocol protocol,
+        int port)
+    {
+        var sendContext = BuildContext(device, protocol, port);
+        await _messageAppService.SendFileChatAsync(sendContext, message, stream);
+    }
+
+    private static MessageContext BuildContext(DeviceModel device, LocalDataTransportProtocol protocol, int port)
+    {
+        var remoteEndPoint = new IPEndPoint(device.Address, port);
+        return new MessageContext(protocol, remoteEndPoint, device.Id);
     }
 
     private void OnSelectedFilesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
