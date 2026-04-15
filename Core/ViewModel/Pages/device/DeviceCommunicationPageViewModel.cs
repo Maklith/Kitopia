@@ -408,11 +408,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                         fileBubble.IsPending = false;
                         fileBubble.IsFailed = false;
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        fileBubble.IsReceiving = false;
-                        fileBubble.IsPending = false;
-                        fileBubble.IsFailed = true;
+                        MarkOutgoingFileSendFailed(fileBubble, ex.Message);
                         throw;
                     }
                 }
@@ -422,6 +420,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                         (ex.Message != "对方已拒绝接收文件。" && ex.Message != "文件发送超时，请稍后重试。"))
                     {
                         errors.Add($"file:{Path.GetFileName(filePath)}:{ex.Message}");
+                        ShowPersistentFileSendErrorToast($"文件发送失败：{Path.GetFileName(filePath)} ({ex.Message})");
                     }
                 }
             }
@@ -845,6 +844,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                         "timeout" => $"文件发送超时：{outgoingItem.FileName}",
                         _ => $"文件发送失败：{outgoingItem.FileName}"
                     };
+                    ShowPersistentFileSendErrorToast(rejectToastText);
                 }
             }
 
@@ -943,6 +943,30 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             var timestampOut = timestampUtc.ToLocalTime();
             conversation.SetLastMessage($"[文件] {outgoingItem.FileName} ({progressOut * 100:0.0}%)", timestampOut);
             RequestMessageListAutoScroll();
+        });
+    }
+
+    private static void MarkOutgoingFileSendFailed(DeviceChatMessageItem fileBubble, string reason)
+    {
+        fileBubble.ReceiveProgress = 0d;
+        fileBubble.IsReceiving = false;
+        fileBubble.ResetTransferSpeed();
+        fileBubble.IsPending = false;
+        fileBubble.IsFailed = true;
+        var reasonText = string.IsNullOrWhiteSpace(reason) ? "未知错误" : reason;
+        fileBubble.Text = string.IsNullOrWhiteSpace(fileBubble.FileName)
+            ? $"[文件] 发送失败 ({reasonText})"
+            : $"[文件] 发送失败 {fileBubble.FileName} ({reasonText})";
+    }
+
+    private void ShowPersistentFileSendErrorToast(string text)
+    {
+        _toastService.Show(new ToastRequest
+        {
+            Header = "设备聊天",
+            Text = text,
+            NotificationType = NotificationType.Error,
+            AutoCloseDelay = null
         });
     }
 
