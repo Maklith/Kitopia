@@ -20,14 +20,14 @@ public class DeviceCommunication : IDeviceCommunication
         {
             ConfigManger.Save("KitopiaConfig");
         }
-
-        await ServiceManager.Services.GetService<ILocalDataListener>()!.StartListeningAsync(token);
-        await ServiceManager.Services.GetService<IDeviceDiscoveryService>()!.StartAsync(token);
+        
+        await ServiceManager.Services.GetService<ILocalDataListener>()!.StartListeningAsync(token).ConfigureAwait(false);
+        await ServiceManager.Services.GetService<IDeviceDiscoveryService>()!.StartAsync(token).ConfigureAwait(false);
     }
 
     public async Task StopAsync()
     {
-        await ServiceManager.Services.GetService<ILocalDataListener>()!.StopListeningAsync();
-        await ServiceManager.Services.GetService<IDeviceDiscoveryService>()!.StopAsync();
+        await ServiceManager.Services.GetService<IDeviceDiscoveryService>()!.StopAsync().ConfigureAwait(false);
+        await ServiceManager.Services.GetService<ILocalDataListener>()!.StopListeningAsync().ConfigureAwait(false);
     }
 }

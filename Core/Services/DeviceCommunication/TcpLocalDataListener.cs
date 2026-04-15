@@ -87,7 +87,7 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
         catch (Exception e)
         {
             Logger.Error(e, "TCP local listener start failed");
-            await StopAsync();
+            await StopAsync().ConfigureAwait(false);
             return false;
         }
     }
@@ -186,7 +186,7 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
         {
             try
             {
-                await acceptTask;
+                await acceptTask.ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

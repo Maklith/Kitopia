@@ -4,9 +4,11 @@ using Core.Services.Config;
 using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.Interfaces;
+using Core.Services.MQTT;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
+using MQTTnet.Server;
 using PluginCore;
 using Serilog;
 
@@ -37,8 +39,8 @@ public class ApplicationService : IApplicationService
 
     public void Exit(int exitCode = 0)
     {
+        MqttManager.Server.StopAsync(new MqttServerStopOptions()).GetAwaiter().GetResult();
         ServiceManager.Services.GetService<IDeviceCommunication>()?.StopAsync().GetAwaiter().GetResult();
-        ServiceManager.Services.GetService<IDeviceDiscoveryService>()!.StopAsync();
         Logger.Information("程序退出");
         LogManager.Logger.Dispose();
         ServiceManager.Services.GetService<IToastService>()!.Unregister();

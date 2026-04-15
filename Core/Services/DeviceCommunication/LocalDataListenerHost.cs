@@ -177,8 +177,8 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
             return;
         }
 
-        await _quicListener.StopAsync();
-        await _tcpListener.StopAsync();
+        await _quicListener.StopAsync().ConfigureAwait(false);
+        await _tcpListener.StopAsync().ConfigureAwait(false);
     }
 
     private static async Task CopyStreamToPipeAsync(Stream source, PipeWriter writer, CancellationToken token)

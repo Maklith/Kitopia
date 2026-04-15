@@ -117,7 +117,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
         catch (Exception e)
         {
             Logger.Error(e, "QUIC local listener start failed");
-            await StopAsync();
+            await StopAsync().ConfigureAwait(false);
             return false;
         }
     }
@@ -207,14 +207,14 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
 
         if (listener is not null)
         {
-            await listener.DisposeAsync();
+            await listener.DisposeAsync().ConfigureAwait(false);
         }
 
         if (acceptTask is not null)
         {
             try
             {
-                await acceptTask;
+                await acceptTask.ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
