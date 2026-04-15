@@ -1,7 +1,9 @@
 using System;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using Avalonia.Threading;
 using Vanara.PInvoke;
 
@@ -9,19 +11,25 @@ namespace KitopiaAvalonia.Services;
 
 public partial class ToastShowWindow : Window
 {
+    private readonly DispatcherTimer _regionSyncTimer = new() { Interval = TimeSpan.FromMilliseconds(33) };
+
     public ToastShowWindow()
     {
         InitializeComponent();
+        _regionSyncTimer.Tick += (_, _) => UpdateWindowRegionToToastCards();
+
         Opened += (_, _) =>
         {
             Reposition();
             ScrollToLatest();
+            UpdateWindowRegionToToastCards();
         };
         SizeChanged += (_, _) =>
         {
             if (IsVisible)
             {
                 Reposition();
+                UpdateWindowRegionToToastCards();
             }
         };
     }
@@ -64,8 +72,73 @@ public partial class ToastShowWindow : Window
         base.IsVisibleChanged(e);
         if (e.NewValue is true)
         {
+            _regionSyncTimer.Start();
             Reposition();
             ScrollToLatest();
+            UpdateWindowRegionToToastCards();
+        }
+        else
+        {
+            _regionSyncTimer.Stop();
+        }
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _regionSyncTimer.Stop();
+        base.OnClosed(e);
+    }
+
+    private void UpdateWindowRegionToToastCards()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var hwnd = TryGetPlatformHandle()?.Handle;
+        if (!hwnd.HasValue)
+        {
+            return;
+        }
+
+        var scale = RenderScaling <= 0 ? 1 : RenderScaling;
+        var shadowPadding = Math.Max(1, (int)Math.Ceiling(12 * scale));
+        var unionRegion = Gdi32.CreateRectRgn(0, 0, 0, 0);
+
+        try
+        {
+            var cards = this.GetVisualDescendants()
+                .OfType<Control>()
+                .Where(control => control.Classes.Contains("toast-card")
+                                  && control.IsVisible
+                                  && control.Bounds.Width > 0
+                                  && control.Bounds.Height > 0);
+
+            foreach (var card in cards)
+            {
+                var topLeft = card.TranslatePoint(default, this);
+                if (topLeft is null)
+                {
+                    continue;
+                }
+
+                var left = (int)Math.Floor(topLeft.Value.X * scale) - shadowPadding;
+                var top = (int)Math.Floor(topLeft.Value.Y * scale) - shadowPadding;
+                var right = (int)Math.Ceiling((topLeft.Value.X + card.Bounds.Width) * scale) + shadowPadding;
+                var bottom = (int)Math.Ceiling((topLeft.Value.Y + card.Bounds.Height) * scale) + shadowPadding;
+
+                var cardRegion = Gdi32.CreateRectRgn(left, top, right, bottom);
+                Gdi32.CombineRgn(unionRegion, unionRegion, cardRegion, Gdi32.RGN_COMB.RGN_OR);
+                Gdi32.DeleteObject(cardRegion);
+            }
+
+            User32.SetWindowRgn((HWND)hwnd.Value, unionRegion, true);
+        }
+        catch
+        {
+            Gdi32.DeleteObject(unionRegion);
+            throw;
         }
     }
 
