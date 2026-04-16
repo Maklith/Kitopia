@@ -15,6 +15,7 @@ using Core.Services.DeviceCommunication.Messages.Chat;
 using Core.Services.DeviceCommunication.Routing;
 using Core.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
+using ObservableCollections;
 using PluginCore;
 using Serilog;
 using Serilog.Core;
@@ -26,7 +27,7 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject
     private static readonly ILogger Logger = LogManager.Logger.ForContext<DeviceDiscoveryPageViewModel>();
     private readonly IDeviceDiscoveryService _deviceDiscoveryService;
 
-    public ObservableCollection<DeviceModel> DiscoveredDevices => _deviceDiscoveryService.Devices;
+    public NotifyCollectionChangedSynchronizedViewList<DeviceModel> DiscoveredDevices => _deviceDiscoveryService.Devices;
 
     public DeviceDiscoveryPageViewModel(IDeviceDiscoveryService deviceDiscoveryService)
     {

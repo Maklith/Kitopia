@@ -15,6 +15,7 @@ using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Messages.Chat;
 using Core.Services.DeviceCommunication.Routing;
+using ObservableCollections;
 using PluginCore;
 
 namespace Core.ViewModel.Windows;
@@ -34,7 +35,7 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public ObservableCollection<DeviceModel> DiscoveredDevices => _deviceDiscoveryService.Devices;
+    public NotifyCollectionChangedSynchronizedViewList<DeviceModel> DiscoveredDevices => _deviceDiscoveryService.Devices;
     public ObservableCollection<ShareFileItem> SelectedFiles { get; } = new();
 
     [ObservableProperty]

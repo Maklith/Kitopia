@@ -15,6 +15,7 @@ using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
 using Core.Services.DeviceCommunication.Sessions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using ObservableCollections;
 using PluginCore;
 
 namespace KitopiaTest.DeviceCommunication;
@@ -263,7 +264,16 @@ public sealed class MessageAppServiceTests
 
     private sealed class FakeDeviceDiscoveryService : IDeviceDiscoveryService
     {
-        public ObservableCollection<DeviceModel> Devices { get; } = [];
+        private readonly ObservableList<DeviceModel> _devicesSource = [];
+        private readonly ISynchronizedView<DeviceModel, DeviceModel> _devicesView;
+
+        public FakeDeviceDiscoveryService()
+        {
+            _devicesView = _devicesSource.CreateView(device => device);
+            Devices = _devicesView.ToNotifyCollectionChanged();
+        }
+
+        public NotifyCollectionChangedSynchronizedViewList<DeviceModel> Devices { get; }
 
         public Task StartAsync(CancellationToken token) => Task.CompletedTask;
 
@@ -271,6 +281,8 @@ public sealed class MessageAppServiceTests
 
         public void Dispose()
         {
+            Devices.Dispose();
+            _devicesView.Dispose();
         }
     }
 

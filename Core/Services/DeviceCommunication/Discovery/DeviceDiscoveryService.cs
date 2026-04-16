@@ -13,6 +13,7 @@ using Core.Services.Config;
 using Core.Services.DeviceCommunication;
 using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
+using ObservableCollections;
 using PluginCore;
 using Serilog;
 using Serilog.Core;
@@ -32,14 +33,20 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
     private static readonly TimeSpan DiscoveryStaleTimeout = TimeSpan.FromSeconds(20);
 
     private readonly object _sync = new();
-    private readonly ObservableCollection<DeviceModel> _devices = [];
+    private readonly ObservableList<DeviceModel> _devicesSource = [];
+    private readonly ISynchronizedView<DeviceModel, DeviceModel> _devicesView;
 
     private CancellationTokenSource? _cts;
     private UdpClient? _udpClientV4;
     private UdpClient? _udpClientV6;
 
-    public ObservableCollection<DeviceModel> Devices => _devices;
+    public NotifyCollectionChangedSynchronizedViewList<DeviceModel> Devices { get; }
     
+
+    public DeviceDiscoveryService() {
+        _devicesView = _devicesSource.CreateView(device => device);
+        Devices = _devicesView.ToNotifyCollectionChanged();
+    }
 
     public async Task StartAsync(CancellationToken token1) {
         lock (_sync) {
@@ -58,10 +65,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
         }
     }
 
-    public void Dispose() {
-        StopAsync().GetAwaiter().GetResult();
-    }
-
     private void StopCore() {
         var cts = _cts;
         _cts = null;
@@ -76,7 +79,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
 
         CloseUdpClient(ref _udpClientV4);
         CloseUdpClient(ref _udpClientV6);
-        _devices.Clear();
+        _devicesSource.Clear();
     }
 
     private static void CloseUdpClient(ref UdpClient? client) {
@@ -103,10 +106,11 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             }
             lock (_sync) {
                 var now = DateTime.UtcNow;
-                var staleDevices = _devices
-                    .Where(device => now - device.LastSeen > DiscoveryStaleTimeout);
+                var staleDevices = _devicesSource
+                    .Where(device => now - device.LastSeen > DiscoveryStaleTimeout)
+                    .ToList();
                 foreach (var staleDevice in staleDevices) {
-                    _devices.Remove(staleDevice);
+                    _devicesSource.Remove(staleDevice);
                 }
             }
             
@@ -221,13 +225,13 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                 var endpointAddress = NormalizeAddress(result.RemoteEndPoint.Address);
                 
                 lock (_sync) {
-                    var existing = _devices.FirstOrDefault(device =>
+                    var existing = _devicesSource.FirstOrDefault(device =>
                         string.Equals(device.Id, info.Id, StringComparison.Ordinal));
                     if (existing is null) {
-                        var duplicateEndpoint = _devices.FirstOrDefault(device =>
+                        var duplicateEndpoint = _devicesSource.FirstOrDefault(device =>
                             device.Address.Equals(endpointAddress) && device.TcpPort == info.TcpPort&& device.SupportQuic == info.SupportsQuic);
                         if (duplicateEndpoint is not null) {
-                            _devices.Remove(duplicateEndpoint);
+                            _devicesSource.Remove(duplicateEndpoint);
                         }
 
                         existing = new DeviceModel {
@@ -240,7 +244,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                             SupportQuic = info.SupportsQuic,
                             LastSeen = DateTime.UtcNow
                         };
-                        _devices.Add(existing);
+                        _devicesSource.Add(existing);
                     }
                     else {
                         existing.LastSeen = DateTime.UtcNow;
@@ -378,6 +382,12 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
         }
 
         return true;
+    }
+
+    public void Dispose() {
+        StopAsync().GetAwaiter().GetResult();
+        Devices.Dispose();
+        _devicesView.Dispose();
     }
 }
 

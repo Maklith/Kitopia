@@ -1,13 +1,12 @@
 using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using ObservableCollections;
 using PluginCore;
 
 namespace Core.Services.DeviceCommunication.Discovery;
 
 public interface IDeviceDiscoveryService : IDisposable
 {
-    ObservableCollection<DeviceModel> Devices { get; }
+    NotifyCollectionChangedSynchronizedViewList<DeviceModel> Devices { get; }
     
     Task StartAsync(CancellationToken token);
     Task StopAsync();
