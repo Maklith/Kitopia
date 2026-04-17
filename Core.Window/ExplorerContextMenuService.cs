@@ -1,8 +1,7 @@
-using PluginCore;
 using Windows.Management.Deployment;
 using Core.Services;
-using Core.Services.Interfaces;
 using Core.Utils;
+using PluginCore;
 using Serilog;
 
 namespace Core.Window;

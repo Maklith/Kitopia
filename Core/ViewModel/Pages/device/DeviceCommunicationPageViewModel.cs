@@ -20,7 +20,6 @@ using Core.ViewModel.Main;
 using OpenCvSharp;
 using PluginCore;
 using Serilog;
-using Serilog.Core;
 
 namespace Core.ViewModel.Pages.device;
 

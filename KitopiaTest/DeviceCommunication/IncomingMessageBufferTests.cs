@@ -1,6 +1,5 @@
 using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Messages.Chat;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace KitopiaTest.DeviceCommunication;
 

@@ -4,10 +4,10 @@
 // FileName: WindowSwitcherAnalyzer.cs
 
 using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace KitopiaEx.SearchWindow.InputDataAnalyzer;
 

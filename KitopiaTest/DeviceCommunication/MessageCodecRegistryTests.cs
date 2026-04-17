@@ -1,8 +1,6 @@
 using Core.Services.DeviceCommunication.Codecs;
 using Core.Services.DeviceCommunication.Messages.Chat;
-using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace KitopiaTest.DeviceCommunication;
 

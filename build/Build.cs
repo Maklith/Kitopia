@@ -14,8 +14,6 @@ using Nuke.Common.Tools.GitHub;
 using Nuke.Common.Tools.PowerShell;
 using Octokit;
 using Serilog;
-using SharpCompress.Archives;
-using SharpCompress.Archives.SevenZip;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 using FileMode = System.IO.FileMode;
 using Project = Nuke.Common.ProjectModel.Project;

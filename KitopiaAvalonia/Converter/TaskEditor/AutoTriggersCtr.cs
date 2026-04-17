@@ -6,7 +6,6 @@ using Avalonia.Data.Converters;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.CustomScenario;
-using PluginCore;
 using PluginCore.CustomScenario;
 
 namespace KitopiaAvalonia.Converter.TaskEditor;

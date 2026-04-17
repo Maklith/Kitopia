@@ -5,8 +5,8 @@
 // Date: 2026/04/11 11:04
 // FileEffect:
 
-using System.Net;
 using System.IO.Pipelines;
+using System.Net;
 
 namespace Core.Services.DeviceCommunication;
 

@@ -2,7 +2,6 @@
 using Core.Services;
 using Core.Services.Config;
 using Core.Services.DeviceCommunication;
-using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.Interfaces;
 using Core.Services.MQTT;
 using Core.Utils;

@@ -3,7 +3,6 @@ using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
 using Core.Services.DeviceCommunication.Security;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace KitopiaTest.DeviceCommunication;
 

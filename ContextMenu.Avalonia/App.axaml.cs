@@ -1,10 +1,10 @@
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using ContextMenu.Avalonia.ViewModels;
 using ContextMenu.Avalonia.Views;
-using System.Linq;
 
 namespace ContextMenu.Avalonia
 {

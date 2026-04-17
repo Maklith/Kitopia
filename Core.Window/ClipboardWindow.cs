@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Threading.RateLimiting;
 using System.Windows;
 using System.Windows.Media.Imaging;
@@ -12,8 +11,8 @@ using Polly;
 using Polly.Retry;
 using Serilog;
 using Application = Avalonia.Application;
-using PixelFormats = System.Windows.Media.PixelFormats;
 using Clipboard = System.Windows.Clipboard;
+using PixelFormats = System.Windows.Media.PixelFormats;
 using Size = OpenCvSharp.Size;
 
 namespace Core.Window;

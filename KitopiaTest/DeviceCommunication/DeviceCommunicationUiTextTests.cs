@@ -1,6 +1,5 @@
 using Core.Services.DeviceCommunication;
 using Core.ViewModel.Pages.device;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace KitopiaTest.DeviceCommunication;
 

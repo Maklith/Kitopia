@@ -1,5 +1,5 @@
-using System.Net;
 using System.IO.Pipelines;
+using System.Net;
 
 namespace Core.Services.DeviceCommunication;
 

@@ -1,5 +1,4 @@
 using Core.Services.DeviceCommunication.Protocol;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace KitopiaTest.DeviceCommunication;
 

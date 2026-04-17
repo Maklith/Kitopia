@@ -1,24 +1,11 @@
-using System;
-using System.Collections.ObjectModel;
-using System.IO;
-using System.Net;
-using System.Threading.Tasks;
-using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Core.Services;
 using Core.Services.Config;
-using Core.Services.DeviceCommunication;
-using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Discovery;
-using Core.Services.DeviceCommunication.Messages.Chat;
-using Core.Services.DeviceCommunication.Routing;
-using Core.Services.Interfaces;
-using Microsoft.Extensions.DependencyInjection;
 using ObservableCollections;
 using PluginCore;
 using Serilog;
-using Serilog.Core;
 
 namespace Core.ViewModel.Pages.device;
 

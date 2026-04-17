@@ -1,8 +1,8 @@
+using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Core.Services.Interfaces;
-using System.Collections.Generic;
 using Core.ViewModel.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;

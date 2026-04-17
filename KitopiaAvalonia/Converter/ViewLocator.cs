@@ -1,6 +1,5 @@
 using System;
 using System.Globalization;
-using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Core.Services.Config;

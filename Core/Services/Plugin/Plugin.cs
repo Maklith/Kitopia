@@ -6,7 +6,6 @@ using System.Text.Json;
 using Core.CustomScenario;
 using Core.Services.Config;
 using Core.Services.HotKey;
-using Core.Services.Interfaces;
 using Core.Utils;
 using Core.ViewModel.Windows;
 using Microsoft.Extensions.DependencyInjection;

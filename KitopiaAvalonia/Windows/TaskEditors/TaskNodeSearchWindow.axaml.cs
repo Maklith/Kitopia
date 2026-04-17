@@ -1,6 +1,6 @@
+using System;
 using Avalonia.Controls;
 using Core.ViewModel.TaskEditor;
-using System;
 
 namespace KitopiaAvalonia.Windows.TaskEditors;
 

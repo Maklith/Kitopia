@@ -1,10 +1,10 @@
 ﻿#region
 
+using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Core.Services.Interfaces;
-using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.Messaging;
+using Core.Services.Interfaces;
 using Core.ViewModel.Main;
 using PluginCore;
 

@@ -1,10 +1,8 @@
-using System.IO.Pipelines;
-using System.Net;
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.IO.Pipelines;
+using System.Net;
 using System.Text.Json;
-using System.Collections.ObjectModel;
-using System.Linq;
 using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Codecs;
@@ -14,7 +12,6 @@ using Core.Services.DeviceCommunication.Messages.Chat;
 using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
 using Core.Services.DeviceCommunication.Sessions;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ObservableCollections;
 using PluginCore;
 

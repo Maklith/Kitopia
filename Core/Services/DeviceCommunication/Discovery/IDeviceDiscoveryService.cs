@@ -1,4 +1,3 @@
-using System;
 using ObservableCollections;
 using PluginCore;
 

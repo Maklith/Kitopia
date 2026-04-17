@@ -1,5 +1,3 @@
-using System.Buffers;
-using System.IO;
 using System.IO.Pipelines;
 using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Codecs;

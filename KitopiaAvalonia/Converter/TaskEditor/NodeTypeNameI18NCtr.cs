@@ -2,7 +2,6 @@
 using System.Globalization;
 using Avalonia.Data.Converters;
 using Core.CustomScenario;
-using PluginCore;
 using PluginCore.CustomScenario;
 
 namespace KitopiaAvalonia.Converter.TaskEditor;

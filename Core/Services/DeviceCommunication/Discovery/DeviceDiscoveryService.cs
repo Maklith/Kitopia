@@ -1,22 +1,13 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Core.Services.Config;
-using Core.Services.DeviceCommunication;
-using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
 using ObservableCollections;
 using PluginCore;
 using Serilog;
-using Serilog.Core;
 
 namespace Core.Services.DeviceCommunication.Discovery;
 

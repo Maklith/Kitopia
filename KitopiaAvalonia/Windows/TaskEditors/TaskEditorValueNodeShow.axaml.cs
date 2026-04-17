@@ -12,7 +12,6 @@ using Avalonia.Controls;
 using CommunityToolkit.Mvvm.Input;
 using Core.Utils;
 using Core.ViewModel.TaskEditor;
-using PluginCore;
 using PluginCore.CustomScenario;
 
 namespace KitopiaAvalonia.Windows.TaskEditors;

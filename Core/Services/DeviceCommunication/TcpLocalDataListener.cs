@@ -5,8 +5,6 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.Linq;
-using Core.Services;
 using Core.Services.Config;
 using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Protocol;

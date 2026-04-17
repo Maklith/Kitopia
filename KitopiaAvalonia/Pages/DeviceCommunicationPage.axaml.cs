@@ -2,14 +2,11 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Controls.Primitives;
-using Avalonia.Interactivity;
 using Avalonia.Input;
-using Avalonia.Layout;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using CommunityToolkit.Mvvm.ComponentModel;
 using Core.ViewModel.Pages.device;
 
 namespace KitopiaAvalonia.Pages;

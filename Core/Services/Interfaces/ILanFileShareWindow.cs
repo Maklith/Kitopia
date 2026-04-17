@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace Core.Services.Interfaces;
 
 public interface ILanFileShareWindow

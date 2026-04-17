@@ -1,12 +1,12 @@
-using Avalonia;
-using Avalonia.Threading;
-using Vanara.PInvoke;
-using PluginCore;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using Avalonia;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Core.Utils;
+using PluginCore;
+using Vanara.PInvoke;
 
 namespace Core.Window;
 

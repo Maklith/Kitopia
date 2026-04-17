@@ -1,7 +1,4 @@
 ﻿using Avalonia.Controls;
-using Core.ViewModel.Pages.device;
-using Microsoft.Extensions.DependencyInjection;
-using PluginCore;
 
 namespace KitopiaAvalonia.Pages;
 

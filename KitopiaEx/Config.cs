@@ -1,6 +1,5 @@
 ﻿using System;
 using KitopiaEx.Translate;
-using PluginCore;
 using PluginCore.Config;
 using PluginCore.CustomScenario.Attribute.ConfigField;
 
