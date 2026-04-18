@@ -31,35 +31,32 @@ public class KitopiaEx : IPlugin
         Kitopia.ToolTipConverters.TryAdd(typeof(ScreenCaptureInfo), info =>
         {
             var screenCaptureInfo = (ScreenCaptureInfo)info;
-            if (screenCaptureInfo.ScreenCaptureType == ScreenCaptureType.屏幕)
-            {
+            if (screenCaptureInfo is { ScreenCaptureType: ScreenCaptureType.屏幕, ScreenInfo: not null, RequestRect: not null })
                 return
-                    $"显示器:{screenCaptureInfo.ScreenInfo.hMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
-            }
+                    $"显示器,起始坐标:{screenCaptureInfo.RequestRect.Value.X},{screenCaptureInfo.RequestRect.Value.Y}\n大小:{screenCaptureInfo.RequestRect.Value.Width}x{screenCaptureInfo.RequestRect.Value.Height}";
             if (screenCaptureInfo.ScreenCaptureType == ScreenCaptureType.窗口)
             {
                 return
-                    $"窗口:{screenCaptureInfo.WindowInfo.Title}";
+                    $"窗口:{screenCaptureInfo.WindowInfo?.Title}";
             }
             return
-                $"显示器:{screenCaptureInfo.ScreenInfo.hMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
+                $"信息可能错误";
         });
         Kitopia.ToolTipConverters.TryAdd(typeof(ScreenCaptureResult), e =>
         {
             var screenCaptureResult = (ScreenCaptureResult)e;
             var screenCaptureInfo = screenCaptureResult.Info;
-            if (screenCaptureInfo.ScreenCaptureType == ScreenCaptureType.屏幕)
-            {
+            if (screenCaptureInfo is { ScreenCaptureType: ScreenCaptureType.屏幕, ScreenInfo: not null, RequestRect: not null })
                 return
-                    $"显示器:{screenCaptureInfo.ScreenInfo.hMonitor},起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}";
-            }
+                    $"显示器,起始坐标:{screenCaptureInfo.RequestRect.Value.X},{screenCaptureInfo.RequestRect.Value.Y}\n大小:{screenCaptureInfo.RequestRect.Value.Width}x{screenCaptureInfo.RequestRect.Value.Height}";
             if (screenCaptureInfo.ScreenCaptureType == ScreenCaptureType.窗口)
             {
                 return
-                    $"窗口:{screenCaptureInfo.WindowInfo.Title}";
+                    $"窗口:{screenCaptureInfo.WindowInfo?.Title}";
             }
             return
-                $"起始坐标:{screenCaptureInfo.X},{screenCaptureInfo.Y}\n大小:{screenCaptureInfo.Width}x{screenCaptureInfo.Height}\nBitmap数据:{(screenCaptureResult.Source is null?"不存在":"存在")}";
+                $"信息可能错误";
+            
         });
         Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureInfo), new ScreenCaptureInfoCustomScenarioValueSerializer());
     }

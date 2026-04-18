@@ -139,9 +139,12 @@ public class WindowToolServiceWindow : IWindowTool
         var capture = (IScreenCaptureWindow?)ServiceManager.Services.GetService(typeof(IScreenCaptureWindow));
         capture?.RequestUserSelectScreenInfo(info =>
         {
-            if (info.WindowInfo.Hwnd != IntPtr.Zero)
+            if (!info.WindowInfo.HasValue) {
+                return;
+            } 
+            if (info.WindowInfo.Value.Hwnd != IntPtr.Zero)
             {
-                SetWindowTopMost(info.WindowInfo.Hwnd, true);
+                SetWindowTopMost(info.WindowInfo.Value.Hwnd, true);
             }
         });
     }

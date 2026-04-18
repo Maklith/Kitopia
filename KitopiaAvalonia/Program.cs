@@ -160,7 +160,7 @@ internal class Program
         #if WINDOWS
         services.AddTransient<IHotKetImpl, HotKeyImpl>();
         services.AddTransient<IScreenCaptureManager, ScreenCaptureManager>();
-        services.AddTransient<IScreenCapture, ScreenCaptureByWGC>();
+        services.AddTransient<IScreenCapture, ScreenCaptureByWgc>();
 
         services.AddTransient<IEverythingService, EverythingService>();
         services.AddTransient<IAppToolService, AppToolService>();

@@ -462,7 +462,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
         foreach (var connectorItem in Input)
             if (!connectorItem.IsConnected)
             {
-                if (connectorItem.InputObject.SerializeType.FullName != "PluginCore.NodeConnectorClass")
+                if (connectorItem.InputObject.SerializeType.FullName != typeof(NodeConnectorClass).FullName!)
                 {
                     //当前节点有一个输入参数不存在,验证失败
                     if (!connectorItem.InputObject.IsSelf) return false;
@@ -472,7 +472,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                     connectorItem.IsNotUsed = true;
                 }
             }
-            else if (connectorItem.InputObject.SerializeType.FullName == "PluginCore.NodeConnectorClass")
+            else if (connectorItem.InputObject.SerializeType.FullName == typeof(NodeConnectorClass).FullName!)
             {
                 connectorItem.IsNotUsed = false;
             }

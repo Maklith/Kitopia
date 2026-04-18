@@ -34,9 +34,12 @@ public class ImagePin
             };
             if (info != null)
             {
-                imagePin.Position=(new PixelPoint(info.Value.X,info.Value.Y));
-                imagePin.Width = info.Value.Width/imagePin.DesktopScaling;
-                imagePin.Height = info.Value.Height/imagePin.DesktopScaling;
+                if (info.Value.RequestRect != null) {
+                    imagePin.Position =
+                        (new PixelPoint(info.Value.RequestRect.Value.X, info.Value.RequestRect.Value.Y));
+                    imagePin.Width = info.Value.RequestRect.Value.Width / imagePin.DesktopScaling;
+                    imagePin.Height = info.Value.RequestRect.Value.Height / imagePin.DesktopScaling;
+                }
             }
             else
             {

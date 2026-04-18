@@ -10,7 +10,7 @@ public class Int32CustomScenarioValueSerializer : ICustomScenarioValueSerializer
         return value.ToString();
     }
 
-    public object Deserialize(string? value)
+    public object? Deserialize(string? value)
     {
         return int.Parse(value);
     }

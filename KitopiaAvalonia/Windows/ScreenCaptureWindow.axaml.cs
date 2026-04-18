@@ -81,16 +81,21 @@ public partial class ScreenCaptureWindow : Window
         _screens = results.Select(r => r.Info).ToList();
         
         int minX = 0, minY = 0, width = 0, height = 0;
-        
-        if (results.Count > 0) 
-        {
-            minX = results.Min(r => r.Info.ScreenInfo.X);
-            minY = results.Min(r => r.Info.ScreenInfo.Y);
-            int maxX = results.Max(r => r.Info.ScreenInfo.X + r.Info.ScreenInfo.Width);
-            int maxY = results.Max(r => r.Info.ScreenInfo.Y + r.Info.ScreenInfo.Height);
-            width = maxX - minX;
-            height = maxY - minY;
+
+        if (results.Count <= 0) {
+            return;
         }
+
+        if (!results.All(r => r.Info.ScreenInfo.HasValue)) {
+            return;
+        }
+
+        minX = results.Min(r => r.Info.ScreenInfo!.Value.X);
+        minY = results.Min(r => r.Info.ScreenInfo!.Value.Y);
+        int maxX = results.Max(r => r.Info.ScreenInfo!.Value.X + r.Info.ScreenInfo!.Value.Width);
+        int maxY = results.Max(r => r.Info.ScreenInfo!.Value.Y + r.Info.ScreenInfo!.Value.Height);
+        width = maxX - minX;
+        height = maxY - minY;
 
         if (width > 0 && height > 0) 
         {
@@ -100,8 +105,8 @@ public partial class ScreenCaptureWindow : Window
             foreach (var result in results)
             {
                 if (result.Source is not { IsDisposed: false }) continue;
-                int x = result.Info.ScreenInfo.X - minX;
-                int y = result.Info.ScreenInfo.Y - minY;
+                int x = result.Info.ScreenInfo!.Value.X ;
+                int y = result.Info.ScreenInfo!.Value.Y;
                     
                 if (x >= 0 && y >= 0 && x + result.Source.Width <= width && y + result.Source.Height <= height)
                 {
@@ -113,7 +118,7 @@ public partial class ScreenCaptureWindow : Window
             Image.Source = combinedMat.ToAWriteableBitmap();
 
             if (combinedMat.Total() > 0)
-            {
+            {   
                 _pixelWidth = combinedMat.Width;
                 _pixelHeight = combinedMat.Height;
                 // CV_8UC4 is 4 bytes per pixel
@@ -128,14 +133,7 @@ public partial class ScreenCaptureWindow : Window
             _screenCaptureInfo = new ScreenCaptureInfo
             {
                 ScreenCaptureType = ScreenCaptureType.屏幕,
-                ScreenInfo = new ScreenInfo
-                {
-                    X = minX,
-                    Y = minY,
-                    Width = width,
-                    Height = height,
-                    hMonitor = IntPtr.Zero
-                }
+                ScreenInfo = new PluginCore.Rect(minX, minY, width, height),
             };
 
             Position = new PixelPoint(minX, minY);
@@ -216,8 +214,7 @@ public partial class ScreenCaptureWindow : Window
             {
                 // 1. Get current selection info
                 var captureInfo = GetSelectedScreenCaptureInfo();
-                if (captureInfo.Width <= 0 || captureInfo.Height <= 0)
-                {
+                if (!captureInfo.RequestRect.HasValue||captureInfo.RequestRect.Value.Width <= 0 || captureInfo.RequestRect.Value.Height <= 0) {
                     ServiceManager.Services.GetService<IToastService>()?.Show("提示", "请先选择区域", NotificationType.Warning);
                     _isLongCapturing = false;
                     return;
@@ -251,7 +248,7 @@ public partial class ScreenCaptureWindow : Window
                 {
                     Width = SelectBox.Bounds.Width,
                     Height = SelectBox.Bounds.Height,
-                    Position = new PixelPoint(captureInfo.X, captureInfo.Y- captureInfo.Height)
+                    Position = new PixelPoint(captureInfo.RequestRect.Value.X, captureInfo.RequestRect.Value.Y- captureInfo.RequestRect.Value.Height)
                 };
                 progressWindow.Show();
             
@@ -275,7 +272,7 @@ public partial class ScreenCaptureWindow : Window
                 // 5. Scroll and Stitch Loop
                 int maxScrolls = 50;
             
-                double stepRatio = captureInfo.Height / 600.0;
+                double stepRatio = captureInfo.RequestRect.Value.Height / 600.0;
                 int stepMagnitude = (int)(120 * stepRatio);
             
                 if (stepMagnitude < 120) stepMagnitude = 120;
@@ -715,13 +712,14 @@ public partial class ScreenCaptureWindow : Window
         if (windowInfoList.Count == 0)
         {
             // Fallback: Check which screen we are on
-            var screen = _screens.FirstOrDefault(s => positionX >= s.ScreenInfo.X && positionX < s.ScreenInfo.X + s.ScreenInfo.Width &&
-                                                      positionY >= s.ScreenInfo.Y && positionY < s.ScreenInfo.Y + s.ScreenInfo.Height);
+            var screen = _screens.FirstOrDefault(s => s.ScreenInfo.HasValue&&positionX >= s.ScreenInfo.Value.X && 
+                                                      positionX < s.ScreenInfo.Value.X + s.ScreenInfo.Value.Width &&
+                                                      positionY >= s.ScreenInfo.Value.Y && positionY < s.ScreenInfo.Value.Y + s.ScreenInfo.Value.Height);
 
-            if (!screen.Equals(default))
+            if (!screen.Equals(default)&&screen.ScreenInfo.HasValue)
             {
                 // Found a screen
-                targetRectPhysical = new Rect(screen.ScreenInfo.X, screen.ScreenInfo.Y, screen.ScreenInfo.Width, screen.ScreenInfo.Height);
+                targetRectPhysical = new Rect(screen.ScreenInfo.Value.X, screen.ScreenInfo.Value.Y, screen.ScreenInfo.Value.Width, screen.ScreenInfo.Value.Height);
                 _currentWindowInfo = new WindowInfo(); // No specific window
             }
             else
@@ -1410,51 +1408,51 @@ public partial class ScreenCaptureWindow : Window
 
             if (_selectMode && _currentWindowInfo.Hwnd != IntPtr.Zero)
             {
+                int absX = _screenCaptureInfo.ScreenInfo!.Value.X + x;
+                int absY = _screenCaptureInfo.ScreenInfo!.Value.Y + y;
+            
+                var targetScreen = _screens.FirstOrDefault(s => 
+                    s.ScreenInfo != null &&
+                    absX >= s.ScreenInfo.Value.X && absX < s.ScreenInfo.Value.X + s.ScreenInfo.Value.Width &&
+                    absY >= s.ScreenInfo.Value.Y && absY < s.ScreenInfo.Value.Y + s.ScreenInfo.Value.Height);
                 return new ScreenCaptureInfo
                 {
                     ScreenCaptureType = ScreenCaptureType.窗口,
-                    WindowInfo = _currentWindowInfo
+                    ScreenInfo = targetScreen.ScreenInfo,
+                    WindowInfo = _currentWindowInfo,
+                    RequestRect = _currentWindowInfo.Rect
                 };
             }
             
             // Logic to map to specific screen (copied from FinnishCapture)
-            int absX = _screenCaptureInfo.ScreenInfo.X + x;
-            int absY = _screenCaptureInfo.ScreenInfo.Y + y;
+            if (_screenCaptureInfo.ScreenInfo != null) {
+                int absX = _screenCaptureInfo.ScreenInfo.Value.X + x;
+                int absY = _screenCaptureInfo.ScreenInfo.Value.Y + y;
             
-            var targetScreen = _screens.FirstOrDefault(s => 
-                absX >= s.ScreenInfo.X && absX < s.ScreenInfo.X + s.ScreenInfo.Width &&
-                absY >= s.ScreenInfo.Y && absY < s.ScreenInfo.Y + s.ScreenInfo.Height);
+                var targetScreen = _screens.FirstOrDefault(s => 
+                    s.ScreenInfo != null &&
+                    absX >= s.ScreenInfo.Value.X && absX < s.ScreenInfo.Value.X + s.ScreenInfo.Value.Width &&
+                    absY >= s.ScreenInfo.Value.Y && absY < s.ScreenInfo.Value.Y + s.ScreenInfo.Value.Height);
 
-            if (targetScreen.Equals(default(ScreenCaptureInfo)))
-            {
-                targetScreen = _screens.FirstOrDefault();
-            }
-            
-            if (!targetScreen.Equals(default(ScreenCaptureInfo)))
-            {
-                int relX = absX - targetScreen.ScreenInfo.X;
-                int relY = absY - targetScreen.ScreenInfo.Y;
+                if (targetScreen.Equals(default))
+                {
+                    return new ScreenCaptureInfo
+                    {
+                        RequestRect =  new PluginCore.Rect(absX, absY, cropW, cropH),
+                        ScreenInfo = _screenCaptureInfo.ScreenInfo
+                    };
+                }
+                if (targetScreen.ScreenInfo != null) {
+                    int relX = absX - targetScreen.ScreenInfo.Value.X;
+                    int relY = absY - targetScreen.ScreenInfo.Value.Y;
                     
-                return new ScreenCaptureInfo
-                {
-                    ScreenCaptureType = ScreenCaptureType.屏幕,
-                    X = relX,
-                    Y = relY,
-                    Width = cropW,
-                    Height = cropH,
-                    ScreenInfo = targetScreen.ScreenInfo
-                };
-            }
-            else
-            {
-                return new ScreenCaptureInfo
-                {
-                    X = x,
-                    Y = y,
-                    Width = cropW,
-                    Height = cropH,
-                    ScreenInfo = _screenCaptureInfo.ScreenInfo
-                };
+                    return new ScreenCaptureInfo
+                    {
+                        ScreenCaptureType = ScreenCaptureType.屏幕,
+                        RequestRect = new PluginCore.Rect(relX, relY, cropW, cropH),
+                        ScreenInfo = targetScreen.ScreenInfo
+                    };
+                }
             }
         }
         return new ScreenCaptureInfo();

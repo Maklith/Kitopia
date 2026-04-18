@@ -10,7 +10,7 @@ public class DoubleCustomScenarioValueSerializer : ICustomScenarioValueSerialize
         return value.ToString();
     }
 
-    public object Deserialize(string? value)
+    public object? Deserialize(string? value)
     {
         return double.Parse(value);
     }

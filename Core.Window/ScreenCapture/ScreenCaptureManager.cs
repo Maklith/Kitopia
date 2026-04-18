@@ -27,7 +27,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
 
             case "WGC":
             {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWGC));
+                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWgc));
                 if (firstOrDefault is null)
                 {
                     ConfigManger.Config.截图方法 = "自动";
@@ -58,7 +58,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
 
             case "WGC":
             {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWGC));
+                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWgc));
                 if (firstOrDefault is null)
                 {
                     ConfigManger.Config.截图方法 = "自动";
@@ -98,7 +98,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
 
             case "WGC":
             {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWGC));
+                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWgc));
                 if (firstOrDefault is null)
                 {
                     ConfigManger.Config.截图方法 = "自动";
@@ -132,7 +132,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
 
             case "WGC":
             {
-                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWGC));
+                var firstOrDefault = screenCaptures.FirstOrDefault(e => e.GetType() == typeof(ScreenCaptureByWgc));
                 if (firstOrDefault is null)
                 {
                     ConfigManger.Config.截图方法 = "自动";

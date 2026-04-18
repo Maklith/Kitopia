@@ -11,7 +11,7 @@ public class BoolCustomScenarioValueSerializer : ICustomScenarioValueSerializer
         return value.ToString();
     }
 
-    public object Deserialize(string? value)
+    public object? Deserialize(string? value)
     {
         return bool.Parse(value);
     }
