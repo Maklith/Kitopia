@@ -667,6 +667,9 @@ public partial class ScreenCaptureWindow : Window
                     .Y - _startPoint.Y;
                 var selectBoxWidth = e.GetPosition(this)
                     .X - _startPoint.X;
+                if (selectBoxWidth<15 && selectBoxHeight<15) {
+                    return;
+                }
                 if (selectBoxHeight < 0)
                 {
                     SelectBox.Height = -selectBoxHeight;
