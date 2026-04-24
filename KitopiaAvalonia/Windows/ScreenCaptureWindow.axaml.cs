@@ -66,6 +66,8 @@ public partial class ScreenCaptureWindow : Window
     private readonly byte[]? _screenPixels;
     private readonly int _pixelWidth;
     private readonly int _pixelHeight;
+    private readonly int _combinedMinX;
+    private readonly int _combinedMinY;
     private readonly WriteableBitmap? _magnifierBmp;
     private const int MagnifierSize = 11; // 11x11 grid
 
@@ -92,6 +94,8 @@ public partial class ScreenCaptureWindow : Window
 
         minX = results.Min(r => r.Info.ScreenInfo!.Value.X);
         minY = results.Min(r => r.Info.ScreenInfo!.Value.Y);
+        _combinedMinX = minX;
+        _combinedMinY = minY;
         int maxX = results.Max(r => r.Info.ScreenInfo!.Value.X + r.Info.ScreenInfo!.Value.Width);
         int maxY = results.Max(r => r.Info.ScreenInfo!.Value.Y + r.Info.ScreenInfo!.Value.Height);
         width = maxX - minX;
@@ -108,9 +112,9 @@ public partial class ScreenCaptureWindow : Window
                 int x = result.Info.ScreenInfo!.Value.X ;
                 int y = result.Info.ScreenInfo!.Value.Y;
                     
-                if (x >= 0 && y >= 0 && x + result.Source.Width <= width && y + result.Source.Height <= height)
+                if (x-minX>=0&&y-minY>=0 && x + result.Source.Width <= width && y + result.Source.Height <= height)
                 {
-                    using var roiMat = combinedMat[new OpenCvSharp.Rect(x, y, result.Source.Width, result.Source.Height)];
+                    using var roiMat = combinedMat[new OpenCvSharp.Rect(x-minX, y-minY, result.Source.Width, result.Source.Height)];
                     result.Source.CopyTo(roiMat);
                 }
             }
@@ -139,7 +143,7 @@ public partial class ScreenCaptureWindow : Window
             Position = new PixelPoint(minX, minY);
             
             var scaling = 1.0;
-            var screen = Screens.ScreenFromPoint(new PixelPoint(minX, minY));
+            var screen = Screens.Primary;
             if (screen != null)
             {
                 scaling = screen.Scaling;
@@ -1289,11 +1293,9 @@ public partial class ScreenCaptureWindow : Window
              return;
         }
 
-        double scaleX = _pixelWidth / Bounds.Width;
-        double scaleY = _pixelHeight / Bounds.Height;
-        
-        int centerX = (int)(p.X * scaleX);
-        int centerY = (int)(p.Y * scaleY);
+        var physicalPoint = this.PointToScreen(p);
+        int centerX = physicalPoint.X - _combinedMinX;
+        int centerY = physicalPoint.Y - _combinedMinY;
 
         if (centerX < 0 || centerX >= _pixelWidth || centerY < 0 || centerY >= _pixelHeight) 
         {
@@ -1386,33 +1388,53 @@ public partial class ScreenCaptureWindow : Window
         Close();
     }
 
+    private bool TryGetSelectedBitmapRect(out PixelRect cropRect, out PluginCore.Rect absoluteRect)
+    {
+        cropRect = default;
+        absoluteRect = default;
+
+        if (Image.Source is not Bitmap bitmap || !_screenCaptureInfo.ScreenInfo.HasValue)
+            return false;
+
+        var start = this.PointToScreen(new Point(SelectBox._dragTransform.X, SelectBox._dragTransform.Y));
+        var end = this.PointToScreen(new Point(SelectBox._dragTransform.X + SelectBox.Width, SelectBox._dragTransform.Y + SelectBox.Height));
+
+        int absLeft = Math.Min(start.X, end.X);
+        int absTop = Math.Min(start.Y, end.Y);
+        int absRight = Math.Max(start.X, end.X);
+        int absBottom = Math.Max(start.Y, end.Y);
+
+        int combinedLeft = _combinedMinX;
+        int combinedTop = _combinedMinY;
+        int combinedRight = combinedLeft + bitmap.PixelSize.Width;
+        int combinedBottom = combinedTop + bitmap.PixelSize.Height;
+
+        int clampedLeft = Math.Clamp(absLeft, combinedLeft, combinedRight);
+        int clampedTop = Math.Clamp(absTop, combinedTop, combinedBottom);
+        int clampedRight = Math.Clamp(absRight, combinedLeft, combinedRight);
+        int clampedBottom = Math.Clamp(absBottom, combinedTop, combinedBottom);
+
+        int width = clampedRight - clampedLeft;
+        int height = clampedBottom - clampedTop;
+        if (width <= 0 || height <= 0)
+            return false;
+
+        int bitmapX = clampedLeft - combinedLeft;
+        int bitmapY = clampedTop - combinedTop;
+
+        cropRect = new PixelRect(bitmapX, bitmapY, width, height);
+        absoluteRect = new PluginCore.Rect(clampedLeft, clampedTop, width, height);
+        return true;
+    }
+
     private ScreenCaptureInfo GetSelectedScreenCaptureInfo()
     {
-        if (Image.Source is Bitmap bitmap)
+        if (TryGetSelectedBitmapRect(out _, out var absoluteRect))
         {
-            int cropW;
-            var dragTransformX = SelectBox._dragTransform.X * (bitmap.PixelSize.Width / Bounds.Width);
-            var selectBoxWidth = SelectBox.Width * (bitmap.PixelSize.Width / Bounds.Width);
-            if (selectBoxWidth + dragTransformX > bitmap.PixelSize.Width)
-                cropW = bitmap.PixelSize.Width;
-            else if (dragTransformX > 0)
-                cropW = (int)selectBoxWidth;
-            else cropW = (int)selectBoxWidth + (int)dragTransformX;
-            int cropH;
-            var dragTransformY = SelectBox._dragTransform.Y * (bitmap.PixelSize.Height / Bounds.Height);
-            var selectBoxHeight = SelectBox.Height * (bitmap.PixelSize.Height / Bounds.Height);
-            if (selectBoxHeight + dragTransformY > bitmap.PixelSize.Height)
-                cropH = bitmap.PixelSize.Height;
-            else if (dragTransformY > 0)
-                cropH = (int)selectBoxHeight;
-            else cropH = (int)selectBoxHeight + (int)dragTransformY;
-            var x = Math.Max((int)dragTransformX, 0);
-            var y = Math.Max((int)dragTransformY, 0);
-
             if (_selectMode && _currentWindowInfo.Hwnd != IntPtr.Zero)
             {
-                int absX = _screenCaptureInfo.ScreenInfo!.Value.X + x;
-                int absY = _screenCaptureInfo.ScreenInfo!.Value.Y + y;
+                int absX = absoluteRect.X;
+                int absY = absoluteRect.Y;
             
                 var targetScreen = _screens.FirstOrDefault(s => 
                     s.ScreenInfo != null &&
@@ -1429,8 +1451,8 @@ public partial class ScreenCaptureWindow : Window
             
             // Logic to map to specific screen (copied from FinnishCapture)
             if (_screenCaptureInfo.ScreenInfo != null) {
-                int absX = _screenCaptureInfo.ScreenInfo.Value.X + x;
-                int absY = _screenCaptureInfo.ScreenInfo.Value.Y + y;
+                int absX = absoluteRect.X;
+                int absY = absoluteRect.Y;
             
                 var targetScreen = _screens.FirstOrDefault(s => 
                     s.ScreenInfo != null &&
@@ -1441,7 +1463,7 @@ public partial class ScreenCaptureWindow : Window
                 {
                     return new ScreenCaptureInfo
                     {
-                        RequestRect =  new PluginCore.Rect(absX, absY, cropW, cropH),
+                        RequestRect = absoluteRect,
                         ScreenInfo = _screenCaptureInfo.ScreenInfo
                     };
                 }
@@ -1452,7 +1474,7 @@ public partial class ScreenCaptureWindow : Window
                     return new ScreenCaptureInfo
                     {
                         ScreenCaptureType = ScreenCaptureType.屏幕,
-                        RequestRect = new PluginCore.Rect(relX, relY, cropW, cropH),
+                        RequestRect = new PluginCore.Rect(relX, relY, absoluteRect.Width, absoluteRect.Height),
                         ScreenInfo = targetScreen.ScreenInfo
                     };
                 }
@@ -1466,26 +1488,13 @@ public partial class ScreenCaptureWindow : Window
         var info = GetSelectedScreenCaptureInfo();
         if (Image.Source is Bitmap bitmap)
         {
-            int cropW;
-            var scaleX = bitmap.PixelSize.Width / Bounds.Width;
-            var dragTransformX = SelectBox._dragTransform.X * scaleX;
-            var selectBoxWidth = SelectBox.Width * scaleX;
-            if (selectBoxWidth + dragTransformX > bitmap.PixelSize.Width)
-                cropW = bitmap.PixelSize.Width;
-            else if (dragTransformX > 0)
-                cropW = (int)selectBoxWidth;
-            else cropW = (int)selectBoxWidth + (int)dragTransformX;
-            int cropH;
-            var scaleY = bitmap.PixelSize.Height / Bounds.Height;
-            var dragTransformY = SelectBox._dragTransform.Y * scaleY;
-            var selectBoxHeight = SelectBox.Height * scaleY;
-            if (selectBoxHeight + dragTransformY > bitmap.PixelSize.Height)
-                cropH = bitmap.PixelSize.Height;
-            else if (dragTransformY > 0)
-                cropH = (int)selectBoxHeight;
-            else cropH = (int)selectBoxHeight + (int)dragTransformY;
-            var x = Math.Max((int)dragTransformX, 0);
-            var y = Math.Max((int)dragTransformY, 0);
+            if (!TryGetSelectedBitmapRect(out var cropRect, out _))
+            {
+                _isFinished = true;
+                Image.Source = null;
+                WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");
+                return;
+            }
 
             if (_selectMode)
             {
@@ -1506,7 +1515,7 @@ public partial class ScreenCaptureWindow : Window
 
                     var content = (Control)Content!;
                     var transformGroup = new TransformGroup();
-                    var scaleTransform = new ScaleTransform(scaleX, scaleY);
+                    var scaleTransform = new ScaleTransform(bitmap.PixelSize.Width / Bounds.Width, bitmap.PixelSize.Height / Bounds.Height);
                     transformGroup.Children.Add(scaleTransform);
                     transformGroup.Children.Add(new TranslateTransform(0, 0));
                     content.RenderTransform = transformGroup;
@@ -1516,12 +1525,12 @@ public partial class ScreenCaptureWindow : Window
                     content.Arrange(new Rect(Bounds.Size));
                     renderTargetBitmap.Render(content);
 
-                    var mat = new Mat(cropH, cropW, MatType.CV_8UC4);
+                    var mat = new Mat(cropRect.Height, cropRect.Width, MatType.CV_8UC4);
 
-                    renderTargetBitmap.CopyPixels(new PixelRect(x, y, cropW, cropH),
+                    renderTargetBitmap.CopyPixels(cropRect,
                         (IntPtr)mat.DataPointer,
-                        cropW * cropH * 4,
-                        ((cropW * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3
+                        cropRect.Width * cropRect.Height * 4,
+                        ((cropRect.Width * PixelFormat.Rgba8888.BitsPerPixel + 31) & ~31) >> 3
                     );
                     if (_selectBytesMode)
                         Task.Run(() =>
