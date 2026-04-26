@@ -21,6 +21,8 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
     private const string DiscoveryMessageTypeAnnounce = "announce";
     private const string DiscoveryMessageTypeAuthRequest = "auth.request";
     private const string DiscoveryMessageTypeAuthResponse = "auth.response";
+    private const string DiscoveryProtocolVersion = "0.1";
+    private static readonly Version DiscoveryProtocolVersionValue = Version.Parse(DiscoveryProtocolVersion);
     private static readonly TimeSpan DiscoveryBroadcastInterval = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan DiscoveryCleanupInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan DiscoveryListenerRefreshInterval = TimeSpan.FromSeconds(10);
@@ -213,6 +215,10 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                     continue;
                 }
 
+                if (!IsSupportedDiscoveryVersion(info.Version)) {
+                    continue;
+                }
+
                 if (!TryGetLocalIdentity(out var localPublicKey, out var localIdHash)) {
                     continue;
                 }
@@ -259,6 +265,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
 
                 var info = new DiscoveryInfo {
                     MessageType = DiscoveryMessageTypeAnnounce,
+                    Version = DiscoveryProtocolVersion,
                     Id = localIdHash,
                     Name = string.IsNullOrWhiteSpace(ConfigManger.Config.deviceBroadcastName)? Environment.MachineName : ConfigManger.Config.deviceBroadcastName.Trim(),
                     TcpPort = tcpPort,
@@ -328,6 +335,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
 
         var request = new DiscoveryInfo {
             MessageType = DiscoveryMessageTypeAuthRequest,
+            Version = DiscoveryProtocolVersion,
             Id = info.Id,
             TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             Nonce = nonce
@@ -349,6 +357,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
 
         var response = new DiscoveryInfo {
             MessageType = DiscoveryMessageTypeAuthResponse,
+            Version = DiscoveryProtocolVersion,
             Id = localIdHash,
             Name = string.IsNullOrWhiteSpace(ConfigManger.Config.deviceBroadcastName)
                 ? Environment.MachineName
@@ -485,6 +494,11 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
         return messageType.Trim().ToLowerInvariant();
     }
 
+    private static bool IsSupportedDiscoveryVersion(string? version) {
+        return Version.TryParse(version?.Trim(), out var remoteVersion) &&
+               DiscoveryProtocolVersionValue >= remoteVersion;
+    }
+
     private static string CreateNonce() {
         return Guid.NewGuid().ToString("N");
     }
@@ -553,5 +567,3 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
         _devicesView.Dispose();
     }
 }
-
-
