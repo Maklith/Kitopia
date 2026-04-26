@@ -1217,24 +1217,22 @@ public partial class ScreenCaptureWindow : Window
         var toolBarWidth = ToolBar.DesiredSize.Width;
         var toolBarHeight = ToolBar.DesiredSize.Height;
 
-        // Determine scaling and current screen logical bounds
-        var scaling = 1.0;
-        var primaryScreen = Screens.ScreenFromPoint(Position);
-        if (primaryScreen != null) scaling = primaryScreen.Scaling;
-
         var selCenterLogical = new Point(SelectBox._dragTransform.X + SelectBox.Width / 2,
                                          SelectBox._dragTransform.Y + SelectBox.Height / 2);
-        var selCenterPhysical = Position + PixelPoint.FromPoint(selCenterLogical, scaling);
+        var selCenterPhysical = this.PointToScreen(selCenterLogical);
         var targetScreen = Screens.ScreenFromPoint(selCenterPhysical);
 
         double minXLogical, minYLogical, maxXLogical, maxYLogical;
 
         if (targetScreen != null)
         {
-            minXLogical = (targetScreen.Bounds.X - Position.X) / scaling;
-            minYLogical = (targetScreen.Bounds.Y - Position.Y) / scaling;
-            maxXLogical = minXLogical + targetScreen.Bounds.Width / scaling;
-            maxYLogical = minYLogical + targetScreen.Bounds.Height / scaling;
+            var topLeftLogical = this.PointToClient(new PixelPoint(targetScreen.Bounds.X, targetScreen.Bounds.Y));
+            var bottomRightLogical = this.PointToClient(new PixelPoint(targetScreen.Bounds.X + targetScreen.Bounds.Width,
+                targetScreen.Bounds.Y + targetScreen.Bounds.Height));
+            minXLogical = Math.Min(topLeftLogical.X, bottomRightLogical.X);
+            minYLogical = Math.Min(topLeftLogical.Y, bottomRightLogical.Y);
+            maxXLogical = Math.Max(topLeftLogical.X, bottomRightLogical.X);
+            maxYLogical = Math.Max(topLeftLogical.Y, bottomRightLogical.Y);
         }
         else
         {
@@ -1266,6 +1264,11 @@ public partial class ScreenCaptureWindow : Window
             }
         }
         if (top < minYLogical + margin) top = minYLogical + margin;
+
+        if (left + toolBarWidth > Bounds.Width) left = Math.Max(0, Bounds.Width - toolBarWidth);
+        if (top + toolBarHeight > Bounds.Height) top = Math.Max(0, Bounds.Height - toolBarHeight);
+        if (left < 0) left = 0;
+        if (top < 0) top = 0;
 
         ToolBar.SetValue(Canvas.LeftProperty, left);
         ToolBar.SetValue(Canvas.TopProperty, top);
