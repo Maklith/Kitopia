@@ -71,7 +71,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
         {
             var listenerOptions = new QuicListenerOptions
             {
-                ListenEndPoint = new IPEndPoint(IPAddress.Any, 0),
+                ListenEndPoint = new IPEndPoint(IPAddress.IPv6Any, 0),
                 ApplicationProtocols = [ApplicationProtocol],
                 ConnectionOptionsCallback = (connection, _, _) =>
                 {

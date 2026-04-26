@@ -62,7 +62,8 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
 
         try
         {
-            var listener = new TcpListener(IPAddress.Any, 0);
+            var listener = new TcpListener(IPAddress.IPv6Any, 0);
+            listener.Server.DualMode = true;
             listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             listener.Start();
             if (listener.LocalEndpoint is not IPEndPoint localEndPoint)
