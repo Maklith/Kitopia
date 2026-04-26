@@ -72,7 +72,9 @@ internal static class DeviceDiscoverySignature
 
     public static bool Verify(DiscoveryInfo info)
     {
-        if (string.IsNullOrWhiteSpace(info.Id) || string.IsNullOrWhiteSpace(info.Signature))
+        if (string.IsNullOrWhiteSpace(info.Id) ||
+            string.IsNullOrWhiteSpace(info.PublicKey) ||
+            string.IsNullOrWhiteSpace(info.Signature))
         {
             return false;
         }
@@ -81,7 +83,13 @@ internal static class DeviceDiscoverySignature
         {
             var payload = BuildPayload(info);
             var signature = Convert.FromBase64String(info.Signature);
-            return VerifyData(payload, info.Id, signature);
+            var expectedId = ComputePublicKeyHash(info.PublicKey);
+            if (!string.Equals(expectedId, info.Id, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return VerifyData(payload, info.PublicKey, signature);
         }
         catch
         {
@@ -118,7 +126,20 @@ internal static class DeviceDiscoverySignature
         writer.Write(info.QuicPort);
         writer.Write(info.SupportsQuic);
         writer.Write(info.TimestampUnixSeconds);
+        writer.Write(info.Nonce ?? string.Empty);
         writer.Flush();
         return stream.ToArray();
+    }
+
+    public static string ComputePublicKeyHash(string? publicKey)
+    {
+        if (string.IsNullOrWhiteSpace(publicKey))
+        {
+            return string.Empty;
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(publicKey.Trim());
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToHexString(hash);
     }
 }

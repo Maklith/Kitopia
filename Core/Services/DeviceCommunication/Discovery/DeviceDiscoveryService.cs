@@ -18,18 +18,25 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
     private const string MulticastAddressV6 = "ff02::1";
     private const int DiscoveryIpv4Ttl = 1;
     private const long DiscoverySignatureToleranceSeconds = 60;
-    private static readonly TimeSpan DiscoveryBroadcastInterval = TimeSpan.FromSeconds(5);
+    private const string DiscoveryMessageTypeAnnounce = "announce";
+    private const string DiscoveryMessageTypeAuthRequest = "auth.request";
+    private const string DiscoveryMessageTypeAuthResponse = "auth.response";
+    private static readonly TimeSpan DiscoveryBroadcastInterval = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan DiscoveryCleanupInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan DiscoveryListenerRefreshInterval = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan DiscoveryStaleTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan DiscoveryAuthRequestTimeout = TimeSpan.FromSeconds(15);
 
     private readonly object _sync = new();
     private readonly ObservableList<DeviceModel> _devicesSource = [];
     private readonly ISynchronizedView<DeviceModel, DeviceModel> _devicesView;
+    private readonly Dictionary<string, PendingAuthRequest> _pendingAuthRequests = new(StringComparer.Ordinal);
 
     private CancellationTokenSource? _cts;
     private UdpClient? _udpClientV4;
     private UdpClient? _udpClientV6;
+
+    private readonly record struct PendingAuthRequest(string Nonce, DateTime ExpiresAtUtc);
 
     public NotifyCollectionChangedSynchronizedViewList<DeviceModel> Devices { get; }
     
@@ -70,6 +77,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
 
         CloseUdpClient(ref _udpClientV4);
         CloseUdpClient(ref _udpClientV6);
+        _pendingAuthRequests.Clear();
         _devicesSource.Clear();
     }
 
@@ -201,53 +209,27 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             try {
                 var result = await client.ReceiveAsync(token);
                 var info = JsonSerializer.Deserialize<DiscoveryInfo>(Encoding.UTF8.GetString(result.Buffer));
-                if (info is null || string.IsNullOrWhiteSpace(info.Id) || info.TcpPort <= 0 ||
-                    info is { SupportsQuic: true, QuicPort: <= 0 }) {
+                if (info is null) {
                     continue;
                 }
 
-                if (string.Equals(info.Id, ConfigManger.Config.devicePersistentId, StringComparison.Ordinal)) {
+                if (!TryGetLocalIdentity(out var localPublicKey, out var localIdHash)) {
                     continue;
                 }
 
-                if (!IsAuthenticated(info)) {
-                    continue;
-                }
                 var endpointAddress = NormalizeAddress(result.RemoteEndPoint.Address);
-                
-                lock (_sync) {
-                    var existing = _devicesSource.FirstOrDefault(device =>
-                        string.Equals(device.Id, info.Id, StringComparison.Ordinal));
-                    if (existing is null) {
-                        var duplicateEndpoint = _devicesSource.FirstOrDefault(device =>
-                            device.Address.Equals(endpointAddress) && device.TcpPort == info.TcpPort&& device.SupportQuic == info.SupportsQuic);
-                        if (duplicateEndpoint is not null) {
-                            _devicesSource.Remove(duplicateEndpoint);
-                        }
+                var messageType = NormalizeMessageType(info.MessageType);
 
-                        existing = new DeviceModel {
-                            Id = info.Id,
-                            Name = string.IsNullOrWhiteSpace(info.Name) ? "未知设备" : info.Name.Trim(),
-                            CustomName = ConfigManger.Config.deviceCustomNames.TryGetValue(info.Id, out var customName) ? customName : string.Empty,
-                            Address = endpointAddress,
-                            TcpPort = info.TcpPort,
-                            QuicPort = info.QuicPort,
-                            SupportQuic = info.SupportsQuic,
-                            LastSeen = DateTime.UtcNow
-                        };
-                        _devicesSource.Add(existing);
-                    }
-                    else {
-                        existing.LastSeen = DateTime.UtcNow;
-                        existing.Name = string.IsNullOrWhiteSpace(info.Name) ? "未知设备" : info.Name.Trim();
-                        if (ShouldReplaceDiscoveredAddress(existing.Address, endpointAddress)) {
-                            existing.Address = endpointAddress;
-                        }
-
-                        existing.TcpPort = info.TcpPort;
-                        existing.QuicPort = info.QuicPort;
-                        existing.SupportQuic = info.SupportsQuic;
-                    }
+                switch (messageType) {
+                    case DiscoveryMessageTypeAnnounce:
+                        await HandleAnnouncementAsync(info, endpointAddress, localIdHash, token);
+                        break;
+                    case DiscoveryMessageTypeAuthRequest:
+                        await HandleAuthRequestAsync(info, endpointAddress, localIdHash, localPublicKey, token);
+                        break;
+                    case DiscoveryMessageTypeAuthResponse:
+                        HandleAuthResponse(info, endpointAddress, localPublicKey, localIdHash);
+                        break;
                 }
             }
             catch (OperationCanceledException) {
@@ -271,21 +253,19 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                     continue;
                 }
 
+                if (!TryGetLocalIdentity(out _, out var localIdHash)) {
+                    continue;
+                }
+
                 var info = new DiscoveryInfo {
-                    Id = ConfigManger.Config.devicePersistentId,
+                    MessageType = DiscoveryMessageTypeAnnounce,
+                    Id = localIdHash,
                     Name = string.IsNullOrWhiteSpace(ConfigManger.Config.deviceBroadcastName)? Environment.MachineName : ConfigManger.Config.deviceBroadcastName.Trim(),
                     TcpPort = tcpPort,
                     QuicPort = localDataListener.QuicPort,
                     SupportsQuic = localDataListener.SupportsQuic,
                     TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 };
-
-                if (string.IsNullOrWhiteSpace(info.Id) ||
-                    !DeviceDiscoverySignature.TrySign(info, ConfigManger.Config.devicePrivateKey, out var signature)) {
-                    continue;
-                }
-
-                info.Signature = signature;
                 var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(info));
 
                 foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces()) {
@@ -335,8 +315,185 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
         }
     }
 
-    private static bool IsAuthenticated(DiscoveryInfo info) {
-        if (string.IsNullOrWhiteSpace(info.Signature)) {
+    private async Task HandleAnnouncementAsync(DiscoveryInfo info, IPAddress endpointAddress, string localIdHash,
+        CancellationToken token) {
+        if (string.IsNullOrWhiteSpace(info.Id) || info.TcpPort <= 0 ||
+            info is { SupportsQuic: true, QuicPort: <= 0 } ||
+            string.Equals(info.Id, localIdHash, StringComparison.Ordinal)) {
+            return;
+        }
+
+        var nonce = CreateNonce();
+        RegisterPendingAuthRequest(info.Id, nonce, endpointAddress);
+
+        var request = new DiscoveryInfo {
+            MessageType = DiscoveryMessageTypeAuthRequest,
+            Id = info.Id,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Nonce = nonce
+        };
+
+        await SendUnicastAsync(request, new IPEndPoint(endpointAddress, DiscoveryPort), token);
+    }
+
+    private async Task HandleAuthRequestAsync(DiscoveryInfo info, IPAddress endpointAddress, string localIdHash,
+        string localPublicKey, CancellationToken token) {
+        if (!string.Equals(info.Id, localIdHash, StringComparison.Ordinal) || string.IsNullOrWhiteSpace(info.Nonce)) {
+            return;
+        }
+
+        var localDataListener = ServiceManager.Services.GetService<ILocalDataListener>();
+        if (localDataListener is null || localDataListener.TcpPort <= 0) {
+            return;
+        }
+
+        var response = new DiscoveryInfo {
+            MessageType = DiscoveryMessageTypeAuthResponse,
+            Id = localIdHash,
+            Name = string.IsNullOrWhiteSpace(ConfigManger.Config.deviceBroadcastName)
+                ? Environment.MachineName
+                : ConfigManger.Config.deviceBroadcastName.Trim(),
+            TcpPort = localDataListener.TcpPort,
+            QuicPort = localDataListener.QuicPort,
+            SupportsQuic = localDataListener.SupportsQuic,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            PublicKey = localPublicKey,
+            Nonce = info.Nonce
+        };
+
+        if (!DeviceDiscoverySignature.TrySign(response, ConfigManger.Config.devicePrivateKey, out var signature)) {
+            return;
+        }
+
+        response.Signature = signature;
+        await SendUnicastAsync(response, new IPEndPoint(endpointAddress, DiscoveryPort), token);
+    }
+
+    private void HandleAuthResponse(DiscoveryInfo info, IPAddress endpointAddress, string localPublicKey,
+        string localIdHash) {
+        if (string.IsNullOrWhiteSpace(info.Id) ||
+            string.IsNullOrWhiteSpace(info.PublicKey) ||
+            string.IsNullOrWhiteSpace(info.Signature) ||
+            info.TcpPort <= 0 ||
+            info is { SupportsQuic: true, QuicPort: <= 0 } ||
+            string.Equals(info.PublicKey, localPublicKey, StringComparison.Ordinal) ||
+            string.Equals(info.Id, localIdHash, StringComparison.Ordinal)) {
+            return;
+        }
+
+        if (!TryTakePendingAuthNonce(info.Id, endpointAddress, out var expectedNonce) ||
+            !IsAuthenticated(info, expectedNonce)) {
+            return;
+        }
+
+        UpsertAuthenticatedDevice(info, endpointAddress);
+    }
+
+    private void UpsertAuthenticatedDevice(DiscoveryInfo info, IPAddress endpointAddress) {
+        lock (_sync) {
+            CleanupPendingAuthRequests(DateTime.UtcNow);
+
+            var existing = _devicesSource.FirstOrDefault(device =>
+                string.Equals(device.Id, info.PublicKey, StringComparison.Ordinal));
+            if (existing is null) {
+                var duplicateEndpoint = _devicesSource.FirstOrDefault(device =>
+                    IsSameEndpoint(device, endpointAddress) &&
+                    device.TcpPort == info.TcpPort &&
+                    device.SupportQuic == info.SupportsQuic);
+                if (duplicateEndpoint is not null) {
+                    _devicesSource.Remove(duplicateEndpoint);
+                }
+
+                existing = new DeviceModel {
+                    Id = info.PublicKey,
+                    Name = string.IsNullOrWhiteSpace(info.Name) ? "未知设备" : info.Name.Trim(),
+                    CustomName = ConfigManger.Config.deviceCustomNames.TryGetValue(info.PublicKey, out var customName)
+                        ? customName
+                        : string.Empty,
+                    TcpPort = info.TcpPort,
+                    QuicPort = info.QuicPort,
+                    SupportQuic = info.SupportsQuic,
+                    LastSeen = DateTime.UtcNow
+                };
+                AssignDiscoveredAddress(existing, endpointAddress);
+                _devicesSource.Add(existing);
+            }
+            else {
+                existing.LastSeen = DateTime.UtcNow;
+                existing.Name = string.IsNullOrWhiteSpace(info.Name) ? "未知设备" : info.Name.Trim();
+                AssignDiscoveredAddress(existing, endpointAddress);
+
+                existing.TcpPort = info.TcpPort;
+                existing.QuicPort = info.QuicPort;
+                existing.SupportQuic = info.SupportsQuic;
+            }
+        }
+    }
+
+    private bool TryTakePendingAuthNonce(string id, IPAddress endpointAddress, out string nonce) {
+        lock (_sync) {
+            CleanupPendingAuthRequests(DateTime.UtcNow);
+            var requestKey = BuildPendingAuthKey(id, endpointAddress);
+            if (!_pendingAuthRequests.TryGetValue(requestKey, out var pending)) {
+                nonce = string.Empty;
+                return false;
+            }
+
+            _pendingAuthRequests.Remove(requestKey);
+            nonce = pending.Nonce;
+            return true;
+        }
+    }
+
+    private void RegisterPendingAuthRequest(string id, string nonce, IPAddress endpointAddress) {
+        lock (_sync) {
+            CleanupPendingAuthRequests(DateTime.UtcNow);
+            var requestKey = BuildPendingAuthKey(id, endpointAddress);
+            _pendingAuthRequests[requestKey] = new PendingAuthRequest(nonce, DateTime.UtcNow + DiscoveryAuthRequestTimeout);
+        }
+    }
+
+    private static string BuildPendingAuthKey(string id, IPAddress endpointAddress) {
+        return string.Create(id.Length + endpointAddress.ToString().Length + 1, (id, endpointAddress),
+            (buffer, state) => {
+                state.id.AsSpan().CopyTo(buffer);
+                buffer[state.id.Length] = '|';
+                state.endpointAddress.ToString().AsSpan().CopyTo(buffer[(state.id.Length + 1)..]);
+            });
+    }
+
+    private void CleanupPendingAuthRequests(DateTime nowUtc) {
+        if (_pendingAuthRequests.Count == 0) {
+            return;
+        }
+
+        var expiredKeys = _pendingAuthRequests
+            .Where(pair => pair.Value.ExpiresAtUtc <= nowUtc)
+            .Select(pair => pair.Key)
+            .ToList();
+
+        foreach (var key in expiredKeys) {
+            _pendingAuthRequests.Remove(key);
+        }
+    }
+
+    private static string NormalizeMessageType(string? messageType) {
+        if (string.IsNullOrWhiteSpace(messageType)) {
+            return DiscoveryMessageTypeAnnounce;
+        }
+
+        return messageType.Trim().ToLowerInvariant();
+    }
+
+    private static string CreateNonce() {
+        return Guid.NewGuid().ToString("N");
+    }
+
+    private static bool IsAuthenticated(DiscoveryInfo info, string expectedNonce) {
+        if (string.IsNullOrWhiteSpace(info.Signature) ||
+            string.IsNullOrWhiteSpace(info.PublicKey) ||
+            string.IsNullOrWhiteSpace(info.Id) ||
+            !string.Equals(info.Nonce, expectedNonce, StringComparison.Ordinal)) {
             return false;
         }
 
@@ -351,28 +508,43 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
 
         return DeviceDiscoverySignature.Verify(info);
     }
+
+    private static bool TryGetLocalIdentity(out string publicKey, out string idHash) {
+        publicKey = string.Empty;
+        idHash = string.Empty;
+
+        if (!DeviceDiscoverySignature.TryDerivePublicKey(ConfigManger.Config.devicePrivateKey, out publicKey)) {
+            return false;
+        }
+
+        idHash = DeviceDiscoverySignature.ComputePublicKeyHash(publicKey);
+        return !string.IsNullOrWhiteSpace(idHash);
+    }
+
+    private static async Task SendUnicastAsync(DiscoveryInfo info, IPEndPoint remoteEndPoint, CancellationToken token) {
+        var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(info));
+        using var client = remoteEndPoint.AddressFamily == AddressFamily.InterNetworkV6
+            ? new UdpClient(AddressFamily.InterNetworkV6)
+            : new UdpClient(AddressFamily.InterNetwork);
+        await client.SendAsync(bytes, bytes.Length, remoteEndPoint).WaitAsync(token);
+    }
+
+    private static bool IsSameEndpoint(DeviceModel device, IPAddress endpointAddress) {
+        return device.Ipv4Address.Equals(endpointAddress) ||
+               device.Ipv6Address.Equals(endpointAddress);
+    }
+
+    private static void AssignDiscoveredAddress(DeviceModel device, IPAddress endpointAddress) {
+        if (endpointAddress.AddressFamily == AddressFamily.InterNetwork) {
+            device.Ipv4Address = endpointAddress;
+        }
+        else if (endpointAddress.AddressFamily == AddressFamily.InterNetworkV6) {
+            device.Ipv6Address = endpointAddress;
+        }
+    }
     
     private static IPAddress NormalizeAddress(IPAddress address) {
         return address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
-    }
-
-    private static bool ShouldReplaceDiscoveredAddress(IPAddress currentAddress, IPAddress candidateAddress) {
-        if (currentAddress.Equals(candidateAddress)) {
-            return false;
-        }
-
-        var currentFamily = currentAddress.AddressFamily;
-        var candidateFamily = candidateAddress.AddressFamily;
-
-        if (currentFamily == AddressFamily.InterNetwork && candidateFamily == AddressFamily.InterNetworkV6) {
-            return false;
-        }
-
-        if (currentFamily == AddressFamily.InterNetworkV6 && candidateFamily == AddressFamily.InterNetwork) {
-            return true;
-        }
-
-        return true;
     }
 
     public void Dispose() {

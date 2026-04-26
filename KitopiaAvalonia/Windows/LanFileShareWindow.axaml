@@ -72,9 +72,20 @@
                             <DataTemplate x:DataType="pluginCore:DeviceModel">
                                 <Grid ColumnDefinitions="*,Auto" Margin="0,2">
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                            <Label Theme="{DynamicResource TagLabel}" Classes="Green"
+                                                   IsVisible="{Binding HasIpv6}">IPv6</Label>
+                                        </StackPanel>
                                         <TextBlock Text="{Binding ComputerName}" FontSize="12" Foreground="Gray" />
-                                        <TextBlock Text="{Binding Address, StringFormat='地址: {0}'}" FontSize="12" Foreground="Gray" />
+                                        <TextBlock Text="{Binding Ipv4Address, StringFormat='IPv4: {0}'}"
+                                                   FontSize="12"
+                                                   Foreground="Gray"
+                                                   IsVisible="{Binding HasIpv4}" />
+                                        <TextBlock Text="{Binding Ipv6Address, StringFormat='IPv6: {0}'}"
+                                                   FontSize="12"
+                                                   Foreground="Gray"
+                                                   IsVisible="{Binding HasIpv6}" />
                                         <TextBlock Text="{Binding TcpPort, StringFormat='端口: {0}'}" FontSize="11" Foreground="Gray" />
                                     </StackPanel>
                                     <Button Grid.Column="1"

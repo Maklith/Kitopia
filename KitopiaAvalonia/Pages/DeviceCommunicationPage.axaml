@@ -47,25 +47,39 @@
                                         BorderThickness="1">
                                     <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="5"
                                           ColumnSpacing="8">
-                                        <TextBlock Text="{Binding DisplayName}"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis" />
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <Label Theme="{DynamicResource TagLabel}" Classes="Blue"
+                                                   IsVisible="{Binding SupportQuic}">Quic</Label>
+                                            <Label Theme="{DynamicResource TagLabel}" Classes="Green"
+                                                   IsVisible="{Binding HasIpv6}">IPv6</Label>
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
                                         <TextBlock Grid.Column="1"
                                                    Text="{Binding LastMessageTimeText}"
                                                    Foreground="{DynamicResource SemiColorText2}"
                                                    FontSize="11"
                                                    VerticalAlignment="Center" />
 
-                                        <StackPanel Grid.Row="1" Orientation="Vertical" Spacing="3">
-                                            <TextBlock Text="{Binding LastMessagePreview}"
-                                                       Foreground="{DynamicResource SemiColorText1}"
-                                                       FontSize="12"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding StatusText}"
-                                                       Foreground="{DynamicResource SemiColorText2}"
-                                                       FontSize="11" />
-                                        </StackPanel>
+                                             <StackPanel Grid.Row="1" Orientation="Vertical" Spacing="3">
+                                             <TextBlock Text="{Binding LastMessagePreview}"
+                                                        Foreground="{DynamicResource SemiColorText1}"
+                                                        FontSize="12"
+                                                        TextTrimming="CharacterEllipsis" />
+                                             <TextBlock Text="{Binding Ipv4AddressText}"
+                                                        Foreground="{DynamicResource SemiColorText2}"
+                                                        IsVisible="{Binding HasIpv4}"
+                                                        FontSize="11" />
+                                             <TextBlock Text="{Binding Ipv6AddressText}"
+                                                        Foreground="{DynamicResource SemiColorText2}"
+                                                        FontSize="11"
+                                                        IsVisible="{Binding HasIpv6}" />
+                                             <TextBlock Text="{Binding StatusText}"
+                                                        Foreground="{DynamicResource SemiColorText2}"
+                                                        FontSize="11" />
+                                         </StackPanel>
 
                                         <Border Grid.Row="1"
                                                 Grid.Column="1"

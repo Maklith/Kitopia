@@ -23,8 +23,7 @@ using Serilog;
 
 namespace Core.ViewModel.Pages.device;
 
-public partial class DeviceCommunicationPageViewModel : ObservableObject, IDisposable
-{
+public partial class DeviceCommunicationPageViewModel : ObservableObject, IDisposable {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<DeviceCommunicationPageViewModel>();
     private readonly IDeviceDiscoveryService _deviceDiscoveryService;
     private readonly IMessageAppService _messageAppService;
@@ -49,15 +48,14 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
     public string CurrentConversationSubtitle => SelectedConversation is null
         ? "Select a device to start chatting"
-        : $"{SelectedConversation.StatusText} - {SelectedConversation.AddressText}";
+        : $"{SelectedConversation.StatusText} - {SelectedConversation.AddressSummaryText}";
 
     public bool HasConversationSelected => SelectedConversation is not null;
     public bool ShowConversationPlaceholder => !HasConversationSelected;
     public bool HasConversations => Conversations.Count > 0;
     public bool HasNoConversations => !HasConversations;
 
-    public int MessageListVersion
-    {
+    public int MessageListVersion {
         get => _messageListVersion;
         private set => SetProperty(ref _messageListVersion, value);
     }
@@ -66,23 +64,19 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         IDeviceDiscoveryService deviceDiscoveryService,
         IMessageAppService messageAppService,
         IClipboardService clipboardService,
-        IToastService toastService)
-    {
+        IToastService toastService) {
         _deviceDiscoveryService = deviceDiscoveryService;
         _messageAppService = messageAppService;
         _clipboardService = clipboardService;
         _toastService = toastService;
-        _displayContextSyncTimer = new DispatcherTimer
-        {
+        _displayContextSyncTimer = new DispatcherTimer {
             Interval = TimeSpan.FromMilliseconds(300)
         };
         _displayContextSyncTimer.Tick += (_, _) => SyncDisplayContext();
-        _messageListAutoScrollTimer = new DispatcherTimer
-        {
+        _messageListAutoScrollTimer = new DispatcherTimer {
             Interval = TimeSpan.FromMilliseconds(120)
         };
-        _messageListAutoScrollTimer.Tick += (_, _) =>
-        {
+        _messageListAutoScrollTimer.Tick += (_, _) => {
             _messageListAutoScrollTimer.Stop();
             MessageListVersion++;
         };
@@ -94,27 +88,21 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         SyncConversationsFromDiscovery();
     }
 
-    [ObservableProperty]
-    private DeviceConversationItem? _selectedConversation;
+    [ObservableProperty] private DeviceConversationItem? _selectedConversation;
 
-    [ObservableProperty]
-    private string _messageText = string.Empty;
+    [ObservableProperty] private string _messageText = string.Empty;
 
-    [ObservableProperty]
-    private bool _isSending;
+    [ObservableProperty] private bool _isSending;
 
     [RelayCommand(CanExecute = nameof(CanSendMessage))]
-    private async Task SendMessageAsync()
-    {
+    private async Task SendMessageAsync() {
         var conversation = SelectedConversation;
         var text = MessageText.Trim();
-        if (conversation is null || string.IsNullOrWhiteSpace(text))
-        {
+        if (conversation is null || string.IsNullOrWhiteSpace(text)) {
             return;
         }
 
-        var message = new DeviceChatMessageItem(text, isOutgoing: true, DateTimeOffset.Now)
-        {
+        var message = new DeviceChatMessageItem(text, isOutgoing: true, DateTimeOffset.Now) {
             IsPending = true
         };
 
@@ -125,41 +113,34 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         SortConversations();
 
         IsSending = true;
-        try
-        {
+        try {
             await SendToConversationAsync(conversation, text);
             message.IsPending = false;
             message.IsFailed = false;
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             message.IsPending = false;
             message.IsFailed = true;
             Logger.Warning(ex, "Send chat message failed. DeviceId={DeviceId}", conversation.DeviceId);
             _toastService.Show("设备聊天", $"文件发送失败: {ex.Message}", NotificationType.Error);
         }
-        finally
-        {
+        finally {
             IsSending = false;
         }
     }
 
-    private bool CanSendMessage()
-    {
+    private bool CanSendMessage() {
         return !IsSending &&
                SelectedConversation is not null &&
                !string.IsNullOrWhiteSpace(MessageText);
     }
 
-    private bool CanOperateConversation()
-    {
+    private bool CanOperateConversation() {
         return !IsSending && SelectedConversation is not null;
     }
 
-    private async Task SendToConversationAsync(DeviceConversationItem conversation, string text)
-    {
-        if (string.IsNullOrWhiteSpace(conversation.DeviceId))
-        {
+    private async Task SendToConversationAsync(DeviceConversationItem conversation, string text) {
+        if (string.IsNullOrWhiteSpace(conversation.DeviceId)) {
             throw new InvalidOperationException("Invalid target device identity.");
         }
 
@@ -167,62 +148,61 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             ? LocalDataTransportProtocol.Quic
             : LocalDataTransportProtocol.Tcp;
         var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
+        var transportAddress = conversation.PreferredTransportAddress;
 
-        if (port <= 0 || conversation.Address == IPAddress.None)
-        {
+        if (port <= 0 || transportAddress == IPAddress.None) {
             throw new InvalidOperationException("Invalid target address or port.");
         }
 
-        try
-        {
-            await SendMessageCoreAsync(conversation, text, protocol, port);
+        try {
+            await SendMessageCoreAsync(conversation, text, protocol, port, transportAddress);
         }
-        catch (Exception ex) when (protocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0)
-        {
+        catch (Exception ex) when (protocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0) {
             Logger.Warning(ex, "Send chat message over QUIC failed, fallback to TCP. DeviceId={DeviceId}",
                 conversation.DeviceId);
-            await SendMessageCoreAsync(conversation, text, LocalDataTransportProtocol.Tcp, conversation.TcpPort);
+            await SendMessageCoreAsync(conversation, text, LocalDataTransportProtocol.Tcp, conversation.TcpPort,
+                transportAddress);
         }
     }
 
     private async Task SendImageToConversationAsync(DeviceConversationItem conversation, ImageChatMessage message,
-        Stream stream)
-    {
+        Stream stream) {
         var protocol = conversation.SupportQuic && conversation.QuicPort > 0
             ? LocalDataTransportProtocol.Quic
             : LocalDataTransportProtocol.Tcp;
         var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
+        var transportAddress = conversation.PreferredTransportAddress;
 
-        try
-        {
-            await SendImageCoreAsync(conversation, message, stream, protocol, port);
+        try {
+            await SendImageCoreAsync(conversation, message, stream, protocol, port, transportAddress);
         }
-        catch (Exception ex) when (protocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0)
-        {
-            Logger.Warning(ex, "Send image over QUIC failed, fallback to TCP. DeviceId={DeviceId}", conversation.DeviceId);
-            await SendImageCoreAsync(conversation, message, stream, LocalDataTransportProtocol.Tcp, conversation.TcpPort);
+        catch (Exception ex) when (protocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0) {
+            Logger.Warning(ex, "Send image over QUIC failed, fallback to TCP. DeviceId={DeviceId}",
+                conversation.DeviceId);
+            await SendImageCoreAsync(conversation, message, stream, LocalDataTransportProtocol.Tcp,
+                conversation.TcpPort, transportAddress);
         }
     }
 
     private async Task SendFileToConversationAsync(DeviceConversationItem conversation, FileChatMessage message,
-        Stream stream)
-    {
+        Stream stream) {
         var protocol = conversation.SupportQuic && conversation.QuicPort > 0
             ? LocalDataTransportProtocol.Quic
             : LocalDataTransportProtocol.Tcp;
         var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
+        var transportAddress = conversation.PreferredTransportAddress;
 
-        try
-        {
-            await SendFileCoreAsync(conversation, message, stream, protocol, port);
+        try {
+            await SendFileCoreAsync(conversation, message, stream, protocol, port, transportAddress);
         }
         catch (Exception ex) when (
             protocol == LocalDataTransportProtocol.Quic &&
             conversation.TcpPort > 0 &&
-            ex is not InvalidOperationException)
-        {
-            Logger.Warning(ex, "Send file over QUIC failed, fallback to TCP. DeviceId={DeviceId}", conversation.DeviceId);
-            await SendFileCoreAsync(conversation, message, stream, LocalDataTransportProtocol.Tcp, conversation.TcpPort);
+            ex is not InvalidOperationException) {
+            Logger.Warning(ex, "Send file over QUIC failed, fallback to TCP. DeviceId={DeviceId}",
+                conversation.DeviceId);
+            await SendFileCoreAsync(conversation, message, stream, LocalDataTransportProtocol.Tcp,
+                conversation.TcpPort, transportAddress);
         }
     }
 
@@ -230,9 +210,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         DeviceConversationItem conversation,
         string text,
         LocalDataTransportProtocol protocol,
-        int port)
-    {
-        var sendContext = BuildContext(conversation, protocol, port);
+        int port,
+        IPAddress remoteAddress) {
+        var sendContext = BuildContext(conversation, protocol, port, remoteAddress);
 
         await _messageAppService.SendTextChatAsync(sendContext, new TextChatMessage(conversation.DeviceId, text));
     }
@@ -242,9 +222,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         ImageChatMessage message,
         Stream stream,
         LocalDataTransportProtocol protocol,
-        int port)
-    {
-        var sendContext = BuildContext(conversation, protocol, port);
+        int port,
+        IPAddress remoteAddress) {
+        var sendContext = BuildContext(conversation, protocol, port, remoteAddress);
         await _messageAppService.SendImageChatAsync(sendContext, message, stream);
     }
 
@@ -253,33 +233,29 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         FileChatMessage message,
         Stream stream,
         LocalDataTransportProtocol protocol,
-        int port)
-    {
-        var sendContext = BuildContext(conversation, protocol, port);
+        int port,
+        IPAddress remoteAddress) {
+        var sendContext = BuildContext(conversation, protocol, port, remoteAddress);
         await _messageAppService.SendFileChatAsync(sendContext, message, stream);
     }
 
     private static MessageContext BuildContext(DeviceConversationItem conversation, LocalDataTransportProtocol protocol,
-        int port)
-    {
-        var remoteEndPoint = new IPEndPoint(conversation.Address, port);
+        int port,
+        IPAddress remoteAddress) {
+        var remoteEndPoint = new IPEndPoint(remoteAddress, port);
         return new MessageContext(protocol, remoteEndPoint, conversation.DeviceId);
     }
 
-    private async Task RunReceiveLoopAsync(CancellationToken token)
-    {
-        try
-        {
-            await foreach (var evt in _messageAppService.ReceiveAsync(token))
-            {
-                if (evt.EventType == IncomingMessageEventType.TransferProgress && evt.Message is FileChatMessage fileMessage)
-                {
+    private async Task RunReceiveLoopAsync(CancellationToken token) {
+        try {
+            await foreach (var evt in _messageAppService.ReceiveAsync(token)) {
+                if (evt.EventType == IncomingMessageEventType.TransferProgress &&
+                    evt.Message is FileChatMessage fileMessage) {
                     OnFileTransferProgress(fileMessage, evt.BytesTransferred, evt.TotalBytes, DateTimeOffset.UtcNow);
                     continue;
                 }
 
-                switch (evt.Message)
-                {
+                switch (evt.Message) {
                     case TextChatMessage chatMessage:
                         OnChatMessageReceived(chatMessage, DateTimeOffset.UtcNow);
                         break;
@@ -298,87 +274,70 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
+        catch (OperationCanceledException) { }
+        catch (Exception ex) {
             Logger.Warning(ex, "Message receive loop failed.");
         }
     }
 
     [RelayCommand(CanExecute = nameof(CanOperateConversation))]
-    private async Task PasteSendAsync()
-    {
+    private async Task PasteSendAsync() {
         var conversation = SelectedConversation;
-        if (conversation is null)
-        {
+        if (conversation is null) {
             return;
         }
 
         var errors = new List<string>();
 
-        if (_clipboardService.HasText())
-        {
+        if (_clipboardService.HasText()) {
             var text = _clipboardService.GetText()?.Trim();
-            if (!string.IsNullOrWhiteSpace(text))
-            {
-                try
-                {
+            if (!string.IsNullOrWhiteSpace(text)) {
+                try {
                     await SendToConversationAsync(conversation, text);
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     errors.Add($"text:{ex.Message}");
                 }
             }
         }
 
-        if (_clipboardService.HasImage())
-        {
-            try
-            {
+        if (_clipboardService.HasImage()) {
+            try {
                 using var image = _clipboardService.GetImage();
-                if (image is not null && !image.Empty())
-                {
+                if (image is not null && !image.Empty()) {
                     Cv2.ImEncode(".png", image, out var imageBytes);
-                    var imageBubble = DeviceChatMessageItem.CreateImage(imageBytes, isOutgoing: true, DateTimeOffset.Now);
+                    var imageBubble =
+                        DeviceChatMessageItem.CreateImage(imageBytes, isOutgoing: true, DateTimeOffset.Now);
                     imageBubble.IsPending = true;
                     conversation.Messages.Add(imageBubble);
                     conversation.SetLastMessage("[图片]", imageBubble.Timestamp);
                     SortConversations();
 
                     await using var imageStream = new MemoryStream(imageBytes, writable: false);
-                    var imageMessage = new ImageChatMessage(conversation.DeviceId, Guid.NewGuid(), imageBytes.LongLength,
+                    var imageMessage = new ImageChatMessage(conversation.DeviceId, Guid.NewGuid(),
+                        imageBytes.LongLength,
                         "image/png", false);
-                    try
-                    {
+                    try {
                         await SendImageToConversationAsync(conversation, imageMessage, imageStream);
                         imageBubble.IsPending = false;
                         imageBubble.IsFailed = false;
                     }
-                    catch
-                    {
+                    catch {
                         imageBubble.IsPending = false;
                         imageBubble.IsFailed = true;
                         throw;
                     }
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 errors.Add($"image:{ex.Message}");
             }
         }
 
-        if (_clipboardService.HasFiles())
-        {
-            foreach (var filePath in _clipboardService.GetFiles())
-            {
-                try
-                {
-                    if (!File.Exists(filePath))
-                    {
+        if (_clipboardService.HasFiles()) {
+            foreach (var filePath in _clipboardService.GetFiles()) {
+                try {
+                    if (!File.Exists(filePath)) {
                         continue;
                     }
 
@@ -399,25 +358,21 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     SortConversations();
 
                     await using var fileStream = File.OpenRead(filePath);
-                    try
-                    {
+                    try {
                         await SendFileToConversationAsync(conversation, fileMessage, fileStream);
                         fileBubble.IsReceiving = false;
                         fileBubble.ReceiveProgress = 1d;
                         fileBubble.IsPending = false;
                         fileBubble.IsFailed = false;
                     }
-                    catch (Exception ex)
-                    {
+                    catch (Exception ex) {
                         MarkOutgoingFileSendFailed(fileBubble, ex.Message);
                         throw;
                     }
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     if (ex is not InvalidOperationException ||
-                        (ex.Message != "对方已拒绝接收文件。" && ex.Message != "文件发送超时，请稍后重试。"))
-                    {
+                        (ex.Message != "对方已拒绝接收文件。" && ex.Message != "文件发送超时，请稍后重试。")) {
                         errors.Add($"file:{Path.GetFileName(filePath)}:{ex.Message}");
                         ShowPersistentFileSendErrorToast($"文件发送失败：{Path.GetFileName(filePath)} ({ex.Message})");
                     }
@@ -425,32 +380,26 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
         }
 
-        if (errors.Count > 0)
-        {
+        if (errors.Count > 0) {
             _toastService.Show("设备聊天", $"监听和发送部分失败: {string.Join(";", errors)}",
                 NotificationType.Warning);
         }
     }
 
     [RelayCommand]
-    private async Task AcceptIncomingOfferAsync(DeviceChatMessageItem? messageItem)
-    {
-        if (messageItem is not IncomingFileOfferChatMessageItem offer || offer.IsHandled)
-        {
+    private async Task AcceptIncomingOfferAsync(DeviceChatMessageItem? messageItem) {
+        if (messageItem is not IncomingFileOfferChatMessageItem offer || offer.IsHandled) {
             return;
         }
 
         var conversation = Conversations.FirstOrDefault(c => c.DeviceId == offer.ConversationId);
-        if (conversation is null)
-        {
+        if (conversation is null) {
             return;
         }
 
-        try
-        {
+        try {
             var savePath = await PickSavePathAsync(offer.FileName);
-            if (string.IsNullOrWhiteSpace(savePath) || !Path.IsPathRooted(savePath))
-            {
+            if (string.IsNullOrWhiteSpace(savePath) || !Path.IsPathRooted(savePath)) {
                 return;
             }
 
@@ -465,99 +414,82 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             conversation.SetLastMessage($"[文件] {offer.FileName}", DateTimeOffset.Now);
             SortConversations();
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             _toastService.Show("设备聊天t", $"同意失败: {ex.Message}", NotificationType.Error);
         }
     }
 
     [RelayCommand]
-    private async Task RejectIncomingOfferAsync(DeviceChatMessageItem? messageItem)
-    {
-        if (messageItem is not IncomingFileOfferChatMessageItem offer || offer.IsHandled)
-        {
+    private async Task RejectIncomingOfferAsync(DeviceChatMessageItem? messageItem) {
+        if (messageItem is not IncomingFileOfferChatMessageItem offer || offer.IsHandled) {
             return;
         }
 
         var conversation = Conversations.FirstOrDefault(c => c.DeviceId == offer.ConversationId);
-        if (conversation is null)
-        {
+        if (conversation is null) {
             return;
         }
 
-        try
-        {
+        try {
             await SendOfferDecisionWithFallbackAsync(
                 conversation,
                 offer,
-                async context => await _messageAppService.RejectFileAsync(context, offer.TransferId, "rejected_by_user"));
+                async context =>
+                    await _messageAppService.RejectFileAsync(context, offer.TransferId, "rejected_by_user"));
             offer.IsHandled = true;
             offer.Text = $"[文件] 拒绝 {offer.FileName}";
             conversation.SetLastMessage($"[文件] {offer.FileName}", DateTimeOffset.Now);
             SortConversations();
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             _toastService.Show("设备聊天", $"拒绝失败: {ex.Message}", NotificationType.Error);
         }
     }
 
     [RelayCommand(CanExecute = nameof(CanCopyImage))]
-    private async Task CopyImageAsync(DeviceChatMessageItem? messageItem)
-    {
-        if (messageItem?.ImageBytes is not { Length: > 0 } imageBytes)
-        {
+    private async Task CopyImageAsync(DeviceChatMessageItem? messageItem) {
+        if (messageItem?.ImageBytes is not { Length: > 0 } imageBytes) {
             return;
         }
 
-        try
-        {
+        try {
             using var mat = Cv2.ImDecode(imageBytes, ImreadModes.Unchanged);
-            if (mat.Empty())
-            {
+            if (mat.Empty()) {
                 _toastService.Show("设备聊天", "图片复制失败: 图片数据无效", NotificationType.Warning);
                 return;
             }
 
-            var copied = await _clipboardService.SetImageAsync(new ScreenCaptureResult
-            {
+            var copied = await _clipboardService.SetImageAsync(new ScreenCaptureResult {
                 Source = mat
             });
-            _toastService.Show("设备聊天", copied ? "图片已复制到剪贴板" : "图片复制失败", copied ? NotificationType.Information : NotificationType.Warning);
+            _toastService.Show("设备聊天", copied ? "图片已复制到剪贴板" : "图片复制失败",
+                copied ? NotificationType.Information : NotificationType.Warning);
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             Logger.Warning(ex, "Copy image to clipboard failed.");
             _toastService.Show("设备聊天", $"图片复制失败: {ex.Message}", NotificationType.Warning);
         }
     }
 
-    private static bool CanCopyImage(DeviceChatMessageItem? messageItem)
-    {
+    private static bool CanCopyImage(DeviceChatMessageItem? messageItem) {
         return messageItem?.ImageBytes is { Length: > 0 };
     }
 
-    private void OnDiscoveredDevicesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (_disposed)
-        {
+    private void OnDiscoveredDevicesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) {
+        if (_disposed) {
             return;
         }
 
         Dispatcher.UIThread.Post(SyncConversationsFromDiscovery);
     }
 
-    private void OnTrackedDevicePropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (_disposed || sender is not DeviceModel device)
-        {
+    private void OnTrackedDevicePropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (_disposed || sender is not DeviceModel device) {
             return;
         }
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_disposed)
-            {
+        Dispatcher.UIThread.Post(() => {
+            if (_disposed) {
                 return;
             }
 
@@ -568,26 +500,21 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         });
     }
 
-    private void OnChatMessageReceived(TextChatMessage message, DateTimeOffset timestampUtc)
-    {
-        if (_disposed)
-        {
+    private void OnChatMessageReceived(TextChatMessage message, DateTimeOffset timestampUtc) {
+        if (_disposed) {
             return;
         }
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_disposed)
-            {
+        Dispatcher.UIThread.Post(() => {
+            if (_disposed) {
                 return;
             }
 
-            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation))
-            {
+            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation)) {
                 conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
             }
-            if (conversation is null)
-            {
+
+            if (conversation is null) {
                 Logger.Debug(
                     "Drop chat message because sender device is not discovered. DeviceId={DeviceId}",
                     message.ConversationId);
@@ -595,8 +522,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
 
             var text = message.Text.Trim();
-            if (string.IsNullOrWhiteSpace(text))
-            {
+            if (string.IsNullOrWhiteSpace(text)) {
                 return;
             }
 
@@ -604,12 +530,10 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             conversation.Messages.Add(new DeviceChatMessageItem(text, isOutgoing: false, timestamp));
             conversation.SetLastMessage(text, timestamp);
 
-            if (!IsForegroundCurrentConversation(conversation))
-            {
+            if (!IsForegroundCurrentConversation(conversation)) {
                 conversation.UnreadCount++;
             }
-            else
-            {
+            else {
                 conversation.UnreadCount = 0;
             }
 
@@ -618,27 +542,21 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         });
     }
 
-    private void OnImageMessageReceived(ImageChatMessage message, byte[]? payloadBytes, DateTimeOffset timestampUtc)
-    {
-        if (_disposed)
-        {
+    private void OnImageMessageReceived(ImageChatMessage message, byte[]? payloadBytes, DateTimeOffset timestampUtc) {
+        if (_disposed) {
             return;
         }
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_disposed)
-            {
+        Dispatcher.UIThread.Post(() => {
+            if (_disposed) {
                 return;
             }
 
-            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation))
-            {
+            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation)) {
                 conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
             }
 
-            if (conversation is null)
-            {
+            if (conversation is null) {
                 Logger.Debug("Drop image message because sender device is not discovered. DeviceId={DeviceId}",
                     message.ConversationId);
                 return;
@@ -646,20 +564,17 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
             var timestamp = timestampUtc.ToLocalTime();
             var imageItem = DeviceChatMessageItem.CreateImage(payloadBytes, isOutgoing: false, timestamp);
-            if (imageItem.ImagePreview is null)
-            {
+            if (imageItem.ImagePreview is null) {
                 imageItem.Text = $"[图片] {DeviceChatMessageItem.FormatFileSizeLabel(message.SizeBytes)}";
             }
 
             conversation.Messages.Add(imageItem);
             conversation.SetLastMessage("[图片]", timestamp);
 
-            if (!IsForegroundCurrentConversation(conversation))
-            {
+            if (!IsForegroundCurrentConversation(conversation)) {
                 conversation.UnreadCount++;
             }
-            else
-            {
+            else {
                 conversation.UnreadCount = 0;
             }
 
@@ -668,28 +583,22 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         });
     }
 
-    private void OnFileOfferReceived(FileOfferChatMessage message)
-    {
-        if (_disposed)
-        {
+    private void OnFileOfferReceived(FileOfferChatMessage message) {
+        if (_disposed) {
             return;
         }
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_disposed)
-            {
+        Dispatcher.UIThread.Post(() => {
+            if (_disposed) {
                 return;
             }
 
             var senderId = message.ConversationId;
-            if (!_conversationLookup.TryGetValue(senderId, out var conversation))
-            {
+            if (!_conversationLookup.TryGetValue(senderId, out var conversation)) {
                 conversation = Conversations.FirstOrDefault(c => c.DeviceId == senderId);
             }
 
-            if (conversation is null)
-            {
+            if (conversation is null) {
                 Logger.Debug("Drop file offer because sender is unknown. SenderId={SenderId}", senderId);
                 return;
             }
@@ -712,44 +621,37 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             conversation.Messages.Add(offerMessage);
             conversation.SetLastMessage($"[文件] {message.FileName}", timestamp);
 
-            if (!IsForegroundCurrentConversation(conversation))
-            {
+            if (!IsForegroundCurrentConversation(conversation)) {
                 conversation.UnreadCount++;
             }
+
             SortConversations();
             RequestMessageListAutoScroll();
         });
     }
 
-    private void OnFileTransferCompleted(FileCompleteChatMessage message, DateTimeOffset timestampUtc)
-    {
-        if (_disposed)
-        {
+    private void OnFileTransferCompleted(FileCompleteChatMessage message, DateTimeOffset timestampUtc) {
+        if (_disposed) {
             return;
         }
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_disposed)
-            {
+        Dispatcher.UIThread.Post(() => {
+            if (_disposed) {
                 return;
             }
 
-            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation))
-            {
+            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation)) {
                 conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
             }
 
-            if (conversation is null)
-            {
+            if (conversation is null) {
                 return;
             }
 
             var offerItem = conversation.Messages
                 .OfType<IncomingFileOfferChatMessageItem>()
                 .FirstOrDefault(item => item.TransferId == message.TransferId);
-            if (offerItem is not null)
-            {
+            if (offerItem is not null) {
                 offerItem.ReceiveProgress = 1d;
                 offerItem.IsReceiving = false;
                 offerItem.ResetTransferSpeed();
@@ -757,12 +659,10 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 offerItem.IsHandled = true;
                 offerItem.IsPending = false;
             }
-            else
-            {
+            else {
                 var outgoingItem = conversation.Messages
                     .FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == message.TransferId);
-                if (outgoingItem is not null)
-                {
+                if (outgoingItem is not null) {
                     outgoingItem.ReceiveProgress = 1d;
                     outgoingItem.IsReceiving = false;
                     outgoingItem.ResetTransferSpeed();
@@ -778,40 +678,32 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         });
     }
 
-    private void OnFileTransferRejected(FileRejectChatMessage message, DateTimeOffset timestampUtc)
-    {
-        if (_disposed)
-        {
+    private void OnFileTransferRejected(FileRejectChatMessage message, DateTimeOffset timestampUtc) {
+        if (_disposed) {
             return;
         }
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_disposed)
-            {
+        Dispatcher.UIThread.Post(() => {
+            if (_disposed) {
                 return;
             }
 
-            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation))
-            {
+            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation)) {
                 conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
             }
 
-            if (conversation is null)
-            {
+            if (conversation is null) {
                 return;
             }
 
             var offerItem = conversation.Messages
                 .OfType<IncomingFileOfferChatMessageItem>()
                 .FirstOrDefault(item => item.TransferId == message.TransferId);
-            if (offerItem is not null)
-            {
+            if (offerItem is not null) {
                 offerItem.ReceiveProgress = 0d;
                 offerItem.IsReceiving = false;
                 offerItem.ResetTransferSpeed();
-                offerItem.Text = message.Reason switch
-                {
+                offerItem.Text = message.Reason switch {
                     "rejected_by_peer" or "rejected_by_user" => $"[文件] 对方已拒绝 {offerItem.FileName}",
                     "timeout" => $"[文件] 发送超时 {offerItem.FileName}",
                     _ => $"[文件] 接收失败 {offerItem.FileName}"
@@ -819,26 +711,22 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 offerItem.IsHandled = true;
                 offerItem.IsPending = false;
             }
-            else
-            {
+            else {
                 var outgoingItem = conversation.Messages
                     .FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == message.TransferId);
-                if (outgoingItem is not null)
-                {
+                if (outgoingItem is not null) {
                     outgoingItem.ReceiveProgress = 0d;
                     outgoingItem.IsReceiving = false;
                     outgoingItem.ResetTransferSpeed();
                     outgoingItem.IsPending = false;
                     outgoingItem.IsFailed = true;
-                    outgoingItem.Text = message.Reason switch
-                    {
+                    outgoingItem.Text = message.Reason switch {
                         "rejected_by_peer" or "rejected_by_user" => $"[文件] 对方已拒绝 {outgoingItem.FileName}",
                         "timeout" => $"[文件] 发送超时 {outgoingItem.FileName}",
                         _ => $"[文件] 发送失败 {outgoingItem.FileName}"
                     };
 
-                    var rejectToastText = message.Reason switch
-                    {
+                    var rejectToastText = message.Reason switch {
                         "rejected_by_peer" or "rejected_by_user" => $"对方已拒绝接收文件：{outgoingItem.FileName}",
                         "timeout" => $"文件发送超时：{outgoingItem.FileName}",
                         _ => $"文件发送失败：{outgoingItem.FileName}"
@@ -848,8 +736,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
 
             var timestamp = timestampUtc.ToLocalTime();
-            conversation.SetLastMessage(message.Reason switch
-            {
+            conversation.SetLastMessage(message.Reason switch {
                 "rejected_by_peer" or "rejected_by_user" => "[文件] 对方已拒绝",
                 "timeout" => "[文件] 发送超时",
                 _ => "[文件] 接收失败"
@@ -863,35 +750,28 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         FileChatMessage message,
         long? bytesTransferred,
         long? totalBytes,
-        DateTimeOffset timestampUtc)
-    {
-        if (_disposed)
-        {
+        DateTimeOffset timestampUtc) {
+        if (_disposed) {
             return;
         }
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_disposed)
-            {
+        Dispatcher.UIThread.Post(() => {
+            if (_disposed) {
                 return;
             }
 
-            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation))
-            {
+            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation)) {
                 conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
             }
 
-            if (conversation is null)
-            {
+            if (conversation is null) {
                 return;
             }
 
             var offerItem = conversation.Messages
                 .OfType<IncomingFileOfferChatMessageItem>()
                 .FirstOrDefault(item => item.TransferId == message.ChannelId);
-            if (offerItem is not null)
-            {
+            if (offerItem is not null) {
                 var transferred = Math.Max(0L, bytesTransferred ?? 0L);
                 var total = Math.Max(1L, totalBytes ?? offerItem.FileSizeBytes);
                 var progress = Math.Clamp((double)transferred / total, 0d, 1d);
@@ -908,8 +788,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
             var fallbackIncoming = conversation.Messages
                 .FirstOrDefault(item => item.IsIncoming && item.TrackingTransferId == message.ChannelId);
-            if (fallbackIncoming is not null)
-            {
+            if (fallbackIncoming is not null) {
                 var transferredFallback = Math.Max(0L, bytesTransferred ?? 0L);
                 var totalFallback = Math.Max(1L, totalBytes ?? fallbackIncoming.FileSizeBytes);
                 var progressFallback = Math.Clamp((double)transferredFallback / totalFallback, 0d, 1d);
@@ -919,15 +798,15 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 fallbackIncoming.Text = $"[文件] Receiving {fallbackIncoming.FileName}";
 
                 var timestampFallback = timestampUtc.ToLocalTime();
-                conversation.SetLastMessage($"[文件] {fallbackIncoming.FileName} ({progressFallback * 100:0.0}%)", timestampFallback);
+                conversation.SetLastMessage($"[文件] {fallbackIncoming.FileName} ({progressFallback * 100:0.0}%)",
+                    timestampFallback);
                 RequestMessageListAutoScroll();
                 return;
             }
 
             var outgoingItem = conversation.Messages
                 .FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == message.ChannelId);
-            if (outgoingItem is null)
-            {
+            if (outgoingItem is null) {
                 return;
             }
 
@@ -945,8 +824,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         });
     }
 
-    private static void MarkOutgoingFileSendFailed(DeviceChatMessageItem fileBubble, string reason)
-    {
+    private static void MarkOutgoingFileSendFailed(DeviceChatMessageItem fileBubble, string reason) {
         fileBubble.ReceiveProgress = 0d;
         fileBubble.IsReceiving = false;
         fileBubble.ResetTransferSpeed();
@@ -958,10 +836,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             : $"[文件] 发送失败 {fileBubble.FileName} ({reasonText})";
     }
 
-    private void ShowPersistentFileSendErrorToast(string text)
-    {
-        _toastService.Show(new ToastRequest
-        {
+    private void ShowPersistentFileSendErrorToast(string text) {
+        _toastService.Show(new ToastRequest {
             Header = "设备聊天",
             Text = text,
             NotificationType = NotificationType.Error,
@@ -969,16 +845,13 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         });
     }
 
-    private bool IsForegroundCurrentConversation(DeviceConversationItem conversation)
-    {
+    private bool IsForegroundCurrentConversation(DeviceConversationItem conversation) {
         var mode = _messageAppService.ResolveIncomingDisplayMode(conversation.DeviceId);
         return mode == IncomingMessageDisplayMode.ShowInCurrentConversation;
     }
 
-    private void RequestMessageListAutoScroll()
-    {
-        if (_disposed || SelectedConversation is null)
-        {
+    private void RequestMessageListAutoScroll() {
+        if (_disposed || SelectedConversation is null) {
             return;
         }
 
@@ -986,10 +859,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         _messageListAutoScrollTimer.Start();
     }
 
-    private void SyncDisplayContext()
-    {
-        if (_disposed)
-        {
+    private void SyncDisplayContext() {
+        if (_disposed) {
             return;
         }
 
@@ -1000,21 +871,19 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             "DeviceChat",
             StringComparison.Ordinal);
 
-        _messageAppService.UpdateDisplayContext(isMainWindowActive, isDeviceChatPageOpen, SelectedConversation?.DeviceId);
+        _messageAppService.UpdateDisplayContext(isMainWindowActive, isDeviceChatPageOpen,
+            SelectedConversation?.DeviceId);
     }
 
-    private static async Task<string?> PickSavePathAsync(string fileName)
-    {
+    private static async Task<string?> PickSavePathAsync(string fileName) {
         var desktop = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
         var mainWindow = desktop?.MainWindow;
-        if (mainWindow?.StorageProvider is null)
-        {
+        if (mainWindow?.StorageProvider is null) {
             return null;
         }
 
         var extension = Path.GetExtension(fileName);
-        var file = await mainWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
+        var file = await mainWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions {
             Title = $"Save incoming file: {fileName}",
             SuggestedFileName = fileName,
             DefaultExtension = string.IsNullOrWhiteSpace(extension) ? null : extension.TrimStart('.')
@@ -1024,10 +893,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     private static int ResolvePort(DeviceConversationItem conversation, LocalDataTransportProtocol protocol,
-        int offeredPort)
-    {
-        if (offeredPort > 0)
-        {
+        int offeredPort) {
+        if (offeredPort > 0) {
             return offeredPort;
         }
 
@@ -1037,54 +904,48 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private async Task SendOfferDecisionWithFallbackAsync(
         DeviceConversationItem conversation,
         IncomingFileOfferChatMessageItem offer,
-        Func<MessageContext, Task> action)
-    {
+        Func<MessageContext, Task> action) {
         var primaryProtocol = offer.Protocol;
         var primaryPort = ResolvePort(conversation, primaryProtocol, offer.Port);
-        if (primaryPort <= 0)
-        {
+        if (primaryPort <= 0) {
             throw new InvalidOperationException("Invalid remote port for transfer decision.");
         }
 
-        try
-        {
-            await action(BuildContext(conversation, primaryProtocol, primaryPort));
+        try {
+            await action(BuildContext(conversation, primaryProtocol, primaryPort,
+                conversation.PreferredTransportAddress));
         }
-        catch (Exception ex) when (primaryProtocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0)
-        {
+        catch (Exception ex) when (primaryProtocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0) {
             Logger.Warning(ex, "Send transfer decision over QUIC failed, fallback to TCP. DeviceId={DeviceId}",
                 conversation.DeviceId);
-            await action(BuildContext(conversation, LocalDataTransportProtocol.Tcp, conversation.TcpPort));
+            await action(BuildContext(conversation, LocalDataTransportProtocol.Tcp, conversation.TcpPort,
+                conversation.PreferredTransportAddress));
         }
     }
 
-    private DeviceConversationItem? FindConversationByAddress(IPAddress remoteAddress)
-    {
+    private DeviceConversationItem? FindConversationByAddress(IPAddress remoteAddress) {
         var normalized = NormalizeAddress(remoteAddress);
         return Conversations.FirstOrDefault(conversation =>
-            NormalizeAddress(conversation.Address).Equals(normalized));
+            NormalizeAddress(conversation.Ipv4Address).Equals(normalized) ||
+            NormalizeAddress(conversation.Ipv6Address).Equals(normalized));
     }
 
-    private void SyncConversationsFromDiscovery()
-    {
+    private void SyncConversationsFromDiscovery() {
         var discovered = _deviceDiscoveryService.Devices
             .Where(device => !string.IsNullOrWhiteSpace(device.Id))
             .ToList();
 
         var discoveredIds = new HashSet<string>(discovered.Select(device => device.Id), StringComparer.Ordinal);
 
-        foreach (var (deviceId, trackedDevice) in _trackedDevices.Where(pair => !discoveredIds.Contains(pair.Key)).ToList())
-        {
+        foreach (var (deviceId, trackedDevice) in _trackedDevices.Where(pair => !discoveredIds.Contains(pair.Key))
+                     .ToList()) {
             trackedDevice.PropertyChanged -= OnTrackedDevicePropertyChanged;
             _trackedDevices.Remove(deviceId);
         }
 
-        foreach (var device in discovered)
-        {
-            if (!_trackedDevices.TryAdd(device.Id, device))
-            {
-                if (!ReferenceEquals(_trackedDevices[device.Id], device))
-                {
+        foreach (var device in discovered) {
+            if (!_trackedDevices.TryAdd(device.Id, device)) {
+                if (!ReferenceEquals(_trackedDevices[device.Id], device)) {
                     _trackedDevices[device.Id].PropertyChanged -= OnTrackedDevicePropertyChanged;
                     _trackedDevices[device.Id] = device;
                 }
@@ -1095,23 +956,19 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             UpsertConversation(device);
         }
 
-        foreach (var conversation in Conversations)
-        {
+        foreach (var conversation in Conversations) {
             conversation.IsOnline = discoveredIds.Contains(conversation.DeviceId);
         }
 
-        if (SelectedConversation is null && Conversations.Count > 0)
-        {
+        if (SelectedConversation is null && Conversations.Count > 0) {
             SelectedConversation = Conversations[0];
         }
 
         var requestedConversationId = _messageAppService.GetRequestedConversationId();
-        if (!string.IsNullOrWhiteSpace(requestedConversationId))
-        {
+        if (!string.IsNullOrWhiteSpace(requestedConversationId)) {
             var requestedConversation = Conversations.FirstOrDefault(item =>
                 string.Equals(item.DeviceId, requestedConversationId, StringComparison.Ordinal));
-            if (requestedConversation is not null)
-            {
+            if (requestedConversation is not null) {
                 SelectedConversation = requestedConversation;
                 _messageAppService.ClearRequestedConversationId();
             }
@@ -1124,10 +981,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         SortConversations();
     }
 
-    private void UpsertConversation(DeviceModel device)
-    {
-        if (!_conversationLookup.TryGetValue(device.Id, out var conversation))
-        {
+    private void UpsertConversation(DeviceModel device) {
+        if (!_conversationLookup.TryGetValue(device.Id, out var conversation)) {
             conversation = new DeviceConversationItem(device.Id);
             _conversationLookup[device.Id] = conversation;
             Conversations.Add(conversation);
@@ -1136,34 +991,28 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         conversation.ApplyDevice(device);
     }
 
-    private void SortConversations()
-    {
+    private void SortConversations() {
         var sorted = Conversations
             .OrderByDescending(conversation => conversation.LastMessageAt ?? DateTimeOffset.MinValue)
             .ThenByDescending(conversation => conversation.IsOnline)
             .ThenBy(conversation => conversation.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
-        for (var index = 0; index < sorted.Count; index++)
-        {
+        for (var index = 0; index < sorted.Count; index++) {
             var target = sorted[index];
             var current = Conversations.IndexOf(target);
-            if (current >= 0 && current != index)
-            {
+            if (current >= 0 && current != index) {
                 Conversations.Move(current, index);
             }
         }
     }
 
-    private static IPAddress NormalizeAddress(IPAddress address)
-    {
+    private static IPAddress NormalizeAddress(IPAddress address) {
         return address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
     }
 
-    partial void OnSelectedConversationChanged(DeviceConversationItem? value)
-    {
-        if (value is not null)
-        {
+    partial void OnSelectedConversationChanged(DeviceConversationItem? value) {
+        if (value is not null) {
             value.UnreadCount = 0;
         }
 
@@ -1179,21 +1028,17 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         PasteSendCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnMessageTextChanged(string value)
-    {
+    partial void OnMessageTextChanged(string value) {
         SendMessageCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnIsSendingChanged(bool value)
-    {
+    partial void OnIsSendingChanged(bool value) {
         SendMessageCommand.NotifyCanExecuteChanged();
         PasteSendCommand.NotifyCanExecuteChanged();
     }
 
-    public void Dispose()
-    {
-        if (_disposed)
-        {
+    public void Dispose() {
+        if (_disposed) {
             return;
         }
 
@@ -1202,8 +1047,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         _displayContextSyncTimer.Stop();
         _messageListAutoScrollTimer.Stop();
         _deviceDiscoveryService.Devices.CollectionChanged -= OnDiscoveredDevicesCollectionChanged;
-        foreach (var trackedDevice in _trackedDevices.Values)
-        {
+        foreach (var trackedDevice in _trackedDevices.Values) {
             trackedDevice.PropertyChanged -= OnTrackedDevicePropertyChanged;
         }
 
@@ -1212,91 +1056,106 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 }
 
-public partial class DeviceConversationItem : ObservableObject
-{
-    public DeviceConversationItem(string deviceId)
-    {
+public partial class DeviceConversationItem : ObservableObject {
+    public DeviceConversationItem(string deviceId) {
         DeviceId = deviceId;
     }
 
     public string DeviceId { get; }
     public ObservableCollection<DeviceChatMessageItem> Messages { get; } = [];
 
-    [ObservableProperty]
-    private string _displayName = "Unknown Device";
+    [ObservableProperty] private string _displayName = "Unknown Device";
 
-    [ObservableProperty]
-    private IPAddress _address = IPAddress.None;
+    [ObservableProperty] private IPAddress _ipv4Address = IPAddress.None;
 
-    [ObservableProperty]
-    private int _tcpPort;
+    [ObservableProperty] private IPAddress _ipv6Address = IPAddress.None;
 
-    [ObservableProperty]
-    private int _quicPort;
+    [ObservableProperty] private int _tcpPort;
 
-    [ObservableProperty]
-    private bool _supportQuic;
+    [ObservableProperty] private int _quicPort;
 
-    [ObservableProperty]
-    private bool _isOnline;
+    [ObservableProperty] private bool _supportQuic;
 
-    [ObservableProperty]
-    private string _lastMessagePreview = "No messages";
+    [ObservableProperty] private bool _isOnline;
 
-    [ObservableProperty]
-    private DateTimeOffset? _lastMessageAt;
+    [ObservableProperty] private string _lastMessagePreview = "无消息";
 
-    [ObservableProperty]
-    private int _unreadCount;
+    [ObservableProperty] private DateTimeOffset? _lastMessageAt;
 
-    public string AddressText => Address == IPAddress.None ? "Unknown Address" : Address.ToString();
-    public string StatusText => IsOnline ? "在线" : "离线";
+    [ObservableProperty] private int _unreadCount;
+
+    public bool HasIpv4 => Ipv4Address != IPAddress.None;
+    public bool HasIpv6 => Ipv6Address != IPAddress.None;
+    public string Ipv4AddressText => HasIpv4 ? Ipv4Address.ToString() : "Unknown IPv4";
+    public string Ipv6AddressText => Ipv6Address.ToString();
+
+    public string AddressSummaryText {
+        get {
+            if (HasIpv4 && HasIpv6) {
+                return $"IPv4: {Ipv4AddressText} | IPv6: {Ipv6AddressText}";
+            }
+
+            if (HasIpv4)
+                return $"IPv4: {Ipv4AddressText}";
+            if (HasIpv6) {
+                return $"IPv6: {Ipv6AddressText}";
+            }
+
+            return "未知IP";
+        }
+    }
+
+    public IPAddress PreferredTransportAddress => Ipv6Address != IPAddress.None ? Ipv6Address : Ipv4Address;
+        public string StatusText => IsOnline ? "在线" : "离线";
     public bool HasUnread => UnreadCount > 0;
     public string UnreadCountText => UnreadCount > 99 ? "99+" : UnreadCount.ToString();
     public string LastMessageTimeText => LastMessageAt?.ToLocalTime().ToString("HH:mm") ?? string.Empty;
 
-    public void ApplyDevice(DeviceModel device)
-    {
+    public void ApplyDevice(DeviceModel device) {
         DisplayName = device.DisplayName;
-        Address = device.Address;
+        Ipv4Address = device.Ipv4Address;
+        Ipv6Address = device.Ipv6Address;
         TcpPort = device.TcpPort;
         QuicPort = device.QuicPort;
         SupportQuic = device.SupportQuic;
         IsOnline = true;
     }
 
-    public void SetLastMessage(string message, DateTimeOffset messageTime)
-    {
+    public void SetLastMessage(string message, DateTimeOffset messageTime) {
         LastMessagePreview = BuildPreview(message);
         LastMessageAt = messageTime;
     }
 
-    partial void OnAddressChanged(IPAddress value)
-    {
-        OnPropertyChanged(nameof(AddressText));
+    partial void OnIpv4AddressChanged(IPAddress value) {
+        OnPropertyChanged(nameof(HasIpv4));
+        OnPropertyChanged(nameof(Ipv4AddressText));
+        OnPropertyChanged(nameof(AddressSummaryText));
+        OnPropertyChanged(nameof(PreferredTransportAddress));
     }
 
-    partial void OnIsOnlineChanged(bool value)
-    {
+    partial void OnIpv6AddressChanged(IPAddress value) {
+        OnPropertyChanged(nameof(HasIpv6));
+        OnPropertyChanged(nameof(Ipv6AddressText));
+        OnPropertyChanged(nameof(AddressSummaryText));
+        OnPropertyChanged(nameof(PreferredTransportAddress));
+    }
+
+    partial void OnIsOnlineChanged(bool value) {
         OnPropertyChanged(nameof(StatusText));
     }
 
-    partial void OnUnreadCountChanged(int value)
-    {
+    partial void OnUnreadCountChanged(int value) {
         OnPropertyChanged(nameof(HasUnread));
         OnPropertyChanged(nameof(UnreadCountText));
     }
 
-    partial void OnLastMessageAtChanged(DateTimeOffset? value)
-    {
+    partial void OnLastMessageAtChanged(DateTimeOffset? value) {
         OnPropertyChanged(nameof(LastMessageTimeText));
     }
 
-    private static string BuildPreview(string message)
-    {
+    private static string BuildPreview(string message) {
         var singleLine = message.ReplaceLineEndings(" ").Trim();
-        if (singleLine.Length <= 36)
-        {
+        if (singleLine.Length <= 36) {
             return singleLine;
         }
 
@@ -1304,32 +1163,26 @@ public partial class DeviceConversationItem : ObservableObject
     }
 }
 
-public partial class DeviceChatMessageItem : ObservableObject
-{
-    public DeviceChatMessageItem(string text, bool isOutgoing, DateTimeOffset timestamp)
-    {
+public partial class DeviceChatMessageItem : ObservableObject {
+    public DeviceChatMessageItem(string text, bool isOutgoing, DateTimeOffset timestamp) {
         _text = text;
         _isOutgoing = isOutgoing;
         _timestamp = timestamp;
     }
 
-    public static DeviceChatMessageItem CreateImage(byte[]? imageBytes, bool isOutgoing, DateTimeOffset timestamp)
-    {
+    public static DeviceChatMessageItem CreateImage(byte[]? imageBytes, bool isOutgoing, DateTimeOffset timestamp) {
         var item = new DeviceChatMessageItem(string.Empty, isOutgoing, timestamp);
-        if (imageBytes is null || imageBytes.Length == 0)
-        {
+        if (imageBytes is null || imageBytes.Length == 0) {
             return item;
         }
 
         item.ImageBytes = imageBytes.ToArray();
 
-        try
-        {
+        try {
             using var stream = new MemoryStream(imageBytes, writable: false);
             item.ImagePreview = new Bitmap(stream);
         }
-        catch
-        {
+        catch {
             item.ImagePreview = null;
         }
 
@@ -1337,29 +1190,24 @@ public partial class DeviceChatMessageItem : ObservableObject
     }
 
     public static DeviceChatMessageItem CreateFile(string fileName, long sizeBytes, bool isOutgoing,
-        DateTimeOffset timestamp)
-    {
-        return new DeviceChatMessageItem($"[文件] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing, timestamp)
-        {
+        DateTimeOffset timestamp) {
+        return new DeviceChatMessageItem($"[文件] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing, timestamp) {
             FileName = fileName,
             FileSizeBytes = sizeBytes
         };
     }
 
-    public static string FormatFileSizeLabel(long sizeBytes)
-    {
+    public static string FormatFileSizeLabel(long sizeBytes) {
         var bytes = Math.Max(0L, sizeBytes);
         const long oneKb = 1024;
         const long oneMb = 1024L * 1024L;
         const long oneGb = 1024L * 1024L * 1024L;
 
-        if (bytes >= oneGb)
-        {
+        if (bytes >= oneGb) {
             return $"{bytes / (double)oneGb:0.00} GB";
         }
 
-        if (bytes >= oneMb)
-        {
+        if (bytes >= oneMb) {
             return $"{bytes / (double)oneMb:0.00} MB";
         }
 
@@ -1370,44 +1218,31 @@ public partial class DeviceChatMessageItem : ObservableObject
         return $"{bytes} 字节";
     }
 
-    [ObservableProperty]
-    private string _text;
+    [ObservableProperty] private string _text;
 
-    [ObservableProperty]
-    private bool _isOutgoing;
+    [ObservableProperty] private bool _isOutgoing;
 
-    [ObservableProperty]
-    private DateTimeOffset _timestamp;
+    [ObservableProperty] private DateTimeOffset _timestamp;
 
-    [ObservableProperty]
-    private bool _isPending;
+    [ObservableProperty] private bool _isPending;
 
-    [ObservableProperty]
-    private bool _isFailed;
+    [ObservableProperty] private bool _isFailed;
 
-    [ObservableProperty]
-    private Bitmap? _imagePreview;
+    [ObservableProperty] private Bitmap? _imagePreview;
 
-    [ObservableProperty]
-    private byte[]? _imageBytes;
+    [ObservableProperty] private byte[]? _imageBytes;
 
-    [ObservableProperty]
-    private string _fileName = string.Empty;
+    [ObservableProperty] private string _fileName = string.Empty;
 
-    [ObservableProperty]
-    private long _fileSizeBytes;
+    [ObservableProperty] private long _fileSizeBytes;
 
-    [ObservableProperty]
-    private Guid? _trackingTransferId;
+    [ObservableProperty] private Guid? _trackingTransferId;
 
-    [ObservableProperty]
-    private double _receiveProgress;
+    [ObservableProperty] private double _receiveProgress;
 
-    [ObservableProperty]
-    private bool _isReceiving;
+    [ObservableProperty] private bool _isReceiving;
 
-    [ObservableProperty]
-    private double _transferSpeedBytesPerSecond;
+    [ObservableProperty] private double _transferSpeedBytesPerSecond;
 
     private long _transferStartBytes = -1;
     private DateTimeOffset? _transferStartTimestampUtc;
@@ -1419,6 +1254,7 @@ public partial class DeviceChatMessageItem : ObservableObject
     public bool CanHandleIncomingOffer => this is IncomingFileOfferChatMessageItem offer && offer.CanHandle;
     public bool HasText => !string.IsNullOrWhiteSpace(Text);
     public string TimeText => Timestamp.ToLocalTime().ToString("HH:mm");
+
     public string StateText => IsFailed
         ? "失败"
         : IsReceiving
@@ -1426,67 +1262,56 @@ public partial class DeviceChatMessageItem : ObservableObject
             : IsPending
                 ? "发送中..."
                 : string.Empty;
+
     public bool HasState => !string.IsNullOrEmpty(StateText);
 
-    partial void OnIsOutgoingChanged(bool value)
-    {
+    partial void OnIsOutgoingChanged(bool value) {
         OnPropertyChanged(nameof(IsIncoming));
     }
 
-    partial void OnTimestampChanged(DateTimeOffset value)
-    {
+    partial void OnTimestampChanged(DateTimeOffset value) {
         OnPropertyChanged(nameof(TimeText));
     }
 
-    partial void OnIsPendingChanged(bool value)
-    {
+    partial void OnIsPendingChanged(bool value) {
         OnPropertyChanged(nameof(StateText));
         OnPropertyChanged(nameof(HasState));
     }
 
-    partial void OnIsFailedChanged(bool value)
-    {
+    partial void OnIsFailedChanged(bool value) {
         OnPropertyChanged(nameof(StateText));
         OnPropertyChanged(nameof(HasState));
     }
 
-    partial void OnTextChanged(string value)
-    {
+    partial void OnTextChanged(string value) {
         OnPropertyChanged(nameof(HasText));
     }
 
-    partial void OnImagePreviewChanged(Bitmap? value)
-    {
+    partial void OnImagePreviewChanged(Bitmap? value) {
         OnPropertyChanged(nameof(HasImage));
     }
 
-    partial void OnFileNameChanged(string value)
-    {
+    partial void OnFileNameChanged(string value) {
         OnPropertyChanged(nameof(HasFile));
     }
 
-    partial void OnReceiveProgressChanged(double value)
-    {
+    partial void OnReceiveProgressChanged(double value) {
         OnPropertyChanged(nameof(StateText));
         OnPropertyChanged(nameof(HasState));
     }
 
-    partial void OnIsReceivingChanged(bool value)
-    {
+    partial void OnIsReceivingChanged(bool value) {
         OnPropertyChanged(nameof(StateText));
         OnPropertyChanged(nameof(HasState));
     }
 
-    partial void OnTransferSpeedBytesPerSecondChanged(double value)
-    {
+    partial void OnTransferSpeedBytesPerSecondChanged(double value) {
         OnPropertyChanged(nameof(StateText));
         OnPropertyChanged(nameof(HasState));
     }
 
-    public void UpdateTransferSpeed(long transferredBytes, DateTimeOffset timestampUtc)
-    {
-        if (!_transferStartTimestampUtc.HasValue || transferredBytes < _transferStartBytes)
-        {
+    public void UpdateTransferSpeed(long transferredBytes, DateTimeOffset timestampUtc) {
+        if (!_transferStartTimestampUtc.HasValue || transferredBytes < _transferStartBytes) {
             _transferStartBytes = Math.Max(0L, transferredBytes);
             _transferStartTimestampUtc = timestampUtc;
             TransferSpeedBytesPerSecond = 0d;
@@ -1494,8 +1319,7 @@ public partial class DeviceChatMessageItem : ObservableObject
         }
 
         var elapsedSeconds = (timestampUtc - _transferStartTimestampUtc.Value).TotalSeconds;
-        if (elapsedSeconds <= 0.0001d)
-        {
+        if (elapsedSeconds <= 0.0001d) {
             return;
         }
 
@@ -1503,42 +1327,35 @@ public partial class DeviceChatMessageItem : ObservableObject
         TransferSpeedBytesPerSecond = Math.Max(0d, elapsedBytes / elapsedSeconds);
     }
 
-    public void ResetTransferSpeed()
-    {
+    public void ResetTransferSpeed() {
         _transferStartBytes = -1;
         _transferStartTimestampUtc = null;
         TransferSpeedBytesPerSecond = 0d;
     }
 
-    private string BuildTransferStateText()
-    {
+    private string BuildTransferStateText() {
         var progressText = $"{ReceiveProgress * 100:0.0}%";
-        if (TransferSpeedBytesPerSecond <= 0d)
-        {
+        if (TransferSpeedBytesPerSecond <= 0d) {
             return progressText;
         }
 
         return $"{progressText} | {FormatBytes(TransferSpeedBytesPerSecond)}/s";
     }
 
-    private static string FormatBytes(double bytes)
-    {
+    private static string FormatBytes(double bytes) {
         var units = new[] { "B", "KB", "MB", "GB", "TB" };
         var value = Math.Max(0d, bytes);
         var unitIndex = 0;
-        while (value >= 1024d && unitIndex < units.Length - 1)
-        {
+        while (value >= 1024d && unitIndex < units.Length - 1) {
             value /= 1024d;
             unitIndex++;
         }
 
-        if (value >= 100d)
-        {
+        if (value >= 100d) {
             return $"{value:0} {units[unitIndex]}";
         }
 
-        if (value >= 10d)
-        {
+        if (value >= 10d) {
             return $"{value:0.0} {units[unitIndex]}";
         }
 
@@ -1546,8 +1363,7 @@ public partial class DeviceChatMessageItem : ObservableObject
     }
 }
 
-public partial class IncomingFileOfferChatMessageItem : DeviceChatMessageItem
-{
+public partial class IncomingFileOfferChatMessageItem : DeviceChatMessageItem {
     public IncomingFileOfferChatMessageItem(
         string conversationId,
         Guid transferId,
@@ -1556,8 +1372,7 @@ public partial class IncomingFileOfferChatMessageItem : DeviceChatMessageItem
         LocalDataTransportProtocol protocol,
         int port,
         DateTimeOffset timestamp)
-        : base($"[文件] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing: false, timestamp)
-    {
+        : base($"[文件] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing: false, timestamp) {
         _conversationId = conversationId;
         _transferId = transferId;
         FileName = fileName;
@@ -1566,25 +1381,19 @@ public partial class IncomingFileOfferChatMessageItem : DeviceChatMessageItem
         _port = port;
     }
 
-    [ObservableProperty]
-    private string _conversationId = string.Empty;
+    [ObservableProperty] private string _conversationId = string.Empty;
 
-    [ObservableProperty]
-    private Guid _transferId;
+    [ObservableProperty] private Guid _transferId;
 
-    [ObservableProperty]
-    private LocalDataTransportProtocol _protocol;
+    [ObservableProperty] private LocalDataTransportProtocol _protocol;
 
-    [ObservableProperty]
-    private int _port;
+    [ObservableProperty] private int _port;
 
-    [ObservableProperty]
-    private bool _isHandled;
+    [ObservableProperty] private bool _isHandled;
 
     public bool CanHandle => !IsHandled;
 
-    partial void OnIsHandledChanged(bool value)
-    {
+    partial void OnIsHandledChanged(bool value) {
         OnPropertyChanged(nameof(CanHandle));
         OnPropertyChanged(nameof(CanHandleIncomingOffer));
     }

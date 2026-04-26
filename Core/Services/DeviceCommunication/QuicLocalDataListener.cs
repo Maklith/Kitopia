@@ -470,7 +470,8 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
 
         var remoteAddress = NormalizeAddress(remoteEndPoint.Address);
         var matchedDevice = discoveryService.Devices.FirstOrDefault(device =>
-            NormalizeAddress(device.Address).Equals(remoteAddress));
+            NormalizeAddress(device.Ipv4Address).Equals(remoteAddress) ||
+            NormalizeAddress(device.Ipv6Address).Equals(remoteAddress));
 
         return matchedDevice is null || string.IsNullOrWhiteSpace(matchedDevice.Id)
             ? null

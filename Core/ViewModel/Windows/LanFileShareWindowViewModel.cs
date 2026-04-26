@@ -163,8 +163,9 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
             ? LocalDataTransportProtocol.Quic
             : LocalDataTransportProtocol.Tcp;
         var port = protocol == LocalDataTransportProtocol.Quic ? device.QuicPort : device.TcpPort;
+        var transportAddress = device.PreferredTransportAddress;
 
-        if (port <= 0 || device.Address == IPAddress.None)
+        if (port <= 0 || transportAddress == IPAddress.None)
         {
             throw new InvalidOperationException("Invalid target address or port.");
         }
@@ -189,13 +190,14 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         LocalDataTransportProtocol protocol,
         int port)
     {
-        var sendContext = BuildContext(device, protocol, port);
+        var sendContext = BuildContext(device, protocol, port, device.PreferredTransportAddress);
         await _messageAppService.SendFileChatAsync(sendContext, message, stream);
     }
 
-    private static MessageContext BuildContext(DeviceModel device, LocalDataTransportProtocol protocol, int port)
+    private static MessageContext BuildContext(DeviceModel device, LocalDataTransportProtocol protocol, int port,
+        IPAddress remoteAddress)
     {
-        var remoteEndPoint = new IPEndPoint(device.Address, port);
+        var remoteEndPoint = new IPEndPoint(remoteAddress, port);
         return new MessageContext(protocol, remoteEndPoint, device.Id);
     }
 
