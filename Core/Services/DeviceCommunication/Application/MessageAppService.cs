@@ -14,10 +14,12 @@ using Core.Services.DeviceCommunication.Sessions;
 using Core.ViewModel.Main;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using Serilog;
 
 namespace Core.Services.DeviceCommunication.Application;
 
 public sealed class MessageAppService : IMessageAppService {
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<MessageAppService>();
     private readonly MessageCodecRegistry _codecRegistry;
     private readonly ProtocolSender _protocolSender;
     private readonly IncomingMessageBuffer _incomingMessageBuffer;
@@ -322,6 +324,14 @@ public sealed class MessageAppService : IMessageAppService {
         if (!codec.TryEncode(message, out var envelope)) {
             throw new InvalidOperationException($"Encode failed for message type {message.GetType().Name}.");
         }
+
+        Logger.Information(
+            "发送信息。 Type={MessageType} Protocol={Protocol} Remote={RemoteEndPoint} Route={Route} Command={Command}",
+            message.GetType().Name,
+            context.Protocol,
+            context.RemoteEndPoint,
+            envelope.Route,
+            envelope.Command);
 
         await _protocolSender.SendEnvelopeAsync(context, envelope, cancellationToken);
     }
