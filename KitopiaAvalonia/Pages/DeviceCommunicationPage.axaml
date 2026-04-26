@@ -135,7 +135,7 @@
                         CornerRadius="10"
                         Padding="12">
                     <Grid>
-                        <ScrollViewer Name="ConversationScrollViewer"
+                        <ScrollViewer x:Name="ConversationScrollViewer"
                                       VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding CurrentMessages}">
                                 <ItemsControl.ItemTemplate>

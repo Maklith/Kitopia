@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -14,10 +15,13 @@ namespace KitopiaAvalonia.Pages;
 public partial class DeviceCommunicationPage : UserControl
 {
     private DeviceCommunicationPageViewModel? _boundViewModel;
+    private INotifyCollectionChanged? _boundMessages;
+    private ScrollViewer? _conversationScrollViewer;
 
     public DeviceCommunicationPage()
     {
         InitializeComponent();
+        _conversationScrollViewer = this.FindControl<ScrollViewer>("ConversationScrollViewer");
         DataContextChanged += OnDataContextChanged;
         Unloaded += OnUnloaded;
     }
@@ -27,6 +31,7 @@ public partial class DeviceCommunicationPage : UserControl
         if (_boundViewModel is not null)
         {
             _boundViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            UnbindCurrentMessages();
             _boundViewModel = null;
         }
 
@@ -34,25 +39,72 @@ public partial class DeviceCommunicationPage : UserControl
         if (_boundViewModel is not null)
         {
             _boundViewModel.PropertyChanged += OnViewModelPropertyChanged;
+            BindCurrentMessages();
             ScrollToLatest();
         }
     }
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(DeviceCommunicationPageViewModel.MessageListVersion) or nameof(DeviceCommunicationPageViewModel.CurrentMessages))
+        if (e.PropertyName == nameof(DeviceCommunicationPageViewModel.CurrentMessages))
+        {
+            BindCurrentMessages();
+            ScrollToLatest();
+            return;
+        }
+
+        if (e.PropertyName == nameof(DeviceCommunicationPageViewModel.MessageListVersion))
         {
             ScrollToLatest();
         }
+    }
+
+    private void BindCurrentMessages()
+    {
+        UnbindCurrentMessages();
+
+        if (_boundViewModel?.CurrentMessages is not INotifyCollectionChanged messages)
+        {
+            return;
+        }
+
+        _boundMessages = messages;
+        _boundMessages.CollectionChanged += OnCurrentMessagesCollectionChanged;
+    }
+
+    private void UnbindCurrentMessages()
+    {
+        if (_boundMessages is null)
+        {
+            return;
+        }
+
+        _boundMessages.CollectionChanged -= OnCurrentMessagesCollectionChanged;
+        _boundMessages = null;
+    }
+
+    private void OnCurrentMessagesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        ScrollToLatest();
     }
 
     private void ScrollToLatest()
     {
         Dispatcher.UIThread.Post(() =>
         {
-            var scrollViewer = this.FindControl<ScrollViewer>("ConversationScrollViewer") ?? this.FindDescendantOfType<ScrollViewer>();
-            scrollViewer?.ScrollToEnd();
-        }, DispatcherPriority.Background);
+            _conversationScrollViewer ??= this.FindControl<ScrollViewer>("ConversationScrollViewer");
+            if (_conversationScrollViewer is null)
+            {
+                return;
+            }
+
+            _conversationScrollViewer.ScrollToEnd();
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                _conversationScrollViewer?.ScrollToEnd();
+            }, DispatcherPriority.Render);
+        }, DispatcherPriority.Loaded);
     }
 
     private void OnUnloaded(object? sender, RoutedEventArgs e)
@@ -60,6 +112,7 @@ public partial class DeviceCommunicationPage : UserControl
         if (_boundViewModel is not null)
         {
             _boundViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            UnbindCurrentMessages();
             _boundViewModel = null;
         }
     }

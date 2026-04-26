@@ -111,6 +111,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         conversation.UnreadCount = 0;
         MessageText = string.Empty;
         SortConversations();
+        RequestMessageListAutoScroll();
 
         IsSending = true;
         try {
@@ -312,6 +313,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     conversation.Messages.Add(imageBubble);
                     conversation.SetLastMessage("[图片]", imageBubble.Timestamp);
                     SortConversations();
+                    RequestMessageListAutoScroll();
 
                     await using var imageStream = new MemoryStream(imageBytes, writable: false);
                     var imageMessage = new ImageChatMessage(conversation.DeviceId, Guid.NewGuid(),
@@ -356,6 +358,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     conversation.Messages.Add(fileBubble);
                     conversation.SetLastMessage($"[文件] {fileInfo.Name}", fileBubble.Timestamp);
                     SortConversations();
+                    RequestMessageListAutoScroll();
 
                     await using var fileStream = File.OpenRead(filePath);
                     try {
@@ -851,7 +854,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     private void RequestMessageListAutoScroll() {
-        if (_disposed || SelectedConversation is null) {
+        if (_disposed) {
             return;
         }
 
@@ -992,6 +995,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     private void SortConversations() {
+        var selectedConversation = SelectedConversation;
         var sorted = Conversations
             .OrderByDescending(conversation => conversation.LastMessageAt ?? DateTimeOffset.MinValue)
             .ThenByDescending(conversation => conversation.IsOnline)
@@ -1004,6 +1008,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             if (current >= 0 && current != index) {
                 Conversations.Move(current, index);
             }
+        }
+
+        if (selectedConversation is not null &&
+            SelectedConversation is null &&
+            Conversations.Contains(selectedConversation)) {
+            SelectedConversation = selectedConversation;
         }
     }
 
