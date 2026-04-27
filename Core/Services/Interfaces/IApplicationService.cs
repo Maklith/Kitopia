@@ -8,5 +8,5 @@ public interface IApplicationService
     public Task ExitAsync(int exitCode = 0);
     public Task RestartAsync();
     public Task StopAsync();
-    public Task CheckUpdate(bool toastIfNoUpdate);
+    public Task<bool> CheckUpdate(bool toastIfNoUpdate);
 }

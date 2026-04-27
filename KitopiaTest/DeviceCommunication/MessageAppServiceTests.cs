@@ -289,12 +289,14 @@ public sealed class MessageAppServiceTests
         {
         }
 
-        public void Show(string header, string text, Avalonia.Controls.Notifications.NotificationType notificationType = Avalonia.Controls.Notifications.NotificationType.Information)
+        public Task Show(string header, string text, Avalonia.Controls.Notifications.NotificationType notificationType = Avalonia.Controls.Notifications.NotificationType.Information)
         {
+            return Task.CompletedTask;
         }
 
-        public void Show(ToastRequest request)
+        public Task Show(ToastRequest request)
         {
+            return Task.CompletedTask;
         }
 
         public IToastProgressHandle ShowProgress(string header, string text,

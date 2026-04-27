@@ -22,6 +22,7 @@ public class ToastService : IToastService
     private readonly ToastHostViewModel _hostViewModel = new();
     private readonly Dictionary<Guid, ToastItemViewModel> _items = [];
     private readonly Dictionary<Guid, CancellationTokenSource> _autoCloseCtsMap = [];
+    private readonly Dictionary<Guid, TaskCompletionSource<bool>> _dismissedTcsMap = [];
     private ToastShowWindow? _toastShowWindow;
     private bool _isUnregistered;
 
@@ -43,9 +44,9 @@ public class ToastService : IToastService
         }).Wait();
     }
 
-    public void Show(string header, string text, NotificationType notificationType = NotificationType.Information)
+    public Task Show(string header, string text, NotificationType notificationType = NotificationType.Information)
     {
-        Show(new ToastRequest
+        return Show(new ToastRequest
         {
             Header = header,
             Text = text,
@@ -53,17 +54,17 @@ public class ToastService : IToastService
         });
     }
 
-    public void Show(ToastRequest request)
+    public Task Show(ToastRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (_isUnregistered)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         Logger.Debug(
             $"{nameof(ToastService)}的接口{nameof(Show)}被调用,header：{request.Header},text：{request.Text},type:{request.NotificationType}");
-        _ = ShowAndReturnId(request);
+        return ShowAndReturnCompletionTask(request);
     }
 
     public IToastProgressHandle ShowProgress(string header, string text,
@@ -106,6 +107,35 @@ public class ToastService : IToastService
         {
             Logger.Debug(ex, "注销Toast服务失败");
         }
+    }
+
+    private Task ShowAndReturnCompletionTask(ToastRequest request)
+    {
+        try
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+            {
+                return ShowAndReturnCompletionTaskOnUiThread(request);
+            }
+
+            return Dispatcher.UIThread.InvokeAsync(() => ShowAndReturnCompletionTaskOnUiThread(request));
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "显示Toast失败");
+            return Task.CompletedTask;
+        }
+    }
+
+    private Task ShowAndReturnCompletionTaskOnUiThread(ToastRequest request)
+    {
+        var toastId = ShowOnUiThread(request);
+        if (toastId == Guid.Empty)
+        {
+            return Task.CompletedTask;
+        }
+
+        return GetOrCreateDismissedTaskOnUiThread(toastId);
     }
 
     private Guid ShowAndReturnId(ToastRequest request)
@@ -153,10 +183,21 @@ public class ToastService : IToastService
         }
 
         _items[toastId] = toastItem;
+        _dismissedTcsMap[toastId] = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         _hostViewModel.Items.Add(toastItem);
         ScheduleAutoCloseOnUiThread(toastId, request.AutoCloseDelay);
         UpdateHostWindowVisibilityOnUiThread();
         return toastId;
+    }
+
+    private Task GetOrCreateDismissedTaskOnUiThread(Guid toastId)
+    {
+        if (_dismissedTcsMap.TryGetValue(toastId, out var tcs))
+        {
+            return tcs.Task;
+        }
+
+        return Task.CompletedTask;
     }
 
     private void ExecuteAction(Guid toastId, ToastAction action)
@@ -277,7 +318,18 @@ public class ToastService : IToastService
 
         CancelAutoCloseOnUiThread(toastId);
         _hostViewModel.Items.Remove(item);
+        CompleteDismissedTaskOnUiThread(toastId);
         UpdateHostWindowVisibilityOnUiThread();
+    }
+
+    private void CompleteDismissedTaskOnUiThread(Guid toastId)
+    {
+        if (!_dismissedTcsMap.Remove(toastId, out var dismissedTcs))
+        {
+            return;
+        }
+
+        dismissedTcs.TrySetResult(true);
     }
 
     private void ScheduleAutoCloseOnUiThread(Guid toastId, TimeSpan? delay)
@@ -475,6 +527,12 @@ public class ToastService : IToastService
 
         _items.Clear();
         _hostViewModel.Items.Clear();
+        foreach (var dismissedTcs in _dismissedTcsMap.Values)
+        {
+            dismissedTcs.TrySetResult(true);
+        }
+
+        _dismissedTcsMap.Clear();
         if (_toastShowWindow is null)
         {
             return;
