@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Net;
+using System.Net.Sockets;
 using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -18,6 +19,7 @@ namespace Core.ViewModel.Windows;
 public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
 {
     private readonly IDeviceDiscoveryService _deviceDiscoveryService;
+    private readonly ILocalDataListener _localDataListener;
     private readonly IMessageAppService _messageAppService;
     private readonly IToastService _toastService;
 
@@ -44,10 +46,12 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
 
     public LanFileShareWindowViewModel(
         IDeviceDiscoveryService deviceDiscoveryService,
+        ILocalDataListener localDataListener,
         IMessageAppService messageAppService,
         IToastService toastService)
     {
         _deviceDiscoveryService = deviceDiscoveryService;
+        _localDataListener = localDataListener;
         _messageAppService = messageAppService;
         _toastService = toastService;
 
@@ -159,11 +163,9 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
             throw new InvalidOperationException("Invalid target device identity.");
         }
 
-        var protocol = device.SupportQuic && device.QuicPort > 0
-            ? LocalDataTransportProtocol.Quic
-            : LocalDataTransportProtocol.Tcp;
+        var protocol = SelectTransportProtocol(device.SupportQuic, device.QuicPort);
         var port = protocol == LocalDataTransportProtocol.Quic ? device.QuicPort : device.TcpPort;
-        var transportAddress = device.PreferredTransportAddress;
+        var transportAddress = SelectTransportAddress(device.Ipv4Address, device.Ipv6Address);
 
         if (port <= 0 || transportAddress == IPAddress.None)
         {
@@ -190,8 +192,25 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         LocalDataTransportProtocol protocol,
         int port)
     {
-        var sendContext = BuildContext(device, protocol, port, device.PreferredTransportAddress);
+        var sendContext = BuildContext(device, protocol, port, SelectTransportAddress(device.Ipv4Address, device.Ipv6Address));
         await _messageAppService.SendFileChatAsync(sendContext, message, stream);
+    }
+
+    private LocalDataTransportProtocol SelectTransportProtocol(bool remoteSupportsQuic, int remoteQuicPort)
+    {
+        return _localDataListener.SupportsQuic && remoteSupportsQuic && remoteQuicPort > 0
+            ? LocalDataTransportProtocol.Quic
+            : LocalDataTransportProtocol.Tcp;
+    }
+
+    private static IPAddress SelectTransportAddress(IPAddress ipv4Address, IPAddress ipv6Address)
+    {
+        if (Socket.OSSupportsIPv6 && ipv6Address != IPAddress.None)
+        {
+            return ipv6Address;
+        }
+
+        return ipv4Address;
     }
 
     private static MessageContext BuildContext(DeviceModel device, LocalDataTransportProtocol protocol, int port,

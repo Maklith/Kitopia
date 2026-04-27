@@ -35,6 +35,8 @@ public class KitopiaConfig : ConfigBase
     [ConfigFieldCategory("设备互传")]
     [ConfigField("对外显示名称", "为空时使用当前计算机名称", 0xf45f, ConfigFieldType.字符串)]
     public string deviceBroadcastName = string.Empty;
+    [ConfigField("启用QUIC传输", "关闭后设备互传仅使用TCP", 0xE61C, ConfigFieldType.布尔)]
+    public bool deviceCommunicationEnableQuic = true;
     public string devicePersistentId = string.Empty;
     public string devicePrivateKey = string.Empty;
 

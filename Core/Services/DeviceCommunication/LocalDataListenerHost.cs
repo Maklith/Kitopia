@@ -1,6 +1,7 @@
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Quic;
+using Core.Services.Config;
 using Serilog;
 
 namespace Core.Services.DeviceCommunication;
@@ -47,6 +48,12 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
         }
 
         await _tcpListener.StartAsync(token);
+
+        if (!ConfigManger.Config.deviceCommunicationEnableQuic)
+        {
+            Logger.Information("QUIC local listener disabled by configuration.");
+            return;
+        }
 
         if (QuicConnection.IsSupported && QuicListener.IsSupported)
         {
@@ -200,4 +207,5 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
             }
         }
     }
+
 }

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Net;
+using System.Net.Sockets;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
@@ -26,6 +27,7 @@ namespace Core.ViewModel.Pages.device;
 public partial class DeviceCommunicationPageViewModel : ObservableObject, IDisposable {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<DeviceCommunicationPageViewModel>();
     private readonly IDeviceDiscoveryService _deviceDiscoveryService;
+    private readonly ILocalDataListener _localDataListener;
     private readonly IMessageAppService _messageAppService;
     private readonly IClipboardService _clipboardService;
     private readonly IToastService _toastService;
@@ -62,10 +64,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
     public DeviceCommunicationPageViewModel(
         IDeviceDiscoveryService deviceDiscoveryService,
+        ILocalDataListener localDataListener,
         IMessageAppService messageAppService,
         IClipboardService clipboardService,
         IToastService toastService) {
         _deviceDiscoveryService = deviceDiscoveryService;
+        _localDataListener = localDataListener;
         _messageAppService = messageAppService;
         _clipboardService = clipboardService;
         _toastService = toastService;
@@ -145,11 +149,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             throw new InvalidOperationException("Invalid target device identity.");
         }
 
-        var protocol = conversation.SupportQuic && conversation.QuicPort > 0
-            ? LocalDataTransportProtocol.Quic
-            : LocalDataTransportProtocol.Tcp;
+        var protocol = SelectTransportProtocol(conversation.SupportQuic, conversation.QuicPort);
         var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
-        var transportAddress = conversation.PreferredTransportAddress;
+        var transportAddress = SelectTransportAddress(conversation.Ipv4Address, conversation.Ipv6Address);
 
         if (port <= 0 || transportAddress == IPAddress.None) {
             throw new InvalidOperationException("Invalid target address or port.");
@@ -168,11 +170,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
     private async Task SendImageToConversationAsync(DeviceConversationItem conversation, ImageChatMessage message,
         Stream stream) {
-        var protocol = conversation.SupportQuic && conversation.QuicPort > 0
-            ? LocalDataTransportProtocol.Quic
-            : LocalDataTransportProtocol.Tcp;
+        var protocol = SelectTransportProtocol(conversation.SupportQuic, conversation.QuicPort);
         var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
-        var transportAddress = conversation.PreferredTransportAddress;
+        var transportAddress = SelectTransportAddress(conversation.Ipv4Address, conversation.Ipv6Address);
 
         try {
             await SendImageCoreAsync(conversation, message, stream, protocol, port, transportAddress);
@@ -187,11 +187,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
     private async Task SendFileToConversationAsync(DeviceConversationItem conversation, FileChatMessage message,
         Stream stream) {
-        var protocol = conversation.SupportQuic && conversation.QuicPort > 0
-            ? LocalDataTransportProtocol.Quic
-            : LocalDataTransportProtocol.Tcp;
+        var protocol = SelectTransportProtocol(conversation.SupportQuic, conversation.QuicPort);
         var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
-        var transportAddress = conversation.PreferredTransportAddress;
+        var transportAddress = SelectTransportAddress(conversation.Ipv4Address, conversation.Ipv6Address);
 
         try {
             await SendFileCoreAsync(conversation, message, stream, protocol, port, transportAddress);
@@ -606,9 +604,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 return;
             }
 
-            var protocol = conversation.SupportQuic && conversation.QuicPort > 0
-                ? LocalDataTransportProtocol.Quic
-                : LocalDataTransportProtocol.Tcp;
+            var protocol = SelectTransportProtocol(conversation.SupportQuic, conversation.QuicPort);
             var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
 
             var timestamp = DateTimeOffset.Now;
@@ -908,7 +904,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         DeviceConversationItem conversation,
         IncomingFileOfferChatMessageItem offer,
         Func<MessageContext, Task> action) {
-        var primaryProtocol = offer.Protocol;
+        var primaryProtocol = offer.Protocol == LocalDataTransportProtocol.Quic
+            ? SelectTransportProtocol(conversation.SupportQuic, conversation.QuicPort)
+            : LocalDataTransportProtocol.Tcp;
         var primaryPort = ResolvePort(conversation, primaryProtocol, offer.Port);
         if (primaryPort <= 0) {
             throw new InvalidOperationException("Invalid remote port for transfer decision.");
@@ -916,14 +914,28 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
         try {
             await action(BuildContext(conversation, primaryProtocol, primaryPort,
-                conversation.PreferredTransportAddress));
+                SelectTransportAddress(conversation.Ipv4Address, conversation.Ipv6Address)));
         }
         catch (Exception ex) when (primaryProtocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0) {
             Logger.Warning(ex, "Send transfer decision over QUIC failed, fallback to TCP. DeviceId={DeviceId}",
                 conversation.DeviceId);
             await action(BuildContext(conversation, LocalDataTransportProtocol.Tcp, conversation.TcpPort,
-                conversation.PreferredTransportAddress));
+                SelectTransportAddress(conversation.Ipv4Address, conversation.Ipv6Address)));
         }
+    }
+
+    private LocalDataTransportProtocol SelectTransportProtocol(bool remoteSupportsQuic, int remoteQuicPort) {
+        return _localDataListener.SupportsQuic && remoteSupportsQuic && remoteQuicPort > 0
+            ? LocalDataTransportProtocol.Quic
+            : LocalDataTransportProtocol.Tcp;
+    }
+
+    private static IPAddress SelectTransportAddress(IPAddress ipv4Address, IPAddress ipv6Address) {
+        if (Socket.OSSupportsIPv6 && ipv6Address != IPAddress.None) {
+            return ipv6Address;
+        }
+
+        return ipv4Address;
     }
 
     private DeviceConversationItem? FindConversationByAddress(IPAddress remoteAddress) {

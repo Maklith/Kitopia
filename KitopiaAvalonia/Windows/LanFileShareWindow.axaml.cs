@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.Interfaces;
@@ -30,12 +31,13 @@ public partial class LanFileShareWindow : Window, ILanFileShareWindow
             var deviceDiscoveryService = ServiceManager.Services.GetService<IDeviceDiscoveryService>();
             var messageAppService = ServiceManager.Services.GetService<IMessageAppService>();
             var toastService = ServiceManager.Services.GetService<IToastService>();
-            if (deviceDiscoveryService is null || messageAppService is null || toastService is null)
+            var localDataListener = ServiceManager.Services.GetService<ILocalDataListener>();
+            if (deviceDiscoveryService is null || messageAppService is null || toastService is null|| localDataListener is null)
             {
                 return;
             }
 
-            vm = new LanFileShareWindowViewModel(deviceDiscoveryService, messageAppService, toastService);
+            vm = new LanFileShareWindowViewModel(deviceDiscoveryService,localDataListener, messageAppService, toastService);
             DataContext = vm;
         }
 

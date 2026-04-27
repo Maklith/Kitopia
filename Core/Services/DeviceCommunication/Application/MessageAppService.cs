@@ -217,6 +217,14 @@ public sealed class MessageAppService : IMessageAppService {
                 continue;
             }
 
+            Logger.Information(
+                "接收信息。 EventType={EventType} Type={MessageType} ConversationId={ConversationId} TransferId={TransferId} Detail={Detail}",
+                transformedEvent.EventType,
+                transformedEvent.Message.GetType().Name,
+                transformedEvent.Message.ConversationId,
+                transformedEvent.TransferId,
+                DescribeIncomingEvent(transformedEvent));
+
             await NotifyToastIfNeededAsync(transformedEvent);
             await _receiveChannel.Writer.WriteAsync(transformedEvent);
         }
@@ -326,12 +334,14 @@ public sealed class MessageAppService : IMessageAppService {
         }
 
         Logger.Information(
-            "发送信息。 Type={MessageType} Protocol={Protocol} Remote={RemoteEndPoint} Route={Route} Command={Command}",
+            "发送信息。 Type={MessageType} Protocol={Protocol} Remote={RemoteEndPoint} Route={Route} Command={Command} ConversationId={ConversationId} Detail={Detail}",
             message.GetType().Name,
             context.Protocol,
             context.RemoteEndPoint,
             envelope.Route,
-            envelope.Command);
+            envelope.Command,
+            message.ConversationId,
+            DescribeMessage(message));
 
         await _protocolSender.SendEnvelopeAsync(context, envelope, cancellationToken);
     }
@@ -456,5 +466,40 @@ public sealed class MessageAppService : IMessageAppService {
         }
 
         await _protocolSender.SendEnvelopeWithPayloadAsync(context, envelope, payloadStream, cancellationToken: cancellationToken);
+    }
+
+    private static string DescribeIncomingEvent(IncomingMessageEvent messageEvent) {
+        var payloadBytes = messageEvent.PayloadBytes?.LongLength ?? 0;
+        var baseDetail = $"{DescribeMessage(messageEvent.Message)}, bytes={messageEvent.BytesTransferred}/{messageEvent.TotalBytes}, payloadBytes={payloadBytes}";
+        return string.IsNullOrWhiteSpace(messageEvent.Reason)
+            ? baseDetail
+            : $"{baseDetail}, reason={messageEvent.Reason}";
+    }
+
+    private static string DescribeMessage(AppMessage message) {
+        return message switch {
+            TextChatMessage text => $"text={LimitForLog(text.Text)}",
+            TextClipboardMessage textClipboard => $"clipboardText={LimitForLog(textClipboard.Text)}",
+            FileOfferChatMessage fileOffer =>
+                $"transferId={fileOffer.TransferId}, file={fileOffer.FileName}, size={fileOffer.SizeBytes}, contentType={fileOffer.ContentType}",
+            FileChatMessage file =>
+                $"channelId={file.ChannelId}, file={file.FileName}, length={file.Length}",
+            ImageChatMessage image =>
+                $"transferId={image.TransferId}, size={image.SizeBytes}, contentType={image.ContentType}, isDirect={image.IsDirect}",
+            FileAcceptChatMessage accept => $"transferId={accept.TransferId}",
+            FileRejectChatMessage reject => $"transferId={reject.TransferId}, reason={reject.Reason}",
+            FileCancelChatMessage cancel => $"transferId={cancel.TransferId}, reason={cancel.Reason}",
+            FileCompleteChatMessage complete => $"transferId={complete.TransferId}",
+            _ => message.ToString() ?? message.GetType().Name
+        };
+    }
+
+    private static string LimitForLog(string? text, int maxLength = 120) {
+        if (string.IsNullOrWhiteSpace(text)) {
+            return string.Empty;
+        }
+
+        var singleLine = text.ReplaceLineEndings("\\n");
+        return singleLine.Length <= maxLength ? singleLine : $"{singleLine[..maxLength]}...";
     }
 }

@@ -115,7 +115,7 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
             remoteIdentityPublicKey.Trim(),
             cancellationToken);
         await sslStream.WriteAsync(payload, cancellationToken);
-        await sslStream.FlushAsync(cancellationToken);
+        await CompleteSendAsync(sslStream, cancellationToken);
     }
 
     public async Task SendAsync(
@@ -156,7 +156,7 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
             }
         }
 
-        await sslStream.FlushAsync(cancellationToken);
+        await CompleteSendAsync(sslStream, cancellationToken);
     }
 
     public async Task StopAsync()
@@ -383,6 +383,22 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
             writer.Advance(read);
             var flushResult = await writer.FlushAsync(token);
             if (flushResult.IsCanceled || flushResult.IsCompleted)
+            {
+                break;
+            }
+        }
+    }
+
+    private static async Task CompleteSendAsync(SslStream sslStream, CancellationToken cancellationToken)
+    {
+        await sslStream.FlushAsync(cancellationToken);
+        await sslStream.ShutdownAsync();
+
+        var buffer = new byte[1];
+        while (true)
+        {
+            var read = await sslStream.ReadAsync(buffer, cancellationToken);
+            if (read == 0)
             {
                 break;
             }
