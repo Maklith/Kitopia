@@ -73,7 +73,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
             {
                 //https://source.dot.net/#System.Net.Quic/System/Net/Quic/QuicListener.cs,152
                 //Using the Unspecified family makes MsQuic handle connections from all IP addresses.
-                ListenEndPoint = new IPEndPoint(IPAddress.None, 0),
+                ListenEndPoint = new IPEndPoint(IPAddress.IPv6Any, 0),
                 ApplicationProtocols = [ApplicationProtocol],
                 ConnectionOptionsCallback = (connection, _, _) =>
                 {
