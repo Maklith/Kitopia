@@ -23,7 +23,7 @@ public class DeviceCommunicationUiTextTests
     {
         var item = DeviceChatMessageItem.CreateFile("demo.txt", 12_345, isOutgoing: true, DateTimeOffset.Now);
 
-        Assert.IsFalse(item.Text.Contains("KB", StringComparison.OrdinalIgnoreCase));
+        Assert.IsTrue(item.Text.Contains("KB", StringComparison.OrdinalIgnoreCase));
         StringAssert.Contains(item.Text, "demo.txt");
     }
 
