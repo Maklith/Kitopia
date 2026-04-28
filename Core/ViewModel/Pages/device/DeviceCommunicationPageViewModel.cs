@@ -291,10 +291,23 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         if (_clipboardService.HasText()) {
             var text = _clipboardService.GetText()?.Trim();
             if (!string.IsNullOrWhiteSpace(text)) {
+                var textMessage = new DeviceChatMessageItem(text, isOutgoing: true, DateTimeOffset.Now) {
+                    IsPending = true
+                };
+                conversation.Messages.Add(textMessage);
+                conversation.SetLastMessage(text, textMessage.Timestamp);
+                conversation.UnreadCount = 0;
+                SortConversations();
+                RequestMessageListAutoScroll();
+
                 try {
                     await SendToConversationAsync(conversation, text);
+                    textMessage.IsPending = false;
+                    textMessage.IsFailed = false;
                 }
                 catch (Exception ex) {
+                    textMessage.IsPending = false;
+                    textMessage.IsFailed = true;
                     errors.Add($"text:{ex.Message}");
                 }
             }
