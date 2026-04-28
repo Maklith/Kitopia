@@ -129,7 +129,6 @@ internal class Program
         services.AddSingleton<ProtocolSession>();
         services.AddSingleton<ProtocolSender>();
         services.AddSingleton<IProtocolErrorPolicy, ProtocolErrorPolicy>();
-        services.AddSingleton<ISessionSecurity, SessionSecurity>();
         services.AddSingleton<IPayloadSessionStore, PayloadSessionStore>();
         services.AddSingleton<IFileTransferSessionStore, FileTransferSessionStore>();
         services.AddSingleton<ImageTransferPolicy>();
