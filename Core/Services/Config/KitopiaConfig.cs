@@ -168,7 +168,8 @@ public class KitopiaConfig : ConfigBase
     [ConfigFieldCategory("截图")] 
     [ConfigField("截图直接复制到剪贴板", "截图直接复制到剪贴板,不显示工具栏", 0xE61C, ConfigFieldType.布尔)]
     public bool 截图直接复制到剪贴板 = false;
-
+    [ConfigField("截图马赛克模糊度", "数值越大生成的模糊效果越明显", 0xE61C, ConfigFieldType.整数, null, 15, 1, 1)]
+    public int GaussianBlurRadius = 6;
     [ConfigField("截图方法", "使用特定的截图方法,某些情况下截图失败请尝试切换", 0xE61C, ConfigFieldType.自定义选项, actionName: "截图方法列表")]
     public string 截图方法 = "WGC";
 

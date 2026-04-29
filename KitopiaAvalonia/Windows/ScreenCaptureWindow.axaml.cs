@@ -28,6 +28,7 @@ using PluginCore;
 using PluginCore.ExMethod;
 using Serilog;
 using SharpHook;
+using Ursa.Controls;
 using Math = System.Math;
 using MouseButton = Avalonia.Input.MouseButton;
 using Point = Avalonia.Point;
@@ -402,7 +403,12 @@ public partial class ScreenCaptureWindow : Window
         base.OnOpened(e);
         SelectBox.LocationOrSizeChanged += LocationOrSizeChanged;
         StrokeWidth.ValueChanged += StrokeWidthOnValueChanged;
+        StrokeWidth2.ValueChanged += StrokeWidth2OnValueChanged;
 
+    }
+
+    private void StrokeWidth2OnValueChanged(object? sender, ValueChangedEventArgs<int> e) {
+        StrokeWidth.Value = (double)e.NewValue! ;
     }
 
 
@@ -410,7 +416,7 @@ public partial class ScreenCaptureWindow : Window
     {
         SelectBox.LocationOrSizeChanged -= LocationOrSizeChanged;
         StrokeWidth.ValueChanged -= StrokeWidthOnValueChanged;
-
+        StrokeWidth2.ValueChanged -= StrokeWidth2OnValueChanged;
         _renderTargetBitmap?.Dispose();
         MosaicImage.OpacityMask = null;
 
@@ -936,7 +942,7 @@ public partial class ScreenCaptureWindow : Window
                                     }
 
                                     var process = GaussianBlur1.GaussianBlur(bytes, source.Width,
-                                        source.Height, 4);
+                                        source.Height, ConfigManger.Config.GaussianBlurRadius);
                                     var writeableBitmap2 = new WriteableBitmap(
                                         new PixelSize(source.Width, source.Height),
                                         new Vector(96, 96), PixelFormat.Bgra8888);
