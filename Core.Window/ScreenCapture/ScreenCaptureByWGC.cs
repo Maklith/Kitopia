@@ -186,7 +186,7 @@ public class ScreenCaptureByWgc : IScreenCapture {
                 if (d3D11.CreateDevice((IDXGIAdapter*)adapter1.Handle, D3DDriverType.Unknown, IntPtr.Zero,
                         (uint)CreateDeviceFlag.None, pFeatureLevels, (uint)featureLevels.Length, D3D11.SdkVersion,
                         d3DDevice.GetAddressOf(),
-                        &featureLevel,  context.GetAddressOf()) != 0)
+                        &featureLevel, context.GetAddressOf()) != 0)
                     throw new Exception("Failed to create D3D11 device");
             }
 
@@ -267,10 +267,12 @@ public class ScreenCaptureByWgc : IScreenCapture {
             if (direct3D11CaptureFrame != null) {
                 direct3D11CaptureFrame.Dispose();
             }
+
             stagingTexture.Release();
             if (framePool != null) {
                 framePool.Dispose();
             }
+
             if (session != null) {
                 session.Dispose();
             }
@@ -289,12 +291,17 @@ public class ScreenCaptureByWgc : IScreenCapture {
         int endY = Math.Clamp(screenCaptureInfo.RequestRect.Value.Y + screenCaptureInfo.RequestRect.Value.Height, 0,
             screenCaptureInfo.ScreenInfo.Value.Height);
         if (!outputDesc.ColorSpace.ToString().EndsWith("2020")) {
-            Mat mat = new Mat((int)(mappedSubresource.DepthPitch / mappedSubresource.RowPitch),
-                (int)(mappedSubresource.RowPitch / 4), MatType.CV_8UC4);
-            Buffer.MemoryCopy(mappedSubresource.PData, mat.DataPointer,
-                mappedSubresource.DepthPitch,
-                mappedSubresource.DepthPitch);
-            Cv2.CvtColor(mat, mat, ColorConversionCodes.RGBA2BGRA);
+            int height = (int)(mappedSubresource.DepthPitch / mappedSubresource.RowPitch);
+            int width = (int)(mappedSubresource.RowPitch / 4);
+            using var srcRgba = Mat.FromPixelData(
+                height,
+                width,
+                MatType.CV_8UC4,
+                (nint)mappedSubresource.PData,
+                mappedSubresource.RowPitch
+            );
+            var mat = new Mat();
+            Cv2.CvtColor(srcRgba, mat, ColorConversionCodes.RGBA2BGRA);
             if (screenCaptureInfo.ScreenCaptureType != ScreenCaptureType.窗口) {
                 var mat1 = mat[startY, endY, startX, endX];
                 mat.Dispose();
@@ -304,14 +311,22 @@ public class ScreenCaptureByWgc : IScreenCapture {
             return mat;
         }
         else {
-            var mat = new Mat((int)(mappedSubresource.DepthPitch / mappedSubresource.RowPitch),
-                (int)(mappedSubresource.RowPitch / 8), MatType.MakeType(7, 4));
-            Buffer.MemoryCopy(mappedSubresource.PData, mat.DataPointer,
-                mappedSubresource.DepthPitch, mappedSubresource.DepthPitch);
+            int height = (int)(mappedSubresource.DepthPitch / mappedSubresource.RowPitch);
+            int width = (int)(mappedSubresource.RowPitch / 8);
 
-            mat.ConvertTo(mat, MatType.CV_32FC4);
-            //var vec4F = mat.Get<Vec4f>(2);
-            Cv2.CvtColor(mat, mat, ColorConversionCodes.RGBA2RGB);
+            using var src16Rgba = Mat.FromPixelData(
+                height,
+                width,
+                MatType.MakeType(7, 4), // CV_16FC4
+                (nint)mappedSubresource.PData,
+                mappedSubresource.RowPitch
+            );
+            using var rgba32 = new Mat();
+            src16Rgba.ConvertTo(rgba32, MatType.CV_32FC4);
+
+            float scale = screenCaptureInfo.SdrWhiteLevelScale;
+            if (scale < 0.1f) scale = 1.0f;
+
             var matrix = ColorSpaceCtr.CtrColorSpace([
                     outputDesc.RedPrimary[0],
                     outputDesc.RedPrimary[1],
@@ -326,17 +341,24 @@ public class ScreenCaptureByWgc : IScreenCapture {
                     .640f, .330f, .300f, .600f, .150f, .060f, .3127f, .3290f
                 ]
             );
-            Cv2.Transform(mat, mat, Mat.FromArray(matrix));
-            
-            float scale = screenCaptureInfo.SdrWhiteLevelScale;
-            if (scale < 0.1f) scale = 1.0f; // Safety check
-            mat /= scale;
-            
-            Cv2.Pow(mat, 1.0 / 2.2, mat);
-            mat *= 255.0;
+            float[,] matrix4X5 = {
+                { matrix[2, 0], matrix[2, 1], matrix[2, 2], 0f, 0f },
+                { matrix[1, 0], matrix[1, 1], matrix[1, 2], 0f, 0f },
+                { matrix[0, 0], matrix[0, 1], matrix[0, 2], 0f, 0f },
+                { 0f, 0f, 0f, 0f, scale },
+            };
 
-            mat.ConvertTo(mat, MatType.CV_8UC4);
-            Cv2.CvtColor(mat, mat, ColorConversionCodes.RGB2BGRA);
+            using var colorMat = Mat.FromArray(matrix4X5);
+            using var bgra32 = new Mat();
+            Cv2.Transform(rgba32, bgra32, colorMat);
+            
+            Cv2.Divide(bgra32, scale, bgra32);
+            Cv2.Pow(bgra32, 1.0 / 2.2, bgra32);
+            Cv2.Multiply(bgra32, 255.0, bgra32);
+
+            var mat = new Mat();
+            bgra32.ConvertTo(mat, MatType.CV_8UC4);
+
             if (screenCaptureInfo.ScreenCaptureType != ScreenCaptureType.窗口) {
                 var mat1 = mat[startY, endY, startX, endX];
                 mat.Dispose();
@@ -345,6 +367,5 @@ public class ScreenCaptureByWgc : IScreenCapture {
 
             return mat;
         }
-
     }
 }
