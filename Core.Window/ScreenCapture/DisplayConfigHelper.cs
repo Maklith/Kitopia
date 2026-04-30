@@ -14,135 +14,135 @@ public static class DisplayConfigHelper
     private static extern int QueryDisplayConfig(
         uint flags,
         ref uint numPathArrayElements,
-        [In, Out] DISPLAYCONFIG_PATH_INFO[] pathArray,
+        [In, Out] DisplayconfigPathInfo[] pathArray,
         ref uint numModeInfoArrayElements,
-        [In, Out] DISPLAYCONFIG_MODE_INFO[] modeInfoArray,
+        [In, Out] DisplayconfigModeInfo[] modeInfoArray,
         IntPtr currentTopologyId);
 
     [DllImport("user32.dll")]
-    private static extern int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_SDR_WHITE_LEVEL requestPacket);
+    private static extern int DisplayConfigGetDeviceInfo(ref DisplayconfigSdrWhiteLevel requestPacket);
 
-    private const uint QDC_ONLY_ACTIVE_PATHS = 0x00000002;
-    private const int ERROR_SUCCESS = 0;
-    private const uint DISPLAYCONFIG_DEVICE_INFO_GET_SDR_WHITE_LEVEL = 11;
+    private const uint QdcOnlyActivePaths = 0x00000002;
+    private const int ErrorSuccess = 0;
+    private const uint DisplayconfigDeviceInfoGetSdrWhiteLevel = 11;
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DISPLAYCONFIG_PATH_INFO
+    private struct DisplayconfigPathInfo
     {
-        public DISPLAYCONFIG_PATH_SOURCE_INFO sourceInfo;
-        public DISPLAYCONFIG_PATH_TARGET_INFO targetInfo;
+        public DisplayconfigPathSourceInfo sourceInfo;
+        public DisplayconfigPathTargetInfo targetInfo;
         public uint flags;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DISPLAYCONFIG_PATH_SOURCE_INFO
+    private struct DisplayconfigPathSourceInfo
     {
-        public LUID adapterId;
+        public Luid adapterId;
         public uint id;
         public uint modeInfoIdx;
         public uint statusFlags;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DISPLAYCONFIG_PATH_TARGET_INFO
+    private struct DisplayconfigPathTargetInfo
     {
-        public LUID adapterId;
+        public Luid adapterId;
         public uint id;
         public uint modeInfoIdx;
         public uint outputTechnology;
         public uint rotation;
         public uint scaling;
-        public DISPLAYCONFIG_RATIONAL refreshRate;
+        public DisplayconfigRational refreshRate;
         public uint scanLineOrdering;
         public bool targetAvailable;
         public uint statusFlags;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DISPLAYCONFIG_RATIONAL
+    private struct DisplayconfigRational
     {
         public uint Numerator;
         public uint Denominator;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DISPLAYCONFIG_MODE_INFO
+    private struct DisplayconfigModeInfo
     {
         public uint infoType;
         public uint id;
-        public LUID adapterId;
-        public DISPLAYCONFIG_TARGET_MODE mode;
+        public Luid adapterId;
+        public DisplayconfigTargetMode mode;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DISPLAYCONFIG_TARGET_MODE
+    private struct DisplayconfigTargetMode
     {
-        public DISPLAYCONFIG_VIDEO_SIGNAL_INFO targetVideoSignalInfo;
+        public DisplayconfigVideoSignalInfo targetVideoSignalInfo;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DISPLAYCONFIG_VIDEO_SIGNAL_INFO
+    private struct DisplayconfigVideoSignalInfo
     {
         public ulong pixelRate;
-        public DISPLAYCONFIG_RATIONAL hSyncFreq;
-        public DISPLAYCONFIG_RATIONAL vSyncFreq;
-        public DISPLAYCONFIG_2DREGION activeSize;
-        public DISPLAYCONFIG_2DREGION totalSize;
+        public DisplayconfigRational hSyncFreq;
+        public DisplayconfigRational vSyncFreq;
+        public Displayconfig2Dregion activeSize;
+        public Displayconfig2Dregion totalSize;
         public uint videoStandard;
         public uint scanLineOrdering;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DISPLAYCONFIG_2DREGION
+    private struct Displayconfig2Dregion
     {
         public uint cx;
         public uint cy;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct LUID
+    private struct Luid
     {
         public uint LowPart;
         public int HighPart;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
-    private struct DISPLAYCONFIG_DEVICE_INFO_HEADER
+    private struct DisplayconfigDeviceInfoHeader
     {
         public uint type;
         public uint size;
-        public LUID adapterId;
+        public Luid adapterId;
         public uint id;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
-    private struct DISPLAYCONFIG_SDR_WHITE_LEVEL
+    private struct DisplayconfigSdrWhiteLevel
     {
-        public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+        public DisplayconfigDeviceInfoHeader header;
         public uint SDRWhiteLevel;
     }
     
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFOEX lpmi);
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref Monitorinfoex lpmi);
 
     [DllImport("user32.dll")]
-    private static extern int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_SOURCE_DEVICE_NAME requestPacket);
+    private static extern int DisplayConfigGetDeviceInfo(ref DisplayconfigSourceDeviceName requestPacket);
 
-    private const uint DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME = 1;
+    private const uint DisplayconfigDeviceInfoGetSourceName = 1;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-    private struct MONITORINFOEX
+    private struct Monitorinfoex
     {
         public int cbSize;
-        public RECT rcMonitor;
-        public RECT rcWork;
+        public Rect rcMonitor;
+        public Rect rcWork;
         public uint dwFlags;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
         public string szDevice;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct RECT
+    public struct Rect
     {
         public int left;
         public int top;
@@ -151,9 +151,9 @@ public static class DisplayConfigHelper
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode, Pack = 4)]
-    private struct DISPLAYCONFIG_SOURCE_DEVICE_NAME
+    private struct DisplayconfigSourceDeviceName
     {
-        public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+        public DisplayconfigDeviceInfoHeader header;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
         public string viewGdiDeviceName;
     }
@@ -162,46 +162,46 @@ public static class DisplayConfigHelper
     {
         if (hMonitor == IntPtr.Zero) return 1.0f;
 
-        var mi = new MONITORINFOEX();
+        var mi = new Monitorinfoex();
         mi.cbSize = Marshal.SizeOf(mi);
         if (!GetMonitorInfo(hMonitor, ref mi)) return 1.0f;
 
-        var ret = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out var numPathArrayElements, out var numModeInfoArrayElements);
-        if (ret != ERROR_SUCCESS) return 1.0f;
+        var ret = GetDisplayConfigBufferSizes(QdcOnlyActivePaths, out var numPathArrayElements, out var numModeInfoArrayElements);
+        if (ret != ErrorSuccess) return 1.0f;
 
-        var pathArray = new DISPLAYCONFIG_PATH_INFO[numPathArrayElements];
-        var modeInfoArray = new DISPLAYCONFIG_MODE_INFO[numModeInfoArrayElements];
+        var pathArray = new DisplayconfigPathInfo[numPathArrayElements];
+        var modeInfoArray = new DisplayconfigModeInfo[numModeInfoArrayElements];
 
-        ret = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, ref numPathArrayElements, pathArray, ref numModeInfoArrayElements, modeInfoArray, IntPtr.Zero);
-        if (ret != ERROR_SUCCESS) return 1.0f;
+        ret = QueryDisplayConfig(QdcOnlyActivePaths, ref numPathArrayElements, pathArray, ref numModeInfoArrayElements, modeInfoArray, IntPtr.Zero);
+        if (ret != ErrorSuccess) return 1.0f;
 
         for (int i = 0; i < numPathArrayElements; i++)
         {
             var path = pathArray[i];
             
-            var sourceName = new DISPLAYCONFIG_SOURCE_DEVICE_NAME();
-            sourceName.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
-            sourceName.header.size = (uint)Marshal.SizeOf(typeof(DISPLAYCONFIG_SOURCE_DEVICE_NAME));
+            var sourceName = new DisplayconfigSourceDeviceName();
+            sourceName.header.type = DisplayconfigDeviceInfoGetSourceName;
+            sourceName.header.size = (uint)Marshal.SizeOf(typeof(DisplayconfigSourceDeviceName));
             sourceName.header.adapterId = path.sourceInfo.adapterId;
             sourceName.header.id = path.sourceInfo.id;
 
-            if (DisplayConfigGetDeviceInfo(ref sourceName) == ERROR_SUCCESS)
+            if (DisplayConfigGetDeviceInfo(ref sourceName) == ErrorSuccess)
             {
                 if (sourceName.viewGdiDeviceName == mi.szDevice)
                 {
                     // Found the path matching our monitor
-                    var request = new DISPLAYCONFIG_SDR_WHITE_LEVEL
+                    var request = new DisplayconfigSdrWhiteLevel
                     {
-                        header = new DISPLAYCONFIG_DEVICE_INFO_HEADER
+                        header = new DisplayconfigDeviceInfoHeader
                         {
-                            type = DISPLAYCONFIG_DEVICE_INFO_GET_SDR_WHITE_LEVEL,
-                            size = (uint)Marshal.SizeOf(typeof(DISPLAYCONFIG_SDR_WHITE_LEVEL)),
+                            type = DisplayconfigDeviceInfoGetSdrWhiteLevel,
+                            size = (uint)Marshal.SizeOf(typeof(DisplayconfigSdrWhiteLevel)),
                             adapterId = path.targetInfo.adapterId,
                             id = path.targetInfo.id
                         }
                     };
                     
-                    if (DisplayConfigGetDeviceInfo(ref request) == ERROR_SUCCESS)
+                    if (DisplayConfigGetDeviceInfo(ref request) == ErrorSuccess)
                     {
                         if (request.SDRWhiteLevel > 0)
                         {

@@ -13,10 +13,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
 
     public List<string> GetCaptureMethodName()
     {
-        return new List<string>
-        {
-            "自动", "Directx11", "WGC"
-        };
+        return ["自动", "WGC"];
     }
 
     public List<ScreenCaptureInfo> GetAllScreenInfo()
@@ -48,7 +45,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
             }
         }
 
-        return null;
+        return [];
     }
     public List<WindowInfo> GetAllWindowInfo()
     {
@@ -79,7 +76,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
             }
         }
 
-        return null;
+        return [];
     }
 
     public ScreenCaptureInfo GetScreenCaptureInfoByIndex(int index)
@@ -119,7 +116,7 @@ public class ScreenCaptureManager : IScreenCaptureManager
             }
         }
 
-        return null;
+        return [];
     }
     
 

@@ -11,40 +11,38 @@ public class FileLocksmithService : IFileLocksmith
         return Task.Run(() =>
         {
             var results = new List<LockingProcessInfo>();
-            if (filePaths == null || filePaths.Length == 0) return results;
+            if (filePaths.Length == 0) return results;
 
-            uint sessionHandle;
             string sessionKey = Guid.NewGuid().ToString();
             
-            var res = NativeMethods.RmStartSession(out sessionHandle, 0, sessionKey);
-            if (res != NativeMethods.ERROR_SUCCESS) return results;
+            var res = NativeMethods.RmStartSession(out var sessionHandle, 0, sessionKey);
+            if (res != NativeMethods.ErrorSuccess) return results;
 
             try
             {
-                res = NativeMethods.RmRegisterResources(sessionHandle, (uint)filePaths.Length, filePaths, 0, null, 0, null);
-                if (res != NativeMethods.ERROR_SUCCESS) return results;
+                res = NativeMethods.RmRegisterResources(sessionHandle, (uint)filePaths.Length, filePaths, 0, null!, 0, null!);
+                if (res != NativeMethods.ErrorSuccess) return results;
 
-                uint pnProcInfoNeeded = 0;
                 uint pnProcInfo = 0;
-                NativeMethods.RM_PROCESS_INFO[] rgAffectedApps = null;
+                NativeMethods.RmProcessInfo[] rgAffectedApps = [];
                 uint lpdwRebootReasons = 0;
 
-                res = NativeMethods.RmGetList(sessionHandle, out pnProcInfoNeeded, ref pnProcInfo, rgAffectedApps, ref lpdwRebootReasons);
+                res = NativeMethods.RmGetList(sessionHandle, out var pnProcInfoNeeded, ref pnProcInfo, rgAffectedApps, ref lpdwRebootReasons);
 
-                if (res == NativeMethods.ERROR_MORE_DATA)
+                if (res == NativeMethods.ErrorMoreData)
                 {
                     pnProcInfo = pnProcInfoNeeded;
-                    rgAffectedApps = new NativeMethods.RM_PROCESS_INFO[pnProcInfo];
+                    rgAffectedApps = new NativeMethods.RmProcessInfo[pnProcInfo];
                     res = NativeMethods.RmGetList(sessionHandle, out pnProcInfoNeeded, ref pnProcInfo, rgAffectedApps, ref lpdwRebootReasons);
                 }
 
-                if (res == NativeMethods.ERROR_SUCCESS && rgAffectedApps != null)
+                if (res == NativeMethods.ErrorSuccess)
                 {
                     foreach (var app in rgAffectedApps)
                     {
                         var processInfo = new LockingProcessInfo
                         {
-                            ProcessId = (int)app.Process.dwProcessId,
+                            ProcessId = app.Process.dwProcessId,
                             ProcessName = app.strAppName,
                             StartTime = app.Process.ProcessStartTime.ToDateTime(),
                         };
@@ -52,7 +50,7 @@ public class FileLocksmithService : IFileLocksmith
                         try
                         {
                             using var process = Process.GetProcessById(processInfo.ProcessId);
-                            processInfo.ExecutablePath = process.MainModule?.FileName;
+                            processInfo.ExecutablePath = process.MainModule?.FileName??"";
                         }
                         catch 
                         { 
@@ -97,8 +95,8 @@ public class FileLocksmithService : IFileLocksmith
 
     internal static class NativeMethods
     {
-        public const int ERROR_SUCCESS = 0;
-        public const int ERROR_MORE_DATA = 234;
+        public const int ErrorSuccess = 0;
+        public const int ErrorMoreData = 234;
 
         [DllImport("rstrtmgr.dll", CharSet = CharSet.Unicode)]
         public static extern int RmStartSession(out uint pSessionHandle, int dwSessionFlags, string strSessionKey);
@@ -108,37 +106,37 @@ public class FileLocksmithService : IFileLocksmith
 
         [DllImport("rstrtmgr.dll", CharSet = CharSet.Unicode)]
         public static extern int RmRegisterResources(uint dwSessionHandle, uint nFiles, string[] rgsFileNames,
-            uint nApplications, [In] RM_UNIQUE_PROCESS[] rgApplications, uint nServices,
+            uint nApplications, [In] RmUniqueProcess[] rgApplications, uint nServices,
             string[] rgsServiceNames);
 
         [DllImport("rstrtmgr.dll")]
         public static extern int RmGetList(uint dwSessionHandle, out uint pnProcInfoNeeded,
-            ref uint pnProcInfo, [In, Out] RM_PROCESS_INFO[] rgAffectedApps,
+            ref uint pnProcInfo, [In, Out] RmProcessInfo[] rgAffectedApps,
             ref uint lpdwRebootReasons);
 
         [StructLayout(LayoutKind.Sequential)]
-        public struct RM_UNIQUE_PROCESS
+        public struct RmUniqueProcess
         {
             public int dwProcessId;
             public System.Runtime.InteropServices.ComTypes.FILETIME ProcessStartTime;
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        public struct RM_PROCESS_INFO
+        public struct RmProcessInfo
         {
-            public RM_UNIQUE_PROCESS Process;
+            public RmUniqueProcess Process;
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
             public string strAppName;
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
             public string strServiceShortName;
-            public RM_APP_TYPE ApplicationType;
+            public RmAppType ApplicationType;
             public uint AppStatus;
             public uint TSSessionId;
             [MarshalAs(UnmanagedType.Bool)]
             public bool bRestartable;
         }
 
-        public enum RM_APP_TYPE
+        public enum RmAppType
         {
             RmUnknownApp = 0,
             RmMainWindow = 1,
@@ -156,7 +154,7 @@ internal static class Extensions
     public static DateTime ToDateTime(this System.Runtime.InteropServices.ComTypes.FILETIME fileTime)
     {
         long high = (long)fileTime.dwHighDateTime << 32;
-        long low = (long)fileTime.dwLowDateTime & 0xFFFFFFFFL;
+        long low = fileTime.dwLowDateTime & 0xFFFFFFFFL;
         return DateTime.FromFileTime(high | low);
     }
 }
