@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Text;
+﻿using System.Runtime.InteropServices;
 using Windows.Graphics.Capture;
 using OpenCvSharp;
 using PluginCore;
@@ -55,11 +53,12 @@ public class ScreenCaptureByWgc : IScreenCapture {
 
     private ComPtr<ID3D11Resource> CreateSharpDxTexture2D(IDirect3DSurface surface) {
         unsafe {
-            var iInspectable = (IInspectable)(object)surface;
+            // ReSharper disable once SuspiciousTypeConversion.Global
+            var iInspectable = (IInspectable)surface;
             var queryInterface = iInspectable.ObjRef.AsInterface<IDirect3DDxgiInterfaceAccess>();
-            var d3dPointer = (void*)queryInterface.GetInterface(ID3D11Resource.Guid);
+            var d3DPointer = (void*)queryInterface.GetInterface(ID3D11Resource.Guid);
             var comPtr = new ComPtr<ID3D11Resource>();
-            comPtr.Handle = (ID3D11Resource*)d3dPointer;
+            comPtr.Handle = (ID3D11Resource*)d3DPointer;
             return comPtr;
         }
     }
@@ -94,16 +93,14 @@ public class ScreenCaptureByWgc : IScreenCapture {
                 OutputDesc desc = new OutputDesc();
                 output.GetDesc(ref desc);
                 if (desc.Monitor == hMonitor) {
-                    ComPtr<IDXGIOutput6> output6 = null;
-                    if (output.QueryInterface(out output6) != 0)
+                    if (output.QueryInterface(out ComPtr<IDXGIOutput6> output6) != 0)
                         throw new Exception("Failed to get IDXGIOutput6");
                     var outputDesc = new OutputDesc1();
                     if (output6.GetDesc1(ref outputDesc) != 0) throw new Exception("Failed to get Desc1");
                     return (adapter, outputDesc);
                 }
-                else {
-                    output.Release();
-                }
+
+                output.Release();
 
                 j++;
             }
@@ -168,10 +165,10 @@ public class ScreenCaptureByWgc : IScreenCapture {
         ComPtr<ID3D11DeviceContext> immediateContext = default;
         ComPtr<ID3D11Device> d3DDevice = default;
         ComPtr<ID3D11Resource> stagingResource = default;
-        Direct3D11CaptureFrame direct3D11CaptureFrame = null;
+        Direct3D11CaptureFrame direct3D11CaptureFrame = null!;
         ComPtr<ID3D11Texture2D> stagingTexture = default;
-        GraphicsCaptureSession session = null;
-        Direct3D11CaptureFramePool framePool = null;
+        GraphicsCaptureSession session = null!;
+        Direct3D11CaptureFramePool framePool = null!;
         using var d3D11 = new D3D11(new DefaultNativeContext("d3d11"));
         try {
             using var factory = dxgi.CreateDXGIFactory1<IDXGIFactory1>();
@@ -192,11 +189,11 @@ public class ScreenCaptureByWgc : IScreenCapture {
 
             d3DDevice.GetImmediateContext(ref immediateContext);
 
-            IDirect3DDevice CreateDirect3DDeviceFromSharpDxDevice(ID3D11Device* d3dDevice) {
-                IDirect3DDevice device = null;
+            IDirect3DDevice CreateDirect3DDeviceFromSharpDxDevice(ID3D11Device* d3DDevice1) {
+                IDirect3DDevice device = null!;
 
                 // Acquire the DXGI interface for the Direct3D device.
-                using var dxgiDevice = d3dDevice->QueryInterface<IDXGIDevice3>();
+                using var dxgiDevice = d3DDevice1->QueryInterface<IDXGIDevice3>();
                 // Wrap the native device using a WinRT interop object.
                 var hr = CreateDirect3D11DeviceFromDXGIDevice((IntPtr)dxgiDevice.Handle, out var pUnknown);
 
@@ -247,7 +244,7 @@ public class ScreenCaptureByWgc : IScreenCapture {
             if (d3DDevice.CreateTexture2D(&stagingTextureDesc, null, ref stagingTexture) != 0)
                 throw new Exception("Failed to create staging texture");
 
-            stagingTexture.QueryInterface<ID3D11Resource>(out stagingResource);
+            stagingTexture.QueryInterface(out stagingResource);
             immediateContext.CopyResource(stagingResource, bitmap);
             if (immediateContext.Map(stagingResource, 0, Map.Read, 0, &mappedSubresource) != 0)
                 throw new Exception("Failed to map staging texture");
