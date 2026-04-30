@@ -143,7 +143,7 @@ public class ScreenCaptureInfoCustomScenarioValueSerializer : ICustomScenarioVal
         }
 
         // hMonitor 不序列化，所以反序列化后给默认值
-        info.hMonitor = IntPtr.Zero;
+        info.HMonitor = IntPtr.Zero;
 
         return info;
     }

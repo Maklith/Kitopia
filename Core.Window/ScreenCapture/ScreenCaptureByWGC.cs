@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using Windows.Graphics.Capture;
+using OpenCvSharp;
 using PluginCore;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
@@ -17,14 +18,12 @@ using Rect = PluginCore.Rect;
 
 namespace Core.Window.ScreenCapture;
 
-public class ScreenCaptureByWgc : IScreenCapture
-{
+public class ScreenCaptureByWgc : IScreenCapture {
     public List<WindowInfo> GetAllWindowInfo() {
         return ScreenCaptureInfoEx.GetAllWindowInfo().ToList();
     }
 
-    public ScreenCaptureInfo GetScreenCaptureInfoByIndex(int index)
-    {
+    public ScreenCaptureInfo GetScreenCaptureInfoByIndex(int index) {
         return default;
     }
 
@@ -34,8 +33,7 @@ public class ScreenCaptureByWgc : IScreenCapture
     [Guid("3628E81B-3CAC-4C60-B7F4-23CE0E0C3356")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     [ComVisible(true)]
-    private interface IGraphicsCaptureItemInterop
-    {
+    private interface IGraphicsCaptureItemInterop {
         IntPtr CreateForWindow(
             [In] IntPtr window,
             [In] ref Guid iid);
@@ -55,10 +53,8 @@ public class ScreenCaptureByWgc : IScreenCapture
     )]
     private static extern uint CreateDirect3D11DeviceFromDXGIDevice(IntPtr dxgiDevice, out IntPtr graphicsDevice);
 
-    private ComPtr<ID3D11Resource> CreateSharpDxTexture2D(IDirect3DSurface surface)
-    {
-        unsafe
-        {
+    private ComPtr<ID3D11Resource> CreateSharpDxTexture2D(IDirect3DSurface surface) {
+        unsafe {
             var iInspectable = (IInspectable)(object)surface;
             var queryInterface = iInspectable.ObjRef.AsInterface<IDirect3DDxgiInterfaceAccess>();
             var d3dPointer = (void*)queryInterface.GetInterface(ID3D11Resource.Guid);
@@ -73,48 +69,39 @@ public class ScreenCaptureByWgc : IScreenCapture
     [Guid("A9B3D012-3DF2-4EE3-B8D1-8695F457D3C1")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     [ComVisible(true)]
-    private interface IDirect3DDxgiInterfaceAccess
-    {
+    private interface IDirect3DDxgiInterfaceAccess {
         IntPtr GetInterface([In] ref Guid iid);
     };
 
-    public Stack<ScreenCaptureResult> CaptureAllScreenMat()
-    {
+    public Stack<ScreenCaptureResult> CaptureAllScreenMat() {
         var screenCaptureResults = new Stack<ScreenCaptureResult>();
-        foreach (var screenCaptureInfo in GetAllScreenInfo())
-        {
-            screenCaptureResults.Push(CaptureScreenMat(screenCaptureInfo)); 
+        foreach (var screenCaptureInfo in GetAllScreenInfo()) {
+            screenCaptureResults.Push(CaptureScreenMat(screenCaptureInfo));
         }
 
         return screenCaptureResults;
     }
 
-   
 
-    
-    public static (ComPtr<IDXGIAdapter1>,OutputDesc1) GetAdapterForMonitor(ComPtr<IDXGIFactory1> factory,IntPtr hMonitor)
-    {
+    public static (ComPtr<IDXGIAdapter1>, OutputDesc1) GetAdapterForMonitor(ComPtr<IDXGIFactory1> factory,
+        IntPtr hMonitor) {
         ComPtr<IDXGIAdapter1> adapter = null;
         uint i = 0;
-        while (factory.EnumAdapters1(i, ref adapter) == 0)
-        {
+        while (factory.EnumAdapters1(i, ref adapter) == 0) {
             uint j = 0;
             ComPtr<IDXGIOutput> output = null;
-            while (adapter.EnumOutputs(j, ref output  ) == 0)
-            {
+            while (adapter.EnumOutputs(j, ref output) == 0) {
                 OutputDesc desc = new OutputDesc();
                 output.GetDesc(ref desc);
-                if (desc.Monitor == hMonitor)
-                {
+                if (desc.Monitor == hMonitor) {
                     ComPtr<IDXGIOutput6> output6 = null;
                     if (output.QueryInterface(out output6) != 0)
                         throw new Exception("Failed to get IDXGIOutput6");
                     var outputDesc = new OutputDesc1();
                     if (output6.GetDesc1(ref outputDesc) != 0) throw new Exception("Failed to get Desc1");
-                    return (adapter,outputDesc);
+                    return (adapter, outputDesc);
                 }
-                else
-                {
+                else {
                     output.Release();
                 }
 
@@ -127,96 +114,85 @@ public class ScreenCaptureByWgc : IScreenCapture
 
         throw new InvalidOperationException("No adapter found for the given monitor.");
     }
-    public List<ScreenCaptureInfo> GetAllScreenInfo()
-    {
+
+    public List<ScreenCaptureInfo> GetAllScreenInfo() {
         var screenCaptureInfos = new List<ScreenCaptureInfo>();
-        User32.EnumDisplayMonitors(default, null, (arg1, _, arg3, _) =>
-        {
-            if (arg3==null||arg3.IsEmpty)
-            {
+        User32.EnumDisplayMonitors(default, null, (arg1, _, arg3, _) => {
+            if (arg3 == null || arg3.IsEmpty) {
                 return true;
             }
-            screenCaptureInfos.Add(new ScreenCaptureInfo()
-            {
-                hMonitor = arg1.DangerousGetHandle(),
+
+            screenCaptureInfos.Add(new ScreenCaptureInfo() {
+                HMonitor = arg1.DangerousGetHandle(),
                 SdrWhiteLevelScale = DisplayConfigHelper.GetSdrWhiteLevel(arg1.DangerousGetHandle()),
                 ScreenInfo = new Rect(arg3.left, arg3.top, arg3.right - arg3.left, arg3.bottom - arg3.top),
                 RequestRect = new Rect(0, 0, arg3.right - arg3.left, arg3.bottom - arg3.top)
             });
             return true;
         }, IntPtr.Zero);
-      
+
         return screenCaptureInfos;
     }
-    public unsafe ScreenCaptureResult CaptureScreenMat(ScreenCaptureInfo screenCaptureInfo)
-    {
-        switch (screenCaptureInfo.ScreenCaptureType)
-        {
-            case ScreenCaptureType.屏幕:
-            {
+
+    public unsafe ScreenCaptureResult CaptureScreenMat(ScreenCaptureInfo screenCaptureInfo) {
+        switch (screenCaptureInfo.ScreenCaptureType) {
+            case ScreenCaptureType.屏幕: {
                 screenCaptureInfo.ThrowIfCantGetValidScreenIntptr();
                 break;
             }
-            case ScreenCaptureType.窗口:
-            {
+            case ScreenCaptureType.窗口: {
                 screenCaptureInfo.ThrowIfCantGetValidWindowHandle();
                 break;
             }
-                
         }
+
         var factory2 = ActivationFactory.Get(typeof(GraphicsCaptureItem).FullName);
         var interop = factory2.AsInterface<IGraphicsCaptureItemInterop>();
         IntPtr itemPointer = IntPtr.Zero;
-        switch (screenCaptureInfo.ScreenCaptureType)
-        {
-            case ScreenCaptureType.屏幕:
-            {
-                itemPointer= interop.CreateForMonitor(screenCaptureInfo.hMonitor, GraphicsCaptureItemGuid);
+        switch (screenCaptureInfo.ScreenCaptureType) {
+            case ScreenCaptureType.屏幕: {
+                itemPointer = interop.CreateForMonitor(screenCaptureInfo.HMonitor, GraphicsCaptureItemGuid);
                 break;
             }
-            case ScreenCaptureType.窗口:
-            {
-                itemPointer= interop.CreateForWindow(screenCaptureInfo.WindowInfo!.Value.Hwnd, GraphicsCaptureItemGuid);
+            case ScreenCaptureType.窗口: {
+                itemPointer =
+                    interop.CreateForWindow(screenCaptureInfo.WindowInfo!.Value.Hwnd, GraphicsCaptureItemGuid);
                 break;
             }
-                
         }
+
         var item = MarshalInterface<GraphicsCaptureItem>.FromAbi(itemPointer);
         var dxgi = new DXGI(new DefaultNativeContext("dxgi"));
         ComPtr<IDXGIAdapter1> adapter1 = default;
-        ID3D11DeviceContext* context = null;
-        ID3D11DeviceContext* immediateContext = null;
-        ID3D11Device* d3dDevice = null;
-        ComPtr<ID3D11Resource> stagingResource = null;
+        ComPtr<ID3D11DeviceContext> context = default;
+        ComPtr<ID3D11DeviceContext> immediateContext = default;
+        ComPtr<ID3D11Device> d3DDevice = default;
+        ComPtr<ID3D11Resource> stagingResource = default;
         Direct3D11CaptureFrame direct3D11CaptureFrame = null;
-        ID3D11Texture2D* stagingTexture = null;
+        ComPtr<ID3D11Texture2D> stagingTexture = default;
         GraphicsCaptureSession session = null;
         Direct3D11CaptureFramePool framePool = null;
         using var d3D11 = new D3D11(new DefaultNativeContext("d3d11"));
-        try
-        {
+        try {
             using var factory = dxgi.CreateDXGIFactory1<IDXGIFactory1>();
-            var adapterForMonitor = GetAdapterForMonitor(factory,screenCaptureInfo.hMonitor);
+            var adapterForMonitor = GetAdapterForMonitor(factory, screenCaptureInfo.HMonitor);
             adapter1 = adapterForMonitor.Item1;
-            
+
             var featureLevel = D3DFeatureLevel.Level110;
-            D3DFeatureLevel[] featureLevels =
-            [
+            D3DFeatureLevel[] featureLevels = [
                 D3DFeatureLevel.Level110
             ];
-            fixed (D3DFeatureLevel* pFeatureLevels = &featureLevels[0])
-            {
+            fixed (D3DFeatureLevel* pFeatureLevels = &featureLevels[0]) {
                 if (d3D11.CreateDevice((IDXGIAdapter*)adapter1.Handle, D3DDriverType.Unknown, IntPtr.Zero,
                         (uint)CreateDeviceFlag.None, pFeatureLevels, (uint)featureLevels.Length, D3D11.SdkVersion,
-                        ref d3dDevice,
-                        &featureLevel, ref context) != 0)
+                        d3DDevice.GetAddressOf(),
+                        &featureLevel,  context.GetAddressOf()) != 0)
                     throw new Exception("Failed to create D3D11 device");
             }
 
-            d3dDevice->GetImmediateContext(ref immediateContext);
+            d3DDevice.GetImmediateContext(ref immediateContext);
 
-            IDirect3DDevice CreateDirect3DDeviceFromSharpDxDevice(ID3D11Device* d3dDevice)
-            {
+            IDirect3DDevice CreateDirect3DDeviceFromSharpDxDevice(ID3D11Device* d3dDevice) {
                 IDirect3DDevice device = null;
 
                 // Acquire the DXGI interface for the Direct3D device.
@@ -224,8 +200,7 @@ public class ScreenCaptureByWgc : IScreenCapture
                 // Wrap the native device using a WinRT interop object.
                 var hr = CreateDirect3D11DeviceFromDXGIDevice((IntPtr)dxgiDevice.Handle, out var pUnknown);
 
-                if (hr == 0)
-                {
+                if (hr == 0) {
                     device = MarshalInterface<IDirect3DDevice>.FromAbi(pUnknown);
                     Marshal.Release(pUnknown);
                 }
@@ -233,8 +208,8 @@ public class ScreenCaptureByWgc : IScreenCapture
                 return device;
             }
 
-            var direct3DDeviceFromSharpDxDevice = CreateDirect3DDeviceFromSharpDxDevice(d3dDevice);
-            
+            var direct3DDeviceFromSharpDxDevice = CreateDirect3DDeviceFromSharpDxDevice(d3DDevice);
+
             framePool = Direct3D11CaptureFramePool.Create(
                 direct3DDeviceFromSharpDxDevice,
                 adapterForMonitor.Item2.ColorSpace.ToString().EndsWith("2020")
@@ -242,29 +217,25 @@ public class ScreenCaptureByWgc : IScreenCapture
                     : DirectXPixelFormat.R8G8B8A8UIntNormalized,
                 2,
                 item.Size);
-            
+
             session = framePool.CreateCaptureSession(item);
-            
+
             session.IsCursorCaptureEnabled = false;
-            session.StartCapture( );
-            
-            while ((direct3D11CaptureFrame = framePool.TryGetNextFrame()) == null)
-            {
-                
-            }
-            
+            session.StartCapture();
+
+            while ((direct3D11CaptureFrame = framePool.TryGetNextFrame()) == null) { }
+
             using var bitmap = CreateSharpDxTexture2D(direct3D11CaptureFrame.Surface);
-            
+
             var mappedSubresource = new MappedSubresource();
 
-            Texture2DDesc stagingTextureDesc = new()
-            {
+            Texture2DDesc stagingTextureDesc = new() {
                 CPUAccessFlags = (uint)CpuAccessFlag.Read,
                 BindFlags = (uint)BindFlag.None,
                 Format = adapterForMonitor.Item2.ColorSpace.ToString().EndsWith("2020")
                     ? Format.FormatR16G16B16A16Float
                     : Format.FormatR8G8B8A8Unorm,
-                Width =  (uint)(item.Size.Width),
+                Width = (uint)(item.Size.Width),
                 Height = (uint)item.Size.Height,
                 MiscFlags = (uint)ResourceMiscFlag.None,
                 MipLevels = 1,
@@ -273,86 +244,107 @@ public class ScreenCaptureByWgc : IScreenCapture
                 Usage = Usage.Staging
             };
 
-            if (d3dDevice->CreateTexture2D(&stagingTextureDesc, null, ref stagingTexture) != 0)
+            if (d3DDevice.CreateTexture2D(&stagingTextureDesc, null, ref stagingTexture) != 0)
                 throw new Exception("Failed to create staging texture");
 
-            stagingTexture->QueryInterface<ID3D11Resource>(out stagingResource);
-            immediateContext->CopyResource(stagingResource, bitmap);
-            if (immediateContext->Map(stagingResource, 0, Map.Read, 0, &mappedSubresource) != 0)
+            stagingTexture.QueryInterface<ID3D11Resource>(out stagingResource);
+            immediateContext.CopyResource(stagingResource, bitmap);
+            if (immediateContext.Map(stagingResource, 0, Map.Read, 0, &mappedSubresource) != 0)
                 throw new Exception("Failed to map staging texture");
-            
+
             //更新窗口的Size数据
-            // screenCaptureInfo.WindowInfo.Rect = new Rect(0,0,item.Size.Width, item.Size.Height);
-            // screenCaptureInfo.ScreenInfo.Height =item.Size.Height;
-            // screenCaptureInfo.ScreenInfo.Width =item.Size.Width;
-            var re = CaptureTool.GetMat(mappedSubresource,adapterForMonitor.Item2,ref screenCaptureInfo);
-            // if (screenCaptureInfo.ScreenCaptureType==ScreenCaptureType.窗口)
-            // {
-            //     screenCaptureInfo.X = 0;
-            //     screenCaptureInfo.Y = 0;
-            // }
-            // screenCaptureInfo.Width = re.Width;
-            // screenCaptureInfo.Height = re.Height;
-            return new ScreenCaptureResult()
-            {
+            return new ScreenCaptureResult() {
                 Info = screenCaptureInfo,
-                Source = re,
+                Source = ConvertSubresourceToSdrMat(mappedSubresource, adapterForMonitor.Item2, ref screenCaptureInfo),
             };
         }
-        finally
-        {
-            
-            
+        finally {
             adapter1.Release();
-            adapter1 = null;
-            
-
-            if (context != null)
-            {
-                context->Release();
-                context = null;
-            }
-
-            if (immediateContext != null)
-            {
-                immediateContext->Release();
-                immediateContext = null;
-            }
-
-            if (d3dDevice != null)
-            {
-                d3dDevice->Release();
-                d3dDevice = null;
-            }
-
-
+            context.Release();
+            immediateContext.Release();
+            d3DDevice.Release();
             stagingResource.Release();
-            stagingResource = null;
-            
-            if (direct3D11CaptureFrame != null)
-            {
+            if (direct3D11CaptureFrame != null) {
                 direct3D11CaptureFrame.Dispose();
-                direct3D11CaptureFrame = null;
             }
-
-            if (stagingTexture != null)
-            {
-                stagingTexture->Release();
-                stagingTexture = null;
-            }
-
-            if (framePool != null)
-            {
+            stagingTexture.Release();
+            if (framePool != null) {
                 framePool.Dispose();
-                framePool = null;
             }
-
-            if (session != null)
-            {
-                
+            if (session != null) {
                 session.Dispose();
-                session = null;
             }
         }
+    }
+
+    public static unsafe Mat? ConvertSubresourceToSdrMat(MappedSubresource mappedSubresource, OutputDesc1 outputDesc,
+        ref ScreenCaptureInfo screenCaptureInfo) {
+        if (screenCaptureInfo is not { RequestRect: not null, ScreenInfo: not null }) return null;
+        int startX = Math.Clamp(screenCaptureInfo.RequestRect.Value.X, 0,
+            screenCaptureInfo.ScreenInfo.Value.Width - 1);
+        int startY = Math.Clamp(screenCaptureInfo.RequestRect.Value.Y, 0,
+            screenCaptureInfo.ScreenInfo.Value.Height - 1);
+        int endX = Math.Clamp(screenCaptureInfo.RequestRect.Value.X + screenCaptureInfo.RequestRect.Value.Width, 0,
+            screenCaptureInfo.ScreenInfo.Value.Width);
+        int endY = Math.Clamp(screenCaptureInfo.RequestRect.Value.Y + screenCaptureInfo.RequestRect.Value.Height, 0,
+            screenCaptureInfo.ScreenInfo.Value.Height);
+        if (!outputDesc.ColorSpace.ToString().EndsWith("2020")) {
+            Mat mat = new Mat((int)(mappedSubresource.DepthPitch / mappedSubresource.RowPitch),
+                (int)(mappedSubresource.RowPitch / 4), MatType.CV_8UC4);
+            Buffer.MemoryCopy(mappedSubresource.PData, mat.DataPointer,
+                mappedSubresource.DepthPitch,
+                mappedSubresource.DepthPitch);
+            Cv2.CvtColor(mat, mat, ColorConversionCodes.RGBA2BGRA);
+            if (screenCaptureInfo.ScreenCaptureType != ScreenCaptureType.窗口) {
+                var mat1 = mat[startY, endY, startX, endX];
+                mat.Dispose();
+                return mat1;
+            }
+
+            return mat;
+        }
+        else {
+            var mat = new Mat((int)(mappedSubresource.DepthPitch / mappedSubresource.RowPitch),
+                (int)(mappedSubresource.RowPitch / 8), MatType.MakeType(7, 4));
+            Buffer.MemoryCopy(mappedSubresource.PData, mat.DataPointer,
+                mappedSubresource.DepthPitch, mappedSubresource.DepthPitch);
+
+            mat.ConvertTo(mat, MatType.CV_32FC4);
+            //var vec4F = mat.Get<Vec4f>(2);
+            Cv2.CvtColor(mat, mat, ColorConversionCodes.RGBA2RGB);
+            var matrix = ColorSpaceCtr.CtrColorSpace([
+                    outputDesc.RedPrimary[0],
+                    outputDesc.RedPrimary[1],
+                    outputDesc.GreenPrimary[0],
+                    outputDesc.GreenPrimary[1],
+                    outputDesc.BluePrimary[0],
+                    outputDesc.BluePrimary[1],
+                    outputDesc.WhitePoint[0],
+                    outputDesc.WhitePoint[1]
+                ],
+                [
+                    .640f, .330f, .300f, .600f, .150f, .060f, .3127f, .3290f
+                ]
+            );
+            Cv2.Transform(mat, mat, Mat.FromArray(matrix));
+            
+            float scale = screenCaptureInfo.SdrWhiteLevelScale;
+            if (scale < 0.1f) scale = 1.0f; // Safety check
+            mat /= scale;
+            
+            Cv2.Pow(mat, 1.0 / 2.2, mat);
+            mat *= 255.0;
+
+            mat.ConvertTo(mat, MatType.CV_8UC4);
+            Cv2.CvtColor(mat, mat, ColorConversionCodes.RGB2BGRA);
+            if (screenCaptureInfo.ScreenCaptureType != ScreenCaptureType.窗口) {
+                var mat1 = mat[startY, endY, startX, endX];
+                mat.Dispose();
+                return mat1;
+            }
+
+            return mat;
+        }
+
     }
 }

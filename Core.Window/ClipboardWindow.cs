@@ -151,8 +151,11 @@ public class ClipboardWindow : IClipboardService
                 if (Clipboard.ContainsFileDropList())
                 {
                     var list = Clipboard.GetFileDropList();
-                    foreach (string path in list)
+                    foreach (string? path in list)
                     {
+                        if (string.IsNullOrEmpty(path)) {
+                            continue;
+                        }
                         files.Add(path);
                     }
                 }

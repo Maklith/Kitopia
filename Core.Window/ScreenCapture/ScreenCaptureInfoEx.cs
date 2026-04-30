@@ -106,12 +106,12 @@ public static class ScreenCaptureInfoEx {
     extension(ref ScreenCaptureInfo screenCaptureInfo) {
         //确保指针存在且有效
         private bool ValidScreenIntptr() {
-            if (screenCaptureInfo.hMonitor == IntPtr.Zero || !screenCaptureInfo.ScreenInfo.HasValue) {
+            if (screenCaptureInfo.HMonitor == IntPtr.Zero || !screenCaptureInfo.ScreenInfo.HasValue) {
                 return false;
             }
 
             User32.MONITORINFO info = new User32.MONITORINFO();
-            User32.GetMonitorInfo(screenCaptureInfo.hMonitor, ref info);
+            User32.GetMonitorInfo(screenCaptureInfo.HMonitor, ref info);
             var (i, y, width, height) = screenCaptureInfo.ScreenInfo.Value;
             return info.rcMonitor.left == i && info.rcMonitor.top == y &&
                    info.rcMonitor.right - info.rcMonitor.left == width &&
@@ -145,7 +145,7 @@ public static class ScreenCaptureInfoEx {
                 throw new Exception("目标显示器不存在");
             }
 
-            screenCaptureInfo.hMonitor = h;
+            screenCaptureInfo.HMonitor = h;
             screenCaptureInfo.SdrWhiteLevelScale=DisplayConfigHelper.GetSdrWhiteLevel(h);
         }
         public void ThrowIfCantGetValidWindowHandle() {
@@ -174,8 +174,8 @@ public static class ScreenCaptureInfoEx {
             }
             var monitorFromWindow =
                 User32.MonitorFromWindow(windowInfo.Hwnd, User32.MonitorFlags.MONITOR_DEFAULTTONEAREST);
-            screenCaptureInfo.hMonitor = monitorFromWindow.DangerousGetHandle();
-            screenCaptureInfo.SdrWhiteLevelScale = DisplayConfigHelper.GetSdrWhiteLevel(screenCaptureInfo.hMonitor);
+            screenCaptureInfo.HMonitor = monitorFromWindow.DangerousGetHandle();
+            screenCaptureInfo.SdrWhiteLevelScale = DisplayConfigHelper.GetSdrWhiteLevel(screenCaptureInfo.HMonitor);
         }
     }
 }

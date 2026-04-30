@@ -51,9 +51,6 @@
         <PackageReference Include="Vanara.Windows.Shell" Version="5.0.0" />
     </ItemGroup>
     <ItemGroup>
-        <Folder Include="ScreenCapture\WGCTool\"/>
-    </ItemGroup>
-    <ItemGroup>
       <Compile Update="TopMostBorderWindow.axaml.cs">
         <DependentUpon>TopMostBorderWindow.axaml</DependentUpon>
       </Compile>

@@ -25,7 +25,7 @@ namespace Core.Window
                 if (!response.IsSuccessStatusCode)
                 {
                     Logger.Warning($"Failed to check for updates. Status code: {response.StatusCode}");
-                    ServiceManager.Services.GetService<IToastService>()!.Show("更新", $"无法检查更新，请检查网络连接。\nCode: {response.StatusCode}", NotificationType.Error);
+                    _ =ServiceManager.Services.GetService<IToastService>()!.Show("更新", $"无法检查更新，请检查网络连接。\nCode: {response.StatusCode}", NotificationType.Error);
                     return (false, null, null, null);
                 }
 
@@ -35,14 +35,14 @@ namespace Core.Window
 
                 if (release == null)
                 {
-                    ServiceManager.Services .GetService<IToastService>()!.Show("更新", "无法检查更新，未找到版本信息。", NotificationType.Error);
+                    _ =ServiceManager.Services .GetService<IToastService>()!.Show("更新", "无法检查更新，未找到版本信息。", NotificationType.Error);
                     return (false, null, null, null);
                 }
 
                 var tagName = release["tag_name"]?.ToString();
                 if (string.IsNullOrEmpty(tagName))
                 {
-                    ServiceManager.Services.GetService<IToastService>()!.Show("更新", "无法检查更新，未找到版本信息。", NotificationType.Error);
+                    _ =ServiceManager.Services.GetService<IToastService>()!.Show("更新", "无法检查更新，未找到版本信息。", NotificationType.Error);
                     return (false, null, null, null);
                 }
 
@@ -52,7 +52,7 @@ namespace Core.Window
                 if (!Version.TryParse(ServiceManager.Version , out var currentVersion))
                 {
                     Logger.Warning($"Failed to parse current version: {ServiceManager.Version }");
-                    ServiceManager.Services.GetService<IToastService>()!.Show("更新", "无法检查更新，当前版本信息格式错误。", NotificationType.Error);
+                    _ =ServiceManager.Services.GetService<IToastService>()!.Show("更新", "无法检查更新，当前版本信息格式错误。", NotificationType.Error);
                     return (false, null, null, null);
                 }
 
@@ -69,13 +69,13 @@ namespace Core.Window
                 else
                 {
                     Logger.Warning($"Failed to parse latest version: {cleanTagName}");
-                    ServiceManager.Services.GetService<IToastService>()!.Show("更新", "无法检查更新，版本信息格式错误。", NotificationType.Error);
+                    _ =ServiceManager.Services.GetService<IToastService>()!.Show("更新", "无法检查更新，版本信息格式错误。", NotificationType.Error);
                 }
                 return (false, null, null, null);
             }
             catch (Exception ex)
             {
-                ServiceManager.Services.GetService<IToastService>()!.Show("更新", $"检查更新时出错: {ex.Message}", NotificationType.Error);
+                _ =ServiceManager.Services.GetService<IToastService>()!.Show("更新", $"检查更新时出错: {ex.Message}", NotificationType.Error);
                 Logger.Error(ex, "Error checking for updates");
                 return (false, null, null, null);
             }

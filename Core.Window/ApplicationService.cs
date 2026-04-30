@@ -4,6 +4,7 @@ using Core.Services.Config;
 using Core.Services.DeviceCommunication;
 using Core.Services.Interfaces;
 using Core.Services.MQTT;
+using Core.Services.Plugin;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
@@ -146,10 +147,9 @@ public class ApplicationService : IApplicationService {
                     try {
                         var toastService = ServiceManager.Services.GetService<IToastService>()!;
                         var tempPath = Path.Combine(Path.GetTempPath(), $"Kitopia_{latestVersion}_Installer.exe");
-
-                        using var client = new HttpClient();
+                        
                         using var response =
-                            await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
+                            await PluginNetworkService.HttpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
                         response.EnsureSuccessStatusCode();
 
                         var totalBytes = response.Content.Headers.ContentLength ?? -1L;
@@ -193,7 +193,7 @@ public class ApplicationService : IApplicationService {
                             progressToast.Fail($"下载出错: {ex.Message}", "更新失败");
                         }
                         else {
-                            ServiceManager.Services.GetService<IToastService>()!
+                            _ =ServiceManager.Services.GetService<IToastService>()!
                                 .Show("更新失败", $"下载出错: {ex.Message}", NotificationType.Error);
                         }
                     }
