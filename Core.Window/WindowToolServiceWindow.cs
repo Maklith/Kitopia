@@ -1,12 +1,14 @@
 using System.Diagnostics;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
 using Avalonia;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Core.Utils;
 using PluginCore;
 using Vanara.PInvoke;
+using Bitmap = Avalonia.Media.Imaging.Bitmap;
+using Rect = PluginCore.Rect;
 
 namespace Core.Window;
 
@@ -24,12 +26,10 @@ public class WindowToolServiceWindow : IWindowTool
     [DllImport("user32.dll", EntryPoint = "GetClassLong")]
     private static extern IntPtr GetClassLongPtr32(IntPtr hWnd, int nIndex);
 
-    private static IntPtr GetClassLongPtr(IntPtr hWnd, int nIndex)
-    {
+    private static IntPtr GetClassLongPtr(IntPtr hWnd, int nIndex) {
         if (IntPtr.Size > 4)
             return GetClassLongPtr64(hWnd, nIndex);
-        else
-            return GetClassLongPtr32(hWnd, nIndex);
+        return GetClassLongPtr32(hWnd, nIndex);
     }
 
     private readonly Dictionary<IntPtr, OverlaySet> _overlays = new();
@@ -71,17 +71,17 @@ public class WindowToolServiceWindow : IWindowTool
         var monitorInfo = new User32.MONITORINFO();
         monitorInfo.cbSize = 40;
         User32.GetMonitorInfo(hmonitor, ref monitorInfo);
-        User32.GetWindowRect(window.TryGetPlatformHandle().Handle, out var windowRect);
+        User32.GetWindowRect(window.TryGetPlatformHandle()!.Handle, out var windowRect);
         window.Position =
             new PixelPoint(
-                monitorInfo.rcMonitor.Left + (int)((monitorInfo.rcMonitor.Width - windowRect.Width) / 2),
+                monitorInfo.rcMonitor.Left + (monitorInfo.rcMonitor.Width - windowRect.Width) / 2,
                 monitorInfo.rcMonitor.Top + monitorInfo.rcMonitor.Height / 4);
     }
 
     public void SetWindowTopMost(IntPtr hWnd, bool topMost)
     {
-        var hWndInsertAfter = topMost ? (HWND)((IntPtr)(-1)) : (HWND)((IntPtr)(-2));
-        User32.SetWindowPos((HWND)hWnd, hWndInsertAfter, 0, 0, 0, 0, User32.SetWindowPosFlags.SWP_NOMOVE | User32.SetWindowPosFlags.SWP_NOSIZE);
+        var hWndInsertAfter = topMost ? -1 : (HWND)((IntPtr)(-2));
+        User32.SetWindowPos(hWnd, hWndInsertAfter, 0, 0, 0, 0, User32.SetWindowPosFlags.SWP_NOMOVE | User32.SetWindowPosFlags.SWP_NOSIZE);
 
         Dispatcher.UIThread.Invoke(() =>
         {
@@ -99,7 +99,7 @@ public class WindowToolServiceWindow : IWindowTool
                     };
 
                     // Handle manual closing if window disappears
-                    set.Border.Closed += (s, e) => 
+                    set.Border.Closed += (_, _) => 
                     {
                         if (_overlays.ContainsKey(hWnd)) 
                         {
@@ -108,7 +108,7 @@ public class WindowToolServiceWindow : IWindowTool
                         }
                     };
 
-                     set.Action.Closed += (s, e) => 
+                     set.Action.Closed += (_, _) => 
                     {
                         if (_overlays.ContainsKey(hWnd)) 
                         {
@@ -152,7 +152,7 @@ public class WindowToolServiceWindow : IWindowTool
     public IEnumerable<WindowInfo> GetAllWindows()
     {
         var list = new List<WindowInfo>();
-        User32.EnumWindows((hwnd, lparam) =>
+        User32.EnumWindows((hwnd, _) =>
         {
             if (!User32.IsWindowVisible(hwnd)) return true;
 
@@ -171,7 +171,7 @@ public class WindowToolServiceWindow : IWindowTool
             if (hwnd == User32.GetShellWindow()) return true;
 
             User32.GetWindowThreadProcessId(hwnd, out var processId);
-            string moduleName = null;
+            string? moduleName = null;
             try
             {
                 using var process = Process.GetProcessById((int)processId);
@@ -188,8 +188,8 @@ public class WindowToolServiceWindow : IWindowTool
             {
                 Hwnd = (IntPtr)hwnd,
                 Title = title,
-                ModuleFileName = moduleName,
-                Rect = new PluginCore.Rect(rect.left, rect.top, rect.Width, rect.Height)
+                ModuleFileName = moduleName??"",
+                Rect = new Rect(rect.left, rect.top, rect.Width, rect.Height)
             });
 
             return true;
@@ -218,9 +218,9 @@ public class WindowToolServiceWindow : IWindowTool
 
             if (hIcon != IntPtr.Zero)
             {
-                using var icon = System.Drawing.Icon.FromHandle(hIcon);
+                using var icon = Icon.FromHandle(hIcon);
                 using var bitmap = icon.ToBitmap();
-                var avaloniaBitmap = ((System.Drawing.Bitmap)bitmap).ToAvaloniaBitmap();
+                var avaloniaBitmap = bitmap.ToAvaloniaBitmap();
                 return avaloniaBitmap;
             }
             
@@ -237,7 +237,7 @@ public class WindowToolServiceWindow : IWindowTool
                         if (icon != null)
                         {
                             using var bitmap = icon.ToBitmap();
-                            return ((System.Drawing.Bitmap)bitmap).ToAvaloniaBitmap();
+                            return bitmap.ToAvaloniaBitmap();
                         }
                     }
                 }

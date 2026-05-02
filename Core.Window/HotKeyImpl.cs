@@ -33,7 +33,7 @@ public class HotKeyImpl : IHotKetImpl
     {
         Dispatcher.UIThread.Invoke(() =>
         {
-            _globalHotKeyWindow = new Avalonia.Controls.Window()
+            _globalHotKeyWindow = new Avalonia.Controls.Window
             {
                 Height = 1,
                 Width = 1,
@@ -71,7 +71,7 @@ public class HotKeyImpl : IHotKetImpl
                     };
                     value.Timer.Elapsed += (_, _) =>
                     {
-                        ThreadPool.QueueUserWorkItem((_) => { value.CallBack.Invoke(value.HotKeyModel); });
+                        ThreadPool.QueueUserWorkItem(_ => { value.CallBack.Invoke(value.HotKeyModel); });
                     };
                 }
 
@@ -110,7 +110,7 @@ public class HotKeyImpl : IHotKetImpl
     {
         if (!hotKeyModel.IsEnabled)
         {
-            HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo()
+            HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo
             {
                 HotKeyModel = hotKeyModel,
                 Id = -1,
@@ -153,7 +153,7 @@ public class HotKeyImpl : IHotKetImpl
                     }
                     else
                     {
-                        HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo()
+                        HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo
                         {
                             HotKeyModel = hotKeyModel,
                             Id = _id,
@@ -163,7 +163,7 @@ public class HotKeyImpl : IHotKetImpl
                 }
                 else
                 {
-                    HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo()
+                    HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo
                     {
                         HotKeyModel = hotKeyModel,
                         Id = -1,
@@ -183,7 +183,7 @@ public class HotKeyImpl : IHotKetImpl
                 }
                 else
                 {
-                    HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo()
+                    HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo
                     {
                         HotKeyModel = hotKeyModel,
                         Id = 1,
@@ -232,15 +232,15 @@ public class HotKeyImpl : IHotKetImpl
         return false;
     }
 
-    public bool DeleteCompletely(string uuid)
-    {
+    public bool DeleteCompletely(string uuid) {
         if (Del(uuid))
         {
             HotKeys.Remove(uuid);
             WeakReferenceMessenger.Default.Send("", "hotkey");
             return true;
         }
-        else return false;
+
+        return false;
     }
 
     public bool RequestUserModify(string uuid)

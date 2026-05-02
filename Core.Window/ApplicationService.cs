@@ -137,7 +137,7 @@ public class ApplicationService : IApplicationService {
         var (hasUpdate, latestVersion, downloadUrl, releaseNotes) = await gitHubUpdateService!.CheckForUpdatesAsync();
         if (hasUpdate && !string.IsNullOrEmpty(downloadUrl)) {
             Logger.Information($"发现新版本:{latestVersion}");
-            var dialog = new DialogContent() {
+            var dialog = new DialogContent {
                 Title = $"Kitopia更新 - 发现新版本 {latestVersion}",
                 Content = $"发现新版本 {latestVersion}，是否前往下载？\n\n更新内容:\n{releaseNotes ?? "无更新说明"}",
                 PrimaryButtonText = "下载并更新",

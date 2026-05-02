@@ -128,7 +128,7 @@ internal class UwpTools
         var pa = $"{path}{Path.DirectorySeparatorChar}{logoName}.scale-200.png";
         if (File.Exists(pa))
         {
-            var searchViewItem = new SearchViewItem()
+            var searchViewItem = new SearchViewItem
             {
                 ItemDisplayName = fileName,
                 OnlyKey = $"{appContainer.appContainerName}!{id}",
@@ -147,7 +147,7 @@ internal class UwpTools
             foreach (var enumerateFile in logos.EnumerateFiles())
                 if (enumerateFile.Name.StartsWith(logoName))
                 {
-                    var searchViewItem = new SearchViewItem()
+                    var searchViewItem = new SearchViewItem
                     {
                         ItemDisplayName = fileName,
                         OnlyKey = $"{appContainer.appContainerName}!{id}",

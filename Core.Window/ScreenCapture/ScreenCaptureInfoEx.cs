@@ -91,7 +91,7 @@ public static class ScreenCaptureInfoEx {
             RECT visibleRect = IntersectRects(clientRect, screenRect);
 
             if (visibleRect.Width > 0 && visibleRect.Height > 0) {
-                yield return new WindowInfo() {
+                yield return new WindowInfo {
                     Title = title,
                     ModuleFileName = s,
                     Hwnd = currentHwnd.DangerousGetHandle(),
@@ -119,7 +119,7 @@ public static class ScreenCaptureInfoEx {
 
 
         public void ThrowIfCantGetValidScreenIntptr() {
-            if (ValidScreenIntptr(ref screenCaptureInfo)) {
+            if (screenCaptureInfo.ValidScreenIntptr()) {
                 return;
             }
 
@@ -148,7 +148,7 @@ public static class ScreenCaptureInfoEx {
             screenCaptureInfo.SdrWhiteLevelScale=DisplayConfigHelper.GetSdrWhiteLevel(h);
         }
         public void ThrowIfCantGetValidWindowHandle() {
-            ThrowIfCantGetValidScreenIntptr(ref screenCaptureInfo);
+            screenCaptureInfo.ThrowIfCantGetValidScreenIntptr();
             _ = screenCaptureInfo.WindowInfo??throw new Exception("目标窗口不存在");
             
 

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using Core.Services.Interfaces;
 
 namespace Core.Window.Services;
@@ -118,7 +119,7 @@ public class FileLocksmithService : IFileLocksmith
         public struct RmUniqueProcess
         {
             public int dwProcessId;
-            public System.Runtime.InteropServices.ComTypes.FILETIME ProcessStartTime;
+            public FILETIME ProcessStartTime;
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -151,7 +152,7 @@ public class FileLocksmithService : IFileLocksmith
 
 internal static class Extensions
 {
-    public static DateTime ToDateTime(this System.Runtime.InteropServices.ComTypes.FILETIME fileTime)
+    public static DateTime ToDateTime(this FILETIME fileTime)
     {
         long high = (long)fileTime.dwHighDateTime << 32;
         long low = fileTime.dwLowDateTime & 0xFFFFFFFFL;

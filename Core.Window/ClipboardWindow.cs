@@ -23,13 +23,13 @@ public class ClipboardWindow : IClipboardService
 
 
     private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
-        .AddConcurrencyLimiter(new ConcurrencyLimiterOptions()
+        .AddConcurrencyLimiter(new ConcurrencyLimiterOptions
         {
             PermitLimit = 1,
             QueueLimit = Int32.MaxValue
         })
         .AddRetry(
-            new RetryStrategyOptions()
+            new RetryStrategyOptions
             {
                 ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
                 {
@@ -256,7 +256,7 @@ public class ClipboardWindow : IClipboardService
     [STAThread]
     public async Task<bool> SetImageAsync(ScreenCaptureResult screenCaptureResult)
     {
-        var executeAsync = await ResiliencePipeline.ExecuteAsync(async (_) =>
+        var executeAsync = await ResiliencePipeline.ExecuteAsync(async _ =>
         {
             var tcs = new TaskCompletionSource<bool>();
             var thread = new Thread(() =>

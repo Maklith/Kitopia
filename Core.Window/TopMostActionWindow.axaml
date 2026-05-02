@@ -10,5 +10,5 @@
         Focusable="False"
         SizeToContent="WidthAndHeight"
         Title="TopMostAction">
-    <Button Name="CancelButton" Content="取消置顶" Cursor="Hand" Theme="{StaticResource BorderlessButton}"  BorderThickness="1" CornerRadius="4" Padding="8,4" />
+    <Button Name="CancelButton" Content="取消置顶" Cursor="Hand" Theme="{DynamicResource BorderlessButton}"  BorderThickness="1" CornerRadius="4" Padding="8,4" />
 </Window>

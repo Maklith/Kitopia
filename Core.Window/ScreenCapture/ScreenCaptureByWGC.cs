@@ -70,7 +70,7 @@ public class ScreenCaptureByWgc : IScreenCapture {
     [ComVisible(true)]
     private interface IDirect3DDxgiInterfaceAccess {
         IntPtr GetInterface([In] ref Guid iid);
-    };
+    }
 
     public Stack<ScreenCaptureResult> CaptureAllScreenMat() {
         var screenCaptureResults = new Stack<ScreenCaptureResult>();
@@ -119,7 +119,7 @@ public class ScreenCaptureByWgc : IScreenCapture {
                 return true;
             }
 
-            screenCaptureInfos.Add(new ScreenCaptureInfo() {
+            screenCaptureInfos.Add(new ScreenCaptureInfo {
                 HMonitor = arg1.DangerousGetHandle(),
                 SdrWhiteLevelScale = DisplayConfigHelper.GetSdrWhiteLevel(arg1.DangerousGetHandle()),
                 ScreenInfo = new Rect(arg3.left, arg3.top, arg3.right - arg3.left, arg3.bottom - arg3.top),
@@ -250,7 +250,7 @@ public class ScreenCaptureByWgc : IScreenCapture {
                 throw new Exception("Failed to map staging texture");
 
             //更新窗口的Size数据
-            return new ScreenCaptureResult() {
+            return new ScreenCaptureResult {
                 Info = screenCaptureInfo,
                 Source = ConvertSubresourceToSdrMat(mappedSubresource, adapterForMonitor.Item2, ref screenCaptureInfo),
             };

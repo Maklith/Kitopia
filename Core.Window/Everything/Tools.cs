@@ -75,14 +75,12 @@ public class EverythingTools
 
     public static IEnumerable<SearchViewItem> Search(string s,int limit=50)
     {
-        var task = Task.Run(() =>
-        {
+        var task = Task.Run(() => {
             if (IntPtr.Size == 8)
                 // 64-bit
                 return SearchAmd64(s,limit);
-            else
-                // 32-bit
-                return SearchAmd32(s,limit);
+            // 32-bit
+            return SearchAmd32(s,limit);
         });
         if (!task.Wait(TimeSpan.FromSeconds(1)))
         {

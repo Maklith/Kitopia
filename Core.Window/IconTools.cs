@@ -29,13 +29,13 @@ internal partial class IconTools
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IconTools>();
 
     private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
-        .AddConcurrencyLimiter(new ConcurrencyLimiterOptions()
+        .AddConcurrencyLimiter(new ConcurrencyLimiterOptions
         {
             PermitLimit = 1,
             QueueLimit = Int32.MaxValue
         })
         .AddRetry(
-            new RetryStrategyOptions()
+            new RetryStrategyOptions
             {
                 ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
                 {
@@ -342,11 +342,9 @@ internal partial class IconTools
                         GetIcon(t.IconPath, t);
                         break;
                     }
-                    else
-                    {
-                        GetIcon(t.OnlyKey, t);
-                        break;
-                    }
+
+                    GetIcon(t.OnlyKey, t);
+                    break;
             }
         }
 
@@ -470,7 +468,7 @@ internal partial class IconTools
 
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
         internal string szTypeName;
-    };
+    }
 
     [GeneratedRegex(@"(.+),(-?\d+)(?:#.*)?")]
     private static partial Regex MyRegex();

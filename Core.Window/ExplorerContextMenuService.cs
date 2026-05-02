@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Windows.Management.Deployment;
 using Core.Services;
 using Core.Utils;
@@ -29,7 +30,7 @@ public class ExplorerContextMenuService : IExplorerContextMenuService
             PrimaryButtonText = "前往安装",
             PrimaryAction = () =>
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-windows-store://pdp/?productid=9MV77XCQ37FP") { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo("ms-windows-store://pdp/?productid=9MV77XCQ37FP") { UseShellExecute = true });
             }
         };
         _toastService.Show(dialog.ToToastRequest());

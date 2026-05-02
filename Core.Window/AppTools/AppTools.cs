@@ -50,9 +50,9 @@ public class AppSolver
                     if (!File.Exists(
                             $"{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.lnk"))
                     {
-                        var dialog = new DialogContent()
+                        var dialog = new DialogContent
                         {
-                            Title = $"Kitopia提示",
+                            Title = "Kitopia提示",
                             Content =
                                 $"Kitopia即将使用任务计划来创建绕过UAC启动Everything的快捷方式\n需要确认UAC权限\n按下取消则关闭自动启动功能\n路径:{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.lnk",
                             PrimaryButtonText = "确定",
@@ -204,9 +204,9 @@ public class AppSolver
             foreach (var s in ErrorLnkList) c.AppendLine(s);
 
             Logger.Debug(c.ToString());
-            var dialog = new DialogContent()
+            var dialog = new DialogContent
             {
-                Title = $"Kitopia建议",
+                Title = "Kitopia建议",
                 Content = c.ToString(),
                 PrimaryButtonText = "确定",
                 SecondaryButtonText = "取消",
@@ -317,11 +317,8 @@ public class AppSolver
 
                             //Log.Debug($"完成索引:{file}");
                         }
-                        else
-                        {
-                            // Log.Debug($"不符合要求跳过索引:{file}");
-                        }
 
+                        // Log.Debug($"不符合要求跳过索引:{file}");
                         break;
                     }
                     case ".url":
@@ -395,7 +392,7 @@ public class AppSolver
                                     break;
                             }
 
-                            collection.TryAdd(file, new SearchViewItem()
+                            collection.TryAdd(file, new SearchViewItem
                             {
                                 ItemDisplayName = localizedName,
                                 FileType = fileType,
@@ -414,7 +411,7 @@ public class AppSolver
                 if (!Directory.Exists(file)) return;
                 if (ConfigManger.Config.ignoreItems.Contains(file)) return;
 
-                collection.TryAdd(file, new SearchViewItem()
+                collection.TryAdd(file, new SearchViewItem
                 {
                     ItemDisplayName = file.Split(Path.DirectorySeparatorChar)
                         .Last(),

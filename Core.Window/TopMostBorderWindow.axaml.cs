@@ -9,13 +9,9 @@ public partial class TopMostBorderWindow : Avalonia.Controls.Window
     private readonly IntPtr _targetHwnd;
     private readonly DispatcherTimer _timer;
 
-    public TopMostBorderWindow()
+    public TopMostBorderWindow(IntPtr targetHwnd) 
     {
         InitializeComponent();
-    }
-
-    public TopMostBorderWindow(IntPtr targetHwnd) : this()
-    {
         _targetHwnd = targetHwnd;
         _timer = new DispatcherTimer
         {
@@ -25,9 +21,9 @@ public partial class TopMostBorderWindow : Avalonia.Controls.Window
         _timer.Start();
 
         // Ensure click-through
-        this.Opened += (s, e) =>
+        Opened += (_, _) =>
         {
-            var handle = this.TryGetPlatformHandle()?.Handle;
+            var handle = TryGetPlatformHandle()?.Handle;
             if (handle.HasValue)
             {
                 var exStyle = User32.GetWindowLong(handle.Value, User32.WindowLongFlags.GWL_EXSTYLE);
@@ -37,7 +33,7 @@ public partial class TopMostBorderWindow : Avalonia.Controls.Window
                                (int)User32.WindowStylesEx.WS_EX_LAYERED;
                 User32.SetWindowLong(handle.Value, User32.WindowLongFlags.GWL_EXSTYLE, newStyle);
                 
-                 User32.SetWindowPos((HWND)handle.Value, (HWND)IntPtr.Zero, 0, 0, 0, 0, 
+                 User32.SetWindowPos(handle.Value, IntPtr.Zero, 0, 0, 0, 0, 
                      User32.SetWindowPosFlags.SWP_NOMOVE | 
                      User32.SetWindowPosFlags.SWP_NOSIZE | 
                      User32.SetWindowPosFlags.SWP_NOZORDER | 
@@ -55,17 +51,15 @@ public partial class TopMostBorderWindow : Avalonia.Controls.Window
             return;
         }
 
-        if (User32.IsIconic((HWND)_targetHwnd) || !User32.IsWindowVisible((HWND)_targetHwnd))
+        if (User32.IsIconic(_targetHwnd) || !User32.IsWindowVisible(_targetHwnd))
         {
             IsVisible = false;
             return;
         }
-        else
-        {
-            if (!IsVisible) IsVisible = true;
-        }
 
-        User32.GetWindowRect((HWND)_targetHwnd, out var rect);
+        if (!IsVisible) IsVisible = true;
+
+        User32.GetWindowRect(_targetHwnd, out var rect);
 
         var screen = Screens.ScreenFromPoint(new PixelPoint(rect.left, rect.top));
         double scaling = screen?.Scaling ?? 1.0;
@@ -81,16 +75,16 @@ public partial class TopMostBorderWindow : Avalonia.Controls.Window
             Height = height;
         }
         // Force TopMost
-        var handle = this.TryGetPlatformHandle()?.Handle;
+        var handle = TryGetPlatformHandle()?.Handle;
         if (handle.HasValue)
         {
-           User32.SetWindowPos((HWND)handle.Value, (HWND)(-1), 0, 0, 0, 0, User32.SetWindowPosFlags.SWP_NOMOVE | User32.SetWindowPosFlags.SWP_NOSIZE | User32.SetWindowPosFlags.SWP_NOACTIVATE);
+           User32.SetWindowPos(handle.Value, -1, 0, 0, 0, 0, User32.SetWindowPosFlags.SWP_NOMOVE | User32.SetWindowPosFlags.SWP_NOSIZE | User32.SetWindowPosFlags.SWP_NOACTIVATE);
         }
     }
 
     protected override void OnClosed(EventArgs e)
     {
-        _timer?.Stop();
+        _timer.Stop();
         base.OnClosed(e);
     }
 }

@@ -12,14 +12,9 @@ public partial class TopMostActionWindow : Avalonia.Controls.Window
     private readonly DispatcherTimer _timer;
 
     public event Action? CancelTopMostRequested;
-
-    public TopMostActionWindow()
+    public TopMostActionWindow(IntPtr targetHwnd)
     {
         InitializeComponent();
-    }
-
-    public TopMostActionWindow(IntPtr targetHwnd) : this()
-    {
         _targetHwnd = targetHwnd;
         _timer = new DispatcherTimer
         {
@@ -34,9 +29,9 @@ public partial class TopMostActionWindow : Avalonia.Controls.Window
             btn.Click += CancelButton_Click;
         }
 
-        this.Opened += (s, e) =>
+        Opened += (_, _) =>
         {
-            var handle = this.TryGetPlatformHandle()?.Handle;
+            var handle = TryGetPlatformHandle()?.Handle;
             if (handle.HasValue)
             {
                 // ToolWindow style
@@ -59,17 +54,15 @@ public partial class TopMostActionWindow : Avalonia.Controls.Window
             return;
         }
 
-        if (User32.IsIconic((HWND)_targetHwnd) || !User32.IsWindowVisible((HWND)_targetHwnd))
+        if (User32.IsIconic(_targetHwnd) || !User32.IsWindowVisible(_targetHwnd))
         {
             IsVisible = false;
             return;
         }
-        else
-        {
-            if (!IsVisible) IsVisible = true;
-        }
 
-        User32.GetWindowRect((HWND)_targetHwnd, out var rect);
+        if (!IsVisible) IsVisible = true;
+
+        User32.GetWindowRect(_targetHwnd, out var rect);
 
         var screen = Screens.ScreenFromPoint(new PixelPoint(rect.left, rect.top));
         double scaling = screen?.Scaling ?? 1.0;
@@ -89,20 +82,20 @@ public partial class TopMostActionWindow : Avalonia.Controls.Window
 
         if (Math.Abs(Position.X - newX) > 1 || Math.Abs(Position.Y - newY) > 1)
         {
-            Position = new PixelPoint((int)newX, (int)newY);
+            Position = new PixelPoint((int)newX, newY);
         }
         
          // Force TopMost
-        var handle = this.TryGetPlatformHandle()?.Handle;
+        var handle = TryGetPlatformHandle()?.Handle;
         if (handle.HasValue)
         {
-           User32.SetWindowPos((HWND)handle.Value, (HWND)(-1), 0, 0, 0, 0, User32.SetWindowPosFlags.SWP_NOMOVE | User32.SetWindowPosFlags.SWP_NOSIZE | User32.SetWindowPosFlags.SWP_NOACTIVATE);
+           User32.SetWindowPos(handle.Value, -1, 0, 0, 0, 0, User32.SetWindowPosFlags.SWP_NOMOVE | User32.SetWindowPosFlags.SWP_NOSIZE | User32.SetWindowPosFlags.SWP_NOACTIVATE);
         }
     }
 
     protected override void OnClosed(EventArgs e)
     {
-        _timer?.Stop();
+        _timer.Stop();
         base.OnClosed(e);
     }
 }
