@@ -355,7 +355,7 @@ internal partial class IconTools
 
     internal static void GetIconByItem(CustomScenario.CustomScenario t)
     {
-        var path = $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{t.UUID}.png";
+        var path = $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{t.Uuid}.png";
         if (File.Exists(path))
         {
             if (Icons.TryGetValue(path, out var icon2)) t.Icon = icon2;

@@ -45,32 +45,32 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
     /// <summary>
     ///     手动执行
     /// </summary>
-    [JsonIgnore] [ObservableProperty] private bool executionManual = true;
+    [JsonIgnore] [ObservableProperty] private bool _executionManual = true;
 
-    [JsonIgnore] [ObservableProperty] private bool hasInit = true;
-    [JsonIgnore] [ObservableProperty] private string? initError;
-    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> inputValue = new();
-    private bool InTick;
+    [JsonIgnore] [ObservableProperty] private bool _hasInit = true;
+    [JsonIgnore] [ObservableProperty] private string? _initError;
+    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> _inputValue = new();
+    private bool _inTick;
 
-    [JsonIgnore] [ObservableProperty] private bool isHaveInputValue;
+    [JsonIgnore] [ObservableProperty] private bool _isHaveInputValue;
 
-    [JsonIgnore] [ObservableProperty] private ObservableCollection<string> keys = new();
+    [JsonIgnore] [ObservableProperty] private ObservableCollection<string> _keys = new();
 
     //ActiveHotKey
-    [JsonIgnore] [ObservableProperty] private HotKeyModel runHotKey;
+    [JsonIgnore] [ObservableProperty] private HotKeyModel _runHotKey;
 
-    [JsonIgnore] [ObservableProperty] private HotKeyModel stopHotKey;
-    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> tempValue = new();
+    [JsonIgnore] [ObservableProperty] private HotKeyModel _stopHotKey;
+    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> _tempValue = new();
 
 
-    [JsonIgnore] [ObservableProperty] private double? tickIntervalSecond = 5;
+    [JsonIgnore] [ObservableProperty] private double? _tickIntervalSecond = 5;
 
-    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> values = new();
+    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> _values = new();
 
     public CustomScenario()
     {
         PropertyChanged += CustomScenarioPropertyChangedEventHandler;
-        nodes.CollectionChanged += (e, s) =>
+        Nodes.CollectionChanged += (e, s) =>
         {
             if (s.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
             {
@@ -91,7 +91,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
                                         ScenarioMethodNode = connectorItem.Source as ScenarioMethodNode, CustomScenario = this });
 
                                 });
-                                connectorItem.InputObject?.PropertyChanged += connectorItem.InputObjectHandler;
+                                connectorItem.InputObject.PropertyChanged += connectorItem.InputObjectHandler;
                                 
                             }
                         }
@@ -114,7 +114,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
                                 connectorItem.PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
                                 if (connectorItem.InputObjectHandler != null)
                                 {
-                                    connectorItem.InputObject?.PropertyChanged -= connectorItem.InputObjectHandler;
+                                    connectorItem.InputObject.PropertyChanged -= connectorItem.InputObjectHandler;
                                     connectorItem.InputObjectHandler = null;
                                 }
                             }
@@ -126,46 +126,46 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
             }
 
             WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
-                { Type = 0, Name = nameof(nodes), CustomScenario = this });
+                { Type = 0, Name = nameof(Nodes), CustomScenario = this });
         };
-        runHotKey = new HotKeyModel
+        _runHotKey = new HotKeyModel
         {
-            MainName = "Kitopia情景", Name = $"{UUID}_开始快捷键", IsSelectCtrl = false, IsSelectAlt = false,
+            MainName = "Kitopia情景", Name = $"{Uuid}_开始快捷键", IsSelectCtrl = false, IsSelectAlt = false,
             IsSelectWin = false,
             IsSelectShift = false, SelectKey = EKey.未设置
         };
 
-        stopHotKey = new HotKeyModel
+        _stopHotKey = new HotKeyModel
         {
-            MainName = "Kitopia情景", Name = $"{UUID}_停止快捷键", IsSelectCtrl = false, IsSelectAlt = false,
+            MainName = "Kitopia情景", Name = $"{Uuid}_停止快捷键", IsSelectCtrl = false, IsSelectAlt = false,
             IsSelectWin = false,
             IsSelectShift = false, SelectKey = EKey.未设置
         };
         InitHotKey();
 
-        WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey", (recipient, message) =>
+        WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey", (_, message) =>
         {
-            if (stopHotKey.UUID == message)
+            if (_stopHotKey.UUID == message)
             {
-                stopHotKey = HotKeyManager.HotKetImpl.GetByUuid(message).Value;
+                _stopHotKey = HotKeyManager.HotKetImpl.GetByUuid(message).Value;
                 CustomScenarioManger.Save(this);
             }
 
-            if (runHotKey.UUID == message)
+            if (_runHotKey.UUID == message)
             {
-                runHotKey = HotKeyManager.HotKetImpl.GetByUuid(message).Value;
+                _runHotKey = HotKeyManager.HotKetImpl.GetByUuid(message).Value;
                 CustomScenarioManger.Save(this);
             }
         });
     }
 
-    public string UUID { get; init; } = Guid.NewGuid()
+    public string Uuid { get; init; } = Guid.NewGuid()
         .ToString();
 
 
-    public ObservableCollection<ScenarioNodeBase> nodes { get; set; } = new();
+    public ObservableCollection<ScenarioNodeBase> Nodes { get; set; } = new();
 
-    public ObservableCollection<ConnectionItem> connections { get; set; } = new();
+    public ObservableCollection<ConnectionItem> Connections { get; set; } = new();
     public event EventHandler Saved;
 
     internal void NotifySaved()
@@ -248,7 +248,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
 
         _tickTasks = null;
         _initTasks = null;
-        nodes.Clear();
+        Nodes.Clear();
         //Log.Debug(Name + " Dispose");
     }
 
@@ -291,17 +291,17 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
         _tickTasks.Clear();
         if (notRealTime)
         {
-            foreach (var pointItem in nodes) pointItem.ResetData();
+            foreach (var pointItem in Nodes) pointItem.ResetData();
         }
 
-        for (var i = nodes.Count - 1; i >= 1; i--)
-            if (!nodes[i].IsUsed(connections))
-                nodes[i].Status = NodeStatus.Unverified;
+        for (var i = Nodes.Count - 1; i >= 1; i--)
+            if (!Nodes[i].IsUsed(Connections))
+                Nodes[i].Status = NodeStatus.Unverified;
 
         try
         {
             //_initTasks.Add( nodes[0], null);
-            ParsePointItem(_initTasks, nodes[0], false, notRealTime, _cancellationTokenSource.Token);
+            ParsePointItem(_initTasks, Nodes[0], false, notRealTime, _cancellationTokenSource.Token);
         }
         catch (Exception e)
         {
@@ -332,7 +332,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
 
                     if (_cancellationTokenSource.IsCancellationRequested) return;
 
-                    var connectionItem = nodes[1].GetForwardNodes(connections);
+                    var connectionItem = Nodes[1].GetForwardNodes(Connections);
                     if (!connectionItem.Any() || onExit)
                     {
                         //当没有tick时直接结束
@@ -350,7 +350,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
                     Logger.Debug($"情景进入Tick:{Name}");
                     try
                     {
-                        _tickUtil = new TickUtil(1000, (uint)(tickIntervalSecond * 1000 * 1000), 1, TickMethod);
+                        _tickUtil = new TickUtil(1000, (uint)(_tickIntervalSecond * 1000 * 1000), 1, TickMethod);
                         _tickUtil.Open();
                     }
                     catch (Exception e)
@@ -363,18 +363,18 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
             }).Start();
     }
 
-    private void TickMethod(object sender, long JumpPeriod, long interval)
+    private void TickMethod(object sender, long jumpPeriod, long interval)
     {
-        if (InTick) return;
+        if (_inTick) return;
 
-        var nowPointItem = nodes[1];
+        var nowPointItem = Nodes[1];
         ParsePointItem(_tickTasks, nowPointItem, false, true, _cancellationTokenSource.Token);
 
         while (true)
         {
             if (_cancellationTokenSource.Token.IsCancellationRequested)
             {
-                InTick = false;
+                _inTick = false;
                 _tickUtil.Dispose();
                 break;
             }
@@ -394,7 +394,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
             if (!f) continue;
 
             //tick完成一次
-            InTick = false;
+            _inTick = false;
             _tickTasks.Clear();
             break;
         }
@@ -449,9 +449,9 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
         Logger.Debug($"解析节点:{nowScenarioMethodNode.Title}");
         var valid = true;
         List<Thread> sourceDataTask = new();
-        valid = nowScenarioMethodNode.InputDataIsEnough(connections);
+        valid = nowScenarioMethodNode.InputDataIsEnough(Connections);
         if (!valid) goto finnish;
-        foreach (var sourceSource in nowScenarioMethodNode.GetBackwardNodes(connections))
+        foreach (var sourceSource in nowScenarioMethodNode.GetBackwardNodes(Connections))
             lock (threads)
             {
                 if (threads.TryGetValue(sourceSource, out var task1))
@@ -492,7 +492,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
             {
                 Logger.Debug($"执行节点:{nowScenarioMethodNode.Title}");
                 var invoke =
-                    nowScenarioMethodNode.Invoke(cancellationToken, connections, Values, TempValue, InputValue);
+                    nowScenarioMethodNode.Invoke(cancellationToken, Connections, Values, TempValue, InputValue);
                 if (!invoke)
                 {
                     //如果执行失败
@@ -533,7 +533,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
         }
 
         if (!onlyBackward)
-            foreach (var nextPointItem in nowScenarioMethodNode.GetForwardNodes(connections))
+            foreach (var nextPointItem in nowScenarioMethodNode.GetForwardNodes(Connections))
                 lock (threads)
                 {
                     if (threads.ContainsKey(nextPointItem)) return;
@@ -552,7 +552,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
     {
         var pluginManger = ServiceManager.Services.GetService<IPluginManger>()!;
 
-        return nodes.Any(e => e.IsUseThePlugin(plugStr)) ||
+        return Nodes.Any(e => e.IsUseThePlugin(plugStr)) ||
                InputValue.Any<KeyValuePair<string, CustomScenarioValue>>(e =>
                    pluginManger.IsTypeFromThePlugin(e.Value.SerializeType, plugStr) ||
                    pluginManger.IsTypeFromThePlugin(e.Value.ShowType, plugStr)) ||
@@ -564,7 +564,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
     public void OnDeserialized() //反序列化时hotkeys的默认值会被添加,需要先清空
     {
         PropertyChanged += CustomScenarioPropertyChangedEventHandler;
-        foreach (var pointItem in nodes)
+        foreach (var pointItem in Nodes)
             if (pointItem is ScenarioMethodNode methodNode)
                 methodNode.PropertyChanged += CustomScenarioPropertyChangedEventHandler;
     }

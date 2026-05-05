@@ -84,7 +84,7 @@ public class CustomScenarioManger
     public static void Load(FileInfo fileInfo)
     {
         var fileInfoName = fileInfo.Name.Replace(".json", "");
-        if (CustomScenarios.Any(e => e.UUID == fileInfoName)) return;
+        if (CustomScenarios.Any(e => e.Uuid == fileInfoName)) return;
 
         var json = File.ReadAllText(fileInfo.FullName);
         try
@@ -98,7 +98,7 @@ public class CustomScenarioManger
             deserializeObject.IsRunning = false;
 
 
-            foreach (var deserializeObjectNode in deserializeObject.nodes) deserializeObjectNode.ConnectorInit();
+            foreach (var deserializeObjectNode in deserializeObject.Nodes) deserializeObjectNode.ConnectorInit();
             deserializeObject.InitHotKey();
             CustomScenarios.Add(deserializeObject);
         }
@@ -219,7 +219,7 @@ public class CustomScenarioManger
             CustomScenarios.Add(new CustomScenario
             {
                 Name = fileInfo.Name,
-                UUID = fileInfoName,
+                Uuid = fileInfoName,
                 IsRunning = false,
                 HasInit = false,
                 InitError = "加载失败疑似文件已损坏",
@@ -240,7 +240,7 @@ public class CustomScenarioManger
 
         foreach (var tempValueKey in scenario.TempValue.Keys) scenario.TempValue[tempValueKey].Value = null;
 
-        var configF = new FileInfo(KitopiaPaths.GetCustomScenarioFilePath(scenario.UUID));
+        var configF = new FileInfo(KitopiaPaths.GetCustomScenarioFilePath(scenario.Uuid));
 
         try
         {
@@ -283,7 +283,7 @@ public class CustomScenarioManger
         if (CustomScenarios.Contains(scenario)) CustomScenarios.Remove(scenario);
         ConfigManger.Save();
         if (deleteFile)
-            File.Delete(KitopiaPaths.GetCustomScenarioFilePath(scenario.UUID));
+            File.Delete(KitopiaPaths.GetCustomScenarioFilePath(scenario.Uuid));
     }
 
     public static void UnloadWhichUseThePlugin(string plugStr)
@@ -301,7 +301,7 @@ public class CustomScenarioManger
     public static void Reload(CustomScenario scenario)
     {
         Remove(scenario, false);
-        var configF = new FileInfo(KitopiaPaths.GetCustomScenarioFilePath(scenario.UUID));
+        var configF = new FileInfo(KitopiaPaths.GetCustomScenarioFilePath(scenario.Uuid));
         if (configF.Exists) Load(configF);
     }
 
@@ -320,7 +320,7 @@ public class CustomScenarioManger
             if (customScenario.IsRunning) customScenario.Stop();
 
             Remove(customScenario, false);
-            var configF = new FileInfo(KitopiaPaths.GetCustomScenarioFilePath(customScenario.UUID));
+            var configF = new FileInfo(KitopiaPaths.GetCustomScenarioFilePath(customScenario.Uuid));
             if (configF.Exists) Load(configF);
         }
 

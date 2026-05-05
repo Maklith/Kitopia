@@ -15,7 +15,7 @@ public class HotKeySignNameToStringCtr : IValueConverter
         if (s.Split("_")[0] == "Kitopia情景")
         {
             var uuid = s.Split("_")[1].Split("_")[0];
-            var firstOrDefault = CustomScenarioManger.CustomScenarios.FirstOrDefault(e => e.UUID == uuid);
+            var firstOrDefault = CustomScenarioManger.CustomScenarios.FirstOrDefault(e => e.Uuid == uuid);
             if (firstOrDefault is null) return s;
 
             s = s.Replace(uuid, firstOrDefault.Name);

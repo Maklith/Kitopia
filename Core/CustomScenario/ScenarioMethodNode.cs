@@ -535,10 +535,10 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
         var pluginManger = ServiceManager.Services.GetService<IPluginManger>()!;
         return ScenarioMethod.PluginInfo?.ToPlgString() == plugStr ||
                Input.Any<ConnectorItem>(e =>
-                   pluginManger.IsTypeFromThePlugin(e.InputObject?.ShowType, plugStr) ||
-                   pluginManger.IsTypeFromThePlugin(e.InputObject?.SerializeType, plugStr)) ||
+                   pluginManger.IsTypeFromThePlugin(e.InputObject.ShowType, plugStr) ||
+                   pluginManger.IsTypeFromThePlugin(e.InputObject.SerializeType, plugStr)) ||
                Output.Any<ConnectorItem>(e =>
-                   pluginManger.IsTypeFromThePlugin(e.InputObject?.ShowType, plugStr) ||
-                   pluginManger.IsTypeFromThePlugin(e.InputObject?.SerializeType, plugStr));
+                   pluginManger.IsTypeFromThePlugin(e.InputObject.ShowType, plugStr) ||
+                   pluginManger.IsTypeFromThePlugin(e.InputObject.SerializeType, plugStr));
     }
 }

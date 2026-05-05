@@ -58,7 +58,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 Title = "开始"
             }
         };
-        Scenario.nodes.Add(nodify2);
+        Scenario.Nodes.Add(nodify2);
         var nodify3 = new ScenarioMethodNode
         {
             Title = "Tick",
@@ -78,7 +78,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 Title = "开始"
             }
         };
-        Scenario.nodes.Add(nodify3);
+        Scenario.Nodes.Add(nodify3);
 
         WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey", (HotKey, o) =>
         {
@@ -98,7 +98,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 //Console.WriteLine(1);
                 if (e.Type == 1)
                 {
-                    if (e.Name == "Name") e.CustomScenario.nodes[0].Title = e.CustomScenario.Name;
+                    if (e.Name == "Name") e.CustomScenario.Nodes[0].Title = e.CustomScenario.Name;
 
                     return;
                 }
@@ -138,17 +138,17 @@ public partial class TaskEditorViewModel : ObservableRecipient
                         if (e.ScenarioMethodNode.Output.Count > value)
                         {
                             var connectorItem = e.ScenarioMethodNode.Output[^1];
-                            var connectionItems = Scenario.connections
+                            var connectionItems = Scenario.Connections
                                 .Where(connectionItem =>
                                     connectionItem.Source == connectorItem)
                                 .ToList();
                             foreach (var connectionItem in connectionItems)
                             {
-                                Scenario.connections.Remove(connectionItem);
-                                if (Scenario.connections.All(item => item.Source != connectionItem.Source))
+                                Scenario.Connections.Remove(connectionItem);
+                                if (Scenario.Connections.All(item => item.Source != connectionItem.Source))
                                     connectionItem.Source.IsConnected = false;
 
-                                if (Scenario.connections.All(item => item.Target != connectionItem.Target))
+                                if (Scenario.Connections.All(item => item.Target != connectionItem.Target))
                                     connectionItem.Target.IsConnected = false;
                             }
 
@@ -177,7 +177,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                         if (inputObject.StartsWith("CustomScenario:"))
                         {
                             var replace = inputObject.Replace("CustomScenario:", "");
-                            var customScenario = CustomScenarioManger.CustomScenarios.First(e => e.UUID == replace);
+                            var customScenario = CustomScenarioManger.CustomScenarios.First(e => e.Uuid == replace);
                             if (customScenario.IsHaveInputValue)
                             {
                                 for (var index = 0; index < customScenario.InputValue.Count; index++)
@@ -264,16 +264,16 @@ public partial class TaskEditorViewModel : ObservableRecipient
         connector.InputObject.IsSelf = !connector.InputObject.IsSelf;
         if (connector.InputObject.IsSelf)
         {
-            var connectionItems = Scenario.connections
+            var connectionItems = Scenario.Connections
                 .Where(e => e.Source == connector || e.Target == connector)
                 .ToList();
             foreach (var connectionItem in connectionItems)
             {
-                Scenario.connections.Remove(connectionItem);
-                if (Scenario.connections.All(e => e.Source != connectionItem.Source))
+                Scenario.Connections.Remove(connectionItem);
+                if (Scenario.Connections.All(e => e.Source != connectionItem.Source))
                     connectionItem.Source.IsConnected = false;
 
-                if (Scenario.connections.All(e => e.Target != connectionItem.Target))
+                if (Scenario.Connections.All(e => e.Target != connectionItem.Target))
                     connectionItem.Target.IsConnected = false;
             }
         }
@@ -288,51 +288,51 @@ public partial class TaskEditorViewModel : ObservableRecipient
         IsModified = true;
         var methodNode = scenarioMethodNode.Copy();
 
-        Scenario.nodes.Add(methodNode);
+        Scenario.Nodes.Add(methodNode);
     }
 
     [RelayCommand]
     private void CopyNode(ScenarioNodeBase scenarioMethodNode)
     {
         IsModified = true;
-        if (Scenario.nodes.IndexOf(scenarioMethodNode) is 0 or 1) return;
+        if (Scenario.Nodes.IndexOf(scenarioMethodNode) is 0 or 1) return;
 
         var methodNode = scenarioMethodNode.Copy();
         methodNode.Location = new Point(scenarioMethodNode.Location.X + 50, scenarioMethodNode.Location.Y + 50);
-        Scenario.nodes.Add(methodNode);
+        Scenario.Nodes.Add(methodNode);
     }
 
     [RelayCommand]
     private void DelNode(ScenarioNodeBase scenarioMethodNode)
     {
         IsModified = true;
-        var indexOf = Scenario.nodes.IndexOf(scenarioMethodNode);
+        var indexOf = Scenario.Nodes.IndexOf(scenarioMethodNode);
         if (indexOf is 0 or 1) return;
 
-        var connectionItems = Scenario.connections
+        var connectionItems = Scenario.Connections
             .Where(e => e.Source.Source == scenarioMethodNode || e.Target.Source == scenarioMethodNode)
             .ToList();
         foreach (var connectionItem in connectionItems)
         {
-            Scenario.connections.Remove(connectionItem);
-            if (Scenario.connections.All(e => e.Source != connectionItem.Source))
+            Scenario.Connections.Remove(connectionItem);
+            if (Scenario.Connections.All(e => e.Source != connectionItem.Source))
                 connectionItem.Source.IsConnected = false;
 
-            if (Scenario.connections.All(e => e.Target != connectionItem.Target))
+            if (Scenario.Connections.All(e => e.Target != connectionItem.Target))
                 connectionItem.Target.IsConnected = false;
         }
 
-        Scenario.nodes.Remove(scenarioMethodNode);
+        Scenario.Nodes.Remove(scenarioMethodNode);
     }
 
     [RelayCommand]
     private void DelConnection(ConnectionItem connection)
     {
         IsModified = true;
-        Scenario.connections.Remove(connection);
-        if (Scenario.connections.All(e => e.Source != connection.Source)) connection.Source.IsConnected = false;
+        Scenario.Connections.Remove(connection);
+        if (Scenario.Connections.All(e => e.Source != connection.Source)) connection.Source.IsConnected = false;
 
-        if (Scenario.connections.All(e => e.Target != connection.Target)) connection.Target.IsConnected = false;
+        if (Scenario.Connections.All(e => e.Target != connection.Target)) connection.Target.IsConnected = false;
 
         IsModified = true;
         ToFirstVerify();
@@ -377,26 +377,26 @@ public partial class TaskEditorViewModel : ObservableRecipient
     [RelayCommand]
     private void CleanUnusedNode()
     {
-        for (var i = Scenario.nodes.Count - 1; i >= 2; i--)
-            if (!Scenario.nodes[i].IsUsed(Scenario.connections))
+        for (var i = Scenario.Nodes.Count - 1; i >= 2; i--)
+            if (!Scenario.Nodes[i].IsUsed(Scenario.Connections))
             {
                 IsModified = true;
-                DelNode(Scenario.nodes[i]);
+                DelNode(Scenario.Nodes[i]);
             }
     }
 
     [RelayCommand]
     private void DisconnectConnector(ConnectorItem connector)
     {
-        var connections = Scenario.connections.Where(e => e.Source == connector || e.Target == connector)
+        var connections = Scenario.Connections.Where(e => e.Source == connector || e.Target == connector)
             .ToList();
         for (var i = connections.Count - 1; i >= 0; i--)
         {
             var connection = connections[i];
-            Scenario.connections.Remove(connection);
-            if (Scenario.connections.All(e => e.Source != connection.Source)) connection.Source.IsConnected = false;
+            Scenario.Connections.Remove(connection);
+            if (Scenario.Connections.All(e => e.Source != connection.Source)) connection.Source.IsConnected = false;
 
-            if (Scenario.connections.All(e => e.Target != connection.Target)) connection.Target.IsConnected = false;
+            if (Scenario.Connections.All(e => e.Target != connection.Target)) connection.Target.IsConnected = false;
 
             IsModified = true;
         }
@@ -408,7 +408,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
     public void Load(CustomScenario.CustomScenario customScenario)
     {
         Scenario = customScenario;
-        foreach (var scenarioConnection in Scenario.connections) scenarioConnection.Init(SplitConnection);
+        foreach (var scenarioConnection in Scenario.Connections) scenarioConnection.Init(SplitConnection);
     }
 
     [RelayCommand]
@@ -472,14 +472,14 @@ public partial class TaskEditorViewModel : ObservableRecipient
     public void Connect(ConnectorItem source, ConnectorItem target, bool toFirstVerify = true)
     {
         if (source.IsConnected)
-            if (Scenario.connections
+            if (Scenario.Connections
                 .Any(e => e.Source == source && e.Target == target))
                 return;
 
-        if (source.InputObject?.SerializeType==typeof(NodeConnectorClass))
+        if (source.InputObject.SerializeType==typeof(NodeConnectorClass))
             if (source.IsConnected)
             {
-                var connectionsToRemove = Scenario.connections
+                var connectionsToRemove = Scenario.Connections
                     .Where(e => e.Source == source)
                     .ToList();
 
@@ -488,8 +488,8 @@ public partial class TaskEditorViewModel : ObservableRecipient
                     connection.Source.IsConnected = false;
 
 
-                    Scenario.connections.Remove(connection);
-                    if (Scenario.connections.All(e => e.Target != connection.Target))
+                    Scenario.Connections.Remove(connection);
+                    if (Scenario.Connections.All(e => e.Target != connection.Target))
                         connection.Target.IsConnected = false;
                 }
             }
@@ -501,7 +501,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
             Target = target
         };
         connectionItem.Init(SplitConnection);
-        Scenario.connections.Add(connectionItem);
+        Scenario.Connections.Add(connectionItem);
         if (toFirstVerify) ToFirstVerify();
 
         //OnPropertyChanged(nameof(Connections));
@@ -519,7 +519,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
         if (openFilePickerAsync.Count > 0)
         {
-            var path = KitopiaPaths.GetCustomScenarioIconPath(Scenario.UUID);
+            var path = KitopiaPaths.GetCustomScenarioIconPath(Scenario.Uuid);
             var fileStream = File.OpenWrite(path);
             var openReadAsync = await openFilePickerAsync[0].OpenReadAsync();
             await openReadAsync.CopyToAsync(fileStream);
@@ -548,7 +548,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
             }
         };
 
-        _scenario.nodes.Add(knot);
+        _scenario.Nodes.Add(knot);
 
         Connect(connection.Source, knot.Connector, false);
         Connect(knot.Connector, connection.Target, false);

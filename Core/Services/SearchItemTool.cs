@@ -33,7 +33,7 @@ public class SearchItemTool : ISearchItemTool
                         break;
                     case FileType.自定义情景:
                         CustomScenarioManger.CustomScenarios
-                            .FirstOrDefault(e => $"CustomScenario:{e.UUID}" == searchViewItem.OnlyKey)
+                            .FirstOrDefault(e => $"CustomScenario:{e.Uuid}" == searchViewItem.OnlyKey)
                             ?.Run(inputValues: inputValues);
                         break;
                     case FileType.便签:

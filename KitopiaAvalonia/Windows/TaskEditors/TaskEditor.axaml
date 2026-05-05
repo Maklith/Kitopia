@@ -347,8 +347,8 @@
                                         DragDrop.AllowDrop="True"
                                         PendingConnection="{Binding PendingConnection}"
                                         DisconnectConnectorCommand="{Binding DisconnectConnectorCommand}"
-                                        Connections="{Binding Scenario.connections}"
-                                        ItemsSource="{Binding Scenario.nodes}">
+                                        Connections="{Binding Scenario.Connections}"
+                                        ItemsSource="{Binding Scenario.Nodes}">
 
                     <controls2:NodifyEditor.Resources>
                         <kitopiaAvalonia:FlowToDirectionConverter x:Key="FlowToDirectionConverter" />

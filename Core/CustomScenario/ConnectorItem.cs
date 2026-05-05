@@ -41,7 +41,7 @@ public partial class ConnectorItem : ObservableRecipient
     /// 输入对象数据 / Input object data
     /// </summary>
     [JsonConverter(typeof(CustomScenarioInputValueJsonConverter))]
-    public CustomScenarioValue? InputObject { get; init; }
+    public required CustomScenarioValue InputObject { get; init; }
     [JsonIgnore]
     public PropertyChangedEventHandler? InputObjectHandler { get; set; }
     [ObservableProperty] private bool _isConnected;
@@ -76,7 +76,6 @@ public partial class ConnectorItem : ObservableRecipient
     {
         get
         {
-            if (InputObject == null) return null;
             var type = InputObject.ShowType;
             
             if (type.FullName == null || type.FullName.StartsWith("System.")) return null;
