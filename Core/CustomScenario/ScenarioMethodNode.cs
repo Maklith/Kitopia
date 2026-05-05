@@ -95,7 +95,7 @@ public partial class ScenarioNodeBase : ObservableRecipient
 
 public partial class KnotNodeViewModel : ScenarioNodeBase
 {
-    [ObservableProperty] private ConnectorItem connector = new();
+    [ObservableProperty] private ConnectorItem connector;
 
     public override bool InputDataIsEnough(ObservableCollection<ConnectionItem> connections)
     {
@@ -142,6 +142,7 @@ public partial class KnotNodeViewModel : ScenarioNodeBase
         {
             Anchor = new Point(Connector.Anchor.X, Connector.Anchor.Y),
             Source = item,
+            Title = Title,
             InputObject = new CustomScenarioValue
             {
                 ShowType = Connector.InputObject.ShowType,
@@ -205,7 +206,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                         break;
                     }
 
-                    if (Input[index].isPluginInputConnector)
+                    if (Input[index].IsPluginInputConnector)
                     {
                         list.Add(Input[index].InputObject.Value);
                     }
@@ -409,7 +410,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                 AutoUnboxPropertyName = connectorItem.AutoUnboxPropertyName,
                 OnlySelfInput = connectorItem.OnlySelfInput,
                 ConnectorType = connectorItem.ConnectorType,
-                isPluginInputConnector = connectorItem.isPluginInputConnector,
+                IsPluginInputConnector = connectorItem.IsPluginInputConnector,
                 PluginInputConnector = connectorItem.PluginInputConnector
             });
 
@@ -512,7 +513,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
         if (connectorItem.InputObject.ShowType == typeof(NodeConnectorClass)) return;
 
         if (connectorItem.InputObject is null) return;
-        if (connectorItem.isPluginInputConnector)
+        if (connectorItem.IsPluginInputConnector)
         {
            
             var instance = Activator.CreateInstance(connectorItem.InputObject.ShowType);

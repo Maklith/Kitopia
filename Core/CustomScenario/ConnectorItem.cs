@@ -51,22 +51,22 @@ public partial class ConnectorItem : ObservableRecipient
     /// <summary>
     /// 是否允许自身输入 / Whether self-input is allowed
     /// </summary>
-    public bool OnlySelfInput { get; set; } = false;
+    public bool OnlySelfInput { get; set; }
 
     /// <summary>
     /// 自动拆箱索引 / Auto unbox index
     /// </summary>
-    public int AutoUnboxIndex { get; set; }
+    public int AutoUnboxIndex { get; init; }
     
     /// <summary>
     /// 自动拆箱属性名称 / Auto unbox property name
     /// </summary>
-    public string AutoUnboxPropertyName { get; set; } = string.Empty;
+    public string AutoUnboxPropertyName { get; init; } = string.Empty;
 
     /// <summary>
     /// 连接器标题 / Connector title
     /// </summary>
-    public string Title { get; set; }
+    public string? Title { get; set; }
 
     /// <summary>
     /// 支持的接口列表 / List of supported interfaces
@@ -82,7 +82,8 @@ public partial class ConnectorItem : ObservableRecipient
             if (type.FullName == null || type.FullName.StartsWith("System.")) return null;
             List<string> interfaces = new();
             foreach (var @interface in type.GetInterfaces())
-                interfaces.Add(@interface.FullName);
+                if (@interface.FullName != null)
+                    interfaces.Add(@interface.FullName);
             return interfaces;
         }
     }
@@ -90,7 +91,7 @@ public partial class ConnectorItem : ObservableRecipient
     /// <summary>
     /// 连接器所属的源节点 / Source node that owns this connector
     /// </summary>
-    public ScenarioNodeBase Source { get; set; }
+    public required ScenarioNodeBase Source { get; init; }
 
     /// <summary>
     /// 获取源连接器或下一个连接器项
@@ -131,10 +132,10 @@ public partial class ConnectorItem : ObservableRecipient
     /// <summary>
     /// 是否为插件自定义输入连接器 / Whether this is a plugin custom input connector
     /// </summary>
-    public bool isPluginInputConnector { get; set; }
+    public bool IsPluginInputConnector { get; set; }
     
     /// <summary>
     /// 插件输入连接器实例 / Plugin input connector instance
     /// </summary>
-    [JsonIgnore] public INodeInputConnector PluginInputConnector { get; set; }
+    [JsonIgnore] public INodeInputConnector? PluginInputConnector { get; set; }
 }

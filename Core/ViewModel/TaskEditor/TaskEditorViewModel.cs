@@ -82,9 +82,9 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
         WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey", (HotKey, o) =>
         {
-            if (o == Scenario.runHotKey.SignName)
+            if (o == Scenario.RunHotKey.SignName)
                 Dispatcher.UIThread.InvokeAsync(() => { IsModified = true; });
-            else if (o == Scenario.stopHotKey.SignName) Dispatcher.UIThread.InvokeAsync(() => { IsModified = true; });
+            else if (o == Scenario.StopHotKey.SignName) Dispatcher.UIThread.InvokeAsync(() => { IsModified = true; });
         });
         WeakReferenceMessenger.Default.Register<CustomScenarioChangeMsg>(this,
             (a, e) =>

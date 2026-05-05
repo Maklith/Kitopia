@@ -33,7 +33,7 @@ public class NodeInputDataTemplateSelector : IDataTemplate
                 return GetTemplate("InputTemplate")
                     .Build(item);
 
-            if (pointItem.isPluginInputConnector)
+            if (pointItem.IsPluginInputConnector)
             {
                 var control = pointItem.PluginInputConnector.IDataTemplate.Build(item);
                 control.DataContext = pointItem.PluginInputConnector;

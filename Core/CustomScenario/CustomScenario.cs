@@ -21,7 +21,7 @@ namespace Core.CustomScenario;
 
 public partial class CustomScenario : ObservableRecipient,IDisposable
 {
-    private static ILogger Logger = LogManager.Logger.ForContext<CustomScenario>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<CustomScenario>();
 
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> _autoTriggers = new();
     private CancellationTokenSource _cancellationTokenSource = new();
@@ -57,9 +57,9 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> keys = new();
 
     //ActiveHotKey
-    [JsonIgnore] [ObservableProperty] public HotKeyModel runHotKey;
+    [JsonIgnore] [ObservableProperty] private HotKeyModel runHotKey;
 
-    [JsonIgnore] [ObservableProperty] public HotKeyModel stopHotKey;
+    [JsonIgnore] [ObservableProperty] private HotKeyModel stopHotKey;
     [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> tempValue = new();
 
 

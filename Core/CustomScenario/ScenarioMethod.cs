@@ -155,7 +155,7 @@ public class ScenarioMethod
                     if (parameterInfo.GetCustomAttribute<CustomNodeInputType>() is not null
                         and var customNodeInputType)
                     {
-                        connectorItem.isPluginInputConnector = true;
+                        connectorItem.IsPluginInputConnector = true;
                         connectorItem.InputObject.IsSelf = parameterInfo.GetCustomAttribute<SelfInput>() is not null;
                         connectorItem.InputObject.ShowType =customNodeInputType.Type ;
                         try
