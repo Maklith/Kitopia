@@ -80,7 +80,7 @@ public class ConfigManger
                         var hotKeyModel = (HotKeyModel)x.GetValue(Config);
                         hotkeysMappings.Add(hotKeyModel, (Config, x));
                         if (Config.invokes.TryGetValue(configField.ActionName, out var value))
-                            if (!HotKeyManager.HotKetImpl.Add(hotKeyModel, value as Action<HotKeyModel>))
+                            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Add(hotKeyModel, value as Action<HotKeyModel>))
                                 ServiceManager.Services.GetService<IToastService>().Show(new DialogContent
                                 {
                                     Title = $"快捷键{hotKeyModel.SignName}设置失败",

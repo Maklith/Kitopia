@@ -5,6 +5,7 @@ using Avalonia.Win32.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.Services.Config;
 using Core.Services.HotKey;
+using Core.Services.Interfaces;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -177,7 +178,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
             MouseButton = selectedMouseButton,
             Type = _type
         };
-        if (!HotKeyManager.HotKetImpl.Modify(hotKeyModel))
+        if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Modify(hotKeyModel))
         {
             ServiceManager.Services.GetService<IToastService>().Show(new DialogContent
             {

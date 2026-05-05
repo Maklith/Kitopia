@@ -1,11 +1,13 @@
 ﻿using System.ComponentModel;
 using System.Windows.Input;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.Services.Config;
 using Core.Services.HotKey;
+using Core.Services.Interfaces;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -72,7 +74,7 @@ public class HotKeyShow : TemplatedControl
         {
             if (!HotKeyModel.HasValue) return;
 
-            if (s == HotKeyModel.Value.UUID) HotKeyModelChanged(HotKeyManager.HotKetImpl.GetByUuid(s), this);
+            if (s == HotKeyModel.Value.UUID) HotKeyModelChanged(ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(s), this);
         });
         SetValue(RemoveHotKeyProperty, new RelayCommand(Remove));
         SetValue(EditHotKeyProperty, new RelayCommand(Edit));
@@ -139,7 +141,7 @@ public class HotKeyShow : TemplatedControl
         var hotKeyModel = hotKeyModelN.Value;
         if (hotKeyModel.Type == HotKeyType.Mouse)
         {
-            hotKeyShow.IsActivated = HotKeyManager.HotKetImpl.IsActive(hotKeyModel.UUID);
+            hotKeyShow.IsActivated = ServiceManager.Services.GetService<IHotKetImpl>()!.IsActive(hotKeyModel.UUID);
             hotKeyShow.KeyType = (KeyTypeE)10000;
             hotKeyShow.KeyName = hotKeyModel.MouseButton switch
             {
@@ -164,7 +166,7 @@ public class HotKeyShow : TemplatedControl
         if (type == 0000 && hotKeyModel.SelectKey != EKey.未设置) type = 10000;
 
 
-        hotKeyShow.IsActivated = HotKeyManager.HotKetImpl.IsActive(hotKeyModel.UUID);
+        hotKeyShow.IsActivated = ServiceManager.Services.GetService<IHotKetImpl>()!.IsActive(hotKeyModel.UUID);
         hotKeyShow.KeyType = (KeyTypeE)type;
         hotKeyShow.KeyName = hotKeyModel.SelectKey.ToString();
     }
@@ -174,7 +176,7 @@ public class HotKeyShow : TemplatedControl
         if (HotKeyModel != null)
         {
             IsActivated = false;
-            HotKeyManager.HotKetImpl.Del(HotKeyModel.Value.UUID);
+            ServiceManager.Services.GetService<IHotKetImpl>()!.Del(HotKeyModel.Value.UUID);
         }
     }
 
@@ -183,17 +185,17 @@ public class HotKeyShow : TemplatedControl
     {
         if (HotKeyModel is null) return;
 
-        if (HotKeyManager.HotKetImpl.GetByUuid(HotKeyModel.Value.UUID) is null)
+        if (ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(HotKeyModel.Value.UUID) is null)
         {
             InitHotKey.Execute(HotKeyModel);
-            HotKeyManager.HotKetImpl.RequestUserModify(HotKeyModel.Value.UUID);
+            ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.Value.UUID);
             return;
         }
 
 
         if (!IsActivated)
         {
-            if (!HotKeyManager.HotKetImpl.Modify(HotKeyModel.Value))
+            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Modify(HotKeyModel.Value))
             {
                 ServiceManager.Services.GetService<IToastService>().Show(new DialogContent
                 {
@@ -201,7 +203,7 @@ public class HotKeyShow : TemplatedControl
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
                     CloseButtonText = "关闭"
                 }.ToToastRequest());
-                HotKeyManager.HotKetImpl.RequestUserModify(HotKeyModel.Value.UUID);
+                ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.Value.UUID);
                 ConfigManger.Save();
                 return;
             }
@@ -210,7 +212,7 @@ public class HotKeyShow : TemplatedControl
         }
         else
         {
-            HotKeyManager.HotKetImpl.RequestUserModify(HotKeyModel.Value.UUID);
+            ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.Value.UUID);
             ConfigManger.Save();
         }
     }

@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Core.Services;
 using Core.Services.Config;
 using Core.Services.HotKey;
+using Core.Services.Interfaces;
 using Core.Services.Plugin;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -275,8 +276,8 @@ public class CustomScenarioManger
 
     public static void Remove(CustomScenario scenario, bool deleteFile = true)
     {
-        HotKeyManager.HotKetImpl.DeleteCompletely(scenario.RunHotKey.UUID);
-        HotKeyManager.HotKetImpl.DeleteCompletely(scenario.StopHotKey.UUID);
+        ServiceManager.Services.GetService<IHotKetImpl>()!.DeleteCompletely(scenario.RunHotKey.UUID);
+        ServiceManager.Services.GetService<IHotKetImpl>()!.DeleteCompletely(scenario.StopHotKey.UUID);
 
 
         scenario.Dispose();

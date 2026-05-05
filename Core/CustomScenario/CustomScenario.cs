@@ -3,12 +3,14 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.Services;
 using Core.Services.HotKey;
+using Core.Services.Interfaces;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -147,13 +149,13 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
         {
             if (_stopHotKey.UUID == message)
             {
-                _stopHotKey = HotKeyManager.HotKetImpl.GetByUuid(message).Value;
+                _stopHotKey = ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(message).Value;
                 CustomScenarioManger.Save(this);
             }
 
             if (_runHotKey.UUID == message)
             {
-                _runHotKey = HotKeyManager.HotKetImpl.GetByUuid(message).Value;
+                _runHotKey = ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(message).Value;
                 CustomScenarioManger.Save(this);
             }
         });
@@ -178,16 +180,16 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
     {
         if (hotKeyModel == null) return;
         if (hotKeyModel.Value.UUID == RunHotKey.UUID)
-            HotKeyManager.HotKetImpl.Add(hotKeyModel.Value, e => Run(), false);
+            ServiceManager.Services.GetService<IHotKetImpl>()!.Add(hotKeyModel.Value, e => Run(), false);
 
         if (hotKeyModel.Value.UUID == StopHotKey.UUID)
-            HotKeyManager.HotKetImpl.Add(hotKeyModel.Value, e => Stop(), false);
+            ServiceManager.Services.GetService<IHotKetImpl>()!.Add(hotKeyModel.Value, e => Stop(), false);
     }
 
     public void InitHotKey()
     {
         if (RunHotKey.IsEnabled)
-            if (!HotKeyManager.HotKetImpl.Add(RunHotKey, e => Run()))
+            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Add(RunHotKey, e => Run()))
                 ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
                 {
                     Title = $"快捷键{RunHotKey.SignName}设置失败",
@@ -196,7 +198,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
                 }.ToToastRequest());
 
         if (StopHotKey.IsEnabled)
-            if (!HotKeyManager.HotKetImpl.Add(StopHotKey, e => Stop()))
+            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Add(StopHotKey, e => Stop()))
                 ServiceManager.Services.GetService<IToastService>().Show(new DialogContent
                 {
                     Title = $"快捷键{StopHotKey.SignName}设置失败",
@@ -207,8 +209,8 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
 
     public void UnRegisterHotKey()
     {
-        HotKeyManager.HotKetImpl.DeleteCompletely(RunHotKey.UUID);
-        HotKeyManager.HotKetImpl.DeleteCompletely(StopHotKey.UUID);
+        ServiceManager.Services.GetService<IHotKetImpl>()!.DeleteCompletely(RunHotKey.UUID);
+        ServiceManager.Services.GetService<IHotKetImpl>()!.DeleteCompletely(StopHotKey.UUID);
     }
 
 

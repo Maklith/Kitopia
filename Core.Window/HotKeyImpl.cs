@@ -37,6 +37,8 @@ public class HotKeyImpl : IHotKetImpl
             {
                 Height = 1,
                 Width = 1,
+                
+                WindowState= WindowState.Minimized,
                 ShowInTaskbar = false
             };
             _globalHotKeyWindow.Show();

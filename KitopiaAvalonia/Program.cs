@@ -46,7 +46,6 @@ using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Onnx;
 using Serilog;
-using HotKeyManager = Core.Services.HotKey.HotKeyManager;
 using ScreenCaptureWindow = KitopiaAvalonia.Services.ScreenCaptureWindow;
 using TaskEditor = KitopiaAvalonia.Windows.TaskEditors.TaskEditor;
 
@@ -293,11 +292,11 @@ internal class Program
         }));
         
         
-        HotKeyManager.Init();
+        ServiceManager.Services.GetService<IHotKetImpl>()!.Init();
         Logger.Debug("注册热键管理器完成");
         ConfigManger.Init();
         Logger.Information("配置文件初始化完成");
-        if (ConfigManger.Config.mouseCapture) HotKeyManager.HotKetImpl.StartHook();
+        if (ConfigManger.Config.mouseCapture) ServiceManager.Services.GetService<IHotKetImpl>()!.StartHook();
         
         MqttManager.ProcessLocalArgs(arg).GetAwaiter().GetResult();
         if (ConfigManger.Config.checkKitopiaCompanion)

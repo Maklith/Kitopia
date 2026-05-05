@@ -1,6 +1,8 @@
 ﻿using Core.Services.HotKey;
 using Core.Services.Interfaces;
 using KitopiaAvalonia.Windows;
+using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 using Window = Avalonia.Controls.Window;
 using WindowStartupLocation = Avalonia.Controls.WindowStartupLocation;
 
@@ -10,7 +12,7 @@ public class HotKeyEditorService : IHotKeyEditor
 {
     public void EditByUuid(string uuid, object? owner)
     {
-        var hotKeyModel = HotKeyManager.HotKetImpl.GetByUuid(uuid);
+        var hotKeyModel = ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(uuid);
         if (hotKeyModel == null) return;
 
         var hotKeyEditor = new HotKeyEditorWindow(hotKeyModel.Value);
