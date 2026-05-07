@@ -5,11 +5,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using Core.Services;
 using PluginCore;
 using Serilog;
+using Vanara.PInvoke;
 
 #endregion
 
@@ -23,8 +26,18 @@ public class ToastService : IToastService
     private readonly Dictionary<Guid, ToastItemViewModel> _items = [];
     private readonly Dictionary<Guid, CancellationTokenSource> _autoCloseCtsMap = [];
     private readonly Dictionary<Guid, TaskCompletionSource<bool>> _dismissedTcsMap = [];
+    private readonly Queue<ToastRequest> _suppressedRequests = new();
+    private readonly DispatcherTimer _fullScreenMonitorTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
+    private readonly DispatcherTimer _trayBlinkTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private ToastShowWindow? _toastShowWindow;
     private bool _isUnregistered;
+    private bool _isFlushingSuppressedRequests;
+    private bool _trayBlinkPhaseVisible = true;
+    private int _suppressedUnreadCount;
+    private string? _latestSuppressedPreview;
+
+    private const int MaxSuppressedQueueSize = 20;
+    private const string TrayDefaultToolTip = "KitopiaAvalonia";
 
     public void Init()
     {
@@ -41,6 +54,9 @@ public class ToastService : IToastService
             };
             _toastShowWindow.Show();
             _toastShowWindow.Hide();
+
+            _fullScreenMonitorTimer.Tick += (_, _) => CheckSuppressedQueueOnUiThread();
+            _trayBlinkTimer.Tick += (_, _) => BlinkTrayIconOnUiThread();
         }).Wait();
     }
 
@@ -88,6 +104,37 @@ public class ToastService : IToastService
         };
         var toastId = ShowAndReturnId(request);
         return toastId == Guid.Empty ? NoopToastProgressHandle.Instance : new ToastProgressHandle(this, toastId);
+    }
+
+    public bool HasUnreadSuppressedNotifications()
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return _suppressedUnreadCount > 0;
+        }
+
+        return Dispatcher.UIThread.InvokeAsync(() => _suppressedUnreadCount > 0).GetAwaiter().GetResult();
+    }
+
+    public bool TryOpenLatestSuppressedNotification()
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return TryOpenLatestSuppressedNotificationOnUiThread();
+        }
+
+        return Dispatcher.UIThread.InvokeAsync(TryOpenLatestSuppressedNotificationOnUiThread).GetAwaiter().GetResult();
+    }
+
+    public void ClearUnreadSuppressedNotifications()
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            ClearUnreadSuppressedNotificationsOnUiThread();
+            return;
+        }
+
+        Dispatcher.UIThread.Post(ClearUnreadSuppressedNotificationsOnUiThread);
     }
 
     public void Unregister()
@@ -163,6 +210,22 @@ public class ToastService : IToastService
             return Guid.Empty;
         }
 
+        if (!_isFlushingSuppressedRequests && ShouldSuppressToastForFullScreenOnUiThread())
+        {
+            SuppressToastOnUiThread(request);
+            return Guid.Empty;
+        }
+
+        return AddToastOnUiThread(request);
+    }
+
+    private Guid AddToastOnUiThread(ToastRequest request)
+    {
+        if (_isUnregistered)
+        {
+            return Guid.Empty;
+        }
+
         EnsureWindowCreatedOnUiThread();
         var toastId = Guid.NewGuid();
         var toastItem = new ToastItemViewModel(toastId, request.Header, request.Text, request.NotificationType,
@@ -188,6 +251,209 @@ public class ToastService : IToastService
         ScheduleAutoCloseOnUiThread(toastId, request.AutoCloseDelay);
         UpdateHostWindowVisibilityOnUiThread();
         return toastId;
+    }
+
+    private void SuppressToastOnUiThread(ToastRequest request)
+    {
+        if (_suppressedRequests.Count >= MaxSuppressedQueueSize)
+        {
+            _suppressedRequests.Dequeue();
+        }
+
+        _suppressedRequests.Enqueue(CloneRequestForSuppression(request));
+        _suppressedUnreadCount++;
+        _latestSuppressedPreview = BuildPreviewText(request);
+        EnsureSuppressionIndicatorsOnUiThread();
+    }
+
+    private static ToastRequest CloneRequestForSuppression(ToastRequest request)
+    {
+        return new ToastRequest
+        {
+            Header = request.Header,
+            Text = request.Text,
+            NotificationType = request.NotificationType,
+            AutoCloseDelay = request.AutoCloseDelay,
+            ShowCloseButton = request.ShowCloseButton,
+            ShowProgressBar = request.ShowProgressBar,
+            IsProgressIndeterminate = request.IsProgressIndeterminate,
+            ProgressValue = request.ProgressValue,
+            Actions = request.Actions,
+            ClickCallback = request.ClickCallback,
+            CloseOnClick = request.CloseOnClick
+        };
+    }
+
+    private bool TryOpenLatestSuppressedNotificationOnUiThread()
+    {
+        if (_suppressedRequests.Count == 0)
+        {
+            return false;
+        }
+
+        var latest = _suppressedRequests.LastOrDefault();
+        latest?.ClickCallback?.Invoke();
+        ClearUnreadSuppressedNotificationsOnUiThread();
+        return latest?.ClickCallback is not null;
+    }
+
+    private static string BuildPreviewText(ToastRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Header) && !string.IsNullOrWhiteSpace(request.Text))
+        {
+            return $"{request.Header}: {request.Text}";
+        }
+
+        return !string.IsNullOrWhiteSpace(request.Text) ? request.Text : request.Header;
+    }
+
+    private void EnsureSuppressionIndicatorsOnUiThread()
+    {
+        if (!_fullScreenMonitorTimer.IsEnabled)
+        {
+            _fullScreenMonitorTimer.Start();
+        }
+
+        if (!_trayBlinkTimer.IsEnabled)
+        {
+            _trayBlinkPhaseVisible = true;
+            _trayBlinkTimer.Start();
+        }
+
+        UpdateTrayToolTipOnUiThread();
+    }
+
+    private void CheckSuppressedQueueOnUiThread()
+    {
+        if (_suppressedRequests.Count == 0)
+        {
+            StopSuppressionIndicatorsOnUiThread();
+            return;
+        }
+    }
+
+    private void BlinkTrayIconOnUiThread()
+    {
+        if (_suppressedRequests.Count == 0)
+        {
+            StopSuppressionIndicatorsOnUiThread();
+            return;
+        }
+
+        var trayIcon = GetPrimaryTrayIconOnUiThread();
+        if (trayIcon is null)
+        {
+            return;
+        }
+
+        _trayBlinkPhaseVisible = !_trayBlinkPhaseVisible;
+        UpdateTrayToolTipOnUiThread();
+    }
+
+    private void StopSuppressionIndicatorsOnUiThread()
+    {
+        if (_fullScreenMonitorTimer.IsEnabled)
+        {
+            _fullScreenMonitorTimer.Stop();
+        }
+
+        if (_trayBlinkTimer.IsEnabled)
+        {
+            _trayBlinkTimer.Stop();
+        }
+
+        var trayIcon = GetPrimaryTrayIconOnUiThread();
+        if (trayIcon is null)
+        {
+            return;
+        }
+
+        trayIcon.IsVisible = true;
+        trayIcon.ToolTipText = TrayDefaultToolTip;
+    }
+
+    private void ClearSuppressionUnreadStateOnUiThread()
+    {
+        _suppressedUnreadCount = 0;
+        _latestSuppressedPreview = null;
+    }
+
+    private void ClearUnreadSuppressedNotificationsOnUiThread()
+    {
+        _suppressedRequests.Clear();
+        ClearSuppressionUnreadStateOnUiThread();
+        StopSuppressionIndicatorsOnUiThread();
+    }
+
+    private void UpdateTrayToolTipOnUiThread()
+    {
+        var trayIcon = GetPrimaryTrayIconOnUiThread();
+        if (trayIcon is null)
+        {
+            return;
+        }
+
+        if (_suppressedUnreadCount <= 0)
+        {
+            trayIcon.ToolTipText = TrayDefaultToolTip;
+            return;
+        }
+
+        var preview = _latestSuppressedPreview;
+        if (!string.IsNullOrWhiteSpace(preview) && preview.Length > 32)
+        {
+            preview = preview[..32] + "...";
+        }
+
+        var blinkMark = _trayBlinkPhaseVisible ? "[新消息] " : "";
+        trayIcon.ToolTipText = string.IsNullOrWhiteSpace(preview)
+            ? $"{blinkMark}KitopiaAvalonia ({_suppressedUnreadCount})"
+            : $"{blinkMark}KitopiaAvalonia ({_suppressedUnreadCount}) {preview}";
+    }
+
+    private static TrayIcon? GetPrimaryTrayIconOnUiThread()
+    {
+        var app = Application.Current;
+        var icons = app is null ? null : TrayIcon.GetIcons(app);
+        return icons is { Count: > 0 } ? icons[0] : null;
+    }
+
+    private static bool ShouldSuppressToastForFullScreenOnUiThread()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        var foregroundHwnd = User32.GetForegroundWindow();
+        if (foregroundHwnd.IsNull)
+        {
+            return false;
+        }
+
+        if (!User32.GetWindowRect(foregroundHwnd, out var windowRect))
+        {
+            return false;
+        }
+
+        if (windowRect.Width <= 0 || windowRect.Height <= 0)
+        {
+            return false;
+        }
+
+        var monitor = User32.MonitorFromWindow(foregroundHwnd, User32.MonitorFlags.MONITOR_DEFAULTTONULL);
+        var monitorInfo = new User32.MONITORINFO();
+        if (monitor.IsNull || !User32.GetMonitorInfo(monitor, ref monitorInfo))
+        {
+            return false;
+        }
+
+        var monitorRect = monitorInfo.rcMonitor;
+        const int tolerance = 2;
+        return Math.Abs(windowRect.left - monitorRect.left) <= tolerance
+               && Math.Abs(windowRect.top - monitorRect.top) <= tolerance
+               && Math.Abs(windowRect.right - monitorRect.right) <= tolerance
+               && Math.Abs(windowRect.bottom - monitorRect.bottom) <= tolerance;
     }
 
     private Task GetOrCreateDismissedTaskOnUiThread(Guid toastId)
@@ -519,6 +785,18 @@ public class ToastService : IToastService
         }
 
         _isUnregistered = true;
+        _fullScreenMonitorTimer.Stop();
+        _trayBlinkTimer.Stop();
+        _suppressedRequests.Clear();
+        ClearSuppressionUnreadStateOnUiThread();
+
+        var trayIcon = GetPrimaryTrayIconOnUiThread();
+        if (trayIcon is not null)
+        {
+            trayIcon.IsVisible = true;
+            trayIcon.ToolTipText = TrayDefaultToolTip;
+        }
+
         var keys = _autoCloseCtsMap.Keys.ToArray();
         foreach (var key in keys)
         {

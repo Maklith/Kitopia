@@ -99,9 +99,5 @@ public partial class HomePageViewModel : ObservableRecipient
     {
         return ServiceManager.Services?.GetService(typeof(IToastService)) as IToastService;
     }
-
-    private static INavigationPageService? GetNavigationPageService()
-    {
-        return ServiceManager.Services?.GetService(typeof(INavigationPageService)) as INavigationPageService;
-    }
+    
 }
