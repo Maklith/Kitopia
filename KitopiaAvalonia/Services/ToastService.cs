@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using Core.Services;
 using PluginCore;
@@ -26,10 +27,12 @@ public class ToastService : IToastService
     private readonly Dictionary<Guid, ToastItemViewModel> _items = [];
     private readonly Dictionary<Guid, CancellationTokenSource> _autoCloseCtsMap = [];
     private readonly Dictionary<Guid, TaskCompletionSource<bool>> _dismissedTcsMap = [];
-    private readonly Queue<ToastRequest> _suppressedRequests = new();
+    private readonly List<SuppressedNotificationEntry> _suppressedEntries = [];
+    private readonly SuppressedNotificationCenterViewModel _notificationCenterViewModel = new();
     private readonly DispatcherTimer _fullScreenMonitorTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
     private readonly DispatcherTimer _trayBlinkTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private ToastShowWindow? _toastShowWindow;
+    private SuppressedNotificationCenterWindow? _notificationCenterWindow;
     private bool _isUnregistered;
     private bool _isFlushingSuppressedRequests;
     private bool _trayBlinkPhaseVisible = true;
@@ -38,6 +41,8 @@ public class ToastService : IToastService
 
     private const int MaxSuppressedQueueSize = 20;
     private const string TrayDefaultToolTip = "KitopiaAvalonia";
+    private static readonly Uri TrayNormalIconUri = new("avares://KitopiaAvalonia/Assets/icon.png");
+    private static readonly Uri TrayNotifyIconUri = new("avares://KitopiaAvalonia/Assets/icon_notify.png");
 
     public void Init()
     {
@@ -135,6 +140,16 @@ public class ToastService : IToastService
         }
 
         Dispatcher.UIThread.Post(ClearUnreadSuppressedNotificationsOnUiThread);
+    }
+
+    public bool ShowSuppressedNotificationCenter()
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return ShowSuppressedNotificationCenterOnUiThread();
+        }
+
+        return Dispatcher.UIThread.InvokeAsync(ShowSuppressedNotificationCenterOnUiThread).GetAwaiter().GetResult();
     }
 
     public void Unregister()
@@ -255,46 +270,119 @@ public class ToastService : IToastService
 
     private void SuppressToastOnUiThread(ToastRequest request)
     {
-        if (_suppressedRequests.Count >= MaxSuppressedQueueSize)
+        _suppressedEntries.Add(new SuppressedNotificationEntry(
+            request.Header,
+            request.Text,
+            DateTimeOffset.Now,
+            request.ClickCallback));
+        if (_suppressedEntries.Count > MaxSuppressedQueueSize)
         {
-            _suppressedRequests.Dequeue();
+            _suppressedEntries.RemoveAt(0);
         }
-
-        _suppressedRequests.Enqueue(CloneRequestForSuppression(request));
         _suppressedUnreadCount++;
         _latestSuppressedPreview = BuildPreviewText(request);
         EnsureSuppressionIndicatorsOnUiThread();
     }
 
-    private static ToastRequest CloneRequestForSuppression(ToastRequest request)
+    private bool ShowSuppressedNotificationCenterOnUiThread()
     {
-        return new ToastRequest
-        {
-            Header = request.Header,
-            Text = request.Text,
-            NotificationType = request.NotificationType,
-            AutoCloseDelay = request.AutoCloseDelay,
-            ShowCloseButton = request.ShowCloseButton,
-            ShowProgressBar = request.ShowProgressBar,
-            IsProgressIndeterminate = request.IsProgressIndeterminate,
-            ProgressValue = request.ProgressValue,
-            Actions = request.Actions,
-            ClickCallback = request.ClickCallback,
-            CloseOnClick = request.CloseOnClick
-        };
-    }
-
-    private bool TryOpenLatestSuppressedNotificationOnUiThread()
-    {
-        if (_suppressedRequests.Count == 0)
+        if (_suppressedEntries.Count == 0)
         {
             return false;
         }
 
-        var latest = _suppressedRequests.LastOrDefault();
-        latest?.ClickCallback?.Invoke();
+        EnsureNotificationCenterWindowCreatedOnUiThread();
+        if (_notificationCenterWindow!.IsVisible)
+        {
+            _notificationCenterWindow.Hide();
+            return true;
+        }
+
+        RefreshNotificationCenterItemsOnUiThread();
+        _notificationCenterWindow.RepositionNearCursor();
+        _notificationCenterWindow.Show();
+        _notificationCenterWindow.Activate();
+
+        return true;
+    }
+
+    private void EnsureNotificationCenterWindowCreatedOnUiThread()
+    {
+        if (_notificationCenterWindow is not null)
+        {
+            return;
+        }
+
+        _notificationCenterWindow = new SuppressedNotificationCenterWindow
+        {
+            DataContext = _notificationCenterViewModel
+        };
+    }
+
+    private void RefreshNotificationCenterItemsOnUiThread()
+    {
+        _notificationCenterViewModel.Items.Clear();
+        for (var i = _suppressedEntries.Count - 1; i >= 0; i--)
+        {
+            var index = i;
+            var entry = _suppressedEntries[index];
+            _notificationCenterViewModel.Items.Add(new SuppressedNotificationItemViewModel(
+                entry.Header,
+                entry.Text,
+                entry.CreatedAt,
+                () => OpenSuppressedEntryOnUiThread(index)));
+        }
+    }
+
+    private void OpenSuppressedEntryOnUiThread(int originalIndex)
+    {
+        if (originalIndex < 0 || originalIndex >= _suppressedEntries.Count)
+        {
+            return;
+        }
+
+        var entry = _suppressedEntries[originalIndex];
+        try
+        {
+            entry.ClickCallback?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "打开被抑制通知失败");
+        }
+
+        _suppressedEntries.RemoveAt(originalIndex);
+        _suppressedUnreadCount = Math.Max(0, _suppressedUnreadCount - 1);
+        _latestSuppressedPreview = _suppressedEntries.Count > 0
+            ? BuildPreviewText(new ToastRequest
+            {
+                Header = _suppressedEntries[^1].Header,
+                Text = _suppressedEntries[^1].Text
+            })
+            : null;
+        RefreshNotificationCenterItemsOnUiThread();
+        if (_suppressedEntries.Count == 0)
+        {
+            ClearUnreadSuppressedNotificationsOnUiThread();
+            _notificationCenterWindow?.Hide();
+        }
+        else
+        {
+            UpdateTrayToolTipOnUiThread();
+        }
+    }
+
+    private bool TryOpenLatestSuppressedNotificationOnUiThread()
+    {
+        if (_suppressedEntries.Count == 0)
+        {
+            return false;
+        }
+
+        var latest = _suppressedEntries[^1];
+        latest.ClickCallback?.Invoke();
         ClearUnreadSuppressedNotificationsOnUiThread();
-        return latest?.ClickCallback is not null;
+        return latest.ClickCallback is not null;
     }
 
     private static string BuildPreviewText(ToastRequest request)
@@ -325,7 +413,7 @@ public class ToastService : IToastService
 
     private void CheckSuppressedQueueOnUiThread()
     {
-        if (_suppressedRequests.Count == 0)
+        if (_suppressedEntries.Count == 0)
         {
             StopSuppressionIndicatorsOnUiThread();
             return;
@@ -334,7 +422,7 @@ public class ToastService : IToastService
 
     private void BlinkTrayIconOnUiThread()
     {
-        if (_suppressedRequests.Count == 0)
+        if (_suppressedEntries.Count == 0)
         {
             StopSuppressionIndicatorsOnUiThread();
             return;
@@ -347,6 +435,7 @@ public class ToastService : IToastService
         }
 
         _trayBlinkPhaseVisible = !_trayBlinkPhaseVisible;
+        trayIcon.Icon = CreateTrayIcon(_trayBlinkPhaseVisible ? TrayNotifyIconUri : TrayNormalIconUri);
         UpdateTrayToolTipOnUiThread();
     }
 
@@ -369,6 +458,7 @@ public class ToastService : IToastService
         }
 
         trayIcon.IsVisible = true;
+        trayIcon.Icon = CreateTrayIcon(TrayNormalIconUri);
         trayIcon.ToolTipText = TrayDefaultToolTip;
     }
 
@@ -380,7 +470,7 @@ public class ToastService : IToastService
 
     private void ClearUnreadSuppressedNotificationsOnUiThread()
     {
-        _suppressedRequests.Clear();
+        _suppressedEntries.Clear();
         ClearSuppressionUnreadStateOnUiThread();
         StopSuppressionIndicatorsOnUiThread();
     }
@@ -787,13 +877,14 @@ public class ToastService : IToastService
         _isUnregistered = true;
         _fullScreenMonitorTimer.Stop();
         _trayBlinkTimer.Stop();
-        _suppressedRequests.Clear();
+        _suppressedEntries.Clear();
         ClearSuppressionUnreadStateOnUiThread();
 
         var trayIcon = GetPrimaryTrayIconOnUiThread();
         if (trayIcon is not null)
         {
             trayIcon.IsVisible = true;
+            trayIcon.Icon = CreateTrayIcon(TrayNormalIconUri);
             trayIcon.ToolTipText = TrayDefaultToolTip;
         }
 
@@ -823,6 +914,17 @@ public class ToastService : IToastService
 
         _toastShowWindow.Close();
         _toastShowWindow = null;
+
+        _notificationCenterWindow?.ClosePermanently();
+        _notificationCenterWindow = null;
+    }
+
+    private sealed record SuppressedNotificationEntry(string Header, string Text, DateTimeOffset CreatedAt, Action? ClickCallback);
+
+    private static WindowIcon CreateTrayIcon(Uri assetUri)
+    {
+        using var stream = AssetLoader.Open(assetUri);
+        return new WindowIcon(stream);
     }
 
     private static double ClampProgress(double progress)

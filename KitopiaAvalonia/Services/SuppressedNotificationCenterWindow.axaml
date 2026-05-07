@@ -1,0 +1,41 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:services="clr-namespace:KitopiaAvalonia.Services"
+        mc:Ignorable="d"
+        x:CompileBindings="False"
+        x:Class="KitopiaAvalonia.Services.SuppressedNotificationCenterWindow"
+        d:DesignWidth="420"
+        d:DesignHeight="520"
+        Width="420"
+        Height="520"
+        CanResize="False"
+        WindowStartupLocation="Manual"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Title="NotificationCenter">
+    <Border Padding="10">
+        <Grid RowDefinitions="Auto,*" RowSpacing="8">
+            <TextBlock Text="未读通知" FontSize="16" FontWeight="Bold" />
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="services:SuppressedNotificationItemViewModel">
+                            <Button Margin="0,0,0,8"
+                                    Padding="10"
+                                    HorizontalContentAlignment="Stretch"
+                                    Command="{Binding OpenCommand}">
+                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="4" ColumnSpacing="8">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Header}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CreatedAtText}" HorizontalAlignment="Right" Opacity="0.7" />
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding Text}" TextWrapping="Wrap" Opacity="0.85" />
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</Window>

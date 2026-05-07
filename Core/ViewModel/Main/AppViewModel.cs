@@ -27,12 +27,14 @@ public partial class AppViewModel : ObservableObject
         var toastService = ServiceManager.Services.GetService<IToastService>();
         if (toastService?.HasUnreadSuppressedNotifications() == true)
         {
-            var opened = toastService.TryOpenLatestSuppressedNotification();
-            if (!opened)
+            var popupShown = toastService.ShowSuppressedNotificationCenter();
+            if (popupShown)
             {
-                WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs("DeviceChat"));
-                toastService.ClearUnreadSuppressedNotifications();
+                return;
             }
+
+            WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs("DeviceChat"));
+            toastService.ClearUnreadSuppressedNotifications();
         }
 
         if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
