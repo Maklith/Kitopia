@@ -176,7 +176,7 @@ public class HotKeyShow : TemplatedControl
         if (HotKeyModel != null)
         {
             IsActivated = false;
-            ServiceManager.Services.GetService<IHotKetImpl>()!.Del(HotKeyModel.Value.UUID);
+            ServiceManager.Services.GetService<IHotKetImpl>()!.UnRegister(HotKeyModel.Value.UUID);
         }
     }
 

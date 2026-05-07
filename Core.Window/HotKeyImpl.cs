@@ -29,8 +29,7 @@ public class HotKeyImpl : IHotKetImpl
 
     private static int _id;
 
-    public void Init()
-    {
+    public void Init() {
         Dispatcher.UIThread.Invoke(() =>
         {
             _globalHotKeyWindow = new Avalonia.Controls.Window
@@ -108,7 +107,7 @@ public class HotKeyImpl : IHotKetImpl
     }
 
     
-    public bool Add(HotKeyModel hotKeyModel, Action<HotKeyModel> rallBack,bool initHotKey=true)
+    public bool Register(HotKeyModel hotKeyModel, Action<HotKeyModel> rallBack,bool initHotKey=true)
     {
         if (!hotKeyModel.IsEnabled)
         {
@@ -202,10 +201,10 @@ public class HotKeyImpl : IHotKetImpl
 
     public bool Del(HotKeyModel hotKeyModel)
     {
-        return Del(hotKeyModel.UUID);
+        return UnRegister(hotKeyModel.UUID);
     }
 
-    public bool Del(string uuid)
+    public bool UnRegister(string uuid)
     {
         if (HotKeys.TryGetValue(uuid, out var hotkey))
         {
@@ -234,8 +233,8 @@ public class HotKeyImpl : IHotKetImpl
         return false;
     }
 
-    public bool DeleteCompletely(string uuid) {
-        if (Del(uuid))
+    public bool Remove(string uuid) {
+        if (UnRegister(uuid))
         {
             HotKeys.Remove(uuid);
             WeakReferenceMessenger.Default.Send("", "hotkey");
@@ -265,7 +264,7 @@ public class HotKeyImpl : IHotKetImpl
             hotKeyModel.IsEnabled = true;
             ConfigManger.RequsetUpdateHotKey(hotKeyModel);
             ConfigManger.Save();
-            if (!Add(hotKeyModel, rallback)) return false;
+            if (!Register(hotKeyModel, rallback)) return false;
 
             return true;
         }

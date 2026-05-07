@@ -276,8 +276,8 @@ public class CustomScenarioManger
 
     public static void Remove(CustomScenario scenario, bool deleteFile = true)
     {
-        ServiceManager.Services.GetService<IHotKetImpl>()!.DeleteCompletely(scenario.RunHotKey.UUID);
-        ServiceManager.Services.GetService<IHotKetImpl>()!.DeleteCompletely(scenario.StopHotKey.UUID);
+        ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(scenario.RunHotKey.UUID);
+        ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(scenario.StopHotKey.UUID);
 
 
         scenario.Dispose();

@@ -102,7 +102,7 @@ public class Plugin
                             Logger.Warning( $"未找到快捷键 {hotKeyModel.SignName} 的触发方法 {configField.ActionName}，请确保方法存在且命名正确");
                             return;
                         }
-                        if (ServiceManager.Services.GetService<IHotKetImpl>()!.Add(hotKeyModel,
+                        if (ServiceManager.Services.GetService<IHotKetImpl>()!.Register(hotKeyModel,
                                 (Action<HotKeyModel>)value))
                             ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
                             {

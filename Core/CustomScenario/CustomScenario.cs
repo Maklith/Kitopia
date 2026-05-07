@@ -180,16 +180,16 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
     {
         if (hotKeyModel == null) return;
         if (hotKeyModel.Value.UUID == RunHotKey.UUID)
-            ServiceManager.Services.GetService<IHotKetImpl>()!.Add(hotKeyModel.Value, e => Run(), false);
+            ServiceManager.Services.GetService<IHotKetImpl>()!.Register(hotKeyModel.Value, e => Run(), false);
 
         if (hotKeyModel.Value.UUID == StopHotKey.UUID)
-            ServiceManager.Services.GetService<IHotKetImpl>()!.Add(hotKeyModel.Value, e => Stop(), false);
+            ServiceManager.Services.GetService<IHotKetImpl>()!.Register(hotKeyModel.Value, e => Stop(), false);
     }
 
     public void InitHotKey()
     {
         if (RunHotKey.IsEnabled)
-            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Add(RunHotKey, e => Run()))
+            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(RunHotKey, e => Run()))
                 ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
                 {
                     Title = $"快捷键{RunHotKey.SignName}设置失败",
@@ -198,7 +198,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
                 }.ToToastRequest());
 
         if (StopHotKey.IsEnabled)
-            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Add(StopHotKey, e => Stop()))
+            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(StopHotKey, e => Stop()))
                 ServiceManager.Services.GetService<IToastService>().Show(new DialogContent
                 {
                     Title = $"快捷键{StopHotKey.SignName}设置失败",
@@ -209,8 +209,8 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
 
     public void UnRegisterHotKey()
     {
-        ServiceManager.Services.GetService<IHotKetImpl>()!.DeleteCompletely(RunHotKey.UUID);
-        ServiceManager.Services.GetService<IHotKetImpl>()!.DeleteCompletely(StopHotKey.UUID);
+        ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(RunHotKey.UUID);
+        ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(StopHotKey.UUID);
     }
 
 
