@@ -2,11 +2,12 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Ursa.Controls;
 using Vanara.PInvoke;
 
 namespace KitopiaAvalonia.Services;
 
-public partial class SuppressedNotificationCenterWindow : Window
+public partial class SuppressedNotificationCenterWindow : UrsaWindow
 {
     private bool _allowClose;
 
@@ -58,6 +59,10 @@ public partial class SuppressedNotificationCenterWindow : Window
         }
 
         e.Cancel = true;
+        Hide();
+    }
+
+    private void WindowBase_OnDeactivated(object? sender, EventArgs e) {
         Hide();
     }
 }

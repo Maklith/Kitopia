@@ -340,7 +340,7 @@ public class ToastService : IToastService
         {
             return;
         }
-
+        _notificationCenterWindow?.Hide();
         var entry = _suppressedEntries[originalIndex];
         try
         {
@@ -364,7 +364,7 @@ public class ToastService : IToastService
         if (_suppressedEntries.Count == 0)
         {
             ClearUnreadSuppressedNotificationsOnUiThread();
-            _notificationCenterWindow?.Hide();
+            
         }
         else
         {
