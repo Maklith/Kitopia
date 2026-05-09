@@ -266,7 +266,7 @@ public class HotKeyImpl : IHotKetImpl
         if (HotKeys.ContainsKey(hotKeyModel.UUID))
         {
             var rallback = HotKeys[hotKeyModel.UUID].CallBack;
-            Del(hotKeyModel);
+            UnRegister(hotKeyModel.UUID);
             hotKeyModel.IsEnabled = true;
             ConfigManger.RequsetUpdateHotKey(hotKeyModel);
             ConfigManger.Save();

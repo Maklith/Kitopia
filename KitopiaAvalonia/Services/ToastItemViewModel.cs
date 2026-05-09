@@ -4,32 +4,36 @@ using System.Collections.Specialized;
 using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PluginCore;
 
 namespace KitopiaAvalonia.Services;
 
-internal sealed class ToastItemViewModel : ObservableObject
+internal sealed partial class ToastItemViewModel : ObservableObject
 {
-    private string _header;
-    private string _text;
+    [ObservableProperty] private string _header;
+    [ObservableProperty] private string _text;
     private NotificationType _notificationType;
-    private bool _isClosing;
-    private bool _showProgressBar;
-    private bool _isProgressIndeterminate;
-    private double? _progressValue;
-    private bool _showCloseButton;
+    [ObservableProperty] private bool _isClosing;
+    [ObservableProperty] private bool _showProgressBar;
+    [ObservableProperty] private bool _isProgressIndeterminate;
+    [ObservableProperty] private double? _progressValue;
+    [ObservableProperty] private bool _showCloseButton;
+    private readonly Action? _closeAction;
 
-    public ToastItemViewModel(Guid id, string header, string text, NotificationType notificationType, bool showCloseButton,
-        bool showProgressBar, bool isProgressIndeterminate, double? progressValue, Action closeAction,
+    public ToastItemViewModel(Guid id, ToastRequest request, Action closeAction,
         Action? clickAction = null)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         Id = id;
-        _header = header;
-        _text = text;
-        _notificationType = notificationType;
-        _showCloseButton = showCloseButton;
-        _showProgressBar = showProgressBar;
-        _isProgressIndeterminate = isProgressIndeterminate;
-        _progressValue = progressValue;
+        _header = request.Header;
+        _text = request.Text;
+        _notificationType = request.NotificationType;
+        _showCloseButton = request.ShowCloseButton;
+        _showProgressBar = request.ShowProgressBar;
+        _isProgressIndeterminate = request.IsProgressIndeterminate;
+        _progressValue = request.ProgressValue;
+        _closeAction = request.CloseAction;
         CloseCommand = new RelayCommand(closeAction);
         ClickCommand = clickAction is null ? null : new RelayCommand(clickAction);
         Actions.CollectionChanged += OnActionsCollectionChanged;
@@ -45,18 +49,6 @@ internal sealed class ToastItemViewModel : ObservableObject
 
     public IRelayCommand? ClickCommand { get; }
 
-    public string Header
-    {
-        get => _header;
-        set => SetProperty(ref _header, value);
-    }
-
-    public string Text
-    {
-        get => _text;
-        set => SetProperty(ref _text, value);
-    }
-
     public NotificationType NotificationType
     {
         get => _notificationType;
@@ -67,38 +59,11 @@ internal sealed class ToastItemViewModel : ObservableObject
                 return;
             }
 
-            OnNotificationTypeChanged();
+            OnPropertyChanged(nameof(IsInformation));
+            OnPropertyChanged(nameof(IsSuccess));
+            OnPropertyChanged(nameof(IsWarning));
+            OnPropertyChanged(nameof(IsError));
         }
-    }
-
-    public bool IsClosing
-    {
-        get => _isClosing;
-        set => SetProperty(ref _isClosing, value);
-    }
-
-    public bool ShowProgressBar
-    {
-        get => _showProgressBar;
-        set => SetProperty(ref _showProgressBar, value);
-    }
-
-    public bool IsProgressIndeterminate
-    {
-        get => _isProgressIndeterminate;
-        set => SetProperty(ref _isProgressIndeterminate, value);
-    }
-
-    public double? ProgressValue
-    {
-        get => _progressValue;
-        set => SetProperty(ref _progressValue, value);
-    }
-
-    public bool ShowCloseButton
-    {
-        get => _showCloseButton;
-        set => SetProperty(ref _showCloseButton, value);
     }
 
     public bool IsInformation => NotificationType == NotificationType.Information;
@@ -109,16 +74,13 @@ internal sealed class ToastItemViewModel : ObservableObject
 
     public bool IsError => NotificationType == NotificationType.Error;
 
+    public void InvokeCloseAction()
+    {
+        _closeAction?.Invoke();
+    }
+
     private void OnActionsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(HasActions));
-    }
-
-    private void OnNotificationTypeChanged()
-    {
-        OnPropertyChanged(nameof(IsInformation));
-        OnPropertyChanged(nameof(IsSuccess));
-        OnPropertyChanged(nameof(IsWarning));
-        OnPropertyChanged(nameof(IsError));
     }
 }

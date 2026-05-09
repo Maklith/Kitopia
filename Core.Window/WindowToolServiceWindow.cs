@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
 using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Core.Utils;
 using PluginCore;
@@ -251,6 +252,22 @@ public class WindowToolServiceWindow : IWindowTool
         {
             // Ignore errors
         }
+        return null;
+    }
+
+    public Avalonia.Controls.Window? GetForegroundWindow() {
+        var hWnd = User32.GetForegroundWindow();
+        if (hWnd == IntPtr.Zero) return null;
+        if (Avalonia.Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktopLifetime) {
+            foreach (var window in desktopLifetime.Windows)
+            {
+                if (window.TryGetPlatformHandle()?.Handle == hWnd)
+                {
+                    return window;
+                }
+            }
+        }
+
         return null;
     }
 }

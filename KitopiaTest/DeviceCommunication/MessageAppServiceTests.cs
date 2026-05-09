@@ -289,12 +289,14 @@ public sealed class MessageAppServiceTests
         {
         }
 
-        public Task Show(string header, string text, Avalonia.Controls.Notifications.NotificationType notificationType = Avalonia.Controls.Notifications.NotificationType.Information)
+        public Task Show(string header, string text,
+            Avalonia.Controls.Notifications.NotificationType notificationType = Avalonia.Controls.Notifications.NotificationType.Information,
+            Avalonia.Controls.Window? dialogWindow = null)
         {
             return Task.CompletedTask;
         }
 
-        public Task Show(ToastRequest request)
+        public Task Show(ToastRequest request, Avalonia.Controls.Window? dialogWindow = null)
         {
             return Task.CompletedTask;
         }
@@ -307,6 +309,16 @@ public sealed class MessageAppServiceTests
         }
 
         public void Unregister()
+        {
+        }
+
+        public bool HasUnreadSuppressedNotifications() => false;
+
+        public bool TryOpenLatestSuppressedNotification() => false;
+
+        public bool ShowSuppressedNotificationCenter() => false;
+
+        public void ClearUnreadSuppressedNotifications()
         {
         }
     }

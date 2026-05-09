@@ -149,9 +149,17 @@ public partial class ToastShowWindow : Window
             return;
         }
 
-        if (e.Source is Button)
+        if (e.Source is StyledElement sourceElement)
         {
-            return;
+            if (sourceElement is Visual sourceVisual && sourceVisual.FindAncestorOfType<Button>() is not null)
+            {
+                return;
+            }
+
+            if (sourceElement.DataContext is ToastActionViewModel)
+            {
+                return;
+            }
         }
 
         if (toastItem.ClickCommand is not null && toastItem.ClickCommand.CanExecute(null))

@@ -13,6 +13,7 @@ using Avalonia.Threading;
 using Core.Services;
 using PluginCore;
 using Serilog;
+using Ursa.Controls;
 using Vanara.PInvoke;
 
 #endregion
@@ -65,17 +66,18 @@ public class ToastService : IToastService
         }).Wait();
     }
 
-    public Task Show(string header, string text, NotificationType notificationType = NotificationType.Information)
+    public Task Show(string header, string text, NotificationType notificationType = NotificationType.Information,
+        Window? dialogWindow = null)
     {
         return Show(new ToastRequest
         {
             Header = header,
             Text = text,
             NotificationType = notificationType
-        });
+        }, dialogWindow);
     }
 
-    public Task Show(ToastRequest request)
+    public Task Show(ToastRequest request, Window? dialogWindow = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (_isUnregistered)
@@ -83,9 +85,31 @@ public class ToastService : IToastService
             return Task.CompletedTask;
         }
 
+        if (dialogWindow is not null)
+        {
+            return ShowDialog(request, dialogWindow);
+        }
+
         Logger.Debug(
             $"{nameof(ToastService)}的接口{nameof(Show)}被调用,header：{request.Header},text：{request.Text},type:{request.NotificationType}");
         return ShowAndReturnCompletionTask(request);
+    }
+
+    private static async Task ShowDialog(ToastRequest request, Window dialogWindow)
+    {
+        var viewModel = new Controls.ToastDialogContentViewModel(request);
+        var options = new OverlayDialogOptions
+        {
+            TopLevelHashCode = dialogWindow.GetHashCode(),
+            CanLightDismiss = request.ShowCloseButton,
+            HorizontalAnchor = HorizontalPosition.Center,
+        };
+
+        await OverlayDialog.ShowCustomModal<Controls.ToastDialogContent, Controls.ToastDialogContentViewModel, object>(
+            viewModel,
+            null,
+            options);
+        viewModel.EnsureClosed();
     }
 
     public IToastProgressHandle ShowProgress(string header, string text,
@@ -243,22 +267,7 @@ public class ToastService : IToastService
 
         EnsureWindowCreatedOnUiThread();
         var toastId = Guid.NewGuid();
-        var toastItem = new ToastItemViewModel(toastId, request.Header, request.Text, request.NotificationType,
-            request.ShowCloseButton, request.ShowProgressBar, request.IsProgressIndeterminate, request.ProgressValue,
-            () => RemoveToast(toastId),
-            request.ClickCallback is null
-                ? null
-                : () => ExecuteToastClick(toastId, request.ClickCallback, request.CloseOnClick));
-
-        if (request.Actions is not null)
-        {
-            foreach (var action in request.Actions)
-            {
-                var actionSnapshot = action;
-                toastItem.Actions.Add(new ToastActionViewModel(actionSnapshot.Text, actionSnapshot.IsPrimary,
-                    () => ExecuteAction(toastId, actionSnapshot)));
-            }
-        }
+        var toastItem = CreateToastItemOnUiThread(toastId, request);
 
         _items[toastId] = toastItem;
         _dismissedTcsMap[toastId] = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -266,6 +275,28 @@ public class ToastService : IToastService
         ScheduleAutoCloseOnUiThread(toastId, request.AutoCloseDelay);
         UpdateHostWindowVisibilityOnUiThread();
         return toastId;
+    }
+
+    private ToastItemViewModel CreateToastItemOnUiThread(Guid toastId, ToastRequest request)
+    {
+        Action? clickAction = request.ClickCallback is null
+            ? null
+            : () => ExecuteToastClick(toastId, request.ClickCallback, request.CloseOnClick);
+        var item = new ToastItemViewModel(toastId, request, () => RemoveToast(toastId), clickAction);
+
+        if (request.Actions is null)
+        {
+            return item;
+        }
+
+        foreach (var action in request.Actions)
+        {
+            var actionSnapshot = action;
+            item.Actions.Add(new ToastActionViewModel(actionSnapshot.Text, actionSnapshot.IsPrimary,
+                () => ExecuteAction(toastId, actionSnapshot)));
+        }
+
+        return item;
     }
 
     private void SuppressToastOnUiThread(ToastRequest request)
@@ -567,7 +598,7 @@ public class ToastService : IToastService
             Logger.Error(ex, $"执行Toast按钮动作失败, toastId: {toastId}");
         }
 
-        if (action.CloseOnClick)
+        if (action.ShouldCloseOnClick)
         {
             RemoveToast(toastId);
         }
@@ -644,19 +675,10 @@ public class ToastService : IToastService
 
     private void RemoveToastOnUiThread(Guid toastId)
     {
-        if (!_items.TryGetValue(toastId, out var item))
+        if (!TryBeginClosingToastOnUiThread(toastId, out _))
         {
             return;
         }
-
-        CancelAutoCloseOnUiThread(toastId);
-
-        if (item.IsClosing)
-        {
-            return;
-        }
-
-        item.IsClosing = true;
 
         _ = Task.Run(async () =>
         {
@@ -670,6 +692,15 @@ public class ToastService : IToastService
         if (!_items.Remove(toastId, out var item))
         {
             return;
+        }
+
+        try
+        {
+            item.InvokeCloseAction();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, $"执行Toast关闭动作失败, toastId: {toastId}");
         }
 
         CancelAutoCloseOnUiThread(toastId);
@@ -745,28 +776,14 @@ public class ToastService : IToastService
     private void UpdateProgressToastOnUiThread(Guid toastId, double? progress, string? text, string? header,
         bool? isIndeterminate)
     {
-        if (!_items.TryGetValue(toastId, out var item))
-        {
-            return;
-        }
-
-        if (item.IsClosing)
+        if (!TryGetActiveToastItemOnUiThread(toastId, out var item))
         {
             return;
         }
 
         CancelAutoCloseOnUiThread(toastId);
         item.ShowProgressBar = true;
-
-        if (!string.IsNullOrWhiteSpace(header))
-        {
-            item.Header = header;
-        }
-
-        if (!string.IsNullOrWhiteSpace(text))
-        {
-            item.Text = text;
-        }
+        ApplyHeaderAndText(item, header, text);
 
         if (isIndeterminate.HasValue)
         {
@@ -800,12 +817,7 @@ public class ToastService : IToastService
 
     private void CompleteProgressToastOnUiThread(Guid toastId, string? text, string? header, TimeSpan? autoCloseDelay)
     {
-        if (!_items.TryGetValue(toastId, out var item))
-        {
-            return;
-        }
-
-        if (item.IsClosing)
+        if (!TryGetActiveToastItemOnUiThread(toastId, out var item))
         {
             return;
         }
@@ -814,16 +826,7 @@ public class ToastService : IToastService
         item.ShowProgressBar = true;
         item.IsProgressIndeterminate = false;
         item.ProgressValue = 100;
-
-        if (!string.IsNullOrWhiteSpace(header))
-        {
-            item.Header = header;
-        }
-
-        if (!string.IsNullOrWhiteSpace(text))
-        {
-            item.Text = text;
-        }
+        ApplyHeaderAndText(item, header, text);
 
         ScheduleAutoCloseOnUiThread(toastId, autoCloseDelay ?? TimeSpan.FromSeconds(2));
     }
@@ -841,19 +844,48 @@ public class ToastService : IToastService
 
     private void FailProgressToastOnUiThread(Guid toastId, string? text, string? header, TimeSpan? autoCloseDelay)
     {
-        if (!_items.TryGetValue(toastId, out var item))
-        {
-            return;
-        }
-
-        if (item.IsClosing)
+        if (!TryGetActiveToastItemOnUiThread(toastId, out var item))
         {
             return;
         }
 
         item.NotificationType = NotificationType.Error;
         item.IsProgressIndeterminate = false;
+        ApplyHeaderAndText(item, header, text);
 
+        ScheduleAutoCloseOnUiThread(toastId, autoCloseDelay ?? TimeSpan.FromSeconds(5));
+    }
+
+    private bool TryBeginClosingToastOnUiThread(Guid toastId, out ToastItemViewModel item)
+    {
+        if (!_items.TryGetValue(toastId, out item!))
+        {
+            return false;
+        }
+
+        CancelAutoCloseOnUiThread(toastId);
+
+        if (item.IsClosing)
+        {
+            return false;
+        }
+
+        item.IsClosing = true;
+        return true;
+    }
+
+    private bool TryGetActiveToastItemOnUiThread(Guid toastId, out ToastItemViewModel item)
+    {
+        if (!_items.TryGetValue(toastId, out item!))
+        {
+            return false;
+        }
+
+        return !item.IsClosing;
+    }
+
+    private static void ApplyHeaderAndText(ToastItemViewModel item, string? header, string? text)
+    {
         if (!string.IsNullOrWhiteSpace(header))
         {
             item.Header = header;
@@ -863,8 +895,6 @@ public class ToastService : IToastService
         {
             item.Text = text;
         }
-
-        ScheduleAutoCloseOnUiThread(toastId, autoCloseDelay ?? TimeSpan.FromSeconds(5));
     }
 
     private void UnregisterOnUiThread()
@@ -892,6 +922,18 @@ public class ToastService : IToastService
         foreach (var key in keys)
         {
             CancelAutoCloseOnUiThread(key);
+        }
+
+        foreach (var item in _items.Values)
+        {
+            try
+            {
+                item.InvokeCloseAction();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, $"执行Toast关闭动作失败, toastId: {item.Id}");
+            }
         }
 
         _items.Clear();
