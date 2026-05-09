@@ -111,9 +111,7 @@ public partial class ToastShowWindow : Window
             var cards = this.GetVisualDescendants()
                 .OfType<Control>()
                 .Where(control => control.Classes.Contains("toast-card")
-                                  && control.IsVisible
-                                  && control.Bounds.Width > 0
-                                  && control.Bounds.Height > 0);
+                                  && control is { IsVisible: true, Bounds: { Width: > 0, Height: > 0 } });
 
             foreach (var card in cards)
             {
@@ -133,7 +131,7 @@ public partial class ToastShowWindow : Window
                 Gdi32.DeleteObject(cardRegion);
             }
 
-            User32.SetWindowRgn((HWND)hwnd.Value, unionRegion, true);
+            User32.SetWindowRgn(hwnd.Value, unionRegion, true);
         }
         catch
         {

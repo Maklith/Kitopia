@@ -11,17 +11,11 @@ namespace KitopiaAvalonia.Controls;
 
 public sealed class ToastDialogContentViewModel : ObservableObject, IDialogContext
 {
-    private int _isClosed;
-
     public void Close()
     {
-        InvokeCloseActionOnce();
         RequestClose?.Invoke(this, null);
     }
-
     public event EventHandler<object?>? RequestClose;
-    private readonly Action? _closeAction;
-
     public ToastDialogContentViewModel(ToastRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -33,11 +27,9 @@ public sealed class ToastDialogContentViewModel : ObservableObject, IDialogConte
         ShowProgressBar = request.ShowProgressBar;
         IsProgressIndeterminate = request.IsProgressIndeterminate;
         ProgressValue = request.ProgressValue;
-        _closeAction = request.CloseAction;
         foreach (var action in request.Actions)
         {
             var callback = action.Callback;
-            
             Actions.Add(new ToastDialogActionViewModel(action.Text, action.IsPrimary, () =>
             {
                 callback?.Invoke();
@@ -74,21 +66,6 @@ public sealed class ToastDialogContentViewModel : ObservableObject, IDialogConte
     public bool IsWarning => NotificationType == NotificationType.Warning;
 
     public bool IsError => NotificationType == NotificationType.Error;
-
-    public void EnsureClosed()
-    {
-        InvokeCloseActionOnce();
-    }
-
-    private void InvokeCloseActionOnce()
-    {
-        if (Interlocked.Exchange(ref _isClosed, 1) == 1)
-        {
-            return;
-        }
-
-        _closeAction?.Invoke();
-    }
 }
 
 public sealed class ToastDialogActionViewModel

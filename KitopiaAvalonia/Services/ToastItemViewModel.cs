@@ -18,7 +18,6 @@ internal sealed partial class ToastItemViewModel : ObservableObject
     [ObservableProperty] private bool _isProgressIndeterminate;
     [ObservableProperty] private double? _progressValue;
     [ObservableProperty] private bool _showCloseButton;
-    private readonly Action? _closeAction;
 
     public ToastItemViewModel(Guid id, ToastRequest request, Action closeAction,
         Action? clickAction = null)
@@ -33,7 +32,6 @@ internal sealed partial class ToastItemViewModel : ObservableObject
         _showProgressBar = request.ShowProgressBar;
         _isProgressIndeterminate = request.IsProgressIndeterminate;
         _progressValue = request.ProgressValue;
-        _closeAction = request.CloseAction;
         CloseCommand = new RelayCommand(closeAction);
         ClickCommand = clickAction is null ? null : new RelayCommand(clickAction);
         Actions.CollectionChanged += OnActionsCollectionChanged;
@@ -73,12 +71,7 @@ internal sealed partial class ToastItemViewModel : ObservableObject
     public bool IsWarning => NotificationType == NotificationType.Warning;
 
     public bool IsError => NotificationType == NotificationType.Error;
-
-    public void InvokeCloseAction()
-    {
-        _closeAction?.Invoke();
-    }
-
+    
     private void OnActionsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(HasActions));

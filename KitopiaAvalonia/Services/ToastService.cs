@@ -80,19 +80,14 @@ public class ToastService : IToastService
     public Task Show(ToastRequest request, Window? dialogWindow = null)
     {
         ArgumentNullException.ThrowIfNull(request);
+        Logger.Debug(
+            $"{nameof(ToastService)}的接口{nameof(Show)}被调用,header：{request.Header},text：{request.Text},type:{request.NotificationType}");
         if (_isUnregistered)
         {
             return Task.CompletedTask;
         }
 
-        if (dialogWindow is not null)
-        {
-            return ShowDialog(request, dialogWindow);
-        }
-
-        Logger.Debug(
-            $"{nameof(ToastService)}的接口{nameof(Show)}被调用,header：{request.Header},text：{request.Text},type:{request.NotificationType}");
-        return ShowAndReturnCompletionTask(request);
+        return dialogWindow is not null ? ShowDialog(request, dialogWindow) : ShowAndReturnCompletionTask(request);
     }
 
     private static async Task ShowDialog(ToastRequest request, Window dialogWindow)
@@ -109,7 +104,7 @@ public class ToastService : IToastService
             viewModel,
             null,
             options);
-        viewModel.EnsureClosed();
+        request.CloseAction?.Invoke();
     }
 
     public IToastProgressHandle ShowProgress(string header, string text,
@@ -195,27 +190,54 @@ public class ToastService : IToastService
         }
     }
 
-    private Task ShowAndReturnCompletionTask(ToastRequest request)
+    private void InvokeCloseAction(ToastRequest request)
+    {
+        request.CloseAction?.Invoke();
+    }
+
+    private async Task ShowAndReturnCompletionTask(ToastRequest request)
     {
         try
         {
             if (Dispatcher.UIThread.CheckAccess())
             {
-                return ShowAndReturnCompletionTaskOnUiThread(request);
+                await ShowAndReturnCompletionTaskOnUiThread(request);
             }
-
-            return Dispatcher.UIThread.InvokeAsync(() => ShowAndReturnCompletionTaskOnUiThread(request));
+            else
+            {
+                 await Dispatcher.UIThread.InvokeAsync(() => ShowAndReturnCompletionTaskOnUiThread(request));
+            }
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "显示Toast失败");
-            return Task.CompletedTask;
+        }
+        finally
+        {
+            try
+            {
+                InvokeCloseAction(request);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "执行Toast关闭回调失败");
+            }
         }
     }
 
     private Task ShowAndReturnCompletionTaskOnUiThread(ToastRequest request)
     {
-        var toastId = ShowOnUiThread(request);
+        if (_isUnregistered)
+        {
+            return Task.CompletedTask;
+        }
+
+        if (!_isFlushingSuppressedRequests && ShouldSuppressToastForFullScreenOnUiThread())
+        {
+            return SuppressToastOnUiThread(request);
+        }
+
+        var toastId = AddToastOnUiThread(request);
         if (toastId == Guid.Empty)
         {
             return Task.CompletedTask;
@@ -299,20 +321,25 @@ public class ToastService : IToastService
         return item;
     }
 
-    private void SuppressToastOnUiThread(ToastRequest request)
+    private Task SuppressToastOnUiThread(ToastRequest request)
     {
+        var dismissedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         _suppressedEntries.Add(new SuppressedNotificationEntry(
             request.Header,
             request.Text,
             DateTimeOffset.Now,
-            request.ClickCallback));
+            request.ClickCallback,
+            dismissedTcs));
         if (_suppressedEntries.Count > MaxSuppressedQueueSize)
         {
+            var removed = _suppressedEntries[0];
+            removed.DismissedTcs.TrySetResult(true);
             _suppressedEntries.RemoveAt(0);
         }
         _suppressedUnreadCount++;
         _latestSuppressedPreview = BuildPreviewText(request);
         EnsureSuppressionIndicatorsOnUiThread();
+        return dismissedTcs.Task;
     }
 
     private bool ShowSuppressedNotificationCenterOnUiThread()
@@ -383,6 +410,7 @@ public class ToastService : IToastService
         }
 
         _suppressedEntries.RemoveAt(originalIndex);
+        entry.DismissedTcs.TrySetResult(true);
         _suppressedUnreadCount = Math.Max(0, _suppressedUnreadCount - 1);
         _latestSuppressedPreview = _suppressedEntries.Count > 0
             ? BuildPreviewText(new ToastRequest
@@ -447,7 +475,6 @@ public class ToastService : IToastService
         if (_suppressedEntries.Count == 0)
         {
             StopSuppressionIndicatorsOnUiThread();
-            return;
         }
     }
 
@@ -501,6 +528,11 @@ public class ToastService : IToastService
 
     private void ClearUnreadSuppressedNotificationsOnUiThread()
     {
+        foreach (var entry in _suppressedEntries)
+        {
+            entry.DismissedTcs.TrySetResult(true);
+        }
+
         _suppressedEntries.Clear();
         ClearSuppressionUnreadStateOnUiThread();
         StopSuppressionIndicatorsOnUiThread();
@@ -675,7 +707,7 @@ public class ToastService : IToastService
 
     private void RemoveToastOnUiThread(Guid toastId)
     {
-        if (!TryBeginClosingToastOnUiThread(toastId, out _))
+        if (!TryBeginClosingToastOnUiThread(toastId))
         {
             return;
         }
@@ -693,16 +725,6 @@ public class ToastService : IToastService
         {
             return;
         }
-
-        try
-        {
-            item.InvokeCloseAction();
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, $"执行Toast关闭动作失败, toastId: {toastId}");
-        }
-
         CancelAutoCloseOnUiThread(toastId);
         _hostViewModel.Items.Remove(item);
         CompleteDismissedTaskOnUiThread(toastId);
@@ -856,9 +878,9 @@ public class ToastService : IToastService
         ScheduleAutoCloseOnUiThread(toastId, autoCloseDelay ?? TimeSpan.FromSeconds(5));
     }
 
-    private bool TryBeginClosingToastOnUiThread(Guid toastId, out ToastItemViewModel item)
+    private bool TryBeginClosingToastOnUiThread(Guid toastId)
     {
-        if (!_items.TryGetValue(toastId, out item!))
+        if (!_items.TryGetValue(toastId, out var item))
         {
             return false;
         }
@@ -907,6 +929,11 @@ public class ToastService : IToastService
         _isUnregistered = true;
         _fullScreenMonitorTimer.Stop();
         _trayBlinkTimer.Stop();
+        foreach (var entry in _suppressedEntries)
+        {
+            entry.DismissedTcs.TrySetResult(true);
+        }
+
         _suppressedEntries.Clear();
         ClearSuppressionUnreadStateOnUiThread();
 
@@ -923,19 +950,7 @@ public class ToastService : IToastService
         {
             CancelAutoCloseOnUiThread(key);
         }
-
-        foreach (var item in _items.Values)
-        {
-            try
-            {
-                item.InvokeCloseAction();
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, $"执行Toast关闭动作失败, toastId: {item.Id}");
-            }
-        }
-
+        
         _items.Clear();
         _hostViewModel.Items.Clear();
         foreach (var dismissedTcs in _dismissedTcsMap.Values)
@@ -961,7 +976,12 @@ public class ToastService : IToastService
         _notificationCenterWindow = null;
     }
 
-    private sealed record SuppressedNotificationEntry(string Header, string Text, DateTimeOffset CreatedAt, Action? ClickCallback);
+    private sealed record SuppressedNotificationEntry(
+        string Header,
+        string Text,
+        DateTimeOffset CreatedAt,
+        Action? ClickCallback,
+        TaskCompletionSource<bool> DismissedTcs);
 
     private static WindowIcon CreateTrayIcon(Uri assetUri)
     {
