@@ -296,7 +296,7 @@ internal class Program
         Logger.Debug("注册热键管理器完成");
         ConfigManger.Init();
         Logger.Information("配置文件初始化完成");
-        if (ConfigManger.Config.mouseCapture) ServiceManager.Services.GetService<IHotKetImpl>()!.StartHook();
+        ServiceManager.Services.GetService<IHotKetImpl>()!.StartHook();
         
         MqttManager.ProcessLocalArgs(arg).GetAwaiter().GetResult();
         if (ConfigManger.Config.checkKitopiaCompanion)

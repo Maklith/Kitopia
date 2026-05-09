@@ -42,15 +42,19 @@ public class HotKeyImpl : IHotKetImpl
             };
             _globalHotKeyWindow.Show();
             _globalHotKeyWindow.Hide();
-            Win32Properties.AddWndProcHookCallback(_globalHotKeyWindow, OnWndProc);
+            
         });
     }
 
     public void StartHook()
     {
-        Hook.MousePressed.Subscribe(OnMousePressed);
-        Hook.MouseReleased.Subscribe(OnMouseReleased);
-        Hook.RunAsync();
+        Win32Properties.AddWndProcHookCallback(_globalHotKeyWindow, OnWndProc);
+        if (ConfigManger.Config.mouseCapture) {
+            Hook.MousePressed.Subscribe(OnMousePressed);
+            Hook.MouseReleased.Subscribe(OnMouseReleased);
+            Hook.RunAsync();
+        }
+        
     }
 
     private static void OnMousePressed(MouseHookEventArgs e)
@@ -109,7 +113,7 @@ public class HotKeyImpl : IHotKetImpl
     
     public bool Register(HotKeyModel hotKeyModel, Action<HotKeyModel> rallBack,bool initHotKey=true)
     {
-        if (!hotKeyModel.IsEnabled)
+        if (!hotKeyModel.IsEnabled)//没有激活直接返回注册完成
         {
             HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo
             {
@@ -164,6 +168,7 @@ public class HotKeyImpl : IHotKetImpl
                 }
                 else
                 {
+                    hotKeyModel.IsEnabled = false;
                     HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo
                     {
                         HotKeyModel = hotKeyModel,
@@ -184,6 +189,7 @@ public class HotKeyImpl : IHotKetImpl
                 }
                 else
                 {
+                    hotKeyModel.IsEnabled = false;
                     HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo
                     {
                         HotKeyModel = hotKeyModel,
@@ -195,7 +201,7 @@ public class HotKeyImpl : IHotKetImpl
                 return true;
             }
         }
-
+        hotKeyModel.IsEnabled = false;
         return false;
     }
 

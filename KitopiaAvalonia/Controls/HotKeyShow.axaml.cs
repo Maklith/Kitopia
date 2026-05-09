@@ -197,7 +197,7 @@ public class HotKeyShow : TemplatedControl
         {
             if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Modify(HotKeyModel.Value))
             {
-                ServiceManager.Services.GetService<IToastService>().Show(new DialogContent
+                ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
                 {
                     Title = $"快捷键{HotKeyModel.Value.SignName}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",

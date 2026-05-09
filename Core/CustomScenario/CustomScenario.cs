@@ -21,8 +21,7 @@ using Serilog;
 
 namespace Core.CustomScenario;
 
-public partial class CustomScenario : ObservableRecipient,IDisposable
-{
+public partial class CustomScenario : ObservableRecipient, IDisposable {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<CustomScenario>();
 
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> _autoTriggers = new();
@@ -69,92 +68,58 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
 
     [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> _values = new();
 
-    public CustomScenario()
-    {
+    public CustomScenario() {
         PropertyChanged += CustomScenarioPropertyChangedEventHandler;
-        Nodes.CollectionChanged += (e, s) =>
-        {
-            if (s.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
-            {
-                if (e is IEnumerable<ScenarioNodeBase> methodNodes)
-                {
-                    foreach (var scenarioMethodNode in methodNodes)
-                    {
+        Nodes.CollectionChanged += (e, s) => {
+            if (s.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add) {
+                if (e is IEnumerable<ScenarioNodeBase> methodNodes) {
+                    foreach (var scenarioMethodNode in methodNodes) {
                         scenarioMethodNode.PropertyChanged += CustomScenarioPropertyChangedEventHandler;
-                        if (scenarioMethodNode is ScenarioMethodNode methodNode)
-                        {
-                            foreach (var connectorItem in methodNode.Input)
-                            {
+                        if (scenarioMethodNode is ScenarioMethodNode methodNode) {
+                            foreach (var connectorItem in methodNode.Input) {
                                 connectorItem.PropertyChanged += CustomScenarioPropertyChangedEventHandler;
-                                connectorItem.InputObjectHandler = ((_, _) =>
-                                {
-                                    WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
-                                    { Type = 0, Name = nameof(e), ConnectorItem = connectorItem,
-                                        ScenarioMethodNode = connectorItem.Source as ScenarioMethodNode, CustomScenario = this });
-
+                                connectorItem.InputObjectHandler = ((_, _) => {
+                                    WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg {
+                                        Type = 0, Name = nameof(e), ConnectorItem = connectorItem,
+                                        ScenarioMethodNode = connectorItem.Source as ScenarioMethodNode,
+                                        CustomScenario = this
+                                    });
                                 });
                                 connectorItem.InputObject.PropertyChanged += connectorItem.InputObjectHandler;
-                                
                             }
                         }
                     }
-
-                   
                 }
             }
-            else if (s.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
-            {
-                if (e is IEnumerable<ScenarioNodeBase> methodNodes)
-                {
-                    foreach (var scenarioMethodNode in methodNodes)
-                    {
+            else if (s.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove) {
+                if (e is IEnumerable<ScenarioNodeBase> methodNodes) {
+                    foreach (var scenarioMethodNode in methodNodes) {
                         scenarioMethodNode.PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
-                        if (scenarioMethodNode is ScenarioMethodNode methodNode)
-                        {
-                            foreach (var connectorItem in methodNode.Input)
-                            {
+                        if (scenarioMethodNode is ScenarioMethodNode methodNode) {
+                            foreach (var connectorItem in methodNode.Input) {
                                 connectorItem.PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
-                                if (connectorItem.InputObjectHandler != null)
-                                {
+                                if (connectorItem.InputObjectHandler != null) {
                                     connectorItem.InputObject.PropertyChanged -= connectorItem.InputObjectHandler;
                                     connectorItem.InputObjectHandler = null;
                                 }
                             }
                         }
                     }
-
-                   
                 }
             }
 
             WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
                 { Type = 0, Name = nameof(Nodes), CustomScenario = this });
         };
-        _runHotKey = new HotKeyModel
-        {
-            MainName = "Kitopia情景", Name = $"{Uuid}_开始快捷键", IsSelectCtrl = false, IsSelectAlt = false,
-            IsSelectWin = false,
-            IsSelectShift = false, SelectKey = EKey.未设置
-        };
+        
 
-        _stopHotKey = new HotKeyModel
-        {
-            MainName = "Kitopia情景", Name = $"{Uuid}_停止快捷键", IsSelectCtrl = false, IsSelectAlt = false,
-            IsSelectWin = false,
-            IsSelectShift = false, SelectKey = EKey.未设置
-        };
-        InitHotKey();
-
-        WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey", (_, message) =>
-        {
-            if (_stopHotKey.UUID == message)
-            {
+        WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey", (_, message) => {
+            if (_stopHotKey.UUID == message) {
                 _stopHotKey = ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(message).Value;
                 CustomScenarioManger.Save(this);
             }
 
-            if (_runHotKey.UUID == message)
-            {
+            if (_runHotKey.UUID == message) {
                 _runHotKey = ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(message).Value;
                 CustomScenarioManger.Save(this);
             }
@@ -170,14 +135,12 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
     public ObservableCollection<ConnectionItem> Connections { get; set; } = new();
     public event EventHandler Saved;
 
-    internal void NotifySaved()
-    {
+    internal void NotifySaved() {
         Saved?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]
-    private void InitHotKeyUiCommand(HotKeyModel? hotKeyModel)
-    {
+    private void InitHotKeyUiCommand(HotKeyModel? hotKeyModel) {
         if (hotKeyModel == null) return;
         if (hotKeyModel.Value.UUID == RunHotKey.UUID)
             ServiceManager.Services.GetService<IHotKetImpl>()!.Register(hotKeyModel.Value, e => Run(), false);
@@ -186,67 +149,80 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
             ServiceManager.Services.GetService<IHotKetImpl>()!.Register(hotKeyModel.Value, e => Stop(), false);
     }
 
-    public void InitHotKey()
-    {
+    public void InitHotKey() {
+        if (RunHotKey == default) {
+            RunHotKey = new HotKeyModel {
+                MainName = "Kitopia情景", Name = $"{Uuid}_开始快捷键", IsSelectCtrl = false, IsSelectAlt = false,
+                IsSelectWin = false,
+                IsSelectShift = false, SelectKey = EKey.未设置
+            };
+        }
+        if (StopHotKey == default) {
+            StopHotKey = new HotKeyModel {
+                MainName = "Kitopia情景", Name = $"{Uuid}_停止快捷键", IsSelectCtrl = false, IsSelectAlt = false,
+                IsSelectWin = false,
+                IsSelectShift = false, SelectKey = EKey.未设置
+            };
+        }
         if (RunHotKey.IsEnabled)
-            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(RunHotKey, e => Run()))
-                ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
-                {
-                    Title = $"快捷键{RunHotKey.SignName}设置失败",
+            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(RunHotKey, e => Run())) {
+                _runHotKey.IsEnabled = false;
+                ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent {
+                    Title = $"快捷键{RunHotKey.Name}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
-                    CloseButtonText = "关闭"
+                    CloseButtonText = "关闭",
+                    PrimaryButtonText = "重新设置",
+                    PrimaryAction = (() => {
+                        ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(RunHotKey.UUID);
+                    })
                 }.ToToastRequest());
+            }
 
         if (StopHotKey.IsEnabled)
-            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(StopHotKey, e => Stop()))
-                ServiceManager.Services.GetService<IToastService>().Show(new DialogContent
-                {
-                    Title = $"快捷键{StopHotKey.SignName}设置失败",
+            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(StopHotKey, e => Stop())) {
+                _stopHotKey.IsEnabled = false;
+                ServiceManager.Services.GetService<IToastService>().Show(new DialogContent {
+                    Title = $"快捷键{StopHotKey.Name}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
-                    CloseButtonText = "关闭"
+                    CloseButtonText = "关闭",
+                    PrimaryButtonText = "重新设置",
+                    PrimaryAction = (() => {
+                        ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(StopHotKey.UUID);
+                    })
                 }.ToToastRequest());
+            }
     }
 
-    public void UnRegisterHotKey()
-    {
+    public void UnRegisterHotKey() {
         ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(RunHotKey.UUID);
         ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(StopHotKey.UUID);
     }
 
 
-    private void CustomScenarioPropertyChangedEventHandler(object? s, PropertyChangedEventArgs e)
-    {
+    private void CustomScenarioPropertyChangedEventHandler(object? s, PropertyChangedEventArgs e) {
         if (e.PropertyName == nameof(IsRunning)) return;
-        if (s is CustomScenario)
-        {
+        if (s is CustomScenario) {
             WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
                 { Type = 1, Name = nameof(e), CustomScenario = this });
         }
-        else if (s is ScenarioMethodNode methodNode)
-        {
+        else if (s is ScenarioMethodNode methodNode) {
             WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
                 { Type = 0, Name = nameof(e), ScenarioMethodNode = methodNode, CustomScenario = this });
         }
-        else if (s is ConnectorItem connectorItem)
-        {
-            WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
-            { Type = 0, Name = nameof(e), ConnectorItem = connectorItem,
-                ScenarioMethodNode = connectorItem.Source as ScenarioMethodNode, CustomScenario = this });
+        else if (s is ConnectorItem connectorItem) {
+            WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg {
+                Type = 0, Name = nameof(e), ConnectorItem = connectorItem,
+                ScenarioMethodNode = connectorItem.Source as ScenarioMethodNode, CustomScenario = this
+            });
         }
-        
-        
     }
 
-    public void Dispose()
-    {
-        try
-        {
+    public void Dispose() {
+        try {
             _cancellationTokenSource.Cancel();
             _cancellationTokenSource.Dispose();
         }
-        catch (Exception e)
-        {
-        }
+        catch (Exception e) { }
 
         _tickTasks = null;
         _initTasks = null;
@@ -254,14 +230,12 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
         //Log.Debug(Name + " Dispose");
     }
 
-    partial void OnTickIntervalSecondChanged(double? oldValue)
-    {
+    partial void OnTickIntervalSecondChanged(double? oldValue) {
         if (oldValue is null) TickIntervalSecond = 0.1;
     }
 
 
-    public void Run(bool realTime = false, bool onExit = false, params object[] inputValues)
-    {
+    public void Run(bool realTime = false, bool onExit = false, params object[] inputValues) {
         if (IsHaveInputValue)
             if (inputValues.Length != InputValue.Count)
                 return;
@@ -269,16 +243,14 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
         StartRun(!realTime, onExit, inputValues);
     }
 
-    private void StartRun(bool notRealTime, bool onExit = false, params object[] inputValues)
-    {
+    private void StartRun(bool notRealTime, bool onExit = false, params object[] inputValues) {
         if (IsRunning || !HasInit) return;
 
         _cancellationTokenSource.Cancel();
         _cancellationTokenSource.Dispose();
         _cancellationTokenSource = new CancellationTokenSource();
 
-        if (notRealTime)
-        {
+        if (notRealTime) {
             IsRunning = true;
             LastRun = DateTime.Now;
             CustomScenarioManger.Save(this);
@@ -291,8 +263,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
 
         _initTasks.Clear();
         _tickTasks.Clear();
-        if (notRealTime)
-        {
+        if (notRealTime) {
             foreach (var pointItem in Nodes) pointItem.ResetData();
         }
 
@@ -300,26 +271,21 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
             if (!Nodes[i].IsUsed(Connections))
                 Nodes[i].Status = NodeStatus.Unverified;
 
-        try
-        {
+        try {
             //_initTasks.Add( nodes[0], null);
             ParsePointItem(_initTasks, Nodes[0], false, notRealTime, _cancellationTokenSource.Token);
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             Console.WriteLine(e);
         }
 
         //监听任务是否结束
         if (notRealTime)
-            new Task(() =>
-            {
-                while (true)
-                {
+            new Task(() => {
+                while (true) {
                     Thread.Sleep(100);
                     var f = true;
-                    foreach (var (_, value) in _initTasks)
-                    {
+                    foreach (var (_, value) in _initTasks) {
                         if (value is null) continue;
 
                         if (!value.IsAlive) continue;
@@ -335,8 +301,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
                     if (_cancellationTokenSource.IsCancellationRequested) return;
 
                     var connectionItem = Nodes[1].GetForwardNodes(Connections);
-                    if (!connectionItem.Any() || onExit)
-                    {
+                    if (!connectionItem.Any() || onExit) {
                         //当没有tick时直接结束
                         if (notRealTime) _cancellationTokenSource.Cancel();
 
@@ -350,13 +315,11 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
                     ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
                         $"情景\'{Name}\'进入Tick");
                     Logger.Debug($"情景进入Tick:{Name}");
-                    try
-                    {
+                    try {
                         _tickUtil = new TickUtil(1000, (uint)(_tickIntervalSecond * 1000 * 1000), 1, TickMethod);
                         _tickUtil.Open();
                     }
-                    catch (Exception e)
-                    {
+                    catch (Exception e) {
                         Console.WriteLine(e);
                     }
 
@@ -365,17 +328,14 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
             }).Start();
     }
 
-    private void TickMethod(object sender, long jumpPeriod, long interval)
-    {
+    private void TickMethod(object sender, long jumpPeriod, long interval) {
         if (_inTick) return;
 
         var nowPointItem = Nodes[1];
         ParsePointItem(_tickTasks, nowPointItem, false, true, _cancellationTokenSource.Token);
 
-        while (true)
-        {
-            if (_cancellationTokenSource.Token.IsCancellationRequested)
-            {
+        while (true) {
+            if (_cancellationTokenSource.Token.IsCancellationRequested) {
                 _inTick = false;
                 _tickUtil.Dispose();
                 break;
@@ -383,8 +343,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
 
             Thread.Sleep(100);
             var f = true;
-            foreach (var (_, value) in _tickTasks)
-            {
+            foreach (var (_, value) in _tickTasks) {
                 if (value is null) continue;
 
                 if (!value.IsAlive) continue;
@@ -402,23 +361,19 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
         }
     }
 
-    public void Stop(bool inTickError = false)
-    {
+    public void Stop(bool inTickError = false) {
         if (!IsRunning) return;
 
 
-        try
-        {
+        try {
             _tickUtil?.Dispose();
             _cancellationTokenSource.Cancel();
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             Console.WriteLine(e);
         }
 
-        if (!inTickError)
-        {
+        if (!inTickError) {
             foreach (var task in _initTasks) task.Value?.Join();
 
             foreach (var task in _tickTasks) task.Value?.Join();
@@ -428,14 +383,12 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
         _initTasks.Clear();
         _tickTasks.Clear();
         IsRunning = false;
-        if (inTickError)
-        {
+        if (inTickError) {
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!)
                 .Show("情景", $"情景\'{Name}\'由于出现错误被停止");
             Logger.Debug($"情景\'{Name}\'由于出现错误被停止");
         }
-        else
-        {
+        else {
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!)
                 .Show("情景", $"情景\'{Name}\'被用户停止");
             Logger.Debug($"情景\'{Name}\'被用户停止");
@@ -446,24 +399,19 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
     private void ParsePointItem(Dictionary<ScenarioNodeBase, Thread?> threads,
         ScenarioNodeBase nowScenarioMethodNode, bool onlyBackward,
         bool notRealTime,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         Logger.Debug($"解析节点:{nowScenarioMethodNode.Title}");
         var valid = true;
         List<Thread> sourceDataTask = new();
         valid = nowScenarioMethodNode.InputDataIsEnough(Connections);
         if (!valid) goto finnish;
         foreach (var sourceSource in nowScenarioMethodNode.GetBackwardNodes(Connections))
-            lock (threads)
-            {
-                if (threads.TryGetValue(sourceSource, out var task1))
-                {
+            lock (threads) {
+                if (threads.TryGetValue(sourceSource, out var task1)) {
                     if (task1 is not null) sourceDataTask.Add(task1);
                 }
-                else
-                {
-                    var task = new Thread(() =>
-                    {
+                else {
+                    var task = new Thread(() => {
                         ParsePointItem(threads, sourceSource, true, notRealTime, cancellationToken);
                     });
 
@@ -490,25 +438,21 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
 
 
         if (notRealTime)
-            try
-            {
+            try {
                 Logger.Debug($"执行节点:{nowScenarioMethodNode.Title}");
                 var invoke =
                     nowScenarioMethodNode.Invoke(cancellationToken, Connections, Values, TempValue, InputValue);
-                if (!invoke)
-                {
+                if (!invoke) {
                     //如果执行失败
                     valid = false;
                     nowScenarioMethodNode.Status = NodeStatus.Error;
                     Logger.Debug($"执行节点失败:{nowScenarioMethodNode.Title}");
                 }
-                else
-                {
+                else {
                     Logger.Debug($"执行节点完成:{nowScenarioMethodNode.Title}");
                 }
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 Logger.Error(e, "错误");
                 ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
                     e.InnerException is not null
@@ -523,25 +467,21 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
 
         if (cancellationToken.IsCancellationRequested) return;
         finnish:
-        if (valid)
-        {
+        if (valid) {
             nowScenarioMethodNode.Status = notRealTime ? NodeStatus.Verified : NodeStatus.PreliminaryVerified;
             Logger.Debug($"解析节点完成:{nowScenarioMethodNode.Title}");
         }
-        else
-        {
+        else {
             nowScenarioMethodNode.Status = NodeStatus.Error;
             Logger.Debug($"解析节点失败:{nowScenarioMethodNode.Title}");
         }
 
         if (!onlyBackward)
             foreach (var nextPointItem in nowScenarioMethodNode.GetForwardNodes(Connections))
-                lock (threads)
-                {
+                lock (threads) {
                     if (threads.ContainsKey(nextPointItem)) return;
 
-                    var task = new Thread(() =>
-                    {
+                    var task = new Thread(() => {
                         ParsePointItem(threads, nextPointItem, false, notRealTime, cancellationToken);
                     });
 
@@ -550,8 +490,7 @@ public partial class CustomScenario : ObservableRecipient,IDisposable
                 }
     }
 
-    public bool IsUseThePlugin(string plugStr)
-    {
+    public bool IsUseThePlugin(string plugStr) {
         var pluginManger = ServiceManager.Services.GetService<IPluginManger>()!;
 
         return Nodes.Any(e => e.IsUseThePlugin(plugStr)) ||
