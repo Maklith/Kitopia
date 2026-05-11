@@ -17,8 +17,9 @@ public partial class HotKeyManagerPageViewModel : ObservableObject
     {
         KeyModels = new ObservableCollection<HotKeyModel>(ServiceManager.Services.GetService<IHotKetImpl>()!.GetAllRegistered());
         WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey",
-            (recipient, message) =>
+            (_, _) =>
             {
+                
                 KeyModels = new ObservableCollection<HotKeyModel>(ServiceManager.Services.GetService<IHotKetImpl>()!.GetAllRegistered());
             });
     }

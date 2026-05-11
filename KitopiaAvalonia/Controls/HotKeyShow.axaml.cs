@@ -3,6 +3,7 @@ using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.LogicalTree;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.Services.Config;
@@ -32,13 +33,8 @@ public class HotKeyShow : TemplatedControl
         Shift = 0100
     }
 
-    public static readonly StyledProperty<HotKeyModel> HotKeyModelProperty =
-        AvaloniaProperty.Register<HotKeyShow, HotKeyModel>(nameof(HotKeyModel), coerce: (o, s) =>
-        {
-            if (s.UUID is not null) HotKeyModelChanged(s, (HotKeyShow)o);
-
-            return s;
-        });
+    public static readonly StyledProperty<HotKeyModel?> HotKeyModelProperty =
+        AvaloniaProperty.Register<HotKeyShow, HotKeyModel?>(nameof(HotKeyModel));
 
     public static readonly StyledProperty<KeyTypeE> KeyTypeProperty =
         AvaloniaProperty.Register<HotKeyShow, KeyTypeE>(nameof(KeyType));
@@ -65,19 +61,48 @@ public class HotKeyShow : TemplatedControl
         set => SetValue(IsActivatedProperty, value);
     }
 
-    private HotKeyShow Default;
+    static HotKeyShow()
+    {
+        HotKeyModelProperty.Changed.AddClassHandler<HotKeyShow>((control, args) =>
+        {
+            if (args.OldValue is HotKeyModel oldModel)
+            {
+                oldModel.PropertyChanged -= control.OnHotKeyModelPropertyChanged;
+            }
+
+            if (args.NewValue is HotKeyModel newModel)
+            {
+                newModel.PropertyChanged += control.OnHotKeyModelPropertyChanged;
+                HotKeyModelChanged(newModel, control);
+            }
+
+            
+        });
+    }
 
     public HotKeyShow()
     {
-        Default = this;
-        WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey", (_, s) =>
-        {
-            if (!HotKeyModel.HasValue) return;
-
-            if (s == HotKeyModel.Value.UUID) HotKeyModelChanged(ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(s), this);
-        });
         SetValue(RemoveHotKeyProperty, new RelayCommand(Remove));
         SetValue(EditHotKeyProperty, new RelayCommand(Edit));
+        
+    }
+
+    private void OnHotKeyModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is HotKeyModel hotKeyModel)
+        {
+            HotKeyModelChanged(hotKeyModel, this);
+        }
+    }
+
+    protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        if (HotKeyModel is not null)
+        {
+            HotKeyModel.PropertyChanged -= OnHotKeyModelPropertyChanged;
+        }
+
+        base.OnDetachedFromLogicalTree(e);
     }
 
 
@@ -138,7 +163,7 @@ public class HotKeyShow : TemplatedControl
             return;
         }
 
-        var hotKeyModel = hotKeyModelN.Value;
+        var hotKeyModel = hotKeyModelN;
         if (hotKeyModel.Type == HotKeyType.Mouse)
         {
             hotKeyShow.IsActivated = ServiceManager.Services.GetService<IHotKetImpl>()!.IsActive(hotKeyModel.UUID);
@@ -176,7 +201,7 @@ public class HotKeyShow : TemplatedControl
         if (HotKeyModel != null)
         {
             IsActivated = false;
-            ServiceManager.Services.GetService<IHotKetImpl>()!.UnRegister(HotKeyModel.Value.UUID);
+            ServiceManager.Services.GetService<IHotKetImpl>()!.UnRegister(HotKeyModel.UUID);
         }
     }
 
@@ -185,25 +210,25 @@ public class HotKeyShow : TemplatedControl
     {
         if (HotKeyModel is null) return;
 
-        if (ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(HotKeyModel.Value.UUID) is null)
+        if (ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(HotKeyModel.UUID) is null)
         {
             InitHotKey.Execute(HotKeyModel);
-            ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.Value.UUID);
+            ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.UUID);
             return;
         }
 
 
         if (!IsActivated)
         {
-            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Modify(HotKeyModel.Value))
+            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Modify(HotKeyModel))
             {
                 ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
                 {
-                    Title = $"快捷键{HotKeyModel.Value.SignName}设置失败",
+                    Title = $"快捷键{HotKeyModel.SignName}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
                     CloseButtonText = "关闭"
                 }.ToToastRequest());
-                ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.Value.UUID);
+                ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.UUID);
                 ConfigManger.Save();
                 return;
             }
@@ -212,7 +237,7 @@ public class HotKeyShow : TemplatedControl
         }
         else
         {
-            ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.Value.UUID);
+            ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.UUID);
             ConfigManger.Save();
         }
     }

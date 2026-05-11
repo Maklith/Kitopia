@@ -58,9 +58,9 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> _keys = new();
 
     //ActiveHotKey
-    [JsonIgnore] [ObservableProperty] private HotKeyModel _runHotKey;
+    [JsonIgnore] [ObservableProperty] private HotKeyModel? _runHotKey;
 
-    [JsonIgnore] [ObservableProperty] private HotKeyModel _stopHotKey;
+    [JsonIgnore] [ObservableProperty] private HotKeyModel? _stopHotKey;
     [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> _tempValue = new();
 
 
@@ -115,12 +115,12 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
 
         WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey", (_, message) => {
             if (_stopHotKey.UUID == message) {
-                _stopHotKey = ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(message).Value;
+                _stopHotKey = ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(message);
                 CustomScenarioManger.Save(this);
             }
 
             if (_runHotKey.UUID == message) {
-                _runHotKey = ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(message).Value;
+                _runHotKey = ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(message);
                 CustomScenarioManger.Save(this);
             }
         });
@@ -142,31 +142,27 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
     [RelayCommand]
     private void InitHotKeyUiCommand(HotKeyModel? hotKeyModel) {
         if (hotKeyModel == null) return;
-        if (hotKeyModel.Value.UUID == RunHotKey.UUID)
-            ServiceManager.Services.GetService<IHotKetImpl>()!.Register(hotKeyModel.Value, e => Run(), false);
+        if (hotKeyModel.UUID == RunHotKey.UUID)
+            ServiceManager.Services.GetService<IHotKetImpl>()!.Register(hotKeyModel, _ => Run(), false);
 
-        if (hotKeyModel.Value.UUID == StopHotKey.UUID)
-            ServiceManager.Services.GetService<IHotKetImpl>()!.Register(hotKeyModel.Value, e => Stop(), false);
+        if (hotKeyModel.UUID == StopHotKey.UUID)
+            ServiceManager.Services.GetService<IHotKetImpl>()!.Register(hotKeyModel, _ => Stop(), false);
     }
 
     public void InitHotKey() {
-        if (RunHotKey == default) {
-            RunHotKey = new HotKeyModel {
-                MainName = "Kitopia情景", Name = $"{Uuid}_开始快捷键", IsSelectCtrl = false, IsSelectAlt = false,
-                IsSelectWin = false,
-                IsSelectShift = false, SelectKey = EKey.未设置
-            };
-        }
-        if (StopHotKey == default) {
-            StopHotKey = new HotKeyModel {
-                MainName = "Kitopia情景", Name = $"{Uuid}_停止快捷键", IsSelectCtrl = false, IsSelectAlt = false,
-                IsSelectWin = false,
-                IsSelectShift = false, SelectKey = EKey.未设置
-            };
-        }
+        RunHotKey ??= new HotKeyModel {
+            MainName = "Kitopia情景", Name = $"{Uuid}_开始快捷键", IsSelectCtrl = false, IsSelectAlt = false,
+            IsSelectWin = false,
+            IsSelectShift = false, SelectKey = EKey.未设置
+        };
+        StopHotKey ??= new HotKeyModel {
+            MainName = "Kitopia情景", Name = $"{Uuid}_停止快捷键", IsSelectCtrl = false, IsSelectAlt = false,
+            IsSelectWin = false,
+            IsSelectShift = false, SelectKey = EKey.未设置
+        };
         if (RunHotKey.IsEnabled)
-            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(RunHotKey, e => Run())) {
-                _runHotKey.IsEnabled = false;
+            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(RunHotKey, _ => Run())) {
+                
                 ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent {
                     Title = $"快捷键{RunHotKey.Name}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
@@ -179,9 +175,9 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
             }
 
         if (StopHotKey.IsEnabled)
-            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(StopHotKey, e => Stop())) {
-                _stopHotKey.IsEnabled = false;
-                ServiceManager.Services.GetService<IToastService>().Show(new DialogContent {
+            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(StopHotKey, _ => Stop())) {
+                
+                ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent {
                     Title = $"快捷键{StopHotKey.Name}设置失败",
                     Content = "请重新设置快捷键，按键与系统其他程序冲突",
                     CloseButtonText = "关闭",
@@ -194,8 +190,13 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
     }
 
     public void UnRegisterHotKey() {
-        ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(RunHotKey.UUID);
-        ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(StopHotKey.UUID);
+        if (RunHotKey != null) {
+            ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(RunHotKey.UUID);
+           
+        }
+        if (StopHotKey != null) {
+            ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(StopHotKey.UUID);
+        }
     }
 
 

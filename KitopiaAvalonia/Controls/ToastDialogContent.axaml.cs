@@ -1,8 +1,6 @@
-using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Irihi.Avalonia.Shared.Contracts;
-using Ursa.Controls;
 
 namespace KitopiaAvalonia.Controls;
 

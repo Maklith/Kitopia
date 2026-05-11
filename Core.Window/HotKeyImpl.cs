@@ -205,7 +205,7 @@ public class HotKeyImpl : IHotKetImpl
         return false;
     }
 
-    public bool Del(HotKeyModel hotKeyModel)
+    public bool UnRegister(HotKeyModel hotKeyModel)
     {
         return UnRegister(hotKeyModel.UUID);
     }

@@ -16,7 +16,7 @@ public class SearchItemShow : Button
         AvaloniaProperty.Register<SearchItemShow, SearchViewItem>(nameof(SearchViewItem));
 
     public static readonly AvaloniaProperty IsSelectedProperty =
-        AvaloniaProperty.Register<SearchItemShow, bool>(nameof(IsSelected), false);
+        AvaloniaProperty.Register<SearchItemShow, bool>(nameof(IsSelected));
 
 
     public static readonly StyledProperty<string> OnlyKeyProperty =
