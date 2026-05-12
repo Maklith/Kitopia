@@ -1,20 +1,18 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Globalization;
-using Avalonia.Controls;
 using Avalonia.Controls.Documents;
-using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 using PluginCore;
 
 namespace KitopiaAvalonia.Converter.SearchWindow;
 
-public class ItemNameMatchCtr : IValueConverter
+public class ItemNameMatchCtr : IMultiValueConverter
 {
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
     {
-        var searchViewItem =
-            ((Control)((Binding)parameter).DefaultAnchor.Target).DataContext as SearchViewItem;
+        var searchViewItem = values.Count > 1 ? values[1] as SearchViewItem : null;
         if (searchViewItem is not SearchViewItem str) return new InlineCollection();
 
         InlineCollection list = new();

@@ -20,7 +20,7 @@ public static class ControlHelper
             return false;
 
         // 获取控件的边界框（相对于根容器的坐标）。
-        var controlBounds = visual.Bounds.TransformToAABB(visual.TransformToVisual((Visual)visual.GetVisualRoot()).Value);
+        var controlBounds = visual.Bounds.TransformToAABB(visual.TransformToVisual((Visual)visual.GetPresentationSource().RootVisual).Value);
 
         return bounds.Intersects(controlBounds);
     }
@@ -41,7 +41,7 @@ public static class ControlHelper
             if (visual is Control control)
             {
                 // 获取控件的边界框（相对于根容器的坐标）。
-                var controlBounds = control.Bounds.TransformToAABB(control.TransformToVisual((Visual)visual.GetVisualRoot()).Value);
+                var controlBounds = control.Bounds.TransformToAABB(control.TransformToVisual((Visual)visual.GetPresentationSource().RootVisual).Value);
 
                 if (bounds.Intersects(controlBounds))
                 {

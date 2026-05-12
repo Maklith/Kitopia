@@ -42,13 +42,13 @@
         </Content>
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="PeNet" Version="5.1.0"/>
-        <PackageReference Include="Vanara.Core" Version="5.0.0" />
-        <PackageReference Include="Vanara.PInvoke.FirewallApi" Version="5.0.0" />
-        <PackageReference Include="Vanara.PInvoke.NetApi32" Version="5.0.0" />
-        <PackageReference Include="Vanara.PInvoke.NetListMgr" Version="5.0.0" />
-        <PackageReference Include="Vanara.PInvoke.SHCore" Version="5.0.0" />
-        <PackageReference Include="Vanara.Windows.Shell" Version="5.0.0" />
+        <PackageReference Include="PeNet" Version="6.1.2" />
+        <PackageReference Include="Vanara.Core" Version="5.0.4" />
+        <PackageReference Include="Vanara.PInvoke.FirewallApi" Version="5.0.4" />
+        <PackageReference Include="Vanara.PInvoke.NetApi32" Version="5.0.4" />
+        <PackageReference Include="Vanara.PInvoke.NetListMgr" Version="5.0.4" />
+        <PackageReference Include="Vanara.PInvoke.SHCore" Version="5.0.4" />
+        <PackageReference Include="Vanara.Windows.Shell" Version="5.0.4" />
     </ItemGroup>
     <ItemGroup>
       <Compile Update="TopMostBorderWindow.axaml.cs">

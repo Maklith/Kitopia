@@ -3,7 +3,6 @@ using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Data.Converters;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using Core.CustomScenario;
 
 namespace KitopiaAvalonia.Converter.TaskEditor;
@@ -14,12 +13,11 @@ public class ScenarioMethodCategoryGroupCtr : IValueConverter
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (parameter is CompiledBindingExtension compiledBindingExtension)
-            if (compiledBindingExtension.DefaultAnchor.Target is Control control)
-            {
-                control.TryGetResource("ScenarioMethodNode", null, out var dataTemplate);
-                DataTemplate = dataTemplate as IDataTemplate;
-            }
+        if (parameter is Control control)
+        {
+            control.TryGetResource("ScenarioMethodNode", null, out var dataTemplate);
+            DataTemplate = dataTemplate as IDataTemplate;
+        }
 
         var expander = new Expander();
 

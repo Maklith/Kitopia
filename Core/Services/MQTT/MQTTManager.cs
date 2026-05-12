@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text;
 using Avalonia;
 using Avalonia.Controls;
@@ -9,7 +10,6 @@ using Core.Services.Plugin;
 using Core.Utils;
 using Core.ViewModel.Windows;
 using MQTTnet;
-using MQTTnet.Client;
 using MQTTnet.Protocol;
 using MQTTnet.Server;
 using Newtonsoft.Json.Linq;
@@ -41,7 +41,7 @@ public class MqttManager
     /// <returns>异步任务 / Asynchronous task. Returns true if startup args were sent to another instance.</returns>
     public static async Task<bool> Init(string[] args)
     {
-        var mqttFactory = new MqttFactory();
+        var mqttClientFactoryFactory = new MqttClientFactory();
         var portFilePath = KitopiaPaths.PortFilePath;
         if (File.Exists(portFilePath))
             try
@@ -60,7 +60,7 @@ public class MqttManager
                     var options = new MqttClientOptionsBuilder()
                         .WithTcpServer("localhost", i) // 指定MQTT代理服务器的地址和端口
                         .Build();
-                    var mqttClient = mqttFactory.CreateMqttClient();
+                    var mqttClient = mqttClientFactoryFactory.CreateMqttClient();
                     var mqttClientConnectResult = await mqttClient.ConnectAsync(options);
                     if (mqttClientConnectResult.ResultCode == MqttClientConnectResultCode.Success)
                     {
@@ -71,7 +71,7 @@ public class MqttManager
 
                         await mqttClient.PublishAsync(new MqttApplicationMessage
                         {
-                            Topic = "test", Payload = Encoding.UTF8.GetBytes(jObject.ToString()),
+                            Topic = "test", Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(jObject.ToString())),
                             QualityOfServiceLevel = MqttQualityOfServiceLevel.ExactlyOnce
                         });
                         
@@ -83,9 +83,10 @@ public class MqttManager
 
         var nowPort = 6600;
         restart:
-        var mqttServerOptions = mqttFactory.CreateServerOptionsBuilder()
+        MqttServerFactory mqttServerFactory = new MqttServerFactory();
+        var mqttServerOptions = mqttServerFactory.CreateServerOptionsBuilder()
             .WithDefaultEndpoint().WithDefaultEndpointPort(nowPort).Build();
-        Server = mqttFactory.CreateMqttServer(mqttServerOptions);
+        Server = mqttServerFactory.CreateMqttServer(mqttServerOptions);
         Server.ClientConnectedAsync += Server_ClientConnectedAsync;
         Server.ClientDisconnectedAsync += Server_ClientDisconnectedAsync;
         Server.InterceptingPublishAsync += Server_InterceptingPublishAsync;

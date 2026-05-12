@@ -39,11 +39,7 @@ public class TextCaptureTool : CaptureToolBase
         base.OnAttachedToVisualTree(e);
         TextProperty.Changed.Subscribe(TextChange);
     }
-
-    protected override void OnLostFocus(RoutedEventArgs e)
-    {
-        base.OnLostFocus(e);
-    }
+    
 
     private void TextChange(AvaloniaPropertyChangedEventArgs<string> e)
     {

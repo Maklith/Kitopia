@@ -240,9 +240,8 @@ public partial class SettingPage : UserControl
                         };
                         textBox.SetValue(ToolTip.TipProperty, binding);
                         textBox.SetValue(ToolTip.PlacementProperty, PlacementMode.Center);
-                        disposables.Add(textBox.Bind(TextBlock.TextProperty, binding,
-                            BindingPriority.StyleTrigger));
-
+                        
+                        disposables.Add(textBox.Bind(TextBlock.TextProperty, binding));
                         disposables.Add(
                             slider.GetObservable(Slider.ValueProperty)
                                 .Subscribe((d) =>

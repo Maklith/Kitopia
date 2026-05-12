@@ -116,8 +116,14 @@
                                             CommandParameter="{Binding $self}">
                                         <Image HorizontalAlignment="Left" Focusable="False"
                                                Width="48"
-                                               Height="48" ZIndex="1"
-                                               Source="{Binding Scenario.Icon, Converter={StaticResource PathToImageConverter}, ConverterParameter={Binding Scenario}}" />
+                                               Height="48" ZIndex="1">
+                                            <Image.Source>
+                                                <MultiBinding Converter="{StaticResource PathToImageConverter}">
+                                                    <Binding Path="Scenario.Icon" />
+                                                    <Binding Path="Scenario" />
+                                                </MultiBinding>
+                                            </Image.Source>
+                                        </Image>
 
                                     </Button>
                                 </settingsExpander:SettingsExpander.Footer>

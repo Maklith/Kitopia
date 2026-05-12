@@ -65,8 +65,7 @@ public partial class TaskEditor : UrsaWindow
 
     private void NodifyEditor_Drop(object sender, DragEventArgs e)
     {
-        //throw new System.NotImplementedException();
-        if (e.Data.Get("KitopiaPointItem") is ScenarioMethodNode fromListNode)
+        if (TaskEditorViewModel.CurrentDragPayload is ScenarioMethodNode fromListNode)
         {
             var command = add.Command;
             if (command != null &&

@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Core.JsonConverter;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
+using NodifyM.Avalonia.ViewModelBase;
 using PluginCore;
 using PluginCore.CustomScenario;
 using PluginCore.CustomScenario.Attribute.Scenario;
@@ -34,7 +35,7 @@ public enum NodeStatus
 [JsonDerivedType(typeof(ScenarioNodeBase), "base")]
 [JsonDerivedType(typeof(ScenarioMethodNode), "ScenarioMethodNode")]
 [JsonDerivedType(typeof(KnotNodeViewModel), "KnotNode")]
-public partial class ScenarioNodeBase : ObservableRecipient
+public partial class ScenarioNodeBase : ObservableRecipient,INodePosition
 {
     [property: JsonConverter(typeof(PointJsonConverter))]
     [JsonConverter(typeof(PointJsonConverter))]

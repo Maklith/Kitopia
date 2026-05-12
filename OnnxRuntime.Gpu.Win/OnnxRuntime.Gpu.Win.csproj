@@ -27,7 +27,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu.Windows" Version="1.22.0" />
+      <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu.Windows" Version="1.26.0" />
     </ItemGroup>
 
 </Project>

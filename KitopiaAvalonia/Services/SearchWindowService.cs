@@ -6,7 +6,6 @@ using Core.ViewModel.Windows;
 using KitopiaAvalonia.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using PluginCore.SearchWindow.InputDataAnalyzer;
 
 namespace KitopiaAvalonia.Services;
 
@@ -18,10 +17,9 @@ public class SearchWindowService : ISearchWindowService
         {
             var searchWindow = ServiceManager.Services.GetService<SearchWindow>();
             {
-                ServiceManager.Services.GetService<SearchWindowViewModel>()!.LoadLast();
-                ServiceManager.Services.GetService<SearchWindowViewModel>()!.UpdateIndexOnWindowOpen();
-                ServiceManager.Services.GetService<SearchWindowViewModel>()!.ProcessInputData(null,
-                    InputDataAnalyzeTimeFlags.WindowShow);
+                var viewModel = ServiceManager.Services.GetService<SearchWindowViewModel>()!;
+                viewModel.UpdateIndexOnWindowOpen();
+                viewModel.LoadLast();
 
                 searchWindow.Show();
                 Task.Run(() =>

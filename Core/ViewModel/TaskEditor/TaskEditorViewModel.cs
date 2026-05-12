@@ -27,6 +27,9 @@ namespace Core.ViewModel.TaskEditor;
 
 public partial class TaskEditorViewModel : ObservableRecipient
 {
+    public const string DragDataMarker = "KitopiaPointItem";
+    public static object? CurrentDragPayload { get; private set; }
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCustomScenarioCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveAndQuitCustomScenarioCommand))]
@@ -570,9 +573,13 @@ public partial class TaskEditorViewModel : ObservableRecipient
             {
                 try
                 {
-                    var data = new DataObject();
-                    data.Set("KitopiaPointItem", parentOfType.DataContext);
-                    DragDrop.DoDragDrop(args, data, DragDropEffects.Copy);
+                    CurrentDragPayload = parentOfType.DataContext;
+                    var item = new DataTransferItem();
+                    item.SetText(DragDataMarker);
+                    var data = new DataTransfer();
+                    data.Add(item);
+                    await DragDrop.DoDragDropAsync(args, data, DragDropEffects.Copy);
+                    CurrentDragPayload = null;
                     // var renderTargetBitmap =
                     //     new RenderTargetBitmap(new PixelSize((int)parentOfType.Bounds.Width,
                     //         (int)parentOfType.Bounds.Height));

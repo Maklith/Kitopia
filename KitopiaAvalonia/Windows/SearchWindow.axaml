@@ -25,8 +25,7 @@
         MinHeight="170"
         MaxHeight="492"
         SizeToContent="Height"
-        ExtendClientAreaChromeHints="SystemChrome"
-        SystemDecorations="BorderOnly"
+        WindowDecorations="BorderOnly"
 
         KeyDown="InputElement_OnKeyDown"
         Topmost="True"
@@ -181,8 +180,14 @@
                                         <controls1:FontIcon Width="36" Height="36" FontSize="36"
                                                             FontFamily="{StaticResource FluentFont}"
                                                             Glyph="{Binding IconSymbol, Converter={StaticResource IntToIconSymbol}}" />
-                                        <Image Width="36" Height="36"
-                                               Source="{Binding Icon, Converter={StaticResource PathToImageConverter}, ConverterParameter={Binding .}}" />
+                                        <Image Width="36" Height="36">
+                                            <Image.Source>
+                                                <MultiBinding Converter="{StaticResource PathToImageConverter}">
+                                                    <Binding Path="Icon" />
+                                                    <Binding Path="." />
+                                                </MultiBinding>
+                                            </Image.Source>
+                                        </Image>
                                     </Panel>
                                 </Button>
                             </DataTemplate>
@@ -267,9 +272,14 @@
                                         </Panel>
 
                                         <Image Grid.Column="1" HorizontalAlignment="Left" Focusable="False" Width="48"
-                                               Height="48" ZIndex="1"
-                                               Source="{Binding Icon, Converter={StaticResource PathToImageConverter},
-                                               ConverterParameter={Binding .}}" />
+                                               Height="48" ZIndex="1">
+                                            <Image.Source>
+                                                <MultiBinding Converter="{StaticResource PathToImageConverter}">
+                                                    <Binding Path="Icon" />
+                                                    <Binding Path="." />
+                                                </MultiBinding>
+                                            </Image.Source>
+                                        </Image>
                                         <controls1:FontIcon Height="48" Width="48" FontSize="48" Grid.Column="1"
                                                             FontFamily="{StaticResource FluentFont}"
                                                             Glyph="{Binding IconSymbol,Converter={StaticResource IntToIconSymbol}}" />
@@ -279,12 +289,15 @@
                                                     HorizontalAlignment="Stretch">
                                             <TextBlock VerticalAlignment="Center" Margin="0" Focusable="False"
                                                        FontFamily="HarmonyOS Sans"
-                                                       Inlines="{Binding Path=PinyinItem, 
-                                                                    Converter={StaticResource ItemNameMatchCtr},
-                                                                    ConverterParameter={ReflectionBinding #Item}}"
                                                        Background="{x:Null}"
                                                        Foreground="{DynamicResource SemiColorText0}"
                                                        FontWeight="Normal" FontSize="18">
+                                                <TextBlock.Inlines>
+                                                    <MultiBinding Converter="{StaticResource ItemNameMatchCtr}">
+                                                        <Binding Path="PinyinItem" />
+                                                        <Binding Path="." />
+                                                    </MultiBinding>
+                                                </TextBlock.Inlines>
                                                 <Run />
                                             </TextBlock>
                                             <TextBlock VerticalAlignment="Top" Margin="0"

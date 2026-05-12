@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using PluginCore.CustomScenario.Attribute.Scenario;
 using SharpHook;
+using SharpHook.Data;
 using SharpHook.Native;
 
 namespace KitopiaEx.CustomScenarioMethods;

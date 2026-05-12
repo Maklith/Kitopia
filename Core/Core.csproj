@@ -1,9 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup Condition=" '$(OS)' != 'Windows_NT' ">
-        <TargetFramework>net10.0</TargetFramework>
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net10.0-windows10.0.19041.0</TargetFrameworks>
     </PropertyGroup>
-    <PropertyGroup Condition=" '$(OS)' == 'Windows_NT' ">
-        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <PropertyGroup Condition="$(TargetFramework.Contains('-windows'))">
         <WindowsPackageType>None</WindowsPackageType>
         <EnableMsixTooling>true</EnableMsixTooling>
 
@@ -35,32 +34,33 @@
     </ItemGroup>-->
 
     <ItemGroup>
-        <PackageReference Include="Avalonia.ReactiveUI" Version="11.3.9" />
-        <PackageReference Include="Avalonia" Version="11.3.10" />
-        <PackageReference Include="Avalonia.Desktop" Version="11.3.10" />
+        <PackageReference Include="Avalonia" Version="12.0.3" />
+        <PackageReference Include="Avalonia.Desktop" Version="12.0.3" />
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.3.10" />
-        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
         <PackageReference Include="Markdown.Avalonia" Version="11.0.3-a1"/>
-        <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.2" />
-        <PackageReference Include="Microsoft.Extensions.Resilience" Version="9.2.0"/>
-        <PackageReference Include="MQTTnet" Version="4.3.6.1152"/>
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.3"/>
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.7" />
+        <PackageReference Include="Microsoft.Extensions.Resilience" Version="10.5.0" />
+        <PackageReference Include="MQTTnet" Version="5.1.0.1559" />
+        <PackageReference Include="MQTTnet.Server" Version="5.1.0.1559" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageReference Include="ObservableCollections" Version="3.3.4"/>
-        <PackageReference Include="Polly" Version="8.5.2"/>
+        <PackageReference Include="Polly" Version="8.6.6" />
+        <PackageReference Include="ReactiveUI" Version="20.1.1" />
         <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
         <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0"/>
-        <PackageReference Include="SharpHook" Version="5.3.8"/>
-        <PackageReference Include="SharpHook.Reactive" Version="5.3.8"/>
-        <PackageReference Include="Silk.NET.Direct3D11" Version="2.21.0"/>
-        <PackageReference Include="System.Drawing.Common" Version="9.0.8"/>
-        <PackageReference Include="System.Management" Version="9.0.0-rc.2.24473.5"/>
+        <PackageReference Include="SharpHook" Version="7.1.1" />
+        <PackageReference Include="SharpHook.Reactive" Version="7.1.1" />
+        <PackageReference Include="Silk.NET.Direct3D11" Version="2.23.0" />
+        <PackageReference Include="System.Drawing.Common" Version="10.0.7" />
+        <PackageReference Include="System.Management" Version="10.0.7" />
         <PackageReference Include="System.Runtime.InteropServices" Version="4.3.0"/>
     </ItemGroup>
 
 
     <ItemGroup>
+        <ProjectReference Include="..\NodifyM.Avalonia\NodifyM.Avalonia\NodifyM.Avalonia.csproj" />
         <ProjectReference Include="..\PinyinM.NET\Pinyin.NET\Pinyin.NET.csproj"/>
         <ProjectReference Include="..\PluginCore\PluginCore.csproj"/>
     </ItemGroup>

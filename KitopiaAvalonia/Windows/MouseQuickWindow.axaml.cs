@@ -4,13 +4,15 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Core.Services;
 using Core.ViewModel.Windows;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Serilog;
 using SharpHook;
-using SharpHook.Native;
+using SharpHook.Data;
 using Vanara.PInvoke;
 using MouseQuickWindowViewModel = Core.ViewModel.Windows.MouseQuickWindowViewModel;
 
@@ -56,9 +58,8 @@ public partial class MouseQuickWindow : Window
 
         Position = new PixelPoint(Left, Top);
 
-        string? text = null;
-        if (Clipboard.GetFormatsAsync().GetAwaiter().GetResult().Contains("Text")) 
-            text = Clipboard.GetTextAsync().GetAwaiter().GetResult();
+        var clipboardService = ServiceManager.Services.GetService<IClipboardService>();
+        string? text = clipboardService?.GetText();
 
 
         var eventSimulator = new EventSimulator();
@@ -71,7 +72,7 @@ public partial class MouseQuickWindow : Window
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             Task.Delay(800);
-            var s = Clipboard.GetTextAsync().GetAwaiter().GetResult();
+            var s = clipboardService?.GetText();
             if (s != text)
             {
                 ((MouseQuickWindowViewModel)DataContext).SelectedItem = new SelectedItem
@@ -80,7 +81,7 @@ public partial class MouseQuickWindow : Window
                 Logger.Information(s);
             }
 
-            if (text != null) Clipboard.SetTextAsync(text);
+            if (text != null) clipboardService?.SetText(text);
         });
 
 

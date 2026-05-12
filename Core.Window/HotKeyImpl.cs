@@ -7,7 +7,7 @@ using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using SharpHook;
-using SharpHook.Reactive;
+using SharpHook.Data;
 using Vanara.PInvoke;
 using Timer = System.Timers.Timer;
 
@@ -17,7 +17,7 @@ public class HotKeyImpl : IHotKetImpl
 {
     private static Avalonia.Controls.Window _globalHotKeyWindow = null!;
     private static ObservableDictionary<string, HotkeyInfo> HotKeys { get; set; }= new();
-    private static readonly SimpleReactiveGlobalHook Hook = new(GlobalHookType.Mouse);
+    private static readonly SimpleGlobalHook Hook = new(GlobalHookType.Mouse);
 
     public class HotkeyInfo
     {
@@ -50,14 +50,14 @@ public class HotKeyImpl : IHotKetImpl
     {
         Win32Properties.AddWndProcHookCallback(_globalHotKeyWindow, OnWndProc);
         if (ConfigManger.Config.mouseCapture) {
-            Hook.MousePressed.Subscribe(OnMousePressed);
-            Hook.MouseReleased.Subscribe(OnMouseReleased);
+            Hook.MousePressed += OnMousePressed;
+            Hook.MouseReleased += OnMouseReleased;
             Hook.RunAsync();
         }
         
     }
 
-    private static void OnMousePressed(MouseHookEventArgs e)
+    private static void OnMousePressed(object? sender, MouseHookEventArgs e)
     {
         foreach (var (_, value) in HotKeys)
         {
@@ -85,7 +85,7 @@ public class HotKeyImpl : IHotKetImpl
         }
     }
 
-    private static void OnMouseReleased(MouseHookEventArgs e)
+    private static void OnMouseReleased(object? sender, MouseHookEventArgs e)
     {
         foreach (var (_, value) in HotKeys)
         {

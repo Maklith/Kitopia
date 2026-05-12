@@ -40,8 +40,14 @@
                                       RowDefinitions="84,*,48">
                                     <Image Grid.Column="0" HorizontalAlignment="Center" Margin="0,15,0,0"
                                            VerticalAlignment="Top" Focusable="False" Width="64"
-                                           Source="{Binding Icon,Converter={StaticResource PathToImageConverter},ConverterParameter={Binding .}}"
-                                           Height="64" />
+                                           Height="64">
+                                        <Image.Source>
+                                            <MultiBinding Converter="{StaticResource PathToImageConverter}">
+                                                <Binding Path="Icon" />
+                                                <Binding Path="." />
+                                            </MultiBinding>
+                                        </Image.Source>
+                                    </Image>
                                     <StackPanel Grid.Column="1" Margin="5,15,5,5" VerticalAlignment="Top" Spacing="5"
                                                 HorizontalAlignment="Stretch">
                                         <TextBlock VerticalAlignment="Center" Focusable="False"

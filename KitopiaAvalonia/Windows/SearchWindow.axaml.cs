@@ -19,6 +19,8 @@ namespace KitopiaAvalonia.Windows;
 
 public partial class SearchWindow : Window
 {
+    private INotifyCollectionChanged? _currentItemsSource;
+
     public SearchWindow()
     {
         InitializeComponent();
@@ -27,21 +29,33 @@ public partial class SearchWindow : Window
         #if DEBUG
         Topmost = false;
         #endif
-        dataGrid.PropertyChanged += (sender, args) =>
+        dataGrid.PropertyChanged += DataGridOnPropertyChanged;
+    }
+
+    private void DataGridOnPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != ListBox.ItemsSourceProperty) return;
+
+        if (_currentItemsSource is not null)
+            _currentItemsSource.CollectionChanged -= ItemsSourceOnCollectionChanged;
+
+        _currentItemsSource = e.NewValue is INotifyCollectionChanged collectionChanged
+            ? collectionChanged
+            : null;
+
+        if (_currentItemsSource is not null)
+            _currentItemsSource.CollectionChanged += ItemsSourceOnCollectionChanged;
+    }
+
+    private void ItemsSourceOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action != NotifyCollectionChangedAction.Add) return;
+
+        Dispatcher.UIThread.Post(() =>
         {
-            if (args.Property == ListBox.ItemsSourceProperty)
-                if (args.NewValue is not null)
-                    ((INotifyCollectionChanged)args.NewValue).CollectionChanged += (o, e) =>
-                    {
-                        if (e.Action == NotifyCollectionChangedAction.Add)
-                            Dispatcher.UIThread.Invoke((() =>
-                            {
-                                // 如果是添加新项，自动选中第一项
-                                if (dataGrid.Items.Count > 0)
-                                    dataGrid.SelectedItem = dataGrid.Items[0];
-                            }));
-                    };
-        };
+            if (dataGrid.Items.Count > 0)
+                dataGrid.SelectedItem = dataGrid.Items[0];
+        });
     }
 
     public override void Show()

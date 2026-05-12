@@ -1,10 +1,10 @@
 ﻿#region
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using Core.CustomScenario;
 using Core.Services.Interfaces;
 using Core.ViewModel.TaskEditor;
@@ -15,14 +15,15 @@ using PluginCore;
 
 namespace KitopiaAvalonia.Converter.SearchWindow;
 
-public partial class PathToImageConverter : IValueConverter
+public partial class PathToImageConverter : IMultiValueConverter
 {
-    public object? Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
     {
         //Console.WriteLine("开始获取  "+DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond );
-        if (value is not null) return value;
+        var icon = values.Count > 0 ? values[0] : null;
+        if (icon is not null) return icon;
 
-        var dataContext = ((Control)((CompiledBindingExtension)parameter).DefaultAnchor.Target).DataContext;
+        var dataContext = values.Count > 1 ? values[1] : null;
         if (dataContext is SearchViewItem searchViewItem)
         {
             if (searchViewItem is { Icon: null })
@@ -112,8 +113,6 @@ public partial class PathToImageConverter : IValueConverter
         return null;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        throw new NotImplementedException();
-    }
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
 }

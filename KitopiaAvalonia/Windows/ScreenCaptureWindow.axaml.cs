@@ -159,7 +159,7 @@ public partial class ScreenCaptureWindow : Window
         }
         
         WindowState = WindowState.Normal;
-        SystemDecorations = SystemDecorations.None;
+        WindowDecorations = WindowDecorations.None;
         Background = new SolidColorBrush(Colors.Black);
         ShowInTaskbar = false;
 

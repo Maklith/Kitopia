@@ -73,6 +73,17 @@ public partial class SearchWindowViewModel : ObservableRecipient
     [ObservableProperty] private bool _showPinnedItems;
     [ObservableProperty] private bool _showInputData;
 
+    private static void RunOnUiThread(Action action)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+            return;
+        }
+
+        Dispatcher.UIThread.Post(action);
+    }
+
     public SearchWindowViewModel()
     {
         ItemsView = Items.CreateView(e => e);
@@ -186,14 +197,14 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
 
             var service = ServiceManager.Services.GetService<IEverythingService>()!;
-            EverythingIsOk = service.IsRun();
+            RunOnUiThread(() => { EverythingIsOk = service.IsRun(); });
 
             if (!EverythingIsOk.Value)
                 ServiceManager.Services.GetService<IAppToolService>()!.AutoStartEverything(IndexCollection, () =>
                 {
                     Thread.Sleep(1500);
                     var everythingService = ServiceManager.Services.GetService<IEverythingService>()!;
-                    EverythingIsOk = everythingService.IsRun();
+                    RunOnUiThread(() => { EverythingIsOk = everythingService.IsRun(); });
                 });
         }
     }
@@ -201,6 +212,12 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
     public void LoadLast()
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(LoadLast);
+            return;
+        }
+
         if (!string.IsNullOrEmpty(Search)) return;
 
 
@@ -287,29 +304,38 @@ public partial class SearchWindowViewModel : ObservableRecipient
     private readonly List<SearchViewItem> _lastSearchItems = new();
     public void ProcessInputData(string? value, InputDataAnalyzeTimeFlags nowTimeFlags)
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => ProcessInputData(value, nowTimeFlags));
+            return;
+        }
+
         foreach (var lastSearchItem in _lastSearchItems)
         {
             PinnedItems.Remove(lastSearchItem);
             Items.Remove(lastSearchItem);
         }
         _lastSearchItems.Clear();
+        List<InputData> inputDatas = new List<InputData>();
         
         InputDatas.Clear();
         foreach (var (_, funcs) in PluginOverall.SearchWindowInputDataIdentifies)
         foreach (var func in funcs)
         {
             var inputData = func.Invoke(nowTimeFlags, value);
-            InputDatas.AddRange(inputData);
+            inputDatas.AddRange(inputData);
         }
 
         if (!string.IsNullOrWhiteSpace(value))
-            InputDatas.Add(new InputData
+            inputDatas.Add(new InputData
             {
                 InputType = InputType.文本,
                 Data = value
             });
-
+        
+        InputDatas.AddRange(inputDatas);
         ShowInputData = InputDatas.Count > 0;
+        
         foreach (var (_, funcs) in PluginOverall.SearchWindowInputDataAnalyzers)
         foreach (var func in funcs)
         {
@@ -464,17 +490,19 @@ public partial class SearchWindowViewModel : ObservableRecipient
             }
         }
 
+        Dispatcher.UIThread.Post(() => {
+            FileTypes.Clear();
+            var fileTypes = Items.Select(e => e.FileType).Distinct();
+            foreach (var fileType in fileTypes)
+                FileTypes.Add(new FileTypeFilter
+                {
+                    FileType = fileType,
+                    IsChecked = false
+                });
 
-        FileTypes.Clear();
-        var fileTypes = Items.Select(e => e.FileType).Distinct();
-        foreach (var fileType in fileTypes)
-            FileTypes.Add(new FileTypeFilter
-            {
-                FileType = fileType,
-                IsChecked = false
-            });
-
-        ShowFileTypeFilter = FileTypes.Count > 0;
+            ShowFileTypeFilter = FileTypes.Count > 0;
+        });
+        
     }
     
 

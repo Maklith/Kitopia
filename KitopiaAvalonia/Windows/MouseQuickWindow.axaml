@@ -20,8 +20,7 @@
         ExtendClientAreaToDecorationsHint="True"
         Width="300"
         SizeToContent="Height"
-        ExtendClientAreaChromeHints="SystemChrome"
-        SystemDecorations="BorderOnly"
+        WindowDecorations="BorderOnly"
         Deactivated="WindowBase_OnDeactivated"
         Title="MouseQuickWindow">
     <Window.Resources>
@@ -62,8 +61,14 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <Image HorizontalAlignment="Center" Focusable="False" Width="32"
-                                   Height="32"
-                                   Source="{Binding Icon, Converter={StaticResource PathToImageConverter},ConverterParameter={Binding .}}" />
+                                   Height="32">
+                                <Image.Source>
+                                    <MultiBinding Converter="{StaticResource PathToImageConverter}">
+                                        <Binding Path="Icon" />
+                                        <Binding Path="." />
+                                    </MultiBinding>
+                                </Image.Source>
+                            </Image>
                             <controls:FontIcon Height="48" Width="48" FontSize="48"
                                                FontFamily="{StaticResource FluentFont}"
                                                IsVisible="{Binding IconSymbol,Converter={StaticResource SymbolToVisible}}"

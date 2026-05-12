@@ -27,9 +27,14 @@
 
                         <Grid>
                             <Image HorizontalAlignment="Left" Focusable="False" Width="48"
-                                   Height="48" ZIndex="1"
-
-                                   Source="{Binding  $parent[Button].((pluginCore:SearchViewItem)DataContext).Icon, Converter={StaticResource PathToImageConverter},ConverterParameter={Binding $parent[Button].((pluginCore:SearchViewItem)DataContext)}}" />
+                                   Height="48" ZIndex="1">
+                                <Image.Source>
+                                    <MultiBinding Converter="{StaticResource PathToImageConverter}">
+                                        <Binding Path="$parent[Button].((pluginCore:SearchViewItem)DataContext).Icon" />
+                                        <Binding Path="$parent[Button].((pluginCore:SearchViewItem)DataContext)" />
+                                    </MultiBinding>
+                                </Image.Source>
+                            </Image>
                             <controls:FontIcon Height="48" Width="48"
                                                IsVisible="{Binding SearchViewItem.IconSymbol,RelativeSource={RelativeSource TemplatedParent},Converter={StaticResource IfNullVisibilityHidden}}"
                                                FontFamily="{StaticResource FluentFont}"

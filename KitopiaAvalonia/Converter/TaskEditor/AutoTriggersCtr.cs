@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-using Avalonia.Controls;
 using Avalonia.Data.Converters;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.CustomScenario;
 using PluginCore.CustomScenario;
@@ -19,7 +17,7 @@ public class AutoTriggersCtr : IValueConverter
         if (value is CustomScenario customScenario)
         {
             CustomScenario = customScenario;
-            var keyValuePair = ((Control)((CompiledBindingExtension)parameter).DefaultAnchor.Target).DataContext;
+            var keyValuePair = parameter;
             var key = ((KeyValuePair<string, CustomScenarioTriggerInfo>)keyValuePair).Key;
             return customScenario.AutoTriggers.Contains(key);
         }
@@ -31,7 +29,7 @@ public class AutoTriggersCtr : IValueConverter
     {
         if (value is bool b)
         {
-            var keyValuePair = ((Control)((CompiledBindingExtension)parameter).DefaultAnchor.Target).DataContext;
+            var keyValuePair = parameter;
             var key = ((KeyValuePair<string, CustomScenarioTriggerInfo>)keyValuePair).Key;
             if (b == CustomScenario.AutoTriggers.Contains(key)) return CustomScenario;
 
