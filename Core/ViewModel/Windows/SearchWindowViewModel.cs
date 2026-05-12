@@ -61,6 +61,9 @@ public partial class SearchWindowViewModel : ObservableRecipient
     private PinyinSearcher<KeyValuePair<string, SearchViewItem>>? _pinyinSearcher;
 
     private bool _reloading;
+    private int _loadLastRequestId;
+    private int _loadLastAppliedId;
+    private int _loadLastScheduled;
 
 
     [ObservableProperty] private string _search=string.Empty;
@@ -212,12 +215,37 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
     public void LoadLast()
     {
-        if (!Dispatcher.UIThread.CheckAccess())
+        Interlocked.Increment(ref _loadLastRequestId);
+
+        if (Interlocked.Exchange(ref _loadLastScheduled, 1) == 1)
         {
-            Dispatcher.UIThread.Post(LoadLast);
             return;
         }
 
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                while (Volatile.Read(ref _loadLastAppliedId) != Volatile.Read(ref _loadLastRequestId))
+                {
+                    Volatile.Write(ref _loadLastAppliedId, Volatile.Read(ref _loadLastRequestId));
+                    LoadLastCore();
+                }
+            }
+            finally
+            {
+                Volatile.Write(ref _loadLastScheduled, 0);
+
+                if (Volatile.Read(ref _loadLastAppliedId) != Volatile.Read(ref _loadLastRequestId))
+                {
+                    LoadLast();
+                }
+            }
+        });
+    }
+
+    private void LoadLastCore()
+    {
         if (!string.IsNullOrEmpty(Search)) return;
 
 
@@ -250,7 +278,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     limit++;
                 }
         }
-        
+
 
         if (ConfigManger.Config.lastOpens.Any())
         {
@@ -287,7 +315,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                             PinnedItems.Add(item);
                             limit++;
                         }
-                        
+
                     }
                 }
             }
