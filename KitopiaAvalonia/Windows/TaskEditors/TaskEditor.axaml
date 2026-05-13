@@ -327,7 +327,7 @@
                         <Binding
                             Path="ScenarioMethodCategoryGroup"
                             Converter="{StaticResource ScenarioMethodCategoryGroupCtr}"
-                            ConverterParameter="{Binding #ContentPresenter}" UpdateSourceTrigger="PropertyChanged" />
+                            ConverterParameter="{StaticResource ScenarioMethodNode}" UpdateSourceTrigger="PropertyChanged" />
                     </ContentPresenter.Content>
 
                 </ContentPresenter>
