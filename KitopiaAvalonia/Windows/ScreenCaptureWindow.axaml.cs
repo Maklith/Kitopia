@@ -249,10 +249,11 @@ public partial class ScreenCaptureWindow : Window
                 var accumulator = accumulatorResult.Source;
             
                 // Progress window
+                var effectiveSelectionRect = GetEffectiveSelectRect();
                 var progressWindow = new LongScreenshotProgressWindow
                 {
-                    Width = SelectBox.Bounds.Width,
-                    Height = SelectBox.Bounds.Height,
+                    Width = effectiveSelectionRect.Width,
+                    Height = effectiveSelectionRect.Height,
                     Position = new PixelPoint(captureInfo.RequestRect.Value.X, captureInfo.RequestRect.Value.Y- captureInfo.RequestRect.Value.Height)
                 };
                 progressWindow.Show();
@@ -1192,21 +1193,21 @@ public partial class ScreenCaptureWindow : Window
 
     private void UpdateSelectBox()
     {
+        var selectionRect = GetEffectiveSelectRect();
         var fullScreenRect = new RectangleGeometry
         {
             Rect = new Rect(0, 0, Bounds.Width, Bounds.Height)
         };
-        var selectionRect = new RectangleGeometry
+        var selectionGeometry = new RectangleGeometry
         {
-            Rect = new Rect(SelectBox._dragTransform.X, SelectBox._dragTransform.Y, SelectBox.Width,
-                SelectBox.Height)
+            Rect = selectionRect
         };
 
 
         var combinedGeometry = new CombinedGeometry
         {
             Geometry1 = fullScreenRect,
-            Geometry2 = selectionRect,
+            Geometry2 = selectionGeometry,
             GeometryCombineMode = GeometryCombineMode.Exclude
         };
 
@@ -1217,14 +1218,15 @@ public partial class ScreenCaptureWindow : Window
 
     private void UpdateToolBar()
     {
+        var selectionRect = GetEffectiveSelectRect();
         ToolBar.IsVisible = true;
         ToolBar.Measure(Bounds.Size);
         var margin = 5.0;
         var toolBarWidth = ToolBar.DesiredSize.Width;
         var toolBarHeight = ToolBar.DesiredSize.Height;
 
-        var selCenterLogical = new Point(SelectBox._dragTransform.X + SelectBox.Width / 2,
-                                         SelectBox._dragTransform.Y + SelectBox.Height / 2);
+        var selCenterLogical = new Point(selectionRect.X + selectionRect.Width / 2,
+                                         selectionRect.Y + selectionRect.Height / 2);
         var selCenterPhysical = this.PointToScreen(selCenterLogical);
         var targetScreen = Screens.ScreenFromPoint(selCenterPhysical);
 
@@ -1248,8 +1250,8 @@ public partial class ScreenCaptureWindow : Window
             maxYLogical = Bounds.Height;
         }
 
-        var left = SelectBox._dragTransform.X + SelectBox.Width + margin;
-        var top = SelectBox._dragTransform.Y + SelectBox.Height + margin;
+        var left = selectionRect.X + selectionRect.Width + margin;
+        var top = selectionRect.Y + selectionRect.Height + margin;
 
         if (left + toolBarWidth + margin > maxXLogical)
         {
@@ -1259,7 +1261,7 @@ public partial class ScreenCaptureWindow : Window
 
         if (top + toolBarHeight + margin > maxYLogical)
         {
-            var topAbove = SelectBox._dragTransform.Y - toolBarHeight - margin;
+            var topAbove = selectionRect.Y - toolBarHeight - margin;
             if (topAbove >= minYLogical + margin)
             {
                 top = topAbove;
@@ -1405,8 +1407,9 @@ public partial class ScreenCaptureWindow : Window
         if (Image.Source is not Bitmap bitmap || !_screenCaptureInfo.ScreenInfo.HasValue)
             return false;
 
-        var start = this.PointToScreen(new Point(SelectBox._dragTransform.X, SelectBox._dragTransform.Y));
-        var end = this.PointToScreen(new Point(SelectBox._dragTransform.X + SelectBox.Width, SelectBox._dragTransform.Y + SelectBox.Height));
+        var selectionRect = GetEffectiveSelectRect();
+        var start = this.PointToScreen(new Point(selectionRect.X, selectionRect.Y));
+        var end = this.PointToScreen(new Point(selectionRect.X + selectionRect.Width, selectionRect.Y + selectionRect.Height));
 
         int absLeft = Math.Min(start.X, end.X);
         int absTop = Math.Min(start.Y, end.Y);
@@ -1490,6 +1493,14 @@ public partial class ScreenCaptureWindow : Window
             }
         }
         return new ScreenCaptureInfo();
+    }
+
+    private Rect GetEffectiveSelectRect()
+    {
+        const double inset = 4d;
+        var width = Math.Max(0d, SelectBox.Width - inset * 2);
+        var height = Math.Max(0d, SelectBox.Height - inset * 2);
+        return new Rect(SelectBox._dragTransform.X + inset, SelectBox._dragTransform.Y + inset, width, height);
     }
 
     private void FinnishCapture()
