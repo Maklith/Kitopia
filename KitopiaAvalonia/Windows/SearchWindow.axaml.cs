@@ -68,6 +68,7 @@ public partial class SearchWindow : Window
             TryGetPlatformHandle()!.Handle);
         tx.Focus();
         tx.SelectAll();
+        ((SearchWindowViewModel?)DataContext)?.LoadLast();
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)

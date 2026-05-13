@@ -27,46 +27,53 @@
 
     </u:UrsaWindow.Background>
     <u:UrsaWindow.TitleBarContent>
-        <Grid ColumnSpan="2" Name="TitleBarHost" PointerPressed="TitleBarHost_OnPointerPressed"
-              ColumnDefinitions="Auto,Auto,*,Auto"
-              Background="Transparent">
-            <Image Margin="12 4"
-                   IsHitTestVisible="False"
-                   Source="/Assets/icon.png"
-                   Width="18" Height="18"
-                   DockPanel.Dock="Left"
-                   Name="WindowIcon"
-                   RenderOptions.BitmapInterpolationMode="HighQuality">
-                <Image.IsVisible>
-                    <OnPlatform Default="False">
-                        <On Options="Windows" Content="True" />
-                    </OnPlatform>
-                </Image.IsVisible>
-            </Image>
+        <u:TitleBar>
+            
+            <u:TitleBar.LeftContent>
+                
+                <Grid ColumnSpan="2" Name="TitleBarHost" PointerPressed="TitleBarHost_OnPointerPressed"
+                      ColumnDefinitions="Auto,Auto,*,Auto"
+                      Background="Transparent">
+                    <Image Margin="12 4"
+                           IsHitTestVisible="False"
+                           Source="/Assets/icon.png"
+                           Width="18" Height="18"
+                           DockPanel.Dock="Left"
+                           Name="WindowIcon"
+                           RenderOptions.BitmapInterpolationMode="HighQuality">
+                        <Image.IsVisible>
+                            <OnPlatform Default="False">
+                                <On Options="Windows" Content="True" />
+                            </OnPlatform>
+                        </Image.IsVisible>
+                    </Image>
+                    <TextBlock Text="{Binding Title, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}"
+                               FontSize="12"
+                               IsHitTestVisible="False"
+                               VerticalAlignment="Center"
+                               Grid.Column="1">
+                        <TextBlock.IsVisible>
+                            <OnPlatform Default="False">
+                                <On Options="Windows" Content="True" />
+                            </OnPlatform>
+                        </TextBlock.IsVisible>
+                    </TextBlock>
+                </Grid>
+            </u:TitleBar.LeftContent>
+            <u:TitleBar.CenterContent>
+                <Border Grid.Column="2" Padding="6">
+                    <AutoCompleteBox Name="SearchBox"
+                                     MaxWidth="500"
+                                     Watermark="Search">
+                        <!--wnd:AppWindow.AllowInteractionInTitleBar="True"-->
+                        <AutoCompleteBox.ItemTemplate>
 
-            <TextBlock Text="{Binding Title, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}"
-                       FontSize="12"
-                       IsHitTestVisible="False"
-                       VerticalAlignment="Center"
-                       Grid.Column="1">
-                <TextBlock.IsVisible>
-                    <OnPlatform Default="False">
-                        <On Options="Windows" Content="True" />
-                    </OnPlatform>
-                </TextBlock.IsVisible>
-            </TextBlock>
-
-            <Border Grid.Column="2" Padding="6">
-                <AutoCompleteBox Name="SearchBox"
-                                 MaxWidth="500"
-                                 Watermark="Search">
-                    <!--wnd:AppWindow.AllowInteractionInTitleBar="True"-->
-                    <AutoCompleteBox.ItemTemplate>
-
-                    </AutoCompleteBox.ItemTemplate>
-                </AutoCompleteBox>
-            </Border>
-        </Grid>
+                        </AutoCompleteBox.ItemTemplate>
+                    </AutoCompleteBox>
+                </Border>
+            </u:TitleBar.CenterContent>
+        </u:TitleBar>
+        
     </u:UrsaWindow.TitleBarContent>
     <Panel>
         <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,*" Margin="5,40,5,5" ColumnSpan="5">

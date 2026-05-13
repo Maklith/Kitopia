@@ -19,9 +19,8 @@ public class SearchWindowService : ISearchWindowService
             {
                 var viewModel = ServiceManager.Services.GetService<SearchWindowViewModel>()!;
                 viewModel.UpdateIndexOnWindowOpen();
-                viewModel.LoadLast();
-
-                searchWindow.Show();
+                searchWindow!.Show();
+                
                 Task.Run(() =>
                 {
                     Thread.CurrentThread.Priority = ThreadPriority.Lowest;
