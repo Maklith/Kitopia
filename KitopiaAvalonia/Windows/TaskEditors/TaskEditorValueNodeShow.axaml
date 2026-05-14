@@ -6,8 +6,6 @@
              xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
              xmlns:taskEditor="clr-namespace:Core.ViewModel.TaskEditor;assembly=Core"
              xmlns:customScenario1="clr-namespace:Core.CustomScenario;assembly=Core"
-             xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
-             xmlns:taskEditor1="clr-namespace:KitopiaAvalonia.Converter.TaskEditor"
              xmlns:customScenario="clr-namespace:PluginCore.CustomScenario;assembly=PluginCore"
              xmlns:converter="clr-namespace:KitopiaAvalonia.Converter"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -90,7 +88,7 @@
         </ListBox>
         <Grid ColumnDefinitions="*,5,Auto,Auto" VerticalAlignment="Center"
               HorizontalAlignment="Stretch">
-            <TextBox Watermark="变量名称" HorizontalAlignment="Stretch"
+            <TextBox PlaceholderText="变量名称" HorizontalAlignment="Stretch"
                      Text="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueNameToAdd,Mode=TwoWay}" />
             <ComboBox Grid.Column="2" VerticalAlignment="Center"
                       Classes.DontShowTypeComboBox="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueType,Converter={StaticResource EnumEqualCtr},ConverterParameter='2'}"

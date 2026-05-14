@@ -6,4 +6,4 @@ public sealed record ImageChatMessage(
     long SizeBytes,
     string? ContentType,
     bool IsDirect)
-    : Core.Services.DeviceCommunication.Messages.AppMessage(ConversationId);
+    : AppMessage(ConversationId);

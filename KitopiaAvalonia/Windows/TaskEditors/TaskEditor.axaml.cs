@@ -67,7 +67,7 @@ public partial class TaskEditor : UrsaWindow
     {
         if (TaskEditorViewModel.CurrentDragPayload is ScenarioMethodNode fromListNode)
         {
-            var command = add.Command;
+            var command = Add.Command;
             if (command != null &&
                 command.CanExecute(fromListNode)) // Check if the command is not null and can be executed
             {

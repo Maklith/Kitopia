@@ -2,7 +2,6 @@
               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
               xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
               xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-              xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
               xmlns:controls1="clr-namespace:KitopiaAvalonia.Controls"
               xmlns:taskEditor1="clr-namespace:Core.ViewModel.TaskEditor;assembly=Core"
               xmlns:generic="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
@@ -13,7 +12,6 @@
               xmlns:taskEditor="clr-namespace:KitopiaAvalonia.Converter.TaskEditor"
               xmlns:converter="clr-namespace:KitopiaAvalonia.Converter"
               xmlns:taskEditors="clr-namespace:KitopiaAvalonia.Windows.TaskEditors"
-              xmlns:converters="clr-namespace:NodifyM.Avalonia.Converters;assembly=NodifyM.Avalonia"
               xmlns:kitopiaAvalonia="clr-namespace:KitopiaAvalonia"
               xmlns:customScenario="clr-namespace:PluginCore.CustomScenario;assembly=PluginCore"
               mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -33,8 +31,6 @@
 
 
         <taskEditor:ScenarioMethodCategoryGroupCtr x:Key="ScenarioMethodCategoryGroupCtr" />
-        <customScenario:ToolTipConverter x:Key="ToolTipConverter" />
-        <taskEditor:NodeTypeNameI18NCtr x:Key="NodeTypeNameI18NCtr" />
     </u:UrsaWindow.Resources>
     <Interaction.Behaviors>
         <EventTriggerBehavior EventName="Closing">
@@ -61,10 +57,10 @@
         </Grid.RowDefinitions>
 
 
-        <Button Grid.Row="0" Grid.Column="0" IsVisible="False" x:Name="add" Content="添加"
+        <Button Grid.Row="0" Grid.Column="0" IsVisible="False" x:Name="Add" Content="添加"
                 Command="{Binding AddNodesCommand}" />
         <!-- 左边部分 -->
-        <Border x:Name="border" Grid.Column="0" Padding="0,0,0,0" Margin="0">
+        <Border x:Name="Border" Grid.Column="0" Padding="0,0,0,0" Margin="0">
 
             <ListBox x:Name="ListBox" Margin="3,0,0,0" ScrollViewer.VerticalSnapPointsAlignment="Center"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
@@ -315,7 +311,6 @@
                 </Expander>
                 <ContentPresenter x:Name="ContentPresenter">
                     <ContentPresenter.Resources>
-                        <taskEditor:InterfacesToString x:Key="InterfacesToString" />
                         <taskEditors:NodeTemplatesSelector x:Key="ScenarioMethodNode" TemplateType="View" />
                     </ContentPresenter.Resources>
                     <ContentPresenter.Styles>
@@ -338,7 +333,7 @@
 
         </Border>
         <!-- 拖动部分 -->
-        <GridSplitter Grid.Row="0" Grid.Column="1" Grid.RowSpan="2" Width="5" HorizontalAlignment="Center"
+        <GridSplitter Grid.Row="0" Grid.Column="1"  Width="5" HorizontalAlignment="Center"
                       VerticalAlignment="Stretch" />
         <!-- 右边部分 -->
         <Border Grid.Column="2">
@@ -430,8 +425,7 @@
 
             </Grid>
         </Border>
-        <Grid Grid.Row="1" Grid.Column="2"
-              Panel.ZIndex="10">
+        <Grid Grid.Column="2" ZIndex="10">
             <Border
 
                 Padding="12"

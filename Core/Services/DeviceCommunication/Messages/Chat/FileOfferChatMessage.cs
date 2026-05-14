@@ -7,4 +7,4 @@ public sealed record FileOfferChatMessage(
     long SizeBytes,
     string? ContentType,
     string? Hash = null)
-    : Core.Services.DeviceCommunication.Messages.AppMessage(ConversationId);
+    : AppMessage(ConversationId);
