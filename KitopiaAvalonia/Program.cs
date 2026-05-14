@@ -139,7 +139,7 @@ internal class Program {
 
         services.AddTransient<IPluginToolService, PluginToolService>();
 
-        services.AddTransient<INavigationPageService, NavigationPageService>();
+        services.AddSingleton<INavigationService, NavigationService>();
         services.AddTransient<IInferenceSessionManager, InferenceSessionManager>();
         #if WINDOWS
         services.AddTransient<IHotKetImpl, HotKeyImpl>();

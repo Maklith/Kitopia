@@ -17,7 +17,7 @@ public class ViewLocator : IValueConverter
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        var targetKey = value as string ?? "Home";
+        var targetKey = value as string ?? "home";
 
         if (_currentPage is not null && string.Equals(_currentPageKey, targetKey, StringComparison.Ordinal))
         {
@@ -46,23 +46,23 @@ public class ViewLocator : IValueConverter
     {
         switch (args)
         {
-            case "Home":
+            case "home":
                 return ServiceManager.Services.GetKeyedService<UserControl>("HomePage");
-            case "Market":
+            case "market":
                 return ServiceManager.Services.GetKeyedService<UserControl>("MarketPage");
-            case "Plugin":
+            case "plugin":
                 return ServiceManager.Services.GetKeyedService<UserControl>("PluginManagerPage");
-            case "Scenario":
+            case "scenario":
                 return ServiceManager.Services.GetKeyedService<UserControl>("CustomScenariosManagerPage");
-            case "Hotkey":
+            case "hotkey":
                 return ServiceManager.Services.GetKeyedService<UserControl>("HotKeyManagerPage");
-            case "OnnxModelManagerPage":
+            case "onnx/model-manager":
                 return ServiceManager.Services.GetKeyedService<UserControl>("OnnxModelManagerPage");
-            case "DeviceDiscovery":
+            case "device/discovery":
                 return ServiceManager.Services.GetKeyedService<UserControl>("DeviceDiscoveryPage");
-            case "DeviceChat":
+            case "device/chat":
                 return ServiceManager.Services.GetKeyedService<UserControl>("DeviceChatPage");
-            case "Setting":
+            case "settings":
             {
                 var settingPage = ServiceManager.Services.GetService<SettingPage>();
                 settingPage.LoadAllConfigs();
@@ -70,17 +70,17 @@ public class ViewLocator : IValueConverter
             }
             default:
             {
-                if (args.StartsWith("PluginSettingSelectPage_"))
+                if (args.StartsWith("plugin/settings/select/"))
                 {
                     var keyedService = ServiceManager.Services.GetKeyedService<UserControl>("PluginSettingSelectPage");
-                    ((PluginSettingViewModel)keyedService.DataContext).LoadByPluginInfo(args.Split("_", 2)[1]);
+                    ((PluginSettingViewModel)keyedService.DataContext).LoadByPluginInfo(args["plugin/settings/select/".Length..]);
                     return keyedService;
                 }
 
-                if (args.StartsWith("PluginSetting_"))
+                if (args.StartsWith("plugin/settings/detail/"))
                 {
                     var settingPage = ServiceManager.Services.GetService<SettingPage>();
-                    if (ConfigManger.Configs.TryGetValue(args.Split("_", 2)[1], out var config))
+                    if (ConfigManger.Configs.TryGetValue(args["plugin/settings/detail/".Length..], out var config))
                         settingPage.ChangeConfig(config);
 
                     return settingPage;

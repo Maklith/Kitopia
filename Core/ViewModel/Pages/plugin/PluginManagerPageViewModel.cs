@@ -81,8 +81,12 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     {
         if (!pluginInfoEx.PluginLocalInfo.IsEnabled) return;
 
-        ((INavigationPageService)ServiceManager.Services!.GetService(typeof(INavigationPageService))).Navigate(
-            $"PluginSettingSelectPage_{pluginInfoEx.PluginLocalInfo.ToPlgString()}");
+        ServiceManager.Services?.GetService<INavigationService>()?.Navigate(
+            "plugin/settings/select",
+            new Dictionary<string, object?>
+            {
+                ["pluginInfo"] = pluginInfoEx.PluginLocalInfo.ToPlgString()
+            });
     }
 
     [RelayCommand]

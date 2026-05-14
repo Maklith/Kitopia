@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
 using Core.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -33,7 +32,7 @@ public partial class AppViewModel : ObservableObject
                 return;
             }
 
-            WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs("DeviceChat"));
+            ServiceManager.Services.GetService<INavigationService>()?.Navigate("device/chat");
             toastService.ClearUnreadSuppressedNotifications();
         }
 

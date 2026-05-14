@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Core.Services.Config;
 using Core.Services.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.CustomScenario.Attribute.ConfigField;
 
@@ -40,7 +41,11 @@ public partial class PluginSettingViewModel : ObservableRecipient
     [RelayCommand]
     public void Navigate(string na)
     {
-        ((INavigationPageService)ServiceManager.Services!.GetService(typeof(INavigationPageService))).Navigate(
-            $"PluginSetting_{na}");
+        ServiceManager.Services?.GetService<INavigationService>()?.Navigate(
+            "plugin/settings/detail",
+            new Dictionary<string, object?>
+            {
+                ["configKey"] = na
+            });
     }
 }

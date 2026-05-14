@@ -5,7 +5,6 @@ using System.Windows.Input;
 using AvaloniaEdit.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
 using Core.Services.DeviceCommunication.Application;
 using Core.Services.Interfaces;
 using PluginCore;
@@ -19,13 +18,16 @@ namespace Core.ViewModel.Main;
 /// </summary>
 public partial class MainWindowViewModel : ObservableRecipient
 {
+    private readonly INavigationService _navigationService;
     [ObservableProperty] private object? _content;
 
     [ObservableProperty] private bool _settingPage;
 
-    public MainWindowViewModel()
+    public MainWindowViewModel(INavigationService navigationService)
     {
-        WeakReferenceMessenger.Default.Register<MainWindowViewModel, PageChangeEventArgs>(this, OnNavigation);
+        _navigationService = navigationService;
+        _navigationService.PageNavigated += OnPageNavigated;
+        OnPageNavigated(_navigationService.CurrentPageRoute ?? "home");
     }
 
     public ObservableCollection<MenuItemViewModel> MenuItems { get; } = new()
@@ -33,72 +35,72 @@ public partial class MainWindowViewModel : ObservableRecipient
         new MenuItemViewModel
         {
             MenuHeader = "主页",
-            Key = "Home",
+            Key = "home",
             MenuIconGlyph = "\uf481",
             MenuIconFilledGlyph = "\uf488"
         },
         new MenuItemViewModel
         {
             MenuHeader = "市场",
-            Key = "Market",
+            Key = "market",
             MenuIconGlyph = "\uf151",
             MenuIconFilledGlyph = "\uf151"
         },
         new MenuItemViewModel
         {
             MenuHeader = "插件",
-            Key = "Plugin",
+            Key = "plugin",
             MenuIconGlyph = "\uf60a",
             MenuIconFilledGlyph = "\uf614"
         },
         new MenuItemViewModel
         {
             MenuHeader = "情景",
-            Key = "Scenario",
+            Key = "scenario",
             MenuIconGlyph = "\ue065",
             MenuIconFilledGlyph = "\ue065"
         },
         new MenuItemViewModel
         {
             MenuHeader = "快捷键",
-            Key = "Hotkey",
+            Key = "hotkey",
             MenuIconGlyph = "\uf4b9",
             MenuIconFilledGlyph = "\uf4c3"
         },
         new MenuItemViewModel
         {
             MenuHeader = "模型列表",
-            Key = "OnnxModelManagerPage",
+            Key = "onnx/model-manager",
             MenuIconGlyph = "\uf83b",
             MenuIconFilledGlyph = "\uf853"
         },
         new MenuItemViewModel
         {
             MenuHeader = "设备互联",
-            Key = "DeviceDiscovery",
+            Key = "device/discovery",
             MenuIconGlyph = "\ue975", // Placeholder icon
             MenuIconFilledGlyph = "\ue975"
         },
         new MenuItemViewModel
         {
             MenuHeader = "设备聊天",
-            Key = "DeviceChat",
+            Key = "device/chat",
             MenuIconGlyph = "\ue975",
             MenuIconFilledGlyph = "\ue975"
         }
     };
 
-    private void OnNavigation(MainWindowViewModel recipient, PageChangeEventArgs message)
+    private void OnPageNavigated(string route)
     {
-        Content = message.Key;
-        SettingPage = message.Key == "Setting";
+        Content = route;
+        SettingPage = route == "settings";
 
         try
         {
             var messageAppService = ServiceManager.Services.GetService<IMessageAppService>();
             messageAppService?.UpdateDisplayContext(
                 isMainWindowActive: true,
-                isDeviceChatPageOpen: string.Equals(message.Key, "DeviceChat", StringComparison.Ordinal),
+                isDeviceChatPageOpen: string.Equals(route, "device/chat", StringComparison.Ordinal),
                 selectedConversationId: null);
 
         }
@@ -110,7 +112,7 @@ public partial class MainWindowViewModel : ObservableRecipient
     [RelayCommand]
     public void ActivateSettingPage()
     {
-        WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs("Setting"));
+        _navigationService.Navigate("settings");
     }
 
     [RelayCommand]
@@ -120,32 +122,19 @@ public partial class MainWindowViewModel : ObservableRecipient
     }
 }
 
-/// <summary>
-/// 页面切换事件参数 / Page change event arguments for navigation
-/// </summary>
-public class PageChangeEventArgs
-{
-    /// <summary>
-    /// 初始化新的页面切换事件参数实例 / Initializes a new instance of PageChangeEventArgs
-    /// </summary>
-    /// <param name="key">页面键 / The page key</param>
-    public PageChangeEventArgs(string key)
-    {
-        Key = key;
-    }
-
-    /// <summary>获取或设置页面键 / Gets or sets the page key</summary>
-    public string Key { get; set; }
-}
-
 public partial class MenuItemViewModel : ObservableObject
 {
+    private readonly INavigationService? _navigationService;
     [ObservableProperty] private bool _isSelected;
 
     public MenuItemViewModel()
     {
-        WeakReferenceMessenger.Default.Register<PageChangeEventArgs>(this,
-            (recipient, message) => { IsSelected = message.Key == Key; });
+        _navigationService = ServiceManager.Services?.GetService(typeof(INavigationService)) as INavigationService;
+        if (_navigationService is not null)
+        {
+            _navigationService.PageNavigated += route => { IsSelected = route == Key; };
+            IsSelected = _navigationService.CurrentPageRoute == Key;
+        }
         ActivateCommand = new RelayCommand(OnActivate);
     }
 
@@ -162,6 +151,6 @@ public partial class MenuItemViewModel : ObservableObject
     private void OnActivate()
     {
         if (IsSeparator) return;
-        WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs(Key));
+        _navigationService?.Navigate(Key);
     }
 }

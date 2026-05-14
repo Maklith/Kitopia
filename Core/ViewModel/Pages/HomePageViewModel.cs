@@ -3,9 +3,8 @@
 using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
 using Core.Services.Interfaces;
-using Core.ViewModel.Main;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
 #endregion
@@ -22,7 +21,7 @@ public partial class HomePageViewModel : ObservableRecipient
     [RelayCommand]
     public void Click()
     {
-        WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs("Setting"));
+        ServiceManager.Services?.GetService<INavigationService>()?.Navigate("settings");
     }
 
     [RelayCommand]
@@ -52,7 +51,7 @@ public partial class HomePageViewModel : ObservableRecipient
                 {
                     Text = "打开设置",
                     IsPrimary = true,
-                    Callback = () => WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs("Setting"))
+                    Callback = () => ServiceManager.Services?.GetService<INavigationService>()?.Navigate("settings")
                 },
                 new ToastAction
                 {

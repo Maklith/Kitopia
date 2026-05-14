@@ -1,7 +1,6 @@
 using System.Threading.Channels;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using CommunityToolkit.Mvvm.Messaging;
 using Core.Services.DeviceCommunication.Codecs;
 using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Handlers;
@@ -11,7 +10,7 @@ using Core.Services.DeviceCommunication.Messages.Clipboard;
 using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
 using Core.Services.DeviceCommunication.Sessions;
-using Core.ViewModel.Main;
+using Core.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Serilog;
@@ -27,6 +26,7 @@ public sealed class MessageAppService : IMessageAppService {
     private readonly IFileTransferSessionStore _fileTransferSessionStore;
     private readonly IDeviceDiscoveryService _deviceDiscoveryService;
     private readonly IToastService _toastService;
+    private readonly INavigationService _navigationService;
     private readonly Channel<IncomingMessageEvent> _receiveChannel = Channel.CreateUnbounded<IncomingMessageEvent>();
     private readonly object _stateSync = new();
     private bool _isMainWindowActive;
@@ -41,7 +41,8 @@ public sealed class MessageAppService : IMessageAppService {
         ImageTransferPolicy imageTransferPolicy,
         IFileTransferSessionStore fileTransferSessionStore,
         IDeviceDiscoveryService deviceDiscoveryService,
-        IToastService toastService) {
+        IToastService toastService,
+        INavigationService navigationService) {
         _codecRegistry = codecRegistry;
         _protocolSender = protocolSender;
         _incomingMessageBuffer = incomingMessageBuffer;
@@ -49,6 +50,7 @@ public sealed class MessageAppService : IMessageAppService {
         _fileTransferSessionStore = fileTransferSessionStore;
         _deviceDiscoveryService = deviceDiscoveryService;
         _toastService = toastService;
+        _navigationService = navigationService;
 
         _ = Task.Run(ProcessIncomingMessagesAsync);
     }
@@ -291,7 +293,7 @@ public sealed class MessageAppService : IMessageAppService {
 
     private void OpenConversationFromToast(string conversationId) {
         RequestOpenConversation(conversationId);
-        WeakReferenceMessenger.Default.Send<PageChangeEventArgs>(new PageChangeEventArgs("DeviceChat"));
+        _navigationService.Navigate("device/chat");
         if (Avalonia.Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow!.Show();
