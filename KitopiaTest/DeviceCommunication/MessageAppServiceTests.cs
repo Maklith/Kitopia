@@ -12,6 +12,7 @@ using Core.Services.DeviceCommunication.Messages.Chat;
 using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
 using Core.Services.DeviceCommunication.Sessions;
+using Core.Services.Interfaces;
 using ObservableCollections;
 using PluginCore;
 
@@ -256,7 +257,8 @@ public sealed class MessageAppServiceTests
             new ImageTransferPolicy(),
             sessionStore,
             new FakeDeviceDiscoveryService(),
-            new FakeToastService());
+            new FakeToastService(),
+            new FakeNavigationService());
     }
 
     private sealed class FakeDeviceDiscoveryService : IDeviceDiscoveryService
@@ -282,7 +284,25 @@ public sealed class MessageAppServiceTests
             _devicesView.Dispose();
         }
     }
+    private sealed class FakeNavigationService :INavigationService {
+        private string? _currentPageRoute;
+        private bool _canGoBack;
 
+        public string? CurrentPageRoute => _currentPageRoute;
+
+        public bool CanGoBack => _canGoBack;
+
+        public event Action<string>? PageNavigated;
+        public NavigationResult Navigate(string route, IReadOnlyDictionary<string, object?>? parameters = null) {
+            return null;
+        }
+        public NavigationResult Open(string route, IReadOnlyDictionary<string, object?>? parameters = null) {
+            return null;
+        }
+        public NavigationResult GoBack() {
+            return null;
+        }
+    }
     private sealed class FakeToastService : IToastService
     {
         public void Init()
