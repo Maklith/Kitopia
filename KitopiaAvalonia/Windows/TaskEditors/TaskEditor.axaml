@@ -338,7 +338,7 @@
         <!-- 右边部分 -->
         <Border Grid.Column="2">
             <Grid ShowGridLines="True">
-                <Grid Panel.ZIndex="-2">
+                <Grid ZIndex="-2">
                     <Grid.Background>
                         <SolidColorBrush Color="{DynamicResource NodifyEditor.BackgroundColor}" Opacity="0.5" />
                     </Grid.Background>
@@ -442,16 +442,16 @@
                 </Border.Effect>
                 <StackPanel Orientation="Horizontal">
                     <StackPanel.Resources>
-                        <converter:ReverseBoolToVisibilityConverter x:Key="reverseBoolToVisibilityConverter" />
+                        <converter:ReverseBoolToVisibilityConverter x:Key="ReverseBoolToVisibilityConverter" />
                     </StackPanel.Resources>
                     <Button ToolTip.Tip="清理未连接节点" ToolTip.ShowDelay="100" FontWeight="Normal"
                             Command="{Binding CleanUnusedNodeCommand}">
                         <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf34c;" FontSize="24" />
                     </Button>
                     <ItemsControl
-                        IsVisible="{Binding Scenario.IsHaveInputValue,Converter={StaticResource reverseBoolToVisibilityConverter}}">
+                        IsVisible="{Binding Scenario.IsHaveInputValue,Converter={StaticResource ReverseBoolToVisibilityConverter}}">
                         <Button ToolTip.Tip="运行测试" ToolTip.ShowDelay="100" FontWeight="Normal"
-                                IsVisible="{Binding Scenario.IsRunning,Converter={StaticResource reverseBoolToVisibilityConverter}}"
+                                IsVisible="{Binding Scenario.IsRunning,Converter={StaticResource ReverseBoolToVisibilityConverter}}"
                                 Foreground="GreenYellow"
                                 Command="{Binding VerifyNodeCommand}">
                             <controls1:FontIcon Foreground="GreenYellow" FontFamily="{StaticResource FluentFont}"

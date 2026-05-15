@@ -70,12 +70,7 @@ public class SearchItemShow : Button
                 .Handle);
         ServiceManager.Services.GetService<SearchWindow>()!.tx.Focus();
     }
-
-    protected override void OnClick()
-    {
-        base.OnClick();
-    }
-
+    
     private static void OnOnlyKeyChanged(SearchItemShow searchItemShow, AvaloniaPropertyChangedEventArgs e)
     {
         var value = (string)e.NewValue;
