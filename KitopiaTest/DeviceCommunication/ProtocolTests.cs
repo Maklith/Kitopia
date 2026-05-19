@@ -113,9 +113,9 @@ public sealed class ProtocolTests
         await sender.SendEnvelopeAsync(context, envelope);
 
         Assert.AreEqual(1, listener.SendCallCount);
-        Assert.IsNotNull(listener.LastStreamData);
+        Assert.IsNotNull(listener.LastPipeData);
 
-        var payload = new MemoryStream(listener.LastStreamData!);
+        var payload = new MemoryStream(listener.LastPipeData!);
         var frameHeader = new byte[16];
         await payload.ReadExactlyAsync(frameHeader);
         Assert.AreEqual("KDC1", Encoding.ASCII.GetString(frameHeader, 0, 4));
@@ -389,42 +389,34 @@ public sealed class ProtocolTests
         public int QuicPort => 0;
         public bool SupportsQuic => false;
         public int SendCallCount { get; private set; }
-        public byte[]? LastStreamData { get; private set; }
         public byte[]? LastPipeData { get; private set; }
 
         public Task StartListeningAsync(CancellationToken token = default) => Task.CompletedTask;
         public Task StopListeningAsync() => Task.CompletedTask;
-
-        public Task SendAsync(LocalDataTransportProtocol protocol, ReadOnlyMemory<byte> payload, IPEndPoint remoteEndPoint,
-            string? remoteIdentityPublicKey = null, CancellationToken token = default)
-        {
-            SendCallCount++;
-            return Task.CompletedTask;
-        }
 
         public async Task SendAsync(LocalDataTransportProtocol protocol, PipeReader payloadReader, IPEndPoint remoteEndPoint,
             string? remoteIdentityPublicKey = null, CancellationToken token = default)
         {
             SendCallCount++;
             using var ms = new MemoryStream();
-            var result = await payloadReader.ReadAsync(token);
-            foreach (var segment in result.Buffer)
+            while (true)
             {
-                ms.Write(segment.Span);
+                var result = await payloadReader.ReadAsync(token);
+                var buffer = result.Buffer;
+                foreach (var segment in buffer)
+                {
+                    ms.Write(segment.Span);
+                }
+
+                payloadReader.AdvanceTo(buffer.End);
+                if (result.IsCompleted)
+                {
+                    break;
+                }
             }
-            payloadReader.AdvanceTo(result.Buffer.End);
             LastPipeData = ms.ToArray();
         }
 
-        public Task SendAsync(LocalDataTransportProtocol protocol, Stream stream, IPEndPoint remoteEndPoint,
-            string? remoteIdentityPublicKey = null, CancellationToken token = default)
-        {
-            SendCallCount++;
-            using var ms = new MemoryStream();
-            stream.CopyTo(ms);
-            LastStreamData = ms.ToArray();
-            return Task.CompletedTask;
-        }
     }
 
     private sealed class TestMessageRouter : IMessageRouter

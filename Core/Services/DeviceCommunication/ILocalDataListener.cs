@@ -18,19 +18,7 @@ public interface ILocalDataListener {
     public Task StopListeningAsync();
     public Task SendAsync(
         LocalDataTransportProtocol protocol,
-        ReadOnlyMemory<byte> payload,
-        IPEndPoint remoteEndPoint,
-        string? remoteIdentityPublicKey = null,
-        CancellationToken token = default);
-    public Task SendAsync(
-        LocalDataTransportProtocol protocol,
         PipeReader payloadReader,
-        IPEndPoint remoteEndPoint,
-        string? remoteIdentityPublicKey = null,
-        CancellationToken token = default);
-    public Task SendAsync(
-        LocalDataTransportProtocol protocol,
-        Stream stream,
         IPEndPoint remoteEndPoint,
         string? remoteIdentityPublicKey = null,
         CancellationToken token = default);

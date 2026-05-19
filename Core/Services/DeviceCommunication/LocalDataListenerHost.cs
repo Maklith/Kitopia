@@ -67,27 +67,6 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
             QuicListener.IsSupported);
     }
 
-    public Task SendAsync(
-        LocalDataTransportProtocol protocol,
-        ReadOnlyMemory<byte> payload,
-        IPEndPoint remoteEndPoint,
-        string? remoteIdentityPublicKey = null,
-        CancellationToken token = default)
-    {
-        ArgumentNullException.ThrowIfNull(remoteEndPoint);
-        if (string.IsNullOrWhiteSpace(remoteIdentityPublicKey))
-        {
-            throw new ArgumentException("Remote identity public key is required.", nameof(remoteIdentityPublicKey));
-        }
-
-        return protocol switch
-        {
-            LocalDataTransportProtocol.Tcp => _tcpListener.SendAsync(payload, remoteEndPoint, remoteIdentityPublicKey, token),
-            LocalDataTransportProtocol.Quic => _quicListener.SendAsync(payload, remoteEndPoint, remoteIdentityPublicKey, token),
-            _ => throw new ArgumentOutOfRangeException(nameof(protocol), protocol, "Unsupported transport protocol.")
-        };
-    }
-
     public async Task SendAsync(
         LocalDataTransportProtocol protocol,
         PipeReader payloadReader,
@@ -115,59 +94,6 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
         }
     }
 
-    public async Task SendAsync(
-        LocalDataTransportProtocol protocol,
-        Stream stream,
-        IPEndPoint remoteEndPoint,
-        string? remoteIdentityPublicKey = null,
-        CancellationToken token = default)
-    {
-        ArgumentNullException.ThrowIfNull(stream);
-        ArgumentNullException.ThrowIfNull(remoteEndPoint);
-        if (string.IsNullOrWhiteSpace(remoteIdentityPublicKey))
-        {
-            throw new ArgumentException("Remote identity public key is required.", nameof(remoteIdentityPublicKey));
-        }
-
-        var pipe = new Pipe();
-
-        async Task ProduceAsync()
-        {
-            Exception? producerError = null;
-            try
-            {
-                await CopyStreamToPipeAsync(stream, pipe.Writer, token);
-            }
-            catch (Exception ex)
-            {
-                producerError = ex;
-            }
-            finally
-            {
-                await pipe.Writer.CompleteAsync(producerError);
-            }
-        }
-
-        var producerTask = ProduceAsync();
-
-        Exception? consumerError = null;
-        try
-        {
-            await SendAsync(protocol, pipe.Reader, remoteEndPoint, remoteIdentityPublicKey, token);
-        }
-        catch (Exception ex)
-        {
-            consumerError = ex;
-            throw;
-        }
-        finally
-        {
-            await pipe.Reader.CompleteAsync(consumerError);
-        }
-
-        await producerTask;
-    }
-
     public async Task StopListeningAsync()
     {
         bool shouldStop;
@@ -185,27 +111,6 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
 
         await _quicListener.StopAsync().ConfigureAwait(false);
         await _tcpListener.StopAsync().ConfigureAwait(false);
-    }
-
-    private static async Task CopyStreamToPipeAsync(Stream source, PipeWriter writer, CancellationToken token)
-    {
-        const int BufferSize = 64 * 1024;
-        while (true)
-        {
-            var memory = writer.GetMemory(BufferSize);
-            var read = await source.ReadAsync(memory, token);
-            if (read == 0)
-            {
-                break;
-            }
-
-            writer.Advance(read);
-            var flushResult = await writer.FlushAsync(token);
-            if (flushResult.IsCanceled || flushResult.IsCompleted)
-            {
-                break;
-            }
-        }
     }
 
 }

@@ -456,13 +456,7 @@ public sealed class DiscoveryToTransferMatrixTests
         public Task StartListeningAsync(CancellationToken token = default) => Task.CompletedTask;
         public Task StopListeningAsync() => Task.CompletedTask;
 
-        public Task SendAsync(LocalDataTransportProtocol protocol, ReadOnlyMemory<byte> payload, System.Net.IPEndPoint remoteEndPoint,
-            string? remoteIdentityPublicKey = null, CancellationToken token = default) => Task.CompletedTask;
-
         public Task SendAsync(LocalDataTransportProtocol protocol, System.IO.Pipelines.PipeReader payloadReader, System.Net.IPEndPoint remoteEndPoint,
-            string? remoteIdentityPublicKey = null, CancellationToken token = default) => Task.CompletedTask;
-
-        public Task SendAsync(LocalDataTransportProtocol protocol, Stream stream, System.Net.IPEndPoint remoteEndPoint,
             string? remoteIdentityPublicKey = null, CancellationToken token = default) => Task.CompletedTask;
     }
 }

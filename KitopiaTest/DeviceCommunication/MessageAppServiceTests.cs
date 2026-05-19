@@ -354,36 +354,31 @@ public sealed class MessageAppServiceTests
         public Task StartListeningAsync(CancellationToken token = default) => Task.CompletedTask;
         public Task StopListeningAsync() => Task.CompletedTask;
 
-        public Task SendAsync(LocalDataTransportProtocol protocol, ReadOnlyMemory<byte> payload, IPEndPoint remoteEndPoint,
+        public async Task SendAsync(LocalDataTransportProtocol protocol, PipeReader payloadReader, IPEndPoint remoteEndPoint,
             string? remoteIdentityPublicKey = null, CancellationToken token = default)
         {
             _ = protocol;
             _ = remoteEndPoint;
             _ = remoteIdentityPublicKey;
-            _ = token;
-            SendCount++;
-            LastPayload = payload.ToArray();
-            return Task.CompletedTask;
-        }
-
-        public Task SendAsync(LocalDataTransportProtocol protocol, PipeReader payloadReader, IPEndPoint remoteEndPoint,
-            string? remoteIdentityPublicKey = null, CancellationToken token = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task SendAsync(LocalDataTransportProtocol protocol, Stream stream, IPEndPoint remoteEndPoint,
-            string? remoteIdentityPublicKey = null, CancellationToken token = default)
-        {
-            _ = protocol;
-            _ = remoteEndPoint;
-            _ = remoteIdentityPublicKey;
-            _ = token;
             using var memory = new MemoryStream();
-            stream.CopyTo(memory);
+            while (true)
+            {
+                var result = await payloadReader.ReadAsync(token);
+                var buffer = result.Buffer;
+                foreach (var segment in buffer)
+                {
+                    memory.Write(segment.Span);
+                }
+
+                payloadReader.AdvanceTo(buffer.End);
+                if (result.IsCompleted)
+                {
+                    break;
+                }
+            }
+
             SendCount++;
             LastPayload = memory.ToArray();
-            return Task.CompletedTask;
         }
     }
 
