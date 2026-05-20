@@ -106,7 +106,6 @@ internal class Program {
         services.AddSingleton<ISearchItemChooseService, SearchItemChooseService>();
         services.AddSingleton<IMouseQuickWindowService, MouseQuickWindowService>();
         services.AddTransient<ISearchWindowService, SearchWindowService>();
-        services.AddTransient<IErrorWindow, ErrorWindow>();
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
 
         services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>();

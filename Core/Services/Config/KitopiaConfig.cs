@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using Core.Services.DeviceCommunication;
 using Core.Services.Interfaces;
@@ -205,8 +206,12 @@ public class KitopiaConfig : ConfigBase
                     if (e.IsFaulted)
                     {
                         Logger.Error(e.Exception, "");
-                        ServiceManager.Services.GetService<IErrorWindow>()!.ShowErrorWindow(
-                            "截图失败", e.Exception.Message + e.Exception.StackTrace);
+                        var toastService = ServiceManager.Services.GetService<IToastService>();
+                        if (toastService is not null)
+                        {
+                            _ = toastService.Show("截图失败", e.Exception.Message + e.Exception.StackTrace,
+                                NotificationType.Error);
+                        }
                     }
                 });
         }));

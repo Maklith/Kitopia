@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Reactive.Concurrency;
 using Core.Services;
-using KitopiaAvalonia.Windows;
+using Avalonia.Controls.Notifications;
+using PluginCore;
 using ReactiveUI;
 using Serilog;
 
@@ -16,7 +17,10 @@ public class MyCoolObservableExceptionHandler : IObserver<Exception>
     {
         if (Debugger.IsAttached) Debugger.Break();
         Logger.Error(value, "");
-        new ErrorDialog(null, value.ToString()).Show();
+        if (ServiceManager.Services.GetService(typeof(IToastService)) is IToastService toastService)
+        {
+            _ = toastService.Show("错误", value.ToString(), NotificationType.Error);
+        }
         RxApp.MainThreadScheduler.Schedule(() => { throw value; });
     }
 
@@ -24,7 +28,10 @@ public class MyCoolObservableExceptionHandler : IObserver<Exception>
     {
         if (Debugger.IsAttached) Debugger.Break();
         Logger.Error(error, "");
-        new ErrorDialog(null, error.ToString()).Show();
+        if (ServiceManager.Services.GetService(typeof(IToastService)) is IToastService toastService)
+        {
+            _ = toastService.Show("错误", error.ToString(), NotificationType.Error);
+        }
         RxApp.MainThreadScheduler.Schedule(() => { throw error; });
     }
 
