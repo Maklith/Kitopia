@@ -18,6 +18,10 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
 {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<QuicLocalDataListener>();
     private static readonly SslApplicationProtocol ApplicationProtocol = new("kitopia-local-data");
+    private static readonly StreamPipeReaderOptions InboundPipeReaderOptions = new(
+        bufferSize: 256 * 1024,
+        minimumReadSize: 64 * 1024,
+        leaveOpen: true);
 
     private readonly object _sync = new();
     private readonly ProtocolSession _protocolSession;
@@ -163,24 +167,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
         var connectionOptions = CreateClientConnectionOptions(remoteEndPoint, remoteIdentityPublicKey.Trim());
         await using var connection = await QuicConnection.ConnectAsync(connectionOptions, cancellationToken);
         await using var stream = await connection.OpenOutboundStreamAsync(QuicStreamType.Unidirectional, cancellationToken);
-        while (true)
-        {
-            var readResult = await payloadReader.ReadAsync(cancellationToken);
-            var buffer = readResult.Buffer;
-            foreach (var segment in buffer)
-            {
-                if (!segment.IsEmpty)
-                {
-                    await stream.WriteAsync(segment, cancellationToken);
-                }
-            }
-
-            payloadReader.AdvanceTo(buffer.End);
-            if (readResult.IsCompleted)
-            {
-                break;
-            }
-        }
+        await payloadReader.CopyToAsync(stream, cancellationToken);
 
         stream.CompleteWrites();
     }
@@ -357,42 +344,21 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
                     return;
                 }
 
-                var pipe = new Pipe();
-
-                async Task ProduceAsync()
-                {
-                    Exception? producerError = null;
-                    try
-                    {
-                        await CopyStreamToPipeAsync(stream, pipe.Writer, token);
-                    }
-                    catch (Exception ex)
-                    {
-                        producerError = ex;
-                    }
-                    finally
-                    {
-                        await pipe.Writer.CompleteAsync(producerError);
-                    }
-                }
-
-                var producerTask = ProduceAsync();
-                Exception? consumerError = null;
+                var reader = PipeReader.Create(stream, InboundPipeReaderOptions);
+                Exception? readerError = null;
                 try
                 {
-                    await _protocolSession.HandleAsync(Protocol, remoteIpEndPoint, pipe.Reader, token);
+                    await _protocolSession.HandleAsync(Protocol, remoteIpEndPoint, reader, token);
                 }
                 catch (Exception ex)
                 {
-                    consumerError = ex;
+                    readerError = ex;
                     throw;
                 }
                 finally
                 {
-                    await pipe.Reader.CompleteAsync(consumerError);
+                    await reader.CompleteAsync(readerError);
                 }
-
-                await producerTask;
             }
             catch (OperationCanceledException)
             {
@@ -403,27 +369,6 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
             catch (Exception e)
             {
                 Logger.Error(e, "QUIC local listener stream read failed");
-            }
-        }
-    }
-
-    private static async Task CopyStreamToPipeAsync(Stream source, PipeWriter writer, CancellationToken token)
-    {
-        const int BufferSize = 64 * 1024;
-        while (true)
-        {
-            var memory = writer.GetMemory(BufferSize);
-            var read = await source.ReadAsync(memory, token);
-            if (read == 0)
-            {
-                break;
-            }
-
-            writer.Advance(read);
-            var flushResult = await writer.FlushAsync(token);
-            if (flushResult.IsCanceled || flushResult.IsCompleted)
-            {
-                break;
             }
         }
     }

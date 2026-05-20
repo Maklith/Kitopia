@@ -19,6 +19,7 @@ namespace Core.Services.DeviceCommunication.Application;
 
 public sealed class MessageAppService : IMessageAppService {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<MessageAppService>();
+    private static readonly TimeSpan TransferProgressLogInterval = TimeSpan.FromSeconds(2);
     private readonly MessageCodecRegistry _codecRegistry;
     private readonly ProtocolSender _protocolSender;
     private readonly IncomingMessageBuffer _incomingMessageBuffer;
@@ -33,6 +34,7 @@ public sealed class MessageAppService : IMessageAppService {
     private bool _isDeviceChatPageOpen;
     private string? _selectedConversationId;
     private string? _requestedConversationId;
+    private readonly Dictionary<Guid, DateTimeOffset> _transferProgressLogTime = [];
 
     public MessageAppService(
         MessageCodecRegistry codecRegistry,
@@ -219,13 +221,15 @@ public sealed class MessageAppService : IMessageAppService {
                 continue;
             }
 
-            Logger.Information(
-                "接收信息。 EventType={EventType} Type={MessageType} ConversationId={ConversationId} TransferId={TransferId} Detail={Detail}",
-                transformedEvent.EventType,
-                transformedEvent.Message.GetType().Name,
-                transformedEvent.Message.ConversationId,
-                transformedEvent.TransferId,
-                DescribeIncomingEvent(transformedEvent));
+            if (ShouldLogIncomingEvent(transformedEvent)) {
+                Logger.Information(
+                    "接收信息。 EventType={EventType} Type={MessageType} ConversationId={ConversationId} TransferId={TransferId} Detail={Detail}",
+                    transformedEvent.EventType,
+                    transformedEvent.Message.GetType().Name,
+                    transformedEvent.Message.ConversationId,
+                    transformedEvent.TransferId,
+                    DescribeIncomingEvent(transformedEvent));
+            }
 
             await NotifyToastIfNeededAsync(transformedEvent);
             await _receiveChannel.Writer.WriteAsync(transformedEvent);
@@ -281,6 +285,37 @@ public sealed class MessageAppService : IMessageAppService {
             "timeout" => "文件发送超时，请稍后重试",
             _ => "文件发送失败"
         };
+    }
+
+    private bool ShouldLogIncomingEvent(IncomingMessageEvent messageEvent) {
+        if (messageEvent.EventType != IncomingMessageEventType.TransferProgress) {
+            if (messageEvent.TransferId is Guid transferId) {
+                _transferProgressLogTime.Remove(transferId);
+            }
+
+            return true;
+        }
+
+        if (messageEvent.TransferId is not Guid progressTransferId) {
+            return true;
+        }
+
+        var isFinal = messageEvent.BytesTransferred.HasValue && messageEvent.TotalBytes.HasValue &&
+                      messageEvent.TotalBytes.Value > 0 &&
+                      messageEvent.BytesTransferred.Value >= messageEvent.TotalBytes.Value;
+        if (isFinal) {
+            _transferProgressLogTime.Remove(progressTransferId);
+            return true;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (_transferProgressLogTime.TryGetValue(progressTransferId, out var last) &&
+            now - last < TransferProgressLogInterval) {
+            return false;
+        }
+
+        _transferProgressLogTime[progressTransferId] = now;
+        return true;
     }
 
     private void ShowDeviceChatToast(string conversationId, string displayName, string text) {

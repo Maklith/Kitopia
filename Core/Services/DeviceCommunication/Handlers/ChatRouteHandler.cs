@@ -107,43 +107,32 @@ public sealed class ChatRouteHandler : IRouteHandler
         long lastReportedBytes = 0;
         const int progressStepBytes = 1024 * 1024;
 
-        while (true)
+        async ValueTask ReportProgressAsync(int written)
         {
-            var readResult = await payload.ReadAsync(cancellationToken);
-            var buffer = readResult.Buffer;
-            if (!buffer.IsEmpty)
+            if (written <= 0)
             {
-                foreach (var segment in buffer)
-                {
-                    if (segment.IsEmpty)
-                    {
-                        continue;
-                    }
-
-                    await fileStream.WriteAsync(segment, cancellationToken);
-                    receivedBytes += segment.Length;
-                }
-
-                var progressTotal = totalBytes > 0 ? totalBytes : Math.Max(receivedBytes, 1L);
-                if (receivedBytes - lastReportedBytes >= progressStepBytes || readResult.IsCompleted)
-                {
-                    var progressEvent = new IncomingMessageEvent(
-                        message,
-                        IncomingMessageEventType.TransferProgress,
-                        message.ChannelId,
-                        receivedBytes,
-                        progressTotal);
-                    await _incomingMessageSink.PublishEventAsync(progressEvent, cancellationToken);
-                    lastReportedBytes = receivedBytes;
-                }
+                return;
             }
 
-            payload.AdvanceTo(buffer.End);
-            if (readResult.IsCompleted)
+            receivedBytes += written;
+            if (receivedBytes - lastReportedBytes < progressStepBytes)
             {
-                break;
+                return;
             }
+
+            var progressTotal = totalBytes > 0 ? totalBytes : Math.Max(receivedBytes, 1L);
+            var progressEvent = new IncomingMessageEvent(
+                message,
+                IncomingMessageEventType.TransferProgress,
+                message.ChannelId,
+                receivedBytes,
+                progressTotal);
+            await _incomingMessageSink.PublishEventAsync(progressEvent, cancellationToken);
+            lastReportedBytes = receivedBytes;
         }
+
+        await using var progressStream = new ProgressReportingWriteStream(fileStream, ReportProgressAsync);
+        await payload.CopyToAsync(progressStream, cancellationToken);
 
         if (receivedBytes > 0 && receivedBytes != lastReportedBytes)
         {
@@ -200,29 +189,51 @@ public sealed class ChatRouteHandler : IRouteHandler
     private static async Task<byte[]?> ReadPayloadBytesAsync(PipeReader payload, CancellationToken cancellationToken)
     {
         await using var memory = new MemoryStream();
+        await payload.CopyToAsync(memory, cancellationToken);
 
-        while (true)
+        return memory.Length == 0 ? null : memory.ToArray();
+    }
+
+    private sealed class ProgressReportingWriteStream : Stream
+    {
+        private readonly Stream _inner;
+        private readonly Func<int, ValueTask> _onWrite;
+
+        public ProgressReportingWriteStream(Stream inner, Func<int, ValueTask> onWrite)
         {
-            var readResult = await payload.ReadAsync(cancellationToken);
-            var buffer = readResult.Buffer;
-            if (!buffer.IsEmpty)
-            {
-                foreach (var segment in buffer)
-                {
-                    if (!segment.IsEmpty)
-                    {
-                        await memory.WriteAsync(segment, cancellationToken);
-                    }
-                }
-            }
+            _inner = inner;
+            _onWrite = onWrite;
+        }
 
-            payload.AdvanceTo(buffer.End);
-            if (readResult.IsCompleted)
+        public override bool CanRead => false;
+        public override bool CanSeek => _inner.CanSeek;
+        public override bool CanWrite => _inner.CanWrite;
+        public override long Length => _inner.Length;
+        public override long Position { get => _inner.Position; set => _inner.Position = value; }
+
+        public override void Flush() => _inner.Flush();
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            _inner.Write(buffer, offset, count);
+            if (count > 0)
             {
-                break;
+                _onWrite(count).AsTask().GetAwaiter().GetResult();
             }
         }
 
-        return memory.Length == 0 ? null : memory.ToArray();
+        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await _inner.WriteAsync(buffer, cancellationToken);
+            if (!buffer.IsEmpty)
+            {
+                await _onWrite(buffer.Length);
+            }
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => _inner.Seek(offset, origin);
+        public override void SetLength(long value) => _inner.SetLength(value);
     }
 }

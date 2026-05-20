@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.IO.Pipelines;
 using System.Net;
@@ -62,70 +63,9 @@ public sealed class ProtocolSession
             };
         }
 
-        var payloadPipe = new Pipe();
-
-        async Task ProducePayloadAsync()
-        {
-            Exception? writerError = null;
-            try
-            {
-                var remaining = payloadLength;
-                while (remaining > 0)
-                {
-                    var readResult = await payloadReader.ReadAsync(cancellationToken);
-                    var buffer = readResult.Buffer;
-                    if (buffer.Length == 0)
-                    {
-                        payloadReader.AdvanceTo(buffer.End);
-                        if (readResult.IsCompleted)
-                        {
-                            throw new EndOfStreamException("Unexpected end of stream while reading payload.");
-                        }
-
-                        continue;
-                    }
-
-                    var toCopy = Math.Min((long)buffer.Length, remaining);
-                    foreach (var segment in buffer.Slice(0, toCopy))
-                    {
-                        if (!segment.IsEmpty)
-                        {
-                            await payloadPipe.Writer.WriteAsync(segment, cancellationToken);
-                        }
-                    }
-
-                    remaining -= toCopy;
-                    payloadReader.AdvanceTo(buffer.GetPosition(toCopy), buffer.End);
-                }
-            }
-            catch (Exception ex)
-            {
-                writerError = ex;
-            }
-            finally
-            {
-                await payloadPipe.Writer.CompleteAsync(writerError);
-            }
-        }
-
-        var producerTask = ProducePayloadAsync();
+        var scopedPayloadReader = new FramePayloadScopedReader(payloadReader, payloadLength);
         var context = new MessageContext(protocol, remoteEndPoint, string.Empty);
-        Exception? consumerError = null;
-        try
-        {
-            await _router.RouteAsync(context, envelope, payloadPipe.Reader, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            consumerError = ex;
-            throw;
-        }
-        finally
-        {
-            await payloadPipe.Reader.CompleteAsync(consumerError);
-        }
-
-        await producerTask;
+        await _router.RouteAsync(context, envelope, scopedPayloadReader, cancellationToken);
     }
 
     private static IReadOnlyDictionary<string, string?> MergeMetadata(
@@ -141,5 +81,91 @@ public sealed class ProtocolSession
         }
 
         return merged;
+    }
+
+    private sealed class FramePayloadScopedReader : PipeReader
+    {
+        private readonly PipeReader _inner;
+        private long _remaining;
+        private ReadOnlySequence<byte> _visibleBuffer;
+
+        public FramePayloadScopedReader(PipeReader inner, long length)
+        {
+            _inner = inner;
+            _remaining = length;
+        }
+
+        public override void AdvanceTo(SequencePosition consumed)
+        {
+            AdvanceTo(consumed, consumed);
+        }
+
+        public override void AdvanceTo(SequencePosition consumed, SequencePosition examined)
+        {
+            var consumedBytes = _visibleBuffer.Slice(0, consumed).Length;
+            _remaining -= consumedBytes;
+            if (_remaining < 0)
+            {
+                _remaining = 0;
+            }
+
+            _inner.AdvanceTo(consumed, examined);
+        }
+
+        public override void CancelPendingRead() => _inner.CancelPendingRead();
+
+        public override void Complete(Exception? exception = null) { }
+
+        public override ValueTask CompleteAsync(Exception? exception = null)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            if (_remaining <= 0)
+            {
+                _visibleBuffer = ReadOnlySequence<byte>.Empty;
+                return new ReadResult(ReadOnlySequence<byte>.Empty, isCanceled: false, isCompleted: true);
+            }
+
+            var result = await _inner.ReadAsync(cancellationToken);
+            var buffer = result.Buffer;
+            if (buffer.Length > _remaining)
+            {
+                buffer = buffer.Slice(0, _remaining);
+            }
+
+            _visibleBuffer = buffer;
+            var isCompleted = result.IsCompleted || buffer.Length >= _remaining;
+            return new ReadResult(buffer, result.IsCanceled, isCompleted);
+        }
+
+        public override bool TryRead(out ReadResult result)
+        {
+            if (_remaining <= 0)
+            {
+                _visibleBuffer = ReadOnlySequence<byte>.Empty;
+                result = new ReadResult(ReadOnlySequence<byte>.Empty, isCanceled: false, isCompleted: true);
+                return true;
+            }
+
+            if (!_inner.TryRead(out var innerResult))
+            {
+                result = default;
+                return false;
+            }
+
+            var buffer = innerResult.Buffer;
+            if (buffer.Length > _remaining)
+            {
+                buffer = buffer.Slice(0, _remaining);
+            }
+
+            _visibleBuffer = buffer;
+            var isCompleted = innerResult.IsCompleted || buffer.Length >= _remaining;
+            result = new ReadResult(buffer, innerResult.IsCanceled, isCompleted);
+            return true;
+        }
     }
 }
