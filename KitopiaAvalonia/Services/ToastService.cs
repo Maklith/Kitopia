@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -580,6 +581,12 @@ public class ToastService : IToastService
 
         var foregroundHwnd = User32.GetForegroundWindow();
         if (foregroundHwnd.IsNull)
+        {
+            return false;
+        }
+
+        User32.GetWindowThreadProcessId(foregroundHwnd, out var foregroundProcessId);
+        if (foregroundProcessId == Process.GetCurrentProcess().Id)
         {
             return false;
         }
