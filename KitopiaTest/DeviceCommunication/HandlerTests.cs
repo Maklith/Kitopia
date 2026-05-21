@@ -199,6 +199,115 @@ public sealed class HandlerTests
         Assert.IsNotNull(rejectEvent);
     }
 
+    [TestMethod]
+    public async Task DeviceMessageDispatcher_ChatFileMessage_WhenReceiveWriteFails_RemovesSessionAndPublishesRejected()
+    {
+        var sink = new RecordingSink();
+        var sessionStore = new FileTransferSessionStore();
+        var dispatcher = CreateDispatcher(sink: sink, sessionStore: sessionStore);
+
+        var transferId = Guid.NewGuid();
+        var tempDirectory = Path.Combine(Path.GetTempPath(), $"kitopia-test-{transferId:D}");
+        Directory.CreateDirectory(tempDirectory);
+
+        sessionStore.TryAdd(new FileTransferSession
+        {
+            ConversationId = "peer-1",
+            TransferId = transferId,
+            FileName = "test.bin",
+            SizeBytes = 4,
+            State = FileTransferState.Accepted,
+            SavePath = tempDirectory
+        });
+
+        var envelope = new DataEnvelope
+        {
+            Route = "chat", Command = "file", StreamType = DataStreamType.File,
+            ChannelId = transferId,
+            Metadata = new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["conversationId"] = "peer-1", ["senderId"] = "peer-1",
+                ["fileName"] = "test.bin", ["length"] = "4"
+            }
+        };
+
+        try
+        {
+            await Assert.ThrowsExactlyAsync<UnauthorizedAccessException>(() =>
+                dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(new MemoryStream(new byte[] { 1, 2, 3, 4 }))).AsTask());
+
+            Assert.IsFalse(sessionStore.TryGet(transferId, out _));
+            var rejectEvent = sink.Events.FirstOrDefault(e => e.EventType == IncomingMessageEventType.TransferRejected);
+            Assert.IsNotNull(rejectEvent);
+            Assert.IsInstanceOfType<FileRejectChatMessage>(rejectEvent.Message);
+            Assert.AreEqual("receive_failed", rejectEvent.Reason);
+        }
+        finally
+        {
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task DeviceMessageDispatcher_ChatFileMessage_WhenReceiveCancelled_RemovesSessionAndPublishesCancelled()
+    {
+        var sink = new RecordingSink();
+        var sessionStore = new FileTransferSessionStore();
+        var dispatcher = CreateDispatcher(sink: sink, sessionStore: sessionStore);
+
+        var transferId = Guid.NewGuid();
+        var tempFile = Path.Combine(Path.GetTempPath(), $"kitopia-test-{transferId:D}.bin");
+
+        sessionStore.TryAdd(new FileTransferSession
+        {
+            ConversationId = "peer-1",
+            TransferId = transferId,
+            FileName = "test.bin",
+            SizeBytes = 4,
+            State = FileTransferState.Accepted,
+            SavePath = tempFile
+        });
+
+        var envelope = new DataEnvelope
+        {
+            Route = "chat", Command = "file", StreamType = DataStreamType.File,
+            ChannelId = transferId,
+            Metadata = new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["conversationId"] = "peer-1", ["senderId"] = "peer-1",
+                ["fileName"] = "test.bin", ["length"] = "4"
+            }
+        };
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        try
+        {
+            try
+            {
+                await dispatcher.DispatchAsync(
+                    CreateContext(),
+                    envelope,
+                    PipeReader.Create(new MemoryStream(new byte[] { 1, 2, 3, 4 })),
+                    cts.Token);
+                Assert.Fail("Expected receive cancellation to throw.");
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            Assert.IsFalse(sessionStore.TryGet(transferId, out _));
+            var cancelEvent = sink.Events.FirstOrDefault(e => e.EventType == IncomingMessageEventType.TransferCancelled);
+            Assert.IsNotNull(cancelEvent);
+            Assert.IsInstanceOfType<FileCancelChatMessage>(cancelEvent.Message);
+            Assert.AreEqual("cancelled", cancelEvent.Reason);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
     #endregion
 
     #region DeviceMessageDispatcher - Edge Cases
