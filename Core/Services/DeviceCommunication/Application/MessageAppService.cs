@@ -28,7 +28,7 @@ public sealed class MessageAppService : IMessageAppService {
     private readonly IDeviceDiscoveryService _deviceDiscoveryService;
     private readonly IToastService _toastService;
     private readonly INavigationService _navigationService;
-    private readonly Channel<IncomingMessageEvent> _receiveChannel = Channel.CreateUnbounded<IncomingMessageEvent>();
+    private readonly Channel<DeviceMessageEvent> _receiveChannel = Channel.CreateUnbounded<DeviceMessageEvent>();
     private readonly object _stateSync = new();
     private bool _isMainWindowActive;
     private bool _isDeviceChatPageOpen;
@@ -145,7 +145,7 @@ public sealed class MessageAppService : IMessageAppService {
         return SendCoreAsync(deviceId, message, cancellationToken);
     }
 
-    public IAsyncEnumerable<IncomingMessageEvent> ReceiveAsync(CancellationToken cancellationToken = default) {
+    public IAsyncEnumerable<DeviceMessageEvent> ReceiveAsync(CancellationToken cancellationToken = default) {
         return _receiveChannel.Reader.ReadAllAsync(cancellationToken);
     }
 
@@ -218,11 +218,10 @@ public sealed class MessageAppService : IMessageAppService {
         await foreach (var messageEvent in _incomingMessageBuffer.ReceiveAsync()) {
             if (ShouldLogIncomingEvent(messageEvent)) {
                 Logger.Information(
-                    "接收信息。 EventType={EventType} Type={MessageType} ConversationId={ConversationId} TransferId={TransferId} Detail={Detail}",
-                    messageEvent.EventType,
-                    messageEvent.Message.GetType().Name,
-                    messageEvent.Message.ConversationId,
-                    messageEvent.TransferId,
+                    "接收信息。 EventType={EventType} ConversationId={ConversationId} TransferId={TransferId} Detail={Detail}",
+                    messageEvent.GetType().Name,
+                    messageEvent.ConversationId,
+                    messageEvent is FileTransferUpdatedEvent transferEvent ? transferEvent.TransferId : null,
                     DescribeIncomingEvent(messageEvent));
             }
 
@@ -231,16 +230,16 @@ public sealed class MessageAppService : IMessageAppService {
         }
     }
 
-    private Task NotifyToastIfNeededAsync(IncomingMessageEvent messageEvent) {
-        var conversationId = messageEvent.Message.ConversationId;
+    private Task NotifyToastIfNeededAsync(DeviceMessageEvent messageEvent) {
+        var conversationId = messageEvent.ConversationId;
         if (string.IsNullOrWhiteSpace(conversationId) ||
             ResolveIncomingDisplayMode(conversationId) != IncomingMessageDisplayMode.NotifyByToast) {
             return Task.CompletedTask;
         }
 
         var displayName = ResolveConversationDisplayName(conversationId);
-        switch (messageEvent.Message) {
-            case TextChatMessage textMessage: {
+        switch (messageEvent) {
+            case ChatMessageReceivedEvent { Message: TextChatMessage textMessage }: {
                 var text = textMessage.Text.Trim();
                 if (!string.IsNullOrWhiteSpace(text)) {
                     ShowDeviceChatToast(conversationId, displayName, text);
@@ -248,13 +247,14 @@ public sealed class MessageAppService : IMessageAppService {
 
                 break;
             }
-            case ImageChatMessage:
+            case ChatMessageReceivedEvent { Message: ImageChatMessage }:
                 ShowDeviceChatToast(conversationId, displayName, "[图片]");
                 break;
-            case FileOfferChatMessage fileOffer:
+            case FileTransferUpdatedEvent { Status: FileTransferStatus.WaitingForAccept } fileOffer:
                 ShowDeviceChatToast(conversationId, displayName, $"文件: {fileOffer.FileName}");
                 break;
-            case FileRejectChatMessage fileReject:
+            case FileTransferUpdatedEvent { Direction: FileTransferDirection.Upload } fileReject
+                when fileReject.Status is FileTransferStatus.Rejected or FileTransferStatus.Timeout or FileTransferStatus.Failed:
                 ShowDeviceChatToast(conversationId, displayName, ResolveRejectToastText(fileReject.Reason));
                 break;
         }
@@ -270,22 +270,20 @@ public sealed class MessageAppService : IMessageAppService {
         };
     }
 
-    private bool ShouldLogIncomingEvent(IncomingMessageEvent messageEvent) {
-        if (messageEvent.EventType != IncomingMessageEventType.TransferProgress) {
-            if (messageEvent.TransferId is Guid transferId) {
+    private bool ShouldLogIncomingEvent(DeviceMessageEvent messageEvent) {
+        if (messageEvent is not FileTransferUpdatedEvent { Status: FileTransferStatus.InProgress } progressEvent) {
+            if (messageEvent is FileTransferUpdatedEvent transferEvent) {
+                var transferId = transferEvent.TransferId;
                 _transferProgressLogTime.Remove(transferId);
             }
 
             return true;
         }
 
-        if (messageEvent.TransferId is not Guid progressTransferId) {
-            return true;
-        }
-
-        var isFinal = messageEvent.BytesTransferred.HasValue && messageEvent.TotalBytes.HasValue &&
-                      messageEvent.TotalBytes.Value > 0 &&
-                      messageEvent.BytesTransferred.Value >= messageEvent.TotalBytes.Value;
+        var progressTransferId = progressEvent.TransferId;
+        var isFinal = progressEvent.BytesTransferred.HasValue && progressEvent.TotalBytes.HasValue &&
+                      progressEvent.TotalBytes.Value > 0 &&
+                      progressEvent.BytesTransferred.Value >= progressEvent.TotalBytes.Value;
         if (isFinal) {
             _transferProgressLogTime.Remove(progressTransferId);
             return true;
@@ -387,11 +385,16 @@ public sealed class MessageAppService : IMessageAppService {
 
                 if (decision == TransferDecision.Timeout) {
                     await _incomingMessageBuffer.PublishEventAsync(
-                        new IncomingMessageEvent(
-                            new FileRejectChatMessage(conversationId, transferId, "timeout"),
-                            IncomingMessageEventType.TransferTimeout,
+                        new FileTransferUpdatedEvent(
+                            conversationId,
                             transferId,
-                            Reason: "timeout"),
+                            FileTransferDirection.Upload,
+                            FileTransferStatus.Timeout,
+                            fileName,
+                            null,
+                            sizeBytes,
+                            "timeout",
+                            DateTimeOffset.UtcNow),
                         cancellationToken);
                     throw new InvalidOperationException("文件发送超时，请稍后重试。");
                 }
@@ -425,12 +428,16 @@ public sealed class MessageAppService : IMessageAppService {
                 fileEnvelope,
                 payloadStream,
                 (sentBytes, totalBytes) => _incomingMessageBuffer.PublishEventAsync(
-                    new IncomingMessageEvent(
-                        fileMessage,
-                        IncomingMessageEventType.TransferProgress,
+                    new FileTransferUpdatedEvent(
+                        conversationId,
                         transferId,
+                        FileTransferDirection.Upload,
+                        FileTransferStatus.InProgress,
+                        fileName,
                         sentBytes,
-                        totalBytes),
+                        totalBytes,
+                        null,
+                        DateTimeOffset.UtcNow),
                     cancellationToken),
                 cancellationToken);
 
@@ -439,12 +446,16 @@ public sealed class MessageAppService : IMessageAppService {
             _fileTransferSessionStore.TryRemove(transferId, out _);
 
             await _incomingMessageBuffer.PublishEventAsync(
-                new IncomingMessageEvent(
-                    new FileCompleteChatMessage(conversationId, transferId),
-                    IncomingMessageEventType.TransferCompleted,
+                new FileTransferUpdatedEvent(
+                    conversationId,
                     transferId,
+                    FileTransferDirection.Upload,
+                    FileTransferStatus.Completed,
+                    fileName,
                     sizeBytes,
-                    sizeBytes),
+                    sizeBytes,
+                    null,
+                    DateTimeOffset.UtcNow),
                 cancellationToken);
         }
         catch {
@@ -465,12 +476,16 @@ public sealed class MessageAppService : IMessageAppService {
         await _transportService.SendAsync(deviceId, envelope, payloadStream, cancellationToken: cancellationToken);
     }
 
-    private static string DescribeIncomingEvent(IncomingMessageEvent messageEvent) {
-        var payloadBytes = messageEvent.PayloadBytes?.LongLength ?? 0;
-        var baseDetail = $"{DescribeMessage(messageEvent.Message)}, bytes={messageEvent.BytesTransferred}/{messageEvent.TotalBytes}, payloadBytes={payloadBytes}";
-        return string.IsNullOrWhiteSpace(messageEvent.Reason)
+    private static string DescribeIncomingEvent(DeviceMessageEvent messageEvent) {
+        var baseDetail = messageEvent switch {
+            ChatMessageReceivedEvent chat => $"{DescribeMessage(chat.Message)}, payloadBytes={chat.PayloadBytes?.LongLength ?? 0}",
+            FileTransferUpdatedEvent transfer => $"transferId={transfer.TransferId}, direction={transfer.Direction}, status={transfer.Status}, file={transfer.FileName}, bytes={transfer.BytesTransferred}/{transfer.TotalBytes}",
+            _ => messageEvent.ToString() ?? messageEvent.GetType().Name
+        };
+        var reason = messageEvent is FileTransferUpdatedEvent transferEvent ? transferEvent.Reason : null;
+        return string.IsNullOrWhiteSpace(reason)
             ? baseDetail
-            : $"{baseDetail}, reason={messageEvent.Reason}";
+            : $"{baseDetail}, reason={reason}";
     }
 
     private static string DescribeMessage(AppMessage message) {

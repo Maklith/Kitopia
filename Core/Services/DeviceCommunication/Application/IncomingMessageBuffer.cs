@@ -13,7 +13,7 @@ public enum TransferDecision
 
 public sealed class IncomingMessageBuffer : IIncomingMessageSink
 {
-    private readonly Channel<IncomingMessageEvent> _channel = Channel.CreateBounded<IncomingMessageEvent>(1024);
+    private readonly Channel<DeviceMessageEvent> _channel = Channel.CreateBounded<DeviceMessageEvent>(1024);
     private readonly object _sync = new();
     private readonly Dictionary<Guid, TaskCompletionSource<TransferDecision>> _transferDecisions = new();
     private readonly Dictionary<Guid, TransferDecision> _pendingTransferDecisions = new();
@@ -21,16 +21,15 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
     public ValueTask PublishAsync(AppMessage message, CancellationToken cancellationToken = default)
     {
         TrackTransferDecision(message);
-        return _channel.Writer.WriteAsync(new IncomingMessageEvent(message), cancellationToken);
+        return _channel.Writer.WriteAsync(DeviceMessageEventFactory.FromMessage(message), cancellationToken);
     }
 
-    public ValueTask PublishEventAsync(IncomingMessageEvent messageEvent, CancellationToken cancellationToken = default)
+    public ValueTask PublishEventAsync(DeviceMessageEvent messageEvent, CancellationToken cancellationToken = default)
     {
-        TrackTransferDecision(messageEvent.Message);
         return _channel.Writer.WriteAsync(messageEvent, cancellationToken);
     }
 
-    public IAsyncEnumerable<IncomingMessageEvent> ReceiveAsync(CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<DeviceMessageEvent> ReceiveAsync(CancellationToken cancellationToken = default)
     {
         return _channel.Reader.ReadAllAsync(cancellationToken);
     }

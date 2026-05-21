@@ -128,7 +128,7 @@ public sealed class MessageAppServiceTests
     }
 
     [TestMethod]
-    public async Task ReceiveAsync_FileCompleteEvent_PublishesTransferCompleted()
+    public async Task ReceiveAsync_FileCompleteEvent_PublishesTransferCompletedUpdate()
     {
         var listener = new FakeLocalDataListener();
         var incomingBuffer = new IncomingMessageBuffer();
@@ -136,21 +136,27 @@ public sealed class MessageAppServiceTests
 
         var transferId = Guid.NewGuid();
         await incomingBuffer.PublishEventAsync(
-            new IncomingMessageEvent(
-                new FileCompleteChatMessage("peer-1", transferId),
-                IncomingMessageEventType.TransferCompleted,
+            new FileTransferUpdatedEvent(
+                "peer-1",
                 transferId,
+                FileTransferDirection.Download,
+                FileTransferStatus.Completed,
+                null,
                 4,
-                4));
+                4,
+                null,
+                DateTimeOffset.UtcNow));
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         await using var enumerator = service.ReceiveAsync(cts.Token).GetAsyncEnumerator(cts.Token);
         Assert.IsTrue(await enumerator.MoveNextAsync());
 
         var evt = enumerator.Current;
-        Assert.IsInstanceOfType<FileCompleteChatMessage>(evt.Message);
-        Assert.AreEqual(IncomingMessageEventType.TransferCompleted, evt.EventType);
-        Assert.AreEqual(transferId, evt.TransferId);
+        Assert.IsInstanceOfType<FileTransferUpdatedEvent>(evt);
+        var transferEvent = (FileTransferUpdatedEvent)evt;
+        Assert.AreEqual(FileTransferStatus.Completed, transferEvent.Status);
+        Assert.AreEqual(FileTransferDirection.Download, transferEvent.Direction);
+        Assert.AreEqual(transferId, transferEvent.TransferId);
     }
 
     [TestMethod]
@@ -197,16 +203,18 @@ public sealed class MessageAppServiceTests
                 envelope,
                 payloadReader);
 
-            var progressEvent = sink.Events.FirstOrDefault(evt => evt.EventType == IncomingMessageEventType.TransferProgress);
+            var progressEvent = sink.Events.OfType<FileTransferUpdatedEvent>()
+                .FirstOrDefault(evt => evt.Status == FileTransferStatus.InProgress);
             Assert.IsNotNull(progressEvent);
             Assert.AreEqual(transferId, progressEvent.TransferId);
+            Assert.AreEqual(FileTransferDirection.Download, progressEvent.Direction);
             Assert.AreEqual(payloadBytes.LongLength, progressEvent.BytesTransferred);
             Assert.AreEqual(payloadBytes.LongLength, progressEvent.TotalBytes);
 
-            var payloadEvent = sink.Events.LastOrDefault();
+            var payloadEvent = sink.Events.OfType<FileTransferUpdatedEvent>().LastOrDefault();
             Assert.IsNotNull(payloadEvent);
-            Assert.AreEqual(IncomingMessageEventType.TransferCompleted, payloadEvent.EventType);
-            Assert.IsInstanceOfType<FileCompleteChatMessage>(payloadEvent.Message);
+            Assert.AreEqual(FileTransferStatus.Completed, payloadEvent.Status);
+            Assert.AreEqual(FileTransferDirection.Download, payloadEvent.Direction);
 
             var saved = await File.ReadAllBytesAsync(tempFile);
             CollectionAssert.AreEqual(payloadBytes, saved);
@@ -430,16 +438,16 @@ public sealed class MessageAppServiceTests
 
     private sealed class RecordingIncomingMessageSink : IIncomingMessageSink
     {
-        public List<IncomingMessageEvent> Events { get; } = [];
+        public List<DeviceMessageEvent> Events { get; } = [];
 
         public ValueTask PublishAsync(Core.Services.DeviceCommunication.Messages.AppMessage message,
             CancellationToken cancellationToken = default)
         {
-            Events.Add(new IncomingMessageEvent(message));
+            Events.Add(DeviceMessageEventFactory.FromMessage(message));
             return ValueTask.CompletedTask;
         }
 
-        public ValueTask PublishEventAsync(IncomingMessageEvent messageEvent,
+        public ValueTask PublishEventAsync(DeviceMessageEvent messageEvent,
             CancellationToken cancellationToken = default)
         {
             Events.Add(messageEvent);

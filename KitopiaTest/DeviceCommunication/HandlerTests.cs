@@ -34,7 +34,8 @@ public sealed class HandlerTests
         await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
 
         Assert.AreEqual(1, sink.Events.Count);
-        Assert.IsInstanceOfType<TextChatMessage>(sink.Events[0].Message);
+        Assert.IsInstanceOfType<ChatMessageReceivedEvent>(sink.Events[0]);
+        Assert.IsInstanceOfType<TextChatMessage>(((ChatMessageReceivedEvent)sink.Events[0]).Message);
     }
 
     [TestMethod]
@@ -52,7 +53,9 @@ public sealed class HandlerTests
         await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
 
         Assert.AreEqual(1, sink.Events.Count);
-        Assert.IsInstanceOfType<FileAcceptChatMessage>(sink.Events[0].Message);
+        Assert.IsInstanceOfType<FileTransferUpdatedEvent>(sink.Events[0]);
+        var transferEvent = (FileTransferUpdatedEvent)sink.Events[0];
+        Assert.AreEqual(FileTransferStatus.Accepted, transferEvent.Status);
     }
 
     #endregion
@@ -80,8 +83,10 @@ public sealed class HandlerTests
         await dispatcher.DispatchAsync(CreateContext(), envelope, reader);
 
         Assert.AreEqual(1, sink.Events.Count);
-        Assert.IsNotNull(sink.Events[0].PayloadBytes);
-        CollectionAssert.AreEqual(payloadBytes, sink.Events[0].PayloadBytes);
+        Assert.IsInstanceOfType<ChatMessageReceivedEvent>(sink.Events[0]);
+        var imageEvent = (ChatMessageReceivedEvent)sink.Events[0];
+        Assert.IsNotNull(imageEvent.PayloadBytes);
+        CollectionAssert.AreEqual(payloadBytes, imageEvent.PayloadBytes);
     }
 
     #endregion
@@ -128,9 +133,10 @@ public sealed class HandlerTests
             var saved = await File.ReadAllBytesAsync(tempFile);
             CollectionAssert.AreEqual(payloadBytes, saved);
 
-            var completedEvent = sink.Events.FirstOrDefault(e => e.EventType == IncomingMessageEventType.TransferCompleted);
+            var completedEvent = sink.Events.OfType<FileTransferUpdatedEvent>()
+                .FirstOrDefault(e => e.Status == FileTransferStatus.Completed);
             Assert.IsNotNull(completedEvent);
-            Assert.IsInstanceOfType<FileCompleteChatMessage>(completedEvent.Message);
+            Assert.AreEqual(FileTransferDirection.Download, completedEvent.Direction);
         }
         finally
         {
@@ -158,9 +164,9 @@ public sealed class HandlerTests
 
         await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(new MemoryStream(payloadBytes)));
 
-        var rejectEvent = sink.Events.FirstOrDefault(e => e.EventType == IncomingMessageEventType.TransferRejected);
+        var rejectEvent = sink.Events.OfType<FileTransferUpdatedEvent>()
+            .FirstOrDefault(e => e.Status == FileTransferStatus.Failed);
         Assert.IsNotNull(rejectEvent);
-        Assert.IsInstanceOfType<FileRejectChatMessage>(rejectEvent.Message);
         Assert.AreEqual("missing_accept_session", rejectEvent.Reason);
     }
 
@@ -195,7 +201,8 @@ public sealed class HandlerTests
 
         await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(new MemoryStream(new byte[] { 1, 2, 3, 4 })));
 
-        var rejectEvent = sink.Events.FirstOrDefault(e => e.EventType == IncomingMessageEventType.TransferRejected);
+        var rejectEvent = sink.Events.OfType<FileTransferUpdatedEvent>()
+            .FirstOrDefault(e => e.Status == FileTransferStatus.Failed);
         Assert.IsNotNull(rejectEvent);
     }
 
@@ -237,9 +244,9 @@ public sealed class HandlerTests
                 dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(new MemoryStream(new byte[] { 1, 2, 3, 4 }))).AsTask());
 
             Assert.IsFalse(sessionStore.TryGet(transferId, out _));
-            var rejectEvent = sink.Events.FirstOrDefault(e => e.EventType == IncomingMessageEventType.TransferRejected);
+            var rejectEvent = sink.Events.OfType<FileTransferUpdatedEvent>()
+                .FirstOrDefault(e => e.Status == FileTransferStatus.Failed);
             Assert.IsNotNull(rejectEvent);
-            Assert.IsInstanceOfType<FileRejectChatMessage>(rejectEvent.Message);
             Assert.AreEqual("receive_failed", rejectEvent.Reason);
         }
         finally
@@ -297,9 +304,9 @@ public sealed class HandlerTests
             }
 
             Assert.IsFalse(sessionStore.TryGet(transferId, out _));
-            var cancelEvent = sink.Events.FirstOrDefault(e => e.EventType == IncomingMessageEventType.TransferCancelled);
+            var cancelEvent = sink.Events.OfType<FileTransferUpdatedEvent>()
+                .FirstOrDefault(e => e.Status == FileTransferStatus.Cancelled);
             Assert.IsNotNull(cancelEvent);
-            Assert.IsInstanceOfType<FileCancelChatMessage>(cancelEvent.Message);
             Assert.AreEqual("cancelled", cancelEvent.Reason);
         }
         finally
@@ -364,7 +371,8 @@ public sealed class HandlerTests
         await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
 
         Assert.AreEqual(1, sink.Events.Count);
-        Assert.IsInstanceOfType<TextClipboardMessage>(sink.Events[0].Message);
+        Assert.IsInstanceOfType<ChatMessageReceivedEvent>(sink.Events[0]);
+        Assert.IsInstanceOfType<TextClipboardMessage>(((ChatMessageReceivedEvent)sink.Events[0]).Message);
     }
 
     [TestMethod]
@@ -400,7 +408,8 @@ public sealed class HandlerTests
         await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
 
         Assert.AreEqual(1, sink.Events.Count);
-        Assert.IsInstanceOfType<TextClipboardMessage>(sink.Events[0].Message);
+        Assert.IsInstanceOfType<ChatMessageReceivedEvent>(sink.Events[0]);
+        Assert.IsInstanceOfType<TextClipboardMessage>(((ChatMessageReceivedEvent)sink.Events[0]).Message);
     }
 
     #endregion
@@ -466,16 +475,16 @@ public sealed class HandlerTests
 
     private sealed class RecordingSink : IIncomingMessageSink
     {
-        public List<IncomingMessageEvent> Events { get; } = [];
+        public List<DeviceMessageEvent> Events { get; } = [];
 
         public ValueTask PublishAsync(Core.Services.DeviceCommunication.Messages.AppMessage message,
             CancellationToken cancellationToken = default)
         {
-            Events.Add(new IncomingMessageEvent(message));
+            Events.Add(DeviceMessageEventFactory.FromMessage(message));
             return ValueTask.CompletedTask;
         }
 
-        public ValueTask PublishEventAsync(IncomingMessageEvent messageEvent,
+        public ValueTask PublishEventAsync(DeviceMessageEvent messageEvent,
             CancellationToken cancellationToken = default)
         {
             Events.Add(messageEvent);

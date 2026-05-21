@@ -90,7 +90,7 @@ public sealed class DeviceMessageDispatcher
         CancellationToken cancellationToken)
     {
         var payloadBytes = await ReadPayloadBytesAsync(payload, cancellationToken);
-        await _incomingMessageSink.PublishEventAsync(new IncomingMessageEvent(message, PayloadBytes: payloadBytes),
+        await _incomingMessageSink.PublishEventAsync(DeviceMessageEventFactory.FromMessage(message, payloadBytes),
             cancellationToken);
     }
 

@@ -53,8 +53,16 @@ public sealed class FileTransferPayloadHandler
 
             var progressTotal = totalBytes > 0 ? totalBytes : Math.Max(receivedBytes, 1L);
             await _incomingMessageSink.PublishEventAsync(
-                new IncomingMessageEvent(message, IncomingMessageEventType.TransferProgress, message.ChannelId,
-                    receivedBytes, progressTotal),
+                new FileTransferUpdatedEvent(
+                    message.ConversationId,
+                    message.ChannelId,
+                    FileTransferDirection.Download,
+                    FileTransferStatus.InProgress,
+                    message.FileName,
+                    receivedBytes,
+                    progressTotal,
+                    null,
+                    DateTimeOffset.UtcNow),
                 cancellationToken);
             lastReportedBytes = receivedBytes;
         }
@@ -76,8 +84,16 @@ public sealed class FileTransferPayloadHandler
             {
                 var finalProgressTotal = totalBytes > 0 ? totalBytes : receivedBytes;
                 await _incomingMessageSink.PublishEventAsync(
-                    new IncomingMessageEvent(message, IncomingMessageEventType.TransferProgress, message.ChannelId,
-                        receivedBytes, finalProgressTotal),
+                    new FileTransferUpdatedEvent(
+                        message.ConversationId,
+                        message.ChannelId,
+                        FileTransferDirection.Download,
+                        FileTransferStatus.InProgress,
+                        message.FileName,
+                        receivedBytes,
+                        finalProgressTotal,
+                        null,
+                        DateTimeOffset.UtcNow),
                     cancellationToken);
             }
 
@@ -86,25 +102,32 @@ public sealed class FileTransferPayloadHandler
             _fileTransferSessionStore.TryRemove(message.ChannelId, out _);
 
             await _incomingMessageSink.PublishEventAsync(
-                new IncomingMessageEvent(
-                    new FileCompleteChatMessage(message.ConversationId, message.ChannelId),
-                    IncomingMessageEventType.TransferCompleted,
+                new FileTransferUpdatedEvent(
+                    message.ConversationId,
                     message.ChannelId,
+                    FileTransferDirection.Download,
+                    FileTransferStatus.Completed,
+                    message.FileName,
                     receivedBytes,
-                    Math.Max(receivedBytes, totalBytes)),
+                    Math.Max(receivedBytes, totalBytes),
+                    null,
+                    DateTimeOffset.UtcNow),
                 cancellationToken);
         }
         catch (OperationCanceledException)
         {
             _fileTransferSessionStore.TryRemove(message.ChannelId, out _);
             await _incomingMessageSink.PublishEventAsync(
-                new IncomingMessageEvent(
-                    new FileCancelChatMessage(message.ConversationId, message.ChannelId, "cancelled"),
-                    IncomingMessageEventType.TransferCancelled,
+                new FileTransferUpdatedEvent(
+                    message.ConversationId,
                     message.ChannelId,
+                    FileTransferDirection.Download,
+                    FileTransferStatus.Cancelled,
+                    message.FileName,
                     receivedBytes,
                     Math.Max(receivedBytes, totalBytes),
-                    "cancelled"),
+                    "cancelled",
+                    DateTimeOffset.UtcNow),
                 CancellationToken.None);
             throw;
         }
@@ -112,13 +135,16 @@ public sealed class FileTransferPayloadHandler
         {
             _fileTransferSessionStore.TryRemove(message.ChannelId, out _);
             await _incomingMessageSink.PublishEventAsync(
-                new IncomingMessageEvent(
-                    new FileRejectChatMessage(message.ConversationId, message.ChannelId, "receive_failed"),
-                    IncomingMessageEventType.TransferRejected,
+                new FileTransferUpdatedEvent(
+                    message.ConversationId,
                     message.ChannelId,
+                    FileTransferDirection.Download,
+                    FileTransferStatus.Failed,
+                    message.FileName,
                     receivedBytes,
                     Math.Max(receivedBytes, totalBytes),
-                    "receive_failed"),
+                    "receive_failed",
+                    DateTimeOffset.UtcNow),
                 CancellationToken.None);
             throw;
         }
@@ -141,11 +167,16 @@ public sealed class FileTransferPayloadHandler
         }
 
         await _incomingMessageSink.PublishEventAsync(
-            new IncomingMessageEvent(
-                new FileRejectChatMessage(message.ConversationId, message.ChannelId, "missing_accept_session"),
-                IncomingMessageEventType.TransferRejected,
+            new FileTransferUpdatedEvent(
+                message.ConversationId,
                 message.ChannelId,
-                Reason: "missing_accept_session"),
+                FileTransferDirection.Download,
+                FileTransferStatus.Failed,
+                message.FileName,
+                null,
+                message.Length,
+                "missing_accept_session",
+                DateTimeOffset.UtcNow),
             cancellationToken);
     }
 

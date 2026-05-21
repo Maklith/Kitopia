@@ -221,7 +221,8 @@ public sealed class ProtocolTests
         await session.HandleAsync(LocalDataTransportProtocol.Tcp, new IPEndPoint(IPAddress.Loopback, 12345), reader);
 
         Assert.AreEqual(1, sink.Events.Count);
-        Assert.IsInstanceOfType<TextChatMessage>(sink.Events[0].Message);
+        Assert.IsInstanceOfType<ChatMessageReceivedEvent>(sink.Events[0]);
+        Assert.IsInstanceOfType<TextChatMessage>(((ChatMessageReceivedEvent)sink.Events[0]).Message);
     }
 
     [TestMethod]
@@ -251,8 +252,10 @@ public sealed class ProtocolTests
         await session.HandleAsync(LocalDataTransportProtocol.Tcp, new IPEndPoint(IPAddress.Loopback, 12345), reader);
 
         Assert.AreEqual(1, sink.Events.Count);
-        Assert.IsNotNull(sink.Events[0].PayloadBytes);
-        CollectionAssert.AreEqual(payloadData, sink.Events[0].PayloadBytes);
+        Assert.IsInstanceOfType<ChatMessageReceivedEvent>(sink.Events[0]);
+        var imageEvent = (ChatMessageReceivedEvent)sink.Events[0];
+        Assert.IsNotNull(imageEvent.PayloadBytes);
+        CollectionAssert.AreEqual(payloadData, imageEvent.PayloadBytes);
     }
 
     [TestMethod]
@@ -283,7 +286,8 @@ public sealed class ProtocolTests
         await session.HandleAsync(LocalDataTransportProtocol.Tcp, new IPEndPoint(IPAddress.Loopback, 12345), reader);
 
         Assert.AreEqual(1, sink.Events.Count);
-        CollectionAssert.AreEqual(declaredPayload, sink.Events[0].PayloadBytes);
+        Assert.IsInstanceOfType<ChatMessageReceivedEvent>(sink.Events[0]);
+        CollectionAssert.AreEqual(declaredPayload, ((ChatMessageReceivedEvent)sink.Events[0]).PayloadBytes);
     }
 
     [TestMethod]
@@ -328,7 +332,8 @@ public sealed class ProtocolTests
         await session.HandleAsync(LocalDataTransportProtocol.Tcp, new IPEndPoint(remoteIp, 9999), reader);
 
         Assert.AreEqual(1, sink.Events.Count);
-        Assert.AreEqual("192.168.1.100", sink.Events[0].Message.ConversationId);
+        Assert.IsInstanceOfType<ChatMessageReceivedEvent>(sink.Events[0]);
+        Assert.AreEqual("192.168.1.100", ((ChatMessageReceivedEvent)sink.Events[0]).Message.ConversationId);
     }
 
     #endregion
@@ -421,16 +426,16 @@ public sealed class ProtocolTests
 
     private sealed class RecordingSink : IIncomingMessageSink
     {
-        public List<IncomingMessageEvent> Events { get; } = [];
+        public List<DeviceMessageEvent> Events { get; } = [];
 
         public ValueTask PublishAsync(Core.Services.DeviceCommunication.Messages.AppMessage message,
             CancellationToken cancellationToken = default)
         {
-            Events.Add(new IncomingMessageEvent(message));
+            Events.Add(DeviceMessageEventFactory.FromMessage(message));
             return ValueTask.CompletedTask;
         }
 
-        public ValueTask PublishEventAsync(IncomingMessageEvent messageEvent,
+        public ValueTask PublishEventAsync(DeviceMessageEvent messageEvent,
             CancellationToken cancellationToken = default)
         {
             Events.Add(messageEvent);

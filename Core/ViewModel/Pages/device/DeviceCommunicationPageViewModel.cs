@@ -156,27 +156,29 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private async Task RunReceiveLoopAsync(CancellationToken token) {
         try {
             await foreach (var evt in _messageAppService.ReceiveAsync(token)) {
-                if (evt.EventType == IncomingMessageEventType.TransferProgress &&
-                    evt.Message is FileChatMessage fileMessage) {
-                    OnFileTransferProgress(fileMessage, evt.BytesTransferred, evt.TotalBytes, DateTimeOffset.UtcNow);
-                    continue;
-                }
-
-                switch (evt.Message) {
-                    case TextChatMessage chatMessage:
-                        OnChatMessageReceived(chatMessage, DateTimeOffset.UtcNow);
+                switch (evt) {
+                    case ChatMessageReceivedEvent { Message: TextChatMessage chatMessage }:
+                        OnChatMessageReceived(chatMessage, evt.TimestampUtc);
                         break;
-                    case ImageChatMessage imageMessage:
-                        OnImageMessageReceived(imageMessage, evt.PayloadBytes, DateTimeOffset.UtcNow);
+                    case ChatMessageReceivedEvent { Message: ImageChatMessage imageMessage } chatEvent:
+                        OnImageMessageReceived(imageMessage, chatEvent.PayloadBytes, evt.TimestampUtc);
                         break;
-                    case FileOfferChatMessage offerMessage:
-                        OnFileOfferReceived(offerMessage);
+                    case FileTransferUpdatedEvent { Status: FileTransferStatus.WaitingForAccept } transferEvent:
+                        OnFileOfferReceived(new FileOfferChatMessage(
+                            transferEvent.ConversationId,
+                            transferEvent.TransferId,
+                            transferEvent.FileName ?? transferEvent.TransferId.ToString("D"),
+                            transferEvent.TotalBytes ?? 0,
+                            null));
                         break;
-                    case FileCompleteChatMessage fileCompleteMessage:
-                        OnFileTransferCompleted(fileCompleteMessage, DateTimeOffset.UtcNow);
+                    case FileTransferUpdatedEvent { Status: FileTransferStatus.InProgress } transferEvent:
+                        OnFileTransferProgress(transferEvent);
                         break;
-                    case FileRejectChatMessage fileRejectMessage:
-                        OnFileTransferRejected(fileRejectMessage, DateTimeOffset.UtcNow);
+                    case FileTransferUpdatedEvent { Status: FileTransferStatus.Completed } transferEvent:
+                        OnFileTransferCompleted(transferEvent);
+                        break;
+                    case FileTransferUpdatedEvent transferEvent:
+                        OnFileTransferRejected(transferEvent);
                         break;
                 }
             }
@@ -541,6 +543,19 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     private void OnFileTransferCompleted(FileCompleteChatMessage message, DateTimeOffset timestampUtc) {
+        OnFileTransferCompleted(new FileTransferUpdatedEvent(
+            message.ConversationId,
+            message.TransferId,
+            FileTransferDirection.Download,
+            FileTransferStatus.Completed,
+            null,
+            null,
+            null,
+            null,
+            timestampUtc));
+    }
+
+    private void OnFileTransferCompleted(FileTransferUpdatedEvent message) {
         if (_disposed) {
             return;
         }
@@ -581,7 +596,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 }
             }
 
-            var timestamp = timestampUtc.ToLocalTime();
+            var timestamp = message.TimestampUtc.ToLocalTime();
             conversation.SetLastMessage("[文件] Received", timestamp);
             SortConversations();
             RequestMessageListAutoScroll();
@@ -589,6 +604,23 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     private void OnFileTransferRejected(FileRejectChatMessage message, DateTimeOffset timestampUtc) {
+        OnFileTransferRejected(new FileTransferUpdatedEvent(
+            message.ConversationId,
+            message.TransferId,
+            FileTransferDirection.Upload,
+            message.Reason switch {
+                "timeout" => FileTransferStatus.Timeout,
+                "rejected_by_peer" or "rejected_by_user" => FileTransferStatus.Rejected,
+                _ => FileTransferStatus.Failed
+            },
+            null,
+            null,
+            null,
+            message.Reason,
+            timestampUtc));
+    }
+
+    private void OnFileTransferRejected(FileTransferUpdatedEvent message) {
         if (_disposed) {
             return;
         }
@@ -645,7 +677,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 }
             }
 
-            var timestamp = timestampUtc.ToLocalTime();
+            var timestamp = message.TimestampUtc.ToLocalTime();
             conversation.SetLastMessage(message.Reason switch {
                 "rejected_by_peer" or "rejected_by_user" => "[文件] 对方已拒绝",
                 "timeout" => "[文件] 发送超时",
@@ -661,6 +693,19 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         long? bytesTransferred,
         long? totalBytes,
         DateTimeOffset timestampUtc) {
+        OnFileTransferProgress(new FileTransferUpdatedEvent(
+            message.ConversationId,
+            message.ChannelId,
+            FileTransferDirection.Upload,
+            FileTransferStatus.InProgress,
+            message.FileName,
+            bytesTransferred,
+            totalBytes,
+            null,
+            timestampUtc));
+    }
+
+    private void OnFileTransferProgress(FileTransferUpdatedEvent message) {
         if (_disposed) {
             return;
         }
@@ -680,34 +725,34 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
             var offerItem = conversation.Messages
                 .OfType<IncomingFileOfferChatMessageItem>()
-                .FirstOrDefault(item => item.TransferId == message.ChannelId);
+                .FirstOrDefault(item => item.TransferId == message.TransferId);
             if (offerItem is not null) {
-                var transferred = Math.Max(0L, bytesTransferred ?? 0L);
-                var total = Math.Max(1L, totalBytes ?? offerItem.FileSizeBytes);
+                var transferred = Math.Max(0L, message.BytesTransferred ?? 0L);
+                var total = Math.Max(1L, message.TotalBytes ?? offerItem.FileSizeBytes);
                 var progress = Math.Clamp((double)transferred / total, 0d, 1d);
                 offerItem.IsReceiving = true;
                 offerItem.ReceiveProgress = progress;
-                offerItem.UpdateTransferSpeed(transferred, timestampUtc);
+                offerItem.UpdateTransferSpeed(transferred, message.TimestampUtc);
                 offerItem.Text = $"[文件] Receiving {offerItem.FileName}";
 
-                var timestamp = timestampUtc.ToLocalTime();
+                var timestamp = message.TimestampUtc.ToLocalTime();
                 conversation.SetLastMessage($"[文件] {offerItem.FileName} ({progress * 100:0.0}%)", timestamp);
                 RequestMessageListAutoScroll();
                 return;
             }
 
             var fallbackIncoming = conversation.Messages
-                .FirstOrDefault(item => item.IsIncoming && item.TrackingTransferId == message.ChannelId);
+                .FirstOrDefault(item => item.IsIncoming && item.TrackingTransferId == message.TransferId);
             if (fallbackIncoming is not null) {
-                var transferredFallback = Math.Max(0L, bytesTransferred ?? 0L);
-                var totalFallback = Math.Max(1L, totalBytes ?? fallbackIncoming.FileSizeBytes);
+                var transferredFallback = Math.Max(0L, message.BytesTransferred ?? 0L);
+                var totalFallback = Math.Max(1L, message.TotalBytes ?? fallbackIncoming.FileSizeBytes);
                 var progressFallback = Math.Clamp((double)transferredFallback / totalFallback, 0d, 1d);
                 fallbackIncoming.IsReceiving = true;
                 fallbackIncoming.ReceiveProgress = progressFallback;
-                fallbackIncoming.UpdateTransferSpeed(transferredFallback, timestampUtc);
+                fallbackIncoming.UpdateTransferSpeed(transferredFallback, message.TimestampUtc);
                 fallbackIncoming.Text = $"[文件] Receiving {fallbackIncoming.FileName}";
 
-                var timestampFallback = timestampUtc.ToLocalTime();
+                var timestampFallback = message.TimestampUtc.ToLocalTime();
                 conversation.SetLastMessage($"[文件] {fallbackIncoming.FileName} ({progressFallback * 100:0.0}%)",
                     timestampFallback);
                 RequestMessageListAutoScroll();
@@ -715,20 +760,20 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
 
             var outgoingItem = conversation.Messages
-                .FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == message.ChannelId);
+                .FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == message.TransferId);
             if (outgoingItem is null) {
                 return;
             }
 
-            var transferredOut = Math.Max(0L, bytesTransferred ?? 0L);
-            var totalOut = Math.Max(1L, totalBytes ?? outgoingItem.FileSizeBytes);
+            var transferredOut = Math.Max(0L, message.BytesTransferred ?? 0L);
+            var totalOut = Math.Max(1L, message.TotalBytes ?? outgoingItem.FileSizeBytes);
             var progressOut = Math.Clamp((double)transferredOut / totalOut, 0d, 1d);
             outgoingItem.IsReceiving = true;
             outgoingItem.ReceiveProgress = progressOut;
-            outgoingItem.UpdateTransferSpeed(transferredOut, timestampUtc);
+            outgoingItem.UpdateTransferSpeed(transferredOut, message.TimestampUtc);
             outgoingItem.Text = $"[文件] Sending {outgoingItem.FileName}";
 
-            var timestampOut = timestampUtc.ToLocalTime();
+            var timestampOut = message.TimestampUtc.ToLocalTime();
             conversation.SetLastMessage($"[文件] {outgoingItem.FileName} ({progressOut * 100:0.0}%)", timestampOut);
             RequestMessageListAutoScroll();
         });
