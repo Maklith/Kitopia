@@ -122,7 +122,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             message.IsPending = false;
             message.IsFailed = true;
             Logger.Warning(ex, "Send chat message failed. DeviceId={DeviceId}", conversation.DeviceId);
-            _toastService.Show("设备聊天", $"文件发送失败: {ex.Message}", NotificationType.Error);
+            _toastService.Show("设备聊天", $"消息发送失败: {ex.Message}", NotificationType.Error);
         }
         finally {
             IsSending = false;
@@ -170,6 +170,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                             transferEvent.FileName ?? transferEvent.TransferId.ToString("D"),
                             transferEvent.TotalBytes ?? 0,
                             null));
+                        break;
+                    case FileTransferUpdatedEvent { Status: FileTransferStatus.Accepted } transferEvent:
+                        OnFileTransferAccepted(transferEvent);
                         break;
                     case FileTransferUpdatedEvent { Status: FileTransferStatus.InProgress } transferEvent:
                         OnFileTransferProgress(transferEvent);
@@ -665,13 +668,19 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     outgoingItem.Text = message.Reason switch {
                         "rejected_by_peer" or "rejected_by_user" => $"[文件] 对方已拒绝 {outgoingItem.FileName}",
                         "timeout" => $"[文件] 发送超时 {outgoingItem.FileName}",
+                        "missing_accept_session" => $"[文件] 对方接收会话异常 {outgoingItem.FileName}",
+                        "receive_failed" => $"[文件] 对方接收失败 {outgoingItem.FileName}",
                         _ => $"[文件] 发送失败 {outgoingItem.FileName}"
                     };
 
                     var rejectToastText = message.Reason switch {
                         "rejected_by_peer" or "rejected_by_user" => $"对方已拒绝接收文件：{outgoingItem.FileName}",
                         "timeout" => $"文件发送超时：{outgoingItem.FileName}",
-                        _ => $"文件发送失败：{outgoingItem.FileName}"
+                        "missing_accept_session" => $"对方接收会话异常：{outgoingItem.FileName}",
+                        "receive_failed" => $"对方接收失败：{outgoingItem.FileName}",
+                        _ => string.IsNullOrWhiteSpace(message.Reason)
+                            ? $"文件发送失败：{outgoingItem.FileName}"
+                            : $"文件发送失败：{outgoingItem.FileName} ({message.Reason})"
                     };
                     ShowPersistentFileSendErrorToast(rejectToastText);
                 }
@@ -703,6 +712,40 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             totalBytes,
             null,
             timestampUtc));
+    }
+
+    private void OnFileTransferAccepted(FileTransferUpdatedEvent message) {
+        if (_disposed) {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() => {
+            if (_disposed) {
+                return;
+            }
+
+            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation)) {
+                conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
+            }
+
+            if (conversation is null) {
+                return;
+            }
+
+            var outgoingItem = conversation.Messages
+                .FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == message.TransferId);
+            if (outgoingItem is not null) {
+                outgoingItem.IsPending = false;
+                outgoingItem.IsFailed = false;
+                outgoingItem.IsReceiving = true;
+                outgoingItem.Text = $"[文件] 对方已同意，开始发送 {outgoingItem.FileName}";
+            }
+
+            var timestamp = message.TimestampUtc.ToLocalTime();
+            conversation.SetLastMessage("[文件] 对方已同意接收", timestamp);
+            SortConversations();
+            RequestMessageListAutoScroll();
+        });
     }
 
     private void OnFileTransferProgress(FileTransferUpdatedEvent message) {
@@ -1003,10 +1046,6 @@ public partial class DeviceConversationItem : ObservableObject {
 
     [ObservableProperty] private int _tcpPort;
 
-    [ObservableProperty] private int _quicPort;
-
-    [ObservableProperty] private bool _supportQuic;
-
     [ObservableProperty] private bool _isOnline;
 
     [ObservableProperty] private string _lastMessagePreview = "无消息";
@@ -1047,8 +1086,6 @@ public partial class DeviceConversationItem : ObservableObject {
         Ipv4Address = device.Ipv4Address;
         Ipv6Address = device.Ipv6Address;
         TcpPort = device.TcpPort;
-        QuicPort = device.QuicPort;
-        SupportQuic = device.SupportQuic;
         IsOnline = true;
     }
 

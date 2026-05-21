@@ -391,8 +391,6 @@ public sealed class ProtocolTests
     private sealed class FakeLocalDataListener : ILocalDataListener
     {
         public int TcpPort => 0;
-        public int QuicPort => 0;
-        public bool SupportsQuic => false;
         public int SendCallCount { get; private set; }
         public byte[]? LastPipeData { get; private set; }
 

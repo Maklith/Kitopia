@@ -40,54 +40,22 @@ public sealed class DiscoveryToTransferMatrixTests
     }
 
     [TestMethod]
-    [DataRow(true, true)]
-    [DataRow(true, false)]
-    [DataRow(false, true)]
-    [DataRow(false, false)]
-    public async Task DeviceTransportService_SelectsQuicOnlyWhenBothSidesSupportIt(
-        bool localSupportsQuic,
-        bool remoteSupportsQuic)
+    [DataRow(22001)]
+    public async Task DeviceTransportService_AlwaysUsesTcp(int tcpPort)
     {
-        var listener = new RecordingLocalDataListener { SupportsQuicValue = localSupportsQuic };
+        var listener = new RecordingLocalDataListener();
         var discoveryService = new FakeDeviceDiscoveryService();
         discoveryService.AddDevice(new DeviceModel
         {
             Id = "peer-1",
             Ipv4Address = IPAddress.Loopback,
-            TcpPort = 22001,
-            QuicPort = remoteSupportsQuic ? 22002 : 0,
-            SupportQuic = remoteSupportsQuic
+            TcpPort = tcpPort
         });
-        var transport = new DeviceTransportService(listener, new ProtocolSender(listener), discoveryService);
+        var transport = new DeviceTransportService(new ProtocolSender(listener), discoveryService);
 
         await transport.SendAsync("peer-1", new DataEnvelope { Route = "chat", Command = "text" });
 
-        var expected = localSupportsQuic && remoteSupportsQuic
-            ? LocalDataTransportProtocol.Quic
-            : LocalDataTransportProtocol.Tcp;
-        Assert.AreEqual(expected, listener.Attempts.Single().Protocol);
-    }
-
-    [TestMethod]
-    public async Task DeviceTransportService_QuicFailure_FallsBackToTcp()
-    {
-        var listener = new RecordingLocalDataListener { SupportsQuicValue = true, FailQuicSend = true };
-        var discoveryService = new FakeDeviceDiscoveryService();
-        discoveryService.AddDevice(new DeviceModel
-        {
-            Id = "peer-1",
-            Ipv4Address = IPAddress.Loopback,
-            TcpPort = 22001,
-            QuicPort = 22002,
-            SupportQuic = true
-        });
-        var transport = new DeviceTransportService(listener, new ProtocolSender(listener), discoveryService);
-
-        await transport.SendAsync("peer-1", new DataEnvelope { Route = "chat", Command = "text" });
-
-        CollectionAssert.AreEqual(
-            new[] { LocalDataTransportProtocol.Quic, LocalDataTransportProtocol.Tcp },
-            listener.Attempts.Select(attempt => attempt.Protocol).ToArray());
+        Assert.AreEqual(LocalDataTransportProtocol.Tcp, listener.Attempts.Single().Protocol);
     }
 
     [TestMethod]
@@ -112,8 +80,6 @@ public sealed class DiscoveryToTransferMatrixTests
             Id = remoteHash,
             Name = "peer-fail",
             TcpPort = 23001,
-            SupportsQuic = false,
-            QuicPort = 0,
             TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             PublicKey = remoteIdentity.PublicKey,
             Nonce = nonce,
@@ -182,10 +148,6 @@ public sealed class DiscoveryToTransferMatrixTests
     private sealed class RecordingLocalDataListener : ILocalDataListener
     {
         public int TcpPort => 0;
-        public int QuicPort => 0;
-        public bool SupportsQuic => SupportsQuicValue;
-        public bool SupportsQuicValue { get; init; }
-        public bool FailQuicSend { get; set; }
         public List<(LocalDataTransportProtocol Protocol, IPEndPoint EndPoint, DataEnvelope Envelope)> Attempts { get; } = [];
 
         public Task StartListeningAsync(CancellationToken token = default) => Task.CompletedTask;
@@ -200,12 +162,6 @@ public sealed class DiscoveryToTransferMatrixTests
             CancellationToken token = default)
         {
             Attempts.Add((protocol, remoteEndPoint, new DataEnvelope()));
-            if (protocol == LocalDataTransportProtocol.Quic && FailQuicSend)
-            {
-                FailQuicSend = false;
-                throw new IOException("quic failed");
-            }
-
             using var memory = new MemoryStream();
             await payloadReader.CopyToAsync(memory, token);
             var frame = memory.ToArray();

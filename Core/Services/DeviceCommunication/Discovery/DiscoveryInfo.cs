@@ -7,8 +7,6 @@ public sealed class DiscoveryInfo
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public int TcpPort { get; set; }
-    public int QuicPort { get; set; }
-    public bool SupportsQuic { get; set; }
     public long TimestampUnixSeconds { get; set; }
     public string Signature { get; set; } = string.Empty;
     public string PublicKey { get; set; } = string.Empty;

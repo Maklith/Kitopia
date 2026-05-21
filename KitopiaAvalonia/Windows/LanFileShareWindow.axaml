@@ -74,8 +74,6 @@
                                     <StackPanel Spacing="2">
                                         <StackPanel Orientation="Horizontal" Spacing="4">
                                             <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
-                                            <Label Theme="{DynamicResource TagLabel}" Classes="Blue"
-                                                   IsVisible="{Binding SupportQuic}">Quic</Label>
                                             <Label Theme="{DynamicResource TagLabel}" Classes="Green"
                                                    IsVisible="{Binding HasIpv6}">IPv6</Label>
                                         </StackPanel>

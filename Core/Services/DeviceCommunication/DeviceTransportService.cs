@@ -9,16 +9,13 @@ namespace Core.Services.DeviceCommunication;
 
 public sealed class DeviceTransportService
 {
-    private readonly ILocalDataListener _localDataListener;
     private readonly ProtocolSender _protocolSender;
     private readonly IDeviceDiscoveryService _deviceDiscoveryService;
 
     public DeviceTransportService(
-        ILocalDataListener localDataListener,
         ProtocolSender protocolSender,
         IDeviceDiscoveryService deviceDiscoveryService)
     {
-        _localDataListener = localDataListener;
         _protocolSender = protocolSender;
         _deviceDiscoveryService = deviceDiscoveryService;
     }
@@ -42,23 +39,13 @@ public sealed class DeviceTransportService
         CancellationToken cancellationToken)
     {
         var address = SelectTransportAddress(device);
-        var primaryProtocol = SelectTransportProtocol(device);
-        var primaryPort = ResolvePort(device, primaryProtocol);
-        if (primaryPort <= 0 || address == IPAddress.None)
+        if (device.TcpPort <= 0 || address == IPAddress.None)
         {
             throw new InvalidOperationException("Invalid target address or port.");
         }
 
-        try
-        {
-            await SendCoreAsync(device.Id, primaryProtocol, address, primaryPort, envelope, payloadStream, progressCallback,
-                cancellationToken);
-        }
-        catch (Exception) when (primaryProtocol == LocalDataTransportProtocol.Quic && device.TcpPort > 0)
-        {
-            await SendCoreAsync(device.Id, LocalDataTransportProtocol.Tcp, address, device.TcpPort, envelope, payloadStream,
-                progressCallback, cancellationToken);
-        }
+        await SendCoreAsync(device.Id, LocalDataTransportProtocol.Tcp, address, device.TcpPort, envelope, payloadStream,
+            progressCallback, cancellationToken);
     }
 
     private Task SendCoreAsync(
@@ -90,18 +77,6 @@ public sealed class DeviceTransportService
         }
 
         return device;
-    }
-
-    private LocalDataTransportProtocol SelectTransportProtocol(DeviceModel device)
-    {
-        return _localDataListener.SupportsQuic && device.SupportQuic && device.QuicPort > 0
-            ? LocalDataTransportProtocol.Quic
-            : LocalDataTransportProtocol.Tcp;
-    }
-
-    private static int ResolvePort(DeviceModel device, LocalDataTransportProtocol protocol)
-    {
-        return protocol == LocalDataTransportProtocol.Quic ? device.QuicPort : device.TcpPort;
     }
 
     private static IPAddress SelectTransportAddress(DeviceModel device)

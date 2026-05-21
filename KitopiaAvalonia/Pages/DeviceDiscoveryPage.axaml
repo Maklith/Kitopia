@@ -53,8 +53,6 @@
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <StackPanel Orientation="Vertical" Spacing="2">
                                         <StackPanel Orientation="Horizontal">
-                                            <Label Theme="{DynamicResource TagLabel}" Classes="Blue" 
-                                                   IsVisible="{Binding SupportQuic}">Quic</Label>
                                             <Label Theme="{DynamicResource TagLabel}" Classes="Green"
                                                    IsVisible="{Binding HasIpv6}">IPv6</Label>
                                             <TextBlock Text="{Binding DisplayName}" FontSize="16" FontWeight="SemiBold" />
@@ -78,8 +76,6 @@
                                     <StackPanel Orientation="Horizontal" Spacing="4" >
                                         <TextBlock Text="{Binding TcpPort, StringFormat='TCP端口: {0}'}"
                                                    Foreground="{DynamicResource SemiColorText1}" />
-                                        <TextBlock Text="{Binding QuicPort, StringFormat='QUIC端口: {0}'}"
-                                                   IsVisible="{Binding SupportQuic}" Foreground="{DynamicResource SemiColorText1}" />
                                     </StackPanel>
                                 </StackPanel>
 

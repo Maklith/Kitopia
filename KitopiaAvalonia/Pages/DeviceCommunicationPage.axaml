@@ -48,8 +48,6 @@
                                     <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="5"
                                           ColumnSpacing="8">
                                         <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <Label Theme="{DynamicResource TagLabel}" Classes="Blue"
-                                                   IsVisible="{Binding SupportQuic}">Quic</Label>
                                             <Label Theme="{DynamicResource TagLabel}" Classes="Green"
                                                    IsVisible="{Binding HasIpv6}">IPv6</Label>
                                             <TextBlock Text="{Binding DisplayName}"

@@ -40,24 +40,15 @@ public sealed class MessageAppServiceTests
     }
 
     [TestMethod]
-    public async Task SendTextChatAsync_FallsBackToTcp_WhenQuicSendFails()
+    public async Task SendTextChatAsync_UsesTcp()
     {
-        var listener = new FakeLocalDataListener { SupportsQuicValue = true, FailQuicSend = true };
-        var discoveryService = new FakeDeviceDiscoveryService();
-        discoveryService.AddDevice(new DeviceModel
-        {
-            Id = "peer-1",
-            Ipv4Address = IPAddress.Loopback,
-            TcpPort = 45000,
-            QuicPort = 45001,
-            SupportQuic = true
-        });
-        var service = CreateService(listener, deviceDiscoveryService: discoveryService);
+        var listener = new FakeLocalDataListener();
+        var service = CreateService(listener);
 
         await service.SendTextChatAsync("peer-1", "hello");
 
         CollectionAssert.AreEqual(
-            new[] { LocalDataTransportProtocol.Quic, LocalDataTransportProtocol.Tcp },
+            new[] { LocalDataTransportProtocol.Tcp },
             listener.ProtocolAttempts);
     }
 
@@ -290,7 +281,7 @@ public sealed class MessageAppServiceTests
             Ipv4Address = IPAddress.Loopback,
             TcpPort = 45000
         });
-        var transportService = new DeviceTransportService(listener, sender, deviceDiscoveryService);
+        var transportService = new DeviceTransportService(sender, deviceDiscoveryService);
         return new MessageAppService(
             registry,
             transportService,
@@ -392,10 +383,6 @@ public sealed class MessageAppServiceTests
     private sealed class FakeLocalDataListener : ILocalDataListener
     {
         public int TcpPort => 0;
-        public int QuicPort => 0;
-        public bool SupportsQuic => SupportsQuicValue;
-        public bool SupportsQuicValue { get; init; }
-        public bool FailQuicSend { get; init; }
         public int SendCount { get; private set; }
         public ReadOnlyMemory<byte>? LastPayload { get; private set; }
         public List<LocalDataTransportProtocol> ProtocolAttempts { get; } = [];
@@ -407,10 +394,6 @@ public sealed class MessageAppServiceTests
             string? remoteIdentityPublicKey = null, CancellationToken token = default)
         {
             ProtocolAttempts.Add(protocol);
-            if (protocol == LocalDataTransportProtocol.Quic && FailQuicSend)
-            {
-                throw new IOException("quic failed");
-            }
 
             _ = remoteEndPoint;
             _ = remoteIdentityPublicKey;

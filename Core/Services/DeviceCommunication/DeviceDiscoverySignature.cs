@@ -123,8 +123,6 @@ internal static class DeviceDiscoverySignature
         writer.Write(info.Id ?? string.Empty);
         writer.Write(info.Name ?? string.Empty);
         writer.Write(info.TcpPort);
-        writer.Write(info.QuicPort);
-        writer.Write(info.SupportsQuic);
         writer.Write(info.TimestampUnixSeconds);
         writer.Write(info.Nonce ?? string.Empty);
         writer.Flush();

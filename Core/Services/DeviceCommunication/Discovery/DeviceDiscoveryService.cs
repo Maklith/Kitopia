@@ -275,8 +275,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                     Id = localIdHash,
                     Name = string.IsNullOrWhiteSpace(ConfigManger.Config.deviceBroadcastName)? Environment.MachineName : ConfigManger.Config.deviceBroadcastName.Trim(),
                     TcpPort = tcpPort,
-                    QuicPort = localDataListener.QuicPort,
-                    SupportsQuic = localDataListener.SupportsQuic,
                     TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 };
                 var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(info));
@@ -331,7 +329,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
     private async Task HandleAnnouncementAsync(DiscoveryInfo info, IPAddress endpointAddress, string localIdHash,
         CancellationToken token) {
         if (string.IsNullOrWhiteSpace(info.Id) || info.TcpPort <= 0 ||
-            info is { SupportsQuic: true, QuicPort: <= 0 } ||
             string.Equals(info.Id, localIdHash, StringComparison.Ordinal)) {
             return;
         }
@@ -369,8 +366,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                 ? Environment.MachineName
                 : ConfigManger.Config.deviceBroadcastName.Trim(),
             TcpPort = localDataListener.TcpPort,
-            QuicPort = localDataListener.QuicPort,
-            SupportsQuic = localDataListener.SupportsQuic,
             TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             PublicKey = localPublicKey,
             Nonce = info.Nonce
@@ -390,7 +385,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             string.IsNullOrWhiteSpace(info.PublicKey) ||
             string.IsNullOrWhiteSpace(info.Signature) ||
             info.TcpPort <= 0 ||
-            info is { SupportsQuic: true, QuicPort: <= 0 } ||
             string.Equals(info.PublicKey, localPublicKey, StringComparison.Ordinal) ||
             string.Equals(info.Id, localIdHash, StringComparison.Ordinal)) {
             return;
@@ -413,8 +407,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             if (existing is null) {
                 var duplicateEndpoint = _devicesSource.FirstOrDefault(device =>
                     IsSameEndpoint(device, endpointAddress) &&
-                    device.TcpPort == info.TcpPort &&
-                    device.SupportQuic == info.SupportsQuic);
+                    device.TcpPort == info.TcpPort);
                 if (duplicateEndpoint is not null) {
                     _devicesSource.Remove(duplicateEndpoint);
                 }
@@ -426,8 +419,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                         ? customName
                         : string.Empty,
                     TcpPort = info.TcpPort,
-                    QuicPort = info.QuicPort,
-                    SupportQuic = info.SupportsQuic,
                     LastSeen = DateTime.UtcNow
                 };
                 AssignDiscoveredAddress(existing, endpointAddress);
@@ -439,8 +430,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                 AssignDiscoveredAddress(existing, endpointAddress);
 
                 existing.TcpPort = info.TcpPort;
-                existing.QuicPort = info.QuicPort;
-                existing.SupportQuic = info.SupportsQuic;
             }
         }
     }

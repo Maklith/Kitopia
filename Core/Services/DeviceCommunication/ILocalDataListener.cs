@@ -12,8 +12,6 @@ namespace Core.Services.DeviceCommunication;
 
 public interface ILocalDataListener {
     public int TcpPort { get; }
-    public int QuicPort { get; }
-    public bool SupportsQuic { get; }
     public Task StartListeningAsync(CancellationToken token=default);
     public Task StopListeningAsync();
     public Task SendAsync(

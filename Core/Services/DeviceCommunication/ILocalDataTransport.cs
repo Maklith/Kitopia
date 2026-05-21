@@ -5,8 +5,7 @@ namespace Core.Services.DeviceCommunication;
 
 public enum LocalDataTransportProtocol
 {
-    Tcp = 1,
-    Quic = 2
+    Tcp = 1
 }
 
 public interface ILocalDataTransport : IDisposable
