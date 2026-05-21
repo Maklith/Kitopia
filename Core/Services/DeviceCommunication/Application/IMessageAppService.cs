@@ -1,6 +1,5 @@
 using Core.Services.DeviceCommunication.Messages.Chat;
 using Core.Services.DeviceCommunication.Messages.Clipboard;
-using Core.Services.DeviceCommunication.Routing;
 
 namespace Core.Services.DeviceCommunication.Application;
 
@@ -12,13 +11,13 @@ public enum IncomingMessageDisplayMode
 
 public interface IMessageAppService
 {
-    ValueTask SendTextChatAsync(MessageContext context, TextChatMessage message, CancellationToken cancellationToken = default);
-    ValueTask SendFileChatAsync(MessageContext context, FileChatMessage message, Stream stream, CancellationToken cancellationToken = default);
-    ValueTask SendImageChatAsync(MessageContext context, ImageChatMessage message, Stream stream, CancellationToken cancellationToken = default);
-    ValueTask AcceptFileAsync(MessageContext context, Guid transferId, string savePath, CancellationToken cancellationToken = default);
-    ValueTask RejectFileAsync(MessageContext context, Guid transferId, string reason, CancellationToken cancellationToken = default);
-    ValueTask CancelTransferAsync(MessageContext context, Guid transferId, string reason, CancellationToken cancellationToken = default);
-    ValueTask SendClipboardTextAsync(MessageContext context, TextClipboardMessage message, CancellationToken cancellationToken = default);
+    ValueTask SendTextChatAsync(string deviceId, string text, CancellationToken cancellationToken = default);
+    ValueTask SendFileChatAsync(string deviceId, FileChatMessage message, Stream stream, CancellationToken cancellationToken = default);
+    ValueTask SendImageChatAsync(string deviceId, ImageChatMessage message, Stream stream, CancellationToken cancellationToken = default);
+    ValueTask AcceptFileAsync(string deviceId, Guid transferId, string savePath, CancellationToken cancellationToken = default);
+    ValueTask RejectFileAsync(string deviceId, Guid transferId, string reason, CancellationToken cancellationToken = default);
+    ValueTask CancelTransferAsync(string deviceId, Guid transferId, string reason, CancellationToken cancellationToken = default);
+    ValueTask SendClipboardTextAsync(string deviceId, TextClipboardMessage message, CancellationToken cancellationToken = default);
     IAsyncEnumerable<IncomingMessageEvent> ReceiveAsync(CancellationToken cancellationToken = default);
     void UpdateDisplayContext(bool isMainWindowActive, bool isDeviceChatPageOpen, string? selectedConversationId);
     void RequestOpenConversation(string conversationId);

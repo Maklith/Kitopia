@@ -189,7 +189,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                         udpClientV4.JoinMulticastGroup(multicastIpV4, unicast.Address);
                     }
                     catch {
-                        Logger.Warning("在接口 {InterfaceName} 上加入 IPv4 组播组失败", networkInterface.Name);
+                        //Logger.Warning("在接口 {InterfaceName} 上加入 IPv4 组播组失败", networkInterface.Name);
                     }
                 }
             }
@@ -207,7 +207,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                 udpClientV6.JoinMulticastGroup(ipv6Properties.Index, multicastIpV6);
             }
             catch {
-                Logger.Warning("在接口 {InterfaceName} 上加入 IPv6 组播组失败", networkInterface.Name);
+                //Logger.Warning("在接口 {InterfaceName} 上加入 IPv6 组播组失败", networkInterface.Name);
             }
         }
     }

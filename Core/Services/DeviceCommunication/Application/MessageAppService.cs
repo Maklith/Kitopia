@@ -21,7 +21,7 @@ public sealed class MessageAppService : IMessageAppService {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<MessageAppService>();
     private static readonly TimeSpan TransferProgressLogInterval = TimeSpan.FromSeconds(2);
     private readonly MessageCodecRegistry _codecRegistry;
-    private readonly ProtocolSender _protocolSender;
+    private readonly DeviceTransportService _transportService;
     private readonly IncomingMessageBuffer _incomingMessageBuffer;
     private readonly ImageTransferPolicy _imageTransferPolicy;
     private readonly IFileTransferSessionStore _fileTransferSessionStore;
@@ -38,7 +38,7 @@ public sealed class MessageAppService : IMessageAppService {
 
     public MessageAppService(
         MessageCodecRegistry codecRegistry,
-        ProtocolSender protocolSender,
+        DeviceTransportService transportService,
         IncomingMessageBuffer incomingMessageBuffer,
         ImageTransferPolicy imageTransferPolicy,
         IFileTransferSessionStore fileTransferSessionStore,
@@ -46,7 +46,7 @@ public sealed class MessageAppService : IMessageAppService {
         IToastService toastService,
         INavigationService navigationService) {
         _codecRegistry = codecRegistry;
-        _protocolSender = protocolSender;
+        _transportService = transportService;
         _incomingMessageBuffer = incomingMessageBuffer;
         _imageTransferPolicy = imageTransferPolicy;
         _fileTransferSessionStore = fileTransferSessionStore;
@@ -57,15 +57,15 @@ public sealed class MessageAppService : IMessageAppService {
         _ = Task.Run(ProcessIncomingMessagesAsync);
     }
 
-    public ValueTask SendTextChatAsync(MessageContext context, TextChatMessage message,
+    public ValueTask SendTextChatAsync(string deviceId, string text,
         CancellationToken cancellationToken = default) {
-        return SendCoreAsync(context, message, cancellationToken);
+        return SendCoreAsync(deviceId, new TextChatMessage(deviceId, text), cancellationToken);
     }
 
-    public ValueTask SendFileChatAsync(MessageContext context, FileChatMessage message, Stream stream,
+    public ValueTask SendFileChatAsync(string deviceId, FileChatMessage message, Stream stream,
         CancellationToken cancellationToken = default) {
         return SendFileOfferFlowAsync(
-            context,
+            deviceId,
             message.ConversationId,
             message.ChannelId,
             message.FileName,
@@ -75,15 +75,15 @@ public sealed class MessageAppService : IMessageAppService {
             cancellationToken);
     }
 
-    public ValueTask SendImageChatAsync(MessageContext context, ImageChatMessage message, Stream stream,
+    public ValueTask SendImageChatAsync(string deviceId, ImageChatMessage message, Stream stream,
         CancellationToken cancellationToken = default) {
         if (_imageTransferPolicy.ShouldDirectSend(message.SizeBytes)) {
             var directImage = message with { IsDirect = true };
-            return SendDirectImageAsync(context, directImage, stream, cancellationToken);
+            return SendDirectImageAsync(deviceId, directImage, stream, cancellationToken);
         }
 
         return SendFileOfferFlowAsync(
-            context,
+            deviceId,
             message.ConversationId,
             message.TransferId,
             $"image-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}",
@@ -94,7 +94,7 @@ public sealed class MessageAppService : IMessageAppService {
     }
 
     public ValueTask AcceptFileAsync(
-        MessageContext context,
+        string deviceId,
         Guid transferId,
         string savePath,
         CancellationToken cancellationToken = default) {
@@ -104,7 +104,7 @@ public sealed class MessageAppService : IMessageAppService {
 
         var fileName = Path.GetFileName(savePath);
         var session = new FileTransferSession {
-            ConversationId = context.RemoteIdentityPublicKey,
+            ConversationId = deviceId,
             TransferId = transferId,
             FileName = string.IsNullOrWhiteSpace(fileName) ? transferId.ToString("D") : fileName,
             SizeBytes = 0,
@@ -118,31 +118,31 @@ public sealed class MessageAppService : IMessageAppService {
             _fileTransferSessionStore.TryAdd(session);
         }
 
-        var message = new FileAcceptChatMessage(context.RemoteIdentityPublicKey, transferId);
-        return SendCoreAsync(context, message, cancellationToken);
+        var message = new FileAcceptChatMessage(deviceId, transferId);
+        return SendCoreAsync(deviceId, message, cancellationToken);
     }
 
     public ValueTask RejectFileAsync(
-        MessageContext context,
+        string deviceId,
         Guid transferId,
         string reason,
         CancellationToken cancellationToken = default) {
-        var message = new FileRejectChatMessage(context.RemoteIdentityPublicKey, transferId, reason);
-        return SendCoreAsync(context, message, cancellationToken);
+        var message = new FileRejectChatMessage(deviceId, transferId, reason);
+        return SendCoreAsync(deviceId, message, cancellationToken);
     }
 
     public ValueTask CancelTransferAsync(
-        MessageContext context,
+        string deviceId,
         Guid transferId,
         string reason,
         CancellationToken cancellationToken = default) {
-        var message = new FileCancelChatMessage(context.RemoteIdentityPublicKey, transferId, reason);
-        return SendCoreAsync(context, message, cancellationToken);
+        var message = new FileCancelChatMessage(deviceId, transferId, reason);
+        return SendCoreAsync(deviceId, message, cancellationToken);
     }
 
-    public ValueTask SendClipboardTextAsync(MessageContext context, TextClipboardMessage message,
+    public ValueTask SendClipboardTextAsync(string deviceId, TextClipboardMessage message,
         CancellationToken cancellationToken = default) {
-        return SendCoreAsync(context, message, cancellationToken);
+        return SendCoreAsync(deviceId, message, cancellationToken);
     }
 
     public IAsyncEnumerable<IncomingMessageEvent> ReceiveAsync(CancellationToken cancellationToken = default) {
@@ -216,40 +216,23 @@ public sealed class MessageAppService : IMessageAppService {
 
     private async Task ProcessIncomingMessagesAsync() {
         await foreach (var messageEvent in _incomingMessageBuffer.ReceiveAsync()) {
-            var transformedEvent = await TransformIncomingEventAsync(messageEvent);
-            if (transformedEvent is null) {
-                continue;
-            }
-
-            if (ShouldLogIncomingEvent(transformedEvent)) {
+            if (ShouldLogIncomingEvent(messageEvent)) {
                 Logger.Information(
                     "接收信息。 EventType={EventType} Type={MessageType} ConversationId={ConversationId} TransferId={TransferId} Detail={Detail}",
-                    transformedEvent.EventType,
-                    transformedEvent.Message.GetType().Name,
-                    transformedEvent.Message.ConversationId,
-                    transformedEvent.TransferId,
-                    DescribeIncomingEvent(transformedEvent));
+                    messageEvent.EventType,
+                    messageEvent.Message.GetType().Name,
+                    messageEvent.Message.ConversationId,
+                    messageEvent.TransferId,
+                    DescribeIncomingEvent(messageEvent));
             }
 
-            await NotifyToastIfNeededAsync(transformedEvent);
-            await _receiveChannel.Writer.WriteAsync(transformedEvent);
+            await NotifyToastIfNeededAsync(messageEvent);
+            await _receiveChannel.Writer.WriteAsync(messageEvent);
         }
-    }
-
-    private Task<IncomingMessageEvent?> TransformIncomingEventAsync(IncomingMessageEvent messageEvent) {
-        if (messageEvent.Message is not FileChatMessage) {
-            return Task.FromResult<IncomingMessageEvent?>(messageEvent);
-        }
-
-        if (messageEvent.EventType == IncomingMessageEventType.TransferProgress) {
-            return Task.FromResult<IncomingMessageEvent?>(messageEvent);
-        }
-
-        return Task.FromResult<IncomingMessageEvent?>(messageEvent);
     }
 
     private Task NotifyToastIfNeededAsync(IncomingMessageEvent messageEvent) {
-        var conversationId = TryGetConversationId(messageEvent.Message);
+        var conversationId = messageEvent.Message.ConversationId;
         if (string.IsNullOrWhiteSpace(conversationId) ||
             ResolveIncomingDisplayMode(conversationId) != IncomingMessageDisplayMode.NotifyByToast) {
             return Task.CompletedTask;
@@ -348,19 +331,7 @@ public sealed class MessageAppService : IMessageAppService {
         return string.IsNullOrWhiteSpace(device?.DisplayName) ? conversationId : device.DisplayName;
     }
 
-    private static string? TryGetConversationId(AppMessage message) {
-        return message switch {
-            TextChatMessage textMessage => textMessage.ConversationId,
-            ImageChatMessage imageChatMessage => imageChatMessage.ConversationId,
-            FileOfferChatMessage fileOfferChatMessage => fileOfferChatMessage.ConversationId,
-            FileCompleteChatMessage fileCompleteChatMessage => fileCompleteChatMessage.ConversationId,
-            FileRejectChatMessage fileRejectChatMessage => fileRejectChatMessage.ConversationId,
-            FileCancelChatMessage fileCancelChatMessage => fileCancelChatMessage.ConversationId,
-            _ => null
-        };
-    }
-
-    private async ValueTask SendCoreAsync(MessageContext context, AppMessage message,
+    private async ValueTask SendCoreAsync(string deviceId, AppMessage message,
         CancellationToken cancellationToken) {
         if (!_codecRegistry.TryEncode(message, out var envelope)) {
             throw new InvalidOperationException($"Encode failed for message type {message.GetType().Name}.");
@@ -369,18 +340,18 @@ public sealed class MessageAppService : IMessageAppService {
         Logger.Information(
             "发送信息。 Type={MessageType} Protocol={Protocol} Remote={RemoteEndPoint} Route={Route} Command={Command} ConversationId={ConversationId} Detail={Detail}",
             message.GetType().Name,
-            context.Protocol,
-            context.RemoteEndPoint,
+            "auto",
+            deviceId,
             envelope.Route,
             envelope.Command,
             message.ConversationId,
             DescribeMessage(message));
 
-        await _protocolSender.SendEnvelopeAsync(context, envelope, cancellationToken);
+        await _transportService.SendAsync(deviceId, envelope, cancellationToken: cancellationToken);
     }
 
     private async ValueTask SendFileOfferFlowAsync(
-        MessageContext context,
+        string deviceId,
         string conversationId,
         Guid transferId,
         string fileName,
@@ -403,7 +374,7 @@ public sealed class MessageAppService : IMessageAppService {
         }
 
         try {
-            await SendCoreAsync(context, offer, cancellationToken);
+            await SendCoreAsync(deviceId, offer, cancellationToken);
 
             var decision = await _incomingMessageBuffer.WaitForDecisionAsync(
                 transferId,
@@ -436,20 +407,22 @@ public sealed class MessageAppService : IMessageAppService {
                 throw new InvalidOperationException($"Encode failed for message type {fileMessage.GetType().Name}.");
             }
 
-            var transferEnvelope = new DataEnvelope
-            {
-                Route = fileEnvelope.Route,
-                Command = fileEnvelope.Command,
-                StreamType = fileEnvelope.StreamType,
-                ChannelId = fileEnvelope.ChannelId,
-                Sequence = fileEnvelope.Sequence,
-                ContentType = string.IsNullOrWhiteSpace(contentType) ? fileEnvelope.ContentType : contentType,
-                Metadata = fileEnvelope.Metadata
-            };
+            fileEnvelope = string.IsNullOrWhiteSpace(contentType)
+                ? fileEnvelope
+                : new DataEnvelope
+                {
+                    Route = fileEnvelope.Route,
+                    Command = fileEnvelope.Command,
+                    StreamType = fileEnvelope.StreamType,
+                    ChannelId = fileEnvelope.ChannelId,
+                    Sequence = fileEnvelope.Sequence,
+                    ContentType = contentType,
+                    Metadata = fileEnvelope.Metadata
+                };
 
-            await _protocolSender.SendEnvelopeWithPayloadAsync(
-                context,
-                transferEnvelope,
+            await _transportService.SendAsync(
+                deviceId,
+                fileEnvelope,
                 payloadStream,
                 (sentBytes, totalBytes) => _incomingMessageBuffer.PublishEventAsync(
                     new IncomingMessageEvent(
@@ -481,7 +454,7 @@ public sealed class MessageAppService : IMessageAppService {
     }
 
     private async ValueTask SendDirectImageAsync(
-        MessageContext context,
+        string deviceId,
         ImageChatMessage message,
         Stream payloadStream,
         CancellationToken cancellationToken) {
@@ -489,7 +462,7 @@ public sealed class MessageAppService : IMessageAppService {
             throw new InvalidOperationException($"Encode failed for message type {message.GetType().Name}.");
         }
 
-        await _protocolSender.SendEnvelopeWithPayloadAsync(context, envelope, payloadStream, cancellationToken: cancellationToken);
+        await _transportService.SendAsync(deviceId, envelope, payloadStream, cancellationToken: cancellationToken);
     }
 
     private static string DescribeIncomingEvent(IncomingMessageEvent messageEvent) {

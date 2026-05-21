@@ -275,7 +275,7 @@ public sealed class HandlerTests
     }
 
     [TestMethod]
-    public async Task DeviceMessageDispatcher_ClipboardUnsupportedStreamType_Throws()
+    public async Task DeviceMessageDispatcher_ClipboardMessage_PublishesAfterSuccessfulDecode()
     {
         var sink = new RecordingSink();
         var dispatcher = CreateDispatcher(sink: sink);
@@ -288,8 +288,10 @@ public sealed class HandlerTests
             }
         };
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null)).AsTask());
+        await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
+
+        Assert.AreEqual(1, sink.Events.Count);
+        Assert.IsInstanceOfType<TextClipboardMessage>(sink.Events[0].Message);
     }
 
     #endregion
@@ -350,7 +352,7 @@ public sealed class HandlerTests
         sink ??= new RecordingSink();
         sessionStore ??= new FileTransferSessionStore();
         var registry = new MessageCodecRegistry();
-        return new DeviceMessageDispatcher(registry, sink, sessionStore);
+        return new DeviceMessageDispatcher(registry, sink, new FileTransferPayloadHandler(sink, sessionStore));
     }
 
     private sealed class RecordingSink : IIncomingMessageSink

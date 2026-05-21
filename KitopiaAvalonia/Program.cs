@@ -110,10 +110,11 @@ internal class Program {
         services.AddSingleton<ILocalDataListener, LocalDataListenerHost>();
         services.AddSingleton<ProtocolSession>();
         services.AddSingleton<ProtocolSender>();
-        services.AddSingleton<IPayloadSessionStore, PayloadSessionStore>();
         services.AddSingleton<IFileTransferSessionStore, FileTransferSessionStore>();
         services.AddSingleton<ImageTransferPolicy>();
         services.AddSingleton<MessageCodecRegistry>();
+        services.AddSingleton<DeviceTransportService>();
+        services.AddSingleton<FileTransferPayloadHandler>();
         services.AddSingleton<DeviceMessageDispatcher>();
         services.AddSingleton<IncomingMessageBuffer>();
         services.AddSingleton<IMessageAppService, MessageAppService>();

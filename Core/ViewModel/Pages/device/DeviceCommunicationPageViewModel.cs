@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Net;
-using System.Net.Sockets;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
@@ -16,7 +15,6 @@ using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Messages.Chat;
-using Core.Services.DeviceCommunication.Routing;
 using Core.ViewModel.Main;
 using OpenCvSharp;
 using PluginCore;
@@ -27,7 +25,6 @@ namespace Core.ViewModel.Pages.device;
 public partial class DeviceCommunicationPageViewModel : ObservableObject, IDisposable {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<DeviceCommunicationPageViewModel>();
     private readonly IDeviceDiscoveryService _deviceDiscoveryService;
-    private readonly ILocalDataListener _localDataListener;
     private readonly IMessageAppService _messageAppService;
     private readonly IClipboardService _clipboardService;
     private readonly IToastService _toastService;
@@ -64,12 +61,10 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
     public DeviceCommunicationPageViewModel(
         IDeviceDiscoveryService deviceDiscoveryService,
-        ILocalDataListener localDataListener,
         IMessageAppService messageAppService,
         IClipboardService clipboardService,
         IToastService toastService) {
         _deviceDiscoveryService = deviceDiscoveryService;
-        _localDataListener = localDataListener;
         _messageAppService = messageAppService;
         _clipboardService = clipboardService;
         _toastService = toastService;
@@ -145,104 +140,17 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     private async Task SendToConversationAsync(DeviceConversationItem conversation, string text) {
-        if (string.IsNullOrWhiteSpace(conversation.DeviceId)) {
-            throw new InvalidOperationException("Invalid target device identity.");
-        }
-
-        var protocol = SelectTransportProtocol(conversation.SupportQuic, conversation.QuicPort);
-        var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
-        var transportAddress = SelectTransportAddress(conversation.Ipv4Address, conversation.Ipv6Address);
-
-        if (port <= 0 || transportAddress == IPAddress.None) {
-            throw new InvalidOperationException("Invalid target address or port.");
-        }
-
-        try {
-            await SendMessageCoreAsync(conversation, text, protocol, port, transportAddress);
-        }
-        catch (Exception ex) when (protocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0) {
-            Logger.Warning(ex, "Send chat message over QUIC failed, fallback to TCP. DeviceId={DeviceId}",
-                conversation.DeviceId);
-            await SendMessageCoreAsync(conversation, text, LocalDataTransportProtocol.Tcp, conversation.TcpPort,
-                transportAddress);
-        }
+        await _messageAppService.SendTextChatAsync(conversation.DeviceId, text);
     }
 
     private async Task SendImageToConversationAsync(DeviceConversationItem conversation, ImageChatMessage message,
         Stream stream) {
-        var protocol = SelectTransportProtocol(conversation.SupportQuic, conversation.QuicPort);
-        var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
-        var transportAddress = SelectTransportAddress(conversation.Ipv4Address, conversation.Ipv6Address);
-
-        try {
-            await SendImageCoreAsync(conversation, message, stream, protocol, port, transportAddress);
-        }
-        catch (Exception ex) when (protocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0) {
-            Logger.Warning(ex, "Send image over QUIC failed, fallback to TCP. DeviceId={DeviceId}",
-                conversation.DeviceId);
-            await SendImageCoreAsync(conversation, message, stream, LocalDataTransportProtocol.Tcp,
-                conversation.TcpPort, transportAddress);
-        }
+        await _messageAppService.SendImageChatAsync(conversation.DeviceId, message, stream);
     }
 
     private async Task SendFileToConversationAsync(DeviceConversationItem conversation, FileChatMessage message,
         Stream stream) {
-        var protocol = SelectTransportProtocol(conversation.SupportQuic, conversation.QuicPort);
-        var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
-        var transportAddress = SelectTransportAddress(conversation.Ipv4Address, conversation.Ipv6Address);
-
-        try {
-            await SendFileCoreAsync(conversation, message, stream, protocol, port, transportAddress);
-        }
-        catch (Exception ex) when (
-            protocol == LocalDataTransportProtocol.Quic &&
-            conversation.TcpPort > 0 &&
-            ex is not InvalidOperationException) {
-            Logger.Warning(ex, "Send file over QUIC failed, fallback to TCP. DeviceId={DeviceId}",
-                conversation.DeviceId);
-            await SendFileCoreAsync(conversation, message, stream, LocalDataTransportProtocol.Tcp,
-                conversation.TcpPort, transportAddress);
-        }
-    }
-
-    private async Task SendMessageCoreAsync(
-        DeviceConversationItem conversation,
-        string text,
-        LocalDataTransportProtocol protocol,
-        int port,
-        IPAddress remoteAddress) {
-        var sendContext = BuildContext(conversation, protocol, port, remoteAddress);
-
-        await _messageAppService.SendTextChatAsync(sendContext, new TextChatMessage(conversation.DeviceId, text));
-    }
-
-    private async Task SendImageCoreAsync(
-        DeviceConversationItem conversation,
-        ImageChatMessage message,
-        Stream stream,
-        LocalDataTransportProtocol protocol,
-        int port,
-        IPAddress remoteAddress) {
-        var sendContext = BuildContext(conversation, protocol, port, remoteAddress);
-        await _messageAppService.SendImageChatAsync(sendContext, message, stream);
-    }
-
-    private async Task SendFileCoreAsync(
-        DeviceConversationItem conversation,
-        FileChatMessage message,
-        Stream stream,
-        LocalDataTransportProtocol protocol,
-        int port,
-        IPAddress remoteAddress) {
-        var sendContext = BuildContext(conversation, protocol, port, remoteAddress);
-        await _messageAppService.SendFileChatAsync(sendContext, message, stream);
-    }
-
-    private static MessageContext BuildContext(DeviceConversationItem conversation, LocalDataTransportProtocol protocol,
-        int port,
-        IPAddress remoteAddress) {
-        var remoteEndPoint = new IPEndPoint(remoteAddress, port);
-        return new MessageContext(protocol, remoteEndPoint, conversation.DeviceId);
+        await _messageAppService.SendFileChatAsync(conversation.DeviceId, message, stream);
     }
 
     private async Task RunReceiveLoopAsync(CancellationToken token) {
@@ -417,10 +325,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 return;
             }
 
-            await SendOfferDecisionWithFallbackAsync(
-                conversation,
-                offer,
-                async context => await _messageAppService.AcceptFileAsync(context, offer.TransferId, savePath));
+            await _messageAppService.AcceptFileAsync(conversation.DeviceId, offer.TransferId, savePath);
             offer.IsHandled = true;
             offer.IsReceiving = true;
             offer.ReceiveProgress = 0d;
@@ -445,11 +350,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         try {
-            await SendOfferDecisionWithFallbackAsync(
-                conversation,
-                offer,
-                async context =>
-                    await _messageAppService.RejectFileAsync(context, offer.TransferId, "rejected_by_user"));
+            await _messageAppService.RejectFileAsync(conversation.DeviceId, offer.TransferId, "rejected_by_user");
             offer.IsHandled = true;
             offer.Text = $"[文件] 拒绝 {offer.FileName}";
             conversation.SetLastMessage($"[文件] {offer.FileName}", DateTimeOffset.Now);
@@ -617,17 +518,14 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 return;
             }
 
-            var protocol = SelectTransportProtocol(conversation.SupportQuic, conversation.QuicPort);
-            var port = protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
-
             var timestamp = DateTimeOffset.Now;
             var offerMessage = new IncomingFileOfferChatMessageItem(
                 message.ConversationId,
                 message.TransferId,
                 message.FileName,
                 message.SizeBytes,
-                protocol,
-                port,
+                LocalDataTransportProtocol.Tcp,
+                conversation.TcpPort,
                 timestamp);
             offerMessage.TrackingTransferId = message.TransferId;
             conversation.Messages.Add(offerMessage);
@@ -902,53 +800,6 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         });
 
         return file?.Path.LocalPath;
-    }
-
-    private static int ResolvePort(DeviceConversationItem conversation, LocalDataTransportProtocol protocol,
-        int offeredPort) {
-        if (offeredPort > 0) {
-            return offeredPort;
-        }
-
-        return protocol == LocalDataTransportProtocol.Quic ? conversation.QuicPort : conversation.TcpPort;
-    }
-
-    private async Task SendOfferDecisionWithFallbackAsync(
-        DeviceConversationItem conversation,
-        IncomingFileOfferChatMessageItem offer,
-        Func<MessageContext, Task> action) {
-        var primaryProtocol = offer.Protocol == LocalDataTransportProtocol.Quic
-            ? SelectTransportProtocol(conversation.SupportQuic, conversation.QuicPort)
-            : LocalDataTransportProtocol.Tcp;
-        var primaryPort = ResolvePort(conversation, primaryProtocol, offer.Port);
-        if (primaryPort <= 0) {
-            throw new InvalidOperationException("Invalid remote port for transfer decision.");
-        }
-
-        try {
-            await action(BuildContext(conversation, primaryProtocol, primaryPort,
-                SelectTransportAddress(conversation.Ipv4Address, conversation.Ipv6Address)));
-        }
-        catch (Exception ex) when (primaryProtocol == LocalDataTransportProtocol.Quic && conversation.TcpPort > 0) {
-            Logger.Warning(ex, "Send transfer decision over QUIC failed, fallback to TCP. DeviceId={DeviceId}",
-                conversation.DeviceId);
-            await action(BuildContext(conversation, LocalDataTransportProtocol.Tcp, conversation.TcpPort,
-                SelectTransportAddress(conversation.Ipv4Address, conversation.Ipv6Address)));
-        }
-    }
-
-    private LocalDataTransportProtocol SelectTransportProtocol(bool remoteSupportsQuic, int remoteQuicPort) {
-        return _localDataListener.SupportsQuic && remoteSupportsQuic && remoteQuicPort > 0
-            ? LocalDataTransportProtocol.Quic
-            : LocalDataTransportProtocol.Tcp;
-    }
-
-    private static IPAddress SelectTransportAddress(IPAddress ipv4Address, IPAddress ipv6Address) {
-        if (Socket.OSSupportsIPv6 && ipv6Address != IPAddress.None) {
-            return ipv6Address;
-        }
-
-        return ipv4Address;
     }
 
     private DeviceConversationItem? FindConversationByAddress(IPAddress remoteAddress) {

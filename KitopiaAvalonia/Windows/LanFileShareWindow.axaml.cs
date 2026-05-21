@@ -31,13 +31,12 @@ public partial class LanFileShareWindow : Window, ILanFileShareWindow
             var deviceDiscoveryService = ServiceManager.Services.GetService<IDeviceDiscoveryService>();
             var messageAppService = ServiceManager.Services.GetService<IMessageAppService>();
             var toastService = ServiceManager.Services.GetService<IToastService>();
-            var localDataListener = ServiceManager.Services.GetService<ILocalDataListener>();
-            if (deviceDiscoveryService is null || messageAppService is null || toastService is null|| localDataListener is null)
+            if (deviceDiscoveryService is null || messageAppService is null || toastService is null)
             {
                 return;
             }
 
-            vm = new LanFileShareWindowViewModel(deviceDiscoveryService,localDataListener, messageAppService, toastService);
+            vm = new LanFileShareWindowViewModel(deviceDiscoveryService, messageAppService, toastService);
             DataContext = vm;
         }
 

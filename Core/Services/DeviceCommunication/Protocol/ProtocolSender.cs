@@ -20,28 +20,14 @@ public sealed class ProtocolSender
         _listener = listener;
     }
 
-    public Task SendEnvelopeAsync(
+    public Task SendAsync(
         MessageContext context,
         DataEnvelope envelope,
-        CancellationToken cancellationToken = default)
-    {
-        var envelopeBytes = JsonSerializer.SerializeToUtf8Bytes(envelope);
-        var frame = BuildFrameHeader(envelopeBytes.Length, 0);
-        return SendPrefixAndPayloadAsync(
-            context,
-            frame,
-            envelopeBytes,
-            Stream.Null,
-            cancellationToken);
-    }
-
-    public Task SendEnvelopeWithPayloadAsync(
-        MessageContext context,
-        DataEnvelope envelope,
-        Stream payloadStream,
+        Stream? payloadStream = null,
         Func<long, long, ValueTask>? progressCallback = null,
         CancellationToken cancellationToken = default)
     {
+        payloadStream ??= Stream.Null;
         if (!payloadStream.CanRead)
         {
             throw new InvalidOperationException("Payload stream must be readable.");

@@ -16,104 +16,17 @@ namespace KitopiaTest.DeviceCommunication;
 [TestClass]
 public sealed class ProtocolTests
 {
-    #region FrameProtocol
-
-    [TestMethod]
-    public void TryReadFrameHeader_ReturnsFalse_WhenBufferTooShort()
-    {
-        var source = new byte[FrameProtocol.HeaderLength - 1];
-        var ok = FrameProtocol.TryReadFrameHeader(source, out _, out _);
-        Assert.IsFalse(ok);
-    }
-
-    [TestMethod]
-    public void TryReadFrameHeader_ReturnsFalse_WhenEmptyBuffer()
-    {
-        var ok = FrameProtocol.TryReadFrameHeader(ReadOnlySpan<byte>.Empty, out _, out _);
-        Assert.IsFalse(ok);
-    }
-
-    [TestMethod]
-    public void TryReadFrameHeader_ReturnsFalse_WhenPayloadLengthNegative()
-    {
-        var bytes = new byte[FrameProtocol.HeaderLength];
-        bytes[0] = FrameProtocol.CurrentVersion;
-        bytes[1] = 1;
-        bytes[2] = 0;
-        BitConverter.GetBytes(-1).CopyTo(bytes, 19);
-
-        var ok = FrameProtocol.TryReadFrameHeader(bytes, out _, out _);
-        Assert.IsFalse(ok);
-    }
-
-    [TestMethod]
-    public void TryReadFrameHeader_AllowsZeroPayloadLength()
-    {
-        var header = new FrameHeader(FrameProtocol.CurrentVersion, 1, 0, Guid.NewGuid(), 0);
-        var bytes = new byte[FrameProtocol.HeaderLength];
-        FrameProtocol.WriteFrameHeader(bytes, header);
-
-        var ok = FrameProtocol.TryReadFrameHeader(bytes, out var actual, out var consumed);
-        Assert.IsTrue(ok);
-        Assert.AreEqual(FrameProtocol.HeaderLength, consumed);
-        Assert.AreEqual(header, actual);
-    }
-
-    [TestMethod]
-    public void WriteAndReadFrameHeader_RoundTrips()
-    {
-        var expected = new FrameHeader(
-            Version: FrameProtocol.CurrentVersion,
-            FrameType: 2,
-            Flags: 1,
-            ChannelId: Guid.NewGuid(),
-            PayloadLength: 128);
-
-        var bytes = new byte[FrameProtocol.HeaderLength];
-        FrameProtocol.WriteFrameHeader(bytes, expected);
-
-        var ok = FrameProtocol.TryReadFrameHeader(bytes, out var actual, out var consumed);
-        Assert.IsTrue(ok);
-        Assert.AreEqual(FrameProtocol.HeaderLength, consumed);
-        Assert.AreEqual(expected, actual);
-    }
-
-    [TestMethod]
-    public void WriteFrameHeader_Throws_WhenBufferTooSmall()
-    {
-        var header = new FrameHeader(1, 1, 0, Guid.NewGuid(), 10);
-        var tooSmall = new byte[FrameProtocol.HeaderLength - 1];
-        Assert.ThrowsExactly<ArgumentException>(() => FrameProtocol.WriteFrameHeader(tooSmall, header));
-    }
-
-    [TestMethod]
-    public void WriteFrameHeader_PreservesAllFields()
-    {
-        var channelId = Guid.NewGuid();
-        var header = new FrameHeader(Version: 3, FrameType: 7, Flags: 0xFF, ChannelId: channelId, PayloadLength: 999999);
-        var bytes = new byte[FrameProtocol.HeaderLength];
-        FrameProtocol.WriteFrameHeader(bytes, header);
-
-        Assert.AreEqual(3, bytes[0]);
-        Assert.AreEqual(7, bytes[1]);
-        Assert.AreEqual(0xFF, bytes[2]);
-        Assert.AreEqual(channelId, new Guid(bytes.AsSpan(3, 16)));
-        Assert.AreEqual(999999, BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(19, 4)));
-    }
-
-    #endregion
-
     #region ProtocolSender
 
     [TestMethod]
-    public async Task SendEnvelopeAsync_SendsFrameWithMagicAndEnvelope()
+    public async Task SendAsync_SendsFrameWithMagicAndEnvelope()
     {
         var listener = new FakeLocalDataListener();
         var sender = new ProtocolSender(listener);
         var context = CreateContext();
         var envelope = new DataEnvelope { Route = "chat", Command = "text", StreamType = DataStreamType.Text };
 
-        await sender.SendEnvelopeAsync(context, envelope);
+        await sender.SendAsync(context, envelope);
 
         Assert.AreEqual(1, listener.SendCallCount);
         Assert.IsNotNull(listener.LastPipeData);
@@ -135,7 +48,7 @@ public sealed class ProtocolTests
     }
 
     [TestMethod]
-    public async Task SendEnvelopeWithPayloadAsync_SendsFrameEnvelopeAndPayload()
+    public async Task SendAsync_WithPayload_SendsFrameEnvelopeAndPayload()
     {
         var listener = new FakeLocalDataListener();
         var sender = new ProtocolSender(listener);
@@ -144,7 +57,7 @@ public sealed class ProtocolTests
         var payloadBytes = new byte[] { 1, 2, 3, 4, 5 };
         using var payloadStream = new MemoryStream(payloadBytes, writable: false);
 
-        await sender.SendEnvelopeWithPayloadAsync(context, envelope, payloadStream);
+        await sender.SendAsync(context, envelope, payloadStream);
 
         Assert.AreEqual(1, listener.SendCallCount);
         Assert.IsNotNull(listener.LastPipeData);
@@ -169,7 +82,7 @@ public sealed class ProtocolTests
     }
 
     [TestMethod]
-    public async Task SendEnvelopeWithPayloadAsync_ReportsProgress()
+    public async Task SendAsync_WithPayload_ReportsProgress()
     {
         var listener = new FakeLocalDataListener();
         var sender = new ProtocolSender(listener);
@@ -180,7 +93,7 @@ public sealed class ProtocolTests
         using var payloadStream = new MemoryStream(payloadBytes, writable: false);
 
         var progressReports = new List<(long Sent, long Total)>();
-        await sender.SendEnvelopeWithPayloadAsync(context, envelope, payloadStream,
+        await sender.SendAsync(context, envelope, payloadStream,
             (sent, total) =>
             {
                 progressReports.Add((sent, total));
@@ -194,7 +107,7 @@ public sealed class ProtocolTests
     }
 
     [TestMethod]
-    public async Task SendEnvelopeWithPayloadAsync_Throws_WhenStreamNotReadable()
+    public async Task SendAsync_WithPayload_Throws_WhenStreamNotReadable()
     {
         var listener = new FakeLocalDataListener();
         var sender = new ProtocolSender(listener);
@@ -202,7 +115,7 @@ public sealed class ProtocolTests
         var unreadable = new NonReadableStream();
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => sender.SendEnvelopeWithPayloadAsync(CreateContext(), envelope, unreadable));
+            () => sender.SendAsync(CreateContext(), envelope, unreadable));
     }
 
     #endregion
@@ -395,10 +308,11 @@ public sealed class ProtocolTests
     private static ProtocolSession CreateProtocolSession(RecordingSink? sink = null)
     {
         sink ??= new RecordingSink();
+        var sessionStore = new FileTransferSessionStore();
         return new ProtocolSession(new DeviceMessageDispatcher(
             new MessageCodecRegistry(),
             sink,
-            new FileTransferSessionStore()));
+            new FileTransferPayloadHandler(sink, sessionStore)));
     }
 
     private static async Task ReadFromPipeReaderAsync(PipeReader reader, byte[] destination)

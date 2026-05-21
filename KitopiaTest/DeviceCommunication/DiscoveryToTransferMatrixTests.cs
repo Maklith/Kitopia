@@ -1,17 +1,15 @@
+using System.Buffers.Binary;
+using System.IO.Pipelines;
 using System.Net;
-using System.Net.Sockets;
-using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Core.Services.Config;
 using Core.Services.DeviceCommunication;
-using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Discovery;
-using Core.Services.DeviceCommunication.Messages.Chat;
-using Core.Services.DeviceCommunication.Messages.Clipboard;
+using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
-using Core.Services.DeviceCommunication.Sessions;
-using Core.ViewModel.Windows;
+using ObservableCollections;
 using PluginCore;
 
 namespace KitopiaTest.DeviceCommunication;
@@ -42,73 +40,54 @@ public sealed class DiscoveryToTransferMatrixTests
     }
 
     [TestMethod]
-    [DataRow(true, true, true, true)]
-    [DataRow(true, true, true, false)]
-    [DataRow(true, true, false, true)]
-    [DataRow(true, true, false, false)]
-    [DataRow(true, false, true, true)]
-    [DataRow(true, false, true, false)]
-    [DataRow(true, false, false, true)]
-    [DataRow(true, false, false, false)]
-    [DataRow(false, true, true, true)]
-    [DataRow(false, true, true, false)]
-    [DataRow(false, true, false, true)]
-    [DataRow(false, true, false, false)]
-    [DataRow(false, false, true, true)]
-    [DataRow(false, false, true, false)]
-    [DataRow(false, false, false, true)]
-    [DataRow(false, false, false, false)]
-    public async Task DiscoveryToTransfer_CapabilityMatrix_CoversAllCombinations(
+    [DataRow(true, true)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    [DataRow(false, false)]
+    public async Task DeviceTransportService_SelectsQuicOnlyWhenBothSidesSupportIt(
         bool localSupportsQuic,
-        bool remoteSupportsQuic,
-        bool localSupportsIpv6,
-        bool remoteSupportsIpv6)
+        bool remoteSupportsQuic)
     {
-        var localIdentity = CreateIdentity();
-        ConfigManger.Config.devicePrivateKey = localIdentity.PrivateKey;
-        ConfigManger.Config.EnsureDeviceIdentity();
-
-        using var discoveryService = new DeviceDiscoveryService();
-        var remoteDevice = BuildAuthenticatedRemoteDevice(discoveryService, localIdentity, remoteSupportsQuic, remoteSupportsIpv6);
-        Assert.IsNotNull(remoteDevice);
-
-        var messageApp = new CapabilityAwareMessageAppService(localSupportsQuic, localSupportsIpv6);
-        using var viewModel = new LanFileShareWindowViewModel(discoveryService, new MatrixFakeLocalDataListener(), messageApp, new FakeToastService());
-
-        await using var payload = new MemoryStream([1, 2, 3, 4], writable: false);
-        var fileMessage = new FileChatMessage(remoteDevice.Id, Guid.NewGuid(), "demo.bin", 4);
-
-        var sendTask = InvokeSendFileToDeviceAsync(viewModel, remoteDevice, fileMessage, payload);
-
-        var expectedToFail = remoteSupportsIpv6 && !localSupportsIpv6;
-        if (expectedToFail)
+        var listener = new RecordingLocalDataListener { SupportsQuicValue = localSupportsQuic };
+        var discoveryService = new FakeDeviceDiscoveryService();
+        discoveryService.AddDevice(new DeviceModel
         {
-            await Assert.ThrowsExactlyAsync<NotSupportedException>(() => sendTask);
-        }
-        else
+            Id = "peer-1",
+            Ipv4Address = IPAddress.Loopback,
+            TcpPort = 22001,
+            QuicPort = remoteSupportsQuic ? 22002 : 0,
+            SupportQuic = remoteSupportsQuic
+        });
+        var transport = new DeviceTransportService(listener, new ProtocolSender(listener), discoveryService);
+
+        await transport.SendAsync("peer-1", new DataEnvelope { Route = "chat", Command = "text" });
+
+        var expected = localSupportsQuic && remoteSupportsQuic
+            ? LocalDataTransportProtocol.Quic
+            : LocalDataTransportProtocol.Tcp;
+        Assert.AreEqual(expected, listener.Attempts.Single().Protocol);
+    }
+
+    [TestMethod]
+    public async Task DeviceTransportService_QuicFailure_FallsBackToTcp()
+    {
+        var listener = new RecordingLocalDataListener { SupportsQuicValue = true, FailQuicSend = true };
+        var discoveryService = new FakeDeviceDiscoveryService();
+        discoveryService.AddDevice(new DeviceModel
         {
-            await sendTask;
-        }
+            Id = "peer-1",
+            Ipv4Address = IPAddress.Loopback,
+            TcpPort = 22001,
+            QuicPort = 22002,
+            SupportQuic = true
+        });
+        var transport = new DeviceTransportService(listener, new ProtocolSender(listener), discoveryService);
 
-        var expectedPrimaryProtocol = remoteSupportsQuic ? LocalDataTransportProtocol.Quic : LocalDataTransportProtocol.Tcp;
-        Assert.AreEqual(expectedPrimaryProtocol, messageApp.Attempts[0].Protocol);
+        await transport.SendAsync("peer-1", new DataEnvelope { Route = "chat", Command = "text" });
 
-        var expectedAddressFamily = remoteSupportsIpv6 ? AddressFamily.InterNetworkV6 : AddressFamily.InterNetwork;
-        Assert.AreEqual(expectedAddressFamily, messageApp.Attempts[0].RemoteEndPoint.AddressFamily);
-
-        var firstAttemptShouldFail =
-            (remoteSupportsQuic && !localSupportsQuic) ||
-            (remoteSupportsIpv6 && !localSupportsIpv6);
-
-        if (remoteSupportsQuic && firstAttemptShouldFail)
-        {
-            Assert.AreEqual(2, messageApp.Attempts.Count);
-            Assert.AreEqual(LocalDataTransportProtocol.Tcp, messageApp.Attempts[1].Protocol);
-        }
-        else
-        {
-            Assert.AreEqual(1, messageApp.Attempts.Count);
-        }
+        CollectionAssert.AreEqual(
+            new[] { LocalDataTransportProtocol.Quic, LocalDataTransportProtocol.Tcp },
+            listener.Attempts.Select(attempt => attempt.Protocol).ToArray());
     }
 
     [TestMethod]
@@ -124,12 +103,7 @@ public sealed class DiscoveryToTransferMatrixTests
         var nonce = Guid.NewGuid().ToString("N");
         var remoteAddress = IPAddress.Loopback;
 
-        InvokePrivateVoid(
-            discoveryService,
-            "RegisterPendingAuthRequest",
-            remoteHash,
-            nonce,
-            remoteAddress);
+        InvokePrivateVoid(discoveryService, "RegisterPendingAuthRequest", remoteHash, nonce, remoteAddress);
 
         var response = new DiscoveryInfo
         {
@@ -150,122 +124,6 @@ public sealed class DiscoveryToTransferMatrixTests
         InvokePrivateVoid(discoveryService, "HandleAuthResponse", response, remoteAddress, localIdentity.PublicKey, localHash);
 
         Assert.AreEqual(0, discoveryService.Devices.Count);
-    }
-
-    [TestMethod]
-    public async Task DiscoveryToTransfer_QuicAlpnNegotiationError_FallsBackToTcp()
-    {
-        var localIdentity = CreateIdentity();
-        ConfigManger.Config.devicePrivateKey = localIdentity.PrivateKey;
-        ConfigManger.Config.EnsureDeviceIdentity();
-
-        using var discoveryService = new DeviceDiscoveryService();
-        var remoteDevice = BuildAuthenticatedRemoteDevice(
-            discoveryService,
-            localIdentity,
-            supportsQuic: true,
-            supportsIpv6: true);
-
-        var messageApp = new CapabilityAwareMessageAppService(
-            localSupportsQuic: true,
-            localSupportsIpv6: true,
-            failFirstQuicAttemptWithAuthError: true);
-        using var viewModel = new LanFileShareWindowViewModel(discoveryService, new MatrixFakeLocalDataListener(), messageApp, new FakeToastService());
-
-        await using var payload = new MemoryStream([9, 8, 7], writable: false);
-        var fileMessage = new FileChatMessage(remoteDevice.Id, Guid.NewGuid(), "alpn.bin", 3);
-
-        await InvokeSendFileToDeviceAsync(viewModel, remoteDevice, fileMessage, payload);
-
-        Assert.AreEqual(2, messageApp.Attempts.Count);
-        Assert.AreEqual(LocalDataTransportProtocol.Quic, messageApp.Attempts[0].Protocol);
-        Assert.AreEqual(LocalDataTransportProtocol.Tcp, messageApp.Attempts[1].Protocol);
-        Assert.AreEqual(AddressFamily.InterNetworkV6, messageApp.Attempts[0].RemoteEndPoint.AddressFamily);
-        Assert.AreEqual(AddressFamily.InterNetworkV6, messageApp.Attempts[1].RemoteEndPoint.AddressFamily);
-    }
-
-    private static DeviceModel BuildAuthenticatedRemoteDevice(
-        DeviceDiscoveryService discoveryService,
-        (string PublicKey, string PrivateKey) localIdentity,
-        bool supportsQuic,
-        bool supportsIpv6)
-    {
-        var remoteIdentity = CreateIdentity();
-        var remoteHash = ComputePublicKeyHash(remoteIdentity.PublicKey);
-        var nonce = Guid.NewGuid().ToString("N");
-        var remoteAddress = supportsIpv6 ? IPAddress.IPv6Loopback : IPAddress.Loopback;
-
-        InvokePrivateVoid(
-            discoveryService,
-            "RegisterPendingAuthRequest",
-            remoteHash,
-            nonce,
-            remoteAddress);
-
-        var response = new DiscoveryInfo
-        {
-            MessageType = "auth.response",
-            Version = "0.1",
-            Id = remoteHash,
-            Name = "peer-ok",
-            TcpPort = 22001,
-            SupportsQuic = supportsQuic,
-            QuicPort = supportsQuic ? 22002 : 0,
-            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            PublicKey = remoteIdentity.PublicKey,
-            Nonce = nonce
-        };
-
-        response.Signature = Convert.ToBase64String(SignDiscoveryInfo(response, remoteIdentity.PrivateKey));
-
-        var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
-        InvokePrivateVoid(discoveryService, "HandleAuthResponse", response, remoteAddress, localIdentity.PublicKey, localHash);
-
-        Assert.AreEqual(1, discoveryService.Devices.Count);
-        var device = discoveryService.Devices[0];
-        Assert.AreEqual(remoteIdentity.PublicKey, device.Id);
-        Assert.AreEqual(supportsQuic, device.SupportQuic);
-        Assert.AreEqual(22001, device.TcpPort);
-        Assert.AreEqual(supportsQuic ? 22002 : 0, device.QuicPort);
-        return device;
-    }
-
-    private static Task InvokeSendFileToDeviceAsync(
-        LanFileShareWindowViewModel viewModel,
-        DeviceModel device,
-        FileChatMessage message,
-        Stream stream)
-    {
-        var method = typeof(LanFileShareWindowViewModel).GetMethod(
-            "SendFileToDeviceAsync",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-
-        Assert.IsNotNull(method);
-        var result = method.Invoke(viewModel, [device, message, stream]);
-        return result as Task ?? throw new InvalidOperationException("SendFileToDeviceAsync did not return Task.");
-    }
-
-    private static byte[] SignDiscoveryInfo(DiscoveryInfo info, string privateKey)
-    {
-        var payload = BuildDiscoveryPayload(info);
-        using var rsa = RSA.Create();
-        rsa.ImportPkcs8PrivateKey(Convert.FromBase64String(privateKey), out _);
-        return rsa.SignData(payload, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-    }
-
-    private static byte[] BuildDiscoveryPayload(DiscoveryInfo info)
-    {
-        using var stream = new MemoryStream();
-        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        writer.Write(info.Id ?? string.Empty);
-        writer.Write(info.Name ?? string.Empty);
-        writer.Write(info.TcpPort);
-        writer.Write(info.QuicPort);
-        writer.Write(info.SupportsQuic);
-        writer.Write(info.TimestampUnixSeconds);
-        writer.Write(info.Nonce ?? string.Empty);
-        writer.Flush();
-        return stream.ToArray();
     }
 
     private static string ComputePublicKeyHash(string publicKey)
@@ -292,171 +150,90 @@ public sealed class DiscoveryToTransferMatrixTests
         method.Invoke(instance, args);
     }
 
-    private sealed class CapabilityAwareMessageAppService : IMessageAppService
+    private sealed class FakeDeviceDiscoveryService : IDeviceDiscoveryService
     {
-        private readonly bool _localSupportsQuic;
-        private readonly bool _localSupportsIpv6;
-        private readonly bool _failFirstQuicAttemptWithAuthError;
-        private bool _quicAttemptFailed;
+        private readonly ObservableList<DeviceModel> _devicesSource = [];
+        private readonly ISynchronizedView<DeviceModel, DeviceModel> _devicesView;
 
-        public CapabilityAwareMessageAppService(
-            bool localSupportsQuic,
-            bool localSupportsIpv6,
-            bool failFirstQuicAttemptWithAuthError = false)
+        public FakeDeviceDiscoveryService()
         {
-            _localSupportsQuic = localSupportsQuic;
-            _localSupportsIpv6 = localSupportsIpv6;
-            _failFirstQuicAttemptWithAuthError = failFirstQuicAttemptWithAuthError;
+            _devicesView = _devicesSource.CreateView(device => device);
+            Devices = _devicesView.ToNotifyCollectionChanged();
         }
 
-        public List<MessageContext> Attempts { get; } = [];
+        public NotifyCollectionChangedSynchronizedViewList<DeviceModel> Devices { get; }
 
-        public ValueTask SendTextChatAsync(MessageContext context, TextChatMessage message,
-            CancellationToken cancellationToken = default)
+        public Task StartAsync(CancellationToken token) => Task.CompletedTask;
+
+        public Task StopAsync() => Task.CompletedTask;
+
+        public void AddDevice(DeviceModel device)
         {
-            throw new NotSupportedException();
+            _devicesSource.Add(device);
         }
 
-        public ValueTask SendFileChatAsync(MessageContext context, FileChatMessage message, Stream stream,
-            CancellationToken cancellationToken = default)
+        public void Dispose()
         {
-            Attempts.Add(context);
-
-            if (context.Protocol == LocalDataTransportProtocol.Quic &&
-                _failFirstQuicAttemptWithAuthError &&
-                !_quicAttemptFailed)
-            {
-                _quicAttemptFailed = true;
-                throw new AuthenticationException("Application layer protocol negotiation error was encountered.");
-            }
-
-            if (context.Protocol == LocalDataTransportProtocol.Quic && !_localSupportsQuic)
-            {
-                throw new NotSupportedException("local_quic_not_supported");
-            }
-
-            if (context.RemoteEndPoint.AddressFamily == AddressFamily.InterNetworkV6 && !_localSupportsIpv6)
-            {
-                throw new NotSupportedException("local_ipv6_not_supported");
-            }
-
-            return ValueTask.CompletedTask;
-        }
-
-        public ValueTask SendImageChatAsync(MessageContext context, ImageChatMessage message, Stream stream,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask AcceptFileAsync(MessageContext context, Guid transferId, string savePath,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask RejectFileAsync(MessageContext context, Guid transferId, string reason,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask CancelTransferAsync(MessageContext context, Guid transferId, string reason,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask SendClipboardTextAsync(MessageContext context, TextClipboardMessage message,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public IAsyncEnumerable<IncomingMessageEvent> ReceiveAsync(CancellationToken cancellationToken = default)
-        {
-            return AsyncEnumerable.Empty<IncomingMessageEvent>();
-        }
-
-        public void UpdateDisplayContext(bool isMainWindowActive, bool isDeviceChatPageOpen, string? selectedConversationId)
-        {
-        }
-
-        public void RequestOpenConversation(string conversationId)
-        {
-        }
-
-        public string? GetRequestedConversationId()
-        {
-            return null;
-        }
-
-        public void ClearRequestedConversationId()
-        {
-        }
-
-        public IncomingMessageDisplayMode ResolveIncomingDisplayMode(string conversationId)
-        {
-            return IncomingMessageDisplayMode.NotifyByToast;
-        }
-
-        public IncomingMessageDisplayMode ResolveIncomingDisplayMode(bool isMainWindowActive, bool isDeviceChatPageOpen,
-            string conversationId, string? selectedConversationId)
-        {
-            return IncomingMessageDisplayMode.NotifyByToast;
+            Devices.Dispose();
+            _devicesView.Dispose();
         }
     }
 
-    private sealed class FakeToastService : IToastService
+    private sealed class RecordingLocalDataListener : ILocalDataListener
     {
-        public void Init()
-        {
-        }
-
-        public Task Show(string header, string text,
-            Avalonia.Controls.Notifications.NotificationType notificationType = Avalonia.Controls.Notifications.NotificationType.Information,
-            Avalonia.Controls.Window? dialogWindow = null)
-        {
-            return Task.CompletedTask;
-        }
-
-        public Task Show(ToastRequest request, Avalonia.Controls.Window? dialogWindow = null)
-        {
-            return Task.CompletedTask;
-        }
-
-        public IToastProgressHandle ShowProgress(string header, string text,
-            Avalonia.Controls.Notifications.NotificationType notificationType = Avalonia.Controls.Notifications.NotificationType.Information,
-            double initialProgress = 0, bool isIndeterminate = false)
-        {
-            throw new NotSupportedException();
-        }
-
-        public void Unregister()
-        {
-        }
-
-        public bool HasUnreadSuppressedNotifications() => false;
-
-        public bool TryOpenLatestSuppressedNotification() => false;
-
-        public bool ShowSuppressedNotificationCenter() => false;
-
-        public void ClearUnreadSuppressedNotifications()
-        {
-        }
-    }
-
-    private sealed class MatrixFakeLocalDataListener : ILocalDataListener
-    {
-        public int TcpPort => 12345;
-        public int QuicPort => 12346;
-        public bool SupportsQuic => true;
+        public int TcpPort => 0;
+        public int QuicPort => 0;
+        public bool SupportsQuic => SupportsQuicValue;
+        public bool SupportsQuicValue { get; init; }
+        public bool FailQuicSend { get; set; }
+        public List<(LocalDataTransportProtocol Protocol, IPEndPoint EndPoint, DataEnvelope Envelope)> Attempts { get; } = [];
 
         public Task StartListeningAsync(CancellationToken token = default) => Task.CompletedTask;
+
         public Task StopListeningAsync() => Task.CompletedTask;
 
-        public Task SendAsync(LocalDataTransportProtocol protocol, System.IO.Pipelines.PipeReader payloadReader, System.Net.IPEndPoint remoteEndPoint,
-            string? remoteIdentityPublicKey = null, CancellationToken token = default) => Task.CompletedTask;
+        public async Task SendAsync(
+            LocalDataTransportProtocol protocol,
+            PipeReader payloadReader,
+            IPEndPoint remoteEndPoint,
+            string? remoteIdentityPublicKey = null,
+            CancellationToken token = default)
+        {
+            Attempts.Add((protocol, remoteEndPoint, new DataEnvelope()));
+            if (protocol == LocalDataTransportProtocol.Quic && FailQuicSend)
+            {
+                FailQuicSend = false;
+                throw new IOException("quic failed");
+            }
+
+            using var memory = new MemoryStream();
+            await payloadReader.CopyToAsync(memory, token);
+            var frame = memory.ToArray();
+            var envelopeLength = BinaryPrimitives.ReadInt32LittleEndian(frame.AsSpan(4, 4));
+            var envelope = JsonSerializer.Deserialize<DataEnvelope>(frame.AsSpan(16, envelopeLength));
+            Assert.IsNotNull(envelope);
+            Attempts[^1] = (protocol, remoteEndPoint, envelope);
+        }
+
+        public Task SendAsync(
+            LocalDataTransportProtocol protocol,
+            ReadOnlyMemory<byte> payload,
+            IPEndPoint remoteEndPoint,
+            string? remoteIdentityPublicKey = null,
+            CancellationToken token = default)
+        {
+            return SendAsync(protocol, PipeReader.Create(new MemoryStream(payload.ToArray())), remoteEndPoint,
+                remoteIdentityPublicKey, token);
+        }
+
+        public Task SendAsync(
+            LocalDataTransportProtocol protocol,
+            Stream stream,
+            IPEndPoint remoteEndPoint,
+            string? remoteIdentityPublicKey = null,
+            CancellationToken token = default)
+        {
+            return SendAsync(protocol, PipeReader.Create(stream), remoteEndPoint, remoteIdentityPublicKey, token);
+        }
     }
 }

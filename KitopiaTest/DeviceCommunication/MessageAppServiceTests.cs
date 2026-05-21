@@ -27,12 +27,7 @@ public sealed class MessageAppServiceTests
         var listener = new FakeLocalDataListener();
         var service = CreateService(listener);
 
-        var context = new MessageContext(
-            LocalDataTransportProtocol.Tcp,
-            new IPEndPoint(IPAddress.Loopback, 45000),
-            "peer-key");
-
-        await service.SendTextChatAsync(context, new TextChatMessage("peer-1", "hello"));
+        await service.SendTextChatAsync("peer-1", "hello");
 
         Assert.AreEqual(1, listener.SendCount);
         Assert.IsNotNull(listener.LastPayload);
@@ -42,6 +37,28 @@ public sealed class MessageAppServiceTests
         Assert.IsNotNull(envelope);
         Assert.AreEqual("chat", envelope.Route);
         Assert.AreEqual("text", envelope.Command);
+    }
+
+    [TestMethod]
+    public async Task SendTextChatAsync_FallsBackToTcp_WhenQuicSendFails()
+    {
+        var listener = new FakeLocalDataListener { SupportsQuicValue = true, FailQuicSend = true };
+        var discoveryService = new FakeDeviceDiscoveryService();
+        discoveryService.AddDevice(new DeviceModel
+        {
+            Id = "peer-1",
+            Ipv4Address = IPAddress.Loopback,
+            TcpPort = 45000,
+            QuicPort = 45001,
+            SupportQuic = true
+        });
+        var service = CreateService(listener, deviceDiscoveryService: discoveryService);
+
+        await service.SendTextChatAsync("peer-1", "hello");
+
+        CollectionAssert.AreEqual(
+            new[] { LocalDataTransportProtocol.Quic, LocalDataTransportProtocol.Tcp },
+            listener.ProtocolAttempts);
     }
 
     [TestMethod]
@@ -142,7 +159,7 @@ public sealed class MessageAppServiceTests
         var registry = new MessageCodecRegistry();
         var sink = new RecordingIncomingMessageSink();
         var sessionStore = new FileTransferSessionStore();
-        var dispatcher = new DeviceMessageDispatcher(registry, sink, sessionStore);
+        var dispatcher = new DeviceMessageDispatcher(registry, sink, new FileTransferPayloadHandler(sink, sessionStore));
 
         var transferId = Guid.NewGuid();
         var envelope = new DataEnvelope
@@ -245,18 +262,34 @@ public sealed class MessageAppServiceTests
 
     private static MessageAppService CreateService(
         FakeLocalDataListener listener,
+        FakeDeviceDiscoveryService deviceDiscoveryService)
+    {
+        return CreateService(listener, new IncomingMessageBuffer(), new FileTransferSessionStore(), deviceDiscoveryService);
+    }
+
+    private static MessageAppService CreateService(
+        FakeLocalDataListener listener,
         IncomingMessageBuffer incomingBuffer,
-        FileTransferSessionStore sessionStore)
+        FileTransferSessionStore sessionStore,
+        FakeDeviceDiscoveryService? deviceDiscoveryService = null)
     {
         var sender = new ProtocolSender(listener);
         var registry = new MessageCodecRegistry();
+        deviceDiscoveryService ??= new FakeDeviceDiscoveryService();
+        deviceDiscoveryService.AddDevice(new DeviceModel
+        {
+            Id = "peer-1",
+            Ipv4Address = IPAddress.Loopback,
+            TcpPort = 45000
+        });
+        var transportService = new DeviceTransportService(listener, sender, deviceDiscoveryService);
         return new MessageAppService(
             registry,
-            sender,
+            transportService,
             incomingBuffer,
             new ImageTransferPolicy(),
             sessionStore,
-            new FakeDeviceDiscoveryService(),
+            deviceDiscoveryService,
             new FakeToastService(),
             new FakeNavigationService());
     }
@@ -277,6 +310,11 @@ public sealed class MessageAppServiceTests
         public Task StartAsync(CancellationToken token) => Task.CompletedTask;
 
         public Task StopAsync() => Task.CompletedTask;
+
+        public void AddDevice(DeviceModel device)
+        {
+            _devicesSource.Add(device);
+        }
 
         public void Dispose()
         {
@@ -347,9 +385,12 @@ public sealed class MessageAppServiceTests
     {
         public int TcpPort => 0;
         public int QuicPort => 0;
-        public bool SupportsQuic => false;
+        public bool SupportsQuic => SupportsQuicValue;
+        public bool SupportsQuicValue { get; init; }
+        public bool FailQuicSend { get; init; }
         public int SendCount { get; private set; }
         public ReadOnlyMemory<byte>? LastPayload { get; private set; }
+        public List<LocalDataTransportProtocol> ProtocolAttempts { get; } = [];
 
         public Task StartListeningAsync(CancellationToken token = default) => Task.CompletedTask;
         public Task StopListeningAsync() => Task.CompletedTask;
@@ -357,7 +398,12 @@ public sealed class MessageAppServiceTests
         public async Task SendAsync(LocalDataTransportProtocol protocol, PipeReader payloadReader, IPEndPoint remoteEndPoint,
             string? remoteIdentityPublicKey = null, CancellationToken token = default)
         {
-            _ = protocol;
+            ProtocolAttempts.Add(protocol);
+            if (protocol == LocalDataTransportProtocol.Quic && FailQuicSend)
+            {
+                throw new IOException("quic failed");
+            }
+
             _ = remoteEndPoint;
             _ = remoteIdentityPublicKey;
             using var memory = new MemoryStream();
