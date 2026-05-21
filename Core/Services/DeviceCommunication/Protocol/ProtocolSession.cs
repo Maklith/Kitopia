@@ -11,11 +11,11 @@ namespace Core.Services.DeviceCommunication.Protocol;
 public sealed class ProtocolSession
 {
     private static readonly byte[] FrameMagic = Encoding.ASCII.GetBytes("KDC1");
-    private readonly IMessageRouter _router;
+    private readonly DeviceMessageDispatcher _dispatcher;
 
-    public ProtocolSession(IMessageRouter router)
+    public ProtocolSession(DeviceMessageDispatcher dispatcher)
     {
-        _router = router;
+        _dispatcher = dispatcher;
     }
 
     public async ValueTask HandleAsync(
@@ -65,7 +65,7 @@ public sealed class ProtocolSession
 
         var scopedPayloadReader = new FramePayloadScopedReader(payloadReader, payloadLength);
         var context = new MessageContext(protocol, remoteEndPoint, string.Empty);
-        await _router.RouteAsync(context, envelope, scopedPayloadReader, cancellationToken);
+        await _dispatcher.DispatchAsync(context, envelope, scopedPayloadReader, cancellationToken);
     }
 
     private static IReadOnlyDictionary<string, string?> MergeMetadata(

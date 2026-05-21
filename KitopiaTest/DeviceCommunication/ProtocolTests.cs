@@ -4,9 +4,12 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Core.Services.DeviceCommunication;
+using Core.Services.DeviceCommunication.Application;
+using Core.Services.DeviceCommunication.Codecs;
+using Core.Services.DeviceCommunication.Messages.Chat;
 using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
-using Core.Services.DeviceCommunication.Security;
+using Core.Services.DeviceCommunication.Sessions;
 
 namespace KitopiaTest.DeviceCommunication;
 
@@ -209,20 +212,19 @@ public sealed class ProtocolTests
     [TestMethod]
     public async Task HandleAsync_DoesNothing_WhenEmptyPayload()
     {
-        var router = new TestMessageRouter();
-        var session = new ProtocolSession(router);
+        var sink = new RecordingSink();
+        var session = CreateProtocolSession(sink);
 
         var reader = PipeReader.Create(Stream.Null);
         await session.HandleAsync(LocalDataTransportProtocol.Tcp, new IPEndPoint(IPAddress.Loopback, 12345), reader);
 
-        Assert.AreEqual(0, router.CallCount);
+        Assert.AreEqual(0, sink.Events.Count);
     }
 
     [TestMethod]
     public async Task HandleAsync_Throws_WhenInvalidMagic()
     {
-        var router = new TestMessageRouter();
-        var session = new ProtocolSession(router);
+        var session = CreateProtocolSession();
 
         var badFrame = new byte[16];
         Encoding.ASCII.GetBytes("XXXX").CopyTo(badFrame, 0);
@@ -237,8 +239,7 @@ public sealed class ProtocolTests
     [TestMethod]
     public async Task HandleAsync_Throws_WhenEnvelopeLengthZero()
     {
-        var router = new TestMessageRouter();
-        var session = new ProtocolSession(router);
+        var session = CreateProtocolSession();
 
         var frame = new byte[16];
         Encoding.ASCII.GetBytes("KDC1").CopyTo(frame, 0);
@@ -253,8 +254,7 @@ public sealed class ProtocolTests
     [TestMethod]
     public async Task HandleAsync_Throws_WhenPayloadLengthNegative()
     {
-        var router = new TestMessageRouter();
-        var session = new ProtocolSession(router);
+        var session = CreateProtocolSession();
 
         var frame = new byte[16];
         Encoding.ASCII.GetBytes("KDC1").CopyTo(frame, 0);
@@ -269,8 +269,8 @@ public sealed class ProtocolTests
     [TestMethod]
     public async Task HandleAsync_SkipsRouting_WhenEnvelopeRouteBlank()
     {
-        var router = new TestMessageRouter();
-        var session = new ProtocolSession(router);
+        var sink = new RecordingSink();
+        var session = CreateProtocolSession(sink);
 
         var envelope = new DataEnvelope { Route = "", Command = "text", StreamType = DataStreamType.Text };
         var envelopeBytes = JsonSerializer.SerializeToUtf8Bytes(envelope);
@@ -280,16 +280,26 @@ public sealed class ProtocolTests
         var reader = PipeReader.Create(new MemoryStream(fullData));
         await session.HandleAsync(LocalDataTransportProtocol.Tcp, new IPEndPoint(IPAddress.Loopback, 12345), reader);
 
-        Assert.AreEqual(0, router.CallCount);
+        Assert.AreEqual(0, sink.Events.Count);
     }
 
     [TestMethod]
     public async Task HandleAsync_RoutesEnvelope_WithNoPayload()
     {
-        var router = new TestMessageRouter();
-        var session = new ProtocolSession(router);
+        var sink = new RecordingSink();
+        var session = CreateProtocolSession(sink);
 
-        var envelope = new DataEnvelope { Route = "chat", Command = "text", StreamType = DataStreamType.Text };
+        var envelope = new DataEnvelope
+        {
+            Route = "chat",
+            Command = "text",
+            StreamType = DataStreamType.Text,
+            Metadata = new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["conversationId"] = "peer-1",
+                ["text"] = "hello"
+            }
+        };
         var envelopeBytes = JsonSerializer.SerializeToUtf8Bytes(envelope);
         var frame = BuildTestFrame(envelopeBytes, 0);
         var fullData = frame.Concat(envelopeBytes).ToArray();
@@ -297,17 +307,28 @@ public sealed class ProtocolTests
         var reader = PipeReader.Create(new MemoryStream(fullData));
         await session.HandleAsync(LocalDataTransportProtocol.Tcp, new IPEndPoint(IPAddress.Loopback, 12345), reader);
 
-        Assert.AreEqual(1, router.CallCount);
-        Assert.AreEqual("chat", router.LastEnvelope!.Route);
+        Assert.AreEqual(1, sink.Events.Count);
+        Assert.IsInstanceOfType<TextChatMessage>(sink.Events[0].Message);
     }
 
     [TestMethod]
     public async Task HandleAsync_RoutesEnvelope_WithPayload()
     {
-        var router = new TestMessageRouter();
-        var session = new ProtocolSession(router);
+        var sink = new RecordingSink();
+        var session = CreateProtocolSession(sink);
 
-        var envelope = new DataEnvelope { Route = "chat", Command = "file", StreamType = DataStreamType.File };
+        var envelope = new DataEnvelope
+        {
+            Route = "chat",
+            Command = "image.direct",
+            StreamType = DataStreamType.Image,
+            ChannelId = Guid.NewGuid(),
+            Metadata = new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["conversationId"] = "peer-1",
+                ["sizeBytes"] = "3"
+            }
+        };
         var envelopeBytes = JsonSerializer.SerializeToUtf8Bytes(envelope);
         var payloadData = new byte[] { 10, 20, 30 };
         var frame = BuildTestFrame(envelopeBytes, payloadData.Length);
@@ -316,19 +337,29 @@ public sealed class ProtocolTests
         var reader = PipeReader.Create(new MemoryStream(fullData));
         await session.HandleAsync(LocalDataTransportProtocol.Tcp, new IPEndPoint(IPAddress.Loopback, 12345), reader);
 
-        Assert.AreEqual(1, router.CallCount);
-        Assert.IsNotNull(router.LastPayloadBytes);
-        CollectionAssert.AreEqual(payloadData, router.LastPayloadBytes);
+        Assert.AreEqual(1, sink.Events.Count);
+        Assert.IsNotNull(sink.Events[0].PayloadBytes);
+        CollectionAssert.AreEqual(payloadData, sink.Events[0].PayloadBytes);
     }
 
     [TestMethod]
     public async Task HandleAsync_FillsSenderIp_WhenMetadataSenderMissing()
     {
-        var router = new TestMessageRouter();
-        var session = new ProtocolSession(router);
+        var sink = new RecordingSink();
+        var session = CreateProtocolSession(sink);
         var remoteIp = IPAddress.Parse("192.168.1.100");
 
-        var envelope = new DataEnvelope { Route = "chat", Command = "text", StreamType = DataStreamType.Text };
+        var envelope = new DataEnvelope
+        {
+            Route = "chat",
+            Command = "text",
+            StreamType = DataStreamType.Text,
+            Metadata = new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["conversationId"] = "peer-1",
+                ["text"] = "hello"
+            }
+        };
         var envelopeBytes = JsonSerializer.SerializeToUtf8Bytes(envelope);
         var frame = BuildTestFrame(envelopeBytes, 0);
         var fullData = frame.Concat(envelopeBytes).ToArray();
@@ -336,9 +367,8 @@ public sealed class ProtocolTests
         var reader = PipeReader.Create(new MemoryStream(fullData));
         await session.HandleAsync(LocalDataTransportProtocol.Tcp, new IPEndPoint(remoteIp, 9999), reader);
 
-        Assert.AreEqual(1, router.CallCount);
-        Assert.IsNotNull(router.LastEnvelope!.Metadata);
-        Assert.AreEqual("192.168.1.100", router.LastEnvelope.Metadata["senderId"]);
+        Assert.AreEqual(1, sink.Events.Count);
+        Assert.AreEqual("192.168.1.100", sink.Events[0].Message.ConversationId);
     }
 
     #endregion
@@ -360,6 +390,15 @@ public sealed class ProtocolTests
         BinaryPrimitives.WriteInt32LittleEndian(frame.AsSpan(4, 4), envelopeBytes.Length);
         BinaryPrimitives.WriteInt64LittleEndian(frame.AsSpan(8, 8), payloadLength);
         return frame;
+    }
+
+    private static ProtocolSession CreateProtocolSession(RecordingSink? sink = null)
+    {
+        sink ??= new RecordingSink();
+        return new ProtocolSession(new DeviceMessageDispatcher(
+            new MessageCodecRegistry(),
+            sink,
+            new FileTransferSessionStore()));
     }
 
     private static async Task ReadFromPipeReaderAsync(PipeReader reader, byte[] destination)
@@ -419,25 +458,22 @@ public sealed class ProtocolTests
 
     }
 
-    private sealed class TestMessageRouter : IMessageRouter
+    private sealed class RecordingSink : IIncomingMessageSink
     {
-        public int CallCount { get; private set; }
-        public DataEnvelope? LastEnvelope { get; private set; }
-        public byte[]? LastPayloadBytes { get; private set; }
+        public List<IncomingMessageEvent> Events { get; } = [];
 
-        public async ValueTask RouteAsync(MessageContext context, DataEnvelope envelope, PipeReader payload,
+        public ValueTask PublishAsync(Core.Services.DeviceCommunication.Messages.AppMessage message,
             CancellationToken cancellationToken = default)
         {
-            CallCount++;
-            LastEnvelope = envelope;
+            Events.Add(new IncomingMessageEvent(message));
+            return ValueTask.CompletedTask;
+        }
 
-            var result = await payload.ReadAsync(cancellationToken);
-            if (!result.Buffer.IsEmpty)
-            {
-                LastPayloadBytes = result.Buffer.First.ToArray();
-                payload.AdvanceTo(result.Buffer.End);
-            }
-            payload.Complete();
+        public ValueTask PublishEventAsync(IncomingMessageEvent messageEvent,
+            CancellationToken cancellationToken = default)
+        {
+            Events.Add(messageEvent);
+            return ValueTask.CompletedTask;
         }
     }
 

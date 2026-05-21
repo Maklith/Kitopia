@@ -8,7 +8,7 @@ namespace Core.Services.DeviceCommunication.Protocol;
 
 public sealed class ProtocolSender
 {
-    private static readonly byte[] FrameMagic = Encoding.ASCII.GetBytes("KDC1");
+    private static readonly byte[] FrameMagic = "KDC1"u8.ToArray();
     private static readonly StreamPipeReaderOptions PayloadPipeReaderOptions = new(
         bufferSize: 256 * 1024,
         minimumReadSize: 64 * 1024,

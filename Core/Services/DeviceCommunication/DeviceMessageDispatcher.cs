@@ -6,15 +6,16 @@ using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
 using Core.Services.DeviceCommunication.Sessions;
 
-namespace Core.Services.DeviceCommunication.Handlers;
+namespace Core.Services.DeviceCommunication;
 
-public sealed class ChatRouteHandler : IRouteHandler
+public sealed class DeviceMessageDispatcher
 {
+    private readonly Dictionary<string, Func<MessageContext, DataEnvelope, PipeReader, CancellationToken, ValueTask>> _routeHandlers;
     private readonly MessageCodecRegistry _codecRegistry;
     private readonly IIncomingMessageSink _incomingMessageSink;
     private readonly IFileTransferSessionStore _fileTransferSessionStore;
 
-    public ChatRouteHandler(
+    public DeviceMessageDispatcher(
         MessageCodecRegistry codecRegistry,
         IIncomingMessageSink incomingMessageSink,
         IFileTransferSessionStore fileTransferSessionStore)
@@ -22,24 +23,33 @@ public sealed class ChatRouteHandler : IRouteHandler
         _codecRegistry = codecRegistry;
         _incomingMessageSink = incomingMessageSink;
         _fileTransferSessionStore = fileTransferSessionStore;
+        _routeHandlers = new Dictionary<string, Func<MessageContext, DataEnvelope, PipeReader, CancellationToken, ValueTask>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["chat"] = DispatchChatAsync,
+            ["clipboard"] = DispatchClipboardAsync
+        };
     }
 
-    public string Route => "chat";
-
-    public ValueTask HandleAsync(
+    public ValueTask DispatchAsync(
         MessageContext context,
         DataEnvelope envelope,
         PipeReader payload,
         CancellationToken cancellationToken = default)
     {
+        return _routeHandlers.TryGetValue(envelope.Route, out var handler)
+            ? handler(context, envelope, payload, cancellationToken)
+            : ValueTask.CompletedTask;
+    }
+
+    private ValueTask DispatchChatAsync(
+        MessageContext context,
+        DataEnvelope envelope,
+        PipeReader payload,
+        CancellationToken cancellationToken)
+    {
         _ = context;
 
-        if (!_codecRegistry.TryGetByEnvelope(envelope.Route, envelope.Command, out var codec))
-        {
-            return ValueTask.CompletedTask;
-        }
-
-        if (!codec.TryDecode(envelope, out var message))
+        if (!_codecRegistry.TryDecode(envelope, out var message))
         {
             return ValueTask.CompletedTask;
         }
@@ -59,8 +69,32 @@ public sealed class ChatRouteHandler : IRouteHandler
         };
     }
 
+    private ValueTask DispatchClipboardAsync(
+        MessageContext context,
+        DataEnvelope envelope,
+        PipeReader payload,
+        CancellationToken cancellationToken)
+    {
+        _ = context;
+        _ = payload;
+
+        if (!_codecRegistry.TryDecode(envelope, out var message))
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        return envelope.StreamType switch
+        {
+            DataStreamType.Text => _incomingMessageSink.PublishAsync(message, cancellationToken),
+            DataStreamType.Image => _incomingMessageSink.PublishAsync(message, cancellationToken),
+            DataStreamType.File => _incomingMessageSink.PublishAsync(message, cancellationToken),
+            DataStreamType.Binary => _incomingMessageSink.PublishAsync(message, cancellationToken),
+            _ => ValueTask.FromException(new InvalidOperationException($"Unsupported clipboard stream type: {envelope.StreamType}"))
+        };
+    }
+
     private async ValueTask HandlePayloadMessageAsync(
-        Core.Services.DeviceCommunication.Messages.AppMessage message,
+        Messages.AppMessage message,
         PipeReader payload,
         CancellationToken cancellationToken)
     {

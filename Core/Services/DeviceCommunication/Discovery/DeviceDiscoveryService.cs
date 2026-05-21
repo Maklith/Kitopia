@@ -91,7 +91,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
         try {
             client.Close();
         }
-        catch { }
+        catch {
+            Logger.Warning("关闭UDP客户端时发生异常");
+        }
         finally {
             client = null;
         }
@@ -186,7 +188,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                     try {
                         udpClientV4.JoinMulticastGroup(multicastIpV4, unicast.Address);
                     }
-                    catch { }
+                    catch {
+                        Logger.Warning("在接口 {InterfaceName} 上加入 IPv4 组播组失败", networkInterface.Name);
+                    }
                 }
             }
 
@@ -202,7 +206,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
 
                 udpClientV6.JoinMulticastGroup(ipv6Properties.Index, multicastIpV6);
             }
-            catch { }
+            catch {
+                Logger.Warning("在接口 {InterfaceName} 上加入 IPv6 组播组失败", networkInterface.Name);
+            }
         }
     }
 

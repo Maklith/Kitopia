@@ -139,10 +139,10 @@ public sealed class MessageAppServiceTests
     [TestMethod]
     public async Task HandleAsync_FilePayload_PublishesProgressAndPayloadEvent()
     {
-        var registry = new MessageCodecRegistry(new IMessageCodec[] { new FileChatMessageCodec() });
+        var registry = new MessageCodecRegistry();
         var sink = new RecordingIncomingMessageSink();
         var sessionStore = new FileTransferSessionStore();
-        var handler = new ChatRouteHandler(registry, sink, sessionStore);
+        var dispatcher = new DeviceMessageDispatcher(registry, sink, sessionStore);
 
         var transferId = Guid.NewGuid();
         var envelope = new DataEnvelope
@@ -175,7 +175,7 @@ public sealed class MessageAppServiceTests
 
         try
         {
-            await handler.HandleAsync(
+            await dispatcher.DispatchAsync(
                 new MessageContext(LocalDataTransportProtocol.Tcp, new IPEndPoint(IPAddress.Loopback, 12345), "peer-1"),
                 envelope,
                 payloadReader);
@@ -249,7 +249,7 @@ public sealed class MessageAppServiceTests
         FileTransferSessionStore sessionStore)
     {
         var sender = new ProtocolSender(listener);
-        var registry = new MessageCodecRegistry(new IMessageCodec[] { new ChatMessageCodec() });
+        var registry = new MessageCodecRegistry();
         return new MessageAppService(
             registry,
             sender,

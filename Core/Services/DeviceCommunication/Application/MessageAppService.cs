@@ -362,11 +362,7 @@ public sealed class MessageAppService : IMessageAppService {
 
     private async ValueTask SendCoreAsync(MessageContext context, AppMessage message,
         CancellationToken cancellationToken) {
-        if (!_codecRegistry.TryGetByMessage(message, out var codec)) {
-            throw new InvalidOperationException($"No codec for message type {message.GetType().Name}.");
-        }
-
-        if (!codec.TryEncode(message, out var envelope)) {
+        if (!_codecRegistry.TryEncode(message, out var envelope)) {
             throw new InvalidOperationException($"Encode failed for message type {message.GetType().Name}.");
         }
 
@@ -435,12 +431,7 @@ public sealed class MessageAppService : IMessageAppService {
             _fileTransferSessionStore.TryUpdateState(transferId, FileTransferState.Offered, FileTransferState.Accepted);
 
             var fileMessage = new FileChatMessage(conversationId, transferId, fileName, sizeBytes);
-            if (!_codecRegistry.TryGetByMessage(fileMessage, out var fileCodec))
-            {
-                throw new InvalidOperationException($"No codec for message type {fileMessage.GetType().Name}.");
-            }
-
-            if (!fileCodec.TryEncode(fileMessage, out var fileEnvelope))
+            if (!_codecRegistry.TryEncode(fileMessage, out var fileEnvelope))
             {
                 throw new InvalidOperationException($"Encode failed for message type {fileMessage.GetType().Name}.");
             }
@@ -494,11 +485,7 @@ public sealed class MessageAppService : IMessageAppService {
         ImageChatMessage message,
         Stream payloadStream,
         CancellationToken cancellationToken) {
-        if (!_codecRegistry.TryGetByMessage(message, out var codec)) {
-            throw new InvalidOperationException($"No codec for message type {message.GetType().Name}.");
-        }
-
-        if (!codec.TryEncode(message, out var envelope)) {
+        if (!_codecRegistry.TryEncode(message, out var envelope)) {
             throw new InvalidOperationException($"Encode failed for message type {message.GetType().Name}.");
         }
 

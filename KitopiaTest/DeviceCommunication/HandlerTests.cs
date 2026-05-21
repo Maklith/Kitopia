@@ -15,13 +15,13 @@ namespace KitopiaTest.DeviceCommunication;
 [TestClass]
 public sealed class HandlerTests
 {
-    #region ChatRouteHandler - Text Messages
+    #region DeviceMessageDispatcher - Chat Text Messages
 
     [TestMethod]
-    public async Task ChatRouteHandler_TextMessage_PublishesToSink()
+    public async Task DeviceMessageDispatcher_ChatTextMessage_PublishesToSink()
     {
         var sink = new RecordingSink();
-        var handler = CreateChatHandler(sink: sink);
+        var dispatcher = CreateDispatcher(sink: sink);
         var envelope = new DataEnvelope
         {
             Route = "chat", Command = "text", StreamType = DataStreamType.Text,
@@ -31,17 +31,17 @@ public sealed class HandlerTests
             }
         };
 
-        await handler.HandleAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
+        await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
 
         Assert.AreEqual(1, sink.Events.Count);
         Assert.IsInstanceOfType<TextChatMessage>(sink.Events[0].Message);
     }
 
     [TestMethod]
-    public async Task ChatRouteHandler_ControlMessage_PublishesToSink()
+    public async Task DeviceMessageDispatcher_ChatControlMessage_PublishesToSink()
     {
         var sink = new RecordingSink();
-        var handler = CreateChatHandler(sink: sink);
+        var dispatcher = CreateDispatcher(sink: sink);
         var envelope = new DataEnvelope
         {
             Route = "chat", Command = "file.accept", StreamType = DataStreamType.Control,
@@ -49,7 +49,7 @@ public sealed class HandlerTests
             Metadata = new Dictionary<string, string?>(StringComparer.Ordinal) { ["conversationId"] = "peer-1" }
         };
 
-        await handler.HandleAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
+        await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
 
         Assert.AreEqual(1, sink.Events.Count);
         Assert.IsInstanceOfType<FileAcceptChatMessage>(sink.Events[0].Message);
@@ -57,13 +57,13 @@ public sealed class HandlerTests
 
     #endregion
 
-    #region ChatRouteHandler - Image Messages
+    #region DeviceMessageDispatcher - Chat Image Messages
 
     [TestMethod]
-    public async Task ChatRouteHandler_ImageMessage_PublishesPayloadBytesToSink()
+    public async Task DeviceMessageDispatcher_ChatImageMessage_PublishesPayloadBytesToSink()
     {
         var sink = new RecordingSink();
-        var handler = CreateChatHandler(sink: sink);
+        var dispatcher = CreateDispatcher(sink: sink);
         var transferId = Guid.NewGuid();
         var envelope = new DataEnvelope
         {
@@ -77,7 +77,7 @@ public sealed class HandlerTests
         var payloadBytes = new byte[] { 10, 20, 30, 40 };
         var reader = PipeReader.Create(new MemoryStream(payloadBytes));
 
-        await handler.HandleAsync(CreateContext(), envelope, reader);
+        await dispatcher.DispatchAsync(CreateContext(), envelope, reader);
 
         Assert.AreEqual(1, sink.Events.Count);
         Assert.IsNotNull(sink.Events[0].PayloadBytes);
@@ -86,14 +86,14 @@ public sealed class HandlerTests
 
     #endregion
 
-    #region ChatRouteHandler - File Messages
+    #region DeviceMessageDispatcher - Chat File Messages
 
     [TestMethod]
-    public async Task ChatRouteHandler_FileMessage_WithAcceptedSession_SavesToFile()
+    public async Task DeviceMessageDispatcher_ChatFileMessage_WithAcceptedSession_SavesToFile()
     {
         var sink = new RecordingSink();
         var sessionStore = new FileTransferSessionStore();
-        var handler = CreateChatHandler(sink: sink, sessionStore: sessionStore);
+        var dispatcher = CreateDispatcher(sink: sink, sessionStore: sessionStore);
 
         var transferId = Guid.NewGuid();
         var tempFile = Path.Combine(Path.GetTempPath(), $"kitopia-test-{transferId:D}.bin");
@@ -122,7 +122,7 @@ public sealed class HandlerTests
 
         try
         {
-            await handler.HandleAsync(CreateContext(), envelope, PipeReader.Create(new MemoryStream(payloadBytes)));
+            await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(new MemoryStream(payloadBytes)));
 
             Assert.IsTrue(File.Exists(tempFile));
             var saved = await File.ReadAllBytesAsync(tempFile);
@@ -139,10 +139,10 @@ public sealed class HandlerTests
     }
 
     [TestMethod]
-    public async Task ChatRouteHandler_FileMessage_WithoutAcceptedSession_DrainsAndRejects()
+    public async Task DeviceMessageDispatcher_ChatFileMessage_WithoutAcceptedSession_DrainsAndRejects()
     {
         var sink = new RecordingSink();
-        var handler = CreateChatHandler(sink: sink);
+        var dispatcher = CreateDispatcher(sink: sink);
         var transferId = Guid.NewGuid();
         var envelope = new DataEnvelope
         {
@@ -156,7 +156,7 @@ public sealed class HandlerTests
         };
         var payloadBytes = new byte[] { 1, 2, 3, 4 };
 
-        await handler.HandleAsync(CreateContext(), envelope, PipeReader.Create(new MemoryStream(payloadBytes)));
+        await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(new MemoryStream(payloadBytes)));
 
         var rejectEvent = sink.Events.FirstOrDefault(e => e.EventType == IncomingMessageEventType.TransferRejected);
         Assert.IsNotNull(rejectEvent);
@@ -165,11 +165,11 @@ public sealed class HandlerTests
     }
 
     [TestMethod]
-    public async Task ChatRouteHandler_FileMessage_WithOfferedState_DrainsAndRejects()
+    public async Task DeviceMessageDispatcher_ChatFileMessage_WithOfferedState_DrainsAndRejects()
     {
         var sink = new RecordingSink();
         var sessionStore = new FileTransferSessionStore();
-        var handler = CreateChatHandler(sink: sink, sessionStore: sessionStore);
+        var dispatcher = CreateDispatcher(sink: sink, sessionStore: sessionStore);
 
         var transferId = Guid.NewGuid();
         sessionStore.TryAdd(new FileTransferSession
@@ -193,7 +193,7 @@ public sealed class HandlerTests
             }
         };
 
-        await handler.HandleAsync(CreateContext(), envelope, PipeReader.Create(new MemoryStream(new byte[] { 1, 2, 3, 4 })));
+        await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(new MemoryStream(new byte[] { 1, 2, 3, 4 })));
 
         var rejectEvent = sink.Events.FirstOrDefault(e => e.EventType == IncomingMessageEventType.TransferRejected);
         Assert.IsNotNull(rejectEvent);
@@ -201,13 +201,13 @@ public sealed class HandlerTests
 
     #endregion
 
-    #region ChatRouteHandler - Edge Cases
+    #region DeviceMessageDispatcher - Edge Cases
 
     [TestMethod]
-    public async Task ChatRouteHandler_UnknownRouteCommand_DoesNothing()
+    public async Task DeviceMessageDispatcher_UnknownRouteCommand_DoesNothing()
     {
         var sink = new RecordingSink();
-        var handler = CreateChatHandler(sink: sink);
+        var dispatcher = CreateDispatcher(sink: sink);
         var envelope = new DataEnvelope
         {
             Route = "chat", Command = "unknown", StreamType = DataStreamType.Text,
@@ -217,32 +217,32 @@ public sealed class HandlerTests
             }
         };
 
-        await handler.HandleAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
+        await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
 
         Assert.AreEqual(0, sink.Events.Count);
     }
 
     [TestMethod]
-    public async Task ChatRouteHandler_EmptyMetadata_DoesNothing()
+    public async Task DeviceMessageDispatcher_EmptyMetadata_DoesNothing()
     {
         var sink = new RecordingSink();
-        var handler = CreateChatHandler(sink: sink);
+        var dispatcher = CreateDispatcher(sink: sink);
         var envelope = new DataEnvelope { Route = "chat", Command = "text", StreamType = DataStreamType.Text };
 
-        await handler.HandleAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
+        await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
 
         Assert.AreEqual(0, sink.Events.Count);
     }
 
     #endregion
 
-    #region ClipboardRouteHandler
+    #region DeviceMessageDispatcher - Clipboard
 
     [TestMethod]
-    public async Task ClipboardRouteHandler_TextMessage_PublishesToSink()
+    public async Task DeviceMessageDispatcher_ClipboardTextMessage_PublishesToSink()
     {
         var sink = new RecordingSink();
-        var handler = CreateClipboardHandler(sink: sink);
+        var dispatcher = CreateDispatcher(sink: sink);
         var envelope = new DataEnvelope
         {
             Route = "clipboard", Command = "text", StreamType = DataStreamType.Text,
@@ -252,33 +252,33 @@ public sealed class HandlerTests
             }
         };
 
-        await handler.HandleAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
+        await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
 
         Assert.AreEqual(1, sink.Events.Count);
         Assert.IsInstanceOfType<TextClipboardMessage>(sink.Events[0].Message);
     }
 
     [TestMethod]
-    public async Task ClipboardRouteHandler_UnknownCommand_DoesNothing()
+    public async Task DeviceMessageDispatcher_ClipboardUnknownCommand_DoesNothing()
     {
         var sink = new RecordingSink();
-        var handler = CreateClipboardHandler(sink: sink);
+        var dispatcher = CreateDispatcher(sink: sink);
         var envelope = new DataEnvelope
         {
             Route = "clipboard", Command = "unknown", StreamType = DataStreamType.Text,
             Metadata = new Dictionary<string, string?>(StringComparer.Ordinal) { ["conversationId"] = "peer-1" }
         };
 
-        await handler.HandleAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
+        await dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null));
 
         Assert.AreEqual(0, sink.Events.Count);
     }
 
     [TestMethod]
-    public async Task ClipboardRouteHandler_UnsupportedStreamType_Throws()
+    public async Task DeviceMessageDispatcher_ClipboardUnsupportedStreamType_Throws()
     {
         var sink = new RecordingSink();
-        var handler = CreateClipboardHandler(sink: sink);
+        var dispatcher = CreateDispatcher(sink: sink);
         var envelope = new DataEnvelope
         {
             Route = "clipboard", Command = "text", StreamType = (DataStreamType)99,
@@ -289,7 +289,7 @@ public sealed class HandlerTests
         };
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => handler.HandleAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null)).AsTask());
+            () => dispatcher.DispatchAsync(CreateContext(), envelope, PipeReader.Create(Stream.Null)).AsTask());
     }
 
     #endregion
@@ -343,31 +343,14 @@ public sealed class HandlerTests
             "peer-1");
     }
 
-    private static ChatRouteHandler CreateChatHandler(
+    private static DeviceMessageDispatcher CreateDispatcher(
         RecordingSink? sink = null,
         FileTransferSessionStore? sessionStore = null)
     {
         sink ??= new RecordingSink();
         sessionStore ??= new FileTransferSessionStore();
-        var registry = new MessageCodecRegistry(new IMessageCodec[]
-        {
-            new ChatMessageCodec(),
-            new FileChatMessageCodec(),
-            new ImageChatMessageCodec(),
-            new FileOfferChatMessageCodec(),
-            new FileAcceptChatMessageCodec(),
-            new FileRejectChatMessageCodec(),
-            new FileCancelChatMessageCodec(),
-            new FileCompleteChatMessageCodec()
-        });
-        return new ChatRouteHandler(registry, sink, sessionStore);
-    }
-
-    private static ClipboardRouteHandler CreateClipboardHandler(RecordingSink? sink = null)
-    {
-        sink ??= new RecordingSink();
-        var registry = new MessageCodecRegistry(new IMessageCodec[] { new ClipboardMessageCodec() });
-        return new ClipboardRouteHandler(registry, sink);
+        var registry = new MessageCodecRegistry();
+        return new DeviceMessageDispatcher(registry, sink, sessionStore);
     }
 
     private sealed class RecordingSink : IIncomingMessageSink

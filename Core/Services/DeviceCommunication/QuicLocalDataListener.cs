@@ -82,7 +82,7 @@ public sealed class QuicLocalDataListener : ILocalDataTransport
                 ConnectionOptionsCallback = (connection, _, _) =>
                 {
                     var certificate = _certificate ?? throw new InvalidOperationException("Certificate is not ready.");
-                    var expectedRemoteIdentityPublicKey = ResolveExpectedIdentityPublicKey(connection.RemoteEndPoint as IPEndPoint);
+                    var expectedRemoteIdentityPublicKey = ResolveExpectedIdentityPublicKey(connection.RemoteEndPoint);
                     return ValueTask.FromResult(new QuicServerConnectionOptions
                     {
                         DefaultCloseErrorCode = 0,
