@@ -2,6 +2,7 @@ using System.IO.Pipelines;
 using System.Net;
 using System.Net.Quic;
 using Core.Services.Config;
+using Core.Services.DeviceCommunication.Security;
 using Serilog;
 
 namespace Core.Services.DeviceCommunication;
@@ -16,10 +17,10 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
 
     private bool _isStarted;
 
-    public LocalDataListenerHost(Protocol.ProtocolSession protocolSession)
+    public LocalDataListenerHost(Protocol.ProtocolSession protocolSession, DeviceTransportSecurity transportSecurity)
     {
-        _tcpListener = new TcpLocalDataListener(protocolSession);
-        _quicListener = new QuicLocalDataListener(protocolSession);
+        _tcpListener = new TcpLocalDataListener(protocolSession, transportSecurity);
+        _quicListener = new QuicLocalDataListener(protocolSession, transportSecurity);
     }
 
     public int TcpPort => _tcpListener.Port;

@@ -256,6 +256,53 @@ public sealed class ProtocolTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_DoesNotExposeBytesBeyondDeclaredPayloadLength()
+    {
+        var sink = new RecordingSink();
+        var session = CreateProtocolSession(sink);
+
+        var envelope = new DataEnvelope
+        {
+            Route = "chat",
+            Command = "image.direct",
+            StreamType = DataStreamType.Image,
+            ChannelId = Guid.NewGuid(),
+            Metadata = new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["conversationId"] = "peer-1",
+                ["sizeBytes"] = "3"
+            }
+        };
+        var envelopeBytes = JsonSerializer.SerializeToUtf8Bytes(envelope);
+        var declaredPayload = new byte[] { 10, 20, 30 };
+        var trailingBytes = new byte[] { 40, 50, 60 };
+        var frame = BuildTestFrame(envelopeBytes, declaredPayload.Length);
+        var fullData = frame.Concat(envelopeBytes).Concat(declaredPayload).Concat(trailingBytes).ToArray();
+
+        var reader = PipeReader.Create(new MemoryStream(fullData));
+        await session.HandleAsync(LocalDataTransportProtocol.Tcp, new IPEndPoint(IPAddress.Loopback, 12345), reader);
+
+        Assert.AreEqual(1, sink.Events.Count);
+        CollectionAssert.AreEqual(declaredPayload, sink.Events[0].PayloadBytes);
+    }
+
+    [TestMethod]
+    public async Task HandleAsync_Throws_WhenEnvelopeTruncated()
+    {
+        var session = CreateProtocolSession();
+        var frame = new byte[16];
+        Encoding.ASCII.GetBytes("KDC1").CopyTo(frame, 0);
+        BinaryPrimitives.WriteInt32LittleEndian(frame.AsSpan(4, 4), 10);
+        BinaryPrimitives.WriteInt64LittleEndian(frame.AsSpan(8, 8), 0);
+        var fullData = frame.Concat(new byte[] { 1, 2, 3 }).ToArray();
+
+        var reader = PipeReader.Create(new MemoryStream(fullData));
+
+        await Assert.ThrowsExactlyAsync<EndOfStreamException>(
+            () => session.HandleAsync(LocalDataTransportProtocol.Tcp, new IPEndPoint(IPAddress.Loopback, 12345), reader).AsTask());
+    }
+
+    [TestMethod]
     public async Task HandleAsync_FillsSenderIp_WhenMetadataSenderMissing()
     {
         var sink = new RecordingSink();

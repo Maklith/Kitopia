@@ -17,6 +17,7 @@ using Core.Services.DeviceCommunication.Codecs;
 using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Handlers;
 using Core.Services.DeviceCommunication.Protocol;
+using Core.Services.DeviceCommunication.Security;
 using Core.Services.DeviceCommunication.Sessions;
 using Core.Services.Interfaces;
 using Core.Services.MQTT;
@@ -107,6 +108,7 @@ internal class Program {
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
 
         services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>();
+        services.AddSingleton<DeviceTransportSecurity>();
         services.AddSingleton<ILocalDataListener, LocalDataListenerHost>();
         services.AddSingleton<ProtocolSession>();
         services.AddSingleton<ProtocolSender>();
