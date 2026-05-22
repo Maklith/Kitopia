@@ -249,6 +249,31 @@ public sealed class MessageAppServiceTests
         Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromMilliseconds(200));
     }
 
+    [TestMethod]
+    public async Task WaitForOfferReceiptAsync_WhenReceiptArrivesBeforeWaiter_ReturnsImmediatelyAsReceived()
+    {
+        var incomingBuffer = new IncomingMessageBuffer();
+        var transferId = Guid.NewGuid();
+        await incomingBuffer.PublishAsync(new FileOfferReceivedChatMessage("peer-1", transferId));
+
+        var stopwatch = Stopwatch.StartNew();
+        var receipt = await incomingBuffer.WaitForOfferReceiptAsync(transferId, TimeSpan.FromSeconds(3));
+        stopwatch.Stop();
+
+        Assert.AreEqual(TransferOfferReceipt.Received, receipt);
+        Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromMilliseconds(200));
+    }
+
+    [TestMethod]
+    public async Task WaitForOfferReceiptAsync_WhenNoReceipt_ReturnsTimeout()
+    {
+        var incomingBuffer = new IncomingMessageBuffer();
+
+        var receipt = await incomingBuffer.WaitForOfferReceiptAsync(Guid.NewGuid(), TimeSpan.FromMilliseconds(50));
+
+        Assert.AreEqual(TransferOfferReceipt.Timeout, receipt);
+    }
+
     private static MessageAppService CreateService()
     {
         return CreateService(new FakeLocalDataListener());

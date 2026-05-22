@@ -83,6 +83,7 @@ public sealed class CodecTests
         var transferId = Guid.NewGuid();
 
         AssertControlEnvelope(registry, new FileAcceptChatMessage("peer-1", transferId), "file.accept", transferId);
+        AssertControlEnvelope(registry, new FileOfferReceivedChatMessage("peer-1", transferId), "file.offer.received", transferId);
         AssertControlEnvelope(registry, new FileRejectChatMessage("peer-1", transferId, "rejected_by_user"), "file.reject", transferId, "rejected_by_user");
         AssertControlEnvelope(registry, new FileCancelChatMessage("peer-1", transferId, "user_cancelled"), "file.cancel", transferId, "user_cancelled");
         AssertControlEnvelope(registry, new FileCompleteChatMessage("peer-1", transferId), "file.complete", transferId);
@@ -99,6 +100,7 @@ public sealed class CodecTests
             new FileChatMessage("peer-1", transferId, "data.zip", 9999),
             new ImageChatMessage("peer-1", transferId, 5000, "image/png", true),
             new FileOfferChatMessage("peer-1", transferId, "doc.pdf", 2048, "application/pdf", "hash1"),
+            new FileOfferReceivedChatMessage("peer-1", transferId),
             new FileAcceptChatMessage("peer-1", transferId),
             new FileRejectChatMessage("peer-1", transferId, "rejected_by_user"),
             new FileCancelChatMessage("peer-1", transferId, "user_cancelled"),

@@ -23,6 +23,7 @@ namespace Core.Services.DeviceCommunication.Application;
 public sealed class MessageAppService : IMessageAppService {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<MessageAppService>();
     private static readonly TimeSpan TransferProgressLogInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan OfferReceiptTimeout = TimeSpan.FromSeconds(15);
     private readonly MessageCodecRegistry _codecRegistry;
     private readonly DeviceTransportService _transportService;
     private readonly IncomingMessageBuffer _incomingMessageBuffer;
@@ -220,6 +221,8 @@ public sealed class MessageAppService : IMessageAppService {
 
     private async Task ProcessIncomingMessagesAsync() {
         await foreach (var messageEvent in _incomingMessageBuffer.ReceiveAsync()) {
+            await SendOfferReceiptIfNeededAsync(messageEvent);
+
             if (ShouldLogIncomingEvent(messageEvent)) {
                 Logger.Information(
                     "接收信息。 EventType={EventType} ConversationId={ConversationId} TransferId={TransferId} Detail={Detail}",
@@ -231,6 +234,33 @@ public sealed class MessageAppService : IMessageAppService {
 
             await NotifyToastIfNeededAsync(messageEvent);
             await _receiveChannel.Writer.WriteAsync(messageEvent);
+        }
+    }
+
+    private async Task SendOfferReceiptIfNeededAsync(DeviceMessageEvent messageEvent)
+    {
+        if (messageEvent is not FileTransferUpdatedEvent
+            {
+                Direction: FileTransferDirection.Download,
+                Status: FileTransferStatus.WaitingForAccept
+            } offerEvent)
+        {
+            return;
+        }
+
+        try
+        {
+            await SendCoreAsync(
+                offerEvent.ConversationId,
+                new FileOfferReceivedChatMessage(offerEvent.ConversationId, offerEvent.TransferId),
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning(ex,
+                "Failed to send file offer receipt. ConversationId={ConversationId} TransferId={TransferId}",
+                offerEvent.ConversationId,
+                offerEvent.TransferId);
         }
     }
 
@@ -264,6 +294,11 @@ public sealed class MessageAppService : IMessageAppService {
                 break;
             case FileTransferUpdatedEvent { Direction: FileTransferDirection.Upload } fileReject
                 when fileReject.Status is FileTransferStatus.Rejected or FileTransferStatus.Timeout or FileTransferStatus.Failed:
+                if (string.Equals(fileReject.Reason, "offer_not_received", StringComparison.Ordinal))
+                {
+                    break;
+                }
+
                 ShowDeviceChatToast(conversationId, displayName, ResolveRejectToastText(fileReject.Reason));
                 break;
         }
@@ -562,6 +597,41 @@ public sealed class MessageAppService : IMessageAppService {
 
         try {
             await SendCoreAsync(deviceId, offer, cancellationToken);
+
+            var receipt = await _incomingMessageBuffer.WaitForOfferReceiptAsync(
+                transferId,
+                OfferReceiptTimeout,
+                cancellationToken);
+
+            if (receipt == TransferOfferReceipt.Received)
+            {
+                Logger.Information(
+                    "文件传输请求已收到回执。 ConversationId={ConversationId} TransferId={TransferId} FileName={FileName}",
+                    conversationId,
+                    transferId,
+                    fileName);
+            }
+
+            if (receipt != TransferOfferReceipt.Received)
+            {
+                _fileTransferSessionStore.TryUpdateState(transferId, FileTransferState.Offered,
+                    FileTransferState.Rejected);
+
+                await _incomingMessageBuffer.PublishEventAsync(
+                    new FileTransferUpdatedEvent(
+                        conversationId,
+                        transferId,
+                        FileTransferDirection.Upload,
+                        FileTransferStatus.Timeout,
+                        fileName,
+                        null,
+                        sizeBytes,
+                        "offer_not_received",
+                        DateTimeOffset.UtcNow),
+                    cancellationToken);
+
+                throw new InvalidOperationException("文件传输请求未送达，请稍后重试。");
+            }
 
             var decision = await _incomingMessageBuffer.WaitForDecisionAsync(
                 transferId,

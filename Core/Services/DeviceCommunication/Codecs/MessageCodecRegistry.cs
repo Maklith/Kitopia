@@ -20,6 +20,7 @@ public sealed class MessageCodecRegistry
             FileChatMessage file => TryEncodeFileChat(file, out envelope),
             ImageChatMessage image => TryEncodeImageChat(image, out envelope),
             FileOfferChatMessage offer => TryEncodeFileOffer(offer, out envelope),
+            FileOfferReceivedChatMessage offerReceived => TryEncodeTransferControl(offerReceived, "file.offer.received", offerReceived.TransferId, null, out envelope),
             FileAcceptChatMessage accept => TryEncodeTransferControl(accept, "file.accept", accept.TransferId, null, out envelope),
             FileRejectChatMessage reject => TryEncodeTransferControl(reject, "file.reject", reject.TransferId, reject.Reason, out envelope),
             FileCancelChatMessage cancel => TryEncodeTransferControl(cancel, "file.cancel", cancel.TransferId, cancel.Reason, out envelope),
@@ -37,6 +38,7 @@ public sealed class MessageCodecRegistry
             (ChatRoute, "file") => TryDecodeFileChat(envelope, out message),
             (ChatRoute, "image.direct") => TryDecodeImageChat(envelope, out message),
             (ChatRoute, "file.offer") => TryDecodeFileOffer(envelope, out message),
+            (ChatRoute, "file.offer.received") => TryDecodeTransferControl(envelope, command: "file.offer.received", out message),
             (ChatRoute, "file.accept") => TryDecodeTransferControl(envelope, command: "file.accept", out message),
             (ChatRoute, "file.reject") => TryDecodeTransferControl(envelope, command: "file.reject", out message),
             (ChatRoute, "file.cancel") => TryDecodeTransferControl(envelope, command: "file.cancel", out message),
@@ -208,6 +210,7 @@ public sealed class MessageCodecRegistry
         message = command switch
         {
             "file.accept" => new FileAcceptChatMessage(conversationId, envelope.ChannelId),
+            "file.offer.received" => new FileOfferReceivedChatMessage(conversationId, envelope.ChannelId),
             "file.reject" => new FileRejectChatMessage(conversationId, envelope.ChannelId, GetMetadata(envelope, "reason") ?? string.Empty),
             "file.cancel" => new FileCancelChatMessage(conversationId, envelope.ChannelId, GetMetadata(envelope, "reason") ?? string.Empty),
             "file.complete" => new FileCompleteChatMessage(conversationId, envelope.ChannelId),

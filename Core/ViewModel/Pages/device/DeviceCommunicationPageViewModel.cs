@@ -299,7 +299,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 }
                 catch (Exception ex) {
                     if (ex is not InvalidOperationException ||
-                        (ex.Message != "对方已拒绝接收文件。" && ex.Message != "文件发送超时，请稍后重试。")) {
+                        (ex.Message != "对方已拒绝接收文件。" && ex.Message != "文件发送超时，请稍后重试。" && ex.Message != "文件传输请求未送达，请稍后重试。")) {
                         errors.Add($"file:{Path.GetFileName(filePath)}:{ex.Message}");
                         ShowPersistentFileSendErrorToast($"文件发送失败：{Path.GetFileName(filePath)} ({ex.Message})");
                     }
@@ -658,6 +658,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     var rejectToastText = message.Reason switch {
                         "rejected_by_peer" or "rejected_by_user" => $"对方已拒绝接收文件：{outgoingItem.FileName}",
                         "timeout" => $"文件发送超时：{outgoingItem.FileName}",
+                        "offer_not_received" => $"文件传输请求未送达：{outgoingItem.FileName}",
                         "missing_accept_session" => $"对方接收会话异常：{outgoingItem.FileName}",
                         "receive_failed" => $"对方接收失败：{outgoingItem.FileName}",
                         _ => string.IsNullOrWhiteSpace(message.Reason)

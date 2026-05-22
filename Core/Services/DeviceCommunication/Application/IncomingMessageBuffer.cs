@@ -11,16 +11,29 @@ public enum TransferDecision
     Timeout = 3
 }
 
+public enum TransferOfferReceipt
+{
+    Received = 1,
+    Timeout = 2
+}
+
 public sealed class IncomingMessageBuffer : IIncomingMessageSink
 {
     private readonly Channel<DeviceMessageEvent> _channel = Channel.CreateBounded<DeviceMessageEvent>(1024);
     private readonly object _sync = new();
     private readonly Dictionary<Guid, TaskCompletionSource<TransferDecision>> _transferDecisions = new();
     private readonly Dictionary<Guid, TransferDecision> _pendingTransferDecisions = new();
+    private readonly Dictionary<Guid, TaskCompletionSource<TransferOfferReceipt>> _offerReceipts = new();
+    private readonly Dictionary<Guid, TransferOfferReceipt> _pendingOfferReceipts = new();
 
     public ValueTask PublishAsync(AppMessage message, CancellationToken cancellationToken = default)
     {
         TrackTransferDecision(message);
+        if (message is FileOfferReceivedChatMessage)
+        {
+            return ValueTask.CompletedTask;
+        }
+
         return _channel.Writer.WriteAsync(DeviceMessageEventFactory.FromMessage(message), cancellationToken);
     }
 
@@ -52,6 +65,27 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
         }
 
         return WaitCoreAsync(transferId, completion, timeout, cancellationToken);
+    }
+
+    public Task<TransferOfferReceipt> WaitForOfferReceiptAsync(Guid transferId, TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        lock (_sync)
+        {
+            if (_pendingOfferReceipts.TryGetValue(transferId, out var pendingReceipt))
+            {
+                _pendingOfferReceipts.Remove(transferId);
+                return Task.FromResult(pendingReceipt);
+            }
+        }
+
+        var completion = new TaskCompletionSource<TransferOfferReceipt>(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_sync)
+        {
+            _offerReceipts[transferId] = completion;
+        }
+
+        return WaitOfferReceiptCoreAsync(transferId, completion, timeout, cancellationToken);
     }
 
     private async Task<TransferDecision> WaitCoreAsync(
@@ -94,6 +128,10 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
                 transferId = fileReject.TransferId;
                 decision = TransferDecision.Rejected;
                 break;
+            case FileOfferReceivedChatMessage fileOfferReceived:
+                transferId = fileOfferReceived.TransferId;
+                TrackOfferReceipt(transferId, TransferOfferReceipt.Received);
+                return;
             default:
                 return;
         }
@@ -107,6 +145,45 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
             }
 
             _pendingTransferDecisions[transferId] = decision;
+        }
+    }
+
+    private async Task<TransferOfferReceipt> WaitOfferReceiptCoreAsync(
+        Guid transferId,
+        TaskCompletionSource<TransferOfferReceipt> completion,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var completed = await Task.WhenAny(completion.Task, Task.Delay(timeout, cancellationToken));
+            if (completed != completion.Task)
+            {
+                return TransferOfferReceipt.Timeout;
+            }
+
+            return await completion.Task;
+        }
+        finally
+        {
+            lock (_sync)
+            {
+                _offerReceipts.Remove(transferId);
+            }
+        }
+    }
+
+    private void TrackOfferReceipt(Guid transferId, TransferOfferReceipt receipt)
+    {
+        lock (_sync)
+        {
+            if (_offerReceipts.TryGetValue(transferId, out var waiter))
+            {
+                waiter.TrySetResult(receipt);
+                return;
+            }
+
+            _pendingOfferReceipts[transferId] = receipt;
         }
     }
 }
