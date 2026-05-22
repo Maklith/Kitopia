@@ -251,7 +251,7 @@ public sealed class MessageAppService : IMessageAppService {
                 ShowDeviceChatToast(conversationId, displayName, "[图片]");
                 break;
             case FileTransferUpdatedEvent { Status: FileTransferStatus.WaitingForAccept } fileOffer:
-                ShowDeviceChatToast(conversationId, displayName, $"文件: {fileOffer.FileName}");
+                ShowDeviceChatToast(conversationId, displayName, $"文件: {fileOffer.FileName}",TimeSpan.Zero);
                 break;
             case FileTransferUpdatedEvent { Direction: FileTransferDirection.Upload } fileReject
                 when fileReject.Status is FileTransferStatus.Rejected or FileTransferStatus.Timeout or FileTransferStatus.Failed:
@@ -299,11 +299,12 @@ public sealed class MessageAppService : IMessageAppService {
         return true;
     }
 
-    private void ShowDeviceChatToast(string conversationId, string displayName, string text) {
+    private void ShowDeviceChatToast(string conversationId, string displayName, string text,TimeSpan? autoCloseTime = null) {
         _toastService.Show(new ToastRequest {
             Header = $"设备聊天:{displayName}",
             Text = text,
-            ClickCallback = () => OpenConversationFromToast(conversationId)
+            ClickCallback = () => OpenConversationFromToast(conversationId),
+            AutoCloseDelay = autoCloseTime ?? TimeSpan.FromSeconds(5)
         });
     }
 
