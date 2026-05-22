@@ -395,6 +395,38 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         return messageItem?.ImageBytes is { Length: > 0 };
     }
 
+    private void ExecuteOnUiThread(Action action) {
+        if (_disposed) {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() => {
+            if (_disposed) {
+                return;
+            }
+
+            action();
+        });
+    }
+
+    private bool TryGetConversation(string conversationId, out DeviceConversationItem? conversation) {
+        if (!_conversationLookup.TryGetValue(conversationId, out conversation)) {
+            conversation = Conversations.FirstOrDefault(c => c.DeviceId == conversationId);
+        }
+
+        return conversation is not null;
+    }
+
+    private DeviceChatMessageItem? FindOutgoingTransferItem(DeviceConversationItem conversation, Guid transferId) {
+        return conversation.Messages.FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == transferId);
+    }
+
+    private IncomingFileOfferChatMessageItem? FindIncomingOfferItem(DeviceConversationItem conversation, Guid transferId) {
+        return conversation.Messages
+            .OfType<IncomingFileOfferChatMessageItem>()
+            .FirstOrDefault(item => item.TransferId == transferId);
+    }
+
     private void OnDiscoveredDevicesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) {
         if (_disposed) {
             return;
@@ -408,11 +440,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
-        Dispatcher.UIThread.Post(() => {
-            if (_disposed) {
-                return;
-            }
-
+        ExecuteOnUiThread(() => {
             UpsertConversation(device);
             OnPropertyChanged(nameof(CurrentConversationTitle));
             OnPropertyChanged(nameof(CurrentConversationSubtitle));
@@ -425,16 +453,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
-        Dispatcher.UIThread.Post(() => {
-            if (_disposed) {
-                return;
-            }
-
-            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation)) {
-                conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
-            }
-
-            if (conversation is null) {
+        ExecuteOnUiThread(() => {
+            if (!TryGetConversation(message.ConversationId, out var conversation)) {
                 Logger.Debug(
                     "Drop chat message because sender device is not discovered. DeviceId={DeviceId}",
                     message.ConversationId);
@@ -467,16 +487,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
-        Dispatcher.UIThread.Post(() => {
-            if (_disposed) {
-                return;
-            }
-
-            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation)) {
-                conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
-            }
-
-            if (conversation is null) {
+        ExecuteOnUiThread(() => {
+            if (!TryGetConversation(message.ConversationId, out var conversation)) {
                 Logger.Debug("Drop image message because sender device is not discovered. DeviceId={DeviceId}",
                     message.ConversationId);
                 return;
@@ -508,17 +520,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
-        Dispatcher.UIThread.Post(() => {
-            if (_disposed) {
-                return;
-            }
-
+        ExecuteOnUiThread(() => {
             var senderId = message.ConversationId;
-            if (!_conversationLookup.TryGetValue(senderId, out var conversation)) {
-                conversation = Conversations.FirstOrDefault(c => c.DeviceId == senderId);
-            }
-
-            if (conversation is null) {
+            if (!TryGetConversation(senderId, out var conversation)) {
                 Logger.Debug("Drop file offer because sender is unknown. SenderId={SenderId}", senderId);
                 return;
             }
@@ -563,22 +567,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
-        Dispatcher.UIThread.Post(() => {
-            if (_disposed) {
+        ExecuteOnUiThread(() => {
+            if (!TryGetConversation(message.ConversationId, out var conversation)) {
                 return;
             }
 
-            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation)) {
-                conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
-            }
-
-            if (conversation is null) {
-                return;
-            }
-
-            var offerItem = conversation.Messages
-                .OfType<IncomingFileOfferChatMessageItem>()
-                .FirstOrDefault(item => item.TransferId == message.TransferId);
+            var offerItem = FindIncomingOfferItem(conversation, message.TransferId);
             if (offerItem is not null) {
                 offerItem.ReceiveProgress = 1d;
                 offerItem.IsReceiving = false;
@@ -588,8 +582,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 offerItem.IsPending = false;
             }
             else {
-                var outgoingItem = conversation.Messages
-                    .FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == message.TransferId);
+                var outgoingItem = FindOutgoingTransferItem(conversation, message.TransferId);
                 if (outgoingItem is not null) {
                     outgoingItem.ReceiveProgress = 1d;
                     outgoingItem.IsReceiving = false;
@@ -628,22 +621,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
-        Dispatcher.UIThread.Post(() => {
-            if (_disposed) {
+        ExecuteOnUiThread(() => {
+            if (!TryGetConversation(message.ConversationId, out var conversation)) {
                 return;
             }
 
-            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation)) {
-                conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
-            }
-
-            if (conversation is null) {
-                return;
-            }
-
-            var offerItem = conversation.Messages
-                .OfType<IncomingFileOfferChatMessageItem>()
-                .FirstOrDefault(item => item.TransferId == message.TransferId);
+            var offerItem = FindIncomingOfferItem(conversation, message.TransferId);
             if (offerItem is not null) {
                 offerItem.ReceiveProgress = 0d;
                 offerItem.IsReceiving = false;
@@ -657,8 +640,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 offerItem.IsPending = false;
             }
             else {
-                var outgoingItem = conversation.Messages
-                    .FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == message.TransferId);
+                var outgoingItem = FindOutgoingTransferItem(conversation, message.TransferId);
                 if (outgoingItem is not null) {
                     outgoingItem.ReceiveProgress = 0d;
                     outgoingItem.IsReceiving = false;
@@ -719,21 +701,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
-        Dispatcher.UIThread.Post(() => {
-            if (_disposed) {
+        ExecuteOnUiThread(() => {
+            if (!TryGetConversation(message.ConversationId, out var conversation)) {
                 return;
             }
 
-            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation)) {
-                conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
-            }
-
-            if (conversation is null) {
-                return;
-            }
-
-            var outgoingItem = conversation.Messages
-                .FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == message.TransferId);
+            var outgoingItem = FindOutgoingTransferItem(conversation, message.TransferId);
             if (outgoingItem is not null) {
                 outgoingItem.IsPending = false;
                 outgoingItem.IsFailed = false;
@@ -753,22 +726,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
-        Dispatcher.UIThread.Post(() => {
-            if (_disposed) {
+        ExecuteOnUiThread(() => {
+            if (!TryGetConversation(message.ConversationId, out var conversation)) {
                 return;
             }
 
-            if (!_conversationLookup.TryGetValue(message.ConversationId, out var conversation)) {
-                conversation = Conversations.FirstOrDefault(c => c.DeviceId == message.ConversationId);
-            }
-
-            if (conversation is null) {
-                return;
-            }
-
-            var offerItem = conversation.Messages
-                .OfType<IncomingFileOfferChatMessageItem>()
-                .FirstOrDefault(item => item.TransferId == message.TransferId);
+            var offerItem = FindIncomingOfferItem(conversation, message.TransferId);
             if (offerItem is not null) {
                 var transferred = Math.Max(0L, message.BytesTransferred ?? 0L);
                 var total = Math.Max(1L, message.TotalBytes ?? offerItem.FileSizeBytes);
@@ -802,8 +765,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 return;
             }
 
-            var outgoingItem = conversation.Messages
-                .FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == message.TransferId);
+            var outgoingItem = FindOutgoingTransferItem(conversation, message.TransferId);
             if (outgoingItem is null) {
                 return;
             }
