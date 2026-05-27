@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:KitopiaAvalonia.Controls"
              xmlns:vm="clr-namespace:Core.ViewModel.Pages.device;assembly=Core"
              mc:Ignorable="d"
              d:DesignWidth="1200"
@@ -288,19 +289,22 @@
                             </TextBox.ContextMenu>
                         </TextBox>
                         <Button Grid.Column="1"
-                                Content="发送"
-                                MinWidth="80"
+                                MinWidth="42"
+                                MinHeight="42"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Command="{Binding SendFileCommand}"
+                                IsEnabled="{Binding HasConversationSelected}">
+                            <controls:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf418;" FontSize="18" />
+                        </Button>
+                        <Button Grid.Column="2"
+                                MinWidth="42" MinHeight="42"
                                 HorizontalAlignment="Right"
                                 VerticalAlignment="Bottom"
                                 Command="{Binding SendMessageCommand}"
-                                IsEnabled="{Binding HasConversationSelected}" />
-                        <Button Grid.Column="2"
-                                Content="粘贴发送"
-                                MinWidth="96"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Bottom"
-                                Command="{Binding PasteSendCommand}"
-                                IsEnabled="{Binding HasConversationSelected}" />
+                                IsEnabled="{Binding HasConversationSelected}">
+                            <controls:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf699;" FontSize="18" />
+                        </Button>
                     </Grid>
                 </Border>
 

@@ -261,55 +261,81 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         if (_clipboardService.HasFiles()) {
-            foreach (var filePath in _clipboardService.GetFiles()) {
-                try {
-                    if (!File.Exists(filePath)) {
-                        continue;
-                    }
-
-                    var fileInfo = new FileInfo(filePath);
-                    var fileMessage = new FileChatMessage(
-                        conversation.DeviceId,
-                        Guid.NewGuid(),
-                        fileInfo.Name,
-                        fileInfo.Length);
-                    var fileBubble = DeviceChatMessageItem.CreateFile(fileInfo.Name, fileInfo.Length, isOutgoing: true,
-                        DateTimeOffset.Now);
-                    fileBubble.TrackingTransferId = fileMessage.ChannelId;
-                    fileBubble.IsReceiving = true;
-                    fileBubble.ReceiveProgress = 0d;
-                    fileBubble.IsPending = true;
-                    conversation.Messages.Add(fileBubble);
-                    conversation.SetLastMessage($"[文件] {fileInfo.Name}", fileBubble.Timestamp);
-                    SortConversations();
-                    RequestMessageListAutoScroll();
-
-                    await using var fileStream = File.OpenRead(filePath);
-                    try {
-                        await SendFileToConversationAsync(conversation, fileMessage, fileStream);
-                        fileBubble.IsReceiving = false;
-                        fileBubble.ReceiveProgress = 1d;
-                        fileBubble.IsPending = false;
-                        fileBubble.IsFailed = false;
-                    }
-                    catch (Exception ex) {
-                        MarkOutgoingFileSendFailed(fileBubble, ex.Message);
-                        throw;
-                    }
-                }
-                catch (Exception ex) {
-                    if (ex is not InvalidOperationException ||
-                        (ex.Message != "对方已拒绝接收文件。" && ex.Message != "文件发送超时，请稍后重试。" && ex.Message != "文件传输请求未送达，请稍后重试。")) {
-                        errors.Add($"file:{Path.GetFileName(filePath)}:{ex.Message}");
-                        ShowPersistentFileSendErrorToast($"文件发送失败：{Path.GetFileName(filePath)} ({ex.Message})");
-                    }
-                }
-            }
+            await SendFilesAsync(conversation, _clipboardService.GetFiles(), errors);
         }
 
         if (errors.Count > 0) {
             _toastService.Show("设备聊天", $"监听和发送部分失败: {string.Join(";", errors)}",
                 NotificationType.Warning);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanOperateConversation))]
+    private async Task SendFileAsync() {
+        var conversation = SelectedConversation;
+        if (conversation is null) {
+            return;
+        }
+
+        var filePaths = await PickSendFilesAsync();
+        if (filePaths.Count == 0) {
+            return;
+        }
+
+        var errors = new List<string>();
+        await SendFilesAsync(conversation, filePaths, errors);
+
+        if (errors.Count > 0) {
+            _toastService.Show("设备聊天", $"发送文件部分失败: {string.Join(";", errors)}",
+                NotificationType.Warning);
+        }
+    }
+
+    private async Task SendFilesAsync(DeviceConversationItem conversation, IReadOnlyCollection<string> filePaths,
+        List<string> errors) {
+        foreach (var filePath in filePaths) {
+            try {
+                if (!File.Exists(filePath)) {
+                    continue;
+                }
+
+                var fileInfo = new FileInfo(filePath);
+                var fileMessage = new FileChatMessage(
+                    conversation.DeviceId,
+                    Guid.NewGuid(),
+                    fileInfo.Name,
+                    fileInfo.Length);
+                var fileBubble = DeviceChatMessageItem.CreateFile(fileInfo.Name, fileInfo.Length, isOutgoing: true,
+                    DateTimeOffset.Now);
+                fileBubble.TrackingTransferId = fileMessage.ChannelId;
+                fileBubble.IsReceiving = true;
+                fileBubble.ReceiveProgress = 0d;
+                fileBubble.IsPending = true;
+                conversation.Messages.Add(fileBubble);
+                conversation.SetLastMessage($"[文件] {fileInfo.Name}", fileBubble.Timestamp);
+                SortConversations();
+                RequestMessageListAutoScroll();
+
+                await using var fileStream = File.OpenRead(filePath);
+                try {
+                    await SendFileToConversationAsync(conversation, fileMessage, fileStream);
+                    fileBubble.IsReceiving = false;
+                    fileBubble.ReceiveProgress = 1d;
+                    fileBubble.IsPending = false;
+                    fileBubble.IsFailed = false;
+                }
+                catch (Exception ex) {
+                    MarkOutgoingFileSendFailed(fileBubble, ex.Message);
+                    throw;
+                }
+            }
+            catch (Exception ex) {
+                if (ex is not InvalidOperationException ||
+                    (ex.Message != "对方已拒绝接收文件。" && ex.Message != "文件发送超时，请稍后重试。" && ex.Message != "文件传输请求未送达，请稍后重试。")) {
+                    errors.Add($"file:{Path.GetFileName(filePath)}:{ex.Message}");
+                    ShowPersistentFileSendErrorToast($"文件发送失败：{Path.GetFileName(filePath)} ({ex.Message})");
+                }
+            }
         }
     }
 
@@ -853,6 +879,24 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         return file?.Path.LocalPath;
     }
 
+    private static async Task<IReadOnlyList<string>> PickSendFilesAsync() {
+        var desktop = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        var mainWindow = desktop?.MainWindow;
+        if (mainWindow?.StorageProvider is null) {
+            return [];
+        }
+
+        var files = await mainWindow.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions {
+            Title = "选择要发送的文件",
+            AllowMultiple = true
+        });
+
+        return files
+            .Select(file => file.Path.LocalPath)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .ToList();
+    }
+
     private DeviceConversationItem? FindConversationByAddress(IPAddress remoteAddress) {
         var normalized = NormalizeAddress(remoteAddress);
         return Conversations.FirstOrDefault(conversation =>
@@ -963,6 +1007,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         RequestMessageListAutoScroll();
         SendMessageCommand.NotifyCanExecuteChanged();
         PasteSendCommand.NotifyCanExecuteChanged();
+        SendFileCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnMessageTextChanged(string value) {
@@ -972,6 +1017,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     partial void OnIsSendingChanged(bool value) {
         SendMessageCommand.NotifyCanExecuteChanged();
         PasteSendCommand.NotifyCanExecuteChanged();
+        SendFileCommand.NotifyCanExecuteChanged();
     }
 
     public void Dispose() {
