@@ -14,6 +14,11 @@ using Vanara.PInvoke;
 namespace Core.Window.ScreenCapture;
 
 public static class ScreenCaptureInfoEx {
+    private const int DwmwaExtendedFrameBounds = 9;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
+
     static RECT IntersectRects(RECT rect1, RECT rect2) {
         RECT result = new RECT {
             Left = Math.Max(rect1.Left, rect2.Left),
@@ -28,6 +33,25 @@ public static class ScreenCaptureInfoEx {
         }
 
         return result;
+    }
+
+    public static Rect GetVisibleWindowRectForSelection(Rect windowRect, Rect? extendedFrameRect, Rect screenRect) {
+        var targetRect = extendedFrameRect ?? windowRect;
+        var visibleRect = IntersectRects(ToNativeRect(targetRect), ToNativeRect(screenRect));
+        return new Rect(visibleRect.X, visibleRect.Y, visibleRect.Width, visibleRect.Height);
+    }
+
+    private static RECT ToNativeRect(Rect rect) {
+        return new RECT {
+            Left = rect.X,
+            Top = rect.Y,
+            Right = rect.X + rect.Width,
+            Bottom = rect.Y + rect.Height
+        };
+    }
+
+    private static bool TryGetExtendedFrameBounds(HWND hwnd, out RECT rect) {
+        return DwmGetWindowAttribute(hwnd.DangerousGetHandle(), DwmwaExtendedFrameBounds, out rect, Marshal.SizeOf<RECT>()) == 0;
     }
 
     private const int WsExToolwindow = 0x00000080; // 工具窗口
@@ -75,7 +99,10 @@ public static class ScreenCaptureInfoEx {
             }
 
             // 获取窗口的位置和大小
-            User32.GetWindowRect(currentHwnd, out var clientRect);
+            User32.GetWindowRect(currentHwnd, out var windowRect);
+            var selectionRect = TryGetExtendedFrameBounds(currentHwnd, out var extendedFrameRect)
+                ? extendedFrameRect
+                : windowRect;
 
             //User32.GetClientRect(currentHwnd, out RECT clientRect);
             var hMonitor = User32.MonitorFromWindow(currentHwnd, User32.MonitorFlags.MONITOR_DEFAULTTONEAREST);
@@ -88,7 +115,7 @@ public static class ScreenCaptureInfoEx {
             RECT screenRect = monitorInfo.rcWork;
 
             // 计算窗口与屏幕的可见区域交集
-            RECT visibleRect = IntersectRects(clientRect, screenRect);
+            RECT visibleRect = IntersectRects(selectionRect, screenRect);
 
             if (visibleRect.Width > 0 && visibleRect.Height > 0) {
                 yield return new WindowInfo {
