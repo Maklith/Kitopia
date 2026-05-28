@@ -764,12 +764,13 @@ public partial class ScreenCaptureWindow : Window
         // Handle negative coordinates or off-canvas mapping if necessary, though PointToClient should handle it relative to window origin
         var width = bottomRight.X - topLeft.X;
         var height = bottomRight.Y - topLeft.Y;
+        var displayRect = ScreenCaptureSelectionGeometry.GetDisplayRectForContentRect(new Rect(topLeft.X, topLeft.Y, width, height));
         
-        _startPoint = topLeft;
-        SelectBox._dragTransform.X = topLeft.X;
-        SelectBox._dragTransform.Y = topLeft.Y;
-        SelectBox.Width = width;
-        SelectBox.Height = height;
+        _startPoint = displayRect.Position;
+        SelectBox._dragTransform.X = displayRect.X;
+        SelectBox._dragTransform.Y = displayRect.Y;
+        SelectBox.Width = displayRect.Width;
+        SelectBox.Height = displayRect.Height;
 
         SelectBox.IsVisible = true;
         UpdateSelectBox();
@@ -1497,10 +1498,8 @@ public partial class ScreenCaptureWindow : Window
 
     private Rect GetEffectiveSelectRect()
     {
-        const double inset = 4d;
-        var width = Math.Max(0d, SelectBox.Width - inset * 2);
-        var height = Math.Max(0d, SelectBox.Height - inset * 2);
-        return new Rect(SelectBox._dragTransform.X + inset, SelectBox._dragTransform.Y + inset, width, height);
+        return ScreenCaptureSelectionGeometry.GetContentRectForDisplayRect(
+            new Rect(SelectBox._dragTransform.X, SelectBox._dragTransform.Y, SelectBox.Width, SelectBox.Height));
     }
 
     private void FinnishCapture()
