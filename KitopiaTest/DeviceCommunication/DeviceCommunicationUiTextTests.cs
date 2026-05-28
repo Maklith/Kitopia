@@ -1,4 +1,3 @@
-using Core.Services.DeviceCommunication;
 using Core.ViewModel.Pages.device;
 
 namespace KitopiaTest.DeviceCommunication;
@@ -30,17 +29,20 @@ public class DeviceCommunicationUiTextTests
     [TestMethod]
     public void IncomingFileOffer_DoesNotDisplayKbSize()
     {
-        var item = new IncomingFileOfferChatMessageItem(
+        var transferId = Guid.NewGuid();
+        var item = DeviceChatMessageItem.CreateIncomingFileOffer(
             "conversation-1",
-            Guid.NewGuid(),
+            transferId,
             "archive.zip",
             1_048_576,
-            LocalDataTransportProtocol.Tcp,
-            10086,
             DateTimeOffset.Now);
 
         Assert.IsFalse(item.Text.Contains("KB", StringComparison.OrdinalIgnoreCase));
         StringAssert.Contains(item.Text, "archive.zip");
+        Assert.AreEqual("conversation-1", item.ConversationId);
+        Assert.AreEqual(transferId, item.TrackingTransferId);
+        Assert.IsTrue(item.IsIncomingFileOffer);
+        Assert.IsTrue(item.CanHandleIncomingOffer);
     }
 
     [TestMethod]

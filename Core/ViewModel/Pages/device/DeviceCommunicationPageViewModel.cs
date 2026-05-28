@@ -341,7 +341,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
     [RelayCommand]
     private async Task AcceptIncomingOfferAsync(DeviceChatMessageItem? messageItem) {
-        if (messageItem is not IncomingFileOfferChatMessageItem offer || offer.IsHandled) {
+        if (messageItem is not { CanHandleIncomingOffer: true, TrackingTransferId: { } transferId } offer) {
             return;
         }
 
@@ -356,7 +356,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 return;
             }
 
-            await _messageAppService.AcceptFileAsync(conversation.DeviceId, offer.TransferId, savePath);
+            await _messageAppService.AcceptFileAsync(conversation.DeviceId, transferId, savePath);
             offer.IsHandled = true;
             offer.IsReceiving = true;
             offer.ReceiveProgress = 0d;
@@ -371,7 +371,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
     [RelayCommand]
     private async Task RejectIncomingOfferAsync(DeviceChatMessageItem? messageItem) {
-        if (messageItem is not IncomingFileOfferChatMessageItem offer || offer.IsHandled) {
+        if (messageItem is not { CanHandleIncomingOffer: true, TrackingTransferId: { } transferId } offer) {
             return;
         }
 
@@ -381,7 +381,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         try {
-            await _messageAppService.RejectFileAsync(conversation.DeviceId, offer.TransferId, "rejected_by_user");
+            await _messageAppService.RejectFileAsync(conversation.DeviceId, transferId, "rejected_by_user");
             offer.IsHandled = true;
             offer.Text = $"[文件] 拒绝 {offer.FileName}";
             conversation.SetLastMessage($"[文件] {offer.FileName}", DateTimeOffset.Now);
@@ -447,10 +447,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         return conversation.Messages.FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == transferId);
     }
 
-    private IncomingFileOfferChatMessageItem? FindIncomingOfferItem(DeviceConversationItem conversation, Guid transferId) {
+    private DeviceChatMessageItem? FindIncomingOfferItem(DeviceConversationItem conversation, Guid transferId) {
         return conversation.Messages
-            .OfType<IncomingFileOfferChatMessageItem>()
-            .FirstOrDefault(item => item.TransferId == transferId);
+            .FirstOrDefault(item => item.IsIncomingFileOffer && item.TrackingTransferId == transferId);
     }
 
     private void OnDiscoveredDevicesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) {
@@ -554,15 +553,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
 
             var timestamp = DateTimeOffset.Now;
-            var offerMessage = new IncomingFileOfferChatMessageItem(
+            var offerMessage = DeviceChatMessageItem.CreateIncomingFileOffer(
                 message.ConversationId,
                 message.TransferId,
                 message.FileName,
                 message.SizeBytes,
-                LocalDataTransportProtocol.Tcp,
-                conversation.TcpPort,
                 timestamp);
-            offerMessage.TrackingTransferId = message.TransferId;
             conversation.Messages.Add(offerMessage);
             conversation.SetLastMessage($"[文件] {message.FileName}", timestamp);
 
@@ -1174,6 +1170,21 @@ public partial class DeviceChatMessageItem : ObservableObject {
         };
     }
 
+    public static DeviceChatMessageItem CreateIncomingFileOffer(
+        string conversationId,
+        Guid transferId,
+        string fileName,
+        long sizeBytes,
+        DateTimeOffset timestamp) {
+        return new DeviceChatMessageItem($"[文件] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing: false, timestamp) {
+            ConversationId = conversationId,
+            FileName = fileName,
+            FileSizeBytes = sizeBytes,
+            TrackingTransferId = transferId,
+            IsIncomingFileOffer = true
+        };
+    }
+
     public static string FormatFileSizeLabel(long sizeBytes) {
         var bytes = Math.Max(0L, sizeBytes);
         const long oneKb = 1024;
@@ -1221,14 +1232,19 @@ public partial class DeviceChatMessageItem : ObservableObject {
 
     [ObservableProperty] private double _transferSpeedBytesPerSecond;
 
+    [ObservableProperty] private string _conversationId = string.Empty;
+
+    [ObservableProperty] private bool _isIncomingFileOffer;
+
+    [ObservableProperty] private bool _isHandled;
+
     private long _transferStartBytes = -1;
     private DateTimeOffset? _transferStartTimestampUtc;
 
     public bool IsIncoming => !IsOutgoing;
     public bool HasImage => ImagePreview is not null;
     public bool HasFile => !string.IsNullOrWhiteSpace(FileName);
-    public bool IsIncomingFileOffer => this is IncomingFileOfferChatMessageItem;
-    public bool CanHandleIncomingOffer => this is IncomingFileOfferChatMessageItem offer && offer.CanHandle;
+    public bool CanHandleIncomingOffer => IsIncomingFileOffer && !IsHandled && TrackingTransferId.HasValue;
     public bool HasText => !string.IsNullOrWhiteSpace(Text);
     public string TimeText => Timestamp.ToLocalTime().ToString("HH:mm");
 
@@ -1270,6 +1286,18 @@ public partial class DeviceChatMessageItem : ObservableObject {
 
     partial void OnFileNameChanged(string value) {
         OnPropertyChanged(nameof(HasFile));
+    }
+
+    partial void OnTrackingTransferIdChanged(Guid? value) {
+        OnPropertyChanged(nameof(CanHandleIncomingOffer));
+    }
+
+    partial void OnIsIncomingFileOfferChanged(bool value) {
+        OnPropertyChanged(nameof(CanHandleIncomingOffer));
+    }
+
+    partial void OnIsHandledChanged(bool value) {
+        OnPropertyChanged(nameof(CanHandleIncomingOffer));
     }
 
     partial void OnReceiveProgressChanged(double value) {
@@ -1337,41 +1365,5 @@ public partial class DeviceChatMessageItem : ObservableObject {
         }
 
         return $"{value:0.00} {units[unitIndex]}";
-    }
-}
-
-public partial class IncomingFileOfferChatMessageItem : DeviceChatMessageItem {
-    public IncomingFileOfferChatMessageItem(
-        string conversationId,
-        Guid transferId,
-        string fileName,
-        long sizeBytes,
-        LocalDataTransportProtocol protocol,
-        int port,
-        DateTimeOffset timestamp)
-        : base($"[文件] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing: false, timestamp) {
-        _conversationId = conversationId;
-        _transferId = transferId;
-        FileName = fileName;
-        FileSizeBytes = sizeBytes;
-        _protocol = protocol;
-        _port = port;
-    }
-
-    [ObservableProperty] private string _conversationId = string.Empty;
-
-    [ObservableProperty] private Guid _transferId;
-
-    [ObservableProperty] private LocalDataTransportProtocol _protocol;
-
-    [ObservableProperty] private int _port;
-
-    [ObservableProperty] private bool _isHandled;
-
-    public bool CanHandle => !IsHandled;
-
-    partial void OnIsHandledChanged(bool value) {
-        OnPropertyChanged(nameof(CanHandle));
-        OnPropertyChanged(nameof(CanHandleIncomingOffer));
     }
 }
