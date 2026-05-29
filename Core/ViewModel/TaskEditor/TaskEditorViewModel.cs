@@ -14,6 +14,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.CustomScenario;
 using Core.Utils;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.CustomScenario;
 using ConnectorItem = Core.CustomScenario.ConnectorItem;
@@ -27,13 +28,13 @@ namespace Core.ViewModel.TaskEditor;
 
 public partial class TaskEditorViewModel : ObservableRecipient
 {
-    public const string DragDataMarker = "KitopiaPointItem";
+    private const string DragDataMarker = "KitopiaPointItem";
     public static object? CurrentDragPayload { get; private set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCustomScenarioCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveAndQuitCustomScenarioCommand))]
-    public bool _isModified = false;
+    private bool _isModified;
 
     [ObservableProperty] private CustomScenario.CustomScenario _scenario = new() { IsActive = true };
 
@@ -47,20 +48,16 @@ public partial class TaskEditorViewModel : ObservableRecipient
             Title = "任务1",
             ScenarioMethod = new ScenarioMethod(ScenarioMethodType.Default)
         };
-        nodify2.Output = new ObservableCollection<ConnectorItem>
-        {
-            new()
-            {
+        nodify2.Output = [
+            new ConnectorItem {
                 ConnectorType = ConnectorType.Output,
                 Source = nodify2,
-                InputObject = new CustomScenarioValue
-                {
+                InputObject = new CustomScenarioValue {
                     SerializeType = typeof(NodeConnectorClass)
                 },
-
                 Title = "开始"
             }
-        };
+        ];
         Scenario.Nodes.Add(nodify2);
         var nodify3 = new ScenarioMethodNode
         {
@@ -68,27 +65,18 @@ public partial class TaskEditorViewModel : ObservableRecipient
             ScenarioMethod = new ScenarioMethod(ScenarioMethodType.Default),
             Location = new Point(0, 100)
         };
-        nodify3.Output = new ObservableCollection<ConnectorItem>
-        {
-            new()
-            {
+        nodify3.Output = [
+            new() {
                 ConnectorType = ConnectorType.Output,
                 Source = nodify3,
-                InputObject = new CustomScenarioValue
-                {
+                InputObject = new CustomScenarioValue {
                     SerializeType = typeof(NodeConnectorClass)
                 },
                 Title = "开始"
             }
-        };
+        ];
         Scenario.Nodes.Add(nodify3);
-
-        WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey", (HotKey, o) =>
-        {
-            if (o == Scenario.RunHotKey.SignName)
-                Dispatcher.UIThread.InvokeAsync(() => { IsModified = true; });
-            else if (o == Scenario.StopHotKey.SignName) Dispatcher.UIThread.InvokeAsync(() => { IsModified = true; });
-        });
+        
         WeakReferenceMessenger.Default.Register<CustomScenarioChangeMsg>(this,
             (a, e) =>
             {
@@ -218,17 +206,13 @@ public partial class TaskEditorViewModel : ObservableRecipient
                     }
                 }
             });
-
-
-        //ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.PropertyChanged += OnRootScenarioMethodCategoryGroupOnPropertyChanged;
+        
     }
 
     public ScenarioMethodCategoryGroup ScenarioMethodCategoryGroup =>
         ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup;
 
     public bool IsSaveInLocal => CustomScenarioManger.CustomScenarios.Contains(Scenario);
-
-    public object ContentPresenter { get; set; }
 
     public PendingConnectionViewModel PendingConnection { get; }
 
@@ -373,7 +357,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 });
             }
         };
-        ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+        ServiceManager.Services.GetService<IToastService>()!.Show(
             dialog.ToToastRequest());
     }
 
@@ -467,8 +451,8 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 },
                 CloseAction = () => { e.Cancel = true; }
             };
-            ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!)
-                .Show(dialog.ToToastRequest());
+            ServiceManager.Services!.GetService<IToastService>()!
+                .Show(dialog.ToToastRequest(), _window);
         }
     }
 
@@ -516,8 +500,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         var openFilePickerAsync = await TopLevel.GetTopLevel(control).StorageProvider.OpenFilePickerAsync(
             new FilePickerOpenOptions
             {
-                FileTypeFilter = new[]
-                    { new FilePickerFileType("图像") { Patterns = new[] { "*.png", "*.jpg", "*.ico" } } }
+                FileTypeFilter = [new FilePickerFileType("图像") { Patterns = ["*.png", "*.jpg", "*.ico"] }]
             });
 
         if (openFilePickerAsync.Count > 0)
@@ -551,7 +534,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
             }
         };
 
-        _scenario.Nodes.Add(knot);
+        Scenario.Nodes.Add(knot);
 
         Connect(connection.Source, knot.Connector, false);
         Connect(knot.Connector, connection.Target, false);
@@ -618,22 +601,22 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
     #region 入参
 
-    [NotifyPropertyChangedFor(nameof(inputValueCanAdd))]
+    [NotifyPropertyChangedFor(nameof(InputValueCanAdd))]
     [NotifyCanExecuteChangedFor(nameof(AddInputValueCommand))]
     [ObservableProperty]
     private string? _inputValueValue = string.Empty;
 
-    [NotifyPropertyChangedFor(nameof(inputValueCanAdd))]
+    [NotifyPropertyChangedFor(nameof(InputValueCanAdd))]
     [NotifyCanExecuteChangedFor(nameof(AddInputValueCommand))]
     [ObservableProperty]
     private CustomScenarioValueTuple _inputValueType;
 
-    private bool inputValueCanAdd => !string.IsNullOrEmpty(_inputValueValue) && _inputValueType != null;
+    private bool InputValueCanAdd => !string.IsNullOrEmpty(InputValueValue);
 
-    [RelayCommand(CanExecute = nameof(inputValueCanAdd))]
+    [RelayCommand(CanExecute = nameof(InputValueCanAdd))]
     private void AddInputValue()
     {
-        if (Scenario.InputValue.ContainsKey(InputValueValue)) return;
+        if (InputValueValue != null && Scenario.InputValue.ContainsKey(InputValueValue)) return;
 
 
         Scenario.InputValue.Add(InputValueValue, new CustomScenarioValue(InputValueType.Type, null));
