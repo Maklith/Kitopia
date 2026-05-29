@@ -3,8 +3,9 @@
 > [English](/en-us/)
 
 [![GitHub stars](https://img.shields.io/github/stars/Maklith/Kitopia?style=flat-square&logo=github)](https://github.com/Maklith/Kitopia)
-[![GitHub releases](https://img.shields.io/github/v/release/Maklith/Kitopia?style=flat-square&logo=github)](https://github.com/Maklith/Kitopia/releases)
-[![License](https://img.shields.io/github/license/Maklith/Kitopia?style=flat-square)](https://github.com/Maklith/Kitopia/blob/master/LICENSE)
+![GitHub Release](https://img.shields.io/github/v/release/Maklith/Kitopia?include_prereleases)
+![GitHub License](https://img.shields.io/github/license/Maklith/Kitopia)
+
 
 **开源 · 自由 · 插件化 · 节点化** 的桌面效率工具集合。
 
