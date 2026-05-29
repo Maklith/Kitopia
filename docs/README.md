@@ -1,10 +1,10 @@
 # Kitopia
-
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Maklith/Kitopia)
 > [English](/en-us/)
 
-[![GitHub stars](https://img.shields.io/github/stars/MakesYT/Kitopia?style=flat-square&logo=github)](https://github.com/MakesYT/Kitopia)
-[![GitHub releases](https://img.shields.io/github/v/release/MakesYT/Kitopia?style=flat-square&logo=github)](https://github.com/MakesYT/Kitopia/releases)
-[![License](https://img.shields.io/github/license/MakesYT/Kitopia?style=flat-square)](https://github.com/MakesYT/Kitopia/blob/master/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/Maklith/Kitopia?style=flat-square&logo=github)](https://github.com/Maklith/Kitopia)
+[![GitHub releases](https://img.shields.io/github/v/release/Maklith/Kitopia?style=flat-square&logo=github)](https://github.com/Maklith/Kitopia/releases)
+[![License](https://img.shields.io/github/license/Maklith/Kitopia?style=flat-square)](https://github.com/Maklith/Kitopia/blob/master/LICENSE)
 
 **开源 · 自由 · 插件化 · 节点化** 的桌面效率工具集合。
 
@@ -28,7 +28,7 @@
 
 请前往 GitHub Releases 页面下载最新版本：
 
-[👉 点击下载 Kitopia 最新版](https://github.com/MakesYT/Kitopia/releases)
+[👉 点击下载 Kitopia 最新版](https://github.com/Maklith/Kitopia/releases)
 
 ---
 
