@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using PluginCore;
 using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;

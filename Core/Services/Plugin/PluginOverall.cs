@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Core.UI.SearchWindow.InputData;
 using Core.Utils;
 using Microsoft.Extensions.DependencyInjection;

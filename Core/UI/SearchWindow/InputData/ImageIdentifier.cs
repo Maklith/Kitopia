@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;

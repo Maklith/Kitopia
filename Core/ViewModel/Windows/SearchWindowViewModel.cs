@@ -1,9 +1,14 @@
 #region
 
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Reactive.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using AvaloniaEdit.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -247,8 +252,8 @@ public partial class SearchWindowViewModel : ObservableRecipient
     private void LoadLastCore()
     {
         if (!string.IsNullOrEmpty(Search)) return;
-
-
+        
+        
         Logger.Debug("加载历史记录");
 
 
@@ -320,6 +325,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
                 }
             }
         }
+        ProcessInputData(null, InputDataAnalyzeTimeFlags.InputEmpty);
         ShowPinnedItems = PinnedItems.Count > 0;
         FileTypes.Clear();
         ShowFileTypeFilter = FileTypes.Count > 0;
@@ -390,7 +396,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
         if (string.IsNullOrEmpty(value))
         {
             LoadLast();
-            ProcessInputData(null, InputDataAnalyzeTimeFlags.InputEmpty);
+            
             return;
         }
         ShowPinnedItems = false;
