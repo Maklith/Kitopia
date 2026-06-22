@@ -1,10 +1,12 @@
 #region
 
+using System.Collections.Concurrent;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
 using System.Xml;
+using Avalonia.Threading;
 using Core.Services;
 using Core.Utils;
 using PeNet;
@@ -48,7 +50,50 @@ internal partial class IconTools
                 UseJitter = true
             }).Build();
 
-    private static readonly Dictionary<string, Bitmap> Icons = new(250);
+    private const int IconCacheCapacity = 500;
+    private const int IconSize = 64;
+
+    private static readonly IconCache Icons = new(IconCacheCapacity);
+
+    private static Bitmap ResizeToAvaloniaBitmap(Icon icon)
+    {
+        using var bm = icon.ToBitmap();
+        if (bm.Size.Height  == IconSize  && bm.Size.Width == IconSize) {
+            return bm.ToAvaloniaBitmap();
+        }
+        var resized = new System.Drawing.Bitmap(bm, new Size(IconSize, IconSize));
+        return resized.ToAvaloniaBitmap();
+    }
+
+    private sealed class IconCache
+    {
+        private readonly int _capacity;
+        private readonly ConcurrentDictionary<string, Bitmap> _dict;
+        private readonly ConcurrentQueue<string> _order;
+
+        public IconCache(int capacity)
+        {
+            _capacity = capacity;
+            _dict = new();
+            _order = new();
+        }
+
+        public bool TryGet(string key, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Bitmap? icon)
+        {
+            return _dict.TryGetValue(key, out icon);
+        }
+
+        public void Add(string key, Bitmap icon)
+        {
+            if (!_dict.TryAdd(key, icon))
+                return;
+
+            _order.Enqueue(key);
+
+            while (_order.Count > _capacity && _order.TryDequeue(out var oldest))
+                _dict.TryRemove(oldest, out _);
+        }
+    }
 
 
     [DllImport("User32.dll")]
@@ -248,16 +293,17 @@ internal partial class IconTools
                         $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{t.OnlyKey.Split(":")[1]}.png";
                     if (File.Exists(path))
                     {
-                        if (Icons.TryGetValue(path, out var icon2)) t.Icon = icon2;
-                        ResiliencePipeline.ExecuteAsync(async e =>
+                        if (Icons.TryGet(path, out var icon2))
+                            Dispatcher.UIThread.InvokeAsync(() => t.Icon = icon2);
+                        else ResiliencePipeline.ExecuteAsync(async e =>
                         {
                             await Task.Run(() =>
                             {
                                 var iconBase = GetIconBase(path, path);
                                 if (iconBase == null) return;
 
-                                var clone = iconBase.ToBitmap().ToAvaloniaBitmap();
-                                Icons.TryAdd(path, clone);
+                                var clone = ResizeToAvaloniaBitmap(iconBase);
+                                Icons.Add(path, clone);
                                 iconBase.Dispose();
                                 t.Icon = clone;
                             }, e);
@@ -358,16 +404,17 @@ internal partial class IconTools
         var path = $"{AppDomain.CurrentDomain.BaseDirectory}customScenarios{Path.DirectorySeparatorChar}{t.Uuid}.png";
         if (File.Exists(path))
         {
-            if (Icons.TryGetValue(path, out var icon2)) t.Icon = icon2;
-            ResiliencePipeline.ExecuteAsync(async e =>
+            if (Icons.TryGet(path, out var icon2))
+                Dispatcher.UIThread.InvokeAsync(() => t.Icon = icon2);
+            else ResiliencePipeline.ExecuteAsync(async e =>
             {
                 await Task.Run(() =>
                 {
                     var iconBase = GetIconBase(path, path);
                     if (iconBase == null) return;
 
-                    var clone = iconBase.ToBitmap().ToAvaloniaBitmap();
-                    Icons.TryAdd(path, clone);
+                    var clone = ResizeToAvaloniaBitmap(iconBase);
+                    Icons.Add(path, clone);
                     iconBase.Dispose();
                     t.Icon = clone;
                 }, e);
@@ -412,17 +459,17 @@ internal partial class IconTools
         }
 
         //缓存
-        if (Icons.TryGetValue(cacheKey, out var icon2)) item.Icon = icon2;
-
-        ResiliencePipeline.ExecuteAsync(async e =>
+        if (Icons.TryGet(cacheKey, out var icon2))
+            Dispatcher.UIThread.InvokeAsync(() => item.Icon = icon2);
+        else ResiliencePipeline.ExecuteAsync(async e =>
         {
             await Task.Run(() =>
             {
                 var iconBase = GetIconBase(path, cacheKey);
                 if (iconBase == null) return;
 
-                var clone = iconBase.ToBitmap().ToAvaloniaBitmap();
-                Icons.TryAdd(cacheKey, clone);
+                var clone = ResizeToAvaloniaBitmap(iconBase);
+                Icons.Add(cacheKey, clone);
                 iconBase.Dispose();
                 item.Icon = clone;
             }, e);
@@ -432,9 +479,9 @@ internal partial class IconTools
 
     private static void GetIconByPath(string path, SearchViewItem item)
     {
-        if (Icons.TryGetValue(path, out var fromPath)) item.Icon = fromPath;
-
-        ResiliencePipeline.ExecuteAsync(async e =>
+        if (Icons.TryGet(path, out var fromPath))
+            Dispatcher.UIThread.InvokeAsync(() => item.Icon = fromPath);
+        else ResiliencePipeline.ExecuteAsync(async e =>
         {
             await Task.Run(() =>
             {
@@ -443,10 +490,10 @@ internal partial class IconTools
                     path,
                     0, ref shinfo, (uint)Marshal.SizeOf(shinfo),
                     SHGFI_ICON | SHGFI_LARGEICON);
-                var independenceIcon12 = Icon.FromHandle(shinfo.hIcon).ToBitmap().ToAvaloniaBitmap();
+                var clone = ResizeToAvaloniaBitmap(Icon.FromHandle(shinfo.hIcon));
+                Icons.Add(path, clone);
                 User32.DestroyIcon(shinfo.hIcon);
-                Icons.TryAdd(path, independenceIcon12);
-                item.Icon = independenceIcon12;
+                item.Icon = clone;
             }, e);
         });
     }
