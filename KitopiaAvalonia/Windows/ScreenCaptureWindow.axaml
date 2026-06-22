@@ -54,16 +54,28 @@
                             <Setter Property="BorderBrush" Value="Transparent" />
                             <Setter Property="CornerRadius" Value="4" />
                             <Setter Property="Padding" Value="4" />
-                            <Style Selector="^.Selected:pointerover">
-                                <Setter Property="Background" Value="{DynamicResource SemiColorText3}" />
-                                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+                            <Style Selector="^:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background">
+                                    <Setter.Value>
+                                        <SolidColorBrush Opacity="0.2" Color="{DynamicResource SemiGrey9Color}" />
+                                    </Setter.Value>
+                                </Setter>
                             </Style>
                             <Style Selector="^.Selected">
-                                <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+                                <Setter Property="Background">
+                                    <Setter.Value>
+                                        <SolidColorBrush Opacity="0.35" Color="{DynamicResource SemiGrey9Color}" />
+                                    </Setter.Value>
+                                </Setter>
                                 <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
                             </Style>
-                            <Style Selector="^:pointerover">
-                                <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+                            <Style Selector="^.Selected:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background">
+                                    <Setter.Value>
+                                        <SolidColorBrush Opacity="0.5" Color="{DynamicResource SemiGrey9Color}" />
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
                             </Style>
                         </Style>
                         
