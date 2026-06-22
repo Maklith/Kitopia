@@ -56,7 +56,7 @@ public partial class SearchWindowViewModel : ObservableRecipient
     [ObservableProperty] private ObservableCollection<FileTypeFilter> _fileTypes = new();
 
     [ObservableProperty] private ObservableCollection<InputData> _inputDatas = new();
-    [ObservableProperty] private ObservableList<SearchViewItem> _items = new();
+    [ObservableProperty] private ObservableList<SearchViewItem> _items = new(100);
     [ObservableProperty] private ObservableCollection<SearchViewItem> _pinnedItems = new();
     [ObservableProperty] private ISynchronizedView<SearchViewItem, SearchViewItem> _itemsView;
     [ObservableProperty] private NotifyCollectionChangedSynchronizedViewList<SearchViewItem> _itemsViewList;
@@ -257,8 +257,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
         Logger.Debug("加载历史记录");
 
 
-        foreach (var searchViewItem in Items) searchViewItem.Dispose();
-
         Items.Clear();
         PinnedItems.Clear();
 
@@ -406,8 +404,6 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
         #region 清除上次搜索结果
 
-        foreach (var searchViewItem in Items) searchViewItem.Dispose();
-
         Items.Clear();
         PinnedItems.Clear();
 
@@ -463,45 +459,35 @@ public partial class SearchWindowViewModel : ObservableRecipient
 
             var sortedDict = nowHasLastOpens.OrderByDescending(p => p.Value)
                 .ToDictionary(p => p.Key, p => p.Value);
+            var resultsToAdd = new List<SearchViewItem>(Math.Min(sortedDict.Count + sorted.Count, limit));
             foreach (var (searchViewItem, _) in sortedDict)
             {
-                //Log.Debug("添加搜索结果" + searchViewItem.OnlyKey);
                 if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
-
-
                 count++;
-                Items.Add(searchViewItem); // 添加元素
+                resultsToAdd.Add(searchViewItem);
             }
-
 
             foreach (var x in sorted)
             {
-                if (count >= limit) // 如果达到了限制
-                    break; // 跳出循环
+                if (count >= limit) break;
 
                 var searchViewItem = x.Source.Value;
-                {
-                    //Log.Debug("添加搜索结果" + x.Item.OnlyKey);
-
-
-                    if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey))
-                        searchViewItem.IsPined = true;
-
-                    Items.Add(searchViewItem); // 添加元素
-                    searchViewItem.Notify();
-                    count++; // 计数器加一
-                }
+                if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
+                resultsToAdd.Add(searchViewItem);
+                searchViewItem.Notify();
+                count++;
             }
 
-            //Items.RaiseListChangedEvents = true;
+            Items.AddRange(resultsToAdd);
         }
 
 
         if (Items.Count <= pluginItem)
         {
+            Logger.Debug("无搜索项目,添加网页搜索");
+            Items.AddRange(new[]
             {
-                Logger.Debug("无搜索项目,添加网页搜索");
-                var searchViewItem3 = new SearchViewItem
+                new SearchViewItem
                 {
                     ItemDisplayName = "将内容添加至便签" + originalValue,
                     FileType = FileType.便签,
@@ -509,9 +495,8 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     Icon = null,
                     IconSymbol = 0xF6EC,
                     IsVisible = true
-                };
-                Items.Add(searchViewItem3);
-                var searchViewItem = new SearchViewItem
+                },
+                new SearchViewItem
                 {
                     ItemDisplayName = "在网页中搜索" + originalValue,
                     FileType = FileType.URL,
@@ -519,9 +504,8 @@ public partial class SearchWindowViewModel : ObservableRecipient
                     Icon = null,
                     IconSymbol = 62555,
                     IsVisible = true
-                };
-                Items.Add(searchViewItem);
-            }
+                }
+            });
         }
 
         Dispatcher.UIThread.Post(() => {
