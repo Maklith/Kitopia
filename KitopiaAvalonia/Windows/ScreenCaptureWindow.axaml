@@ -28,7 +28,7 @@
             </Rectangle.Fill>
         </Rectangle>
         <capture:DraggableResizeableControl IsVisible="False" IsSelected="True" ZIndex="2" Name="SelectBox"
-                                            OnlyShowReSizingBoxOnSelect="False">
+                                             OnlyShowReSizingBoxOnSelect="False" ShowDragThumbs="False">
             <Rectangle PointerMoved="SelectBox_OnPointerMoved" PointerReleased="SelectBox_OnPointerReleased"
                        PointerPressed="SelectBox_OnPointerPressed" PointerCaptureLost="SelectBox_OnPointerCaptureLost">
                 <Rectangle.Fill>
@@ -54,14 +54,21 @@
                             <Setter Property="BorderBrush" Value="Transparent" />
                             <Setter Property="CornerRadius" Value="4" />
                             <Setter Property="Padding" Value="4" />
+                            <Style Selector="^.Selected:pointerover">
+                                <Setter Property="Background" Value="{DynamicResource SemiColorText3}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+                            </Style>
+                            <Style Selector="^.Selected">
+                                <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+                            </Style>
+                            <Style Selector="^:pointerover">
+                                <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+                            </Style>
                         </Style>
-                        <Style Selector="Button:pointerover">
-                            <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
-                        </Style>
-                        <Style Selector="Button.Selected">
-                            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
-                            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
-                        </Style>
+                        
+                        
+                        
                     </StackPanel.Styles>
 
                     <Button ToolTip.Tip="矩形" Width="36" Height="36" Click="RectangleButton_OnClick">

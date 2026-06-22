@@ -41,10 +41,34 @@ public class DraggableResizeableControl : CaptureToolBase
         set => SetValue(StartTranslateTransformProperty, value);
     }
 
+    public static readonly StyledProperty<bool> ShowDragThumbsProperty =
+        AvaloniaProperty.Register<DraggableResizeableControl, bool>(nameof(ShowDragThumbs), true);
+
+    public static readonly DirectProperty<DraggableResizeableControl, bool> IsDragThumbsVisibleProperty =
+        AvaloniaProperty.RegisterDirect<DraggableResizeableControl, bool>(
+            nameof(IsDragThumbsVisible),
+            o => o.IsDragThumbsVisible,
+            unsetValue: false);
+
     public bool OnlyShowReSizingBoxOnSelect
     {
         get => (bool)GetValue(OnlyShowReSizingBoxOnSelectProperty);
         set => SetValue(OnlyShowReSizingBoxOnSelectProperty, value);
+    }
+
+    public bool ShowDragThumbs
+    {
+        get => GetValue(ShowDragThumbsProperty);
+        set => SetValue(ShowDragThumbsProperty, value);
+    }
+
+    public bool IsDragThumbsVisible => IsSelected && ShowDragThumbs;
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == IsSelectedProperty || change.Property == ShowDragThumbsProperty)
+            RaisePropertyChanged(IsDragThumbsVisibleProperty, !IsDragThumbsVisible, IsDragThumbsVisible);
     }
 
     private bool _isDragging;

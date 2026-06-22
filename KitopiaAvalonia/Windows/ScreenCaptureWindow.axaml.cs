@@ -568,6 +568,7 @@ public partial class ScreenCaptureWindow : Window
         if (SelectBox.Width < 10) SelectBox.Width = 10;
 
         SelectBox.IsVisible = true;
+        SelectBox.ShowDragThumbs = true;
         if (Cursor?.ToString() != "Default")
         {
             Cursor?.Dispose();
