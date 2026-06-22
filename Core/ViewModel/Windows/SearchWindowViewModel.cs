@@ -429,53 +429,49 @@ public partial class SearchWindowViewModel : ObservableRecipient
         {
             #region 从文件索引检索并排序
 
-            var filtered = _pinyinSearcher?.Search(value)
-                .ToList();
-
-            var sorted = filtered?.OrderByDescending(x => x.Weight).Select(e =>
-                {
-                    e.Source.Value.PinyinItem = e.CharMatchResults;
-                    return e;
-                })
+            var sorted = _pinyinSearcher?.Search(value)
                 .ToList();
 
             #endregion
 
-            if (sorted is null)
+            if (sorted is not { Count: > 0 })
             {
                 return;
             }
 
-            var count = 0; // 计数器变量
-            const int limit = 100; // 限制次数
-            Dictionary<SearchViewItem, int> nowHasLastOpens = new();
+            sorted.Sort((a, b) => b.Weight.CompareTo(a.Weight));
+            foreach (var item in sorted)
+                item.Source.Value.PinyinItem = item.CharMatchResults;
 
-            for (var i = sorted.Count - 1; i >= 0; i--)
-                if (ConfigManger.Config.lastOpens.TryGetValue(sorted[i].Source.Value.OnlyKey, out _))
-                {
-                    nowHasLastOpens.Add(sorted[i].Source.Value, (int)sorted[i].Weight);
-                    sorted.RemoveAt(i);
-                }
-
-            var sortedDict = nowHasLastOpens.OrderByDescending(p => p.Value)
-                .ToDictionary(p => p.Key, p => p.Value);
-            var resultsToAdd = new List<SearchViewItem>(Math.Min(sortedDict.Count + sorted.Count, limit));
-            foreach (var (searchViewItem, _) in sortedDict)
-            {
-                if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
-                count++;
-                resultsToAdd.Add(searchViewItem);
-            }
+            var count = 0;
+            const int limit = 100;
+            var resultsToAdd = new List<SearchViewItem>(Math.Min(sorted.Count, limit));
 
             foreach (var x in sorted)
             {
-                if (count >= limit) break;
+                if (ConfigManger.Config.lastOpens.TryGetValue(x.Source.Value.OnlyKey, out _))
+                {
+                    var searchViewItem = x.Source.Value;
+                    if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
+                    resultsToAdd.Add(searchViewItem);
+                    count++;
+                    if (count >= limit) break;
+                }
+            }
 
-                var searchViewItem = x.Source.Value;
-                if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
-                resultsToAdd.Add(searchViewItem);
-                searchViewItem.Notify();
-                count++;
+            if (count < limit)
+            {
+                foreach (var x in sorted)
+                {
+                    if (ConfigManger.Config.lastOpens.ContainsKey(x.Source.Value.OnlyKey)) continue;
+
+                    var searchViewItem = x.Source.Value;
+                    if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
+                    resultsToAdd.Add(searchViewItem);
+                    searchViewItem.Notify();
+                    count++;
+                    if (count >= limit) break;
+                }
             }
 
             Items.AddRange(resultsToAdd);
