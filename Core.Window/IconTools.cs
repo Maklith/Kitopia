@@ -140,6 +140,7 @@ internal partial class IconTools
     {
         try
         {
+            path = Environment.ExpandEnvironmentVariables(path);
             switch (Path.GetExtension(path))
             {
                 case ".png":
