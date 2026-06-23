@@ -28,25 +28,46 @@ public partial class UrlIdentifier : IInputDataIdentifier
 
     private static IEnumerable<PluginCore.SearchWindow.InputData.InputData> MatchAndReturnUrlData(string? s)
     {
-        if (s is null) yield break;
-        if (DomainRegex().IsMatch(s) || UrlRegex().IsMatch(s))
+        if (string.IsNullOrWhiteSpace(s)) yield break;
+
+        if (UrlRegex().IsMatch(s))
+        {
+            if (Uri.TryCreate(s, UriKind.Absolute, out var uri))
+                yield return new PluginCore.SearchWindow.InputData.InputData
+                {
+                    InputType = InputType.网址,
+                    Data = uri.ToString()
+                };
+            yield break;
+        }
+
+        if (DomainRegex().IsMatch(s))
+        {
             yield return new PluginCore.SearchWindow.InputData.InputData
             {
                 InputType = InputType.网址,
                 Data = s
             };
+            yield break;
+        }
 
-        if (Uri.TryCreate(s, UriKind.Absolute, out var uri))
+        if (Uri.TryCreate(s, UriKind.Absolute, out var uri2) && IsWebScheme(uri2.Scheme))
             yield return new PluginCore.SearchWindow.InputData.InputData
             {
                 InputType = InputType.网址,
-                Data = uri.ToString()
+                Data = uri2.ToString()
             };
     }
 
-    [GeneratedRegex("^(?=^.{3,255}$)[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+$")]
+    private static bool IsWebScheme(string scheme)
+    {
+        return scheme.Equals("http", StringComparison.OrdinalIgnoreCase) ||
+               scheme.Equals("https", StringComparison.OrdinalIgnoreCase);
+    }
+
+    [GeneratedRegex(@"^(?=^.{3,255}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$")]
     private static partial Regex DomainRegex();
 
-    [GeneratedRegex("^\\w+[^\\s]+(\\.[^\\s]+){1,}$")]
+    [GeneratedRegex(@"^https?://\S+$")]
     private static partial Regex UrlRegex();
 }
