@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Core.Services.Interfaces;
 using Pinyin.NET;
 using PluginCore;
@@ -7,21 +6,21 @@ namespace Core.Linux;
 
 public class AppToolLinuxService : IAppToolService
 {
-    public void IndexItem(ConcurrentDictionary<string, SearchViewItem> collection, string filePath,
+    public void IndexItem(SearchIndex index, string filePath,
         bool isStarred = false)
     {
     }
 
-    public void CleanupInvalidItems(ConcurrentDictionary<string, SearchViewItem> collection)
+    public void CleanupInvalidItems(SearchIndex index)
     {
     }
 
-    public void IndexAllApps(ConcurrentDictionary<string, SearchViewItem> collection, bool logging,
+    public void IndexAllApps(SearchIndex index, bool logging,
         bool useEverything = false)
     {
     }
 
-    public void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> collection, Action onSuccess)
+    public void AutoStartEverything(SearchIndex index, Action onSuccess)
     {
     }
 

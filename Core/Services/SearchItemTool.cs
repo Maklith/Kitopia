@@ -103,7 +103,7 @@ public class SearchItemTool : ISearchItemTool
         {
             ConfigManger.Config.ignoreItems.Add(item.OnlyKey);
             ConfigManger.Save();
-            ServiceManager.Services.GetService<SearchWindowViewModel>()!.IndexCollection.TryRemove(item.OnlyKey, out _);
+            ServiceManager.Services.GetService<SearchWindowViewModel>()!.Index.TryRemove(item.OnlyKey);
         });
     }
 
@@ -148,22 +148,20 @@ public class SearchItemTool : ISearchItemTool
     {
         if (item is null) return;
 
-        var collection = ServiceManager.Services.GetService<SearchWindowViewModel>()!.IndexCollection;
+        var index = ServiceManager.Services.GetService<SearchWindowViewModel>()!.Index;
         Logger.Information("添加/移除收藏" + item.OnlyKey);
         item.IsStared = !item.IsStared;
         if (ConfigManger.Config!.customCollections.Contains(item.OnlyKey))
             ConfigManger.Config.customCollections.Remove(item.OnlyKey);
 
-        if (item.IsStared) //收藏操作
+        if (item.IsStared)
         {
-            ServiceManager.Services.GetService<IAppToolService>()!.IndexItem(collection, item.OnlyKey, true);
+            ServiceManager.Services.GetService<IAppToolService>()!.IndexItem(index, item.OnlyKey, true);
             ConfigManger.Config.customCollections.Insert(0, item.OnlyKey);
         }
         else
         {
-            var keyValuePairs = collection.Where(e =>
-                e.Value.OnlyKey.Equals(item.OnlyKey));
-            foreach (var keyValuePair in keyValuePairs) collection.TryRemove(keyValuePair.Key, out _);
+            index.TryRemove(item.OnlyKey);
         }
 
         ConfigManger.Save();
@@ -248,8 +246,8 @@ public class SearchItemTool : ISearchItemTool
 
     public void OpenSearchItemByOnlyKey(string onlyKey, params object[] inputValues)
     {
-        if (((SearchWindowViewModel)ServiceManager.Services!.GetService(typeof(SearchWindowViewModel))!).IndexCollection
-            .TryGetValue(onlyKey, out var item))
-            OpenFile(item, inputValues);
+        if (ServiceManager.Services!.GetService<SearchWindowViewModel>()!.Index
+            .TryGetValue(onlyKey, out var entry))
+            OpenFile(entry.ToSearchViewItem(), inputValues);
     }
 }

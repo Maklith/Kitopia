@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Core.Services.Interfaces;
 using Core.Window.Everything;
 using Pinyin.NET;
@@ -8,26 +7,26 @@ namespace Core.Window.AppTools;
 
 public class AppToolService : IAppToolService
 {
-    public void IndexItem(ConcurrentDictionary<string, SearchViewItem> collection, string filePath,
+    public void IndexItem(SearchIndex index, string filePath,
         bool isStarred = false)
     {
-        AppSolver.IndexItem(collection, filePath, isStarred);
+        AppSolver.IndexItem(index, filePath, isStarred);
     }
 
-    public void CleanupInvalidItems(ConcurrentDictionary<string, SearchViewItem> collection)
+    public void CleanupInvalidItems(SearchIndex index)
     {
-        AppSolver.CleanupInvalidItems(collection);
+        AppSolver.CleanupInvalidItems(index);
     }
 
-    public void IndexAllApps(ConcurrentDictionary<string, SearchViewItem> collection, bool logging,
+    public void IndexAllApps(SearchIndex index, bool logging,
         bool useEverything = false)
     {
-        AppSolver.IndexAllApps(collection, logging, useEverything);
+        AppSolver.IndexAllApps(index, logging, useEverything);
     }
 
-    public void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> collection, Action onSuccess)
+    public void AutoStartEverything(SearchIndex index, Action onSuccess)
     {
-        AppSolver.AutoStartEverything(collection, onSuccess);
+        AppSolver.AutoStartEverything(index, onSuccess);
     }
 
     public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int limit = 50)

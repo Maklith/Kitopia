@@ -1,6 +1,5 @@
 ﻿#region
 
-using System.Collections.Concurrent;
 using System.Text;
 using System.Text.RegularExpressions;
 using Core.Services;
@@ -25,12 +24,12 @@ public class AppSolver
     private static readonly List<string> ErrorLnkList = new();
     public static readonly PinyinProcessor PinyinProcessor = new();
 
-    internal static void AutoStartEverything(ConcurrentDictionary<string, SearchViewItem> collection, Action action)
+    internal static void AutoStartEverything(SearchIndex index, Action action)
     {
         if (ConfigManger.Config.autoStartEverything)
         {
             if (string.IsNullOrWhiteSpace(ConfigManger.Config.everythingOnlyKey))
-                foreach (var (key, _) in collection)
+                foreach (var (key, _) in index.GetEntriesSnapshot())
                     if (key.Contains("Everything.exe"))
                     {
                         ConfigManger.Config.everythingOnlyKey = key;
@@ -38,7 +37,7 @@ public class AppSolver
                         break;
                     }
 
-            if (collection.TryGetValue(ConfigManger.Config.everythingOnlyKey, out var searchViewItem))
+            if (index.TryGetValue(ConfigManger.Config.everythingOnlyKey, out var entry))
             {
                 var isRun = ServiceManager.Services.GetService<IEverythingService>()!
                     .IsRun();
@@ -63,7 +62,7 @@ public class AppSolver
                                 var tempFileName =
                                     $"{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.xml";
                                 var xmlText =
-                                    $"<?xml version=\"1.0\" encoding=\"UTF-16\"?>\n<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\n  <Triggers />\n  <Principals>\n    <Principal id=\"Author\">\n      <LogonType>InteractiveToken</LogonType>\n      <RunLevel>HighestAvailable</RunLevel>\n    </Principal>\n  </Principals>\n  <Settings>\n    <MultipleInstancesPolicy>Parallel</MultipleInstancesPolicy>\n    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\n    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\n    <AllowHardTerminate>false</AllowHardTerminate>\n    <StartWhenAvailable>false</StartWhenAvailable>\n    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>\n    <IdleSettings>\n      <StopOnIdleEnd>false</StopOnIdleEnd>\n      <RestartOnIdle>false</RestartOnIdle>\n    </IdleSettings>\n    <AllowStartOnDemand>true</AllowStartOnDemand>\n    <Enabled>true</Enabled>\n    <Hidden>false</Hidden>\n    <RunOnlyIfIdle>false</RunOnlyIfIdle>\n    <WakeToRun>false</WakeToRun>\n    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\n    <Priority>7</Priority>\n  </Settings>\n  <Actions Context=\"Author\">\n    <Exec>{Environment.NewLine}      <Command>\"{searchViewItem.OnlyKey}\"</Command>{Environment.NewLine}      <Arguments>-startup</Arguments>{Environment.NewLine}    </Exec>\n  </Actions>\n</Task>";
+                                    $"<?xml version=\"1.0\" encoding=\"UTF-16\"?>\n<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\n  <Triggers />\n  <Principals>\n    <Principal id=\"Author\">\n      <LogonType>InteractiveToken</LogonType>\n      <RunLevel>HighestAvailable</RunLevel>\n    </Principal>\n  </Principals>\n  <Settings>\n    <MultipleInstancesPolicy>Parallel</MultipleInstancesPolicy>\n    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\n    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\n    <AllowHardTerminate>false</AllowHardTerminate>\n    <StartWhenAvailable>false</StartWhenAvailable>\n    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>\n    <IdleSettings>\n      <StopOnIdleEnd>false</StopOnIdleEnd>\n      <RestartOnIdle>false</RestartOnIdle>\n    </IdleSettings>\n    <AllowStartOnDemand>true</AllowStartOnDemand>\n    <Enabled>true</Enabled>\n    <Hidden>false</Hidden>\n    <RunOnlyIfIdle>false</RunOnlyIfIdle>\n    <WakeToRun>false</WakeToRun>\n    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\n    <Priority>7</Priority>\n  </Settings>\n  <Actions Context=\"Author\">\n    <Exec>{Environment.NewLine}      <Command>\"{entry.OnlyKey}\"</Command>{Environment.NewLine}      <Arguments>-startup</Arguments>{Environment.NewLine}    </Exec>\n  </Actions>\n</Task>";
                                 File.WriteAllText(tempFileName, xmlText, Encoding.Unicode);
 
                                 ServiceManager.Services.GetService<IShellUtils>()!.RunAsAdmin("schtasks.exe",
@@ -71,7 +70,7 @@ public class AppSolver
                                 var shellLink = ShellLink.Create(
                                     $"{AppDomain.CurrentDomain.BaseDirectory}noUAC\\{程序名称}.lnk",
                                     "schtasks.exe", null, null, $"/run /tn \"{程序名称}\"");
-                                shellLink.IconLocation = new IconLocation(searchViewItem.OnlyKey, 0);
+                                shellLink.IconLocation = new IconLocation(entry.OnlyKey, 0);
 
                                 Thread.Sleep(200);
                                 File.Delete(tempFileName);
@@ -101,52 +100,39 @@ public class AppSolver
         }
     }
 
-    internal static void CleanupInvalidItems(ConcurrentDictionary<string, SearchViewItem> collection)
+    internal static void CleanupInvalidItems(SearchIndex index)
     {
-        var toRemove = new List<string>();
-        foreach (var (key, searchViewItem) in collection)
-            switch (searchViewItem.FileType)
+        index.RemoveWhere((key, entry) =>
+        {
+            return entry.FileType switch
             {
-                case FileType.文件:
-                case FileType.Excel文档:
-                case FileType.Word文档:
-                case FileType.PDF文档:
-                case FileType.PPT文档:
-                {
-                    if (!File.Exists(searchViewItem.OnlyKey)) toRemove.Add(key);
-                    //collection.Remove(searchViewItem);
-                    break;
-                }
-                case FileType.文件夹:
-                {
-                    if (!Directory.Exists(searchViewItem.OnlyKey)) toRemove.Add(key);
-                    //collection.Remove(searchViewItem);
-                    break;
-                }
-            }
-
-        foreach (var searchViewItem in toRemove) collection.TryRemove(searchViewItem, out _);
+                FileType.文件 or FileType.Excel文档 or FileType.Word文档 or FileType.PDF文档 or FileType.PPT文档 =>
+                    !File.Exists(entry.OnlyKey),
+                FileType.文件夹 =>
+                    !Directory.Exists(entry.OnlyKey),
+                _ => false
+            };
+        });
     }
 
-    internal static void IndexAllApps(ConcurrentDictionary<string, SearchViewItem> collection,
+    internal static void IndexAllApps(SearchIndex index,
         bool logging = false, bool useEverything = false)
     {
         Logger.Debug("索引全部软件及收藏项目");
 
 
-        UwpTools.GetAll(collection);
+        UwpTools.GetAll(index);
         Logger.Debug("索引全部软件及收藏项目UWP");
-        ControlPanelTools.GetAll(collection);
-        // 创建一个空的文件路径集合
+        ControlPanelTools.GetAll(index);
 
 
         foreach (var enumerateFile in Directory.EnumerateFiles(
                      Environment.GetFolderPath(Environment.SpecialFolder.Desktop)))
-            IndexItem(collection, enumerateFile, logging: logging);
+            IndexItem(index, enumerateFile, logging: logging);
 
         foreach (var enumerateFile in Directory.EnumerateDirectories(
                      Environment.GetFolderPath(Environment.SpecialFolder.Desktop)))
-            IndexItem(collection, enumerateFile, logging: logging);
+            IndexItem(index, enumerateFile, logging: logging);
 
         foreach (var enumerateFile in Directory.EnumerateFiles(@"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
                      "*", SearchOption.AllDirectories))
@@ -162,7 +148,7 @@ public class AppSolver
                     continue;
             }
 
-            IndexItem(collection, enumerateFile, logging: logging);
+            IndexItem(index, enumerateFile, logging: logging);
         }
 
         var folderPath = Environment.GetFolderPath(Environment.SpecialFolder.Programs);
@@ -181,23 +167,22 @@ public class AppSolver
                     continue;
             }
 
-            IndexItem(collection, enumerateFile, logging: logging);
+            IndexItem(index, enumerateFile, logging: logging);
         }
 
         foreach (var configCustomCollection in ConfigManger.Config.customCollections)
-            IndexItem(collection, configCustomCollection, logging: logging);
+            IndexItem(index, configCustomCollection, logging: logging);
 
         if (useEverything)
         {
             List<string> filePaths = new();
             EverythingTools.Index(filePaths);
-            foreach (var filePath in filePaths) IndexItem(collection, filePath, logging: logging);
+            foreach (var filePath in filePaths) IndexItem(index, filePath, logging: logging);
 
             filePaths.Clear();
         }
 
 
-        //AutoStartEverything(collection);
         if (ErrorLnkList.Any())
         {
             var c = new StringBuilder("检测到多个无效的快捷方式\n需要Kitopia帮你清理吗?(该功能每个错误快捷方式只提示一次)\n以下为无效的快捷方式列表:\n");
@@ -247,10 +232,9 @@ public class AppSolver
         }
     }
 
-    internal static void IndexItem(ConcurrentDictionary<string, SearchViewItem> collection, string file,
+    internal static void IndexItem(SearchIndex index, string file,
         bool star = false, bool logging = false)
     {
-        //Log.Debug(Thread.CurrentThread.ManagedThreadId);
 
         try
         {
@@ -286,7 +270,7 @@ public class AppSolver
 
                         if (refFileInfo.Exists)
                         {
-                            if (collection.ContainsKey(fullName)) return;
+                            if (index.ContainsKey(fullName)) return;
                         }
                         else
                         {
@@ -306,35 +290,33 @@ public class AppSolver
                             !fileInfo.Name.Contains("安装") && !fileInfo.Name.Contains("卸载"))
                         {
                             {
-                                collection.TryAdd(fullName, new SearchViewItem
+                                index.TryAdd(new SearchEntry
                                 {
-                                    IsVisible = true, ItemDisplayName = localizedName,
-                                    OnlyKey = fullName, IsStared = star, Arguments = shellItem.Arguments,
-                                    FileType = FileType.应用程序, Icon = null,
+                                    DisplayName = localizedName,
+                                    OnlyKey = fullName, Arguments = shellItem.Arguments,
+                                    FileType = FileType.应用程序,
                                     StartDirectory = shellItem.WorkingDirectory
                                 });
                             }
 
-                            //Log.Debug($"完成索引:{file}");
                         }
 
-                        // Log.Debug($"不符合要求跳过索引:{file}");
                         break;
                     }
                     case ".url":
                     {
                         var url = "";
                         var relFile = "";
-                        var fileContent = File.ReadAllText(file); // read the file content
-                        var pattern = @"URL=(.*)"; // the regex pattern to match the url
+                        var fileContent = File.ReadAllText(file);
+                        var pattern = @"URL=(.*)";
                         var match = Regex.Match(fileContent, pattern,
-                            RegexOptions.NonBacktracking); // match the pattern
-                        if (match.Success) // if a match is found
+                            RegexOptions.NonBacktracking);
+                        if (match.Success)
                             url = match.Groups[1]
-                                .Value.Replace("\r", ""); // get the url from the first group
+                                .Value.Replace("\r", "");
 
                         var onlyKey = url;
-                        if (collection.ContainsKey(onlyKey)) return;
+                        if (index.ContainsKey(onlyKey)) return;
 
                         if (ConfigManger.Config.ignoreItems.Contains(onlyKey))
                         {
@@ -342,22 +324,22 @@ public class AppSolver
                             return;
                         }
 
-                        var pattern2 = @"IconFile=(.*)"; // the regex pattern to match the url
+                        var pattern2 = @"IconFile=(.*)";
                         var match2 =
-                            Regex.Match(fileContent, pattern2, RegexOptions.NonBacktracking); // match the pattern
-                        if (match2.Success) // if a match is found
+                            Regex.Match(fileContent, pattern2, RegexOptions.NonBacktracking);
+                        if (match2.Success)
                             relFile = match2.Groups[1]
-                                .Value.Replace("\r", ""); // get the url from the first group
+                                .Value.Replace("\r", "");
 
                         if (string.IsNullOrWhiteSpace(relFile)) return;
 
                         {
-                            collection.TryAdd(onlyKey, new SearchViewItem
+                            index.TryAdd(new SearchEntry
                             {
-                                IsVisible = true, ItemDisplayName = localizedName,
-                                OnlyKey = onlyKey, IsStared = star,
+                                DisplayName = localizedName,
+                                OnlyKey = onlyKey,
                                 IconPath = relFile,
-                                FileType = FileType.URL, Icon = null
+                                FileType = FileType.URL
                             });
                         }
 
@@ -392,14 +374,11 @@ public class AppSolver
                                     break;
                             }
 
-                            collection.TryAdd(file, new SearchViewItem
+                            index.TryAdd(new SearchEntry
                             {
-                                ItemDisplayName = localizedName,
+                                DisplayName = localizedName,
                                 FileType = fileType,
-
-                                OnlyKey = file,
-                                IsStared = star,
-                                IsVisible = true
+                                OnlyKey = file
                             });
                         }
 
@@ -411,15 +390,12 @@ public class AppSolver
                 if (!Directory.Exists(file)) return;
                 if (ConfigManger.Config.ignoreItems.Contains(file)) return;
 
-                collection.TryAdd(file, new SearchViewItem
+                index.TryAdd(new SearchEntry
                 {
-                    ItemDisplayName = file.Split(Path.DirectorySeparatorChar)
+                    DisplayName = file.Split(Path.DirectorySeparatorChar)
                         .Last(),
                     FileType = FileType.文件夹,
-                    IsStared = star,
-                    OnlyKey = file,
-                    Icon = null,
-                    IsVisible = true
+                    OnlyKey = file
                 });
             }
         }

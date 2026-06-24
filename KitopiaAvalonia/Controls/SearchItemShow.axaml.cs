@@ -76,12 +76,11 @@ public class SearchItemShow : Button
         var value = (string)e.NewValue;
         if (value is null) return;
 
-        var searchViewItems = ServiceManager.Services.GetService<SearchWindowViewModel>()!.IndexCollection;
-        //var enumerable = searchViewItems.Where(e => e.Key.Contains("TopSAP")).ToList();
-        if (searchViewItems.TryGetValue(value,
-                out var searchViewItem))
+        var index = ServiceManager.Services.GetService<SearchWindowViewModel>()!.Index;
+        if (index.TryGetValue(value,
+                out var searchEntry))
         {
-            searchItemShow.SearchViewItem = searchViewItem;
+            searchItemShow.SearchViewItem = searchEntry.ToSearchViewItem();
             searchItemShow.IsSelected = true;
         }
         else

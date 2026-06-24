@@ -1,6 +1,5 @@
 ﻿#region
 
-using System.Collections.Concurrent;
 using System.Xml;
 using Core.Services;
 using Core.Services.Config;
@@ -32,7 +31,7 @@ internal class UwpTools
         return null;
     }
 
-    internal static void GetAll(ConcurrentDictionary<string, SearchViewItem> items)
+    internal static void GetAll(SearchIndex index)
     {
         FirewallApi.NetworkIsolationEnumAppContainers(FirewallApi.NETISO_FLAG.NETISO_FLAG_FORCE_COMPUTE_BINARIES,
             out var pdwNuminternalAppCs, out var ppinternalAppCs);
@@ -45,7 +44,7 @@ internal class UwpTools
         {
             try
             {
-                if (!ErrorUwPs.Contains(file.displayName)) AppContainerAnalyse(file, items);
+                if (!ErrorUwPs.Contains(file.displayName)) AppContainerAnalyse(file, index);
             }
             catch (Exception e)
             {
@@ -56,7 +55,7 @@ internal class UwpTools
     }
 
     private static void AppContainerAnalyse(FirewallApi.INET_FIREWALL_APP_CONTAINER appContainer,
-        ConcurrentDictionary<string, SearchViewItem> items)
+        SearchIndex index)
     {
         if (ConfigManger.Config.ignoreItems.Contains(appContainer.appContainerName))
         {
@@ -64,7 +63,6 @@ internal class UwpTools
             return;
         }
 
-        //log.Debug(Thread.CurrentThread.ManagedThreadId);
         if (string.IsNullOrWhiteSpace(appContainer.appContainerName) ||
             string.IsNullOrWhiteSpace(appContainer.displayName) ||
             string.IsNullOrWhiteSpace(appContainer.workingDirectory))
@@ -102,7 +100,6 @@ internal class UwpTools
         var id = applicationAttribute.Value;
         XmlNode? visualElements = null;
         foreach (XmlNode applicationChildNode in application.ChildNodes)
-            //Console.WriteLine(applicationChildNode.Name);
             if (applicationChildNode.Name.Contains("VisualElements"))
                 visualElements = applicationChildNode;
 
@@ -128,18 +125,13 @@ internal class UwpTools
         var pa = $"{path}{Path.DirectorySeparatorChar}{logoName}.scale-200.png";
         if (File.Exists(pa))
         {
-            var searchViewItem = new SearchViewItem
+            index.TryAdd(new SearchEntry
             {
-                ItemDisplayName = fileName,
+                DisplayName = fileName,
                 OnlyKey = $"{appContainer.appContainerName}!{id}",
                 FileType = FileType.UWP应用,
-                IconPath = pa,
-                IsVisible = true
-            };
-
-
-            //Console.WriteLine(searchViewItem);
-            items.TryAdd(searchViewItem.OnlyKey, searchViewItem);
+                IconPath = pa
+            });
             return;
         }
 
@@ -147,16 +139,13 @@ internal class UwpTools
             foreach (var enumerateFile in logos.EnumerateFiles())
                 if (enumerateFile.Name.StartsWith(logoName))
                 {
-                    var searchViewItem = new SearchViewItem
+                    index.TryAdd(new SearchEntry
                     {
-                        ItemDisplayName = fileName,
+                        DisplayName = fileName,
                         OnlyKey = $"{appContainer.appContainerName}!{id}",
                         FileType = FileType.UWP应用,
-                        IconPath = enumerateFile.FullName,
-                        IsVisible = true
-                    };
-                    //Console.WriteLine(searchViewItem);
-                    items.TryAdd(appContainer.appContainerName, searchViewItem);
+                        IconPath = enumerateFile.FullName
+                    });
                     break;
                 }
         }

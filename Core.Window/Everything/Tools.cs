@@ -1,6 +1,5 @@
 ﻿#region
 
-using System.Collections.Concurrent;
 using System.Text;
 using Core.Services;
 using Core.Services.Config;
@@ -117,16 +116,15 @@ public class EverythingTools
         Everything32.Everything_QueryW(true);
         const int bufsize = 260;
         var buf = new StringBuilder(bufsize);
-        var searchViewItems = new ConcurrentDictionary<string, SearchViewItem>();
+        var index = new SearchIndex();
         for (var i = 0; i < Everything32.Everything_GetNumResults(); i++)
         {
-            // get the result's full path and file name.
             Everything32.Everything_GetResultFullPathNameW(i, buf, bufsize);
             var filePath = buf.ToString();
-            AppSolver.IndexItem(searchViewItems,filePath);
+            AppSolver.IndexItem(index,filePath);
         }
 
-        return searchViewItems.Values;
+        return index.GetEntriesSnapshot().Select(e => e.Value.ToSearchViewItem());
     }
     public static IEnumerable<SearchViewItem> SearchAmd64(string s,int limit=50)
     {
@@ -137,16 +135,15 @@ public class EverythingTools
         Everything64.Everything_QueryW(true);
         const int bufsize = 260;
         var buf = new StringBuilder(bufsize);
-        var searchViewItems = new ConcurrentDictionary<string, SearchViewItem>();
+        var index = new SearchIndex();
         for (var i = 0; i < Everything64.Everything_GetNumResults(); i++)
         {
-            // get the result's full path and file name.
             Everything64.Everything_GetResultFullPathNameW(i, buf, bufsize);
             var filePath = buf.ToString();
-            AppSolver.IndexItem(searchViewItems,filePath);
+            AppSolver.IndexItem(index,filePath);
         }
 
-        return searchViewItems.Values;
+        return index.GetEntriesSnapshot().Select(e => e.Value.ToSearchViewItem());
     }
 
     private static void IndexAmd64(List<string> items)
