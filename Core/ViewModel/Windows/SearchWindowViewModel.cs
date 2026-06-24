@@ -66,6 +66,7 @@ public class FileTypeFilter
     private int _loadLastRequestId;
     private int _loadLastAppliedId;
     private int _loadLastScheduled;
+    private int _searchVersion;
 
 
     [ObservableProperty] private string _search=string.Empty;
@@ -385,35 +386,25 @@ public class FileTypeFilter
         ShowPinnedItems = PinnedItems.Count > 0;
     }
 
-    // ReSharper disable once RedundantAssignment
     public void ToSearch(string? value)
     {
-        //Log.Debug("搜索开始");
         if (string.IsNullOrEmpty(value))
         {
             LoadLast();
-            
             return;
         }
         ShowPinnedItems = false;
 
         Logger.Debug("搜索变更:" + value);
-        // Items.RaiseListChangedEvents = false;
-
-        #region 清除上次搜索结果
 
         Items.Clear();
         PinnedItems.Clear();
-
-
-        #endregion
 
         ProcessInputData(value, InputDataAnalyzeTimeFlags.InputChanged);
 
         var originalValue = value;
         value = value.ToLowerInvariant();
         var pluginItem = 0;
-
 
         if (originalValue.StartsWith(ConfigManger.Config.everythingSearchPreString) &&
             originalValue.Length > ConfigManger.Config.everythingSearchPreString.Length)
@@ -425,95 +416,121 @@ public class FileTypeFilter
         }
         else
         {
-            #region 从文件索引检索并排序
-
-            var rawResults = Index.Search(value);
-
-            #endregion
-
-            if (rawResults.Count == 0)
-            {
-                return;
-            }
-
-            rawResults.Sort((a, b) => b.Weight.CompareTo(a.Weight));
-
-            var count = 0;
-            const int limit = 100;
-            var resultsToAdd = new List<SearchViewItem>(Math.Min(rawResults.Count, limit));
-
-            foreach (var x in rawResults)
-            {
-                if (ConfigManger.Config.lastOpens.TryGetValue(x.Source.OnlyKey, out _))
-                {
-                    var searchViewItem = x.Source.ToSearchViewItem();
-                    searchViewItem.PinyinItem = x.CharMatchResults;
-                    if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
-                    resultsToAdd.Add(searchViewItem);
-                    count++;
-                    if (count >= limit) break;
-                }
-            }
-
-            if (count < limit)
-            {
-                foreach (var x in rawResults)
-                {
-                    if (ConfigManger.Config.lastOpens.ContainsKey(x.Source.OnlyKey)) continue;
-
-                    var searchViewItem = x.Source.ToSearchViewItem();
-                    searchViewItem.PinyinItem = x.CharMatchResults;
-                    if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
-                    resultsToAdd.Add(searchViewItem);
-                    searchViewItem.Notify();
-                    count++;
-                    if (count >= limit) break;
-                }
-            }
-
-            Items.AddRange(resultsToAdd);
+            var version = Interlocked.Increment(ref _searchVersion);
+            Task.Run(() => SearchInBackground(value, originalValue, version));
         }
+    }
 
+    private void SearchInBackground(string value, string originalValue, int version)
+    {
+        var rawResults = Index.Search(value);
 
-        if (Items.Count <= pluginItem)
+        if (rawResults.Count == 0)
         {
-            Logger.Debug("无搜索项目,添加网页搜索");
-            Items.AddRange(new[]
+            Dispatcher.UIThread.Post(() =>
             {
-                new SearchViewItem
+                if (Volatile.Read(ref _searchVersion) != version) return;
+                if (Items.Count <= 0)
                 {
-                    ItemDisplayName = "将内容添加至便签" + originalValue,
-                    FileType = FileType.便签,
-                    OnlyKey = originalValue,
-                    Icon = null,
-                    IconSymbol = 0xF6EC,
-                    IsVisible = true
-                },
-                new SearchViewItem
-                {
-                    ItemDisplayName = "在网页中搜索" + originalValue,
-                    FileType = FileType.URL,
-                    OnlyKey = "https://www.bing.com/search?q=" + originalValue,
-                    Icon = null,
-                    IconSymbol = 62555,
-                    IsVisible = true
+                    Items.AddRange(new[]
+                    {
+                        new SearchViewItem
+                        {
+                            ItemDisplayName = "将内容添加至便签" + originalValue,
+                            FileType = FileType.便签,
+                            OnlyKey = originalValue,
+                            Icon = null,
+                            IconSymbol = 0xF6EC,
+                            IsVisible = true
+                        },
+                        new SearchViewItem
+                        {
+                            ItemDisplayName = "在网页中搜索" + originalValue,
+                            FileType = FileType.URL,
+                            OnlyKey = "https://www.bing.com/search?q=" + originalValue,
+                            Icon = null,
+                            IconSymbol = 62555,
+                            IsVisible = true
+                        }
+                    });
                 }
             });
+            return;
         }
 
-        Dispatcher.UIThread.Post(() => {
+        rawResults.Sort((a, b) => b.Weight.CompareTo(a.Weight));
+
+        var count = 0;
+        const int limit = 100;
+        var resultsToAdd = new List<SearchViewItem>(Math.Min(rawResults.Count, limit));
+
+        foreach (var x in rawResults)
+        {
+            if (ConfigManger.Config.lastOpens.TryGetValue(x.Source.OnlyKey, out _))
+            {
+                var searchViewItem = x.Source.ToSearchViewItem();
+                searchViewItem.PinyinItem = x.CharMatchResults;
+                if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
+                resultsToAdd.Add(searchViewItem);
+                count++;
+                if (count >= limit) break;
+            }
+        }
+
+        if (count < limit)
+        {
+            foreach (var x in rawResults)
+            {
+                if (ConfigManger.Config.lastOpens.ContainsKey(x.Source.OnlyKey)) continue;
+
+                var searchViewItem = x.Source.ToSearchViewItem();
+                searchViewItem.PinyinItem = x.CharMatchResults;
+                if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
+                resultsToAdd.Add(searchViewItem);
+                searchViewItem.Notify();
+                count++;
+                if (count >= limit) break;
+            }
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (Volatile.Read(ref _searchVersion) != version) return;
+            Items.AddRange(resultsToAdd);
+
+            if (Items.Count <= 0)
+            {
+                Logger.Debug("无搜索项目,添加网页搜索");
+                Items.AddRange(new[]
+                {
+                    new SearchViewItem
+                    {
+                        ItemDisplayName = "将内容添加至便签" + originalValue,
+                        FileType = FileType.便签,
+                        OnlyKey = originalValue,
+                        Icon = null,
+                        IconSymbol = 0xF6EC,
+                        IsVisible = true
+                    },
+                    new SearchViewItem
+                    {
+                        ItemDisplayName = "在网页中搜索" + originalValue,
+                        FileType = FileType.URL,
+                        OnlyKey = "https://www.bing.com/search?q=" + originalValue,
+                        Icon = null,
+                        IconSymbol = 62555,
+                        IsVisible = true
+                    }
+                });
+            }
+
             FileTypes.Clear();
             var fileTypes = Items.Select(e => e.FileType).Distinct();
             foreach (var fileType in fileTypes)
-                FileTypes.Add(new FileTypeFilter
-                {
-                    FileType = fileType,
-                    IsChecked = false
-                });
+                FileTypes.Add(new FileTypeFilter { FileType = fileType, IsChecked = false });
 
             ShowFileTypeFilter = FileTypes.Count > 0;
         });
-        
     }
     
 
