@@ -136,6 +136,7 @@ public class FileTypeFilter
     public void UpdateIndexOnWindowOpen()
     {
         var changed = false;
+        var appendedEntries = new List<SearchEntry>();
         foreach (var (_, analyzers) in PluginOverall.SearchWindowInputDataAnalyzers)
         foreach (var analyzerTuple in analyzers)
         {
@@ -164,7 +165,10 @@ public class FileTypeFilter
                         StartDirectory = item.StartDirectory
                     };
                     if (Index.TryAdd(entry))
+                    {
                         newKeys.Add(item.OnlyKey);
+                        appendedEntries.Add(entry);
+                    }
                 }
 
                 _analyzerIndexedKeys[analyzerTuple] = newKeys;
@@ -173,7 +177,7 @@ public class FileTypeFilter
         }
 
         if (changed)
-            Index.RebuildSearcher();
+            Index.AppendToSearcher(appendedEntries);
     }
     
     public void ReloadApps(bool logging = false)

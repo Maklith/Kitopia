@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Pinyin.NET;
 using PluginCore;
 
@@ -35,7 +37,8 @@ public class SearchIndex
 {
     private readonly Dictionary<string, SearchEntry> _entries = new();
     private readonly object _lock = new();
-    private PinyinSearcher<SearchEntry>? _searcher;
+    private volatile PinyinSearcher<SearchEntry>? _searcher;
+    private int _rebuildVersion;
 
     public int Count
     {
@@ -46,9 +49,7 @@ public class SearchIndex
     {
         lock (_lock)
         {
-            if (!_entries.TryAdd(entry.OnlyKey, entry)) return false;
-            _searcher = null;
-            return true;
+            return _entries.TryAdd(entry.OnlyKey, entry);
         }
     }
 
@@ -56,9 +57,7 @@ public class SearchIndex
     {
         lock (_lock)
         {
-            if (!_entries.Remove(key)) return false;
-            _searcher = null;
-            return true;
+            return _entries.Remove(key);
         }
     }
 
@@ -83,7 +82,6 @@ public class SearchIndex
         lock (_lock)
         {
             _entries.Clear();
-            _searcher = null;
         }
     }
 
@@ -99,37 +97,44 @@ public class SearchIndex
             foreach (var key in keysToRemove)
                 _entries.Remove(key);
 
-            if (keysToRemove.Count > 0)
-                _searcher = null;
-
             return keysToRemove.Count;
-        }
-    }
-
-    private void EnsureSearcherBuilt()
-    {
-        lock (_lock)
-        {
-            if (_searcher is not null) return;
-            _searcher = new PinyinSearcher<SearchEntry>(_entries.Values, e => e.DisplayName);
         }
     }
 
     public void RebuildSearcher()
     {
+        List<SearchEntry> snapshot;
         lock (_lock)
         {
-            _searcher = new PinyinSearcher<SearchEntry>(_entries.Values, e => e.DisplayName);
+            snapshot = new List<SearchEntry>(_entries.Values);
         }
+
+        var version = Interlocked.Increment(ref _rebuildVersion);
+        Task.Run(() =>
+        {
+            var newSearcher = new PinyinSearcher<SearchEntry>(snapshot, e => e.DisplayName);
+            if (_rebuildVersion == version)
+                _searcher = newSearcher;
+        });
+    }
+
+    public void AppendToSearcher(IEnumerable<SearchEntry> entries)
+    {
+        if (_searcher is null)
+        {
+            RebuildSearcher();
+            return;
+        }
+
+        _searcher.AppendLoad(entries, e => e.DisplayName);
     }
 
     public List<SearchResults<SearchEntry>> Search(string query)
     {
-        EnsureSearcherBuilt();
         if (string.IsNullOrWhiteSpace(query)) return [];
 
-        PinyinSearcher<SearchEntry> searcher;
-        lock (_lock) { searcher = _searcher!; }
+        var searcher = _searcher;
+        if (searcher is null) return [];
 
         var results = new List<SearchResults<SearchEntry>>();
         foreach (var r in searcher.Search(query))
