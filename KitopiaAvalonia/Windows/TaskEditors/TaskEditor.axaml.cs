@@ -1,7 +1,9 @@
 ﻿#region
 
 using System;
+using System.Linq;
 using Avalonia;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using CommunityToolkit.Mvvm.Messaging;
 using Core.CustomScenario;
@@ -24,6 +26,7 @@ public partial class TaskEditor : UrsaWindow
     {
         InitializeComponent();
         Editor.AddHandler(DragDrop.DropEvent, NodifyEditor_Drop);
+        this.AddHandler(KeyDownEvent, Editor_KeyDown, RoutingStrategies.Tunnel, true);
         
         // Track pointer position more reliably using Tunneling and handledEventsToo: true
         this.AddHandler(PointerMovedEvent, (sender, args) =>
@@ -61,6 +64,18 @@ public partial class TaskEditor : UrsaWindow
     public void LoadTask(CustomScenario name)
     {
         ((TaskEditorViewModel)DataContext).Load(name);
+    }
+
+    private void Editor_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete) return;
+
+        var vm = (TaskEditorViewModel)DataContext!;
+        foreach (var node in Editor.GetSelectedNode().ToList())
+        {
+            if (node.DataContext is ScenarioNodeBase scenarioNode)
+                vm.DelNodeCommand.Execute(scenarioNode);
+        }
     }
 
     private void NodifyEditor_Drop(object sender, DragEventArgs e)
