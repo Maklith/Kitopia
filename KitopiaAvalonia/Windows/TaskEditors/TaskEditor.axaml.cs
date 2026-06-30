@@ -26,7 +26,7 @@ public partial class TaskEditor : UrsaWindow
     {
         InitializeComponent();
         Editor.AddHandler(DragDrop.DropEvent, NodifyEditor_Drop);
-        this.AddHandler(KeyDownEvent, Editor_KeyDown, RoutingStrategies.Tunnel, true);
+        Editor.AddHandler(KeyDownEvent, Editor_KeyDown);
         
         // Track pointer position more reliably using Tunneling and handledEventsToo: true
         this.AddHandler(PointerMovedEvent, (sender, args) =>
@@ -58,6 +58,7 @@ public partial class TaskEditor : UrsaWindow
     {
         base.OnClosed(e);
         Editor.RemoveHandler(DragDrop.DropEvent, NodifyEditor_Drop);
+        Editor.RemoveHandler(KeyDownEvent, Editor_KeyDown);
         WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 
@@ -78,7 +79,7 @@ public partial class TaskEditor : UrsaWindow
         }
     }
 
-    private void NodifyEditor_Drop(object sender, DragEventArgs e)
+    private void NodifyEditor_Drop(object? sender, DragEventArgs e)
     {
         if (TaskEditorViewModel.CurrentDragPayload is ScenarioMethodNode fromListNode)
         {
