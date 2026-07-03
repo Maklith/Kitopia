@@ -105,7 +105,7 @@ public class FileTypeFilter
         this.WhenAnyValue(e => e.Search)
             .Throttle(TimeSpan.FromMilliseconds(100))
             .DistinctUntilChanged()
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(ToSearch, e => { Logger.Error(e, ""); });
     }
 

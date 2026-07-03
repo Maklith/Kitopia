@@ -30,7 +30,7 @@
 
     <ItemGroup>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-        <PackageReference Include="SharpHook" Version="7.1.1" />
+        <PackageReference Include="SharpHook" Version="7.1.2" />
     </ItemGroup>
 
 

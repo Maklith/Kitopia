@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using ReactiveUI;
 using Core.CustomScenario;
 using Core.Services;
 using Core.Services.Config;
@@ -56,9 +57,12 @@ internal class Program {
     // yet and stuff might break.
     [STAThread]
     public static void Main(string[] args) {
+        ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder()
+            .WithExceptionHandler(new MyCoolObservableExceptionHandler())
+            .WithPlatformServices()
+            .BuildApp();
         ServiceManager.Services = ConfigureServices();
         try {
-            // RxApp.DefaultExceptionHandler = new MyCoolObservableExceptionHandler();
             TaskScheduler.UnobservedTaskException += (_, eventArgs) => { Logger.Error(eventArgs.Exception, "错误"); };
 
             AppDomain.CurrentDomain.UnhandledException += (_, e) => {
