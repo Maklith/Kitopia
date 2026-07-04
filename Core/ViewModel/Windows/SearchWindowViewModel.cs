@@ -97,7 +97,6 @@ public class FileTypeFilter
         Task.Run(() =>
         {
             ReloadApps();
-            LoadLast();
         }).ContinueWith(e =>
         {
             if (e.Exception is not null) Logger.Error(e.Exception, "");
