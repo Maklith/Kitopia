@@ -12,6 +12,225 @@
     <UserControl.Resources>
         <SolidColorBrush x:Key="IncomingBubbleBrush" Color="{DynamicResource SemiBackground2Color}" Opacity="0.9" />
         <SolidColorBrush x:Key="OutgoingBubbleBrush" Color="{DynamicResource SemiBlue5Color}" Opacity="0.86" />
+
+        <DataTemplate x:Key="DefaultChatMessageTemplate" x:DataType="vm:DeviceChatMessageItem">
+            <StackPanel Margin="0,0,0,8">
+                <Border MaxWidth="420" Padding="10"
+                        IsVisible="{Binding IsIncoming}"
+                        Background="{StaticResource IncomingBubbleBrush}"
+                        CornerRadius="10"
+                        HorizontalAlignment="Left">
+                    <StackPanel Spacing="6">
+                        <Image Source="{Binding ImagePreview}"
+                               IsVisible="{Binding HasImage}"
+                               MaxWidth="320" Stretch="Uniform"
+                               Cursor="Hand"
+                               PointerPressed="OnPreviewImagePointerPressed">
+                            <Image.ContextFlyout>
+                                <MenuFlyout>
+                                    <MenuItem Header="放大查看" Click="OnPreviewImageZoomClicked" />
+                                    <MenuItem Header="复制图片"
+                                              Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).CopyImageCommand}"
+                                              CommandParameter="{Binding .}" />
+                                </MenuFlyout>
+                            </Image.ContextFlyout>
+                        </Image>
+                        <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap"
+                                             IsVisible="{Binding HasText}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8"
+                                    IsVisible="{Binding CanHandleIncomingOffer}">
+                            <Button Classes="Primary" Content="接受"
+                                    Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).AcceptIncomingOfferCommand}"
+                                    CommandParameter="{Binding .}" />
+                            <Button Classes="Secondary" Content="拒绝"
+                                    Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).RejectIncomingOfferCommand}"
+                                    CommandParameter="{Binding .}" />
+                        </StackPanel>
+                        <StackPanel Spacing="4" IsVisible="{Binding IsReceiving}">
+                            <ProgressBar Minimum="0" Maximum="1"
+                                         Value="{Binding ReceiveProgress}"
+                                         Height="6" MinWidth="220" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{Binding TimeText}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource SemiColorText2}" />
+                            <TextBlock Text="{Binding StateText}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource SemiColorText2}"
+                                       IsVisible="{Binding HasState}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border MaxWidth="420" Padding="10"
+                        IsVisible="{Binding IsOutgoing}"
+                        Background="{StaticResource OutgoingBubbleBrush}"
+                        CornerRadius="10"
+                        HorizontalAlignment="Right">
+                    <StackPanel Spacing="6">
+                        <Image Source="{Binding ImagePreview}"
+                               IsVisible="{Binding HasImage}"
+                               MaxWidth="320" Stretch="Uniform"
+                               Cursor="Hand"
+                               PointerPressed="OnPreviewImagePointerPressed">
+                            <Image.ContextFlyout>
+                                <MenuFlyout>
+                                    <MenuItem Header="放大查看" Click="OnPreviewImageZoomClicked" />
+                                    <MenuItem Header="复制图片"
+                                              Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).CopyImageCommand}"
+                                              CommandParameter="{Binding .}" />
+                                </MenuFlyout>
+                            </Image.ContextFlyout>
+                        </Image>
+                        <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap"
+                                             IsVisible="{Binding HasText}"
+                                             Foreground="White" />
+                        <StackPanel Spacing="4" IsVisible="{Binding IsReceiving}">
+                            <ProgressBar Minimum="0" Maximum="1"
+                                         Value="{Binding ReceiveProgress}"
+                                         Height="6" MinWidth="220" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{Binding TimeText}"
+                                       FontSize="11"
+                                       Foreground="White" Opacity="0.85" />
+                            <TextBlock Text="{Binding StateText}"
+                                       FontSize="11"
+                                       Foreground="White" Opacity="0.85"
+                                       IsVisible="{Binding HasState}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="FileChatMessageTemplate" x:DataType="vm:FileChatMessageItem">
+            <StackPanel Margin="0,0,0,8">
+                <Border MaxWidth="420" Padding="0"
+                        IsVisible="{Binding IsIncomingFileOffer}"
+                        Background="{StaticResource IncomingBubbleBrush}"
+                        CornerRadius="10"
+                        HorizontalAlignment="Left"
+                        DoubleTapped="OnFileCardDoubleTapped"
+                        Cursor="Hand">
+                    <StackPanel>
+                        <Border Background="{DynamicResource SemiColorFill1}" CornerRadius="8" Padding="12" Margin="8">
+                            <StackPanel Spacing="0">
+                                <Grid ColumnDefinitions="64,*" ColumnSpacing="10">
+                                    <Border Width="64" Height="64" CornerRadius="6"
+                                            Background="{DynamicResource SemiColorFill0}"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Image Source="{Binding FileIcon}" Width="48" Height="48"
+                                               Stretch="Uniform" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding FileName}" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="280" />
+                                        <TextBlock Text="{Binding FileSizeText}"
+                                                   Foreground="{DynamicResource SemiColorText1}"
+                                                   FontSize="{DynamicResource SemiFontSizeSmall}" />
+                                        <ProgressBar Minimum="0" Maximum="1" Value="{Binding ReceiveProgress}"
+                                                     Height="4" IsVisible="{Binding IsReceiving}" />
+                                    </StackPanel>
+                                </Grid>
+                                <StackPanel Spacing="6" Margin="0,8,0,0"
+                                            IsVisible="{Binding CanHandleIncomingOffer}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Classes="Primary" Content="接受"
+                                                Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).AcceptIncomingOfferCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Classes="Secondary" Content="拒绝"
+                                                Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).RejectIncomingOfferCommand}"
+                                                CommandParameter="{Binding .}" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="{Binding StateText}" FontSize="11"
+                                           Foreground="{DynamicResource SemiColorText2}"
+                                           IsVisible="{Binding HasState}"
+                                           Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="12,4,12,8">
+                            <TextBlock Text="{Binding TimeText}" FontSize="11"
+                                       Foreground="{DynamicResource SemiColorText2}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <Border.ContextFlyout>
+                        <MenuFlyout>
+                            <MenuItem Header="打开"
+                                      Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).OpenFileCommand}"
+                                      CommandParameter="{Binding .}" />
+                            <MenuItem Header="另存为..."
+                                      Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).SaveAsFileCommand}"
+                                      CommandParameter="{Binding .}" />
+                            <MenuItem Header="复制文件"
+                                      Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).CopyFileCommand}"
+                                      CommandParameter="{Binding .}" />
+                            <Separator />
+                            <MenuItem Header="取消传输"
+                                      IsVisible="{Binding IsTransferActive}"
+                                      Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).CancelTransferCommand}"
+                                      CommandParameter="{Binding .}" />
+                            <MenuItem Header="查看详情"
+                                      Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).ViewFileDetailsCommand}"
+                                      CommandParameter="{Binding .}" />
+                        </MenuFlyout>
+                    </Border.ContextFlyout>
+                </Border>
+
+                <Border MaxWidth="420" Padding="0"
+                        IsVisible="{Binding IsOutgoing}"
+                        Background="{StaticResource OutgoingBubbleBrush}"
+                        CornerRadius="10"
+                        HorizontalAlignment="Right"
+                        DoubleTapped="OnFileCardDoubleTapped"
+                        Cursor="Hand">
+                    <StackPanel>
+                        <Border Background="#33FFFFFF" CornerRadius="8" Padding="12" Margin="8">
+                            <Grid ColumnDefinitions="64,*" ColumnSpacing="10">
+                                <Border Width="64" Height="64" CornerRadius="6"
+                                        Background="#22FFFFFF"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Image Source="{Binding FileIcon}" Width="48" Height="48"
+                                           Stretch="Uniform" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding FileName}" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" MaxWidth="280"
+                                               Foreground="White" />
+                                    <TextBlock Text="{Binding FileSizeText}"
+                                               Foreground="White" Opacity="0.85"
+                                               FontSize="{DynamicResource SemiFontSizeSmall}" />
+                                    <ProgressBar Minimum="0" Maximum="1" Value="{Binding ReceiveProgress}"
+                                                 Height="4" IsVisible="{Binding IsReceiving}"
+                                                 Foreground="White" />
+                                    <TextBlock Text="{Binding StateText}" FontSize="11"
+                                               Foreground="White" Opacity="0.85"
+                                               IsVisible="{Binding HasState}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="12,4,12,8">
+                            <TextBlock Text="{Binding TimeText}" FontSize="11"
+                                       Foreground="White" Opacity="0.85" />
+                        </StackPanel>
+                    </StackPanel>
+                    <Border.ContextFlyout>
+                        <MenuFlyout>
+                            <MenuItem Header="取消传输"
+                                      IsVisible="{Binding IsTransferActive}"
+                                      Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).CancelTransferCommand}"
+                                      CommandParameter="{Binding .}" />
+                            <MenuItem Header="查看详情"
+                                      Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).ViewFileDetailsCommand}"
+                                      CommandParameter="{Binding .}" />
+                        </MenuFlyout>
+                    </Border.ContextFlyout>
+                </Border>
+            </StackPanel>
+        </DataTemplate>
+
     </UserControl.Resources>
 
     <Grid ColumnDefinitions="320,4,*" Margin="{DynamicResource SemiThicknessBase}">
@@ -114,97 +333,9 @@
                                       VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding CurrentMessages}">
                                 <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:DeviceChatMessageItem">
-                                        <StackPanel Margin="0,0,0,8">
-                                            <Border MaxWidth="420" Padding="10"
-                                                    IsVisible="{Binding IsIncoming}"
-                                                    Background="{StaticResource IncomingBubbleBrush}"
-                                                    CornerRadius="10"
-                                                    HorizontalAlignment="Left">
-                                                <StackPanel Spacing="6">
-                                                    <Image Source="{Binding ImagePreview}"
-                                                           IsVisible="{Binding HasImage}"
-                                                           MaxWidth="320" Stretch="Uniform"
-                                                           Cursor="Hand"
-                                                           PointerPressed="OnPreviewImagePointerPressed">
-                                                        <Image.ContextFlyout>
-                                                            <MenuFlyout>
-                                                                <MenuItem Header="放大查看" Click="OnPreviewImageZoomClicked" />
-                                                                <MenuItem Header="复制图片"
-                                                                          Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).CopyImageCommand}"
-                                                                          CommandParameter="{Binding .}" />
-                                                            </MenuFlyout>
-                                                        </Image.ContextFlyout>
-                                                    </Image>
-                                                    <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap"
-                                                                         IsVisible="{Binding HasText}" />
-                                                    <StackPanel Orientation="Horizontal" Spacing="8"
-                                                                IsVisible="{Binding CanHandleIncomingOffer}">
-                                                        <Button Classes="Primary" Content="接受"
-                                                                Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).AcceptIncomingOfferCommand}"
-                                                                CommandParameter="{Binding .}" />
-                                                        <Button Classes="Secondary" Content="拒绝"
-                                                                Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).RejectIncomingOfferCommand}"
-                                                                CommandParameter="{Binding .}" />
-                                                    </StackPanel>
-                                                    <StackPanel Spacing="4" IsVisible="{Binding IsReceiving}">
-                                                        <ProgressBar Minimum="0" Maximum="1"
-                                                                     Value="{Binding ReceiveProgress}"
-                                                                     Height="6" MinWidth="220" />
-                                                    </StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                                        <TextBlock Text="{Binding TimeText}"
-                                                                   FontSize="11"
-                                                                   Foreground="{DynamicResource SemiColorText2}" />
-                                                        <TextBlock Text="{Binding StateText}"
-                                                                   FontSize="11"
-                                                                   Foreground="{DynamicResource SemiColorText2}"
-                                                                   IsVisible="{Binding HasState}" />
-                                                    </StackPanel>
-                                                </StackPanel>
-                                            </Border>
-
-                                            <Border MaxWidth="420" Padding="10"
-                                                    IsVisible="{Binding IsOutgoing}"
-                                                    Background="{StaticResource OutgoingBubbleBrush}"
-                                                    CornerRadius="10"
-                                                    HorizontalAlignment="Right">
-                                                <StackPanel Spacing="6">
-                                                    <Image Source="{Binding ImagePreview}"
-                                                           IsVisible="{Binding HasImage}"
-                                                           MaxWidth="320" Stretch="Uniform"
-                                                           Cursor="Hand"
-                                                           PointerPressed="OnPreviewImagePointerPressed">
-                                                        <Image.ContextFlyout>
-                                                            <MenuFlyout>
-                                                                <MenuItem Header="放大查看" Click="OnPreviewImageZoomClicked" />
-                                                                <MenuItem Header="复制图片"
-                                                                          Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).CopyImageCommand}"
-                                                                          CommandParameter="{Binding .}" />
-                                                            </MenuFlyout>
-                                                        </Image.ContextFlyout>
-                                                    </Image>
-                                                    <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap"
-                                                                         IsVisible="{Binding HasText}"
-                                                                         Foreground="White" />
-                                                    <StackPanel Spacing="4" IsVisible="{Binding IsReceiving}">
-                                                        <ProgressBar Minimum="0" Maximum="1"
-                                                                     Value="{Binding ReceiveProgress}"
-                                                                     Height="6" MinWidth="220" />
-                                                    </StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                                        <TextBlock Text="{Binding TimeText}"
-                                                                   FontSize="11"
-                                                                   Foreground="White" Opacity="0.85" />
-                                                        <TextBlock Text="{Binding StateText}"
-                                                                   FontSize="11"
-                                                                   Foreground="White" Opacity="0.85"
-                                                                   IsVisible="{Binding HasState}" />
-                                                    </StackPanel>
-                                                </StackPanel>
-                                            </Border>
-                                        </StackPanel>
-                                    </DataTemplate>
+                                    <controls:ChatMessageTemplateSelector
+                                        DefaultMessageTemplate="{StaticResource DefaultChatMessageTemplate}"
+                                        FileMessageTemplate="{StaticResource FileChatMessageTemplate}" />
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>

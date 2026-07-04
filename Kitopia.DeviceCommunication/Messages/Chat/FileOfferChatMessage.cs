@@ -6,5 +6,6 @@ public sealed record FileOfferChatMessage(
     string FileName,
     long SizeBytes,
     string? ContentType,
-    string? Hash = null)
+    string? Hash = null,
+    byte[]? IconPng = null)
     : AppMessage(ConversationId);

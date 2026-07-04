@@ -96,6 +96,8 @@ public sealed class MessageCodecRegistry
                 metadata["fileName"] = message.FileName;
                 metadata["sizeBytes"] = message.SizeBytes.ToString();
                 metadata["hash"] = message.Hash;
+                if (message.IconPng is { Length: > 0 })
+                    metadata["iconPng"] = Convert.ToBase64String(message.IconPng);
             });
         return true;
     }
@@ -188,13 +190,22 @@ public sealed class MessageCodecRegistry
         }
 
         TryParseLong(GetMetadata(envelope, "sizeBytes"), out var sizeBytes);
+        var iconPngStr = GetMetadata(envelope, "iconPng");
+        byte[]? iconPng = null;
+        if (!string.IsNullOrWhiteSpace(iconPngStr))
+        {
+            try { iconPng = Convert.FromBase64String(iconPngStr); }
+            catch { /* ignore invalid icon data */ }
+        }
+
         message = new FileOfferChatMessage(
             conversationId,
             envelope.ChannelId,
             fileName,
             sizeBytes,
             envelope.ContentType,
-            GetMetadata(envelope, "hash"));
+            GetMetadata(envelope, "hash"),
+            iconPng);
         return true;
     }
 

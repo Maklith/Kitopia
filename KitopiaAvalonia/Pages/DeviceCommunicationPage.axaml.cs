@@ -117,6 +117,13 @@ public partial class DeviceCommunicationPage : UserControl
         }
     }
 
+    private void OnFileCardDoubleTapped(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_boundViewModel?.OpenFileCommand is null) return;
+        if (sender is not Border { DataContext: FileChatMessageItem item } || !item.HasLocalFile) return;
+        _boundViewModel.OpenFileCommand.Execute(item);
+    }
+
     private void OnPreviewImagePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Control { DataContext: DeviceChatMessageItem messageItem })

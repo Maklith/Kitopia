@@ -1,4 +1,7 @@
+using System.Drawing.Imaging;
+using Avalonia.Threading;
 using Core.Services.Interfaces;
+using Core.Utils;
 using Core.Window.Everything;
 using Pinyin.NET;
 using PluginCore;
@@ -42,6 +45,49 @@ public class AppToolService : IAppToolService
     public void LoadIcon(CustomScenario.CustomScenario item)
     {
         IconTools.GetIconByItem(item);
+    }
+
+    public void LoadIcon(string filePath, Action<Avalonia.Media.Imaging.Bitmap?> callback)
+    {
+        Task.Run(() =>
+        {
+            try
+            {
+                using var icon = IconTools.GetIconFromImageList(filePath);
+                if (icon is null)
+                {
+                    Dispatcher.UIThread.InvokeAsync(() => callback(null));
+                    return;
+                }
+
+                using var bm = icon.ToBitmap();
+                var resized = new System.Drawing.Bitmap(bm, new System.Drawing.Size(64, 64));
+                var avaloniaBitmap = resized.ToAvaloniaBitmap();
+                Dispatcher.UIThread.InvokeAsync(() => callback(avaloniaBitmap));
+            }
+            catch
+            {
+                Dispatcher.UIThread.InvokeAsync(() => callback(null));
+            }
+        });
+    }
+
+    public byte[]? GetFileIconPng(string filePath)
+    {
+        try
+        {
+            using var icon = IconTools.GetIconFromImageList(filePath);
+            if (icon is null) return null;
+            using var bm = icon.ToBitmap();
+            using var resized = new System.Drawing.Bitmap(bm, new System.Drawing.Size(64, 64));
+            using var ms = new MemoryStream();
+            resized.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+            return ms.ToArray();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public PinyinItem GetPinyin(string input)

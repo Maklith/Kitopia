@@ -1,10 +1,16 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Net;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
@@ -15,7 +21,9 @@ using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Messages.Chat;
+using Core.Services.Interfaces;
 using Core.ViewModel.Main;
+using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
 using Serilog;
@@ -34,13 +42,14 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private readonly DispatcherTimer _messageListAutoScrollTimer;
     private readonly Dictionary<string, DeviceConversationItem> _conversationLookup = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DeviceModel> _trackedDevices = new(StringComparer.Ordinal);
-    private readonly ObservableCollection<DeviceChatMessageItem> _emptyMessages = [];
+    private readonly ObservableCollection<object> _emptyMessages = [];
+    private readonly Dictionary<Guid, CancellationTokenSource> _fileSendCancellations = new();
     private int _messageListVersion;
     private bool _disposed;
 
     public ObservableCollection<DeviceConversationItem> Conversations { get; } = [];
 
-    public ObservableCollection<DeviceChatMessageItem> CurrentMessages =>
+    public ObservableCollection<object> CurrentMessages =>
         SelectedConversation?.Messages ?? _emptyMessages;
 
     public string CurrentConversationTitle => SelectedConversation?.DisplayName ?? "设备聊天";
@@ -149,8 +158,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     private async Task SendFileToConversationAsync(DeviceConversationItem conversation, FileChatMessage message,
-        Stream stream) {
-        await _messageAppService.SendFileChatAsync(conversation.DeviceId, message, stream);
+        Stream stream, CancellationToken cancellationToken = default) {
+        await _messageAppService.SendFileChatAsync(conversation.DeviceId, message, stream, cancellationToken);
     }
 
     private async Task RunReceiveLoopAsync(CancellationToken token) {
@@ -164,12 +173,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                         OnImageMessageReceived(imageMessage, chatEvent.PayloadBytes, evt.TimestampUtc);
                         break;
                     case FileTransferUpdatedEvent { Status: FileTransferStatus.WaitingForAccept } transferEvent:
-                        OnFileOfferReceived(new FileOfferChatMessage(
-                            transferEvent.ConversationId,
-                            transferEvent.TransferId,
-                            transferEvent.FileName ?? transferEvent.TransferId.ToString("D"),
-                            transferEvent.TotalBytes ?? 0,
-                            null));
+                        OnFileOfferReceived(transferEvent);
                         break;
                     case FileTransferUpdatedEvent { Status: FileTransferStatus.Accepted } transferEvent:
                         OnFileTransferAccepted(transferEvent);
@@ -179,6 +183,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                         break;
                     case FileTransferUpdatedEvent { Status: FileTransferStatus.Completed } transferEvent:
                         OnFileTransferCompleted(transferEvent);
+                        break;
+                    case FileTransferUpdatedEvent { Status: FileTransferStatus.Delivered } deliveredEvent:
+                        OnFileTransferDelivered(deliveredEvent);
                         break;
                     case FileTransferUpdatedEvent transferEvent:
                         OnFileTransferRejected(transferEvent);
@@ -261,7 +268,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         if (_clipboardService.HasFiles()) {
-            await SendFilesAsync(conversation, _clipboardService.GetFiles(), errors);
+            SendFilesAsync(conversation, _clipboardService.GetFiles(), errors);
         }
 
         if (errors.Count > 0) {
@@ -283,64 +290,94 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         var errors = new List<string>();
-        await SendFilesAsync(conversation, filePaths, errors);
-
-        if (errors.Count > 0) {
-            _toastService.Show("设备聊天", $"发送文件部分失败: {string.Join(";", errors)}",
-                NotificationType.Warning);
-        }
+        SendFilesAsync(conversation, filePaths, errors);
     }
 
-    private async Task SendFilesAsync(DeviceConversationItem conversation, IReadOnlyCollection<string> filePaths,
+    private void SendFilesAsync(DeviceConversationItem conversation, IReadOnlyCollection<string> filePaths,
         List<string> errors) {
         foreach (var filePath in filePaths) {
-            try {
-                if (!File.Exists(filePath)) {
-                    continue;
-                }
+            if (!File.Exists(filePath)) continue;
 
-                var fileInfo = new FileInfo(filePath);
-                var fileMessage = new FileChatMessage(
-                    conversation.DeviceId,
-                    Guid.NewGuid(),
-                    fileInfo.Name,
-                    fileInfo.Length);
-                var fileBubble = DeviceChatMessageItem.CreateFile(fileInfo.Name, fileInfo.Length, isOutgoing: true,
-                    DateTimeOffset.Now);
-                fileBubble.TrackingTransferId = fileMessage.ChannelId;
-                fileBubble.IsReceiving = true;
-                fileBubble.ReceiveProgress = 0d;
-                fileBubble.IsPending = true;
-                conversation.Messages.Add(fileBubble);
-                conversation.SetLastMessage($"[文件] {fileInfo.Name}", fileBubble.Timestamp);
-                SortConversations();
-                RequestMessageListAutoScroll();
+            var fileInfo = new FileInfo(filePath);
+            var appTool = ServiceManager.Services.GetService<IAppToolService>();
+            var transferId = Guid.NewGuid();
 
-                await using var fileStream = File.OpenRead(filePath);
-                try {
-                    await SendFileToConversationAsync(conversation, fileMessage, fileStream);
-                    fileBubble.IsReceiving = false;
-                    fileBubble.ReceiveProgress = 1d;
-                    fileBubble.IsPending = false;
-                    fileBubble.IsFailed = false;
+            var fileMessage = new FileChatMessage(
+                conversation.DeviceId,
+                transferId,
+                fileInfo.Name,
+                fileInfo.Length);
+            var fileBubble = new FileChatMessageItem(fileInfo.Name, fileInfo.Length, isOutgoing: true,
+                DateTimeOffset.Now)
+            {
+                ConversationId = conversation.DeviceId,
+                TrackingTransferId = transferId,
+                LocalFilePath = filePath
+            };
+            conversation.Messages.Add(fileBubble);
+
+            appTool?.LoadIcon(filePath, bmp =>
+            {
+                fileBubble.FileIcon = bmp;
+            });
+
+            conversation.SetLastMessage($"[文件] {fileInfo.Name}", fileBubble.Timestamp);
+
+            var cts = new CancellationTokenSource();
+            lock (_fileSendCancellations) { _fileSendCancellations[transferId] = cts; }
+
+            var capturedPath = filePath;
+            var capturedBubble = fileBubble;
+            var capturedConversation = conversation;
+            var capturedToken = cts.Token;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var iconPng = appTool?.GetFileIconPng(capturedPath);
+                    var msgWithIcon = new FileChatMessage(
+                        capturedConversation.DeviceId,
+                        transferId,
+                        fileInfo.Name,
+                        fileInfo.Length,
+                        iconPng);
+                    await using var fs = File.OpenRead(capturedPath);
+                    await SendFileToConversationAsync(capturedConversation, msgWithIcon, fs, capturedToken);
+                    ExecuteOnUiThread(() =>
+                    {
+                        capturedBubble.IsPending = false;
+                        capturedBubble.IsReceiving = false;
+                        capturedBubble.ReceiveProgress = 1d;
+                        capturedBubble.IsFailed = false;
+                    });
                 }
-                catch (Exception ex) {
-                    MarkOutgoingFileSendFailed(fileBubble, ex.Message);
-                    throw;
+                catch (Exception ex)
+                {
+                    if (capturedToken.IsCancellationRequested) return;
+                    ExecuteOnUiThread(() =>
+                    {
+                        capturedBubble.IsPending = false;
+                        capturedBubble.IsFailed = true;
+                    });
+                    lock (errors)
+                    {
+                        errors.Add($"file:{Path.GetFileName(capturedPath)}:{ex.Message}");
+                    }
                 }
-            }
-            catch (Exception ex) {
-                if (ex is not InvalidOperationException ||
-                    (ex.Message != "对方已拒绝接收文件。" && ex.Message != "文件发送超时，请稍后重试。" && ex.Message != "文件传输请求未送达，请稍后重试。")) {
-                    errors.Add($"file:{Path.GetFileName(filePath)}:{ex.Message}");
-                    ShowPersistentFileSendErrorToast($"文件发送失败：{Path.GetFileName(filePath)} ({ex.Message})");
+                finally
+                {
+                    lock (_fileSendCancellations) { _fileSendCancellations.Remove(transferId); }
+                    cts.Dispose();
                 }
-            }
+            });
         }
+
+        SortConversations();
+        RequestMessageListAutoScroll();
     }
 
     [RelayCommand]
-    private async Task AcceptIncomingOfferAsync(DeviceChatMessageItem? messageItem) {
+    private async Task AcceptIncomingOfferAsync(FileChatMessageItem? messageItem) {
         if (messageItem is not { CanHandleIncomingOffer: true, TrackingTransferId: { } transferId } offer) {
             return;
         }
@@ -360,7 +397,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             offer.IsHandled = true;
             offer.IsReceiving = true;
             offer.ReceiveProgress = 0d;
-            offer.Text = $"[文件] 接收中 {offer.FileName}";
+            offer.LocalFilePath = savePath;
             conversation.SetLastMessage($"[文件] {offer.FileName}", DateTimeOffset.Now);
             SortConversations();
         }
@@ -370,7 +407,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     [RelayCommand]
-    private async Task RejectIncomingOfferAsync(DeviceChatMessageItem? messageItem) {
+    private async Task RejectIncomingOfferAsync(FileChatMessageItem? messageItem) {
         if (messageItem is not { CanHandleIncomingOffer: true, TrackingTransferId: { } transferId } offer) {
             return;
         }
@@ -383,7 +420,6 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         try {
             await _messageAppService.RejectFileAsync(conversation.DeviceId, transferId, "rejected_by_user");
             offer.IsHandled = true;
-            offer.Text = $"[文件] 拒绝 {offer.FileName}";
             conversation.SetLastMessage($"[文件] {offer.FileName}", DateTimeOffset.Now);
             SortConversations();
         }
@@ -421,6 +457,97 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         return messageItem?.ImageBytes is { Length: > 0 };
     }
 
+    [RelayCommand]
+    private void OpenFile(FileChatMessageItem? item)
+    {
+        if (item?.HasLocalFile != true) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(item.LocalFilePath!) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "打开文件失败");
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveAsFileAsync(FileChatMessageItem? item)
+    {
+        if (item?.LocalFilePath is null) return;
+        var topLevel = TopLevel.GetTopLevel(
+            Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null);
+        if (topLevel is null) return;
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            SuggestedFileName = item.FileName
+        });
+        if (file is null) return;
+        await using var src = File.OpenRead(item.LocalFilePath);
+        await using var dst = await file.OpenWriteAsync();
+        await src.CopyToAsync(dst);
+    }
+
+    [RelayCommand]
+    private async Task CopyFileAsync(FileChatMessageItem? item)
+    {
+        if (item?.LocalFilePath is null) return;
+        try
+        {
+            var topLevel = TopLevel.GetTopLevel(
+                Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+                    ? desktop.MainWindow
+                    : null);
+            if (topLevel?.Clipboard is null) return;
+            await topLevel.Clipboard.SetTextAsync(item.LocalFilePath);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "复制文件失败");
+        }
+    }
+
+    [RelayCommand]
+    private void CancelTransfer(FileChatMessageItem? item)
+    {
+        if (item?.TrackingTransferId is null) return;
+
+        var transferId = item.TrackingTransferId.Value;
+        lock (_fileSendCancellations)
+        {
+            if (_fileSendCancellations.TryGetValue(transferId, out var cts))
+            {
+                cts.Cancel();
+            }
+        }
+
+        var deviceId = SelectedConversation?.DeviceId ?? item.ConversationId;
+        if (!string.IsNullOrWhiteSpace(deviceId))
+            _ = _messageAppService.CancelTransferAsync(deviceId, transferId, "user_cancelled");
+        item.IsFailed = true;
+        item.IsReceiving = false;
+        item.IsHandled = true;
+    }
+
+    [RelayCommand]
+    private void ViewFileDetails(FileChatMessageItem? item)
+    {
+        if (item is null) return;
+        var topLevel = TopLevel.GetTopLevel(
+            Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null);
+        var details = $"文件名：{item.FileName}\n大小：{item.FileSizeText}\n路径：{item.LocalFilePath ?? "暂无"}\n状态：{item.StateText}";
+        _toastService.Show(new ToastRequest
+        {
+            Header = "文件详情",
+            Text = details,
+            AutoCloseDelay = null
+        }, topLevel as Avalonia.Controls.Window);
+    }
+
     private void ExecuteOnUiThread(Action action) {
         if (_disposed) {
             return;
@@ -443,13 +570,22 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         return conversation is not null;
     }
 
-    private DeviceChatMessageItem? FindOutgoingTransferItem(DeviceConversationItem conversation, Guid transferId) {
-        return conversation.Messages.FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == transferId);
+    private static FileChatMessageItem? FindOutgoingFileItem(DeviceConversationItem conversation, Guid transferId)
+    {
+        return conversation.Messages.OfType<FileChatMessageItem>()
+            .FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == transferId);
     }
 
-    private DeviceChatMessageItem? FindIncomingOfferItem(DeviceConversationItem conversation, Guid transferId) {
-        return conversation.Messages
-            .FirstOrDefault(item => item.IsIncomingFileOffer && item.TrackingTransferId == transferId);
+    private static FileChatMessageItem? FindIncomingFileItem(DeviceConversationItem conversation, Guid transferId)
+    {
+        return conversation.Messages.OfType<FileChatMessageItem>()
+            .FirstOrDefault(item => !item.IsOutgoing && item.IsIncomingFileOffer && item.TrackingTransferId == transferId);
+    }
+
+    private static FileChatMessageItem? FindFileItemByTransferId(DeviceConversationItem conversation, Guid transferId)
+    {
+        return conversation.Messages.OfType<FileChatMessageItem>()
+            .FirstOrDefault(item => item.TrackingTransferId == transferId);
     }
 
     private void OnDiscoveredDevicesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) {
@@ -540,163 +676,96 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         });
     }
 
-    private void OnFileOfferReceived(FileOfferChatMessage message) {
-        if (_disposed) {
-            return;
-        }
+    private void OnFileOfferReceived(FileTransferUpdatedEvent message) {
+        if (_disposed) return;
 
         ExecuteOnUiThread(() => {
-            var senderId = message.ConversationId;
-            if (!TryGetConversation(senderId, out var conversation)) {
-                Logger.Debug("Drop file offer because sender is unknown. SenderId={SenderId}", senderId);
-                return;
+            if (!TryGetConversation(message.ConversationId, out var conversation)) return;
+
+            var fileBubble = new FileChatMessageItem(
+                message.FileName ?? "未知文件",
+                message.TotalBytes ?? 0,
+                isOutgoing: false,
+                message.TimestampUtc.ToLocalTime())
+            {
+                ConversationId = message.ConversationId,
+                TrackingTransferId = message.TransferId,
+                IsIncomingFileOffer = true
+            };
+
+            if (message.IconPng is { Length: > 0 })
+            {
+                try
+                {
+                    using var ms = new MemoryStream(message.IconPng);
+                    fileBubble.FileIcon = new Avalonia.Media.Imaging.Bitmap(ms);
+                }
+                catch { /* fall back to extension-based icon */ }
             }
 
-            var timestamp = DateTimeOffset.Now;
-            var offerMessage = DeviceChatMessageItem.CreateIncomingFileOffer(
-                message.ConversationId,
-                message.TransferId,
-                message.FileName,
-                message.SizeBytes,
-                timestamp);
-            conversation.Messages.Add(offerMessage);
-            conversation.SetLastMessage($"[文件] {message.FileName}", timestamp);
-
-            if (!IsForegroundCurrentConversation(conversation)) {
-                conversation.UnreadCount++;
+            if (fileBubble.FileIcon is null)
+            {
+                var ext = !string.IsNullOrWhiteSpace(message.FileName)
+                    ? Path.GetExtension(message.FileName)
+                    : null;
+                if (ext is not null)
+                {
+                    ServiceManager.Services.GetService<IAppToolService>()?.LoadIcon(
+                        $"file{ext}", bmp => fileBubble.FileIcon = bmp);
+                }
             }
 
+            conversation.Messages.Add(fileBubble);
+            conversation.SetLastMessage($"[文件] {message.FileName}", fileBubble.Timestamp);
             SortConversations();
             RequestMessageListAutoScroll();
         });
-    }
-
-    private void OnFileTransferCompleted(FileCompleteChatMessage message, DateTimeOffset timestampUtc) {
-        OnFileTransferCompleted(new FileTransferUpdatedEvent(
-            message.ConversationId,
-            message.TransferId,
-            FileTransferDirection.Download,
-            FileTransferStatus.Completed,
-            null,
-            null,
-            null,
-            null,
-            timestampUtc));
     }
 
     private void OnFileTransferCompleted(FileTransferUpdatedEvent message) {
-        if (_disposed) {
-            return;
-        }
-
+        if (_disposed) return;
         ExecuteOnUiThread(() => {
-            if (!TryGetConversation(message.ConversationId, out var conversation)) {
-                return;
-            }
+            if (!TryGetConversation(message.ConversationId, out var conversation)) return;
 
-            var offerItem = FindIncomingOfferItem(conversation, message.TransferId);
-            if (offerItem is not null) {
-                offerItem.ReceiveProgress = 1d;
-                offerItem.IsReceiving = false;
-                offerItem.ResetTransferSpeed();
-                offerItem.Text = $"[文件] Received {offerItem.FileName}";
-                offerItem.IsHandled = true;
-                offerItem.IsPending = false;
-            }
-            else {
-                var outgoingItem = FindOutgoingTransferItem(conversation, message.TransferId);
-                if (outgoingItem is not null) {
-                    outgoingItem.ReceiveProgress = 1d;
-                    outgoingItem.IsReceiving = false;
-                    outgoingItem.ResetTransferSpeed();
-                    outgoingItem.IsPending = false;
-                    outgoingItem.IsFailed = false;
+            var fileItem = FindFileItemByTransferId(conversation, message.TransferId);
+            if (fileItem is not null)
+            {
+                fileItem.ReceiveProgress = 1d;
+                fileItem.IsReceiving = false;
+                fileItem.ResetTransferSpeed();
+                fileItem.IsHandled = true;
+                fileItem.IsPending = false;
+
+                // Refresh icon from actual saved file
+                if (!string.IsNullOrWhiteSpace(fileItem.LocalFilePath) && File.Exists(fileItem.LocalFilePath))
+                {
+                    ServiceManager.Services.GetService<IAppToolService>()?.LoadIcon(
+                        fileItem.LocalFilePath, bmp => fileItem.FileIcon = bmp);
                 }
             }
 
-            var timestamp = message.TimestampUtc.ToLocalTime();
-            conversation.SetLastMessage("[文件] Received", timestamp);
+            conversation.SetLastMessage("[文件] 已完成", message.TimestampUtc.ToLocalTime());
             SortConversations();
             RequestMessageListAutoScroll();
         });
     }
 
-    private void OnFileTransferRejected(FileRejectChatMessage message, DateTimeOffset timestampUtc) {
-        OnFileTransferRejected(new FileTransferUpdatedEvent(
-            message.ConversationId,
-            message.TransferId,
-            FileTransferDirection.Upload,
-            message.Reason switch {
-                "timeout" => FileTransferStatus.Timeout,
-                "rejected_by_peer" or "rejected_by_user" => FileTransferStatus.Rejected,
-                _ => FileTransferStatus.Failed
-            },
-            null,
-            null,
-            null,
-            message.Reason,
-            timestampUtc));
-    }
-
     private void OnFileTransferRejected(FileTransferUpdatedEvent message) {
-        if (_disposed) {
-            return;
-        }
-
+        if (_disposed) return;
         ExecuteOnUiThread(() => {
-            if (!TryGetConversation(message.ConversationId, out var conversation)) {
-                return;
-            }
+            if (!TryGetConversation(message.ConversationId, out var conversation)) return;
 
-            var offerItem = FindIncomingOfferItem(conversation, message.TransferId);
-            if (offerItem is not null) {
-                offerItem.ReceiveProgress = 0d;
-                offerItem.IsReceiving = false;
-                offerItem.ResetTransferSpeed();
-                offerItem.Text = message.Reason switch {
-                    "rejected_by_peer" or "rejected_by_user" => $"[文件] 对方已拒绝 {offerItem.FileName}",
-                    "timeout" => $"[文件] 发送超时 {offerItem.FileName}",
-                    _ => $"[文件] 接收失败 {offerItem.FileName}"
-                };
-                offerItem.IsHandled = true;
-                offerItem.IsPending = false;
-            }
-            else {
-                var outgoingItem = FindOutgoingTransferItem(conversation, message.TransferId);
-                if (outgoingItem is not null) {
-                    outgoingItem.ReceiveProgress = 0d;
-                    outgoingItem.IsReceiving = false;
-                    outgoingItem.ResetTransferSpeed();
-                    outgoingItem.IsPending = false;
-                    outgoingItem.IsFailed = true;
-                    outgoingItem.Text = message.Reason switch {
-                        "rejected_by_peer" or "rejected_by_user" => $"[文件] 对方已拒绝 {outgoingItem.FileName}",
-                        "timeout" => $"[文件] 发送超时 {outgoingItem.FileName}",
-                        "missing_accept_session" => $"[文件] 对方接收会话异常 {outgoingItem.FileName}",
-                        "receive_failed" => $"[文件] 对方接收失败 {outgoingItem.FileName}",
-                        _ => $"[文件] 发送失败 {outgoingItem.FileName}"
-                    };
+            var fileItem = FindFileItemByTransferId(conversation, message.TransferId);
+            if (fileItem is null) return;
 
-                    var rejectToastText = message.Reason switch {
-                        "rejected_by_peer" or "rejected_by_user" => $"对方已拒绝接收文件：{outgoingItem.FileName}",
-                        "timeout" => $"文件发送超时：{outgoingItem.FileName}",
-                        "offer_not_received" => $"文件传输请求未送达：{outgoingItem.FileName}",
-                        "missing_accept_session" => $"对方接收会话异常：{outgoingItem.FileName}",
-                        "receive_failed" => $"对方接收失败：{outgoingItem.FileName}",
-                        _ => string.IsNullOrWhiteSpace(message.Reason)
-                            ? $"文件发送失败：{outgoingItem.FileName}"
-                            : $"文件发送失败：{outgoingItem.FileName} ({message.Reason})"
-                    };
-                    ShowPersistentFileSendErrorToast(rejectToastText);
-                }
-            }
+            fileItem.ReceiveProgress = 0d;
+            fileItem.IsReceiving = false;
+            fileItem.ResetTransferSpeed();
+            fileItem.IsPending = false;
+            fileItem.IsFailed = true;
+            fileItem.IsHandled = true;
 
-            var timestamp = message.TimestampUtc.ToLocalTime();
-            conversation.SetLastMessage(message.Reason switch {
-                "rejected_by_peer" or "rejected_by_user" => "[文件] 对方已拒绝",
-                "timeout" => "[文件] 发送超时",
-                _ => "[文件] 接收失败"
-            }, timestamp);
+            conversation.SetLastMessage("[文件] 传输失败", message.TimestampUtc.ToLocalTime());
             SortConversations();
             RequestMessageListAutoScroll();
         });
@@ -720,103 +789,60 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     private void OnFileTransferAccepted(FileTransferUpdatedEvent message) {
-        if (_disposed) {
-            return;
-        }
-
+        if (_disposed) return;
         ExecuteOnUiThread(() => {
-            if (!TryGetConversation(message.ConversationId, out var conversation)) {
-                return;
-            }
+            if (!TryGetConversation(message.ConversationId, out var conversation)) return;
 
-            var outgoingItem = FindOutgoingTransferItem(conversation, message.TransferId);
-            if (outgoingItem is not null) {
+            var outgoingItem = FindOutgoingFileItem(conversation, message.TransferId);
+            if (outgoingItem is not null)
+            {
+                outgoingItem.IsWaitingForAccept = false;
                 outgoingItem.IsPending = false;
                 outgoingItem.IsFailed = false;
                 outgoingItem.IsReceiving = true;
-                outgoingItem.Text = $"[文件] 对方已同意，开始发送 {outgoingItem.FileName}";
             }
 
-            var timestamp = message.TimestampUtc.ToLocalTime();
-            conversation.SetLastMessage("[文件] 对方已同意接收", timestamp);
+            conversation.SetLastMessage("[文件] 对方已同意接收", message.TimestampUtc.ToLocalTime());
             SortConversations();
             RequestMessageListAutoScroll();
         });
     }
 
-    private void OnFileTransferProgress(FileTransferUpdatedEvent message) {
-        if (_disposed) {
-            return;
-        }
-
+    private void OnFileTransferDelivered(FileTransferUpdatedEvent message) {
+        if (_disposed) return;
         ExecuteOnUiThread(() => {
-            if (!TryGetConversation(message.ConversationId, out var conversation)) {
-                return;
+            if (!TryGetConversation(message.ConversationId, out var conversation)) return;
+
+            var outgoingItem = FindOutgoingFileItem(conversation, message.TransferId);
+            if (outgoingItem is not null)
+            {
+                outgoingItem.IsOfferDelivered = true;
+                outgoingItem.IsWaitingForAccept = true;
             }
-
-            var offerItem = FindIncomingOfferItem(conversation, message.TransferId);
-            if (offerItem is not null) {
-                var transferred = Math.Max(0L, message.BytesTransferred ?? 0L);
-                var total = Math.Max(1L, message.TotalBytes ?? offerItem.FileSizeBytes);
-                var progress = Math.Clamp((double)transferred / total, 0d, 1d);
-                offerItem.IsReceiving = true;
-                offerItem.ReceiveProgress = progress;
-                offerItem.UpdateTransferSpeed(transferred, message.TimestampUtc);
-                offerItem.Text = $"[文件] Receiving {offerItem.FileName}";
-
-                var timestamp = message.TimestampUtc.ToLocalTime();
-                conversation.SetLastMessage($"[文件] {offerItem.FileName} ({progress * 100:0.0}%)", timestamp);
-                RequestMessageListAutoScroll();
-                return;
-            }
-
-            var fallbackIncoming = conversation.Messages
-                .FirstOrDefault(item => item.IsIncoming && item.TrackingTransferId == message.TransferId);
-            if (fallbackIncoming is not null) {
-                var transferredFallback = Math.Max(0L, message.BytesTransferred ?? 0L);
-                var totalFallback = Math.Max(1L, message.TotalBytes ?? fallbackIncoming.FileSizeBytes);
-                var progressFallback = Math.Clamp((double)transferredFallback / totalFallback, 0d, 1d);
-                fallbackIncoming.IsReceiving = true;
-                fallbackIncoming.ReceiveProgress = progressFallback;
-                fallbackIncoming.UpdateTransferSpeed(transferredFallback, message.TimestampUtc);
-                fallbackIncoming.Text = $"[文件] Receiving {fallbackIncoming.FileName}";
-
-                var timestampFallback = message.TimestampUtc.ToLocalTime();
-                conversation.SetLastMessage($"[文件] {fallbackIncoming.FileName} ({progressFallback * 100:0.0}%)",
-                    timestampFallback);
-                RequestMessageListAutoScroll();
-                return;
-            }
-
-            var outgoingItem = FindOutgoingTransferItem(conversation, message.TransferId);
-            if (outgoingItem is null) {
-                return;
-            }
-
-            var transferredOut = Math.Max(0L, message.BytesTransferred ?? 0L);
-            var totalOut = Math.Max(1L, message.TotalBytes ?? outgoingItem.FileSizeBytes);
-            var progressOut = Math.Clamp((double)transferredOut / totalOut, 0d, 1d);
-            outgoingItem.IsReceiving = true;
-            outgoingItem.ReceiveProgress = progressOut;
-            outgoingItem.UpdateTransferSpeed(transferredOut, message.TimestampUtc);
-            outgoingItem.Text = $"[文件] Sending {outgoingItem.FileName}";
-
-            var timestampOut = message.TimestampUtc.ToLocalTime();
-            conversation.SetLastMessage($"[文件] {outgoingItem.FileName} ({progressOut * 100:0.0}%)", timestampOut);
-            RequestMessageListAutoScroll();
         });
     }
 
-    private static void MarkOutgoingFileSendFailed(DeviceChatMessageItem fileBubble, string reason) {
-        fileBubble.ReceiveProgress = 0d;
-        fileBubble.IsReceiving = false;
-        fileBubble.ResetTransferSpeed();
-        fileBubble.IsPending = false;
-        fileBubble.IsFailed = true;
-        var reasonText = string.IsNullOrWhiteSpace(reason) ? "未知错误" : reason;
-        fileBubble.Text = string.IsNullOrWhiteSpace(fileBubble.FileName)
-            ? $"[文件] 发送失败 ({reasonText})"
-            : $"[文件] 发送失败 {fileBubble.FileName} ({reasonText})";
+    private void OnFileTransferProgress(FileTransferUpdatedEvent message) {
+        if (_disposed) return;
+        ExecuteOnUiThread(() => {
+            if (!TryGetConversation(message.ConversationId, out var conversation)) return;
+
+            var transferred = Math.Max(0L, message.BytesTransferred ?? 0L);
+            var total = Math.Max(1L, message.TotalBytes ?? 0);
+            var progress = Math.Clamp((double)transferred / total, 0d, 1d);
+
+            var fileItem = FindFileItemByTransferId(conversation, message.TransferId);
+            if (fileItem is null) return;
+
+            // Throttle UI refresh to avoid flickering
+            if (!fileItem.CanUpdateProgress(message.TimestampUtc)) return;
+
+            fileItem.IsReceiving = true;
+            fileItem.ReceiveProgress = progress;
+            fileItem.UpdateTransferSpeed(transferred, message.TimestampUtc);
+            conversation.SetLastMessage($"[文件] {fileItem.FileName} ({progress * 100:0.0}%)", message.TimestampUtc.ToLocalTime());
+            RequestMessageListAutoScroll();
+        });
     }
 
     private void ShowPersistentFileSendErrorToast(string text) {
@@ -1031,6 +1057,17 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         _trackedDevices.Clear();
+
+        lock (_fileSendCancellations)
+        {
+            foreach (var cts in _fileSendCancellations.Values)
+            {
+                cts.Cancel();
+                cts.Dispose();
+            }
+            _fileSendCancellations.Clear();
+        }
+
         _receiveCancellation.Dispose();
     }
 }
@@ -1041,7 +1078,7 @@ public partial class DeviceConversationItem : ObservableObject {
     }
 
     public string DeviceId { get; }
-    public ObservableCollection<DeviceChatMessageItem> Messages { get; } = [];
+    public ObservableCollection<object> Messages { get; } = [];
 
     [ObservableProperty] private string _displayName = "Unknown Device";
 

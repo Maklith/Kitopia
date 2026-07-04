@@ -77,7 +77,8 @@ public sealed class MessageAppService : IMessageAppService {
             message.Length ?? 0,
             "application/octet-stream",
             stream,
-            cancellationToken);
+            cancellationToken,
+            message.IconPng);
     }
 
     public ValueTask SendImageChatAsync(string deviceId, ImageChatMessage message, Stream stream,
@@ -580,8 +581,9 @@ public sealed class MessageAppService : IMessageAppService {
         long sizeBytes,
         string? contentType,
         Stream payloadStream,
-        CancellationToken cancellationToken) {
-        var offer = new FileOfferChatMessage(conversationId, transferId, fileName, sizeBytes, contentType);
+        CancellationToken cancellationToken,
+        byte[]? iconPng = null) {
+        var offer = new FileOfferChatMessage(conversationId, transferId, fileName, sizeBytes, contentType, IconPng: iconPng);
         var session = new FileTransferSession {
             ConversationId = conversationId,
             TransferId = transferId,
@@ -610,6 +612,19 @@ public sealed class MessageAppService : IMessageAppService {
                     conversationId,
                     transferId,
                     fileName);
+
+                await _incomingMessageBuffer.PublishEventAsync(
+                    new FileTransferUpdatedEvent(
+                        conversationId,
+                        transferId,
+                        FileTransferDirection.Upload,
+                        FileTransferStatus.Delivered,
+                        fileName,
+                        null,
+                        sizeBytes,
+                        null,
+                        DateTimeOffset.UtcNow),
+                    cancellationToken);
             }
 
             if (receipt != TransferOfferReceipt.Received)

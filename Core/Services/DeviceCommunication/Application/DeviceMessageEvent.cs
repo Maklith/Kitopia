@@ -28,7 +28,8 @@ public enum FileTransferStatus
     Rejected = 5,
     Cancelled = 6,
     Failed = 7,
-    Timeout = 8
+    Timeout = 8,
+    Delivered = 9
 }
 
 public sealed record FileTransferUpdatedEvent(
@@ -40,7 +41,8 @@ public sealed record FileTransferUpdatedEvent(
     long? BytesTransferred,
     long? TotalBytes,
     string? Reason,
-    DateTimeOffset TimestampUtc) : DeviceMessageEvent(ConversationId, TimestampUtc);
+    DateTimeOffset TimestampUtc,
+    byte[]? IconPng = null) : DeviceMessageEvent(ConversationId, TimestampUtc);
 
 public static class DeviceMessageEventFactory
 {
@@ -61,7 +63,8 @@ public static class DeviceMessageEventFactory
                 null,
                 fileOffer.SizeBytes,
                 null,
-                timestamp),
+                timestamp,
+                fileOffer.IconPng),
             FileAcceptChatMessage fileAccept => new FileTransferUpdatedEvent(
                 fileAccept.ConversationId,
                 fileAccept.TransferId,

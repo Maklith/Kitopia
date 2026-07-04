@@ -58,7 +58,21 @@ public interface IAppToolService
     /// </summary>
     /// <param name="item">自定义情景 / Custom scenario item</param>
     public void LoadIcon(CustomScenario.CustomScenario item);
-    
+
+    /// <summary>
+    /// 获取文件路径对应的 Shell 图标 / Get shell icon for a file path
+    /// </summary>
+    /// <param name="filePath">文件路径（不需要存在，按扩展名匹配）</param>
+    /// <param name="callback">图标加载完成的回调（UI 线程执行）</param>
+    public void LoadIcon(string filePath, Action<Avalonia.Media.Imaging.Bitmap?> callback);
+
+    /// <summary>
+    /// 获取文件路径的图标 PNG 字节 / Get file icon as PNG bytes
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <returns>PNG 字节数组，失败返回 null</returns>
+    public byte[]? GetFileIconPng(string filePath);
+
     /// <summary>
     /// 获取文本拼音 / Get pinyin for input text
     /// </summary>
