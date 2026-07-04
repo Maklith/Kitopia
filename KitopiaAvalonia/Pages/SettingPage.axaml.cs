@@ -53,14 +53,13 @@ public partial class SettingPage : UserControl
         TextBlock.Text = "设置";
         
         // Main Config
-        var mainExpander = new Expander
-        {
-            Header = new TextBlock { Text = "主程序设置", FontSize = 18, FontWeight = FontWeight.Bold },
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            IsExpanded = true,
-            Margin = new Thickness(0, 0, 0, 10)
-        };
+        var mainExpander = new Expander();
+        mainExpander.Classes.Add("SemiExpander");
+        mainExpander.Header = new TextBlock { Text = "主程序设置", FontSize = 16, FontWeight = FontWeight.SemiBold };
+        mainExpander.HorizontalAlignment = HorizontalAlignment.Stretch;
+        mainExpander.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        mainExpander.IsExpanded = true;
+        mainExpander.Margin = new Thickness(0, 0, 0, 8);
         var mainStackPanel = new StackPanel();
         mainExpander.Content = mainStackPanel;
         StackPanel.Children.Add(mainExpander);
@@ -72,14 +71,13 @@ public partial class SettingPage : UserControl
         {
             if (config == ConfigManger.Config) continue; 
 
-            var expander = new Expander
-            {
-                Header = new TextBlock { Text = config.GetType().GetCustomAttribute<ConfigName>()?.Name ?? config.Name, FontSize = 16 },
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                IsExpanded = false,
-                Margin = new Thickness(0, 5)
-            };
+            var expander = new Expander();
+            expander.Classes.Add("SemiExpander");
+            expander.Header = new TextBlock { Text = config.GetType().GetCustomAttribute<ConfigName>()?.Name ?? config.Name, FontSize = 14, FontWeight = FontWeight.SemiBold };
+            expander.HorizontalAlignment = HorizontalAlignment.Stretch;
+            expander.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+            expander.IsExpanded = false;
+            expander.Margin = new Thickness(0, 4);
             var stackPanel = new StackPanel();
             expander.Content = stackPanel;
             StackPanel.Children.Add(expander);
@@ -120,7 +118,7 @@ public partial class SettingPage : UserControl
             {
                 var category = new Expander
                 {
-                    Header = new TextBlock { Text = configFieldCategory.Category, FontSize = 16 },
+                    Header = new TextBlock { Text = configFieldCategory.Category, FontSize = 14, FontWeight = FontWeight.SemiBold },
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     HorizontalContentAlignment = HorizontalAlignment.Stretch,
                     IsExpanded = true
@@ -435,7 +433,7 @@ public partial class SettingPage : UserControl
             {
                 var category = new Expander
                 {
-                    Header = new TextBlock { Text = configFieldCategory.Category, FontSize = 16 },
+                    Header = new TextBlock { Text = configFieldCategory.Category, FontSize = 14, FontWeight = FontWeight.SemiBold },
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     HorizontalContentAlignment = HorizontalAlignment.Stretch,
                     IsExpanded = true

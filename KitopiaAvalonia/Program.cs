@@ -340,9 +340,11 @@ internal class Program {
             ]
         });
         buildAvaloniaApp.With(new RenderOptions {
-            TextRenderingMode = TextRenderingMode.Antialias,
             EdgeMode = EdgeMode.Antialias,
             BitmapInterpolationMode = BitmapInterpolationMode.HighQuality
+        });
+        buildAvaloniaApp.With(new TextOptions() {
+            TextRenderingMode = TextRenderingMode.Antialias,
         });
         buildAvaloniaApp.LogToTrace();
         #if DEBUG

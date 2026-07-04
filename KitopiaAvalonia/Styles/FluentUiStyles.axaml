@@ -50,13 +50,24 @@
             <Setter Property="Opacity" Value="1" />
         </Style>
     </ControlTheme>
-    <ControlTheme x:Key="CardBorder1" TargetType="Border">
-
-
+    <ControlTheme x:Key="KitopiaCard" TargetType="Border">
         <Setter Property="CornerRadius" Value="{DynamicResource RadiusCardCornerRadius}" />
         <Setter Property="Background" Value="{DynamicResource KSemiColorBackground4}" />
-
         <Setter Property="BoxShadow" Value="{DynamicResource BorderCardBoxShadow}" />
-        <Setter Property="Margin" Value="{DynamicResource ThicknessCardMargin}" />
+        <Setter Property="Padding" Value="12" />
+    </ControlTheme>
+    <ControlTheme x:Key="KitopiaCardBorderless" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusCardCornerRadius}" />
+        <Setter Property="Background" Value="{DynamicResource KSemiColorBackground4}" />
+        <Setter Property="BoxShadow" Value="{DynamicResource BorderCardBoxShadow}" />
+        <Setter Property="Padding" Value="12" />
+    </ControlTheme>
+
+
+
+    <ControlTheme x:Key="SectionHeaderText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{DynamicResource SemiFontSizeHeader6}" />
+        <Setter Property="FontWeight" Value="{DynamicResource SemiFontWeightBold}" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
     </ControlTheme>
 </ResourceDictionary>

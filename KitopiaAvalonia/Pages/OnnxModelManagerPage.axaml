@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -22,8 +22,8 @@
     </UserControl.Resources>
     <Panel>
         <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
-        <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="42">
-            <TextBlock Margin="0" FontSize="18" FontWeight="Bold" Text="推理环境" />
+        <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
+            <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Text="推理环境" />
             <ScrollViewer Grid.Row="1" PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Disabled">
                 <ItemsControl ItemsSource="{Binding Source={x:Static plugin11:PluginOverall.AllTargetDevices} }">
@@ -41,7 +41,7 @@
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
             </ScrollViewer>
-            <TextBlock Grid.Row="2" Margin="0" FontSize="18" FontWeight="Bold" Text="模型列表" />
+            <TextBlock Grid.Row="2" Theme="{DynamicResource SectionHeaderText}" Text="模型列表" />
             <DataGrid Grid.Row="3" ItemsSource="{Binding Source={x:Static plugin11:PluginOverall.AllOnnxModelInfos}}"
                       CanUserReorderColumns="True"
                       CanUserResizeColumns="True"

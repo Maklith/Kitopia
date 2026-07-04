@@ -71,7 +71,7 @@
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
         <PackageReference Include="Irihi.Ursa" Version="2.1.0" />
         <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="2.1.0" />
-        <PackageReference Include="Markdown.Avalonia" Version="11.0.3" />
+        <PackageReference Include="Markdown.Avalonia" Version="12.0.0-a3" />
         <PackageReference Include="Semi.Avalonia" Version="12.0.3" />
         <PackageReference Include="Semi.Avalonia.ColorPicker" Version="12.0.3" />
         <PackageReference Include="Semi.Avalonia.DataGrid" Version="12.0.0" />

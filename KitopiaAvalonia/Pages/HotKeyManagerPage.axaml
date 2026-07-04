@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -12,40 +12,30 @@
     <UserControl.Resources>
         <converter:HotKeySignNameToStringCtr x:Key="HotKeySignNameToStringCtr" />
     </UserControl.Resources>
-    <Grid RowDefinitions="Auto,*" Margin="42">
-        <TextBlock Margin="0" FontSize="18" FontWeight="Bold" Text="快捷键列表" />
+    <Grid RowDefinitions="Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
+        <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Text="快捷键列表" />
         <ScrollViewer Grid.Row="1">
-            <ItemsControl
-
-                Margin="0,10,0,0"
-                ItemsSource="{Binding  KeyModels}">
+            <ItemsControl ItemsSource="{Binding  KeyModels}" Margin="4,0,0,0">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="pluginCore:HotKeyModel">
-                        <Border Theme="{DynamicResource CardBorder1}" CornerRadius="4">
-                            <StackPanel HorizontalAlignment="Center" Margin="5,0,5,5">
-                                <TextBlock Margin="0,5,0,0" Foreground="{DynamicResource SemiColorText0}"
-                                           Text="{Binding SignName,Converter={StaticResource HotKeySignNameToStringCtr}}" />
-                                <controls1:HotKeyShow Margin="0,5,0,0"
-                                                      Foreground="{DynamicResource SemiColorText0}"
-                                                      HotKeyModel="{Binding RelativeSource={RelativeSource AncestorType=StackPanel},Path=DataContext}" />
+                        <Border MinWidth="160" Margin="4"
+                                Theme="{DynamicResource KitopiaCard}">
+                            <StackPanel HorizontalAlignment="Center" Spacing="6">
+                                <TextBlock Text="{Binding SignName,Converter={StaticResource HotKeySignNameToStringCtr}}"
+                                           FontWeight="SemiBold" FontSize="14"
+                                           Foreground="{DynamicResource SemiColorText0}" />
+                                <controls1:HotKeyShow Foreground="{DynamicResource SemiColorText0}"
+                                                       HotKeyModel="{Binding RelativeSource={RelativeSource AncestorType=StackPanel},Path=DataContext}" />
                             </StackPanel>
-
                         </Border>
-
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-
-                        <WrapPanel ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                   ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                   ScrollViewer.AllowAutoHide="True" />
+                        <WrapPanel />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
-
             </ItemsControl>
         </ScrollViewer>
-
-
     </Grid>
 </UserControl>

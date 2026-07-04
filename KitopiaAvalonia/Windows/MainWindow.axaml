@@ -64,7 +64,7 @@
                 <Border Grid.Column="2" Padding="6">
                     <AutoCompleteBox Name="SearchBox"
                                      MaxWidth="500"
-                                     Watermark="Search">
+                                     PlaceholderText="Search">
                         <!--wnd:AppWindow.AllowInteractionInTitleBar="True"-->
                         <AutoCompleteBox.ItemTemplate>
 
@@ -75,10 +75,13 @@
         </u:TitleBar>
         
     </u:UrsaWindow.TitleBarContent>
-    <Panel>
-        <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,*" Margin="5,40,5,5" ColumnSpan="5">
+    <Panel Margin="0,40,0,0">
+        <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,*" ColumnSpan="5"
+              Margin="{DynamicResource SemiThicknessExtraTight}">
             <Border Grid.Row="1" Grid.Column="0" Padding="1" VerticalAlignment="Stretch"
-                    Theme="{DynamicResource CardBorder1}">
+                    CornerRadius="{DynamicResource RadiusCardCornerRadius}"
+                    Background="{DynamicResource KSemiColorBackground4}"
+                    BoxShadow="{DynamicResource BorderCardBoxShadow}">
 
                 <u:NavMenu Name="NavView"
                            IsHorizontalCollapsed="True"
@@ -135,7 +138,7 @@
 
                 </u:NavMenu>
             </Border>
-            <Border Grid.Row="1" Grid.Column="1" Padding="3" Theme="{DynamicResource CardBorder1}">
+            <Border Grid.Row="1" Grid.Column="1" Padding="3" CornerRadius="{DynamicResource RadiusCardCornerRadius}" Background="{DynamicResource KSemiColorBackground4}" BoxShadow="{DynamicResource BorderCardBoxShadow}">
                 <Panel>
                     <ContentPresenter
                         Content="{Binding Content,Converter={StaticResource ViewLocator}}" />

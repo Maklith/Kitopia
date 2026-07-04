@@ -38,7 +38,7 @@
         <PackageReference Include="Avalonia.Desktop" Version="12.0.5" />
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-        <PackageReference Include="Markdown.Avalonia" Version="11.0.3" />
+        <PackageReference Include="Markdown.Avalonia" Version="12.0.0-a3" />
         <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
         <PackageReference Include="Microsoft.Extensions.Resilience" Version="10.7.0" />
         <PackageReference Include="MQTTnet" Version="5.2.0.1603" />
