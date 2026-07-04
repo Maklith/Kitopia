@@ -102,6 +102,22 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
     [ObservableProperty] private bool _isSending;
 
+    private void ApplyItemCommands(DeviceChatMessageItem item)
+    {
+        item.CopyImageCommand = CopyImageCommand;
+    }
+
+    private void ApplyItemCommands(FileChatMessageItem item)
+    {
+        item.AcceptCommand = AcceptIncomingOfferCommand;
+        item.RejectCommand = RejectIncomingOfferCommand;
+        item.OpenCommand = OpenFileCommand;
+        item.SaveAsCommand = SaveAsFileCommand;
+        item.CopyFileCommand = CopyFileCommand;
+        item.CancelCommand = CancelTransferCommand;
+        item.ViewDetailsCommand = ViewFileDetailsCommand;
+    }
+
     [RelayCommand(CanExecute = nameof(CanSendMessage))]
     private async Task SendMessageAsync() {
         var conversation = SelectedConversation;
@@ -114,6 +130,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             IsPending = true
         };
 
+        ApplyItemCommands(message);
         conversation.Messages.Add(message);
         conversation.SetLastMessage(text, message.Timestamp);
         conversation.UnreadCount = 0;
@@ -214,6 +231,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 var textMessage = new DeviceChatMessageItem(text, isOutgoing: true, DateTimeOffset.Now) {
                     IsPending = true
                 };
+                ApplyItemCommands(textMessage);
                 conversation.Messages.Add(textMessage);
                 conversation.SetLastMessage(text, textMessage.Timestamp);
                 conversation.UnreadCount = 0;
@@ -240,6 +258,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     Cv2.ImEncode(".png", image, out var imageBytes);
                     var imageBubble =
                         DeviceChatMessageItem.CreateImage(imageBytes, isOutgoing: true, DateTimeOffset.Now);
+                    ApplyItemCommands(imageBubble);
                     imageBubble.IsPending = true;
                     conversation.Messages.Add(imageBubble);
                     conversation.SetLastMessage("[图片]", imageBubble.Timestamp);
@@ -314,6 +333,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 TrackingTransferId = transferId,
                 LocalFilePath = filePath
             };
+            ApplyItemCommands(fileBubble);
             conversation.Messages.Add(fileBubble);
 
             appTool?.LoadIcon(filePath, bmp =>
@@ -628,7 +648,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
 
             var timestamp = timestampUtc.ToLocalTime();
-            conversation.Messages.Add(new DeviceChatMessageItem(text, isOutgoing: false, timestamp));
+            var incomingText = new DeviceChatMessageItem(text, isOutgoing: false, timestamp);
+            ApplyItemCommands(incomingText);
+            conversation.Messages.Add(incomingText);
             conversation.SetLastMessage(text, timestamp);
 
             if (!IsForegroundCurrentConversation(conversation)) {
@@ -661,6 +683,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 imageItem.Text = $"[图片] {DeviceChatMessageItem.FormatFileSizeLabel(message.SizeBytes)}";
             }
 
+            ApplyItemCommands(imageItem);
             conversation.Messages.Add(imageItem);
             conversation.SetLastMessage("[图片]", timestamp);
 
@@ -715,6 +738,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 }
             }
 
+            ApplyItemCommands(fileBubble);
             conversation.Messages.Add(fileBubble);
             conversation.SetLastMessage($"[文件] {message.FileName}", fileBubble.Timestamp);
             SortConversations();
@@ -1274,6 +1298,11 @@ public partial class DeviceChatMessageItem : ObservableObject {
     [ObservableProperty] private bool _isIncomingFileOffer;
 
     [ObservableProperty] private bool _isHandled;
+
+    public System.Windows.Input.ICommand? AcceptCommand { get; set; }
+    public System.Windows.Input.ICommand? RejectCommand { get; set; }
+    public System.Windows.Input.ICommand? CopyImageCommand { get; set; }
+    public System.Windows.Input.ICommand? PreviewImageCommand { get; set; }
 
     private long _transferStartBytes = -1;
     private DateTimeOffset? _transferStartTimestampUtc;

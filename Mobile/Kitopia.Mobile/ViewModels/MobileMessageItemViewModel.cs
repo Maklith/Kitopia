@@ -21,6 +21,8 @@ public sealed partial class MobileMessageItemViewModel : ObservableObject
     [ObservableProperty]
     private bool _isOutgoing;
 
+    public bool IsIncoming => !IsOutgoing;
+
     [ObservableProperty]
     private DateTimeOffset _timestamp;
 
@@ -54,6 +56,8 @@ public sealed partial class MobileMessageItemViewModel : ObservableObject
     [ObservableProperty]
     private string _reason = string.Empty;
 
+    public bool HasText => !string.IsNullOrWhiteSpace(Text);
+    public bool HasState => !string.IsNullOrWhiteSpace(StatusText);
     public bool CanHandleIncomingOffer => IsIncomingFileOffer && !IsHandled && TransferId.HasValue;
     public bool CanCancelTransfer => TransferId.HasValue && !IsHandled && (IsPending || IsReceiving);
 
@@ -93,6 +97,18 @@ public sealed partial class MobileMessageItemViewModel : ObservableObject
         }
     }
 
+    partial void OnIsOutgoingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsIncoming));
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(HasState));
+    }
+
+    partial void OnTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasText));
+    }
+
     partial void OnIsIncomingFileOfferChanged(bool value) => OnPropertyChanged(nameof(CanHandleIncomingOffer));
 
     partial void OnTransferIdChanged(Guid? value)
@@ -108,6 +124,7 @@ public sealed partial class MobileMessageItemViewModel : ObservableObject
         OnPropertyChanged(nameof(CanHandleIncomingOffer));
         OnPropertyChanged(nameof(CanCancelTransfer));
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(HasState));
     }
 
     partial void OnBytesTransferredChanged(long? value)
@@ -115,6 +132,7 @@ public sealed partial class MobileMessageItemViewModel : ObservableObject
         _ = value;
         OnPropertyChanged(nameof(ProgressPercent));
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(HasState));
     }
 
     partial void OnTotalBytesChanged(long? value)
@@ -122,6 +140,7 @@ public sealed partial class MobileMessageItemViewModel : ObservableObject
         _ = value;
         OnPropertyChanged(nameof(ProgressPercent));
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(HasState));
     }
 
     partial void OnIsReceivingChanged(bool value)
@@ -129,6 +148,7 @@ public sealed partial class MobileMessageItemViewModel : ObservableObject
         _ = value;
         OnPropertyChanged(nameof(CanCancelTransfer));
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(HasState));
     }
 
     partial void OnIsPendingChanged(bool value)
@@ -136,18 +156,21 @@ public sealed partial class MobileMessageItemViewModel : ObservableObject
         _ = value;
         OnPropertyChanged(nameof(CanCancelTransfer));
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(HasState));
     }
 
     partial void OnIsFailedChanged(bool value)
     {
         _ = value;
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(HasState));
     }
 
     partial void OnReasonChanged(string value)
     {
         _ = value;
         OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(HasState));
     }
 
     partial void OnTimestampChanged(DateTimeOffset value)

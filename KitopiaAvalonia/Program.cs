@@ -37,6 +37,7 @@ using Core.Window.AppTools;
 using Core.Window.Everything;
 using Core.Window.ScreenCapture;
 using Core.Window.Services;
+using Core.UI.DeviceCommunication;
 using KitopiaAvalonia.Pages;
 using KitopiaAvalonia.Services;
 using KitopiaAvalonia.Windows;
@@ -205,10 +206,10 @@ internal class Program {
             (e, _) => new OnnxModelManagerPage { DataContext = e.GetService<OnnxModelManagerPageViewModel>() });
         services.AddTransient<DeviceDiscoveryPageViewModel>();
         services.AddTransient<DeviceCommunicationPageViewModel>();
-        services.AddKeyedTransient<UserControl, DeviceDiscoveryPage>("DeviceDiscoveryPage",
-            (e, _) => new DeviceDiscoveryPage { DataContext = e.GetService<DeviceDiscoveryPageViewModel>() });
-        services.AddKeyedTransient<UserControl, DeviceCommunicationPage>("DeviceChatPage",
-            (e, _) => new DeviceCommunicationPage { DataContext = e.GetService<DeviceCommunicationPageViewModel>() });
+        services.AddKeyedTransient<UserControl, Core.UI.DeviceCommunication.DeviceDiscoveryPage>("DeviceDiscoveryPage",
+            (e, _) => new Core.UI.DeviceCommunication.DeviceDiscoveryPage { DataContext = e.GetService<DeviceDiscoveryPageViewModel>() });
+        services.AddKeyedTransient<UserControl, Core.UI.DeviceCommunication.DeviceCommunicationPage>("DeviceChatPage",
+            (e, _) => new Core.UI.DeviceCommunication.DeviceCommunicationPage { DataContext = e.GetService<DeviceCommunicationPageViewModel>() });
 
 
         services.AddSingleton<SettingPage>(e => new SettingPage());

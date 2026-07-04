@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Core.ViewModel.Pages.device;
 
-namespace KitopiaAvalonia.Controls;
+namespace Core.UI.DeviceCommunication;
 
 public class ChatMessageTemplateSelector : IDataTemplate
 {

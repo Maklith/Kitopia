@@ -10,7 +10,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Core.ViewModel.Pages.device;
 
-namespace KitopiaAvalonia.Pages;
+namespace Core.UI.DeviceCommunication;
 
 public partial class DeviceCommunicationPage : UserControl
 {
@@ -150,6 +150,9 @@ public partial class DeviceCommunicationPage : UserControl
 
     private void ShowImagePreviewWindow(DeviceChatMessageItem messageItem)
     {
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime)
+            return;
+
         if (messageItem.ImagePreview is null)
         {
             return;
@@ -373,7 +376,7 @@ public partial class DeviceCommunicationPage : UserControl
 
         RecalculateScaleForViewport(resetZoom: true);
 
-        var desktop = Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        var desktop = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
         var owner = desktop?.MainWindow;
         if (owner is not null)
         {

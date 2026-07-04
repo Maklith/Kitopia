@@ -7,7 +7,7 @@
              mc:Ignorable="d"
              d:DesignWidth="800"
              d:DesignHeight="450"
-             x:Class="KitopiaAvalonia.Pages.DeviceDiscoveryPage"
+             x:Class="Core.UI.DeviceCommunication.DeviceDiscoveryPage"
              x:DataType="vm:DeviceDiscoveryPageViewModel">
     <Grid RowDefinitions="Auto,*" RowSpacing="16" Margin="{DynamicResource SemiThicknessExtraLoose}">
         <Border Theme="{DynamicResource KitopiaCard}">
@@ -29,7 +29,8 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="pluginCore:DeviceModel">
                         <Border Margin="8" MinWidth="360" MaxWidth="420"
-                                Theme="{DynamicResource KitopiaCard}">
+                                Theme="{DynamicResource KitopiaCard}"
+                                PointerPressed="OnDeviceCardPointerPressed">
                             <StackPanel Spacing="12">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Label Theme="{DynamicResource TagLabel}" Classes="Green"

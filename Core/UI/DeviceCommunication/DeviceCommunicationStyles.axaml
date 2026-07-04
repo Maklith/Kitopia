@@ -1,0 +1,22 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="KSemiColorBackground4" Opacity="0.35" Color="{DynamicResource SemiBackground4Color}" />
+
+    <ControlTheme x:Key="KitopiaCard" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusCardCornerRadius}" />
+        <Setter Property="Background" Value="{DynamicResource KSemiColorBackground4}" />
+        <Setter Property="BoxShadow" Value="{DynamicResource BorderCardBoxShadow}" />
+        <Setter Property="Padding" Value="12" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="KitopiaCardBorderless" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusCardCornerRadius}" />
+        <Setter Property="Background" Value="{DynamicResource KSemiColorBackground4}" />
+        <Setter Property="BoxShadow" Value="{DynamicResource BorderCardBoxShadow}" />
+        <Setter Property="Padding" Value="12" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="TitleTextBlock" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+    </ControlTheme>
+</ResourceDictionary>

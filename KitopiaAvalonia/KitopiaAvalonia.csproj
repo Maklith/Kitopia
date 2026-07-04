@@ -39,8 +39,6 @@
 
 
     <ItemGroup>
-        <AvaloniaResource Include="Assets\FluentSystemIcons-Filled.ttf"/>
-        <AvaloniaResource Include="Assets\FluentSystemIcons-Regular.ttf"/>
         <AvaloniaResource Include="Assets\HarmonyOS_Sans_SC_Regular.ttf"/>
         <AvaloniaResource Include="Assets\icon.png" />
     

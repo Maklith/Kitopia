@@ -39,6 +39,14 @@ public partial class FileChatMessageItem : ObservableObject
     [ObservableProperty] private double _receiveProgress;
     [ObservableProperty] private double _transferSpeedBytesPerSecond;
 
+    public System.Windows.Input.ICommand? AcceptCommand { get; set; }
+    public System.Windows.Input.ICommand? RejectCommand { get; set; }
+    public System.Windows.Input.ICommand? OpenCommand { get; set; }
+    public System.Windows.Input.ICommand? SaveAsCommand { get; set; }
+    public System.Windows.Input.ICommand? CopyFileCommand { get; set; }
+    public System.Windows.Input.ICommand? CancelCommand { get; set; }
+    public System.Windows.Input.ICommand? ViewDetailsCommand { get; set; }
+
     private long _transferStartBytes = -1;
     private DateTimeOffset? _transferStartTimestampUtc;
     private DateTimeOffset _lastProgressUpdate = DateTimeOffset.MinValue;

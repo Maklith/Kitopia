@@ -2,167 +2,204 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:discovered="clr-namespace:Kitopia.DeviceCommunication.Discovery;assembly=Kitopia.DeviceCommunication"
              xmlns:vm="clr-namespace:Kitopia.Mobile.ViewModels"
              x:Class="Kitopia.Mobile.Views.MainView"
              x:DataType="vm:MainViewModel"
              mc:Ignorable="d">
-    <Grid RowDefinitions="Auto,*" Margin="16">
-        <Border Padding="16"
-                CornerRadius="8"
-                BorderThickness="1">
-            <StackPanel Spacing="4">
-                <TextBlock Text="{Binding TitleText}"
-                           FontSize="24"
-                           FontWeight="SemiBold" />
-                <TextBlock Text="{Binding SubtitleText}"
-                           Opacity="0.72"
-                           TextWrapping="Wrap" />
-            </StackPanel>
-        </Border>
 
-        <Grid Grid.Row="1" Margin="0,12,0,0">
-            <Border IsVisible="{Binding ShowDeviceList}"
-                    Padding="12"
-                    CornerRadius="8"
-                    BorderThickness="1">
-                <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12">
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="Nearby devices"
-                                   FontSize="18"
-                                   FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding EmptyDevicesText}"
-                                   Opacity="0.72"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
+    <Grid>
+        <Grid.Resources>
+            <SolidColorBrush x:Key="IncomingBubbleBrush" Color="{DynamicResource SemiBackground2Color}" Opacity="0.9" />
+            <SolidColorBrush x:Key="OutgoingBubbleBrush" Color="{DynamicResource SemiBlue5Color}" Opacity="0.86" />
+        </Grid.Resources>
 
-                    <TextBlock Grid.Row="1"
-                               Text="Tap a device to open the conversation."
-                               Opacity="0.58"
-                               TextWrapping="Wrap" />
+        <!-- 设备发现 -->
+        <Border IsVisible="{Binding ShowDeviceList}"
+                Margin="{DynamicResource SemiThicknessBase}"
+                Theme="{DynamicResource KitopiaCard}">
+            <Grid RowDefinitions="Auto,*" RowSpacing="12">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="设备发现" Classes="H5" Theme="{DynamicResource TitleTextBlock}" />
+                    <TextBlock Text="{Binding EmptyDevicesText}"
+                               Foreground="{DynamicResource SemiColorText1}"
+                               FontSize="{DynamicResource SemiFontSizeSmall}" />
+                </StackPanel>
 
-                    <ListBox Grid.Row="2"
-                             ItemsSource="{Binding DeviceList.Devices}"
-                             SelectedItem="{Binding DeviceList.SelectedDevice, Mode=TwoWay}">
+                <ScrollViewer Grid.Row="1">
+                    <ListBox ItemsSource="{Binding DeviceList.Devices}"
+                             SelectedItem="{Binding DeviceList.SelectedDevice, Mode=TwoWay}"
+                             BorderThickness="0"
+                             Background="Transparent">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
                         <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Border Margin="0,0,0,10"
-                                        Padding="14"
-                                        CornerRadius="8"
-                                        BorderThickness="1">
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="{Binding DisplayName}"
-                                                   FontSize="16"
-                                                   FontWeight="SemiBold"
-                                                   TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding PreferredTransportAddress}"
-                                                   Opacity="0.72"
-                                                   TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding TcpPort, StringFormat=TCP {0}}"
-                                                   Opacity="0.58" />
+                            <DataTemplate x:DataType="discovered:DiscoveredDevice">
+                                <Border Margin="8" MinWidth="260" MaxWidth="360"
+                                        Theme="{DynamicResource KitopiaCard}">
+                                    <StackPanel Spacing="8">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Label Theme="{DynamicResource TagLabel}" Classes="Green"
+                                                   IsVisible="{Binding HasIpv6}">IPv6</Label>
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontSize="16" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{Binding ComputerName, StringFormat='计算机名: {0}'}"
+                                                       Foreground="{DynamicResource SemiColorText1}"
+                                                       FontSize="{DynamicResource SemiFontSizeSmall}" />
+                                            <TextBlock Text="{Binding PreferredTransportAddress, StringFormat='IP: {0}'}"
+                                                       Foreground="{DynamicResource SemiColorText1}"
+                                                       FontSize="{DynamicResource SemiFontSizeSmall}" />
+                                            <TextBlock Text="{Binding TcpPort, StringFormat='TCP 端口: {0}'}"
+                                                       Foreground="{DynamicResource SemiColorText1}"
+                                                       FontSize="{DynamicResource SemiFontSizeSmall}" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- 聊天界面 -->
+        <Border IsVisible="{Binding IsConversationOpen}"
+                Margin="{DynamicResource SemiThicknessBase}"
+                Theme="{DynamicResource KitopiaCard}">
+            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
+                <!-- 标题栏 + 返回 -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Button MinWidth="0" MinHeight="0" Padding="8,4"
+                            Classes="Tertiary"
+                            Command="{Binding BackToDevicesCommand}">
+                        <TextBlock Text="&#xf3de;" FontFamily="{StaticResource FluentFont}" FontSize="16" />
+                    </Button>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="{Binding TitleText}"
+                                   FontSize="16" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding DeviceList.SelectedDevice.PreferredTransportAddress}"
+                                   Foreground="{DynamicResource SemiColorText1}"
+                                   FontSize="{DynamicResource SemiFontSizeSmall}" />
+                    </StackPanel>
                 </Grid>
-            </Border>
 
-            <Border IsVisible="{Binding IsConversationOpen}"
-                    Padding="12"
-                    CornerRadius="8"
-                    BorderThickness="1">
-                <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="12">
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                        <Button Content="Back"
-                                Command="{Binding BackToDevicesCommand}" />
-                        <StackPanel Grid.Column="1"
-                                    Spacing="2">
-                            <TextBlock Text="{Binding TitleText}"
-                                       FontSize="18"
-                                       FontWeight="SemiBold"
-                                       TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding SubtitleText}"
-                                       Opacity="0.72"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Grid>
-
-                    <ScrollViewer Grid.Row="1">
+                <!-- 消息列表 -->
+                <Border Grid.Row="1" Background="{DynamicResource SemiColorFill0}"
+                        CornerRadius="8" Padding="8">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding Conversation.Messages}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:MobileMessageItemViewModel">
-                                    <Border Margin="0,0,0,10"
-                                            Padding="12"
-                                            CornerRadius="8"
-                                            BorderThickness="1">
-                                        <StackPanel Spacing="6">
-                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                                <TextBlock Text="{Binding Text}"
-                                                           FontSize="15"
-                                                           TextWrapping="Wrap" />
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding TimestampText}"
-                                                           Opacity="0.58"
-                                                           VerticalAlignment="Top" />
-                                            </Grid>
-
-                                            <TextBlock Text="{Binding StatusText}"
-                                                       Opacity="0.72" />
-
-                                            <ProgressBar Minimum="0"
-                                                         Maximum="100"
-                                                         Value="{Binding ProgressPercent}"
-                                                         IsVisible="{Binding IsReceiving}" />
-
-                                            <StackPanel Orientation="Horizontal"
-                                                        Spacing="8"
-                                                        IsVisible="{Binding CanHandleIncomingOffer}">
-                                                <Button Content="Accept"
-                                                        Command="{Binding $parent[UserControl].DataContext.Conversation.AcceptIncomingOfferCommand}"
-                                                        CommandParameter="{Binding}" />
-                                                <Button Content="Reject"
-                                                        Command="{Binding $parent[UserControl].DataContext.Conversation.RejectIncomingOfferCommand}"
-                                                        CommandParameter="{Binding}" />
+                                    <StackPanel Margin="0,0,0,8">
+                                        <!-- 接收消息 -->
+                                        <Border MaxWidth="360" Padding="10"
+                                                IsVisible="{Binding IsIncoming}"
+                                                Background="{StaticResource IncomingBubbleBrush}"
+                                                CornerRadius="10"
+                                                HorizontalAlignment="Left">
+                                            <StackPanel Spacing="6">
+                                                <SelectableTextBlock Text="{Binding Text}"
+                                                                     TextWrapping="Wrap"
+                                                                     IsVisible="{Binding HasText}" />
+                                                <StackPanel Orientation="Horizontal" Spacing="8"
+                                                            IsVisible="{Binding CanHandleIncomingOffer}">
+                                                    <Button Classes="Primary" Content="接受"
+                                                            Command="{Binding $parent[UserControl].DataContext.Conversation.AcceptIncomingOfferCommand}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Classes="Secondary" Content="拒绝"
+                                                            Command="{Binding $parent[UserControl].DataContext.Conversation.RejectIncomingOfferCommand}"
+                                                            CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                                <ProgressBar Minimum="0" Maximum="100"
+                                                             Value="{Binding ProgressPercent}"
+                                                             Height="6"
+                                                             IsVisible="{Binding IsReceiving}" />
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="{Binding TimestampText}"
+                                                               FontSize="11"
+                                                               Foreground="{DynamicResource SemiColorText2}" />
+                                                    <TextBlock Text="{Binding StatusText}"
+                                                               FontSize="11"
+                                                               Foreground="{DynamicResource SemiColorText2}"
+                                                               IsVisible="{Binding HasState}" />
+                                                </StackPanel>
                                             </StackPanel>
+                                        </Border>
 
-                                            <StackPanel Orientation="Horizontal"
-                                                        Spacing="8"
-                                                        IsVisible="{Binding CanCancelTransfer}">
-                                                <Button Content="Cancel"
-                                                        Command="{Binding $parent[UserControl].DataContext.Conversation.CancelTransferCommand}"
-                                                        CommandParameter="{Binding}" />
+                                        <!-- 发送消息 -->
+                                        <Border MaxWidth="360" Padding="10"
+                                                IsVisible="{Binding IsOutgoing}"
+                                                Background="{StaticResource OutgoingBubbleBrush}"
+                                                CornerRadius="10"
+                                                HorizontalAlignment="Right">
+                                            <StackPanel Spacing="6">
+                                                <SelectableTextBlock Text="{Binding Text}"
+                                                                     TextWrapping="Wrap"
+                                                                     Foreground="White"
+                                                                     IsVisible="{Binding HasText}" />
+                                                <ProgressBar Minimum="0" Maximum="100"
+                                                             Value="{Binding ProgressPercent}"
+                                                             Height="6"
+                                                             IsVisible="{Binding IsReceiving}" />
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="{Binding TimestampText}"
+                                                               FontSize="11"
+                                                               Foreground="White" Opacity="0.85" />
+                                                    <TextBlock Text="{Binding StatusText}"
+                                                               FontSize="11"
+                                                               Foreground="White" Opacity="0.85"
+                                                               IsVisible="{Binding HasState}" />
+                                                </StackPanel>
                                             </StackPanel>
-                                        </StackPanel>
-                                    </Border>
+                                        </Border>
+                                    </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
+                </Border>
 
-                    <Grid Grid.Row="2"
-                          ColumnDefinitions="*,*,*"
-                          ColumnSpacing="8">
-                        <Button Content="Clipboard"
-                                Command="{Binding Conversation.SendClipboardCommand}" />
-                        <Button Grid.Column="1"
-                                Content="Image"
-                                Command="{Binding Conversation.SendImageCommand}" />
-                        <Button Grid.Column="2"
-                                Content="File"
-                                Command="{Binding Conversation.SendFileCommand}" />
+                <!-- 输入栏 -->
+                <Border Grid.Row="2" Background="{DynamicResource SemiColorFill0}"
+                        CornerRadius="8" Padding="8">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+                        <Button MinWidth="32" MinHeight="32" Padding="4"
+                                Classes="Tertiary"
+                                Command="{Binding Conversation.SendClipboardCommand}">
+                            <TextBlock Text="&#xf418;" FontFamily="{StaticResource FluentFont}" FontSize="16" />
+                        </Button>
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding Conversation.DraftText, Mode=TwoWay}"
+                                 PlaceholderText="输入消息..."
+                                 AcceptsReturn="False"
+                                 TextWrapping="Wrap"
+                                 MinHeight="32"
+                                 VerticalAlignment="Stretch">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter" Command="{Binding Conversation.SendTextCommand}" />
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                        <Button Grid.Column="2" MinWidth="32" MinHeight="32"
+                                Classes="Tertiary"
+                                Command="{Binding Conversation.SendFileCommand}">
+                            <TextBlock Text="&#xf418;" FontFamily="{StaticResource FluentFont}" FontSize="16" />
+                        </Button>
+                        <Button Grid.Column="3" MinWidth="32" MinHeight="32"
+                                Classes="Primary"
+                                Command="{Binding Conversation.SendTextCommand}">
+                            <TextBlock Text="&#xf699;" FontFamily="{StaticResource FluentFont}" FontSize="16" />
+                        </Button>
                     </Grid>
-
-                    <Grid Grid.Row="3"
-                          ColumnDefinitions="*,Auto"
-                          ColumnSpacing="8">
-                        <TextBox Text="{Binding Conversation.DraftText, Mode=TwoWay}"
-                                 PlaceholderText="Type a message" />
-                        <Button Grid.Column="1"
-                                Content="Send"
-                                Command="{Binding Conversation.SendTextCommand}" />
-                    </Grid>
-                </Grid>
-            </Border>
-        </Grid>
+                </Border>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

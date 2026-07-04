@@ -12,6 +12,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\Kitopia.DeviceCommunication\Kitopia.DeviceCommunication.csproj" />
+        <ProjectReference Include="..\..\Core\Core.csproj" />
     </ItemGroup>
 
     <ItemGroup>

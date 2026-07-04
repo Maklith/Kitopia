@@ -1,8 +1,6 @@
 ﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <FontFamily x:Key="FluentFontFilled">avares://KitopiaAvalonia/Assets/FluentSystemIcons-Filled.ttf#FluentSystemIcons-Filled</FontFamily>
-    <FontFamily x:Key="FluentFont">avares://KitopiaAvalonia/Assets/FluentSystemIcons-Regular.ttf#FluentSystemIcons-Regular</FontFamily>
-    <!-- Add Resources Here -->
+    <!-- FluentFont defined in Core/UI/DeviceCommunication/DeviceCommunicationIcons.axaml -->
 
     <DrawingImage x:Key="WinImageIcon">
         <DrawingImage.Drawing>
