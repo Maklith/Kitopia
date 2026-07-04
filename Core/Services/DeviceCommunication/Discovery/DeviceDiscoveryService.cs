@@ -3,7 +3,9 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using Core.Services.Config;
+using Kitopia.DeviceCommunication.Discovery;
+using Kitopia.DeviceCommunication.Identity;
+using Kitopia.DeviceCommunication.Transport;
 using Microsoft.Extensions.DependencyInjection;
 using ObservableCollections;
 using PluginCore;
@@ -33,6 +35,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
     private readonly ObservableList<DeviceModel> _devicesSource = [];
     private readonly ISynchronizedView<DeviceModel, DeviceModel> _devicesView;
     private readonly Dictionary<string, PendingAuthRequest> _pendingAuthRequests = new(StringComparer.Ordinal);
+    private readonly IDeviceCommunicationSettings _settings;
+    private readonly IDeviceIdentityStore _identityStore;
+    private readonly ILocalDataEndpointProvider _localDataEndpointProvider;
 
     private CancellationTokenSource? _cts;
     private UdpClient? _udpClientV4;
@@ -43,7 +48,13 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
     public NotifyCollectionChangedSynchronizedViewList<DeviceModel> Devices { get; }
     
 
-    public DeviceDiscoveryService() {
+    public DeviceDiscoveryService(
+        IDeviceCommunicationSettings settings,
+        IDeviceIdentityStore identityStore,
+        ILocalDataEndpointProvider localDataEndpointProvider) {
+        _settings = settings;
+        _identityStore = identityStore;
+        _localDataEndpointProvider = localDataEndpointProvider;
         _devicesView = _devicesSource.CreateView(device => device);
         Devices = _devicesView.ToNotifyCollectionChanged();
     }
@@ -225,9 +236,12 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                     continue;
                 }
 
-                if (!TryGetLocalIdentity(out var localPublicKey, out var localIdHash)) {
+                if (!TryGetLocalIdentity(out var localIdentity)) {
                     continue;
                 }
+
+                var localPublicKey = localIdentity.PublicKey;
+                var localIdHash = localIdentity.IdHash;
 
                 var endpointAddress = NormalizeAddress(result.RemoteEndPoint.Address);
                 var messageType = NormalizeMessageType(info.MessageType);
@@ -259,21 +273,20 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
         while (!token.IsCancellationRequested) {
             try {
                 await Task.Delay(DiscoveryBroadcastInterval, token);
-                var localDataListener = ServiceManager.Services.GetService<ILocalDataListener>()!;
-                var tcpPort = localDataListener.TcpPort;
+                var tcpPort = _localDataEndpointProvider.TcpPort;
                 if (tcpPort <= 0) {
                     continue;
                 }
 
-                if (!TryGetLocalIdentity(out _, out var localIdHash)) {
+                if (!TryGetLocalIdentity(out var identity)) {
                     continue;
                 }
 
                 var info = new DiscoveryInfo {
                     MessageType = DiscoveryMessageTypeAnnounce,
                     Version = DiscoveryProtocolVersion,
-                    Id = localIdHash,
-                    Name = string.IsNullOrWhiteSpace(ConfigManger.Config.deviceBroadcastName)? Environment.MachineName : ConfigManger.Config.deviceBroadcastName.Trim(),
+                    Id = identity.IdHash,
+                    Name = ResolveDisplayName(),
                     TcpPort = tcpPort,
                     TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                 };
@@ -353,8 +366,8 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             return;
         }
 
-        var localDataListener = ServiceManager.Services.GetService<ILocalDataListener>();
-        if (localDataListener is null || localDataListener.TcpPort <= 0) {
+        var tcpPort = _localDataEndpointProvider.TcpPort;
+        if (tcpPort <= 0 || !_identityStore.TryGetIdentity(out var identity)) {
             return;
         }
 
@@ -362,16 +375,14 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
             MessageType = DiscoveryMessageTypeAuthResponse,
             Version = DiscoveryProtocolVersion,
             Id = localIdHash,
-            Name = string.IsNullOrWhiteSpace(ConfigManger.Config.deviceBroadcastName)
-                ? Environment.MachineName
-                : ConfigManger.Config.deviceBroadcastName.Trim(),
-            TcpPort = localDataListener.TcpPort,
+            Name = ResolveDisplayName(),
+            TcpPort = tcpPort,
             TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             PublicKey = localPublicKey,
             Nonce = info.Nonce
         };
 
-        if (!DeviceDiscoverySignature.TrySign(response, ConfigManger.Config.devicePrivateKey, out var signature)) {
+        if (!DeviceDiscoverySignature.TrySign(response, identity.PrivateKey, out var signature)) {
             return;
         }
 
@@ -415,9 +426,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
                 existing = new DeviceModel {
                     Id = info.PublicKey,
                     Name = string.IsNullOrWhiteSpace(info.Name) ? "未知设备" : info.Name.Trim(),
-                    CustomName = ConfigManger.Config.deviceCustomNames.TryGetValue(info.PublicKey, out var customName)
-                        ? customName
-                        : string.Empty,
+                    CustomName = _settings.GetCustomName(info.PublicKey) ?? string.Empty,
                     TcpPort = info.TcpPort,
                     LastSeen = DateTime.UtcNow
                 };
@@ -499,35 +508,21 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService {
     }
 
     private static bool IsAuthenticated(DiscoveryInfo info, string expectedNonce) {
-        if (string.IsNullOrWhiteSpace(info.Signature) ||
-            string.IsNullOrWhiteSpace(info.PublicKey) ||
-            string.IsNullOrWhiteSpace(info.Id) ||
-            !string.Equals(info.Nonce, expectedNonce, StringComparison.Ordinal)) {
-            return false;
-        }
-
-        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var skew = now >= info.TimestampUnixSeconds
-            ? now - info.TimestampUnixSeconds
-            : info.TimestampUnixSeconds - now;
-
-        if (skew > DiscoverySignatureToleranceSeconds) {
-            return false;
-        }
-
-        return DeviceDiscoverySignature.Verify(info);
+        return DeviceDiscoverySignature.VerifyAuthResponse(
+            info,
+            expectedNonce,
+            DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            DiscoverySignatureToleranceSeconds);
     }
 
-    private static bool TryGetLocalIdentity(out string publicKey, out string idHash) {
-        publicKey = string.Empty;
-        idHash = string.Empty;
+    private bool TryGetLocalIdentity(out DeviceIdentity identity) {
+        return _identityStore.TryGetIdentity(out identity);
+    }
 
-        if (!DeviceDiscoverySignature.TryDerivePublicKey(ConfigManger.Config.devicePrivateKey, out publicKey)) {
-            return false;
-        }
-
-        idHash = DeviceDiscoverySignature.ComputePublicKeyHash(publicKey);
-        return !string.IsNullOrWhiteSpace(idHash);
+    private string ResolveDisplayName() {
+        return string.IsNullOrWhiteSpace(_settings.BroadcastName)
+            ? Environment.MachineName
+            : _settings.BroadcastName.Trim();
     }
 
     private static async Task SendUnicastAsync(DiscoveryInfo info, IPEndPoint remoteEndPoint, CancellationToken token) {

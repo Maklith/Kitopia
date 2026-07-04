@@ -14,6 +14,7 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
 {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<TcpLocalDataListener>();
     private static readonly SslApplicationProtocol ApplicationProtocol = new("kitopia-local-data");
+    private static readonly SslProtocols EnabledProtocols = SslProtocols.Tls13 | SslProtocols.Tls12;
     private static readonly StreamPipeReaderOptions InboundPipeReaderOptions = new(
         bufferSize: 256 * 1024,
         minimumReadSize: 64 * 1024,
@@ -117,7 +118,7 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
             remoteIdentityPublicKey.Trim(),
             cancellationToken);
         await sslStream.WriteAsync(payload, cancellationToken);
-        await CompleteSendAsync(sslStream, cancellationToken);
+        await CompleteSendAsync(sslStream, remoteEndPoint, cancellationToken);
     }
 
     public async Task SendAsync(
@@ -141,7 +142,7 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
             cancellationToken);
         await payloadReader.CopyToAsync(sslStream, cancellationToken);
 
-        await CompleteSendAsync(sslStream, cancellationToken);
+        await CompleteSendAsync(sslStream, remoteEndPoint, cancellationToken);
     }
 
     public async Task StopAsync()
@@ -218,10 +219,10 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
             new SslClientAuthenticationOptions
             {
                 TargetHost = "Kitopia-Local-Tcp",
-                EnabledSslProtocols = SslProtocols.Tls13,
+                EnabledSslProtocols = EnabledProtocols,
                 ApplicationProtocols = [ApplicationProtocol],
                 CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
-                ClientCertificates = new X509CertificateCollection { localCertificate },
+                ClientCertificates = [localCertificate],
                 RemoteCertificateValidationCallback = (_, remoteCertificate, _, _) =>
                     _transportSecurity.ValidateRemoteCertificate(remoteCertificate, expectedRemoteIdentity)
             },
@@ -289,11 +290,11 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
                     {
                         ServerCertificate = certificate,
                         ClientCertificateRequired = true,
-                        EnabledSslProtocols = SslProtocols.Tls13,
+                        EnabledSslProtocols = EnabledProtocols,
                         ApplicationProtocols = [ApplicationProtocol],
                         CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
                         RemoteCertificateValidationCallback = (_, remoteCertificate, _, _) =>
-                            _transportSecurity.ValidateRemoteCertificate(remoteCertificate, expectedRemoteIdentityPublicKey)
+                            _transportSecurity.ValidateIncomingRemoteCertificate(remoteCertificate, remoteEndPoint)
                     },
                     token);
 
@@ -318,6 +319,8 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
                 {
                     await reader.CompleteAsync(readerError);
                 }
+
+                await CompleteReceiveAsync(sslStream, remoteEndPoint, token);
             }
             catch (OperationCanceledException)
             {
@@ -332,20 +335,111 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
         }
     }
 
-    private static async Task CompleteSendAsync(SslStream sslStream, CancellationToken cancellationToken)
+    private static async Task CompleteSendAsync(
+        SslStream sslStream,
+        IPEndPoint remoteEndPoint,
+        CancellationToken cancellationToken)
     {
-        await sslStream.FlushAsync(cancellationToken);
-        await sslStream.ShutdownAsync();
+        try
+        {
+            await sslStream.FlushAsync(cancellationToken);
+            await sslStream.ShutdownAsync();
+        }
+        catch (IOException exception)
+        {
+            if (IsExpectedTlsShutdownIOException(exception))
+            {
+                return;
+            }
+
+            Logger.Debug(
+                exception,
+                "TLS shutdown write failed when sending to {RemoteEndPoint}",
+                remoteEndPoint);
+            return;
+        }
+        catch (AuthenticationException exception)
+        {
+            Logger.Debug(
+                exception,
+                "TLS shutdown auth failed when sending to {RemoteEndPoint}",
+                remoteEndPoint);
+            return;
+        }
 
         var buffer = new byte[1];
-        while (true)
+        try
         {
-            var read = await sslStream.ReadAsync(buffer, cancellationToken);
-            if (read == 0)
+            while (true)
             {
-                break;
+                var read = await sslStream.ReadAsync(buffer, cancellationToken);
+                if (read == 0)
+                {
+                    break;
+                }
             }
         }
+        catch (IOException exception)
+        {
+            if (IsExpectedTlsShutdownIOException(exception))
+            {
+                return;
+            }
+
+            Logger.Debug(
+                exception,
+                "TLS close notification read failed from {RemoteEndPoint}",
+                remoteEndPoint);
+        }
+        catch (AuthenticationException exception)
+        {
+            Logger.Debug(
+                exception,
+                "TLS close notification auth failed from {RemoteEndPoint}",
+                remoteEndPoint);
+        }
+    }
+
+    private static async Task CompleteReceiveAsync(
+        SslStream sslStream,
+        IPEndPoint remoteEndPoint,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await sslStream.FlushAsync(cancellationToken);
+            await sslStream.ShutdownAsync();
+        }
+        catch (IOException exception)
+        {
+            if (IsExpectedTlsShutdownIOException(exception))
+            {
+                return;
+            }
+
+            Logger.Debug(
+                exception,
+                "Server-side TLS shutdown failed for {RemoteEndPoint}",
+                remoteEndPoint);
+        }
+        catch (AuthenticationException exception)
+        {
+            Logger.Debug(
+                exception,
+                "Server-side TLS shutdown auth failed for {RemoteEndPoint}",
+                remoteEndPoint);
+        }
+    }
+
+    private static bool IsExpectedTlsShutdownIOException(IOException exception)
+    {
+        return exception.InnerException is SocketException
+        {
+            SocketErrorCode: SocketError.ConnectionReset or
+            SocketError.ConnectionAborted or
+            SocketError.OperationAborted or
+            SocketError.Shutdown
+        };
     }
 
 }

@@ -1,4 +1,4 @@
-using Core.Services.DeviceCommunication.Sessions;
+using Kitopia.DeviceCommunication.Sessions;
 
 namespace KitopiaTest.DeviceCommunication;
 

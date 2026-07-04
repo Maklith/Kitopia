@@ -10,6 +10,7 @@ using PluginCore;
 using PluginCore.CustomScenario;
 using PluginCore.Onnx;
 using Serilog;
+using PluginKitopia = PluginCore.Kitopia;
 
 namespace Core.Services.Plugin;
 
@@ -21,16 +22,16 @@ public class PluginManager
 
     public static void Init()
     {
-        Kitopia.ServiceProvider = ServiceManager.Services;
-        Kitopia.ISearchItemTool =
+        PluginKitopia.ServiceProvider = ServiceManager.Services;
+        PluginKitopia.ISearchItemTool =
             (ISearchItemTool)ServiceManager.Services.GetService(typeof(ISearchItemTool))!;
-        Kitopia.IClipboardService = ServiceManager.Services.GetService<IClipboardService>()!;
-        Kitopia.IToastService = (IToastService)ServiceManager.Services.GetService(typeof(IToastService))!;
-        Kitopia._i18n = CustomScenarioGlobe.I18N;
-        Kitopia.ToolTipConverters = CustomScenarioGlobe.ToolTipConverters;
-        Kitopia.JsonConverters = CustomScenarioGlobe.JsonConverters;
-        Kitopia.InferenceSessionManager = ServiceManager.Services.GetService<IInferenceSessionManager>()!;
-        Kitopia.Logger = LogManager.Logger;
+        PluginKitopia.IClipboardService = ServiceManager.Services.GetService<IClipboardService>()!;
+        PluginKitopia.IToastService = (IToastService)ServiceManager.Services.GetService(typeof(IToastService))!;
+        PluginKitopia._i18n = CustomScenarioGlobe.I18N;
+        PluginKitopia.ToolTipConverters = CustomScenarioGlobe.ToolTipConverters;
+        PluginKitopia.JsonConverters = CustomScenarioGlobe.JsonConverters;
+        PluginKitopia.InferenceSessionManager = ServiceManager.Services.GetService<IInferenceSessionManager>()!;
+        PluginKitopia.Logger = LogManager.Logger;
         Load(true);
     }
 

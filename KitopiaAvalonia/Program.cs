@@ -41,10 +41,13 @@ using KitopiaAvalonia.Pages;
 using KitopiaAvalonia.Services;
 using KitopiaAvalonia.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Kitopia.DeviceCommunication.Identity;
 using PluginCore;
 using PluginCore.Onnx;
 using Serilog;
 using ScreenCaptureWindow = KitopiaAvalonia.Services.ScreenCaptureWindow;
+using SharedDeviceDiscoveryService = Kitopia.DeviceCommunication.Discovery.IDeviceDiscoveryService;
+using SharedMessageAppService = Kitopia.DeviceCommunication.Application.IMessageAppService;
 using TaskEditor = KitopiaAvalonia.Windows.TaskEditors.TaskEditor;
 
 namespace KitopiaAvalonia;
@@ -111,7 +114,11 @@ internal class Program {
         services.AddTransient<ISearchWindowService, SearchWindowService>();
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
 
+        services.AddSingleton<IDeviceIdentityStore, DesktopDeviceIdentityStore>();
+        services.AddSingleton<Kitopia.DeviceCommunication.Discovery.IDeviceCommunicationSettings, DesktopDeviceCommunicationSettings>();
+        services.AddSingleton<Kitopia.DeviceCommunication.Transport.ILocalDataEndpointProvider, LocalDataEndpointProvider>();
         services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>();
+        services.AddSingleton<SharedDeviceDiscoveryService, DesktopSharedDeviceDiscoveryService>();
         services.AddSingleton<DeviceTransportSecurity>();
         services.AddSingleton<ILocalDataListener, LocalDataListenerHost>();
         services.AddSingleton<ProtocolSession>();
@@ -124,6 +131,7 @@ internal class Program {
         services.AddSingleton<DeviceMessageDispatcher>();
         services.AddSingleton<IncomingMessageBuffer>();
         services.AddSingleton<IMessageAppService, MessageAppService>();
+        services.AddSingleton<SharedMessageAppService, DesktopSharedMessageAppService>();
         services.AddSingleton<IIncomingMessageSink>(sp => sp.GetRequiredService<IncomingMessageBuffer>());
         services.AddSingleton<IDeviceCommunication, DeviceCommunication>();
 

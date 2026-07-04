@@ -37,7 +37,32 @@ public sealed class LocalDataListenerHost : IDisposable, ILocalDataListener
             _isStarted = true;
         }
 
-        await _tcpListener.StartAsync(token);
+        var started = false;
+        try
+        {
+            started = await _tcpListener.StartAsync(token);
+        }
+        catch
+        {
+            lock (_sync)
+            {
+                _isStarted = false;
+            }
+
+            throw;
+        }
+
+        if (started)
+        {
+            return;
+        }
+
+        lock (_sync)
+        {
+            _isStarted = false;
+        }
+
+        throw new InvalidOperationException("Failed to start TCP local data listener.");
     }
 
     public async Task SendAsync(

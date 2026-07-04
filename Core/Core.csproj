@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFrameworks>net10.0;net10.0-windows10.0.19041.0</TargetFrameworks>
     </PropertyGroup>
@@ -63,6 +63,7 @@
         <ProjectReference Include="..\NodifyM.Avalonia\NodifyM.Avalonia\NodifyM.Avalonia.csproj" />
         <ProjectReference Include="..\PinyinM.NET\Pinyin.NET\Pinyin.NET.csproj"/>
         <ProjectReference Include="..\PluginCore\PluginCore.csproj"/>
+        <ProjectReference Include="..\Kitopia.DeviceCommunication\Kitopia.DeviceCommunication.csproj"/>
     </ItemGroup>
 
 

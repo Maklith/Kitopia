@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0-android36.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <LangVersion>latest</LangVersion>
+        <RootNamespace>Kitopia.Mobile</RootNamespace>
+        <AssemblyName>Kitopia.Mobile.Android</AssemblyName>
+        <OutputType>Exe</OutputType>
+        <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
+        <AndroidPackageFormat>apk</AndroidPackageFormat>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+        <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Kitopia.Mobile\Kitopia.Mobile.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia.Android" Version="12.0.5" />
+    </ItemGroup>
+</Project>

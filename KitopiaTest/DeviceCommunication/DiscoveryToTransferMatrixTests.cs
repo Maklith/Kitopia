@@ -4,41 +4,19 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Core.Services.Config;
 using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
+using Kitopia.DeviceCommunication.Identity;
 using ObservableCollections;
 using PluginCore;
 
 namespace KitopiaTest.DeviceCommunication;
 
 [TestClass]
-[DoNotParallelize]
 public sealed class DiscoveryToTransferMatrixTests
 {
-    private Dictionary<string, PluginCore.Config.ConfigBase>? _originalConfigs;
-
-    [TestInitialize]
-    public void TestInitialize()
-    {
-        _originalConfigs = ConfigManger.Configs;
-        ConfigManger.Configs = new Dictionary<string, PluginCore.Config.ConfigBase>(StringComparer.Ordinal)
-        {
-            ["KitopiaConfig"] = new KitopiaConfig { Name = "KitopiaConfig" }
-        };
-    }
-
-    [TestCleanup]
-    public void TestCleanup()
-    {
-        if (_originalConfigs is not null)
-        {
-            ConfigManger.Configs = _originalConfigs;
-        }
-    }
-
     [TestMethod]
     [DataRow(22001)]
     public async Task DeviceTransportService_AlwaysUsesTcp(int tcpPort)
@@ -62,10 +40,10 @@ public sealed class DiscoveryToTransferMatrixTests
     public void Discovery_AuthFailed_DoesNotPublishDevice()
     {
         var localIdentity = CreateIdentity();
-        ConfigManger.Config.devicePrivateKey = localIdentity.PrivateKey;
-        ConfigManger.Config.EnsureDeviceIdentity();
-
-        using var discoveryService = new DeviceDiscoveryService();
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings(),
+            new FakeIdentityStore(localIdentity),
+            new FakeLocalDataEndpointProvider(23001));
         var remoteIdentity = CreateIdentity();
         var remoteHash = ComputePublicKeyHash(remoteIdentity.PublicKey);
         var nonce = Guid.NewGuid().ToString("N");
@@ -143,6 +121,50 @@ public sealed class DiscoveryToTransferMatrixTests
             Devices.Dispose();
             _devicesView.Dispose();
         }
+    }
+
+    private sealed class FakeIdentityStore : IDeviceIdentityStore
+    {
+        private readonly DeviceIdentity _identity;
+
+        public FakeIdentityStore((string PublicKey, string PrivateKey) identity)
+        {
+            _identity = new DeviceIdentity(
+                identity.PublicKey,
+                identity.PrivateKey,
+                ComputePublicKeyHash(identity.PublicKey));
+        }
+
+        public bool TryGetIdentity(out DeviceIdentity identity)
+        {
+            identity = _identity;
+            return true;
+        }
+
+        public DeviceIdentity EnsureIdentity()
+        {
+            return _identity;
+        }
+    }
+
+    private sealed class FakeDeviceCommunicationSettings : Kitopia.DeviceCommunication.Discovery.IDeviceCommunicationSettings
+    {
+        public string BroadcastName => string.Empty;
+
+        public string? GetCustomName(string publicKey)
+        {
+            return null;
+        }
+    }
+
+    private sealed class FakeLocalDataEndpointProvider : Kitopia.DeviceCommunication.Transport.ILocalDataEndpointProvider
+    {
+        public FakeLocalDataEndpointProvider(int tcpPort)
+        {
+            TcpPort = tcpPort;
+        }
+
+        public int TcpPort { get; }
     }
 
     private sealed class RecordingLocalDataListener : ILocalDataListener

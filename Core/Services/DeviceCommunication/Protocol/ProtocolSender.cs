@@ -1,14 +1,12 @@
-using System.Buffers.Binary;
 using System.IO.Pipelines;
-using System.Text;
 using System.Text.Json;
 using Core.Services.DeviceCommunication.Routing;
+using SharedProtocolFrame = Kitopia.DeviceCommunication.Protocol.ProtocolFrame;
 
 namespace Core.Services.DeviceCommunication.Protocol;
 
 public sealed class ProtocolSender
 {
-    private static readonly byte[] FrameMagic = "KDC1"u8.ToArray();
     private static readonly StreamPipeReaderOptions PayloadPipeReaderOptions = new(
         bufferSize: 256 * 1024,
         minimumReadSize: 64 * 1024,
@@ -45,19 +43,11 @@ public sealed class ProtocolSender
             throw new InvalidOperationException("Invalid payload stream length.");
         }
 
-        var frameHeader = BuildFrameHeader(envelopeBytes.Length, payloadLength);
+        var frameHeader = SharedProtocolFrame.BuildHeader(envelopeBytes.Length, payloadLength);
         var progressStream = new ProgressReportingReadStream(payloadStream, payloadLength, progressCallback);
         return SendPrefixAndPayloadAsync(context, frameHeader, envelopeBytes, progressStream, cancellationToken);
     }
 
-    private static byte[] BuildFrameHeader(int envelopeLength, long payloadLength)
-    {
-        var header = new byte[16];
-        FrameMagic.CopyTo(header, 0);
-        BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(4, 4), envelopeLength);
-        BinaryPrimitives.WriteInt64LittleEndian(header.AsSpan(8, 8), payloadLength);
-        return header;
-    }
 
     private Task SendPrefixAndPayloadAsync(
         MessageContext context,

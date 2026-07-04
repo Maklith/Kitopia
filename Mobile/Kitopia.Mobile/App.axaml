@@ -1,0 +1,11 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:u-semi="clr-namespace:Ursa.Themes.Semi;assembly=Ursa.Themes.Semi"
+             xmlns:semi="https://irihi.tech/semi"
+             x:Class="Kitopia.Mobile.App"
+             RequestedThemeVariant="Default">
+    <Application.Styles>
+        <u-semi:UrsaSemiTheme Locale="zh-CN" />
+        <semi:SemiTheme Locale="zh-CN" />
+    </Application.Styles>
+</Application>

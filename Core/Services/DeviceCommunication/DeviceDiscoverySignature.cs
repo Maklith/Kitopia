@@ -1,143 +1,71 @@
-using System.Security.Cryptography;
-using System.Text;
 using Core.Services.DeviceCommunication.Discovery;
 
 namespace Core.Services.DeviceCommunication;
 
 internal static class DeviceDiscoverySignature
 {
-    private const int RsaKeySizeBits = 2048;
-
     public static (string PublicKey, string PrivateKey) CreateKeyPair()
     {
-        using var rsa = RSA.Create(RsaKeySizeBits);
-        var publicKey = Convert.ToBase64String(rsa.ExportSubjectPublicKeyInfo());
-        var privateKey = Convert.ToBase64String(rsa.ExportPkcs8PrivateKey());
-        return (publicKey, privateKey);
+        return Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.CreateKeyPair();
     }
 
     public static bool TryDerivePublicKey(string? privateKey, out string publicKey)
     {
-        publicKey = string.Empty;
-        if (string.IsNullOrWhiteSpace(privateKey))
-        {
-            return false;
-        }
-
-        try
-        {
-            using var rsa = RSA.Create();
-            rsa.ImportPkcs8PrivateKey(Convert.FromBase64String(privateKey), out _);
-            publicKey = Convert.ToBase64String(rsa.ExportSubjectPublicKeyInfo());
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+        return Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.TryDerivePublicKey(privateKey, out publicKey);
     }
 
     public static bool TrySign(DiscoveryInfo info, string? privateKey, out string signature)
     {
-        signature = string.Empty;
-        if (!TrySignData(BuildPayload(info), privateKey, out var signatureBytes))
-        {
-            return false;
-        }
-
-        signature = Convert.ToBase64String(signatureBytes);
-        return true;
+        var sharedInfo = ToSharedInfo(info);
+        return Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.TrySign(sharedInfo, privateKey, out signature);
     }
 
     public static bool TrySignData(ReadOnlySpan<byte> data, string? privateKey, out byte[] signature)
     {
-        signature = [];
-        if (string.IsNullOrWhiteSpace(privateKey))
-        {
-            return false;
-        }
-
-        try
-        {
-            using var rsa = RSA.Create();
-            rsa.ImportPkcs8PrivateKey(Convert.FromBase64String(privateKey), out _);
-            signature = rsa.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+        return Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.TrySignData(data, privateKey, out signature);
     }
 
     public static bool Verify(DiscoveryInfo info)
     {
-        if (string.IsNullOrWhiteSpace(info.Id) ||
-            string.IsNullOrWhiteSpace(info.PublicKey) ||
-            string.IsNullOrWhiteSpace(info.Signature))
-        {
-            return false;
-        }
+        return Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.Verify(ToSharedInfo(info));
+    }
 
-        try
-        {
-            var payload = BuildPayload(info);
-            var signature = Convert.FromBase64String(info.Signature);
-            var expectedId = ComputePublicKeyHash(info.PublicKey);
-            if (!string.Equals(expectedId, info.Id, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            return VerifyData(payload, info.PublicKey, signature);
-        }
-        catch
-        {
-            return false;
-        }
+    public static bool VerifyAuthResponse(
+        DiscoveryInfo info,
+        string expectedNonce,
+        long nowUnixSeconds,
+        long toleranceSeconds = Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.DefaultSignatureToleranceSeconds)
+    {
+        return Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.VerifyAuthResponse(
+            ToSharedInfo(info),
+            expectedNonce,
+            nowUnixSeconds,
+            toleranceSeconds);
     }
 
     public static bool VerifyData(ReadOnlySpan<byte> data, string? publicKey, ReadOnlySpan<byte> signature)
     {
-        if (string.IsNullOrWhiteSpace(publicKey) || signature.IsEmpty)
-        {
-            return false;
-        }
-
-        try
-        {
-            using var rsa = RSA.Create();
-            rsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(publicKey), out _);
-            return rsa.VerifyData(data, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static byte[] BuildPayload(DiscoveryInfo info)
-    {
-        using var stream = new MemoryStream();
-        using var writer = new BinaryWriter(stream, Encoding.UTF8, true);
-        writer.Write(info.Id ?? string.Empty);
-        writer.Write(info.Name ?? string.Empty);
-        writer.Write(info.TcpPort);
-        writer.Write(info.TimestampUnixSeconds);
-        writer.Write(info.Nonce ?? string.Empty);
-        writer.Flush();
-        return stream.ToArray();
+        return Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.VerifyData(data, publicKey, signature);
     }
 
     public static string ComputePublicKeyHash(string? publicKey)
     {
-        if (string.IsNullOrWhiteSpace(publicKey))
-        {
-            return string.Empty;
-        }
+        return Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.ComputePublicKeyHash(publicKey);
+    }
 
-        var bytes = Encoding.UTF8.GetBytes(publicKey.Trim());
-        var hash = SHA256.HashData(bytes);
-        return Convert.ToHexString(hash);
+    private static Kitopia.DeviceCommunication.Discovery.DiscoveryInfo ToSharedInfo(DiscoveryInfo info)
+    {
+        return new Kitopia.DeviceCommunication.Discovery.DiscoveryInfo
+        {
+            MessageType = info.MessageType,
+            Version = info.Version,
+            Id = info.Id,
+            Name = info.Name,
+            TcpPort = info.TcpPort,
+            TimestampUnixSeconds = info.TimestampUnixSeconds,
+            Signature = info.Signature,
+            PublicKey = info.PublicKey,
+            Nonce = info.Nonce
+        };
     }
 }

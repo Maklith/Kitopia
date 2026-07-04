@@ -1,9 +1,9 @@
-using Core.Services.DeviceCommunication.Codecs;
-using Core.Services.DeviceCommunication.Messages;
-using Core.Services.DeviceCommunication.Messages.Chat;
-using Core.Services.DeviceCommunication.Messages.Clipboard;
-using Core.Services.DeviceCommunication.Protocol;
-using Core.Services.DeviceCommunication.Routing;
+using Kitopia.DeviceCommunication.Codecs;
+using Kitopia.DeviceCommunication.Messages;
+using Kitopia.DeviceCommunication.Messages.Chat;
+using Kitopia.DeviceCommunication.Messages.Clipboard;
+using Kitopia.DeviceCommunication.Protocol;
+using Kitopia.DeviceCommunication.Routing;
 
 namespace KitopiaTest.DeviceCommunication;
 
@@ -25,6 +25,17 @@ public sealed class CodecTests
         Assert.AreEqual("text/plain", envelope.ContentType);
         Assert.AreEqual("peer-1", envelope.Metadata!["conversationId"]);
         Assert.AreEqual("hello world", envelope.Metadata["text"]);
+    }
+
+    [TestMethod]
+    public void Registry_Encode_UsesInjectedIdentityProvider_ForSenderId()
+    {
+        var registry = new MessageCodecRegistry(new FixedIdentityProvider("sender-1"));
+
+        var ok = registry.TryEncode(new TextChatMessage("peer-1", "hello world"), out var envelope);
+
+        Assert.IsTrue(ok);
+        Assert.AreEqual("sender-1", envelope.Metadata!["senderId"]);
     }
 
     [TestMethod]
@@ -211,6 +222,21 @@ public sealed class CodecTests
         if (reason is not null)
         {
             Assert.AreEqual(reason, envelope.Metadata!["reason"]);
+        }
+    }
+
+    private sealed class FixedIdentityProvider : IDeviceIdentityProvider
+    {
+        private readonly string _publicKey;
+
+        public FixedIdentityProvider(string publicKey)
+        {
+            _publicKey = publicKey;
+        }
+
+        public string? GetLocalPublicKey()
+        {
+            return _publicKey;
         }
     }
 }

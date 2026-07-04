@@ -5,19 +5,6 @@
 // Date: 2026/04/11 11:04
 // FileEffect:
 
-using System.IO.Pipelines;
-using System.Net;
-
 namespace Core.Services.DeviceCommunication;
 
-public interface ILocalDataListener {
-    public int TcpPort { get; }
-    public Task StartListeningAsync(CancellationToken token=default);
-    public Task StopListeningAsync();
-    public Task SendAsync(
-        LocalDataTransportProtocol protocol,
-        PipeReader payloadReader,
-        IPEndPoint remoteEndPoint,
-        string? remoteIdentityPublicKey = null,
-        CancellationToken token = default);
-}
+public interface ILocalDataListener : Kitopia.DeviceCommunication.Transport.ILocalDataListener;

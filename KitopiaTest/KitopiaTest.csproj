@@ -28,13 +28,15 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting"/>
+        <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\Core.Window\Core.Window.csproj" />
       <ProjectReference Include="..\Core\Core.csproj" />
       <ProjectReference Include="..\KitopiaAvalonia\KitopiaAvalonia.csproj" />
+      <ProjectReference Include="..\Kitopia.DeviceCommunication\Kitopia.DeviceCommunication.csproj" />
+      <ProjectReference Include="..\Mobile\Kitopia.Mobile\Kitopia.Mobile.csproj" />
     </ItemGroup>
 
 </Project>
