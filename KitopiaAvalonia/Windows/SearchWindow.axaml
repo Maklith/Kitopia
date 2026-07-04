@@ -46,7 +46,7 @@
         <Panel.Background>
             <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.55" />
         </Panel.Background>
-        <Grid RowDefinitions="Auto,Auto" VerticalAlignment="Stretch">
+        <Grid RowDefinitions="Auto,*" VerticalAlignment="Stretch">
             <Border Theme="{DynamicResource KitopiaCard}" CornerRadius="0" Padding="12,8">
                 <StackPanel Spacing="8">
                     <Border Height="30">
