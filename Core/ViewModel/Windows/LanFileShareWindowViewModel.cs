@@ -6,7 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using Core.Services.Config;
 using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Application;
-using Core.Services.DeviceCommunication.Discovery;
+using Kitopia.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Messages.Chat;
 using ObservableCollections;
 using PluginCore;
@@ -28,7 +28,7 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public NotifyCollectionChangedSynchronizedViewList<DeviceModel> DiscoveredDevices => _deviceDiscoveryService.Devices;
+    public NotifyCollectionChangedSynchronizedViewList<DiscoveredDevice> DiscoveredDevices => _deviceDiscoveryService.Devices;
     public ObservableCollection<ShareFileItem> SelectedFiles { get; } = new();
 
     [ObservableProperty]
@@ -104,7 +104,7 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private async Task SendToDevice(DeviceModel? device)
+    private async Task SendToDevice(DiscoveredDevice? device)
     {
         if (device is null || !CanSend)
         {
@@ -150,7 +150,7 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async Task SendFileToDeviceAsync(DeviceModel device, FileChatMessage message, Stream stream)
+    private async Task SendFileToDeviceAsync(DiscoveredDevice device, FileChatMessage message, Stream stream)
     {
         if (string.IsNullOrWhiteSpace(device.Id))
         {
@@ -173,7 +173,7 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         {
             foreach (var item in e.NewItems)
             {
-                if (item is DeviceModel device)
+                if (item is DiscoveredDevice device)
                 {
                     ApplySavedCustomName(device);
                 }
@@ -197,7 +197,7 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static void ApplySavedCustomName(DeviceModel device)
+    private static void ApplySavedCustomName(DiscoveredDevice device)
     {
         if (string.IsNullOrWhiteSpace(device.Id))
         {

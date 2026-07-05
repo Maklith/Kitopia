@@ -6,7 +6,7 @@ using System.Text.Json;
 using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Codecs;
-using Core.Services.DeviceCommunication.Discovery;
+using Kitopia.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Handlers;
 using Core.Services.DeviceCommunication.Messages.Chat;
 using Core.Services.DeviceCommunication.Protocol;
@@ -300,7 +300,7 @@ public sealed class MessageAppServiceTests
         var sender = new ProtocolSender(listener);
         var registry = new MessageCodecRegistry();
         deviceDiscoveryService ??= new FakeDeviceDiscoveryService();
-        deviceDiscoveryService.AddDevice(new DeviceModel
+        deviceDiscoveryService.AddDevice(new DiscoveredDevice
         {
             Id = "peer-1",
             Ipv4Address = IPAddress.Loopback,
@@ -320,8 +320,8 @@ public sealed class MessageAppServiceTests
 
     private sealed class FakeDeviceDiscoveryService : IDeviceDiscoveryService
     {
-        private readonly ObservableList<DeviceModel> _devicesSource = [];
-        private readonly ISynchronizedView<DeviceModel, DeviceModel> _devicesView;
+        private readonly ObservableList<DiscoveredDevice> _devicesSource = [];
+        private readonly ISynchronizedView<DiscoveredDevice, DiscoveredDevice> _devicesView;
 
         public FakeDeviceDiscoveryService()
         {
@@ -329,13 +329,13 @@ public sealed class MessageAppServiceTests
             Devices = _devicesView.ToNotifyCollectionChanged();
         }
 
-        public NotifyCollectionChangedSynchronizedViewList<DeviceModel> Devices { get; }
+        public NotifyCollectionChangedSynchronizedViewList<DiscoveredDevice> Devices { get; }
 
         public Task StartAsync(CancellationToken token) => Task.CompletedTask;
 
         public Task StopAsync() => Task.CompletedTask;
 
-        public void AddDevice(DeviceModel device)
+        public void AddDevice(DiscoveredDevice device)
         {
             _devicesSource.Add(device);
         }

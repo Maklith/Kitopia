@@ -7,8 +7,8 @@
              mc:Ignorable="d"
              d:DesignWidth="1200"
              d:DesignHeight="800"
-             x:Class="Core.UI.DeviceCommunication.DeviceCommunicationPage"
-             x:DataType="vm:DeviceCommunicationPageViewModel">
+              x:Class="Core.UI.DeviceCommunication.DeviceCommunicationPage"
+              x:DataType="vm:DeviceCommunicationPageViewModel">
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

@@ -1,20 +1,23 @@
-using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using Avalonia.Threading;
 using Kitopia.DeviceCommunication.Discovery;
+using ObservableCollections;
 
 namespace Kitopia.Mobile.Services;
 
 public sealed class UiThreadDeviceDiscoveryService : IDeviceDiscoveryService
 {
     private readonly IDeviceDiscoveryService _innerService;
+    private readonly ObservableList<DiscoveredDevice> _uiSource = [];
+    private readonly ISynchronizedView<DiscoveredDevice, DiscoveredDevice> _uiView;
     private readonly Dictionary<DiscoveredDevice, DiscoveredDevice> _deviceMap = [];
 
     public UiThreadDeviceDiscoveryService(IDeviceDiscoveryService innerService)
     {
         _innerService = innerService;
-        Devices = [];
+        _uiView = _uiSource.CreateView(device => device);
+        Devices = _uiView.ToNotifyCollectionChanged();
 
         foreach (var device in _innerService.Devices)
         {
@@ -24,7 +27,7 @@ public sealed class UiThreadDeviceDiscoveryService : IDeviceDiscoveryService
         ((INotifyCollectionChanged)_innerService.Devices).CollectionChanged += OnDevicesChanged;
     }
 
-    public ObservableCollection<DiscoveredDevice> Devices { get; }
+    public NotifyCollectionChangedSynchronizedViewList<DiscoveredDevice> Devices { get; }
 
     public Task StartAsync(CancellationToken token)
     {
@@ -46,7 +49,9 @@ public sealed class UiThreadDeviceDiscoveryService : IDeviceDiscoveryService
         }
 
         _deviceMap.Clear();
-        Devices.Clear();
+        _uiSource.Clear();
+        Devices.Dispose();
+        _uiView.Dispose();
         _innerService.Dispose();
     }
 
@@ -63,7 +68,7 @@ public sealed class UiThreadDeviceDiscoveryService : IDeviceDiscoveryService
                 }
 
                 _deviceMap.Clear();
-                Devices.Clear();
+                _uiSource.Clear();
                 foreach (var device in _innerService.Devices)
                 {
                     AddDevice(device);
@@ -112,7 +117,7 @@ public sealed class UiThreadDeviceDiscoveryService : IDeviceDiscoveryService
         CopyDevice(device, mirroredDevice);
         _deviceMap[device] = mirroredDevice;
         device.PropertyChanged += OnDevicePropertyChanged;
-        Devices.Add(mirroredDevice);
+        _uiSource.Add(mirroredDevice);
     }
 
     private void RemoveDevice(DiscoveredDevice device)
@@ -123,7 +128,7 @@ public sealed class UiThreadDeviceDiscoveryService : IDeviceDiscoveryService
         }
 
         device.PropertyChanged -= OnDevicePropertyChanged;
-        Devices.Remove(mirroredDevice);
+        _uiSource.Remove(mirroredDevice);
     }
 
     private static void CopyDevice(DiscoveredDevice source, DiscoveredDevice destination)

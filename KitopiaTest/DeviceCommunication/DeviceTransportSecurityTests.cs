@@ -1,10 +1,9 @@
 using System.Net;
 using System.Security.Cryptography;
-using Core.Services.DeviceCommunication.Discovery;
+using Kitopia.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Security;
 using Kitopia.DeviceCommunication.Identity;
 using ObservableCollections;
-using PluginCore;
 
 namespace KitopiaTest.DeviceCommunication;
 
@@ -39,7 +38,7 @@ public sealed class DeviceTransportSecurityTests
     public void ResolveExpectedIdentityPublicKey_MatchesIpv4MappedIpv6Endpoint()
     {
         var discoveryService = new FakeDeviceDiscoveryService();
-        discoveryService.AddDevice(new DeviceModel
+        discoveryService.AddDevice(new DiscoveredDevice
         {
             Id = "peer-public-key",
             Ipv4Address = IPAddress.Parse("192.168.1.20"),
@@ -97,8 +96,8 @@ public sealed class DeviceTransportSecurityTests
 
     private sealed class FakeDeviceDiscoveryService : IDeviceDiscoveryService
     {
-        private readonly ObservableList<DeviceModel> _devicesSource = [];
-        private readonly ISynchronizedView<DeviceModel, DeviceModel> _devicesView;
+        private readonly ObservableList<DiscoveredDevice> _devicesSource = [];
+        private readonly ISynchronizedView<DiscoveredDevice, DiscoveredDevice> _devicesView;
 
         public FakeDeviceDiscoveryService()
         {
@@ -106,9 +105,9 @@ public sealed class DeviceTransportSecurityTests
             Devices = _devicesView.ToNotifyCollectionChanged();
         }
 
-        public NotifyCollectionChangedSynchronizedViewList<DeviceModel> Devices { get; }
+        public NotifyCollectionChangedSynchronizedViewList<DiscoveredDevice> Devices { get; }
 
-        public void AddDevice(DeviceModel device) => _devicesSource.Add(device);
+        public void AddDevice(DiscoveredDevice device) => _devicesSource.Add(device);
         public Task StartAsync(CancellationToken token) => Task.CompletedTask;
         public Task StopAsync() => Task.CompletedTask;
 

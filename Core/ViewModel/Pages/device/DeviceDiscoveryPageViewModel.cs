@@ -1,28 +1,26 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Core.Services;
-using Core.Services.Config;
-using Core.Services.DeviceCommunication.Discovery;
+using Core.Services.Interfaces;
+using Kitopia.DeviceCommunication.Discovery;
 using ObservableCollections;
-using PluginCore;
-using Serilog;
 
 namespace Core.ViewModel.Pages.device;
 
 public partial class DeviceDiscoveryPageViewModel : ObservableObject
 {
-    private static readonly ILogger Logger = LogManager.Logger.ForContext<DeviceDiscoveryPageViewModel>();
     private readonly IDeviceDiscoveryService _deviceDiscoveryService;
+    private readonly IConfigService _config;
 
-    public NotifyCollectionChangedSynchronizedViewList<DeviceModel> DiscoveredDevices => _deviceDiscoveryService.Devices;
+    public NotifyCollectionChangedSynchronizedViewList<DiscoveredDevice> DiscoveredDevices => _deviceDiscoveryService.Devices;
 
-    public DeviceDiscoveryPageViewModel(IDeviceDiscoveryService deviceDiscoveryService)
+    public DeviceDiscoveryPageViewModel(IDeviceDiscoveryService deviceDiscoveryService, IConfigService config)
     {
         _deviceDiscoveryService = deviceDiscoveryService;
+        _config = config;
     }
 
     [RelayCommand]
-    private void SaveCustomName(DeviceModel? device)
+    private void SaveCustomName(DiscoveredDevice? device)
     {
         if (device is null || string.IsNullOrWhiteSpace(device.Id))
         {
@@ -30,13 +28,13 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject
         }
 
         var name = device.CustomName?.Trim() ?? string.Empty;
-        device.CustomName = string.IsNullOrEmpty(name) ? string.Empty : name;
-        ConfigManger.Config.deviceCustomNames[device.Id] = device.CustomName;
-        ConfigManger.Save("KitopiaConfig");
+        name = string.IsNullOrEmpty(name) ? string.Empty : name;
+        device.CustomName = name;
+        _config.SetDeviceCustomName(device.Id, name);
     }
 
     [RelayCommand]
-    private void ClearCustomName(DeviceModel? device)
+    private void ClearCustomName(DiscoveredDevice? device)
     {
         if (device is null || string.IsNullOrWhiteSpace(device.Id))
         {
@@ -44,8 +42,7 @@ public partial class DeviceDiscoveryPageViewModel : ObservableObject
         }
 
         device.CustomName = string.Empty;
-        ConfigManger.Config.deviceCustomNames.Remove(device.Id);
-        ConfigManger.Save("KitopiaConfig");
+        _config.RemoveDeviceCustomName(device.Id);
     }
 }
 

@@ -1,6 +1,6 @@
-using System.Collections.ObjectModel;
 using System.Threading.Channels;
 using Kitopia.DeviceCommunication.Application;
+using ObservableCollections;
 using Kitopia.DeviceCommunication.Discovery;
 using Kitopia.DeviceCommunication.Messages.Chat;
 using Kitopia.DeviceCommunication.Messages.Clipboard;
@@ -21,7 +21,7 @@ public sealed class MobileConversationViewModelTests
         await viewModel.StartAsync();
 
         var device = new DiscoveredDevice { Id = "peer-1", Name = "Phone", TcpPort = 22001 };
-        discovery.Devices.Add(device);
+        discovery.AddDevice(device);
         viewModel.DeviceList.SelectedDevice = device;
 
         Assert.AreEqual(1, viewModel.DeviceList.Devices.Count);
@@ -37,7 +37,7 @@ public sealed class MobileConversationViewModelTests
         await using var viewModel = CreateMainViewModel(discovery, messageService);
         await viewModel.StartAsync();
         var device = new DiscoveredDevice { Id = "peer-1", Name = "Phone" };
-        discovery.Devices.Add(device);
+        discovery.AddDevice(device);
         viewModel.DeviceList.SelectedDevice = device;
         viewModel.Conversation.DraftText = "hello";
 
@@ -58,7 +58,7 @@ public sealed class MobileConversationViewModelTests
         await using var viewModel = CreateMainViewModel(discovery, messageService);
         await viewModel.StartAsync();
         var device = new DiscoveredDevice { Id = "peer-1", Name = "Phone" };
-        discovery.Devices.Add(device);
+        discovery.AddDevice(device);
         viewModel.DeviceList.SelectedDevice = device;
         viewModel.Conversation.DraftText = "hello";
 
@@ -78,7 +78,7 @@ public sealed class MobileConversationViewModelTests
         await using var viewModel = CreateMainViewModel(discovery, messageService, clipboardService: clipboard);
         await viewModel.StartAsync();
         var device = new DiscoveredDevice { Id = "peer-1", Name = "Phone" };
-        discovery.Devices.Add(device);
+        discovery.AddDevice(device);
         viewModel.DeviceList.SelectedDevice = device;
 
         await viewModel.Conversation.SendClipboardCommand.ExecuteAsync(null);
@@ -98,7 +98,7 @@ public sealed class MobileConversationViewModelTests
         await using var viewModel = CreateMainViewModel(discovery, messageService, filePicker);
         await viewModel.StartAsync();
         var device = new DiscoveredDevice { Id = "peer-1", Name = "Phone" };
-        discovery.Devices.Add(device);
+        discovery.AddDevice(device);
         viewModel.DeviceList.SelectedDevice = device;
 
         await viewModel.Conversation.SendFileCommand.ExecuteAsync(null);
@@ -116,7 +116,7 @@ public sealed class MobileConversationViewModelTests
         await using var viewModel = CreateMainViewModel(discovery, messageService);
         await viewModel.StartAsync();
         var device = new DiscoveredDevice { Id = "peer-1", Name = "Phone" };
-        discovery.Devices.Add(device);
+        discovery.AddDevice(device);
         viewModel.DeviceList.SelectedDevice = device;
 
         await messageService.PublishAsync(new ChatMessageReceivedEvent(
@@ -139,7 +139,7 @@ public sealed class MobileConversationViewModelTests
         await using var viewModel = CreateMainViewModel(discovery, messageService, clipboardService: clipboard);
         await viewModel.StartAsync();
         var device = new DiscoveredDevice { Id = "peer-1", Name = "Phone" };
-        discovery.Devices.Add(device);
+        discovery.AddDevice(device);
         viewModel.DeviceList.SelectedDevice = device;
 
         await messageService.PublishAsync(new ChatMessageReceivedEvent(
@@ -162,7 +162,7 @@ public sealed class MobileConversationViewModelTests
         await using var viewModel = CreateMainViewModel(discovery, messageService, filePicker);
         await viewModel.StartAsync();
         var device = new DiscoveredDevice { Id = "peer-1", Name = "Phone" };
-        discovery.Devices.Add(device);
+        discovery.AddDevice(device);
         viewModel.DeviceList.SelectedDevice = device;
         var transferId = Guid.NewGuid();
 
@@ -196,7 +196,7 @@ public sealed class MobileConversationViewModelTests
         await using var viewModel = CreateMainViewModel(discovery, messageService);
         await viewModel.StartAsync();
         var device = new DiscoveredDevice { Id = "peer-1", Name = "Phone" };
-        discovery.Devices.Add(device);
+        discovery.AddDevice(device);
         viewModel.DeviceList.SelectedDevice = device;
         var transferId = Guid.NewGuid();
 
@@ -229,7 +229,7 @@ public sealed class MobileConversationViewModelTests
         await using var viewModel = CreateMainViewModel(discovery, messageService);
         await viewModel.StartAsync();
         var device = new DiscoveredDevice { Id = "peer-1", Name = "Phone" };
-        discovery.Devices.Add(device);
+        discovery.AddDevice(device);
         viewModel.DeviceList.SelectedDevice = device;
         var transferId = Guid.NewGuid();
 
@@ -263,7 +263,7 @@ public sealed class MobileConversationViewModelTests
         await using var viewModel = CreateMainViewModel(discovery, messageService);
         await viewModel.StartAsync();
         var device = new DiscoveredDevice { Id = "peer-1", Name = "Phone" };
-        discovery.Devices.Add(device);
+        discovery.AddDevice(device);
         viewModel.DeviceList.SelectedDevice = device;
         var transferId = Guid.NewGuid();
 
@@ -287,7 +287,7 @@ public sealed class MobileConversationViewModelTests
         await using var viewModel = CreateMainViewModel(discovery, messageService);
         await viewModel.StartAsync();
         var device = new DiscoveredDevice { Id = "peer-1", Name = "Phone" };
-        discovery.Devices.Add(device);
+        discovery.AddDevice(device);
         viewModel.DeviceList.SelectedDevice = device;
         var transferId = Guid.NewGuid();
 
@@ -338,7 +338,18 @@ public sealed class MobileConversationViewModelTests
 
     private sealed class FakeDiscoveryService : IDeviceDiscoveryService
     {
-        public ObservableCollection<DiscoveredDevice> Devices { get; } = [];
+        private readonly ObservableList<DiscoveredDevice> _source = [];
+        private readonly ISynchronizedView<DiscoveredDevice, DiscoveredDevice> _view;
+
+        public FakeDiscoveryService()
+        {
+            _view = _source.CreateView(d => d);
+            Devices = _view.ToNotifyCollectionChanged();
+        }
+
+        public NotifyCollectionChangedSynchronizedViewList<DiscoveredDevice> Devices { get; }
+
+        public void AddDevice(DiscoveredDevice device) => _source.Add(device);
         public Task StartAsync(CancellationToken token) => Task.CompletedTask;
         public Task StopAsync() => Task.CompletedTask;
         public void Dispose() { }

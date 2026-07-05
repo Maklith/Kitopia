@@ -15,7 +15,7 @@ using Core.Services.Config;
 using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Application;
 using Core.Services.DeviceCommunication.Codecs;
-using Core.Services.DeviceCommunication.Discovery;
+using Kitopia.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Handlers;
 using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Security;
@@ -47,7 +47,6 @@ using PluginCore;
 using PluginCore.Onnx;
 using Serilog;
 using ScreenCaptureWindow = KitopiaAvalonia.Services.ScreenCaptureWindow;
-using SharedDeviceDiscoveryService = Kitopia.DeviceCommunication.Discovery.IDeviceDiscoveryService;
 using SharedMessageAppService = Kitopia.DeviceCommunication.Application.IMessageAppService;
 using TaskEditor = KitopiaAvalonia.Windows.TaskEditors.TaskEditor;
 
@@ -115,11 +114,11 @@ internal class Program {
         services.AddTransient<ISearchWindowService, SearchWindowService>();
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
 
+        services.AddSingleton<Core.Services.Interfaces.IConfigService, Core.Services.Config.DesktopConfigService>();
         services.AddSingleton<IDeviceIdentityStore, DesktopDeviceIdentityStore>();
         services.AddSingleton<Kitopia.DeviceCommunication.Discovery.IDeviceCommunicationSettings, DesktopDeviceCommunicationSettings>();
         services.AddSingleton<Kitopia.DeviceCommunication.Transport.ILocalDataEndpointProvider, LocalDataEndpointProvider>();
         services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>();
-        services.AddSingleton<SharedDeviceDiscoveryService, DesktopSharedDeviceDiscoveryService>();
         services.AddSingleton<DeviceTransportSecurity>();
         services.AddSingleton<ILocalDataListener, LocalDataListenerHost>();
         services.AddSingleton<ProtocolSession>();

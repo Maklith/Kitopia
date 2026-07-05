@@ -1,3 +1,5 @@
+using Core.Services.Interfaces;
+using Core.ViewModel.Pages.device;
 using Kitopia.DeviceCommunication;
 using Kitopia.DeviceCommunication.Application;
 using Kitopia.DeviceCommunication.Codecs;
@@ -20,6 +22,7 @@ public sealed class MobileCommunicationBootstrapper
     {
         TopLevelContext = new MobileTopLevelContext();
 
+        var configService = new MobileConfigService();
         var identityStore = new MobileDeviceIdentityStore();
         var ensuredIdentity = identityStore.EnsureIdentity();
         DeviceCommunicationDiagnostics.Info(
@@ -31,7 +34,7 @@ public sealed class MobileCommunicationBootstrapper
         ILocalDataListener? listener = null;
         var endpointProvider = new MobileLocalDataEndpointProvider(() => listener);
         var innerDiscoveryService = new DeviceDiscoveryService(
-            new MobileDeviceCommunicationSettings(),
+            new MobileDeviceCommunicationSettings(configService),
             identityStore,
             endpointProvider);
         var discoveryService = new UiThreadDeviceDiscoveryService(innerDiscoveryService);
@@ -47,7 +50,7 @@ public sealed class MobileCommunicationBootstrapper
             new DeviceTransportSecurity(identityStore),
             remoteIdentityResolver);
 
-        var messageService = new MessageAppService(
+        var messageService = new Kitopia.DeviceCommunication.Application.MessageAppService(
             codecRegistry,
             new DeviceTransportService(listener, innerDiscoveryService),
             incomingMessageBuffer,
@@ -57,6 +60,8 @@ public sealed class MobileCommunicationBootstrapper
         var clipboardService = new AvaloniaClipboardService(TopLevelContext);
         var runtime = MobilePlatformRuntime.Current.WrapCommunicationRuntime(new MobileCommunicationRuntime(listener));
         var host = new MobileDeviceCommunicationHost(runtime, discoveryService);
+
+        DeviceDiscoveryPageViewModel = new DeviceDiscoveryPageViewModel(discoveryService, configService);
 
         MainViewModel = new MainViewModel(
             new DeviceListViewModel(discoveryService),
@@ -68,6 +73,7 @@ public sealed class MobileCommunicationBootstrapper
 
     public MobileTopLevelContext TopLevelContext { get; }
     public MainViewModel MainViewModel { get; }
+    public DeviceDiscoveryPageViewModel DeviceDiscoveryPageViewModel { get; }
 
     private sealed class DeviceIdentityProvider : IDeviceIdentityProvider
     {

@@ -1,6 +1,6 @@
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
-using Core.Services.DeviceCommunication.Discovery;
+using Kitopia.DeviceCommunication.Discovery;
 using Kitopia.DeviceCommunication.Identity;
 using SharedDeviceTransportSecurity = Kitopia.DeviceCommunication.Security.DeviceTransportSecurity;
 

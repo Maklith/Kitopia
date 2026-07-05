@@ -3,7 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:Core.ViewModel.Windows;assembly=Core"
-        xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
+        xmlns:discoveredDevice="clr-namespace:Kitopia.DeviceCommunication.Discovery;assembly=Kitopia.DeviceCommunication"
         mc:Ignorable="d"
         d:DesignWidth="920"
         d:DesignHeight="560"
@@ -69,7 +69,7 @@
                 <Grid Grid.Row="1">
                     <ListBox ItemsSource="{Binding DiscoveredDevices}" IsVisible="{Binding HasDevices}">
                         <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="pluginCore:DeviceModel">
+                            <DataTemplate x:DataType="discoveredDevice:DiscoveredDevice">
                                 <Grid ColumnDefinitions="*,Auto" Margin="0,2">
                                     <StackPanel Spacing="2">
                                         <StackPanel Orientation="Horizontal" Spacing="4">

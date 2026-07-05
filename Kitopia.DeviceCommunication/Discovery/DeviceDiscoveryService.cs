@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -7,6 +6,7 @@ using System.Text.Json;
 using Kitopia.DeviceCommunication.Diagnostics;
 using Kitopia.DeviceCommunication.Identity;
 using Kitopia.DeviceCommunication.Transport;
+using ObservableCollections;
 
 namespace Kitopia.DeviceCommunication.Discovery;
 
@@ -30,6 +30,8 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
     private static readonly TimeSpan DiscoveryAuthRequestTimeout = TimeSpan.FromSeconds(15);
 
     private readonly object _sync = new();
+    private readonly ObservableList<DiscoveredDevice> _devicesSource = [];
+    private readonly ISynchronizedView<DiscoveredDevice, DiscoveredDevice> _devicesView;
     private readonly Dictionary<string, PendingAuthRequest> _pendingAuthRequests = new(StringComparer.Ordinal);
     private readonly IDeviceCommunicationSettings _settings;
     private readonly IDeviceIdentityStore _identityStore;
@@ -49,9 +51,11 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         _settings = settings;
         _identityStore = identityStore;
         _localDataEndpointProvider = localDataEndpointProvider;
+        _devicesView = _devicesSource.CreateView(device => device);
+        Devices = _devicesView.ToNotifyCollectionChanged();
     }
 
-    public ObservableCollection<DiscoveredDevice> Devices { get; } = [];
+    public NotifyCollectionChangedSynchronizedViewList<DiscoveredDevice> Devices { get; }
 
     public Task StartAsync(CancellationToken token)
     {
@@ -83,6 +87,8 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
     public void Dispose()
     {
         StopAsync().GetAwaiter().GetResult();
+        Devices.Dispose();
+        _devicesView.Dispose();
     }
 
     private void StopCore()
@@ -105,7 +111,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         CloseUdpClient(ref _udpClientV4);
         CloseUdpClient(ref _udpClientV6);
         _pendingAuthRequests.Clear();
-        Devices.Clear();
+        _devicesSource.Clear();
     }
 
     private static void CloseUdpClient(ref UdpClient? client)
@@ -145,7 +151,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             lock (_sync)
             {
                 var now = DateTime.UtcNow;
-                var staleDevices = Devices
+                var staleDevices = _devicesSource
                     .Where(device => now - device.LastSeen > DiscoveryStaleTimeout)
                     .ToArray();
                 foreach (var staleDevice in staleDevices)
@@ -153,7 +159,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                     DeviceCommunicationDiagnostics.Info(
                         LogCategory,
                         $"Removing stale device {ShortId(staleDevice.Id)} at {FormatEndpoint(staleDevice)}.");
-                    Devices.Remove(staleDevice);
+                    _devicesSource.Remove(staleDevice);
                 }
             }
         }
@@ -580,16 +586,16 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         {
             CleanupPendingAuthRequests(DateTime.UtcNow);
 
-            var existing = Devices.FirstOrDefault(device =>
+            var existing = _devicesSource.FirstOrDefault(device =>
                 string.Equals(device.Id, info.PublicKey, StringComparison.Ordinal));
             if (existing is null)
             {
-                var duplicateEndpoint = Devices.FirstOrDefault(device =>
+                var duplicateEndpoint = _devicesSource.FirstOrDefault(device =>
                     IsSameEndpoint(device, endpointAddress) &&
                     device.TcpPort == info.TcpPort);
                 if (duplicateEndpoint is not null)
                 {
-                    Devices.Remove(duplicateEndpoint);
+                    _devicesSource.Remove(duplicateEndpoint);
                 }
 
                 existing = new DiscoveredDevice
@@ -601,7 +607,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                     LastSeen = DateTime.UtcNow
                 };
                 AssignDiscoveredAddress(existing, endpointAddress);
-                Devices.Add(existing);
+                _devicesSource.Add(existing);
                 DeviceCommunicationDiagnostics.Info(
                     LogCategory,
                     $"Added device {ShortId(existing.Id)} name={existing.Name} endpoint={FormatEndpoint(existing)} tcp={existing.TcpPort}.");

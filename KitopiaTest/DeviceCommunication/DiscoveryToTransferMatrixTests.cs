@@ -5,12 +5,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Core.Services.DeviceCommunication;
-using Core.Services.DeviceCommunication.Discovery;
+using Kitopia.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
 using Kitopia.DeviceCommunication.Identity;
 using ObservableCollections;
-using PluginCore;
+
 
 namespace KitopiaTest.DeviceCommunication;
 
@@ -23,7 +23,7 @@ public sealed class DiscoveryToTransferMatrixTests
     {
         var listener = new RecordingLocalDataListener();
         var discoveryService = new FakeDeviceDiscoveryService();
-        discoveryService.AddDevice(new DeviceModel
+        discoveryService.AddDevice(new DiscoveredDevice
         {
             Id = "peer-1",
             Ipv4Address = IPAddress.Loopback,
@@ -96,8 +96,8 @@ public sealed class DiscoveryToTransferMatrixTests
 
     private sealed class FakeDeviceDiscoveryService : IDeviceDiscoveryService
     {
-        private readonly ObservableList<DeviceModel> _devicesSource = [];
-        private readonly ISynchronizedView<DeviceModel, DeviceModel> _devicesView;
+        private readonly ObservableList<DiscoveredDevice> _devicesSource = [];
+        private readonly ISynchronizedView<DiscoveredDevice, DiscoveredDevice> _devicesView;
 
         public FakeDeviceDiscoveryService()
         {
@@ -105,13 +105,13 @@ public sealed class DiscoveryToTransferMatrixTests
             Devices = _devicesView.ToNotifyCollectionChanged();
         }
 
-        public NotifyCollectionChangedSynchronizedViewList<DeviceModel> Devices { get; }
+        public NotifyCollectionChangedSynchronizedViewList<DiscoveredDevice> Devices { get; }
 
         public Task StartAsync(CancellationToken token) => Task.CompletedTask;
 
         public Task StopAsync() => Task.CompletedTask;
 
-        public void AddDevice(DeviceModel device)
+        public void AddDevice(DiscoveredDevice device)
         {
             _devicesSource.Add(device);
         }

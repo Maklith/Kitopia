@@ -5,7 +5,7 @@ using Avalonia.Controls.Notifications;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Core.Services.DeviceCommunication.Codecs;
-using Core.Services.DeviceCommunication.Discovery;
+using Kitopia.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Handlers;
 using Core.Services.DeviceCommunication.Messages;
 using Core.Services.DeviceCommunication.Messages.Chat;

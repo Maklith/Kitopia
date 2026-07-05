@@ -19,7 +19,7 @@ using CommunityToolkit.Mvvm.Input;
 using Core.Services;
 using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Application;
-using Core.Services.DeviceCommunication.Discovery;
+using Kitopia.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Messages.Chat;
 using Core.Services.Interfaces;
 using Core.ViewModel.Main;
@@ -41,7 +41,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private readonly DispatcherTimer _displayContextSyncTimer;
     private readonly DispatcherTimer _messageListAutoScrollTimer;
     private readonly Dictionary<string, DeviceConversationItem> _conversationLookup = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, DeviceModel> _trackedDevices = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DiscoveredDevice> _trackedDevices = new(StringComparer.Ordinal);
     private readonly ObservableCollection<object> _emptyMessages = [];
     private readonly Dictionary<Guid, CancellationTokenSource> _fileSendCancellations = new();
     private int _messageListVersion;
@@ -617,7 +617,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     private void OnTrackedDevicePropertyChanged(object? sender, PropertyChangedEventArgs e) {
-        if (_disposed || sender is not DeviceModel device) {
+        if (_disposed || sender is not DiscoveredDevice device) {
             return;
         }
 
@@ -1001,7 +1001,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         SortConversations();
     }
 
-    private void UpsertConversation(DeviceModel device) {
+    private void UpsertConversation(DiscoveredDevice device) {
         if (!_conversationLookup.TryGetValue(device.Id, out var conversation)) {
             conversation = new DeviceConversationItem(device.Id);
             _conversationLookup[device.Id] = conversation;
@@ -1147,7 +1147,7 @@ public partial class DeviceConversationItem : ObservableObject {
     public string UnreadCountText => UnreadCount > 99 ? "99+" : UnreadCount.ToString();
     public string LastMessageTimeText => LastMessageAt?.ToLocalTime().ToString("HH:mm") ?? string.Empty;
 
-    public void ApplyDevice(DeviceModel device) {
+    public void ApplyDevice(DiscoveredDevice device) {
         DisplayName = device.DisplayName;
         Ipv4Address = device.Ipv4Address;
         Ipv6Address = device.Ipv6Address;

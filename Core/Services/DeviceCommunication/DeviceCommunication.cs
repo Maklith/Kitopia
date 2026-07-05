@@ -5,7 +5,7 @@
 // Date: 2026/04/11 10:04
 // FileEffect:
 
-using Core.Services.DeviceCommunication.Discovery;
+using Kitopia.DeviceCommunication.Discovery;
 using Kitopia.DeviceCommunication.Identity;
 using PluginCore;
 

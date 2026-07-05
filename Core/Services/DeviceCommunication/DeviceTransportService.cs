@@ -1,9 +1,8 @@
 using System.Net;
 using System.Net.Sockets;
-using Core.Services.DeviceCommunication.Discovery;
+using Kitopia.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Protocol;
 using Core.Services.DeviceCommunication.Routing;
-using PluginCore;
 
 namespace Core.Services.DeviceCommunication;
 
@@ -32,7 +31,7 @@ public sealed class DeviceTransportService
     }
 
     private async Task SendAsync(
-        DeviceModel device,
+        DiscoveredDevice device,
         DataEnvelope envelope,
         Stream? payloadStream,
         Func<long, long, ValueTask>? progressCallback,
@@ -62,7 +61,7 @@ public sealed class DeviceTransportService
         return _protocolSender.SendAsync(context, envelope, payloadStream, progressCallback, cancellationToken);
     }
 
-    private DeviceModel ResolveDevice(string deviceId)
+    private DiscoveredDevice ResolveDevice(string deviceId)
     {
         if (string.IsNullOrWhiteSpace(deviceId))
         {
@@ -79,7 +78,7 @@ public sealed class DeviceTransportService
         return device;
     }
 
-    private static IPAddress SelectTransportAddress(DeviceModel device)
+    private static IPAddress SelectTransportAddress(DiscoveredDevice device)
     {
         if (Socket.OSSupportsIPv6 && device.Ipv6Address != IPAddress.None)
         {

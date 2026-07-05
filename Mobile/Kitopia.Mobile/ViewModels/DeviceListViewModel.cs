@@ -1,6 +1,6 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Kitopia.DeviceCommunication.Discovery;
+using ObservableCollections;
 
 namespace Kitopia.Mobile.ViewModels;
 
@@ -13,7 +13,7 @@ public sealed partial class DeviceListViewModel : ObservableObject
 
     private readonly IDeviceDiscoveryService _discoveryService;
 
-    public ObservableCollection<DiscoveredDevice> Devices => _discoveryService.Devices;
+    public NotifyCollectionChangedSynchronizedViewList<DiscoveredDevice> Devices => _discoveryService.Devices;
 
     [ObservableProperty]
     private DiscoveredDevice? _selectedDevice;

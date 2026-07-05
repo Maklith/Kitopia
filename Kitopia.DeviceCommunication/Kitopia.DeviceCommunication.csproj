@@ -5,4 +5,9 @@
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
     </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+        <PackageReference Include="ObservableCollections" Version="3.3.4" />
+    </ItemGroup>
 </Project>

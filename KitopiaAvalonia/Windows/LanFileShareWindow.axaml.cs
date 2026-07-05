@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Application;
-using Core.Services.DeviceCommunication.Discovery;
+using Kitopia.DeviceCommunication.Discovery;
 using Core.Services.Interfaces;
 using Core.ViewModel.Windows;
 using Microsoft.Extensions.DependencyInjection;

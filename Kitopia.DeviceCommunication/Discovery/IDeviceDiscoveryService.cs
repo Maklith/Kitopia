@@ -1,10 +1,10 @@
-using System.Collections.ObjectModel;
+using ObservableCollections;
 
 namespace Kitopia.DeviceCommunication.Discovery;
 
 public interface IDeviceDiscoveryService : IDisposable
 {
-    ObservableCollection<DiscoveredDevice> Devices { get; }
+    NotifyCollectionChangedSynchronizedViewList<DiscoveredDevice> Devices { get; }
     Task StartAsync(CancellationToken token);
     Task StopAsync();
 }

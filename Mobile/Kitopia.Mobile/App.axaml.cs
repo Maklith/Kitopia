@@ -62,7 +62,8 @@ public partial class App : Avalonia.Application
         return new MainView
         {
             DataContext = mainViewModel,
-            TopLevelContext = _bootstrapper?.TopLevelContext
+            TopLevelContext = _bootstrapper?.TopLevelContext,
+            DiscoveryPageViewModel = _bootstrapper?.DeviceDiscoveryPageViewModel
         };
     }
 }
