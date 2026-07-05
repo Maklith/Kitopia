@@ -146,7 +146,11 @@ public sealed class MobileChatPlatformService : IChatPlatformService
     }
 
     public ChatDisplayContext GetDisplayContext(string? selectedConversationId)
-        => new(true, true);
+    {
+        _ = selectedConversationId;
+        var isActive = _topLevel.IsActivityActive && _topLevel.CurrentTopLevel is not null;
+        return new ChatDisplayContext(isActive, isActive);
+    }
 
     private static string GetIncomingRootDirectory()
     {

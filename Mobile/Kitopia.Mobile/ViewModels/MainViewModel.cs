@@ -19,6 +19,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         await _host.StartAsync(cancellationToken);
+        Chat.RefreshCurrentConversationView();
     }
 
     public async Task StopAsync()

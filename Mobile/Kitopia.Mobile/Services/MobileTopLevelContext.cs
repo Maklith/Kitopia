@@ -5,6 +5,7 @@ namespace Kitopia.Mobile.Services;
 public sealed class MobileTopLevelContext
 {
     public TopLevel? CurrentTopLevel { get; set; }
+    public bool IsActivityActive { get; set; } = true;
 
     /// <summary>
     /// Set while this app is showing its own file picker / save dialog. On Android the picker

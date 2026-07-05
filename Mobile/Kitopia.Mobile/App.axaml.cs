@@ -52,6 +52,14 @@ public partial class App : Avalonia.Application
         return _bootstrapper?.MainViewModel.StartAsync(cancellationToken) ?? Task.CompletedTask;
     }
 
+    public void SetActivityActive(bool isActive)
+    {
+        if (_bootstrapper is not null)
+        {
+            _bootstrapper.TopLevelContext.IsActivityActive = isActive;
+        }
+    }
+
     public Task PauseAsync()
     {
         // Ignore the transient pause caused by our own file picker / save dialog (Android runs it

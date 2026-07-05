@@ -644,6 +644,19 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         });
     }
 
+    public void RefreshCurrentConversationView() {
+        if (_disposed) {
+            return;
+        }
+
+        OnPropertyChanged(nameof(CurrentMessages));
+        OnPropertyChanged(nameof(CurrentConversationTitle));
+        OnPropertyChanged(nameof(CurrentConversationSubtitle));
+        OnPropertyChanged(nameof(HasConversationSelected));
+        OnPropertyChanged(nameof(ShowConversationPlaceholder));
+        MessageListVersion++;
+    }
+
     private bool TryGetConversation(string conversationId, out DeviceConversationItem? conversation) {
         if (!_conversationLookup.TryGetValue(conversationId, out conversation)) {
             conversation = Conversations.FirstOrDefault(c => c.DeviceId == conversationId);

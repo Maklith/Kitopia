@@ -4,6 +4,7 @@ using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using AndroidX.Core.App;
+using Kitopia.DeviceCommunication.Diagnostics;
 
 namespace Kitopia.Mobile;
 
@@ -13,6 +14,7 @@ public sealed class KitopiaForegroundService : Service
     private const int NotificationId = 1;
     private const string ChannelId = "kitopia_service";
     private const string ChannelName = "后台服务";
+    private const string LogCategory = "AndroidForegroundService";
 
     public override IBinder? OnBind(Intent? intent) => null;
 
@@ -30,6 +32,7 @@ public sealed class KitopiaForegroundService : Service
             StartForeground(NotificationId, notification);
         }
 
+        _ = EnsureCommunicationHostStartedAsync();
         return StartCommandResult.Sticky;
     }
 
@@ -55,20 +58,53 @@ public sealed class KitopiaForegroundService : Service
 
     private Notification BuildNotification(string title, string text)
     {
-        var intent = PackageManager!.GetLaunchIntentForPackage(PackageName!);
-        var pendingIntent = PendingIntent.GetActivity(
-            this,
-            0,
-            intent,
-            PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable);
+        PendingIntent? pendingIntent = null;
+        var intent = PackageManager?.GetLaunchIntentForPackage(PackageName ?? string.Empty);
+        if (intent is not null)
+        {
+            pendingIntent = PendingIntent.GetActivity(
+                this,
+                0,
+                intent,
+                PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable);
+        }
 
-        return new NotificationCompat.Builder(this, ChannelId)
-            .SetContentTitle(title)
-            .SetContentText(text)
-            .SetSmallIcon(Android.Resource.Drawable.IcDialogInfo)
-            .SetContentIntent(pendingIntent)
-            .SetOngoing(true)
-            .SetPriority(NotificationCompat.PriorityLow)
-            .Build();
+        var builder = new NotificationCompat.Builder(this, ChannelId);
+        builder.SetContentTitle(title);
+        builder.SetContentText(text);
+        builder.SetSmallIcon(Android.Resource.Drawable.IcDialogInfo);
+        builder.SetOngoing(true);
+        builder.SetPriority(NotificationCompat.PriorityLow);
+
+        if (pendingIntent is not null)
+        {
+            builder.SetContentIntent(pendingIntent);
+        }
+
+        return builder.Build()!;
+    }
+
+    private static async Task EnsureCommunicationHostStartedAsync()
+    {
+        if (Avalonia.Application.Current is not App app)
+        {
+            DeviceCommunicationDiagnostics.Warning(
+                LogCategory,
+                "Avalonia application is unavailable; foreground service cannot resume communication host.");
+            return;
+        }
+
+        try
+        {
+            await app.ResumeAsync();
+            DeviceCommunicationDiagnostics.Info(LogCategory, "Communication host resumed by foreground service.");
+        }
+        catch (Exception ex)
+        {
+            DeviceCommunicationDiagnostics.Error(
+                LogCategory,
+                "Failed to resume communication host from foreground service.",
+                ex);
+        }
     }
 }
