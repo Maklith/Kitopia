@@ -58,8 +58,6 @@ public class ViewLocator : IValueConverter
                 return ServiceManager.Services.GetKeyedService<UserControl>("HotKeyManagerPage");
             case "onnx/model-manager":
                 return ServiceManager.Services.GetKeyedService<UserControl>("OnnxModelManagerPage");
-            case "device/discovery":
-                return ServiceManager.Services.GetKeyedService<UserControl>("DeviceDiscoveryPage");
             case "device/chat":
                 return ServiceManager.Services.GetKeyedService<UserControl>("DeviceChatPage");
             case "settings":

@@ -54,6 +54,14 @@ public partial class App : Avalonia.Application
 
     public Task PauseAsync()
     {
+        // Ignore the transient pause caused by our own file picker / save dialog (Android runs it
+        // as a separate Activity). Tearing the host down here would clear the discovered-device list
+        // and make the in-flight send/accept fail. OnResume will be a no-op because the host stays started.
+        if (_bootstrapper?.TopLevelContext.SuppressPause == true)
+        {
+            return Task.CompletedTask;
+        }
+
         return _bootstrapper?.MainViewModel.StopAsync() ?? Task.CompletedTask;
     }
 
@@ -62,8 +70,7 @@ public partial class App : Avalonia.Application
         return new MainView
         {
             DataContext = mainViewModel,
-            TopLevelContext = _bootstrapper?.TopLevelContext,
-            DiscoveryPageViewModel = _bootstrapper?.DeviceDiscoveryPageViewModel
+            TopLevelContext = _bootstrapper?.TopLevelContext
         };
     }
 }

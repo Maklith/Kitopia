@@ -21,18 +21,13 @@ public sealed class FileTransferPayloadHandler
     {
         if (!_fileTransferSessionStore.TryGet(message.ChannelId, out var session) ||
             session.State != FileTransferState.Accepted ||
-            string.IsNullOrWhiteSpace(session.SavePath))
+            (string.IsNullOrWhiteSpace(session.SavePath) && session.OpenWriteStreamAsync is null))
         {
             await DrainPayloadAsync(message, payload, cancellationToken);
             return;
         }
 
         var totalBytes = Math.Max(0L, message.Length ?? 0L);
-        var directory = Path.GetDirectoryName(session.SavePath);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
 
         long receivedBytes = 0;
         long lastReportedBytes = 0;
@@ -69,13 +64,7 @@ public sealed class FileTransferPayloadHandler
 
         try
         {
-            await using var fileStream = new FileStream(
-                session.SavePath,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None,
-                64 * 1024,
-                useAsync: true);
+            await using var fileStream = await OpenTargetStreamAsync(session, cancellationToken);
 
             await using var progressStream = new ProgressReportingWriteStream(fileStream, ReportProgressAsync);
             await payload.CopyToAsync(progressStream, cancellationToken);
@@ -148,6 +137,41 @@ public sealed class FileTransferPayloadHandler
                 CancellationToken.None);
             throw;
         }
+    }
+
+    private static async ValueTask<Stream> OpenTargetStreamAsync(
+        FileTransferSession session,
+        CancellationToken cancellationToken)
+    {
+        if (session.OpenWriteStreamAsync is not null)
+        {
+            var stream = await session.OpenWriteStreamAsync(cancellationToken);
+            if (stream.CanSeek)
+            {
+                stream.SetLength(0);
+            }
+
+            return stream;
+        }
+
+        if (string.IsNullOrWhiteSpace(session.SavePath))
+        {
+            throw new InvalidOperationException("Missing file save target.");
+        }
+
+        var directory = Path.GetDirectoryName(session.SavePath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        return new FileStream(
+            session.SavePath,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            64 * 1024,
+            useAsync: true);
     }
 
     private async ValueTask DrainPayloadAsync(

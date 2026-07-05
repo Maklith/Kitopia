@@ -1,6 +1,7 @@
 using System.IO.Pipelines;
 using Core.Services.DeviceCommunication.Messages.Chat;
 using Core.Services.DeviceCommunication.Sessions;
+using Kitopia.DeviceCommunication.Diagnostics;
 
 namespace Core.Services.DeviceCommunication.Application;
 
@@ -19,21 +20,23 @@ public sealed class FileTransferPayloadHandler
 
     public async ValueTask HandleAsync(FileChatMessage message, PipeReader payload, CancellationToken cancellationToken)
     {
+        DeviceCommunicationDiagnostics.Info("FilePayloadHandler",
+            $"HandleAsync ChannelId={message.ChannelId} Length={message.Length}");
+
         if (!_fileTransferSessionStore.TryGet(message.ChannelId, out var session) ||
             session.State != FileTransferState.Accepted ||
-            string.IsNullOrWhiteSpace(session.SavePath))
+            (string.IsNullOrWhiteSpace(session.SavePath) && session.OpenWriteStreamAsync is null))
         {
+            DeviceCommunicationDiagnostics.Warning("FilePayloadHandler",
+                $"session missing ChartId={message.ChannelId} found={(session != null)} state={session?.State} savePath={session?.SavePath}");
             await DrainPayloadAsync(message, payload, cancellationToken);
             return;
         }
 
-        var totalBytes = Math.Max(0L, message.Length ?? 0L);
-        var directory = Path.GetDirectoryName(session.SavePath);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        DeviceCommunicationDiagnostics.Info("FilePayloadHandler",
+            $"writing SavePath={session.SavePath} expectedBytes={message.Length}");
 
+        var totalBytes = Math.Max(0L, message.Length ?? 0L);
         long receivedBytes = 0;
         long lastReportedBytes = 0;
         const int progressStepBytes = 1024 * 1024;
@@ -69,16 +72,13 @@ public sealed class FileTransferPayloadHandler
 
         try
         {
-            await using var fileStream = new FileStream(
-                session.SavePath,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None,
-                64 * 1024,
-                useAsync: true);
+            await using var fileStream = await OpenTargetStreamAsync(session, cancellationToken);
 
             await using var progressStream = new ProgressReportingWriteStream(fileStream, ReportProgressAsync);
             await payload.CopyToAsync(progressStream, cancellationToken);
+
+            DeviceCommunicationDiagnostics.Info("FilePayloadHandler",
+                $"copy done ChannelId={message.ChannelId} receivedBytes={receivedBytes} fileLength={GetStreamLengthForLog(fileStream, receivedBytes)}");
 
             if (receivedBytes > 0 && receivedBytes != lastReportedBytes)
             {
@@ -116,6 +116,8 @@ public sealed class FileTransferPayloadHandler
         }
         catch (OperationCanceledException)
         {
+            DeviceCommunicationDiagnostics.Info("FilePayloadHandler",
+                $"cancelled ChannelId={message.ChannelId} receivedBytes={receivedBytes}");
             _fileTransferSessionStore.TryRemove(message.ChannelId, out _);
             await _incomingMessageSink.PublishEventAsync(
                 new FileTransferUpdatedEvent(
@@ -131,8 +133,10 @@ public sealed class FileTransferPayloadHandler
                 CancellationToken.None);
             throw;
         }
-        catch
+        catch (Exception ex)
         {
+            DeviceCommunicationDiagnostics.Error("FilePayloadHandler",
+                $"receive failed ChannelId={message.ChannelId} receivedBytes={receivedBytes} SavePath={session.SavePath}", ex);
             _fileTransferSessionStore.TryRemove(message.ChannelId, out _);
             await _incomingMessageSink.PublishEventAsync(
                 new FileTransferUpdatedEvent(
@@ -148,6 +152,46 @@ public sealed class FileTransferPayloadHandler
                 CancellationToken.None);
             throw;
         }
+    }
+
+    private static async ValueTask<Stream> OpenTargetStreamAsync(
+        FileTransferSession session,
+        CancellationToken cancellationToken)
+    {
+        if (session.OpenWriteStreamAsync is not null)
+        {
+            var stream = await session.OpenWriteStreamAsync(cancellationToken);
+            if (stream.CanSeek)
+            {
+                stream.SetLength(0);
+            }
+
+            return stream;
+        }
+
+        if (string.IsNullOrWhiteSpace(session.SavePath))
+        {
+            throw new InvalidOperationException("Missing file save target.");
+        }
+
+        var directory = Path.GetDirectoryName(session.SavePath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        return new FileStream(
+            session.SavePath,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            64 * 1024,
+            useAsync: true);
+    }
+
+    private static long GetStreamLengthForLog(Stream stream, long fallback)
+    {
+        return stream.CanSeek ? stream.Length : fallback;
     }
 
     private async ValueTask DrainPayloadAsync(

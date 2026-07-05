@@ -19,10 +19,10 @@ using CommunityToolkit.Mvvm.Input;
 using Core.Services;
 using Core.Services.DeviceCommunication;
 using Core.Services.DeviceCommunication.Application;
+using Core.Services.DeviceCommunication.Platform;
 using Kitopia.DeviceCommunication.Discovery;
 using Core.Services.DeviceCommunication.Messages.Chat;
 using Core.Services.Interfaces;
-using Core.ViewModel.Main;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
@@ -34,7 +34,10 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private static readonly ILogger Logger = LogManager.Logger.ForContext<DeviceCommunicationPageViewModel>();
     private readonly IDeviceDiscoveryService _deviceDiscoveryService;
     private readonly IMessageAppService _messageAppService;
-    private readonly IClipboardService _clipboardService;
+    private readonly IClipboardService? _clipboardService;
+    private readonly IChatPlatformService _platform;
+    private readonly IConfigService _config;
+    private readonly bool _autoSelectFirstConversation;
     private readonly IToastService _toastService;
     private readonly CancellationTokenSource _receiveCancellation = new();
     private readonly Task _receiveTask;
@@ -71,12 +74,18 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     public DeviceCommunicationPageViewModel(
         IDeviceDiscoveryService deviceDiscoveryService,
         IMessageAppService messageAppService,
-        IClipboardService clipboardService,
-        IToastService toastService) {
+        IChatPlatformService platform,
+        IConfigService config,
+        IToastService toastService,
+        IClipboardService? clipboardService = null,
+        bool autoSelectFirstConversation = true) {
         _deviceDiscoveryService = deviceDiscoveryService;
         _messageAppService = messageAppService;
+        _platform = platform;
+        _config = config;
         _clipboardService = clipboardService;
         _toastService = toastService;
+        _autoSelectFirstConversation = autoSelectFirstConversation;
         _displayContextSyncTimer = new DispatcherTimer {
             Interval = TimeSpan.FromMilliseconds(300)
         };
@@ -101,6 +110,61 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     [ObservableProperty] private string _messageText = string.Empty;
 
     [ObservableProperty] private bool _isSending;
+
+    [ObservableProperty] private bool _isCompact;
+
+    public bool IsListVisible => !IsCompact || !HasConversationSelected;
+    public bool IsChatVisible => !IsCompact || HasConversationSelected;
+    public bool ShowBackButton => IsCompact && HasConversationSelected;
+
+    public GridLength ListColumnWidth => !IsCompact
+        ? new GridLength(320)
+        : HasConversationSelected ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+
+    public GridLength ChatColumnWidth => !IsCompact
+        ? new GridLength(1, GridUnitType.Star)
+        : HasConversationSelected ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+
+    partial void OnIsCompactChanged(bool value) {
+        OnPropertyChanged(nameof(IsListVisible));
+        OnPropertyChanged(nameof(IsChatVisible));
+        OnPropertyChanged(nameof(ShowBackButton));
+        OnPropertyChanged(nameof(ListColumnWidth));
+        OnPropertyChanged(nameof(ChatColumnWidth));
+    }
+
+    [RelayCommand]
+    private void BackToList() {
+        SelectedConversation = null;
+    }
+
+    [RelayCommand]
+    private async Task EditCustomNameAsync(DeviceConversationItem? item) {
+        if (item?.Device is not { } device || string.IsNullOrWhiteSpace(device.Id)) {
+            return;
+        }
+
+        var name = await _platform.PromptTextAsync("修改备注名", "请输入新的备注名:", device.CustomName);
+        if (name is null) {
+            return;
+        }
+
+        name = name.Trim();
+        device.CustomName = name;
+        _config.SetDeviceCustomName(device.Id, name);
+        item.ApplyDevice(device);
+    }
+
+    [RelayCommand]
+    private void ClearCustomName(DeviceConversationItem? item) {
+        if (item?.Device is not { } device || string.IsNullOrWhiteSpace(device.Id)) {
+            return;
+        }
+
+        device.CustomName = string.Empty;
+        _config.RemoveDeviceCustomName(device.Id);
+        item.ApplyDevice(device);
+    }
 
     private void ApplyItemCommands(DeviceChatMessageItem item)
     {
@@ -225,8 +289,17 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
         var errors = new List<string>();
 
-        if (_clipboardService.HasText()) {
-            var text = _clipboardService.GetText()?.Trim();
+        if (_clipboardService is null) {
+            var clipText = await _platform.PromptTextAsync("粘贴发送", "请输入要发送的文本:", null);
+            if (!string.IsNullOrWhiteSpace(clipText)) {
+                MessageText = clipText;
+                await SendMessageAsync();
+            }
+            return;
+        }
+
+        if (_clipboardService!.HasText()) {
+            var text = _clipboardService!.GetText()?.Trim();
             if (!string.IsNullOrWhiteSpace(text)) {
                 var textMessage = new DeviceChatMessageItem(text, isOutgoing: true, DateTimeOffset.Now) {
                     IsPending = true
@@ -251,9 +324,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
         }
 
-        if (_clipboardService.HasImage()) {
+        if (_clipboardService!.HasImage()) {
             try {
-                using var image = _clipboardService.GetImage();
+                using var image = _clipboardService!.GetImage();
                 if (image is not null && !image.Empty()) {
                     Cv2.ImEncode(".png", image, out var imageBytes);
                     var imageBubble =
@@ -286,8 +359,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
         }
 
-        if (_clipboardService.HasFiles()) {
-            SendFilesAsync(conversation, _clipboardService.GetFiles(), errors);
+        if (_clipboardService!.HasFiles()) {
+            SendFilesAsync(conversation, _clipboardService!.GetFiles(), errors);
         }
 
         if (errors.Count > 0) {
@@ -303,7 +376,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
-        var filePaths = await PickSendFilesAsync();
+        var filePaths = await _platform.PickFilesToSendAsync();
         if (filePaths.Count == 0) {
             return;
         }
@@ -318,7 +391,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             if (!File.Exists(filePath)) continue;
 
             var fileInfo = new FileInfo(filePath);
-            var appTool = ServiceManager.Services.GetService<IAppToolService>();
+            var appTool = ServiceManager.Services?.GetService<IAppToolService>();
             var transferId = Guid.NewGuid();
 
             var fileMessage = new FileChatMessage(
@@ -408,16 +481,20 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         try {
-            var savePath = await PickSavePathAsync(offer.FileName);
-            if (string.IsNullOrWhiteSpace(savePath) || !Path.IsPathRooted(savePath)) {
+            var saveTarget = await _platform.PickSaveTargetAsync(offer.FileName);
+            if (saveTarget is null) {
                 return;
             }
 
-            await _messageAppService.AcceptFileAsync(conversation.DeviceId, transferId, savePath);
+            await _messageAppService.AcceptFileAsync(
+                conversation.DeviceId,
+                transferId,
+                saveTarget.DisplayPath,
+                saveTarget.OpenWriteAsync);
             offer.IsHandled = true;
             offer.IsReceiving = true;
             offer.ReceiveProgress = 0d;
-            offer.LocalFilePath = savePath;
+            offer.LocalFilePath = saveTarget.LocalPath;
             conversation.SetLastMessage($"[文件] {offer.FileName}", DateTimeOffset.Now);
             SortConversations();
         }
@@ -461,6 +538,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 return;
             }
 
+            if (_clipboardService is null) {
+                _toastService.Show("设备聊天", "当前平台不支持复制图片", NotificationType.Warning);
+                return;
+            }
+
             var copied = await _clipboardService.SetImageAsync(new ScreenCaptureResult {
                 Source = mat
             });
@@ -480,33 +562,24 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     [RelayCommand]
     private void OpenFile(FileChatMessageItem? item)
     {
-        if (item?.HasLocalFile != true) return;
-        try
-        {
-            Process.Start(new ProcessStartInfo(item.LocalFilePath!) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "打开文件失败");
-        }
+        if (item?.HasLocalFile != true || !_platform.CanOpenFile) return;
+        try { _platform.OpenFile(item.LocalFilePath!); }
+        catch (Exception ex) { Logger.Error(ex, "打开文件失败"); }
     }
 
     [RelayCommand]
     private async Task SaveAsFileAsync(FileChatMessageItem? item)
     {
         if (item?.LocalFilePath is null) return;
-        var topLevel = TopLevel.GetTopLevel(
-            Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
-                ? desktop.MainWindow
-                : null);
-        if (topLevel is null) return;
-        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
-            SuggestedFileName = item.FileName
-        });
-        if (file is null) return;
+        var saveTarget = await _platform.PickSaveTargetAsync(item.FileName);
+        if (saveTarget is null) return;
         await using var src = File.OpenRead(item.LocalFilePath);
-        await using var dst = await file.OpenWriteAsync();
+        await using var dst = await saveTarget.OpenWriteAsync(CancellationToken.None);
+        if (dst.CanSeek)
+        {
+            dst.SetLength(0);
+        }
+
         await src.CopyToAsync(dst);
     }
 
@@ -514,19 +587,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private async Task CopyFileAsync(FileChatMessageItem? item)
     {
         if (item?.LocalFilePath is null) return;
-        try
-        {
-            var topLevel = TopLevel.GetTopLevel(
-                Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
-                    ? desktop.MainWindow
-                    : null);
-            if (topLevel?.Clipboard is null) return;
-            await topLevel.Clipboard.SetTextAsync(item.LocalFilePath);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "复制文件失败");
-        }
+        try { await _platform.CopyTextToClipboardAsync(item.LocalFilePath); }
+        catch (Exception ex) { Logger.Error(ex, "复制文件失败"); }
     }
 
     [RelayCommand]
@@ -733,7 +795,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     : null;
                 if (ext is not null)
                 {
-                    ServiceManager.Services.GetService<IAppToolService>()?.LoadIcon(
+                    ServiceManager.Services?.GetService<IAppToolService>()?.LoadIcon(
                         $"file{ext}", bmp => fileBubble.FileIcon = bmp);
                 }
             }
@@ -759,11 +821,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 fileItem.ResetTransferSpeed();
                 fileItem.IsHandled = true;
                 fileItem.IsPending = false;
+                fileItem.IsFailed = false;
 
                 // Refresh icon from actual saved file
                 if (!string.IsNullOrWhiteSpace(fileItem.LocalFilePath) && File.Exists(fileItem.LocalFilePath))
                 {
-                    ServiceManager.Services.GetService<IAppToolService>()?.LoadIcon(
+                    ServiceManager.Services?.GetService<IAppToolService>()?.LoadIcon(
                         fileItem.LocalFilePath, bmp => fileItem.FileIcon = bmp);
                 }
             }
@@ -897,50 +960,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
-        var desktop = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-        var mainWindow = desktop?.MainWindow;
-        var isMainWindowActive = mainWindow is not null && mainWindow.IsVisible && mainWindow.IsActive;
-        var isDeviceChatPageOpen = string.Equals((mainWindow?.DataContext as MainWindowViewModel)?.Content as string,
-            "DeviceChat",
-            StringComparison.Ordinal);
-
-        _messageAppService.UpdateDisplayContext(isMainWindowActive, isDeviceChatPageOpen,
+        var ctx = _platform.GetDisplayContext(SelectedConversation?.DeviceId);
+        _messageAppService.UpdateDisplayContext(ctx.IsMainWindowActive, ctx.IsChatPageOpen,
             SelectedConversation?.DeviceId);
-    }
-
-    private static async Task<string?> PickSavePathAsync(string fileName) {
-        var desktop = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-        var mainWindow = desktop?.MainWindow;
-        if (mainWindow?.StorageProvider is null) {
-            return null;
-        }
-
-        var extension = Path.GetExtension(fileName);
-        var file = await mainWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions {
-            Title = $"Save incoming file: {fileName}",
-            SuggestedFileName = fileName,
-            DefaultExtension = string.IsNullOrWhiteSpace(extension) ? null : extension.TrimStart('.')
-        });
-
-        return file?.Path.LocalPath;
-    }
-
-    private static async Task<IReadOnlyList<string>> PickSendFilesAsync() {
-        var desktop = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-        var mainWindow = desktop?.MainWindow;
-        if (mainWindow?.StorageProvider is null) {
-            return [];
-        }
-
-        var files = await mainWindow.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions {
-            Title = "选择要发送的文件",
-            AllowMultiple = true
-        });
-
-        return files
-            .Select(file => file.Path.LocalPath)
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .ToList();
     }
 
     private DeviceConversationItem? FindConversationByAddress(IPAddress remoteAddress) {
@@ -980,7 +1002,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             conversation.IsOnline = discoveredIds.Contains(conversation.DeviceId);
         }
 
-        if (SelectedConversation is null && Conversations.Count > 0) {
+        if (_autoSelectFirstConversation && SelectedConversation is null && Conversations.Count > 0) {
             SelectedConversation = Conversations[0];
         }
 
@@ -1046,6 +1068,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         SyncDisplayContext();
 
         OnPropertyChanged(nameof(HasConversationSelected));
+        OnPropertyChanged(nameof(IsListVisible));
+        OnPropertyChanged(nameof(IsChatVisible));
+        OnPropertyChanged(nameof(ShowBackButton));
+        OnPropertyChanged(nameof(ListColumnWidth));
+        OnPropertyChanged(nameof(ChatColumnWidth));
         OnPropertyChanged(nameof(ShowConversationPlaceholder));
         OnPropertyChanged(nameof(CurrentMessages));
         OnPropertyChanged(nameof(CurrentConversationTitle));
@@ -1104,6 +1131,12 @@ public partial class DeviceConversationItem : ObservableObject {
     public string DeviceId { get; }
     public ObservableCollection<object> Messages { get; } = [];
 
+    public DiscoveredDevice? Device { get; private set; }
+
+    [ObservableProperty] private string _computerName = "未知设备";
+
+    [ObservableProperty] private string _customName = string.Empty;
+
     [ObservableProperty] private string _displayName = "Unknown Device";
 
     [ObservableProperty] private IPAddress _ipv4Address = IPAddress.None;
@@ -1148,7 +1181,10 @@ public partial class DeviceConversationItem : ObservableObject {
     public string LastMessageTimeText => LastMessageAt?.ToLocalTime().ToString("HH:mm") ?? string.Empty;
 
     public void ApplyDevice(DiscoveredDevice device) {
+        Device = device;
         DisplayName = device.DisplayName;
+        ComputerName = device.ComputerName;
+        CustomName = device.CustomName;
         Ipv4Address = device.Ipv4Address;
         Ipv6Address = device.Ipv6Address;
         TcpPort = device.TcpPort;

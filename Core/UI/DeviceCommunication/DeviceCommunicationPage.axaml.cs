@@ -24,6 +24,17 @@ public partial class DeviceCommunicationPage : UserControl
         _conversationScrollViewer = this.FindControl<ScrollViewer>("ConversationScrollViewer");
         DataContextChanged += OnDataContextChanged;
         Unloaded += OnUnloaded;
+        SizeChanged += OnPageSizeChanged;
+    }
+
+    private const double CompactWidthThreshold = 700d;
+
+    private void OnPageSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (_boundViewModel is not null)
+        {
+            _boundViewModel.IsCompact = Bounds.Width > 0 && Bounds.Width < CompactWidthThreshold;
+        }
     }
 
     private void OnDataContextChanged(object? sender, System.EventArgs e)
@@ -41,6 +52,7 @@ public partial class DeviceCommunicationPage : UserControl
             _boundViewModel.PropertyChanged += OnViewModelPropertyChanged;
             BindCurrentMessages();
             ScrollToLatest();
+            _boundViewModel.IsCompact = Bounds.Width > 0 && Bounds.Width < CompactWidthThreshold;
         }
     }
 

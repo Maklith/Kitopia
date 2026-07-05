@@ -15,6 +15,12 @@ public interface IMessageAppService
     ValueTask SendFileChatAsync(string deviceId, FileChatMessage message, Stream stream, CancellationToken cancellationToken = default);
     ValueTask SendImageChatAsync(string deviceId, ImageChatMessage message, Stream stream, CancellationToken cancellationToken = default);
     ValueTask AcceptFileAsync(string deviceId, Guid transferId, string savePath, CancellationToken cancellationToken = default);
+    ValueTask AcceptFileAsync(
+        string deviceId,
+        Guid transferId,
+        string saveTarget,
+        Func<CancellationToken, ValueTask<Stream>> openWriteStreamAsync,
+        CancellationToken cancellationToken = default);
     ValueTask RejectFileAsync(string deviceId, Guid transferId, string reason, CancellationToken cancellationToken = default);
     ValueTask CancelTransferAsync(string deviceId, Guid transferId, string reason, CancellationToken cancellationToken = default);
     ValueTask SendClipboardTextAsync(string deviceId, TextClipboardMessage message, CancellationToken cancellationToken = default);

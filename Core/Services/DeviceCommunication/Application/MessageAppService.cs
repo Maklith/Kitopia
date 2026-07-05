@@ -108,7 +108,41 @@ public sealed class MessageAppService : IMessageAppService {
             throw new InvalidOperationException("invalid_save_path");
         }
 
-        var fileName = Path.GetFileName(savePath);
+        return AcceptFileCoreAsync(
+            deviceId,
+            transferId,
+            savePath,
+            OpenLocalFileWriteStreamAsync,
+            cancellationToken);
+    }
+
+    public ValueTask AcceptFileAsync(
+        string deviceId,
+        Guid transferId,
+        string saveTarget,
+        Func<CancellationToken, ValueTask<Stream>> openWriteStreamAsync,
+        CancellationToken cancellationToken = default) {
+        if (string.IsNullOrWhiteSpace(saveTarget)) {
+            throw new InvalidOperationException("invalid_save_path");
+        }
+
+        ArgumentNullException.ThrowIfNull(openWriteStreamAsync);
+
+        return AcceptFileCoreAsync(
+            deviceId,
+            transferId,
+            saveTarget,
+            (_, token) => openWriteStreamAsync(token),
+            cancellationToken);
+    }
+
+    private ValueTask AcceptFileCoreAsync(
+        string deviceId,
+        Guid transferId,
+        string saveTarget,
+        Func<string, CancellationToken, ValueTask<Stream>> openWriteStreamAsync,
+        CancellationToken cancellationToken) {
+        var fileName = Path.GetFileName(saveTarget);
         var session = new FileTransferSession {
             ConversationId = deviceId,
             TransferId = transferId,
@@ -116,7 +150,8 @@ public sealed class MessageAppService : IMessageAppService {
             SizeBytes = 0,
             ContentType = "application/octet-stream",
             State = FileTransferState.Accepted,
-            SavePath = savePath
+            SavePath = saveTarget,
+            OpenWriteStreamAsync = token => openWriteStreamAsync(saveTarget, token)
         };
 
         if (!_fileTransferSessionStore.TryAdd(session)) {
@@ -126,6 +161,22 @@ public sealed class MessageAppService : IMessageAppService {
 
         var message = new FileAcceptChatMessage(deviceId, transferId);
         return SendCoreAsync(deviceId, message, cancellationToken);
+    }
+
+    private static ValueTask<Stream> OpenLocalFileWriteStreamAsync(string path, CancellationToken cancellationToken) {
+        _ = cancellationToken;
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory)) {
+            Directory.CreateDirectory(directory);
+        }
+
+        return new ValueTask<Stream>(new FileStream(
+            path,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            64 * 1024,
+            useAsync: true));
     }
 
     public ValueTask RejectFileAsync(

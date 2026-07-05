@@ -20,6 +20,7 @@ public sealed class AndroidApp : AvaloniaAndroidApplication<App>
     {
         DeviceCommunicationDiagnostics.Current = new AndroidDeviceCommunicationDiagnostics();
         MobilePlatformRuntime.Current = new AndroidPlatformRuntimeFeatures();
+        NativeNotifier.Current = new AndroidNativeNotifier(this);
         _ = builder;
         return AppBootstrap.BuildAvaloniaApp().UseAndroid();
     }

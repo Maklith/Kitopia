@@ -17,8 +17,13 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid ColumnDefinitions="320,4,*" Margin="{DynamicResource SemiThicknessBase}">
-        <Border Grid.Column="0" Theme="{DynamicResource KitopiaCard}">
+    <Grid Margin="{DynamicResource SemiThicknessBase}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="{Binding ListColumnWidth}" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="{Binding ChatColumnWidth}" />
+        </Grid.ColumnDefinitions>
+        <Border Grid.Column="0" Theme="{DynamicResource KitopiaCard}" IsVisible="{Binding IsListVisible}">
             <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
                 <StackPanel Spacing="4">
                     <TextBlock Text="设备聊天" Classes="H5" Theme="{DynamicResource TitleTextBlock}" />
@@ -36,7 +41,17 @@
                         <DataTemplate x:DataType="vm:DeviceConversationItem">
                             <Border Margin="0,0,0,8" Padding="12"
                                     Theme="{DynamicResource KitopiaCardBorderless}">
-                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="6">
+                                <Border.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuItem Header="修改备注名"
+                                                  Command="{Binding $parent[ListBox].((vm:DeviceCommunicationPageViewModel)DataContext).EditCustomNameCommand}"
+                                                  CommandParameter="{Binding}" />
+                                        <MenuItem Header="清除备注"
+                                                  Command="{Binding $parent[ListBox].((vm:DeviceCommunicationPageViewModel)DataContext).ClearCustomNameCommand}"
+                                                  CommandParameter="{Binding}" />
+                                    </MenuFlyout>
+                                </Border.ContextFlyout>
+                                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="6">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <Label Theme="{DynamicResource TagLabel}" Classes="Green"
                                                IsVisible="{Binding HasIpv6}"
@@ -57,24 +72,36 @@
                                         </Border>
                                     </StackPanel>
 
-                                    <StackPanel Grid.Row="1" Spacing="2">
+                                    <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="2">
                                         <TextBlock Text="{Binding LastMessagePreview}"
                                                    Foreground="{DynamicResource SemiColorText1}"
                                                    FontSize="{DynamicResource SemiFontSizeSmall}"
                                                    TextTrimming="CharacterEllipsis"
-                                                   MaxWidth="180" />
+                                                   MaxWidth="220" />
+                                        <TextBlock Text="{Binding ComputerName, StringFormat='计算机名: {0}'}"
+                                                   Foreground="{DynamicResource SemiColorText2}"
+                                                   FontSize="11" />
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <TextBlock Text="{Binding Ipv4AddressText}"
                                                        Foreground="{DynamicResource SemiColorText2}"
                                                        FontSize="11"
                                                        IsVisible="{Binding HasIpv4}" />
+                                            <TextBlock Text="{Binding Ipv6AddressText}"
+                                                       Foreground="{DynamicResource SemiColorText2}"
+                                                       FontSize="11"
+                                                       IsVisible="{Binding HasIpv6}" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding TcpPort, StringFormat='TCP 端口: {0}'}"
+                                                       Foreground="{DynamicResource SemiColorText2}"
+                                                       FontSize="11" />
                                             <TextBlock Text="{Binding StatusText}"
                                                        Foreground="{DynamicResource SemiColorText2}"
                                                        FontSize="11" />
                                         </StackPanel>
                                     </StackPanel>
 
-                                    <TextBlock Grid.Row="1" Grid.Column="1"
+                                    <TextBlock Grid.Row="2" Grid.Column="1"
                                                Text="{Binding LastMessageTimeText}"
                                                Foreground="{DynamicResource SemiColorText2}"
                                                FontSize="11"
@@ -94,22 +121,32 @@
         </Border>
 
         <GridSplitter Grid.Column="1"
+                      IsVisible="{Binding !IsCompact}"
                       ResizeDirection="Columns"
                       Width="4"
                       Background="{DynamicResource SemiColorBorder}"
                       CornerRadius="2"
                       Margin="0,8" />
 
-        <Border Grid.Column="2" Theme="{DynamicResource KitopiaCard}">
+        <Border Grid.Column="2" Theme="{DynamicResource KitopiaCard}" IsVisible="{Binding IsChatVisible}">
             <Grid RowDefinitions="*,Auto" RowSpacing="0">
                 <Grid RowDefinitions="Auto,*">
-                    <StackPanel Spacing="4" Margin="0,0,0,12">
-                        <TextBlock Text="{Binding CurrentConversationTitle}"
-                                   FontSize="16" FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding CurrentConversationSubtitle}"
-                                   Foreground="{DynamicResource SemiColorText1}"
-                                   FontSize="{DynamicResource SemiFontSizeSmall}" />
-                    </StackPanel>
+                    <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,12">
+                        <Button MinWidth="0" MinHeight="0" Padding="8,4"
+                                Classes="Tertiary"
+                                IsVisible="{Binding ShowBackButton}"
+                                Command="{Binding BackToListCommand}"
+                                VerticalAlignment="Top" Margin="0,0,8,0">
+                            <controls:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf3de;" FontSize="16" />
+                        </Button>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="{Binding CurrentConversationTitle}"
+                                       FontSize="16" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding CurrentConversationSubtitle}"
+                                       Foreground="{DynamicResource SemiColorText1}"
+                                       FontSize="{DynamicResource SemiFontSizeSmall}" />
+                        </StackPanel>
+                    </Grid>
 
                     <Border Grid.Row="1" Background="{DynamicResource SemiColorFill0}"
                             CornerRadius="8" Padding="12">

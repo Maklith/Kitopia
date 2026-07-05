@@ -19,4 +19,5 @@ public sealed class FileTransferSession
     public FileTransferState State { get; set; }
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public string? SavePath { get; set; }
+    public Func<CancellationToken, ValueTask<Stream>>? OpenWriteStreamAsync { get; set; }
 }

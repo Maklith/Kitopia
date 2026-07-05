@@ -469,6 +469,19 @@ public sealed class MobileConversationViewModelTests
             return ValueTask.CompletedTask;
         }
 
+        public ValueTask AcceptFileAsync(
+            string deviceId,
+            Guid transferId,
+            string saveTarget,
+            Func<CancellationToken, ValueTask<Stream>> openWriteStreamAsync,
+            CancellationToken cancellationToken = default)
+        {
+            _ = openWriteStreamAsync;
+            _ = cancellationToken;
+            AcceptedTransfers.Add((deviceId, transferId, saveTarget));
+            return ValueTask.CompletedTask;
+        }
+
         public ValueTask RejectFileAsync(string deviceId, Guid transferId, string reason, CancellationToken cancellationToken = default)
         {
             _ = cancellationToken;

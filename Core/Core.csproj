@@ -80,10 +80,6 @@
             <DependentUpon>PluginDetail.axaml</DependentUpon>
             <SubType>Code</SubType>
         </Compile>
-        <Compile Update="UI\DeviceCommunication\DeviceDiscoveryPage.axaml.cs">
-            <DependentUpon>DeviceDiscoveryPage.axaml</DependentUpon>
-            <SubType>Code</SubType>
-        </Compile>
         <Compile Update="UI\DeviceCommunication\DeviceCommunicationPage.axaml.cs">
             <DependentUpon>DeviceCommunicationPage.axaml</DependentUpon>
             <SubType>Code</SubType>
@@ -96,7 +92,6 @@
 
     <ItemGroup>
         <AdditionalFiles Include="UI\UiControls\Plugin\PluginDetail.axaml" />
-        <AdditionalFiles Include="UI\DeviceCommunication\DeviceDiscoveryPage.axaml" />
         <AdditionalFiles Include="UI\DeviceCommunication\DeviceCommunicationPage.axaml" />
         <AdditionalFiles Include="UI\DeviceCommunication\FontIcon.axaml" />
         <AdditionalFiles Include="UI\DeviceCommunication\DeviceCommunicationIcons.axaml" />

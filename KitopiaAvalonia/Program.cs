@@ -203,10 +203,15 @@ internal class Program {
         services.AddTransient<OnnxModelManagerPageViewModel>();
         services.AddKeyedTransient<UserControl, OnnxModelManagerPage>("OnnxModelManagerPage",
             (e, _) => new OnnxModelManagerPage { DataContext = e.GetService<OnnxModelManagerPageViewModel>() });
-        services.AddTransient<DeviceDiscoveryPageViewModel>();
-        services.AddTransient<DeviceCommunicationPageViewModel>();
-        services.AddKeyedTransient<UserControl, Core.UI.DeviceCommunication.DeviceDiscoveryPage>("DeviceDiscoveryPage",
-            (e, _) => new Core.UI.DeviceCommunication.DeviceDiscoveryPage { DataContext = e.GetService<DeviceDiscoveryPageViewModel>() });
+        services.AddSingleton<Core.Services.DeviceCommunication.Platform.IChatPlatformService, KitopiaAvalonia.Services.DesktopChatPlatformService>();
+        services.AddTransient<DeviceCommunicationPageViewModel>(e => new DeviceCommunicationPageViewModel(
+            e.GetRequiredService<IDeviceDiscoveryService>(),
+            e.GetRequiredService<IMessageAppService>(),
+            e.GetRequiredService<Core.Services.DeviceCommunication.Platform.IChatPlatformService>(),
+            e.GetRequiredService<IConfigService>(),
+            e.GetRequiredService<IToastService>(),
+            e.GetService<IClipboardService>(),
+            autoSelectFirstConversation: true));
         services.AddKeyedTransient<UserControl, Core.UI.DeviceCommunication.DeviceCommunicationPage>("DeviceChatPage",
             (e, _) => new Core.UI.DeviceCommunication.DeviceCommunicationPage { DataContext = e.GetService<DeviceCommunicationPageViewModel>() });
 

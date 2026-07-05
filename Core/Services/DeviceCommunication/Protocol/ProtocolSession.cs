@@ -2,6 +2,7 @@ using System.IO.Pipelines;
 using System.Net;
 using System.Text.Json;
 using Core.Services.DeviceCommunication.Routing;
+using Kitopia.DeviceCommunication.Diagnostics;
 using SharedProtocolFrame = Kitopia.DeviceCommunication.Protocol.ProtocolFrame;
 using SharedProtocolFrameHeader = Kitopia.DeviceCommunication.Protocol.ProtocolFrameHeader;
 using SharedLocalDataPipeIo = Kitopia.DeviceCommunication.Transport.LocalDataPipeIo;
@@ -58,6 +59,8 @@ public sealed class ProtocolSession
         }
 
         var scopedPayloadReader = SharedProtocolFrame.CreatePayloadReader(payloadReader, header.PayloadLength);
+        DeviceCommunicationDiagnostics.Debug("ProtocolSession",
+            $"frame Route={envelope.Route} Command={envelope.Command} ChannelId={envelope.ChannelId} EnvLen={header.EnvelopeLength} PayloadLen={header.PayloadLength}");
         var context = new MessageContext(protocol, remoteEndPoint, string.Empty);
         await _dispatcher.DispatchAsync(context, envelope, scopedPayloadReader, cancellationToken);
     }

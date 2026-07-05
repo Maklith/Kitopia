@@ -108,7 +108,7 @@ public sealed class NavigationService : INavigationService
 
         return route switch
         {
-            "home" or "market" or "plugin" or "scenario" or "hotkey" or "onnx/model-manager" or "device/discovery" or "device/chat" or "settings" => route,
+            "home" or "market" or "plugin" or "scenario" or "hotkey" or "onnx/model-manager" or "device/chat" or "settings" => route,
             _ => null
         };
     }

@@ -54,6 +54,39 @@ public sealed class SharedFileTransferPayloadHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_AcceptedSessionWithWriteStream_SavesPayloadDirectly()
+    {
+        var sink = new RecordingSink();
+        var store = new FileTransferSessionStore();
+        var handler = new FileTransferPayloadHandler(sink, store);
+        var transferId = Guid.NewGuid();
+        var payloadBytes = new byte[] { 5, 6, 7, 8 };
+        await using var target = new MemoryStream();
+
+        store.TryAdd(new FileTransferSession
+        {
+            ConversationId = "peer-1",
+            TransferId = transferId,
+            FileName = "shared.bin",
+            SizeBytes = payloadBytes.Length,
+            State = FileTransferState.Accepted,
+            SavePath = "content://kitopia/shared.bin",
+            OpenWriteStreamAsync = _ => new ValueTask<Stream>(target)
+        });
+
+        await handler.HandleAsync(
+            new FileChatMessage("peer-1", transferId, "shared.bin", payloadBytes.Length),
+            PipeReader.Create(new MemoryStream(payloadBytes)),
+            CancellationToken.None);
+
+        CollectionAssert.AreEqual(payloadBytes, target.ToArray());
+        var completed = sink.Events.OfType<FileTransferUpdatedEvent>()
+            .FirstOrDefault(evt => evt.Status == FileTransferStatus.Completed);
+        Assert.IsNotNull(completed);
+        Assert.AreEqual(payloadBytes.LongLength, completed.BytesTransferred);
+    }
+
+    [TestMethod]
     public async Task HandleAsync_MissingAcceptedSession_DrainsPayloadAndPublishesFailed()
     {
         var sink = new RecordingSink();
