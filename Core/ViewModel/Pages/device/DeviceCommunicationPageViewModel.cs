@@ -36,7 +36,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private readonly IMessageAppService _messageAppService;
     private readonly IClipboardService? _clipboardService;
     private readonly IChatPlatformService _platform;
-    private readonly IConfigService _config;
+    private readonly IDeviceCommunicationSettings _settings;
     private readonly bool _autoSelectFirstConversation;
     private readonly IToastService _toastService;
     private readonly CancellationTokenSource _receiveCancellation = new();
@@ -81,14 +81,14 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         IDeviceDiscoveryService deviceDiscoveryService,
         IMessageAppService messageAppService,
         IChatPlatformService platform,
-        IConfigService config,
+        IDeviceCommunicationSettings settings,
         IToastService toastService,
         IClipboardService? clipboardService = null,
         bool autoSelectFirstConversation = true) {
         _deviceDiscoveryService = deviceDiscoveryService;
         _messageAppService = messageAppService;
         _platform = platform;
-        _config = config;
+        _settings = settings;
         _clipboardService = clipboardService;
         _toastService = toastService;
         _autoSelectFirstConversation = autoSelectFirstConversation;
@@ -157,7 +157,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
         name = name.Trim();
         device.CustomName = name;
-        _config.SetDeviceCustomName(device.Id, name);
+        _settings.SetCustomName(device.Id, name);
         item.ApplyDevice(device);
     }
 
@@ -168,7 +168,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         device.CustomName = string.Empty;
-        _config.RemoveDeviceCustomName(device.Id);
+        _settings.RemoveCustomName(device.Id);
         item.ApplyDevice(device);
     }
 

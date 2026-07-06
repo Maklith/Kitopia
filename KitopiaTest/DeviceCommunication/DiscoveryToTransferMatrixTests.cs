@@ -298,6 +298,10 @@ public sealed class DiscoveryToTransferMatrixTests
         {
             return null;
         }
+
+        public void SetCustomName(string publicKey, string name) { }
+
+        public void RemoveCustomName(string publicKey) { }
     }
 
     private sealed class FakeLocalDataEndpointProvider : Kitopia.DeviceCommunication.Transport.ILocalDataEndpointProvider

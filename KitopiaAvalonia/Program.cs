@@ -114,7 +114,7 @@ internal class Program {
         services.AddTransient<ISearchWindowService, SearchWindowService>();
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
 
-        services.AddSingleton<Core.Services.Interfaces.IConfigService, Core.Services.Config.DesktopConfigService>();
+        services.AddSingleton<IConfigService, ConfigManger>();
         services.AddSingleton<IDeviceIdentityStore, DesktopDeviceIdentityStore>();
         services.AddSingleton<Kitopia.DeviceCommunication.Discovery.IDeviceCommunicationSettings, DesktopDeviceCommunicationSettings>();
         services.AddSingleton<Kitopia.DeviceCommunication.Transport.ILocalDataEndpointProvider, LocalDataEndpointProvider>();
@@ -208,7 +208,7 @@ internal class Program {
             e.GetRequiredService<IDeviceDiscoveryService>(),
             e.GetRequiredService<IMessageAppService>(),
             e.GetRequiredService<Core.Services.DeviceCommunication.Platform.IChatPlatformService>(),
-            e.GetRequiredService<IConfigService>(),
+            e.GetRequiredService<Kitopia.DeviceCommunication.Discovery.IDeviceCommunicationSettings>(),
             e.GetRequiredService<IToastService>(),
             e.GetService<IClipboardService>(),
             autoSelectFirstConversation: true));

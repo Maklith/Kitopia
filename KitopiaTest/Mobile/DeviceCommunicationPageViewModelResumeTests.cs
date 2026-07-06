@@ -23,7 +23,7 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
             new FakeDiscoveryService(),
             new FakeMessageAppService(),
             new FakeChatPlatformService(),
-            new FakeConfigService(),
+            new FakeDeviceCommunicationSettings(),
             new FakeToastService());
         viewModel.SelectedConversation = new DeviceConversationItem("peer-1");
         var properties = new List<string?>();
@@ -42,7 +42,7 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
             new FakeDiscoveryService(),
             new FakeMessageAppService(),
             new FakeChatPlatformService(),
-            new FakeConfigService(),
+            new FakeDeviceCommunicationSettings(),
             new FakeToastService());
         viewModel.SelectedConversation = new DeviceConversationItem("peer-1");
         var initialVersion = viewModel.MessageViewRefreshVersion;
@@ -62,7 +62,7 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
             new FakeDiscoveryService(),
             new FakeMessageAppService(),
             new FakeChatPlatformService(),
-            new FakeConfigService(),
+            new FakeDeviceCommunicationSettings(),
             new FakeToastService());
         chat.SelectedConversation = new DeviceConversationItem("peer-1");
         var host = new MobileDeviceCommunicationHost(
@@ -140,11 +140,12 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         public ChatDisplayContext GetDisplayContext(string? selectedConversationId) => new(true, true);
     }
 
-    private sealed class FakeConfigService : IConfigService
+    private sealed class FakeDeviceCommunicationSettings : Kitopia.DeviceCommunication.Discovery.IDeviceCommunicationSettings
     {
-        public string? GetDeviceCustomName(string deviceId) => null;
-        public void SetDeviceCustomName(string deviceId, string name) { }
-        public void RemoveDeviceCustomName(string deviceId) { }
+        public string BroadcastName => "Fake";
+        public string? GetCustomName(string publicKey) => null;
+        public void SetCustomName(string publicKey, string name) { }
+        public void RemoveCustomName(string publicKey) { }
     }
 
     private sealed class FakeToastService : IToastService

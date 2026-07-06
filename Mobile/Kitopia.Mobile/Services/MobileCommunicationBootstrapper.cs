@@ -25,7 +25,7 @@ public sealed class MobileCommunicationBootstrapper
         var services = new ServiceCollection();
 
         services.AddSingleton(TopLevelContext);
-        services.AddSingleton<IConfigService, MobileConfigService>();
+        services.AddSingleton<MobileConfigService>();
         services.AddSingleton<IDeviceIdentityStore, MobileDeviceIdentityStore>();
         services.AddSingleton<IDeviceCommunicationSettings, MobileDeviceCommunicationSettings>();
         services.AddSingleton<Kitopia.DeviceCommunication.Transport.ILocalDataEndpointProvider, LocalDataEndpointProvider>();
@@ -64,7 +64,7 @@ public sealed class MobileCommunicationBootstrapper
             sp.GetRequiredService<IDeviceDiscoveryService>(),
             sp.GetRequiredService<IMessageAppService>(),
             sp.GetRequiredService<IChatPlatformService>(),
-            sp.GetRequiredService<IConfigService>(),
+            sp.GetRequiredService<IDeviceCommunicationSettings>(),
             sp.GetRequiredService<IToastService>(),
             clipboardService: null,
             autoSelectFirstConversation: false));

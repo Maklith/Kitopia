@@ -21,7 +21,7 @@ using SearchWindowViewModel = Core.ViewModel.Windows.SearchWindowViewModel;
 
 namespace Core.Services.Config;
 
-public class ConfigManger
+public class ConfigManger : IConfigService
 {
     private static ILogger Logger = LogManager.Logger.ForContext<ConfigManger>();
     public static Version Version = new("1.0.0");
@@ -196,4 +196,36 @@ public class ConfigManger
         File.WriteAllText(configF.FullName, j);
         WeakReferenceMessenger.Default.Send<string, string>("ConfigSave", "ConfigSave");
     }
+
+    Version IConfigService.Version => Version;
+    string IConfigService.ApiUrl => ApiUrl;
+    Dictionary<string, ConfigBase> IConfigService.Configs => Configs;
+    KitopiaConfig IConfigService.Config => Config;
+    JsonSerializerOptions IConfigService.DefaultOptions => DefaultOptions;
+
+    void IConfigService.Init()
+    {
+        Init();
+    }
+
+    void IConfigService.RemoveConfig(string key)
+    {
+        RemoveConfig(key);
+    }
+
+    void IConfigService.RequsetUpdateHotKey(HotKeyModel hotKeyModel)
+    {
+        RequsetUpdateHotKey(hotKeyModel);
+    }
+
+    void IConfigService.Save()
+    {
+        Save();
+    }
+
+    void IConfigService.Save(string key)
+    {
+        Save(key);
+    }
+
 }
