@@ -487,6 +487,11 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             return;
         }
 
+        if (TryRefreshKnownDeviceFromAnnouncement(info, endpointAddress))
+        {
+            return;
+        }
+
         var nonce = CreateNonce();
         RegisterPendingAuthRequest(info.Id, nonce, endpointAddress);
         DeviceCommunicationDiagnostics.Info(
@@ -503,6 +508,32 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         };
 
         await SendUnicastAsync(request, new IPEndPoint(endpointAddress, DiscoveryPort), token);
+    }
+
+    private bool TryRefreshKnownDeviceFromAnnouncement(DiscoveryInfo info, IPAddress endpointAddress)
+    {
+        lock (_sync)
+        {
+            CleanupPendingAuthRequests(DateTime.UtcNow);
+
+            var existing = _devicesSource.FirstOrDefault(device =>
+                IsSameIdentityHash(device, info.Id) &&
+                IsSameEndpoint(device, endpointAddress) &&
+                device.TcpPort == info.TcpPort);
+            if (existing is null)
+            {
+                return false;
+            }
+
+            existing.LastSeen = DateTime.UtcNow;
+            existing.Name = string.IsNullOrWhiteSpace(info.Name) ? "Unknown device" : info.Name.Trim();
+            existing.TcpPort = info.TcpPort;
+            AssignDiscoveredAddress(existing, endpointAddress);
+            DeviceCommunicationDiagnostics.Debug(
+                LogCategory,
+                $"Refreshed known device {ShortId(existing.Id)} from announce endpoint={FormatEndpoint(existing)} tcp={existing.TcpPort}.");
+            return true;
+        }
     }
 
     private async Task HandleAuthRequestAsync(
@@ -741,6 +772,15 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
     {
         return device.Ipv4Address.Equals(endpointAddress) ||
                device.Ipv6Address.Equals(endpointAddress);
+    }
+
+    private static bool IsSameIdentityHash(DiscoveredDevice device, string idHash)
+    {
+        return !string.IsNullOrWhiteSpace(device.Id) &&
+               string.Equals(
+                   DeviceDiscoverySignature.ComputePublicKeyHash(device.Id),
+                   idHash,
+                   StringComparison.Ordinal);
     }
 
     private static void AssignDiscoveredAddress(DiscoveredDevice device, IPAddress endpointAddress)

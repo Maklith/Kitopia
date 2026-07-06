@@ -70,6 +70,120 @@ public sealed class DiscoveryToTransferMatrixTests
         Assert.AreEqual(0, discoveryService.Devices.Count);
     }
 
+    [TestMethod]
+    public async Task Discovery_KnownDeviceAnnouncementWithSameEndpoint_RefreshesWithoutAuthRequest()
+    {
+        var localIdentity = CreateIdentity();
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings(),
+            new FakeIdentityStore(localIdentity),
+            new FakeLocalDataEndpointProvider(23001));
+        var remoteIdentity = CreateIdentity();
+        var remoteHash = ComputePublicKeyHash(remoteIdentity.PublicKey);
+        var remoteAddress = IPAddress.Loopback;
+        var nonce = Guid.NewGuid().ToString("N");
+
+        InvokePrivateVoid(discoveryService, "RegisterPendingAuthRequest", remoteHash, nonce, remoteAddress);
+        var response = new DiscoveryInfo
+        {
+            MessageType = "auth.response",
+            Version = "0.1",
+            Id = remoteHash,
+            Name = "peer",
+            TcpPort = 23001,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            PublicKey = remoteIdentity.PublicKey,
+            Nonce = nonce
+        };
+        Assert.IsTrue(Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.TrySign(
+            response,
+            remoteIdentity.PrivateKey,
+            out var signature));
+        response.Signature = signature;
+
+        var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
+        InvokePrivateVoid(discoveryService, "HandleAuthResponse", response, remoteAddress, localIdentity.PublicKey, localHash);
+        Assert.AreEqual(1, discoveryService.Devices.Count);
+        var device = discoveryService.Devices[0];
+        device.LastSeen = DateTime.UtcNow - TimeSpan.FromSeconds(10);
+        var previousLastSeen = device.LastSeen;
+
+        var announcement = new DiscoveryInfo
+        {
+            MessageType = "announce",
+            Version = "0.1",
+            Id = remoteHash,
+            Name = "peer-renamed",
+            TcpPort = 23001,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        };
+
+        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", announcement, remoteAddress, localHash, CancellationToken.None);
+
+        Assert.AreEqual(1, discoveryService.Devices.Count);
+        Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
+        Assert.AreEqual("peer-renamed", device.Name);
+        Assert.AreEqual(23001, device.TcpPort);
+        Assert.IsTrue(device.LastSeen > previousLastSeen);
+    }
+
+    [TestMethod]
+    public async Task Discovery_KnownDeviceAnnouncementWithChangedPort_RequiresAuthRequest()
+    {
+        var localIdentity = CreateIdentity();
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings(),
+            new FakeIdentityStore(localIdentity),
+            new FakeLocalDataEndpointProvider(23001));
+        var remoteIdentity = CreateIdentity();
+        var remoteHash = ComputePublicKeyHash(remoteIdentity.PublicKey);
+        var remoteAddress = IPAddress.Loopback;
+        var nonce = Guid.NewGuid().ToString("N");
+
+        InvokePrivateVoid(discoveryService, "RegisterPendingAuthRequest", remoteHash, nonce, remoteAddress);
+        var response = new DiscoveryInfo
+        {
+            MessageType = "auth.response",
+            Version = "0.1",
+            Id = remoteHash,
+            Name = "peer",
+            TcpPort = 23001,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            PublicKey = remoteIdentity.PublicKey,
+            Nonce = nonce
+        };
+        Assert.IsTrue(Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.TrySign(
+            response,
+            remoteIdentity.PrivateKey,
+            out var signature));
+        response.Signature = signature;
+
+        var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
+        InvokePrivateVoid(discoveryService, "HandleAuthResponse", response, remoteAddress, localIdentity.PublicKey, localHash);
+        Assert.AreEqual(1, discoveryService.Devices.Count);
+        var device = discoveryService.Devices[0];
+        device.LastSeen = DateTime.UtcNow - TimeSpan.FromSeconds(10);
+        var previousLastSeen = device.LastSeen;
+
+        var announcement = new DiscoveryInfo
+        {
+            MessageType = "announce",
+            Version = "0.1",
+            Id = remoteHash,
+            Name = "peer-renamed",
+            TcpPort = 23002,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        };
+
+        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", announcement, remoteAddress, localHash, CancellationToken.None);
+
+        Assert.AreEqual(1, discoveryService.Devices.Count);
+        Assert.AreEqual(1, GetPendingAuthRequestCount(discoveryService));
+        Assert.AreEqual("peer", device.Name);
+        Assert.AreEqual(23001, device.TcpPort);
+        Assert.AreEqual(previousLastSeen, device.LastSeen);
+    }
+
     private static string ComputePublicKeyHash(string publicKey)
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(publicKey.Trim()));
@@ -92,6 +206,35 @@ public sealed class DiscoveryToTransferMatrixTests
 
         Assert.IsNotNull(method, $"Method '{methodName}' not found.");
         method.Invoke(instance, args);
+    }
+
+    private static async Task InvokePrivateTask(object instance, string methodName, params object[] args)
+    {
+        var method = instance.GetType().GetMethod(
+            methodName,
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        Assert.IsNotNull(method, $"Method '{methodName}' not found.");
+        var result = method.Invoke(instance, args);
+        if (result is not Task task)
+        {
+            Assert.Fail($"Method '{methodName}' did not return a task.");
+            return;
+        }
+
+        await task;
+    }
+
+    private static int GetPendingAuthRequestCount(object instance)
+    {
+        var field = instance.GetType().GetField(
+            "_pendingAuthRequests",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        Assert.IsNotNull(field, "Pending auth request field not found.");
+        var value = field.GetValue(instance);
+        Assert.IsInstanceOfType<System.Collections.IDictionary>(value);
+        return ((System.Collections.IDictionary)value).Count;
     }
 
     private sealed class FakeDeviceDiscoveryService : IDeviceDiscoveryService
