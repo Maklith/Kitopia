@@ -71,6 +71,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         private set => SetProperty(ref _messageListVersion, value);
     }
 
+    private int _messageViewRefreshVersion;
+    public int MessageViewRefreshVersion {
+        get => _messageViewRefreshVersion;
+        private set => SetProperty(ref _messageViewRefreshVersion, value);
+    }
+
     public DeviceCommunicationPageViewModel(
         IDeviceDiscoveryService deviceDiscoveryService,
         IMessageAppService messageAppService,
@@ -654,6 +660,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         OnPropertyChanged(nameof(CurrentConversationSubtitle));
         OnPropertyChanged(nameof(HasConversationSelected));
         OnPropertyChanged(nameof(ShowConversationPlaceholder));
+        MessageViewRefreshVersion++;
         MessageListVersion++;
     }
 

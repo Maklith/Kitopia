@@ -17,11 +17,13 @@ public partial class DeviceCommunicationPage : UserControl
     private DeviceCommunicationPageViewModel? _boundViewModel;
     private INotifyCollectionChanged? _boundMessages;
     private ScrollViewer? _conversationScrollViewer;
+    private ItemsControl? _conversationItemsControl;
 
     public DeviceCommunicationPage()
     {
         InitializeComponent();
         _conversationScrollViewer = this.FindControl<ScrollViewer>("ConversationScrollViewer");
+        _conversationItemsControl = this.FindControl<ItemsControl>("ConversationItemsControl");
         DataContextChanged += OnDataContextChanged;
         Unloaded += OnUnloaded;
         SizeChanged += OnPageSizeChanged;
@@ -51,6 +53,7 @@ public partial class DeviceCommunicationPage : UserControl
         {
             _boundViewModel.PropertyChanged += OnViewModelPropertyChanged;
             BindCurrentMessages();
+            SetConversationItemsSource(_boundViewModel.CurrentMessages);
             ScrollToLatest();
             _boundViewModel.IsCompact = Bounds.Width > 0 && Bounds.Width < CompactWidthThreshold;
         }
@@ -61,7 +64,14 @@ public partial class DeviceCommunicationPage : UserControl
         if (e.PropertyName == nameof(DeviceCommunicationPageViewModel.CurrentMessages))
         {
             BindCurrentMessages();
+            SetConversationItemsSource(_boundViewModel?.CurrentMessages);
             ScrollToLatest();
+            return;
+        }
+
+        if (e.PropertyName == nameof(DeviceCommunicationPageViewModel.MessageViewRefreshVersion))
+        {
+            RebuildCurrentMessageVisuals();
             return;
         }
 
@@ -98,6 +108,41 @@ public partial class DeviceCommunicationPage : UserControl
     private void OnCurrentMessagesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         ScrollToLatest();
+    }
+
+    private void SetConversationItemsSource(System.Collections.IEnumerable? source)
+    {
+        _conversationItemsControl ??= this.FindControl<ItemsControl>("ConversationItemsControl");
+        if (_conversationItemsControl is null)
+        {
+            return;
+        }
+
+        _conversationItemsControl.ItemsSource = source;
+    }
+
+    private void RebuildCurrentMessageVisuals()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            _conversationItemsControl ??= this.FindControl<ItemsControl>("ConversationItemsControl");
+            if (_conversationItemsControl is null || _boundViewModel is null)
+            {
+                return;
+            }
+
+            _conversationItemsControl.ItemsSource = null;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_conversationItemsControl is null || _boundViewModel is null)
+                {
+                    return;
+                }
+
+                _conversationItemsControl.ItemsSource = _boundViewModel.CurrentMessages;
+                ScrollToLatest();
+            }, DispatcherPriority.Render);
+        }, DispatcherPriority.Loaded);
     }
 
     private void ScrollToLatest()

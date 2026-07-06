@@ -153,7 +153,8 @@
                         <Grid>
                             <ScrollViewer x:Name="ConversationScrollViewer"
                                           VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding CurrentMessages}">
+                                <ItemsControl x:Name="ConversationItemsControl"
+                                              ItemsSource="{Binding CurrentMessages}">
                                     <ItemsControl.ItemTemplate>
                                         <controls:ChatMessageTemplateSelector
                                             DefaultMessageTemplate="{StaticResource DefaultChatMessageTemplate}"
