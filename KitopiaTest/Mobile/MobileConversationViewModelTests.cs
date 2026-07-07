@@ -8,6 +8,16 @@ namespace KitopiaTest.Mobile;
 public sealed class MobileConversationViewModelTests
 {
     [TestMethod]
+    public void MobileDeviceCommunicationSettings_BroadcastName_UsesPlatformDeviceName()
+    {
+        var settings = new MobileDeviceCommunicationSettings(
+            new MobileConfigService(),
+            new FakePlatformRuntimeFeatures("  Pixel 9 Pro  "));
+
+        Assert.AreEqual("Pixel 9 Pro", settings.BroadcastName);
+    }
+
+    [TestMethod]
     public async Task MobileDeviceCommunicationHost_StartAsync_StartsRuntimeAndDiscovery()
     {
         var runtime = new FakeCommunicationRuntime();
@@ -68,6 +78,21 @@ public sealed class MobileConversationViewModelTests
         {
             StopCount++;
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakePlatformRuntimeFeatures : IMobilePlatformRuntimeFeatures
+    {
+        public FakePlatformRuntimeFeatures(string defaultDeviceName)
+        {
+            DefaultDeviceName = defaultDeviceName;
+        }
+
+        public string DefaultDeviceName { get; }
+
+        public IMobileCommunicationRuntime WrapCommunicationRuntime(IMobileCommunicationRuntime innerRuntime)
+        {
+            return innerRuntime;
         }
     }
 

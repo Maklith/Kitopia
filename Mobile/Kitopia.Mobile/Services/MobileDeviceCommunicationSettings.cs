@@ -5,13 +5,19 @@ namespace Kitopia.Mobile.Services;
 public sealed class MobileDeviceCommunicationSettings : IDeviceCommunicationSettings
 {
     private readonly MobileConfigService _config;
+    private readonly IMobilePlatformRuntimeFeatures _platformFeatures;
 
-    public MobileDeviceCommunicationSettings(MobileConfigService config)
+    public MobileDeviceCommunicationSettings(
+        MobileConfigService config,
+        IMobilePlatformRuntimeFeatures platformFeatures)
     {
         _config = config;
+        _platformFeatures = platformFeatures;
     }
 
-    public string BroadcastName { get; } = $"{Environment.MachineName} Mobile";
+    public string BroadcastName => string.IsNullOrWhiteSpace(_platformFeatures.DefaultDeviceName)
+        ? DefaultMobilePlatformRuntimeFeatures.Instance.DefaultDeviceName
+        : _platformFeatures.DefaultDeviceName.Trim();
 
     public string? GetCustomName(string publicKey)
     {

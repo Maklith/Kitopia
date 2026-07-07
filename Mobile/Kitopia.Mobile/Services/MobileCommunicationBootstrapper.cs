@@ -26,6 +26,7 @@ public sealed class MobileCommunicationBootstrapper
 
         services.AddSingleton(TopLevelContext);
         services.AddSingleton<MobileConfigService>();
+        services.AddSingleton(_ => MobilePlatformRuntime.Current);
         services.AddSingleton<IDeviceIdentityStore, MobileDeviceIdentityStore>();
         services.AddSingleton<IDeviceCommunicationSettings, MobileDeviceCommunicationSettings>();
         services.AddSingleton<Kitopia.DeviceCommunication.Transport.ILocalDataEndpointProvider, LocalDataEndpointProvider>();
