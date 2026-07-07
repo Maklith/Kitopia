@@ -1157,6 +1157,8 @@ public partial class DeviceConversationItem : ObservableObject {
 
     [ObservableProperty] private string _customName = string.Empty;
 
+    [ObservableProperty] private string _operatingSystem = string.Empty;
+
     [ObservableProperty] private string _displayName = "Unknown Device";
 
     [ObservableProperty] private IPAddress _ipv4Address = IPAddress.None;
@@ -1194,6 +1196,10 @@ public partial class DeviceConversationItem : ObservableObject {
         }
     }
 
+    public bool HasOperatingSystem => !string.IsNullOrWhiteSpace(OperatingSystem);
+
+    public string OperatingSystemTagText => OperatingSystem;
+
     public IPAddress PreferredTransportAddress => Ipv6Address != IPAddress.None ? Ipv6Address : Ipv4Address;
         public string StatusText => IsOnline ? "在线" : "离线";
     public bool HasUnread => UnreadCount > 0;
@@ -1205,6 +1211,7 @@ public partial class DeviceConversationItem : ObservableObject {
         DisplayName = device.DisplayName;
         ComputerName = device.ComputerName;
         CustomName = device.CustomName;
+        OperatingSystem = device.OperatingSystemDisplayName;
         Ipv4Address = device.Ipv4Address;
         Ipv6Address = device.Ipv6Address;
         TcpPort = device.TcpPort;
@@ -1232,6 +1239,11 @@ public partial class DeviceConversationItem : ObservableObject {
 
     partial void OnIsOnlineChanged(bool value) {
         OnPropertyChanged(nameof(StatusText));
+    }
+
+    partial void OnOperatingSystemChanged(string value) {
+        OnPropertyChanged(nameof(HasOperatingSystem));
+        OnPropertyChanged(nameof(OperatingSystemTagText));
     }
 
     partial void OnUnreadCountChanged(int value) {

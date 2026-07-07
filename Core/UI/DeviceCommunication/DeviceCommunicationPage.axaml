@@ -56,6 +56,10 @@
                                         <Label Theme="{DynamicResource TagLabel}" Classes="Green"
                                                IsVisible="{Binding HasIpv6}"
                                                FontSize="{DynamicResource SemiFontSizeSmall}">IPv6</Label>
+                                        <Label Theme="{DynamicResource TagLabel}"
+                                               IsVisible="{Binding HasOperatingSystem}"
+                                               FontSize="{DynamicResource SemiFontSizeSmall}"
+                                               Content="{Binding OperatingSystemTagText}" />
                                         <TextBlock Text="{Binding DisplayName}"
                                                    FontWeight="SemiBold"
                                                    TextTrimming="CharacterEllipsis"

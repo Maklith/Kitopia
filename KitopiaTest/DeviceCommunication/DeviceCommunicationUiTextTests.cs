@@ -1,4 +1,5 @@
 using Core.ViewModel.Pages.device;
+using Kitopia.DeviceCommunication.Discovery;
 
 namespace KitopiaTest.DeviceCommunication;
 
@@ -15,6 +16,22 @@ public class DeviceCommunicationUiTextTests
 
         conversation.IsOnline = false;
         Assert.AreEqual("离线", conversation.StatusText);
+    }
+
+    [TestMethod]
+    public void DeviceConversationItem_OperatingSystemTag_UsesDiscoveredOperatingSystem()
+    {
+        var conversation = new DeviceConversationItem("device-1");
+
+        conversation.ApplyDevice(new DiscoveredDevice
+        {
+            Id = "device-1",
+            Name = "Phone",
+            OperatingSystem = "Android"
+        });
+
+        Assert.IsTrue(conversation.HasOperatingSystem);
+        Assert.AreEqual("Android", conversation.OperatingSystemTagText);
     }
 
     [TestMethod]

@@ -391,6 +391,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                         Version = DiscoveryProtocolVersion,
                         Id = identity.IdHash,
                         Name = ResolveDisplayName(),
+                        OperatingSystem = ResolveOperatingSystemName(),
                         TcpPort = tcpPort,
                         TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
                     };
@@ -527,6 +528,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
 
             existing.LastSeen = DateTime.UtcNow;
             existing.Name = string.IsNullOrWhiteSpace(info.Name) ? "Unknown device" : info.Name.Trim();
+            existing.OperatingSystem = NormalizeOperatingSystemName(info.OperatingSystem);
             existing.TcpPort = info.TcpPort;
             AssignDiscoveredAddress(existing, endpointAddress);
             DeviceCommunicationDiagnostics.Debug(
@@ -561,6 +563,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             Version = DiscoveryProtocolVersion,
             Id = localIdHash,
             Name = ResolveDisplayName(),
+            OperatingSystem = ResolveOperatingSystemName(),
             TcpPort = tcpPort,
             TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             PublicKey = localPublicKey,
@@ -633,6 +636,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                 {
                     Id = info.PublicKey,
                     Name = string.IsNullOrWhiteSpace(info.Name) ? "Unknown device" : info.Name.Trim(),
+                    OperatingSystem = NormalizeOperatingSystemName(info.OperatingSystem),
                     CustomName = _settings.GetCustomName(info.PublicKey) ?? string.Empty,
                     TcpPort = info.TcpPort,
                     LastSeen = DateTime.UtcNow
@@ -647,6 +651,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             {
                 existing.LastSeen = DateTime.UtcNow;
                 existing.Name = string.IsNullOrWhiteSpace(info.Name) ? "Unknown device" : info.Name.Trim();
+                existing.OperatingSystem = NormalizeOperatingSystemName(info.OperatingSystem);
                 existing.TcpPort = info.TcpPort;
                 AssignDiscoveredAddress(existing, endpointAddress);
                 DeviceCommunicationDiagnostics.Debug(
@@ -754,6 +759,18 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         return string.IsNullOrWhiteSpace(_settings.BroadcastName)
             ? Environment.MachineName
             : _settings.BroadcastName.Trim();
+    }
+
+    private string ResolveOperatingSystemName()
+    {
+        return NormalizeOperatingSystemName(_settings.OperatingSystemName);
+    }
+
+    private static string NormalizeOperatingSystemName(string? operatingSystem)
+    {
+        return string.IsNullOrWhiteSpace(operatingSystem)
+            ? string.Empty
+            : operatingSystem.Trim();
     }
 
     private static async Task SendUnicastAsync(

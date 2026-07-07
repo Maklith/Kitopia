@@ -17,6 +17,9 @@ public partial class DiscoveredDevice : ObservableObject
     private string _customName = string.Empty;
 
     [ObservableProperty]
+    private string _operatingSystem = string.Empty;
+
+    [ObservableProperty]
     private IPAddress _ipv4Address = IPAddress.None;
 
     [ObservableProperty]
@@ -38,6 +41,10 @@ public partial class DiscoveredDevice : ObservableObject
 
     public string ComputerName => string.IsNullOrWhiteSpace(Name) ? "未知设备" : Name;
 
+    public string OperatingSystemDisplayName => string.IsNullOrWhiteSpace(OperatingSystem)
+        ? "未知系统"
+        : OperatingSystem;
+
     public string DisplayName => string.IsNullOrWhiteSpace(CustomName) ? ComputerName : $"{CustomName} ({ComputerName})";
 
     partial void OnNameChanged(string value)
@@ -49,6 +56,11 @@ public partial class DiscoveredDevice : ObservableObject
     partial void OnCustomNameChanged(string value)
     {
         OnPropertyChanged(nameof(DisplayName));
+    }
+
+    partial void OnOperatingSystemChanged(string value)
+    {
+        OnPropertyChanged(nameof(OperatingSystemDisplayName));
     }
 
     partial void OnIpv4AddressChanged(IPAddress value)

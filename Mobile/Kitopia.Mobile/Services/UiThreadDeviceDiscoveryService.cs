@@ -139,6 +139,7 @@ public sealed class UiThreadDeviceDiscoveryService : IDeviceDiscoveryService
         destination.Ipv4Address = source.Ipv4Address;
         destination.Ipv6Address = source.Ipv6Address;
         destination.TcpPort = source.TcpPort;
+        destination.OperatingSystem = source.OperatingSystem;
         destination.LastSeen = source.LastSeen;
     }
 }

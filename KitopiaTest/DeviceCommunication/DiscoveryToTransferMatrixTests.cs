@@ -90,6 +90,7 @@ public sealed class DiscoveryToTransferMatrixTests
             Version = "0.1",
             Id = remoteHash,
             Name = "peer",
+            OperatingSystem = "Windows",
             TcpPort = 23001,
             TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             PublicKey = remoteIdentity.PublicKey,
@@ -114,6 +115,7 @@ public sealed class DiscoveryToTransferMatrixTests
             Version = "0.1",
             Id = remoteHash,
             Name = "peer-renamed",
+            OperatingSystem = "Linux",
             TcpPort = 23001,
             TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
         };
@@ -123,8 +125,48 @@ public sealed class DiscoveryToTransferMatrixTests
         Assert.AreEqual(1, discoveryService.Devices.Count);
         Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
         Assert.AreEqual("peer-renamed", device.Name);
+        Assert.AreEqual("Linux", device.OperatingSystem);
         Assert.AreEqual(23001, device.TcpPort);
         Assert.IsTrue(device.LastSeen > previousLastSeen);
+    }
+
+    [TestMethod]
+    public void Discovery_AuthenticatedResponse_PublishesDeviceOperatingSystem()
+    {
+        var localIdentity = CreateIdentity();
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings(),
+            new FakeIdentityStore(localIdentity),
+            new FakeLocalDataEndpointProvider(23001));
+        var remoteIdentity = CreateIdentity();
+        var remoteHash = ComputePublicKeyHash(remoteIdentity.PublicKey);
+        var remoteAddress = IPAddress.Loopback;
+        var nonce = Guid.NewGuid().ToString("N");
+
+        InvokePrivateVoid(discoveryService, "RegisterPendingAuthRequest", remoteHash, nonce, remoteAddress);
+        var response = new DiscoveryInfo
+        {
+            MessageType = "auth.response",
+            Version = "0.1",
+            Id = remoteHash,
+            Name = "peer",
+            OperatingSystem = "Android",
+            TcpPort = 23001,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            PublicKey = remoteIdentity.PublicKey,
+            Nonce = nonce
+        };
+        Assert.IsTrue(Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.TrySign(
+            response,
+            remoteIdentity.PrivateKey,
+            out var signature));
+        response.Signature = signature;
+
+        var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
+        InvokePrivateVoid(discoveryService, "HandleAuthResponse", response, remoteAddress, localIdentity.PublicKey, localHash);
+
+        Assert.AreEqual(1, discoveryService.Devices.Count);
+        Assert.AreEqual("Android", discoveryService.Devices[0].OperatingSystem);
     }
 
     [TestMethod]
