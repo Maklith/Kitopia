@@ -39,6 +39,11 @@ public sealed class UiThreadDeviceDiscoveryService : IDeviceDiscoveryService
         return _innerService.StopAsync();
     }
 
+    public void SetBackgroundMode(bool background)
+    {
+        _innerService.SetBackgroundMode(background);
+    }
+
     public void Dispose()
     {
         ((INotifyCollectionChanged)_innerService.Devices).CollectionChanged -= OnDevicesChanged;

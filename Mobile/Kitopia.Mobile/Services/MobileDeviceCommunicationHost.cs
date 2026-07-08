@@ -37,4 +37,9 @@ public sealed class MobileDeviceCommunicationHost
         await _discoveryService.StopAsync();
         await _runtime.StopAsync();
     }
+
+    public void SetBackgroundMode(bool background)
+    {
+        _discoveryService.SetBackgroundMode(background);
+    }
 }

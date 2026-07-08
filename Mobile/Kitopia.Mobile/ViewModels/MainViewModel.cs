@@ -27,6 +27,11 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         await _host.StopAsync();
     }
 
+    public void SetBackgroundMode(bool background)
+    {
+        _host.SetBackgroundMode(background);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await StopAsync();

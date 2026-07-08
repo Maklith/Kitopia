@@ -23,13 +23,19 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
     private const string DiscoveryMessageTypeAuthResponse = "auth.response";
     private const string DiscoveryProtocolVersion = "0.1";
     private static readonly Version DiscoveryProtocolVersionValue = Version.Parse(DiscoveryProtocolVersion);
-    private static readonly TimeSpan DiscoveryBroadcastInterval = TimeSpan.FromSeconds(8);
-    private static readonly TimeSpan DiscoveryCleanupInterval = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan DiscoveryListenerRefreshInterval = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan DiscoveryStaleTimeout = TimeSpan.FromSeconds(20);
-    private static readonly TimeSpan DiscoveryAuthRequestTimeout = TimeSpan.FromSeconds(15);
+    private readonly TimeSpan _discoveryBroadcastInterval = TimeSpan.FromSeconds(8);
+    private readonly TimeSpan _discoveryCleanupInterval = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _discoveryListenerRefreshInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan _discoveryStaleTimeoutBase = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan _discoveryAuthRequestTimeoutBase = TimeSpan.FromSeconds(15);
 
     private readonly object _sync = new();
+    private double _intervalMultiplier = 1.0;
+
+    public void SetBackgroundMode(bool background)
+    {
+        _intervalMultiplier = background ? 3.0 : 1.0;
+    }
     private readonly ObservableList<DiscoveredDevice> _devicesSource = [];
     private readonly ISynchronizedView<DiscoveredDevice, DiscoveredDevice> _devicesView;
     private readonly Dictionary<string, PendingAuthRequest> _pendingAuthRequests = new(StringComparer.Ordinal);
@@ -135,13 +141,18 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         }
     }
 
+    private TimeSpan Scaled(TimeSpan baseValue)
+    {
+        return _intervalMultiplier <= 1.0 ? baseValue : TimeSpan.FromMilliseconds(baseValue.TotalMilliseconds * _intervalMultiplier);
+    }
+
     private async Task CleanupLoopAsync(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(DiscoveryCleanupInterval, token);
+                await Task.Delay(Scaled(_discoveryCleanupInterval), token);
             }
             catch (OperationCanceledException)
             {
@@ -152,7 +163,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             {
                 var now = DateTime.UtcNow;
                 var staleDevices = _devicesSource
-                    .Where(device => now - device.LastSeen > DiscoveryStaleTimeout)
+                    .Where(device => now - device.LastSeen > Scaled(_discoveryStaleTimeoutBase))
                     .ToArray();
                 foreach (var staleDevice in staleDevices)
                 {
@@ -240,7 +251,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         {
             try
             {
-                await Task.Delay(DiscoveryListenerRefreshInterval, token);
+                await Task.Delay(Scaled(_discoveryListenerRefreshInterval), token);
             }
             catch (OperationCanceledException)
             {
@@ -466,7 +477,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
 
             try
             {
-                await Task.Delay(DiscoveryBroadcastInterval, token);
+                await Task.Delay(Scaled(_discoveryBroadcastInterval), token);
             }
             catch (OperationCanceledException)
             {
@@ -685,9 +696,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         {
             CleanupPendingAuthRequests(DateTime.UtcNow);
             var requestKey = BuildPendingAuthKey(id, endpointAddress);
-            _pendingAuthRequests[requestKey] = new PendingAuthRequest(
+                _pendingAuthRequests[requestKey] = new PendingAuthRequest(
                 nonce,
-                DateTime.UtcNow + DiscoveryAuthRequestTimeout);
+                DateTime.UtcNow + Scaled(_discoveryAuthRequestTimeoutBase));
         }
     }
 

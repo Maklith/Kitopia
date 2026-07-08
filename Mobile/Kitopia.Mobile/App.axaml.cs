@@ -57,6 +57,7 @@ public partial class App : Avalonia.Application
         if (_bootstrapper is not null)
         {
             _bootstrapper.TopLevelContext.IsActivityActive = isActive;
+            _bootstrapper.MainViewModel.SetBackgroundMode(!isActive);
         }
     }
 
