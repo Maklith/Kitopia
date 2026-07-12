@@ -8,5 +8,5 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-  <application android:label="Kitopia Mobile" android:usesCleartextTraffic="true" />
+  <application android:label="Kitopia Mobile" android:icon="@mipmap/icon" android:usesCleartextTraffic="true" />
 </manifest>

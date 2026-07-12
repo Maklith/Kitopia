@@ -20,6 +20,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <AndroidResource Include="..\..\KitopiaAvalonia\Assets\icon.png" Link="Resources\mipmap\icon.png" />
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="Avalonia.Android" Version="12.0.5" />
     </ItemGroup>
 </Project>
