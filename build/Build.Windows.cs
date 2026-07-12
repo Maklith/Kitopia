@@ -21,24 +21,24 @@ partial class Build
 
     Target PackWindowsX64 => _ => _
         .DependsOn(CreateRelease, RestoreWindows)
-        .Executes(() => PublishWindows("win-x64", includeNativeBackends: true));
+        .Executes(() => PublishWindows("win-x64"));
 
     Target PackWindowsX86 => _ => _
         .DependsOn(CreateRelease, RestoreWindows)
-        .Executes(() => PublishWindows("win-x86", includeNativeBackends: false));
+        .Executes(() => PublishWindows("win-x86"));
 
     Target PackWindowsArm64 => _ => _
         .DependsOn(CreateRelease, RestoreWindows)
-        .Executes(() => PublishWindows("win-arm64", includeNativeBackends: false));
+        .Executes(() => PublishWindows("win-arm64"));
 
     Target PackWindows => _ => _
-        .DependsOn(PackWindowsX64, PackWindowsX86, PackWindowsArm64);
+        .DependsOn(PackWindowsX64, PackWindowsX86, PackWindowsArm64, PackOnnxPlugins);
 
     // Kept as a compatibility alias for local scripts that used the old target name.
     Target CompileWindowsX64 => _ => _
         .DependsOn(PackWindowsX64);
 
-    void PublishWindows(string runtime, bool includeNativeBackends)
+    void PublishWindows(string runtime)
     {
         var output = ArtifactsDirectory / "windows" / runtime;
         var platformTarget = GetWindowsPlatformTarget(runtime);
@@ -58,14 +58,6 @@ partial class Build
             output / "plugins" / "kitopiaex");
         PublishPlugin(RootDirectory / "OnnxRuntime.CPU" / "OnnxRuntime.CPU.csproj", runtime,
             output / "plugins" / "kitopiaonnxruntimecpu");
-
-        if (includeNativeBackends)
-        {
-            PublishPlugin(RootDirectory / "OnnxRuntime.Gpu.Win" / "OnnxRuntime.Gpu.Win.csproj", runtime,
-                output / "plugins" / "kitopiaonnxruntimegpu");
-            PublishPlugin(RootDirectory / "OnnxRuntime.OpenVino" / "OnnxRuntime.OpenVino.csproj", runtime,
-                output / "plugins" / "kitopiaonnxruntimeopenvino");
-        }
 
         RemoveSymbolsAndDocs(output);
         var archive = RootDirectory / $"Kitopia{AvaloniaProject.GetProperty("Version")}_{runtime}.zip";
