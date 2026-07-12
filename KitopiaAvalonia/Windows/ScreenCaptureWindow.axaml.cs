@@ -1306,9 +1306,15 @@ public partial class ScreenCaptureWindow : Window
              return;
         }
 
-        var physicalPoint = this.PointToScreen(p);
-        int centerX = physicalPoint.X - _combinedMinX;
-        int centerY = physicalPoint.Y - _combinedMinY;
+        var imagePoint = this.TranslatePoint(p, Image);
+        if (imagePoint == null || Image.Bounds.Width <= 0 || Image.Bounds.Height <= 0)
+        {
+            ColorInspector.IsVisible = false;
+            return;
+        }
+
+        int centerX = (int)(imagePoint.Value.X * _pixelWidth / Image.Bounds.Width);
+        int centerY = (int)(imagePoint.Value.Y * _pixelHeight / Image.Bounds.Height);
 
         if (centerX < 0 || centerX >= _pixelWidth || centerY < 0 || centerY >= _pixelHeight) 
         {
@@ -1383,11 +1389,38 @@ public partial class ScreenCaptureWindow : Window
         }
         
         // Position popup
-        double popupX = p.X + 20;
-        double popupY = p.Y + 20;
-        
-        if (popupX + 130 > Bounds.Width) popupX = p.X - 140;
-        if (popupY + 180 > Bounds.Height) popupY = p.Y - 190;
+        const double popupOffset = 20;
+        ColorInspector.Measure(Bounds.Size);
+        double inspectorWidth = ColorInspector.DesiredSize.Width;
+        double inspectorHeight = ColorInspector.DesiredSize.Height;
+
+        var pointerPhysical = this.PointToScreen(p);
+        var targetScreen = Screens.ScreenFromPoint(pointerPhysical);
+        double minXLogical = 0;
+        double minYLogical = 0;
+        double maxXLogical = Bounds.Width;
+        double maxYLogical = Bounds.Height;
+
+        if (targetScreen != null)
+        {
+            var topLeftLogical = this.PointToClient(new PixelPoint(targetScreen.Bounds.X, targetScreen.Bounds.Y));
+            var bottomRightLogical = this.PointToClient(new PixelPoint(
+                targetScreen.Bounds.X + targetScreen.Bounds.Width,
+                targetScreen.Bounds.Y + targetScreen.Bounds.Height));
+            minXLogical = Math.Min(topLeftLogical.X, bottomRightLogical.X);
+            minYLogical = Math.Min(topLeftLogical.Y, bottomRightLogical.Y);
+            maxXLogical = Math.Max(topLeftLogical.X, bottomRightLogical.X);
+            maxYLogical = Math.Max(topLeftLogical.Y, bottomRightLogical.Y);
+        }
+
+        double popupX = p.X + popupOffset;
+        double popupY = p.Y + popupOffset;
+
+        if (popupX + inspectorWidth > maxXLogical) popupX = p.X - inspectorWidth - popupOffset;
+        if (popupY + inspectorHeight > maxYLogical) popupY = p.Y - inspectorHeight - popupOffset;
+
+        popupX = Math.Clamp(popupX, minXLogical, Math.Max(minXLogical, maxXLogical - inspectorWidth));
+        popupY = Math.Clamp(popupY, minYLogical, Math.Max(minYLogical, maxYLogical - inspectorHeight));
 
         Canvas.SetLeft(ColorInspector, popupX);
         Canvas.SetTop(ColorInspector, popupY);
