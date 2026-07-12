@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Avalonia.Controls.Notifications;
 using Core.Services;
 using Core.Services.Plugin;
@@ -60,7 +61,26 @@ namespace Core.Window
                 {
                     if (latestVersion> currentVersion)
                     {
-                        var htmlUrl = ((JArray)release["assets"]!).FirstOrDefault(e=>e["name"]!.ToString()==$"Kitopia{cleanTagName}_Installer.exe")?["browser_download_url"]?.ToString();
+                        var runtime = RuntimeInformation.ProcessArchitecture switch
+                        {
+                            Architecture.X86 => "win-x86",
+                            Architecture.X64 => "win-x64",
+                            Architecture.Arm64 => "win-arm64",
+                            var architecture => throw new PlatformNotSupportedException(
+                                $"Unsupported update architecture: {architecture}")
+                        };
+                        var installerNames = new[]
+                        {
+                            $"Kitopia{cleanTagName}_{runtime}_Installer.exe",
+                            $"Kitopia{cleanTagName}_Installer.exe"
+                        };
+                        var htmlUrl = (release["assets"] as JArray)?
+                            .FirstOrDefault(asset => installerNames.Contains(
+                                asset["name"]?.ToString(), StringComparer.OrdinalIgnoreCase))?
+                            ["browser_download_url"]?.ToString();
+                        if (string.IsNullOrWhiteSpace(htmlUrl))
+                            Logger.Warning("No installer asset found for {Runtime} in release {Version}", runtime,
+                                cleanTagName);
                         var body = release["body"]?.ToString();
                         htmlUrl = htmlUrl?.Replace("https://github.com/Maklith","https://update.kitopia.top/Maklith");
                         return (true, tagName, htmlUrl, body);
