@@ -1,5 +1,5 @@
 using Avalonia;
-using KitopiaAvalonia.Windows;
+using Kitopia.Desktop.Windows;
 
 namespace KitopiaTest;
 

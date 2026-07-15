@@ -29,7 +29,7 @@ partial class Build : NukeBuild
     internal GitHubClient GitHubClient;
     internal Release Release;
 
-    internal Project AvaloniaProject => Solution.GetProject("KitopiaAvalonia");
+    internal Project AvaloniaProject => Solution.GetProject("Kitopia.Desktop");
     internal AbsolutePath AndroidProjectFile => RootDirectory / "Mobile" / "Kitopia.Mobile.Android" /
                                                 "Kitopia.Mobile.Android.csproj";
     internal bool IsRelease => !string.IsNullOrWhiteSpace(GitHubToken);

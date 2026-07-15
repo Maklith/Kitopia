@@ -9,6 +9,7 @@ public sealed class DefaultMobilePlatformRuntimeFeatures : IMobilePlatformRuntim
     }
 
     public string DefaultDeviceName => $"{Environment.MachineName} Mobile";
+    public string OperatingSystemName => "Mobile";
 
     public IMobileCommunicationRuntime WrapCommunicationRuntime(IMobileCommunicationRuntime innerRuntime)
     {

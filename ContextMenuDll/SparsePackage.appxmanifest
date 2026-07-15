@@ -36,7 +36,7 @@
   </Capabilities>
 
   <Applications>
-    <Application Id="Kitopia" Executable="KitopiaAvalonia.exe" EntryPoint="Windows.FullTrustApplication">
+    <Application Id="Kitopia" Executable="Kitopia.Desktop.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
               DisplayName="Kitopia"
               Description="Kitopia"

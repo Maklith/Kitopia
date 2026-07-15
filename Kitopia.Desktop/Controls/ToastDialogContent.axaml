@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
+             xmlns:u="https://irihi.tech/ursa"
+             mc:Ignorable="d"
+             d:DesignWidth="520"
+             d:DesignHeight="280"
+             x:Class="Kitopia.Desktop.Controls.ToastDialogContent"
+             x:DataType="controls:ToastDialogContentViewModel">
+    <UserControl.Styles>
+        <Style Selector="PathIcon#ToastIcon.information">
+            <Setter Property="Foreground" Value="{DynamicResource NotificationCardInformationIconForeground}" />
+            <Setter Property="Data" Value="{DynamicResource NotificationCardInformationIconPathData}" />
+        </Style>
+        <Style Selector="PathIcon#ToastIcon.success">
+            <Setter Property="Foreground" Value="{DynamicResource NotificationCardSuccessIconForeground}" />
+            <Setter Property="Data" Value="{DynamicResource NotificationCardSuccessIconPathData}" />
+        </Style>
+        <Style Selector="PathIcon#ToastIcon.warning">
+            <Setter Property="Foreground" Value="{DynamicResource NotificationCardWarningIconForeground}" />
+            <Setter Property="Data" Value="{DynamicResource NotificationCardWarningIconPathData}" />
+        </Style>
+        <Style Selector="PathIcon#ToastIcon.error">
+            <Setter Property="Foreground" Value="{DynamicResource NotificationCardErrorIconForeground}" />
+            <Setter Property="Data" Value="{DynamicResource NotificationCardErrorIconPathData}" />
+        </Style>
+
+        <Style Selector="Button.toast-dialog-action">
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="MinWidth" Value="68" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+        </Style>
+        <Style Selector="Button.toast-dialog-action.primary">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource SemiColorPrimary}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+        </Style>
+    </UserControl.Styles>
+    
+    <Border 
+        Background="{DynamicResource ToastCardBackground}"
+            BorderBrush="{DynamicResource SemiColorBorder}"
+            BorderThickness="{DynamicResource ToastCardBorderThickness}"
+            MinHeight="{DynamicResource ToastCardMinHeight}"
+            Padding="{DynamicResource ToastCardPadding}"
+            CornerRadius="{DynamicResource ToastCardCornerRadius}">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+              ColumnDefinitions="Auto,*,Auto"
+              HorizontalAlignment="Stretch"
+              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+              RowSpacing="8"
+              ColumnSpacing="12">
+                <PathIcon x:Name="ToastIcon"
+                          Classes.information="{Binding IsInformation}"
+                          Classes.success="{Binding IsSuccess}"
+                          Classes.warning="{Binding IsWarning}"
+                          Classes.error="{Binding IsError}"
+                          Grid.Row="0"
+                          Grid.Column="0"
+                          Width="{DynamicResource ToastCardIconWidth}"
+                          Height="{DynamicResource ToastCardIconHeight}"
+                          Margin="{DynamicResource ToastCardIconMargin}"
+                          VerticalAlignment="Top"
+                          Data="{DynamicResource NotificationCardInformationIconPathData}"
+                          Foreground="{DynamicResource NotificationCardInformationIconForeground}" />
+
+                <TextBlock Grid.Row="0"
+                           Grid.Column="1"
+                           HorizontalAlignment="Stretch"
+                           Text="{Binding Header}"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource ToastCardContentForeground}"
+                           FontWeight="{DynamicResource ToastCardContentFontWeight}"
+                           TextWrapping="Wrap" />
+
+                <Button Grid.Row="0"
+                        Grid.Column="2"
+                        IsVisible="{Binding ShowCloseButton}"
+                        Width="20"
+                        Height="20"
+                        Padding="0"
+                        BorderThickness="0"
+                        Background="Transparent"
+                        Foreground="{DynamicResource NotificationCardCloseButtonForeground}"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Click="CloseButton_OnClick"
+                        Content="x" />
+
+                <TextBlock Grid.Row="1"
+                           Grid.Column="1"
+                           Grid.ColumnSpan="2"
+                           Text="{Binding Text}"
+                           Foreground="{DynamicResource SemiColorText1}"
+                           TextWrapping="Wrap" />
+
+                <ProgressBar Grid.Row="2"
+                             Grid.Column="1"
+                             Grid.ColumnSpan="2"
+                             IsVisible="{Binding ShowProgressBar}"
+                             Height="6"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="{Binding ProgressValue}"
+                             IsIndeterminate="{Binding IsProgressIndeterminate}" />
+
+                <ItemsControl Grid.Row="3"
+                              Grid.Column="1"
+                              Grid.ColumnSpan="2"
+                              ItemsSource="{Binding Actions}"
+                              IsVisible="{Binding HasActions}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="controls:ToastDialogActionViewModel">
+                            <Button Content="{Binding Text}"
+                                    Command="{Binding Command}"
+                                    Classes="toast-dialog-action"
+                                    Classes.primary="{Binding IsPrimary}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+        </Grid>
+    </Border>
+</UserControl>

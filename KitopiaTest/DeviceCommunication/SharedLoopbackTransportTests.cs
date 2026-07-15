@@ -4,12 +4,12 @@ using System.ComponentModel;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Text;
-using Kitopia.DeviceCommunication.Discovery;
-using Kitopia.DeviceCommunication.Identity;
-using Kitopia.DeviceCommunication.Protocol;
-using Kitopia.DeviceCommunication.Routing;
-using Kitopia.DeviceCommunication.Security;
-using Kitopia.DeviceCommunication.Transport;
+using Kitopia.Feature.DeviceCommunication.Discovery;
+using Kitopia.Feature.DeviceCommunication.Identity;
+using Kitopia.Feature.DeviceCommunication.Protocol;
+using Kitopia.Feature.DeviceCommunication.Routing;
+using Kitopia.Feature.DeviceCommunication.Security;
+using Kitopia.Feature.DeviceCommunication.Transport;
 
 namespace KitopiaTest.DeviceCommunication;
 

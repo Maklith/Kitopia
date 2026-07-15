@@ -1,6 +1,6 @@
 using System.Text.Json;
-using Kitopia.DeviceCommunication.Discovery;
-using Kitopia.DeviceCommunication.Identity;
+using Kitopia.Feature.DeviceCommunication.Discovery;
+using Kitopia.Feature.DeviceCommunication.Identity;
 
 namespace Kitopia.Mobile.Services;
 
@@ -47,8 +47,12 @@ public sealed class MobileDeviceIdentityStore : IDeviceIdentityStore
 
             Directory.CreateDirectory(Path.GetDirectoryName(_identityFilePath)!);
             var keyPair = DeviceDiscoverySignature.CreateKeyPair();
-            var payload = new IdentityFilePayload { PrivateKey = keyPair.PrivateKey };
-            File.WriteAllText(_identityFilePath, JsonSerializer.Serialize(payload));
+            var payload = new MobileDeviceIdentityPayload { PrivateKey = keyPair.PrivateKey };
+            File.WriteAllText(
+                _identityFilePath,
+                JsonSerializer.Serialize(
+                    payload,
+                    MobilePersistenceJsonSerializerContext.Default.DeviceIdentityPayload));
 
             return new DeviceIdentity(
                 keyPair.PublicKey,
@@ -57,9 +61,9 @@ public sealed class MobileDeviceIdentityStore : IDeviceIdentityStore
         }
     }
 
-    private bool TryReadIdentityFile(out IdentityFilePayload payload)
+    private bool TryReadIdentityFile(out MobileDeviceIdentityPayload payload)
     {
-        payload = new IdentityFilePayload();
+        payload = new MobileDeviceIdentityPayload();
         if (!File.Exists(_identityFilePath))
         {
             return false;
@@ -67,17 +71,15 @@ public sealed class MobileDeviceIdentityStore : IDeviceIdentityStore
 
         try
         {
-            payload = JsonSerializer.Deserialize<IdentityFilePayload>(File.ReadAllText(_identityFilePath)) ?? new IdentityFilePayload();
+            payload = JsonSerializer.Deserialize(
+                          File.ReadAllText(_identityFilePath),
+                          MobilePersistenceJsonSerializerContext.Default.DeviceIdentityPayload)
+                      ?? new MobileDeviceIdentityPayload();
             return !string.IsNullOrWhiteSpace(payload.PrivateKey);
         }
         catch
         {
             return false;
         }
-    }
-
-    private sealed class IdentityFilePayload
-    {
-        public string PrivateKey { get; set; } = string.Empty;
     }
 }

@@ -2,9 +2,9 @@ using System.Buffers.Binary;
 using System.IO.Pipelines;
 using System.Text;
 using System.Text.Json;
-using Kitopia.DeviceCommunication.Protocol;
-using Kitopia.DeviceCommunication.Routing;
-using Kitopia.DeviceCommunication.Transport;
+using Kitopia.Feature.DeviceCommunication.Protocol;
+using Kitopia.Feature.DeviceCommunication.Routing;
+using Kitopia.Feature.DeviceCommunication.Transport;
 
 namespace KitopiaTest.DeviceCommunication;
 
@@ -22,6 +22,21 @@ public sealed class SharedProtocolFrameTests
         Assert.AreEqual("KDC1", Encoding.ASCII.GetString(headerBytes, 0, 4));
         Assert.AreEqual(128, header.EnvelopeLength);
         Assert.AreEqual(4096, header.PayloadLength);
+    }
+
+    [TestMethod]
+    public void BuildHeader_MatchesLegacyCoreWireFormat()
+    {
+        var headerBytes = ProtocolFrame.BuildHeader(0x01020304, 0x0102030405060708);
+
+        CollectionAssert.AreEqual(
+            new byte[]
+            {
+                (byte)'K', (byte)'D', (byte)'C', (byte)'1',
+                0x04, 0x03, 0x02, 0x01,
+                0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01
+            },
+            headerBytes);
     }
 
     [TestMethod]

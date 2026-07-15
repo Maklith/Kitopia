@@ -1,15 +1,11 @@
-using Avalonia.Controls.Notifications;
-using Core.Services.DeviceCommunication.Application;
-using Core.Services.DeviceCommunication.Messages.Chat;
-using Core.Services.DeviceCommunication.Messages.Clipboard;
-using Core.Services.DeviceCommunication.Platform;
-using Core.Services.Interfaces;
-using Core.ViewModel.Pages.device;
-using Kitopia.DeviceCommunication.Discovery;
+using Kitopia.Feature.DeviceCommunication.Application;
+using Kitopia.Feature.Avalonia.DeviceCommunication.ViewModels;
+using Kitopia.Feature.DeviceCommunication.Discovery;
+using Kitopia.Feature.DeviceCommunication.Messages.Chat;
+using Kitopia.Feature.DeviceCommunication.Messages.Clipboard;
 using Kitopia.Mobile.Services;
 using Kitopia.Mobile.ViewModels;
 using ObservableCollections;
-using PluginCore;
 
 namespace KitopiaTest.Mobile;
 
@@ -22,9 +18,11 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         using var viewModel = new DeviceCommunicationPageViewModel(
             new FakeDiscoveryService(),
             new FakeMessageAppService(),
+            new FakeChatAttachmentStore(),
             new FakeChatPlatformService(),
             new FakeDeviceCommunicationSettings(),
-            new FakeToastService());
+            new FakeToastService(),
+            postToUi: action => action());
         viewModel.SelectedConversation = new DeviceConversationItem("peer-1");
         var properties = new List<string?>();
         viewModel.PropertyChanged += (_, args) => properties.Add(args.PropertyName);
@@ -41,9 +39,11 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         using var viewModel = new DeviceCommunicationPageViewModel(
             new FakeDiscoveryService(),
             new FakeMessageAppService(),
+            new FakeChatAttachmentStore(),
             new FakeChatPlatformService(),
             new FakeDeviceCommunicationSettings(),
-            new FakeToastService());
+            new FakeToastService(),
+            postToUi: action => action());
         viewModel.SelectedConversation = new DeviceConversationItem("peer-1");
         var initialVersion = viewModel.MessageViewRefreshVersion;
         var properties = new List<string?>();
@@ -61,9 +61,11 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         using var chat = new DeviceCommunicationPageViewModel(
             new FakeDiscoveryService(),
             new FakeMessageAppService(),
+            new FakeChatAttachmentStore(),
             new FakeChatPlatformService(),
             new FakeDeviceCommunicationSettings(),
-            new FakeToastService());
+            new FakeToastService(),
+            postToUi: action => action());
         chat.SelectedConversation = new DeviceConversationItem("peer-1");
         var host = new MobileDeviceCommunicationHost(
             new FakeCommunicationRuntime(),
@@ -77,6 +79,55 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         CollectionAssert.Contains(properties, nameof(DeviceCommunicationPageViewModel.CurrentMessages));
     }
 
+    [TestMethod]
+    public async Task IncomingMessage_ForBackgroundConversation_ShowsNotification()
+    {
+        var notificationService = new FakeToastService();
+        var incomingEvent = new ChatMessageReceivedEvent(
+            new TextChatMessage("peer-1", "hello"),
+            null,
+            "peer-1",
+            DateTimeOffset.UtcNow);
+        using var viewModel = new DeviceCommunicationPageViewModel(
+            new FakeDiscoveryService(new DiscoveredDevice { Id = "peer-1", Name = "Phone" }),
+            new FakeMessageAppService(incomingEvent, IncomingMessageDisplayMode.NotifyByToast),
+            new FakeChatAttachmentStore(),
+            new FakeChatPlatformService(),
+            new FakeDeviceCommunicationSettings(),
+            notificationService,
+            autoSelectFirstConversation: false,
+            postToUi: action => action());
+
+        var notification = await notificationService.NotificationShown.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.AreEqual("Phone", notification.Header);
+        Assert.AreEqual("hello", notification.Text);
+        Assert.AreEqual(1, viewModel.Conversations.Single().UnreadCount);
+    }
+
+    [TestMethod]
+    public void IncomingMessage_WhenRuntimeHandlesNotifications_DoesNotShowDuplicate()
+    {
+        var notificationService = new FakeToastService(incomingMessagesHandledExternally: true);
+        var incomingEvent = new ChatMessageReceivedEvent(
+            new TextChatMessage("peer-1", "hello"),
+            null,
+            "peer-1",
+            DateTimeOffset.UtcNow);
+        using var viewModel = new DeviceCommunicationPageViewModel(
+            new FakeDiscoveryService(new DiscoveredDevice { Id = "peer-1", Name = "Phone" }),
+            new FakeMessageAppService(incomingEvent, IncomingMessageDisplayMode.NotifyByToast),
+            new FakeChatAttachmentStore(),
+            new FakeChatPlatformService(),
+            new FakeDeviceCommunicationSettings(),
+            notificationService,
+            autoSelectFirstConversation: false,
+            postToUi: action => action());
+
+        Assert.AreEqual(1, viewModel.Conversations.Single().UnreadCount);
+        Assert.AreEqual(0, notificationService.ShowCount);
+    }
+
     private sealed class FakeCommunicationRuntime : IMobileCommunicationRuntime
     {
         public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -88,8 +139,13 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         private readonly ObservableList<DiscoveredDevice> _source = [];
         private readonly ISynchronizedView<DiscoveredDevice, DiscoveredDevice> _view;
 
-        public FakeDiscoveryService()
+        public FakeDiscoveryService(params DiscoveredDevice[] devices)
         {
+            foreach (var device in devices)
+            {
+                _source.Add(device);
+            }
+
             _view = _source.CreateView(device => device);
             Devices = _view.ToNotifyCollectionChanged();
         }
@@ -107,6 +163,17 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
 
     private sealed class FakeMessageAppService : IMessageAppService
     {
+        private readonly DeviceMessageEvent? _incomingEvent;
+        private readonly IncomingMessageDisplayMode _displayMode;
+
+        public FakeMessageAppService(
+            DeviceMessageEvent? incomingEvent = null,
+            IncomingMessageDisplayMode displayMode = IncomingMessageDisplayMode.ShowInCurrentConversation)
+        {
+            _incomingEvent = incomingEvent;
+            _displayMode = displayMode;
+        }
+
         public ValueTask SendTextChatAsync(string deviceId, string text, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
         public ValueTask SendFileChatAsync(string deviceId, FileChatMessage message, Stream stream, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
         public ValueTask SendImageChatAsync(string deviceId, ImageChatMessage message, Stream stream, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
@@ -117,6 +184,11 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         public ValueTask SendClipboardTextAsync(string deviceId, TextClipboardMessage message, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
         public async IAsyncEnumerable<DeviceMessageEvent> ReceiveAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            if (_incomingEvent is not null)
+            {
+                yield return _incomingEvent;
+            }
+
             await Task.Delay(Timeout.Infinite, cancellationToken);
             yield break;
         }
@@ -125,22 +197,34 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         public void RequestOpenConversation(string conversationId) { }
         public string? GetRequestedConversationId() => null;
         public void ClearRequestedConversationId() { }
-        public IncomingMessageDisplayMode ResolveIncomingDisplayMode(string conversationId) => IncomingMessageDisplayMode.ShowInCurrentConversation;
-        public IncomingMessageDisplayMode ResolveIncomingDisplayMode(bool isMainWindowActive, bool isDeviceChatPageOpen, string conversationId, string? selectedConversationId) => IncomingMessageDisplayMode.ShowInCurrentConversation;
+        public IncomingMessageDisplayMode ResolveIncomingDisplayMode(string conversationId) => _displayMode;
+        public IncomingMessageDisplayMode ResolveIncomingDisplayMode(bool isMainWindowActive, bool isDeviceChatPageOpen, string conversationId, string? selectedConversationId) => _displayMode;
     }
 
     private sealed class FakeChatPlatformService : IChatPlatformService
     {
-        public Task<IReadOnlyList<string>> PickFilesToSendAsync() => Task.FromResult<IReadOnlyList<string>>([]);
-        public Task<ChatFileSaveTarget?> PickSaveTargetAsync(string suggestedFileName) => Task.FromResult<ChatFileSaveTarget?>(null);
         public bool CanOpenFile => false;
         public void OpenFile(string path) { }
-        public Task CopyTextToClipboardAsync(string text) => Task.CompletedTask;
         public Task<string?> PromptTextAsync(string title, string prompt, string? initialValue) => Task.FromResult<string?>(null);
         public ChatDisplayContext GetDisplayContext(string? selectedConversationId) => new(true, true);
     }
 
-    private sealed class FakeDeviceCommunicationSettings : Kitopia.DeviceCommunication.Discovery.IDeviceCommunicationSettings
+    private sealed class FakeChatAttachmentStore : IChatAttachmentStore
+    {
+        public Task<IReadOnlyList<string>> PickFilesToSendAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<string>>([]);
+        }
+
+        public Task<ChatFileSaveTarget?> PickSaveTargetAsync(
+            string suggestedFileName,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<ChatFileSaveTarget?>(null);
+        }
+    }
+
+    private sealed class FakeDeviceCommunicationSettings : Kitopia.Feature.DeviceCommunication.Discovery.IDeviceCommunicationSettings
     {
         public string BroadcastName => "Fake";
         public string? GetCustomName(string publicKey) => null;
@@ -148,16 +232,28 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         public void RemoveCustomName(string publicKey) { }
     }
 
-    private sealed class FakeToastService : IToastService
+    private sealed class FakeToastService : IChatNotificationSink
     {
-        public void Init() { }
-        public Task Show(string header, string text, NotificationType notificationType = NotificationType.Information, Avalonia.Controls.Window? dialogWindow = null) => Task.CompletedTask;
-        public Task Show(ToastRequest request, Avalonia.Controls.Window? dialogWindow = null) => Task.CompletedTask;
-        public IToastProgressHandle ShowProgress(string header, string text, NotificationType notificationType, double initialProgress = 0, bool isIndeterminate = false) => throw new NotSupportedException();
-        public bool HasUnreadSuppressedNotifications() => false;
-        public bool TryOpenLatestSuppressedNotification() => false;
-        public bool ShowSuppressedNotificationCenter() => false;
-        public void ClearUnreadSuppressedNotifications() { }
-        public void Unregister() { }
+        public FakeToastService(bool incomingMessagesHandledExternally = false)
+        {
+            IncomingMessagesHandledExternally = incomingMessagesHandledExternally;
+        }
+
+        public TaskCompletionSource<(string Header, string Text)> NotificationShown { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool IncomingMessagesHandledExternally { get; }
+        public int ShowCount { get; private set; }
+
+        public Task ShowAsync(
+            string header,
+            string text,
+            ChatNotificationKind kind = ChatNotificationKind.Information,
+            bool persistent = false)
+        {
+            ShowCount++;
+            NotificationShown.TrySetResult((header, text));
+            return Task.CompletedTask;
+        }
     }
 }

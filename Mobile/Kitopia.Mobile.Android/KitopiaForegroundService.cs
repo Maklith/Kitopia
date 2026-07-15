@@ -4,7 +4,7 @@ using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using AndroidX.Core.App;
-using Kitopia.DeviceCommunication.Diagnostics;
+using Kitopia.Feature.DeviceCommunication.Diagnostics;
 
 namespace Kitopia.Mobile;
 

@@ -27,7 +27,7 @@ partial class Build
             var tags = GitHubClient.Repository.GetAllTags(repository.GetGitHubOwner(), repository.GetGitHubName()).Result;
             if (tags.Any(tag => tag.Name == version))
                 throw new InvalidOperationException(
-                    $"GitHub tag {version} already exists. Increase KitopiaAvalonia Version before building packages.");
+                    $"GitHub tag {version} already exists. Increase Kitopia.Desktop Version before building packages.");
 
             var body = BuildReleaseNotes(repository);
 

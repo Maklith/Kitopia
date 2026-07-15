@@ -1,5 +1,5 @@
 using Android.Util;
-using Kitopia.DeviceCommunication.Diagnostics;
+using Kitopia.Feature.DeviceCommunication.Diagnostics;
 
 namespace Kitopia.Mobile;
 

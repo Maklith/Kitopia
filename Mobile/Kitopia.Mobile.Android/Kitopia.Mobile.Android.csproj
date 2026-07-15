@@ -9,18 +9,44 @@
         <OutputType>Exe</OutputType>
         <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
         <AndroidPackageFormat>apk</AndroidPackageFormat>
+        <UseMonoRuntime>false</UseMonoRuntime>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
         <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
     </PropertyGroup>
 
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <PublishAot>true</PublishAot>
+        <IlcCompileDependsOn>$(IlcCompileDependsOn);ExcludeNonAndroidAssembliesFromNativeAotRoots</IlcCompileDependsOn>
+    </PropertyGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\Kitopia.Mobile\Kitopia.Mobile.csproj" />
     </ItemGroup>
 
+    <ItemGroup Condition="'$(Configuration)' == 'Release'">
+        <!-- Android workload 36.1.53 trims required facade type forwards before ILC. -->
+        <TrimmerRootAssembly Include="System.Runtime" RootMode="All" />
+        <TrimmerRootAssembly Include="System.Runtime.InteropServices" RootMode="All" />
+
+        <!-- Preserve the Android crypto JNI entry point, which is called only from Java. -->
+        <IlcArg Include="--export-dynamic-symbol:Java_net_dot_android_crypto_DotnetProxyTrustManager_verifyRemoteCertificate" />
+        <LinkerArg Include="-Wl,--undefined=Java_net_dot_android_crypto_DotnetProxyTrustManager_verifyRemoteCertificate" />
+    </ItemGroup>
+
+    <!-- These Avalonia desktop/design-time assemblies are references, not Android execution roots. -->
+    <Target Name="ExcludeNonAndroidAssembliesFromNativeAotRoots"
+            Condition="'$(Configuration)' == 'Release'">
+        <ItemGroup>
+            <TrimmerRootAssembly Remove="Avalonia.DesignerSupport" />
+            <TrimmerRootAssembly Remove="MicroCom.Runtime" />
+            <TrimmerRootAssembly Remove="Microsoft.CSharp" />
+        </ItemGroup>
+    </Target>
+
     <ItemGroup>
-        <AndroidResource Include="..\..\KitopiaAvalonia\Assets\icon.png" Link="Resources\mipmap\icon.png" />
+        <AndroidResource Include="Resources\mipmap\icon.png" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,0 +1,26 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:Kitopia.Desktop.Controls">
+    <Design.PreviewWith>
+        <controls:FontIcon />
+    </Design.PreviewWith>
+
+    <Style Selector="controls|FontIcon">
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="FontFamily" Value="{StaticResource FluentFont}" />
+        <!-- Set Defaults -->
+        <Setter Property="Template">
+            <ControlTemplate>
+                <TextBlock HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                           VerticalAlignment="{TemplateBinding VerticalAlignment}" Name="Icon"
+                           Text="{TemplateBinding Glyph}" Foreground="{TemplateBinding Foreground}" />
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="controls|FontIcon[IsFilled=True] /template/ TextBlock#Icon">
+        <Setter Property="FontFamily" Value="{StaticResource FluentFontFilled}" />
+        <Setter Property="Text" Value="{Binding $parent[controls:FontIcon].GlyphFilled}" />
+    </Style>
+</Styles>

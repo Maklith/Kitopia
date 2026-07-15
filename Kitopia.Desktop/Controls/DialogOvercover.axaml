@@ -1,0 +1,118 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="Kitopia.Desktop.Controls.DialogOvercover"
+             Foreground="{DynamicResource ContentDialogForeground}"
+             AttachedToVisualTree="Visual_OnAttachedToVisualTree"
+             BorderBrush="{DynamicResource ContentDialogBorderBrush}"
+             BorderThickness="{DynamicResource ContentDialogBorderWidth}"
+             CornerRadius="{DynamicResource OverlayCornerRadius}"
+             PointerPressed="InputElement_OnPointerPressed">
+
+    <UserControl.Background>
+        <SolidColorBrush Opacity="0.5" Color="{DynamicResource SemiGrey2Color}" />
+    </UserControl.Background>
+
+    <!-- Even in WinUI, shadow is always black regardless of light/dark mode -->
+
+    <!-- if this border isn't here, dialog space displays outside of corner radius at top
+                                 if we put ClipToBounds=True on BackgroundElement above, it clips the shadow -->
+    <Border ClipToBounds="True" HorizontalAlignment="Center" Name="BackgroundElement"
+            BorderBrush="{DynamicResource SemiColorBorder}"
+            BorderThickness="1"
+            VerticalAlignment="Center" Margin="5,5,5,0"
+            PointerMoved="InputElement_OnPointerMoved" PointerPressed="InputElement_OnPointerPressed"
+            PointerReleased="InputElement_OnPointerReleased">
+        <Border.Background>
+            <SolidColorBrush Opacity="0.5" Color="{DynamicResource SemiBackground0Color}" />
+        </Border.Background>
+        <Panel>
+            <Grid Name="DialogSpace" ClipToBounds="True"
+                  RowDefinitions="Auto,*,Auto">
+                <Panel Background="{DynamicResource ContentDialogTopOverlay}">
+                    <TextPresenter Name="Title"
+                                   Margin="5"
+                                   FontSize="20"
+                                   FontFamily="Default"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Top" />
+                </Panel>
+                <ScrollViewer Grid.Row="1" Name="ContentScrollViewer"
+                              HorizontalScrollBarVisibility="Disabled"
+                              MinHeight="200"
+                              VerticalScrollBarVisibility="Auto">
+                    <Border Background="{DynamicResource ContentDialogTopOverlay}"
+                            Padding="5,0,5,0"
+                            BorderThickness="{StaticResource ContentDialogSeparatorThickness}"
+                            BorderBrush="{DynamicResource ContentDialogSeparatorBorderBrush}">
+                        <Grid RowDefinitions="Auto,*">
+                            <Grid.Styles>
+                                <!--Make sure text wrapping is on-->
+                                <Style Selector="TextBlock">
+                                    <Setter Property="TextWrapping" Value="Wrap" />
+                                </Style>
+                            </Grid.Styles>
+
+
+                            <ContentPresenter Name="Content"
+
+                                              FontSize="{StaticResource ControlContentThemeFontSize}"
+                                              FontFamily="{StaticResource ContentControlThemeFontFamily}"
+
+                                              Grid.Row="1" />
+                        </Grid>
+                    </Border>
+                </ScrollViewer>
+
+                <Border Padding="{StaticResource ContentDialogPadding}"
+                        Grid.Row="2"
+                        Margin="5"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Bottom">
+                    <Grid Name="CommandSpace">
+                        <!--
+                                                        B/C we can't target Row/Column defs in Styles like WinUI
+                                                        this still uses the old Col defs, but it works the same
+                                                        way in the end...
+                                                        -->
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="0.5*" />
+                            <ColumnDefinition Width="0.5*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Name="PrimaryButton"
+                                IsDefault="True"
+                                Classes="Primary"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                IsVisible="False" />
+
+                        <Button Name="SecondaryButton"
+
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                IsVisible="False" />
+
+                        <Button Name="CloseButton"
+
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                IsVisible="False" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Panel>
+
+    </Border>
+
+
+</UserControl>

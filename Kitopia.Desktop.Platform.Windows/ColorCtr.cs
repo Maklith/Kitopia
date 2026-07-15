@@ -1,0 +1,213 @@
+namespace Kitopia.Desktop.Platform.Windows;
+
+public class ColorSpaceCtr
+{
+    private static readonly float[,] Mcat02 =
+    {
+        { 0.7328f, 0.4296f, -0.1624f },
+        { -0.7036f, 1.6975f, 0.0061f },
+        { 0.0030f, 0.0136f, 0.9834f }
+    };
+
+    public static float[,] CtrColorSpace(float[] src, float[] dst)
+    {
+        //r r g g b b w w
+
+        var srcWhite = Tristimulus(src[6..8]);
+
+        var dstWhite = Tristimulus(dst[6..8]);
+
+        var srcNpm = Npm(new[,]
+        {
+            { src[0], src[1] }, // R
+            { src[2], src[3] }, // G
+            { src[4], src[5] } // B
+        }, srcWhite);
+        var dstNpm = Npm(new[,]
+        {
+            { dst[0], dst[1] }, // R
+            { dst[2], dst[3] }, // G
+            { dst[4], dst[5] } // B
+        }, dstWhite);
+
+        float[,] adaptedXyz;
+        float[,] xyz2Rgb;
+
+        // 模型选择：无适配模型
+        {
+            // 适配模型计算
+            var aMat = AdaptMat(Mcat02, srcWhite, dstWhite);
+            adaptedXyz = Mul33(aMat, srcNpm);
+            xyz2Rgb = InvertMatrix(dstNpm);
+        }
+
+        // 计算转换矩阵
+        
+        return Mul33(xyz2Rgb, adaptedXyz);
+    }
+
+    private static float[,] AdaptMat(float[,] mat, float[] source, float[] target)
+    {
+        // 计算源和目标白点在当前矩阵下的结果
+        var w1 = Mul3(mat, source);
+        var w2 = Mul3(mat, target);
+
+        // 计算比例因子
+        float[] q = { w2[0] / w1[0], w2[1] / w1[1], w2[2] / w1[2] };
+
+        // 生成对角缩放矩阵
+        var m = Mul3Col(InvertMatrix(mat), q);
+
+        // 计算适配矩阵
+        return Mul33(m, mat);
+    }
+
+    private static float[,] InvertMatrix(float[,] matrix)
+    {
+        // 矩阵求逆，仅支持 3x3 矩阵
+        var det = matrix[0, 0] * (matrix[1, 1] * matrix[2, 2] - matrix[1, 2] * matrix[2, 1])
+                  - matrix[0, 1] * (matrix[1, 0] * matrix[2, 2] - matrix[1, 2] * matrix[2, 0])
+                  + matrix[0, 2] * (matrix[1, 0] * matrix[2, 1] - matrix[1, 1] * matrix[2, 0]);
+
+        if (Math.Abs(det) < 1E-15)
+            throw new InvalidOperationException("Matrix is singular and cannot be inverted.");
+
+        var invDet = (float)(1.0 / det);
+
+        var result = new float[3, 3];
+        result[0, 0] = (matrix[1, 1] * matrix[2, 2] - matrix[1, 2] * matrix[2, 1]) * invDet;
+        result[0, 1] = (matrix[0, 2] * matrix[2, 1] - matrix[0, 1] * matrix[2, 2]) * invDet;
+        result[0, 2] = (matrix[0, 1] * matrix[1, 2] - matrix[0, 2] * matrix[1, 1]) * invDet;
+        result[1, 0] = (matrix[1, 2] * matrix[2, 0] - matrix[1, 0] * matrix[2, 2]) * invDet;
+        result[1, 1] = (matrix[0, 0] * matrix[2, 2] - matrix[0, 2] * matrix[2, 0]) * invDet;
+        result[1, 2] = (matrix[0, 2] * matrix[1, 0] - matrix[0, 0] * matrix[1, 2]) * invDet;
+        result[2, 0] = (matrix[1, 0] * matrix[2, 1] - matrix[1, 1] * matrix[2, 0]) * invDet;
+        result[2, 1] = (matrix[0, 1] * matrix[2, 0] - matrix[0, 0] * matrix[2, 1]) * invDet;
+        result[2, 2] = (matrix[0, 0] * matrix[1, 1] - matrix[0, 1] * matrix[1, 0]) * invDet;
+
+        return result;
+    }
+
+    private static float[] Mul3(float[,] m, float[] a)
+    {
+        // 矩阵与列向量相乘 (M * a)
+        return
+        [
+            m[0, 0] * a[0] + m[0, 1] * a[1] + m[0, 2] * a[2],
+            m[1, 0] * a[0] + m[1, 1] * a[1] + m[1, 2] * a[2],
+            m[2, 0] * a[0] + m[2, 1] * a[1] + m[2, 2] * a[2]
+        ];
+    }
+
+    private static float[] Mul3T(float[,] m, float[] a)
+    {
+        // 矩阵转置后与列向量相乘 (M' * a)
+        return
+        [
+            m[0, 0] * a[0] + m[1, 0] * a[1] + m[2, 0] * a[2],
+            m[0, 1] * a[0] + m[1, 1] * a[1] + m[2, 1] * a[2],
+            m[0, 2] * a[0] + m[1, 2] * a[1] + m[2, 2] * a[2]
+        ];
+    }
+
+    private static float[,] Mul33(float[,] a, float[,] b)
+    {
+        // 矩阵相乘 (A * B)
+        var result = new float[3, 3];
+        for (var i = 0; i < 3; i++)
+        {
+            float[] row = [a[i, 0], a[i, 1], a[i, 2]];
+            result[i, 0] = Mul3T(b, row)[0];
+            result[i, 1] = Mul3T(b, row)[1];
+            result[i, 2] = Mul3T(b, row)[2];
+        }
+
+        return result;
+    }
+
+    private static float[,] Mul3Col(float[,] m, float[] q)
+    {
+        // 对矩阵 M 的列进行缩放，列向量分别乘以 q 的分量
+        var result = new float[3, 3];
+        for (var i = 0; i < 3; i++)
+        {
+            result[i, 0] = m[i, 0] * q[0];
+            result[i, 1] = m[i, 1] * q[1];
+            result[i, 2] = m[i, 2] * q[2];
+        }
+
+        return result;
+    }
+
+
+    private static float[] Tristimulus(float[] xy, float y = 1)
+    {
+        var z = 1 - xy[0] - xy[1];
+        return [y * xy[0] / xy[1], y, y * z / xy[1]];
+    }
+
+    private static float[,] Npm(float[,] mp, float[] ctr)
+    {
+        // 提取 x、y 和 z
+        float[] x = { mp[0, 0], mp[1, 0], mp[2, 0] };
+        float[] y = { mp[0, 1], mp[1, 1], mp[2, 1] };
+        float[] z =
+        {
+            1 - x[0] - y[0],
+            1 - x[1] - y[1],
+            1 - x[2] - y[2]
+        };
+
+        // 求解线性方程组
+        var d = Solve3([x, y, z], ctr);
+
+        // 生成结果矩阵
+        var result = new float[3, 3];
+        for (var i = 0; i < 3; i++)
+        {
+            result[0, i] = x[i] * d[i];
+            result[1, i] = y[i] * d[i];
+            result[2, i] = z[i] * d[i];
+        }
+
+        return result;
+    }
+
+    private static float[] Solve3(float[][] m, float[] a)
+    {
+        var d = Det3(m); // 原矩阵的行列式
+
+        if (Math.Abs(d) <= 1E-15) throw new Exception("Matrix is singular");
+
+        d = (float)(1.0 / d);
+
+        // 计算 d1, d2, d3
+        var d1 = Det3(ReplaceColumn(m, a, 0));
+        var d2 = Det3(ReplaceColumn(m, a, 1));
+        var d3 = Det3(ReplaceColumn(m, a, 2));
+
+        // 返回结果
+        return [d1 * d, d2 * d, d3 * d];
+    }
+
+    private static float Det3(float[][] m)
+    {
+        // 计算 3x3 矩阵的行列式
+        return m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+               - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+               + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    }
+
+    private static float[][] ReplaceColumn(float[][] m, float[] column, int colIndex)
+    {
+        // 替换矩阵 M 的第 colIndex 列为向量 column
+        float[][] result = new float[3][];
+        for (var i = 0; i < 3; i++)
+        {
+            result[i] = (float[])m[i].Clone();
+            result[i][colIndex] = column[i];
+        }
+
+        return result;
+    }
+}

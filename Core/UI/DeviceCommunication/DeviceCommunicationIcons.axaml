@@ -1,5 +1,0 @@
-<ResourceDictionary xmlns="https://github.com/avaloniaui"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <FontFamily x:Key="FluentFontFilled">avares://Core/Assets/FluentSystemIcons-Filled.ttf#FluentSystemIcons-Filled</FontFamily>
-    <FontFamily x:Key="FluentFont">avares://Core/Assets/FluentSystemIcons-Regular.ttf#FluentSystemIcons-Regular</FontFamily>
-</ResourceDictionary>

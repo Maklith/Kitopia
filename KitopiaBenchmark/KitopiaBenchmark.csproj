@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -20,9 +20,9 @@
         <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     </ItemGroup>
     <ItemGroup>
-      <ProjectReference Include="..\Core.Window\Core.Window.csproj" />
-      <ProjectReference Include="..\Core\Core.csproj" />
-      <ProjectReference Include="..\KitopiaAvalonia\KitopiaAvalonia.csproj" />
+      <ProjectReference Include="..\Kitopia.Desktop.Platform.Windows\Kitopia.Desktop.Platform.Windows.csproj" />
+      <ProjectReference Include="..\Kitopia.Desktop.Features\Kitopia.Desktop.Features.csproj" />
+      <ProjectReference Include="..\Kitopia.Desktop\Kitopia.Desktop.csproj" />
     </ItemGroup>
 
 </Project>

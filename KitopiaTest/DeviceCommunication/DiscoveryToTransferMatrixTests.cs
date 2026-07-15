@@ -4,11 +4,11 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Core.Services.DeviceCommunication;
-using Kitopia.DeviceCommunication.Discovery;
-using Core.Services.DeviceCommunication.Protocol;
-using Core.Services.DeviceCommunication.Routing;
-using Kitopia.DeviceCommunication.Identity;
+using Kitopia.Feature.DeviceCommunication;
+using Kitopia.Feature.DeviceCommunication.Discovery;
+using Kitopia.Feature.DeviceCommunication.Identity;
+using Kitopia.Feature.DeviceCommunication.Protocol;
+using Kitopia.Feature.DeviceCommunication.Transport;
 using ObservableCollections;
 
 
@@ -17,6 +17,28 @@ namespace KitopiaTest.DeviceCommunication;
 [TestClass]
 public sealed class DiscoveryToTransferMatrixTests
 {
+    [TestMethod]
+    public void DeviceCommunicationSettings_DefaultOperatingSystemName_IsUnknown()
+    {
+        IDeviceCommunicationSettings settings = new SettingsWithDefaultOperatingSystemName();
+
+        Assert.AreEqual("Unknown", settings.OperatingSystemName);
+    }
+
+    [TestMethod]
+    public void Discovery_OperatingSystemName_UsesHostProvidedSetting()
+    {
+        var localIdentity = CreateIdentity();
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings("  TestOS  "),
+            new FakeIdentityStore(localIdentity),
+            new FakeLocalDataEndpointProvider(23001));
+
+        var operatingSystemName = InvokePrivateResult<string>(discoveryService, "ResolveOperatingSystemName");
+
+        Assert.AreEqual("TestOS", operatingSystemName);
+    }
+
     [TestMethod]
     [DataRow(22001)]
     public async Task DeviceTransportService_AlwaysUsesTcp(int tcpPort)
@@ -29,7 +51,7 @@ public sealed class DiscoveryToTransferMatrixTests
             Ipv4Address = IPAddress.Loopback,
             TcpPort = tcpPort
         });
-        var transport = new DeviceTransportService(new ProtocolSender(listener), discoveryService);
+        var transport = new DeviceTransportService(listener, discoveryService);
 
         await transport.SendAsync("peer-1", new DataEnvelope { Route = "chat", Command = "text" });
 
@@ -96,7 +118,7 @@ public sealed class DiscoveryToTransferMatrixTests
             PublicKey = remoteIdentity.PublicKey,
             Nonce = nonce
         };
-        Assert.IsTrue(Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.TrySign(
+        Assert.IsTrue(Kitopia.Feature.DeviceCommunication.Discovery.DeviceDiscoverySignature.TrySign(
             response,
             remoteIdentity.PrivateKey,
             out var signature));
@@ -156,7 +178,7 @@ public sealed class DiscoveryToTransferMatrixTests
             PublicKey = remoteIdentity.PublicKey,
             Nonce = nonce
         };
-        Assert.IsTrue(Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.TrySign(
+        Assert.IsTrue(Kitopia.Feature.DeviceCommunication.Discovery.DeviceDiscoverySignature.TrySign(
             response,
             remoteIdentity.PrivateKey,
             out var signature));
@@ -194,7 +216,7 @@ public sealed class DiscoveryToTransferMatrixTests
             PublicKey = remoteIdentity.PublicKey,
             Nonce = nonce
         };
-        Assert.IsTrue(Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.TrySign(
+        Assert.IsTrue(Kitopia.Feature.DeviceCommunication.Discovery.DeviceDiscoverySignature.TrySign(
             response,
             remoteIdentity.PrivateKey,
             out var signature));
@@ -267,6 +289,18 @@ public sealed class DiscoveryToTransferMatrixTests
         await task;
     }
 
+    private static T InvokePrivateResult<T>(object instance, string methodName, params object[] args)
+    {
+        var method = instance.GetType().GetMethod(
+            methodName,
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        Assert.IsNotNull(method, $"Method '{methodName}' not found.");
+        var result = method.Invoke(instance, args);
+        Assert.IsInstanceOfType<T>(result);
+        return (T)result!;
+    }
+
     private static int GetPendingAuthRequestCount(object instance)
     {
         var field = instance.GetType().GetField(
@@ -332,9 +366,15 @@ public sealed class DiscoveryToTransferMatrixTests
         }
     }
 
-    private sealed class FakeDeviceCommunicationSettings : Kitopia.DeviceCommunication.Discovery.IDeviceCommunicationSettings
+    private sealed class FakeDeviceCommunicationSettings : Kitopia.Feature.DeviceCommunication.Discovery.IDeviceCommunicationSettings
     {
+        public FakeDeviceCommunicationSettings(string operatingSystemName = "Unknown")
+        {
+            OperatingSystemName = operatingSystemName;
+        }
+
         public string BroadcastName => string.Empty;
+        public string OperatingSystemName { get; }
 
         public string? GetCustomName(string publicKey)
         {
@@ -346,7 +386,18 @@ public sealed class DiscoveryToTransferMatrixTests
         public void RemoveCustomName(string publicKey) { }
     }
 
-    private sealed class FakeLocalDataEndpointProvider : Kitopia.DeviceCommunication.Transport.ILocalDataEndpointProvider
+    private sealed class SettingsWithDefaultOperatingSystemName : IDeviceCommunicationSettings
+    {
+        public string BroadcastName => string.Empty;
+
+        public string? GetCustomName(string publicKey) => null;
+
+        public void SetCustomName(string publicKey, string name) { }
+
+        public void RemoveCustomName(string publicKey) { }
+    }
+
+    private sealed class FakeLocalDataEndpointProvider : Kitopia.Feature.DeviceCommunication.Transport.ILocalDataEndpointProvider
     {
         public FakeLocalDataEndpointProvider(int tcpPort)
         {

@@ -8,7 +8,7 @@
   </Configurations>
   <Folder Name="/Plugins/">
     <Project Path="KitopiaEx/KitopiaEx.csproj" />
-    <Project Path="PluginCore/PluginCore.csproj" />
+    <Project Path="Kitopia.Desktop.PluginSdk/Kitopia.Desktop.PluginSdk.csproj" />
   </Folder>
   <Folder Name="/Plugins/HasDependencyPlugin/">
     <Project Path="HasDependencyPlugin/HasDependencyPlugin.csproj" />
@@ -25,19 +25,29 @@
   <Project Path="ContextMenuDll/ContextMenuDll.csproj">
     <Deploy Solution="Debug|Any CPU" />
   </Project>
+  <Project Path="ContextMenu.Avalonia/ContextMenu.Avalonia.csproj" />
   <Project Path="ContextMenuDllTester/ContextMenuDllTester.csproj" />
-  <Project Path="Core.Linux/Core.Linux.csproj" />
-  <Project Path="Core.Window/Core.Window.csproj" />
-  <Project Path="Core/Core.csproj">
-    <BuildDependency Project="PluginCore/PluginCore.csproj" />
+  <Project Path="Kitopia.StoreCompanionPacking/Kitopia.StoreCompanionPacking.wapproj" />
+  <Project Path="Kitopia.Feature/Kitopia.Feature.csproj" />
+  <Project Path="Kitopia.Feature.Avalonia/Kitopia.Feature.Avalonia.csproj" />
+  <Project Path="Kitopia.Desktop.Platform.Linux/Kitopia.Desktop.Platform.Linux.csproj" />
+  <Project Path="Kitopia.Desktop.Platform.Windows/Kitopia.Desktop.Platform.Windows.csproj" />
+  <Project Path="Kitopia.Desktop.Abstractions/Kitopia.Desktop.Abstractions.csproj" />
+  <Project Path="Kitopia.Desktop.Features/Kitopia.Desktop.Features.csproj">
+    <BuildDependency Project="Kitopia.Desktop.PluginSdk/Kitopia.Desktop.PluginSdk.csproj" />
   </Project>
-  <Project Path="KitopiaAvalonia/KitopiaAvalonia.csproj">
+  <Project Path="Kitopia.Desktop/Kitopia.Desktop.csproj">
     <Platform Solution="Debug|x64" Project="x64" />
   </Project>
   <Project Path="KitopiaBenchmark/KitopiaBenchmark.csproj">
     <BuildType Solution="Debug|Any CPU" Project="Release" />
   </Project>
   <Project Path="KitopiaTest/KitopiaTest.csproj" />
+  <Folder Name="/Mobile/">
+    <Project Path="Mobile/Kitopia.Mobile/Kitopia.Mobile.csproj" />
+    <Project Path="Mobile/Kitopia.Mobile.Android/Kitopia.Mobile.Android.csproj" />
+    <Project Path="Mobile/Kitopia.Mobile.iOS/Kitopia.Mobile.iOS.csproj" />
+  </Folder>
   <Project Path="NodifyM.Avalonia/NodifyM.Avalonia/NodifyM.Avalonia.csproj" />
   <Project Path="PinyinM.NET/Pinyin.NET/Pinyin.NET.csproj" />
 </Solution>

@@ -1,0 +1,219 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:services="clr-namespace:Kitopia.Desktop.Services"
+        mc:Ignorable="d"
+        x:CompileBindings="False"
+        d:DesignWidth="420"
+        d:DesignHeight="520"
+        x:Class="Kitopia.Desktop.Services.ToastShowWindow"
+        Width="420"
+        Height="520"
+        CanResize="False"
+        WindowStartupLocation="Manual"
+        ShowInTaskbar="False"
+        Background="Transparent"
+        SystemDecorations="None"
+        BorderBrush="Transparent"
+        BorderThickness="0"
+        Focusable="False"
+        ShowActivated="False"
+        Topmost="True"
+        Title="ToastShowWindow">
+    <Window.Styles>
+        <Style Selector="LayoutTransformControl.toast-card">
+            <Style.Animations>
+                <Animation Easing="QuadraticEaseIn" FillMode="Forward" Duration="0:0:0.3">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame KeySpline="0.22,0.57,0.02,1.2" Cue="0%">
+                        <Setter Property="TranslateTransform.Y" Value="-100" />
+                    </KeyFrame>
+                    <KeyFrame KeySpline="0.22,0.57,0.02,1.2" Cue="100%">
+                        <Setter Property="TranslateTransform.Y" Value="0" />
+                    </KeyFrame>
+                </Animation>
+                <Animation Easing="QuadraticEaseIn" FillMode="Forward" Duration="0:0:0.15">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="ScaleTransform.ScaleY" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="70%">
+                        <Setter Property="ScaleTransform.ScaleY" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="ScaleTransform.ScaleY" Value="1" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+
+        <Style Selector="LayoutTransformControl.toast-card.closing">
+            <Style.Animations>
+                <Animation Easing="QuadraticEaseOut" FillMode="Forward" Duration="0:0:0.3">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame KeySpline="0.22,0.57,0.02,1.2" Cue="0%">
+                        <Setter Property="TranslateTransform.Y" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame KeySpline="0.22,0.57,0.02,1.2" Cue="100%">
+                        <Setter Property="TranslateTransform.Y" Value="-100" />
+                    </KeyFrame>
+                </Animation>
+                <Animation Easing="QuadraticEaseOut" FillMode="Forward" Duration="0:0:0.15">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="ScaleTransform.ScaleY" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="70%">
+                        <Setter Property="ScaleTransform.ScaleY" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="ScaleTransform.ScaleY" Value="0" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+
+        <Style Selector="LayoutTransformControl.toast-card.information PathIcon#ToastIcon">
+            <Setter Property="Foreground" Value="{DynamicResource NotificationCardInformationIconForeground}" />
+            <Setter Property="Data" Value="{DynamicResource NotificationCardInformationIconPathData}" />
+        </Style>
+
+        <Style Selector="LayoutTransformControl.toast-card.success PathIcon#ToastIcon">
+            <Setter Property="Foreground" Value="{DynamicResource NotificationCardSuccessIconForeground}" />
+            <Setter Property="Data" Value="{DynamicResource NotificationCardSuccessIconPathData}" />
+        </Style>
+
+        <Style Selector="LayoutTransformControl.toast-card.warning PathIcon#ToastIcon">
+            <Setter Property="Foreground" Value="{DynamicResource NotificationCardWarningIconForeground}" />
+            <Setter Property="Data" Value="{DynamicResource NotificationCardWarningIconPathData}" />
+        </Style>
+
+        <Style Selector="LayoutTransformControl.toast-card.error PathIcon#ToastIcon">
+            <Setter Property="Foreground" Value="{DynamicResource NotificationCardErrorIconForeground}" />
+            <Setter Property="Data" Value="{DynamicResource NotificationCardErrorIconPathData}" />
+        </Style>
+    </Window.Styles>
+
+    <Border Background="Transparent" Padding="10" ClipToBounds="True">
+        <ScrollViewer x:Name="ToastScrollViewer"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Items}" VerticalAlignment="Bottom">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="0" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="services:ToastItemViewModel">
+                        <LayoutTransformControl UseRenderTransform="True"
+                                                Classes="toast-card"
+                                                Classes.closing="{Binding IsClosing}"
+                                                Classes.information="{Binding IsInformation}"
+                                                Classes.success="{Binding IsSuccess}"
+                                                Classes.warning="{Binding IsWarning}"
+                                                Classes.error="{Binding IsError}">
+                            <Border Margin="{DynamicResource ToastCardMargin}"
+                                     Background="{DynamicResource ToastCardBackground}"
+                                     CornerRadius="{DynamicResource ToastCardCornerRadius}"
+                                     PointerPressed="ToastCard_OnPointerPressed">
+                                <Border BorderBrush="{DynamicResource SemiColorBorder}"
+                                        BorderThickness="{DynamicResource ToastCardBorderThickness}"
+                                        MinHeight="{DynamicResource ToastCardMinHeight}"
+                                        Padding="{DynamicResource ToastCardPadding}"
+                                        CornerRadius="{DynamicResource ToastCardCornerRadius}"
+                                        BoxShadow="{DynamicResource NotificationCardBoxShadows}">
+                                    <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                                          ColumnDefinitions="Auto,*,Auto"
+                                          RowSpacing="8"
+                                          ColumnSpacing="12">
+                                        <PathIcon x:Name="ToastIcon"
+                                                  Grid.Row="0"
+                                                  Grid.Column="0"
+                                                  Width="{DynamicResource ToastCardIconWidth}"
+                                                  Height="{DynamicResource ToastCardIconHeight}"
+                                                  Margin="{DynamicResource ToastCardIconMargin}"
+                                                  VerticalAlignment="Top"
+                                                  Data="{DynamicResource NotificationCardInformationIconPathData}"
+                                                  Foreground="{DynamicResource NotificationCardInformationIconForeground}" />
+
+                                        <TextBlock Grid.Row="0"
+                                                   Grid.Column="1"
+                                                   Text="{Binding Header}"
+                                                   Foreground="{DynamicResource ToastCardContentForeground}"
+                                                   FontWeight="{DynamicResource ToastCardContentFontWeight}"
+                                                   TextWrapping="Wrap" />
+
+                                        <Button Grid.Row="0"
+                                                Grid.Column="2"
+                                                Command="{Binding CloseCommand}"
+                                                IsVisible="{Binding ShowCloseButton}"
+                                                Width="20"
+                                                Height="20"
+                                                Padding="0"
+                                                BorderThickness="0"
+                                                Background="Transparent"
+                                                Foreground="{DynamicResource NotificationCardCloseButtonForeground}"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Top"
+                                                Content="x" />
+
+                                        <TextBlock Grid.Row="1"
+                                                   Grid.Column="1"
+                                                   Grid.ColumnSpan="2"
+                                                   Text="{Binding Text}"
+                                                   Foreground="{DynamicResource SemiColorText1}"
+                                                   TextWrapping="Wrap" />
+
+                                        <ProgressBar Grid.Row="2"
+                                                     Grid.Column="1"
+                                                     Grid.ColumnSpan="2"
+                                                     IsVisible="{Binding ShowProgressBar}"
+                                                     Height="6"
+                                                     Minimum="0"
+                                                     Maximum="100"
+                                                     Value="{Binding ProgressValue}"
+                                                     IsIndeterminate="{Binding IsProgressIndeterminate}" />
+
+                                        <ItemsControl Grid.Row="3"
+                                                      Grid.Column="1"
+                                                      Grid.ColumnSpan="2"
+                                                      ItemsSource="{Binding Actions}"
+                                                      IsVisible="{Binding HasActions}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" Spacing="8" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="services:ToastActionViewModel">
+                                                    <Button Content="{Binding Text}"
+                                                            Command="{Binding Command}"
+                                                            BorderThickness="1"
+                                                            Background="{Binding Background}"
+                                                            BorderBrush="{Binding BorderBrush}"
+                                                            Foreground="{Binding Foreground}"
+                                                            MinWidth="68"
+                                                            Padding="10,4" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Grid>
+                                </Border>
+                            </Border>
+                        </LayoutTransformControl>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Border>
+</Window>

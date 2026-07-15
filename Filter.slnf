@@ -1,16 +1,14 @@
-﻿{
+{
   "solution": {
     "path": "Kitopia.sln",
     "projects": [
-      "Core.Linux\\Core.Linux.csproj",
-      "Core.Window\\Core.Window.csproj",
-      "Core\\Core.csproj",
-      "KitopiaAvalonia\\KitopiaAvalonia.csproj",
+      "Kitopia.Desktop.Abstractions\\Kitopia.Desktop.Abstractions.csproj",
+      "Kitopia.Desktop.Platform.Linux\\Kitopia.Desktop.Platform.Linux.csproj",
+      "Kitopia.Desktop.Platform.Windows\\Kitopia.Desktop.Platform.Windows.csproj",
+      "Kitopia.Desktop.Features\\Kitopia.Desktop.Features.csproj",
+      "Kitopia.Desktop\\Kitopia.Desktop.csproj",
       "KitopiaEx\\KitopiaEx.csproj",
-      "KitopiaWeb\\kitopiaweb.client\\kitopiaweb.client.esproj",
-      "KitopiaWeb\\KitopiaWeb.Server\\KitopiaWeb.Server.csproj",
-      "PlugCleanTool\\PlugCleanTool.csproj",
-      "PluginCore\\PluginCore.csproj"
+      "Kitopia.Desktop.PluginSdk\\Kitopia.Desktop.PluginSdk.csproj"
     ]
   }
 }

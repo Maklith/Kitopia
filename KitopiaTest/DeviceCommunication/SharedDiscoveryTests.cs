@@ -1,4 +1,4 @@
-using Kitopia.DeviceCommunication.Discovery;
+using Kitopia.Feature.DeviceCommunication.Discovery;
 
 namespace KitopiaTest.DeviceCommunication;
 

@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:Kitopia.Desktop.Features.ViewModel.Windows"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Kitopia.Desktop.Windows.FileLocksmithWindow"
+        x:DataType="vm:FileLocksmithWindowViewModel"
+        Icon="/Assets/icon.ico"
+        Title="File Locksmith - 文件占用查看"
+        Width="800" Height="500"
+        WindowStartupLocation="CenterScreen"
+        ExtendClientAreaToDecorationsHint="True">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+        <TextBlock Grid.Row="0" Text="占用文件的进程列表" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
+
+        <DataGrid Grid.Row="1" ItemsSource="{Binding Processes}" AutoGenerateColumns="False" IsReadOnly="True"
+                  GridLinesVisibility="All" BorderThickness="1" BorderBrush="#33000000">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="进程名" Binding="{Binding ProcessName}" Width="150"/>
+                <DataGridTextColumn Header="PID" Binding="{Binding ProcessId}" Width="80"/>
+                <DataGridTextColumn Header="启动时间" Binding="{Binding StartTime}" Width="180"/>
+                <DataGridTextColumn Header="执行路径" Binding="{Binding ExecutablePath}" Width="*"/>
+                <DataGridTemplateColumn Header="操作" Width="100">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="结束进程" 
+                                    Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).UnlockCommand}"
+                                    CommandParameter="{Binding}"
+                                    HorizontalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0" Spacing="10">
+            <Button Content="全部解锁" Command="{Binding UnlockAllCommand}" Background="#FF4444" Foreground="White"/>
+            <Button Content="关闭" Click="CloseButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,1 +1,0 @@
-global using LocalDataTransportProtocol = Kitopia.DeviceCommunication.Transport.LocalDataTransportProtocol;

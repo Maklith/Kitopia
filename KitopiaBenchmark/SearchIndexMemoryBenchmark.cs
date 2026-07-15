@@ -3,7 +3,7 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Toolchains.InProcess.Emit;
-using Core;
+using Kitopia.Desktop.Features.Search;
 using Pinyin.NET;
 using PluginCore;
 

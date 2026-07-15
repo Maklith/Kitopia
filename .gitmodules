@@ -1,5 +1,5 @@
-[submodule "PluginCore"]
-	path = PluginCore
+[submodule "Kitopia.Desktop.PluginSdk"]
+	path = Kitopia.Desktop.PluginSdk
 	url = https://github.com/Maklith/PluginCore.git
 [submodule "NodifyM.Avalonia"]
 	path = NodifyM.Avalonia

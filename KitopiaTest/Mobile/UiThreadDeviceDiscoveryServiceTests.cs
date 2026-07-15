@@ -1,4 +1,4 @@
-using Kitopia.DeviceCommunication.Discovery;
+using Kitopia.Feature.DeviceCommunication.Discovery;
 using Kitopia.Mobile.Services;
 using ObservableCollections;
 

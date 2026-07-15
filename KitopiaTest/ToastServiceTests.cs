@@ -1,4 +1,4 @@
-using KitopiaAvalonia.Services;
+using Kitopia.Desktop.Services;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PluginCore;
 using Avalonia;
@@ -15,7 +15,7 @@ public sealed class ToastServiceTests
     {
         if (Application.Current is null)
         {
-            AppBuilder.Configure<KitopiaAvalonia.App>()
+            AppBuilder.Configure<Kitopia.Desktop.App>()
                 .UsePlatformDetect()
                 .SetupWithoutStarting();
         }

@@ -1,0 +1,117 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia.Tight"
+             xmlns:plugin="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages.plugin;assembly=Kitopia.Desktop.Features"
+             xmlns:plugin11="clr-namespace:Kitopia.Desktop.Features.Services.Plugin"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch"
+             HorizontalContentAlignment="Stretch"
+             VerticalContentAlignment="Stretch"
+             x:DataType="plugin:PluginDetailViewModel"
+             Width="800"
+             Height="495"
+             x:Class="Kitopia.Desktop.Features.UI.UiControls.Plugin.PluginDetail">
+    <UserControl.Resources>
+
+    </UserControl.Resources>
+    <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
+            CornerRadius="{DynamicResource RadiusCardCornerRadius}"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+        <Panel>
+            <Grid VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                  ColumnDefinitions="80,*"
+
+                  RowDefinitions="80,*,48">
+                <Image Grid.Column="0" HorizontalAlignment="Center" Margin="0,15,0,0"
+                       VerticalAlignment="Top" Focusable="False" Width="64"
+                       Source="{Binding PluginInfo.Icon}"
+                       Height="64" />
+                <StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Margin="0,15,0,5">
+                    <TextBlock VerticalAlignment="Center"
+                               HorizontalAlignment="Left"
+
+                               Text="{Binding PluginInfo.PluginBaseInfo.Name}"
+                               FontWeight="Normal" FontSize="18"
+                               Foreground="{DynamicResource DefaultForeground}" />
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock VerticalAlignment="Top"
+                                   Text="{Binding PluginInfo.Version}" />
+                        <StackPanel Orientation="Horizontal" Spacing="5"
+                                    IsVisible="{Binding PluginInfo.CanUpdate}">
+                            <TextBlock VerticalAlignment="Top" Text=">">
+                                <TextBlock.Foreground>
+                                    <SolidColorBrush Color="{DynamicResource SemiOrange4Color}" />
+                                </TextBlock.Foreground>
+                            </TextBlock>
+                            <TextBlock VerticalAlignment="Top"
+                                       Theme="{DynamicResource BorderlessButton}" Padding="0"
+                                       Text="{Binding PluginInfo.CanUpdateVersion}"
+                                       MinHeight="0">
+                                <TextBlock.Foreground>
+                                    <SolidColorBrush Color="{DynamicResource SemiOrange4Color}" />
+                                </TextBlock.Foreground>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <TextBlock VerticalAlignment="Top"
+                                   Text="{Binding PluginInfo.AuthorName}" />
+
+                    </StackPanel>
+                    <TextBlock VerticalAlignment="Center"
+                               MaxWidth="{Binding $parent.Bounds.Width}"
+                               TextWrapping="Wrap"
+
+                               Text="{Binding PluginInfo.DescriptionShort}" />
+                </StackPanel>
+                <Line Grid.Row="1" Grid.Column="1" EndPoint="5000,0" HorizontalAlignment="Stretch"
+                      Stroke="{DynamicResource SemiColorBorder}" />
+                <ScrollViewer Grid.Row="1" Grid.Column="1"
+                              VerticalAlignment="Stretch"
+                              HorizontalAlignment="Stretch"
+                              HorizontalScrollBarVisibility="Hidden">
+                    <StackPanel Spacing="5"
+                                HorizontalAlignment="Stretch">
+
+
+                        <Expander IsExpanded="True">
+                            <Expander.Header>
+                                <Label Content="详细" Theme="{DynamicResource TitleLabel}" Classes="H4" />
+                            </Expander.Header>
+                            <mdxaml:MarkdownScrollViewer
+                                Markdown="{Binding PluginInfo.Description}" />
+                        </Expander>
+                        <Expander IsExpanded="True">
+                            <Expander.Header>
+                                <Label Content="更新日志" Theme="{DynamicResource TitleLabel}" Classes="H4" />
+                            </Expander.Header>
+                            <ItemsControl ItemsSource="{Binding PluginInfo.VersionDetails}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="plugin11:VersionDetail">
+                                        <StackPanel>
+                                            <Label Theme="{DynamicResource TitleLabel}" Classes="H5"
+                                                   Content="{Binding Version }" />
+                                            <TextBlock Text="{Binding Detail}" />
+                                        </StackPanel>
+
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Expander>
+
+
+                    </StackPanel>
+                </ScrollViewer>
+
+
+            </Grid>
+
+
+        </Panel>
+
+    </Border>
+</UserControl>

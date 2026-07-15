@@ -1,0 +1,109 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Kitopia.Desktop.Windows.DialogWindow"
+        Foreground="{DynamicResource ContentDialogForeground}"
+
+        BorderBrush="{DynamicResource ContentDialogBorderBrush}"
+        BorderThickness="{DynamicResource ContentDialogBorderWidth}"
+        CornerRadius="{DynamicResource OverlayCornerRadius}"
+        Topmost="True"
+        CanResize="False"
+        WindowDecorations="BorderOnly"
+        ExtendClientAreaTitleBarHeightHint="25"
+        ExtendClientAreaToDecorationsHint="True"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False"
+        Name="myWindow"
+        SizeToContent="WidthAndHeight"
+
+        TransparencyLevelHint="AcrylicBlur"
+        Title="Dialog">
+
+
+    <!-- Even in WinUI, shadow is always black regardless of light/dark mode -->
+
+    <!-- if this border isn't here, dialog space displays outside of corner radius at top
+                                 if we put ClipToBounds=True on BackgroundElement above, it clips the shadow -->
+    <Border ClipToBounds="True" HorizontalAlignment="Center" Name="BackgroundElement"
+            Background="{DynamicResource ContentDialogBackground}"
+            VerticalAlignment="Center" Margin="5,5,5,0">
+        <Grid Name="DialogSpace" ClipToBounds="True"
+              RowDefinitions="Auto,*,Auto">
+            <Panel Background="{DynamicResource ContentDialogTopOverlay}"
+                   PointerMoved="InputElement_OnPointerMoved" PointerPressed="InputElement_OnPointerPressed"
+                   PointerReleased="InputElement_OnPointerReleased">
+                <TextPresenter Name="Title"
+                               Margin="5"
+                               FontSize="20"
+                               FontFamily="Default"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Top" />
+            </Panel>
+            <ScrollViewer Grid.Row="1" Name="ContentScrollViewer"
+                          HorizontalScrollBarVisibility="Disabled"
+                          MinHeight="100"
+                          VerticalScrollBarVisibility="Auto">
+                <Border Background="{DynamicResource ContentDialogTopOverlay}"
+                        Padding="5,0,5,0"
+                        BorderThickness="{StaticResource ContentDialogSeparatorThickness}"
+                        BorderBrush="{DynamicResource ContentDialogSeparatorBorderBrush}">
+                    <Grid RowDefinitions="Auto,*">
+                        <Grid.Styles>
+                            <!--Make sure text wrapping is on-->
+                            <Style Selector="TextBlock">
+                                <Setter Property="TextWrapping" Value="Wrap" />
+                            </Style>
+                        </Grid.Styles>
+
+
+                        <ContentPresenter Name="Content"
+
+                                          FontSize="{StaticResource ControlContentThemeFontSize}"
+                                          FontFamily="{StaticResource ContentControlThemeFontFamily}"
+
+                                          Grid.Row="1" />
+                    </Grid>
+                </Border>
+            </ScrollViewer>
+
+            <Border Padding="{StaticResource ContentDialogPadding}"
+                    Grid.Row="2"
+                    Margin="5"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Bottom">
+                <Grid Name="CommandSpace" ColumnDefinitions="*,0.5*,0.5*,*">
+                    <Button Name="PrimaryButton"
+                            IsDefault="True"
+                            Theme="{DynamicResource SolidButton}"
+                            Classes="Primary"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            IsVisible="False" />
+
+                    <Button Name="SecondaryButton"
+
+                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            IsVisible="False" />
+
+                    <Button Name="CloseButton"
+
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            IsVisible="False" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+
+
+</Window>

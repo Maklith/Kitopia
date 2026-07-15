@@ -1,4 +1,4 @@
-using Kitopia.DeviceCommunication.Discovery;
+using Kitopia.Feature.DeviceCommunication.Discovery;
 
 namespace Kitopia.Mobile.Services;
 
@@ -18,6 +18,8 @@ public sealed class MobileDeviceCommunicationSettings : IDeviceCommunicationSett
     public string BroadcastName => string.IsNullOrWhiteSpace(_platformFeatures.DefaultDeviceName)
         ? DefaultMobilePlatformRuntimeFeatures.Instance.DefaultDeviceName
         : _platformFeatures.DefaultDeviceName.Trim();
+
+    public string OperatingSystemName => _platformFeatures.OperatingSystemName;
 
     public string? GetCustomName(string publicKey)
     {

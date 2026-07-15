@@ -1,5 +1,4 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Kitopia.Mobile.Services;
@@ -30,17 +29,6 @@ public partial class App : Avalonia.Application
         else if (ApplicationLifetime is IActivityApplicationLifetime activityLifetime)
         {
             activityLifetime.MainViewFactory = () => CreateMainView(mainViewModel);
-            _ = ResumeAsync();
-        }
-        else if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            desktop.MainWindow = new Window
-            {
-                Width = 1100,
-                Height = 760,
-                Content = mainView
-            };
-            desktop.Exit += (_, _) => _ = PauseAsync();
             _ = ResumeAsync();
         }
 

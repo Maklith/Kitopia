@@ -1,4 +1,4 @@
-using Core.Window.ScreenCapture;
+using Kitopia.Desktop.Platform.Windows.ScreenCapture;
 using PluginCore;
 
 namespace KitopiaTest;

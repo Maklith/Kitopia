@@ -3,7 +3,7 @@
   "DisplayName": "Kitopia",
   "DisplayVersion": "0.2.2.0",
   "Publisher": "MakesYT",
-  "CanExecutePath": "KitopiaAvalonia.exe",
+  "CanExecutePath": "Kitopia.Desktop.exe",
   "Is64": true,
   "InstallDependencies": [
     {

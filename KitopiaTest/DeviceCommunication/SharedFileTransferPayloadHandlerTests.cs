@@ -1,7 +1,7 @@
 using System.IO.Pipelines;
-using Kitopia.DeviceCommunication.Application;
-using Kitopia.DeviceCommunication.Messages.Chat;
-using Kitopia.DeviceCommunication.Sessions;
+using Kitopia.Feature.DeviceCommunication.Application;
+using Kitopia.Feature.DeviceCommunication.Messages.Chat;
+using Kitopia.Feature.DeviceCommunication.Sessions;
 
 namespace KitopiaTest.DeviceCommunication;
 
@@ -108,7 +108,7 @@ public sealed class SharedFileTransferPayloadHandlerTests
         public List<DeviceMessageEvent> Events { get; } = [];
 
         public ValueTask PublishAsync(
-            Kitopia.DeviceCommunication.Messages.AppMessage message,
+            Kitopia.Feature.DeviceCommunication.Messages.AppMessage message,
             CancellationToken cancellationToken = default)
         {
             Events.Add(DeviceMessageEventFactory.FromMessage(message));

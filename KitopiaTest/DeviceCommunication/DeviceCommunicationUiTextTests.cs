@@ -1,5 +1,5 @@
-using Core.ViewModel.Pages.device;
-using Kitopia.DeviceCommunication.Discovery;
+using Kitopia.Feature.Avalonia.DeviceCommunication.ViewModels;
+using Kitopia.Feature.DeviceCommunication.Discovery;
 
 namespace KitopiaTest.DeviceCommunication;
 

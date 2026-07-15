@@ -1,0 +1,11 @@
+namespace Kitopia.Feature.DeviceCommunication.Messages.Chat;
+
+public sealed record FileOfferChatMessage(
+    string ConversationId,
+    Guid TransferId,
+    string FileName,
+    long SizeBytes,
+    string? ContentType,
+    string? Hash = null,
+    byte[]? IconPng = null)
+    : AppMessage(ConversationId);

@@ -11,8 +11,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\Kitopia.DeviceCommunication\Kitopia.DeviceCommunication.csproj" />
-        <ProjectReference Include="..\..\Core\Core.csproj" />
+        <ProjectReference Include="..\..\Kitopia.Feature\Kitopia.Feature.csproj" />
+        <ProjectReference Include="..\..\Kitopia.Feature.Avalonia\Kitopia.Feature.Avalonia.csproj" />
     </ItemGroup>
 
     <ItemGroup>
@@ -20,6 +20,7 @@
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
         <PackageReference Include="Irihi.Ursa" Version="2.1.0" />
         <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="2.1.0" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
         <PackageReference Include="Semi.Avalonia" Version="12.0.3" />
     </ItemGroup>
 </Project>

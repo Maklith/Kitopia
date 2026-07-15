@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages;assembly=Kitopia.Desktop.Features"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="pages:SettingPageViewModel"
+             x:Class="Kitopia.Desktop.Pages.SettingPage">
+    <UserControl.Resources>
+    </UserControl.Resources>
+
+    <Grid RowDefinitions="Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}">
+        <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Name="TextBlock" />
+        <ScrollViewer Grid.Row="1">
+            <StackPanel VerticalAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                        Name="StackPanel" />
+        </ScrollViewer>
+
+    </Grid>
+
+
+</UserControl>

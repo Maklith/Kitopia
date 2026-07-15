@@ -1,5 +1,5 @@
-using Core.Services.Config;
-using Core.Services.Interfaces;
+using Kitopia.Desktop.Features.Services.Config;
+using Kitopia.Desktop.Features.Services.Interfaces;
 using PluginCore.Config;
 
 namespace KitopiaTest.Services;

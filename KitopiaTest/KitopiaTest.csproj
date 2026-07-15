@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup Condition=" '$(OS)' != 'Windows_NT' ">
         <TargetFramework>net10.0</TargetFramework>
     </PropertyGroup>
@@ -32,10 +32,12 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Core.Window\Core.Window.csproj" />
-      <ProjectReference Include="..\Core\Core.csproj" />
-      <ProjectReference Include="..\KitopiaAvalonia\KitopiaAvalonia.csproj" />
-      <ProjectReference Include="..\Kitopia.DeviceCommunication\Kitopia.DeviceCommunication.csproj" />
+      <ProjectReference Include="..\Kitopia.Desktop.Platform.Windows\Kitopia.Desktop.Platform.Windows.csproj" />
+      <ProjectReference Include="..\Kitopia.Desktop.Platform.Linux\Kitopia.Desktop.Platform.Linux.csproj" />
+      <ProjectReference Include="..\Kitopia.Desktop.Features\Kitopia.Desktop.Features.csproj" />
+      <ProjectReference Include="..\Kitopia.Desktop\Kitopia.Desktop.csproj" />
+      <ProjectReference Include="..\Kitopia.Feature\Kitopia.Feature.csproj" />
+      <ProjectReference Include="..\Kitopia.Feature.Avalonia\Kitopia.Feature.Avalonia.csproj" />
       <ProjectReference Include="..\Mobile\Kitopia.Mobile\Kitopia.Mobile.csproj" />
     </ItemGroup>
 

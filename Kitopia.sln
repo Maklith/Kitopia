@@ -3,22 +3,22 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.2.11408.102
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Core", "Core\Core.csproj", "{48AA7450-F61F-4D21-8B04-1649B1DED462}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kitopia.Desktop.Features", "Kitopia.Desktop.Features\Kitopia.Desktop.Features.csproj", "{48AA7450-F61F-4D21-8B04-1649B1DED462}"
 	ProjectSection(ProjectDependencies) = postProject
 		{B27A1A07-DFEF-4802-99C6-A11AB41719CF} = {B27A1A07-DFEF-4802-99C6-A11AB41719CF}
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PluginCore", "PluginCore\PluginCore.csproj", "{B27A1A07-DFEF-4802-99C6-A11AB41719CF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kitopia.Desktop.PluginSdk", "Kitopia.Desktop.PluginSdk\Kitopia.Desktop.PluginSdk.csproj", "{B27A1A07-DFEF-4802-99C6-A11AB41719CF}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "KitopiaEx", "KitopiaEx\KitopiaEx.csproj", "{FAC70F92-586D-49DD-A8B9-25EE2BF5AF79}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KitopiaAvalonia", "KitopiaAvalonia\KitopiaAvalonia.csproj", "{595EC7E6-699C-4E29-B958-098510A2BEEB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop", "Kitopia.Desktop\Kitopia.Desktop.csproj", "{595EC7E6-699C-4E29-B958-098510A2BEEB}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NodifyM.Avalonia", "NodifyM.Avalonia\NodifyM.Avalonia\NodifyM.Avalonia.csproj", "{C54EDD27-6A70-45D6-AF11-386DC4ACF139}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Core.Window", "Core.Window\Core.Window.csproj", "{2B14A838-2840-4412-83B4-DE568C36FCA6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop.Platform.Windows", "Kitopia.Desktop.Platform.Windows\Kitopia.Desktop.Platform.Windows.csproj", "{2B14A838-2840-4412-83B4-DE568C36FCA6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Core.Linux", "Core.Linux\Core.Linux.csproj", "{88621E02-A1A5-4896-A43C-B536803C1AFE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop.Platform.Linux", "Kitopia.Desktop.Platform.Linux\Kitopia.Desktop.Platform.Linux.csproj", "{88621E02-A1A5-4896-A43C-B536803C1AFE}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "kitopia", "build\kitopia.csproj", "{4698A8B2-97C4-4B97-BF66-C12F9EAFC964}"
 EndProject
@@ -54,7 +54,9 @@ Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "Kitopia.StoreCompanionPacki
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContextMenu.Avalonia", "ContextMenu.Avalonia\ContextMenu.Avalonia.csproj", "{3F3C5BB3-B44D-4D16-A9A3-7AC4B27DE76B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.DeviceCommunication", "Kitopia.DeviceCommunication\Kitopia.DeviceCommunication.csproj", "{82A0AFF4-BD61-4D4C-9B28-767AA37B29E0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Feature", "Kitopia.Feature\Kitopia.Feature.csproj", "{82A0AFF4-BD61-4D4C-9B28-767AA37B29E0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Feature.Avalonia", "Kitopia.Feature.Avalonia\Kitopia.Feature.Avalonia.csproj", "{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Mobile", "Mobile", "{E0FC68D3-40F2-542A-6A90-38B94336C1AE}"
 EndProject
@@ -63,6 +65,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Mobile.iOS", "Mobile\Kitopia.Mobile.iOS\Kitopia.Mobile.iOS.csproj", "{E93B49F8-15A2-4638-B240-8F6EE57B61DA}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Mobile.Android", "Mobile\Kitopia.Mobile.Android\Kitopia.Mobile.Android.csproj", "{57B851CB-55E0-437C-B2B4-130053B3B998}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop.Abstractions", "Kitopia.Desktop.Abstractions\Kitopia.Desktop.Abstractions.csproj", "{6BABBA9D-0E2C-41B3-829E-70952643F997}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -499,6 +503,26 @@ Global
 		{82A0AFF4-BD61-4D4C-9B28-767AA37B29E0}.Release|x64.Build.0 = Release|Any CPU
 		{82A0AFF4-BD61-4D4C-9B28-767AA37B29E0}.Release|x86.ActiveCfg = Release|Any CPU
 		{82A0AFF4-BD61-4D4C-9B28-767AA37B29E0}.Release|x86.Build.0 = Release|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Debug|ARM.Build.0 = Debug|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Debug|arm64.ActiveCfg = Debug|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Debug|arm64.Build.0 = Debug|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Debug|x64.Build.0 = Debug|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Debug|x86.Build.0 = Debug|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Release|ARM.ActiveCfg = Release|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Release|ARM.Build.0 = Release|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Release|arm64.ActiveCfg = Release|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Release|arm64.Build.0 = Release|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Release|x64.ActiveCfg = Release|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Release|x64.Build.0 = Release|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Release|x86.ActiveCfg = Release|Any CPU
+		{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}.Release|x86.Build.0 = Release|Any CPU
 		{C0FA546C-D7CE-4769-A890-586E6020D756}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C0FA546C-D7CE-4769-A890-586E6020D756}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C0FA546C-D7CE-4769-A890-586E6020D756}.Debug|ARM.ActiveCfg = Debug|Any CPU
@@ -559,6 +583,26 @@ Global
 		{57B851CB-55E0-437C-B2B4-130053B3B998}.Release|x64.Build.0 = Release|Any CPU
 		{57B851CB-55E0-437C-B2B4-130053B3B998}.Release|x86.ActiveCfg = Release|Any CPU
 		{57B851CB-55E0-437C-B2B4-130053B3B998}.Release|x86.Build.0 = Release|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Debug|ARM.Build.0 = Debug|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Debug|arm64.ActiveCfg = Debug|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Debug|arm64.Build.0 = Debug|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Debug|x64.Build.0 = Debug|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Debug|x86.Build.0 = Debug|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|ARM.ActiveCfg = Release|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|ARM.Build.0 = Release|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|arm64.ActiveCfg = Release|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|arm64.Build.0 = Release|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|x64.ActiveCfg = Release|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|x64.Build.0 = Release|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|x86.ActiveCfg = Release|Any CPU
+		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

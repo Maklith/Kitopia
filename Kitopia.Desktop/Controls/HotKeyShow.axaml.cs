@@ -1,0 +1,244 @@
+using System.ComponentModel;
+using System.Windows.Input;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.LogicalTree;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using Kitopia.Desktop.Features.Services.Config;
+using Kitopia.Desktop.Features.Services.HotKey;
+using Kitopia.Desktop.Features.Services.Interfaces;
+using Kitopia.Desktop.Features.Utils;
+using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
+
+namespace Kitopia.Desktop.Controls;
+
+public class HotKeyShow : TemplatedControl
+{
+    public enum KeyTypeE
+    {
+        None = 0000,
+        NoControlKey = 10000,
+        CtrlAlt = 1010,
+        Ctrl = 1000,
+        CtrlShift = 1100,
+        CtrlShiftAlt = 1110,
+        Alt = 0010,
+        AltShift = 0110,
+        Win = 0001,
+        WinShift = 0101,
+        WinAlt = 0011,
+        Shift = 0100
+    }
+
+    public static readonly StyledProperty<HotKeyModel?> HotKeyModelProperty =
+        AvaloniaProperty.Register<HotKeyShow, HotKeyModel?>(nameof(HotKeyModel));
+
+    public static readonly StyledProperty<KeyTypeE> KeyTypeProperty =
+        AvaloniaProperty.Register<HotKeyShow, KeyTypeE>(nameof(KeyType));
+
+    public static readonly StyledProperty<string> KeyNameProperty =
+        AvaloniaProperty.Register<HotKeyShow, string>(nameof(KeyName), "-1");
+
+    public static readonly StyledProperty<ICommand> RemoveHotKeyProperty =
+        AvaloniaProperty.Register<HotKeyShow, ICommand>(nameof(RemoveHotKey));
+
+    public static readonly StyledProperty<ICommand> EditHotKeyProperty =
+        AvaloniaProperty.Register<HotKeyShow, ICommand>(nameof(EditHotKey));
+
+    public static readonly StyledProperty<ICommand> InitHotKeyProperty =
+        AvaloniaProperty.Register<HotKeyShow, ICommand>(nameof(InitHotKey));
+
+    //IsActivated
+    public static readonly StyledProperty<bool> IsActivatedProperty =
+        AvaloniaProperty.Register<HotKeyShow, bool>(nameof(IsActivated));
+
+    public bool IsActivated
+    {
+        get => GetValue(IsActivatedProperty);
+        set => SetValue(IsActivatedProperty, value);
+    }
+
+    static HotKeyShow()
+    {
+        HotKeyModelProperty.Changed.AddClassHandler<HotKeyShow>((control, args) =>
+        {
+            if (args.OldValue is HotKeyModel oldModel)
+            {
+                oldModel.PropertyChanged -= control.OnHotKeyModelPropertyChanged;
+            }
+
+            if (args.NewValue is HotKeyModel newModel)
+            {
+                newModel.PropertyChanged += control.OnHotKeyModelPropertyChanged;
+                HotKeyModelChanged(newModel, control);
+            }
+
+            
+        });
+    }
+
+    public HotKeyShow()
+    {
+        SetValue(RemoveHotKeyProperty, new RelayCommand(Remove));
+        SetValue(EditHotKeyProperty, new RelayCommand(Edit));
+        
+    }
+
+    private void OnHotKeyModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is HotKeyModel hotKeyModel)
+        {
+            HotKeyModelChanged(hotKeyModel, this);
+        }
+    }
+
+    protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        if (HotKeyModel is not null)
+        {
+            HotKeyModel.PropertyChanged -= OnHotKeyModelPropertyChanged;
+        }
+
+        base.OnDetachedFromLogicalTree(e);
+    }
+
+
+    [Bindable(true)]
+    [Category("KeyType")]
+    public HotKeyModel? HotKeyModel
+    {
+        get => GetValue(HotKeyModelProperty);
+        set => SetValue(HotKeyModelProperty, value);
+    }
+
+    [Bindable(true)]
+    [Category("KeyType")]
+    public KeyTypeE KeyType
+    {
+        get => GetValue(KeyTypeProperty);
+        private set => SetValue(KeyTypeProperty, value);
+    }
+
+    [Bindable(true)]
+    [Category("KeyName")]
+    public string KeyName
+    {
+        get => (string)GetValue(KeyNameProperty);
+        private set => SetValue(KeyNameProperty, value);
+    }
+
+    [Bindable(true)]
+    [Category("RemoveHotKey")]
+    public ICommand RemoveHotKey
+    {
+        get => (ICommand)GetValue(RemoveHotKeyProperty);
+        private set => SetValue(RemoveHotKeyProperty, value);
+    }
+
+    [Bindable(true)]
+    [Category("EditHotKey")]
+    public ICommand EditHotKey
+    {
+        get => (ICommand)GetValue(EditHotKeyProperty);
+        private set => SetValue(EditHotKeyProperty, value);
+    }
+
+    [Bindable(true)]
+    [Category("InitHotKey")]
+    public ICommand InitHotKey
+    {
+        get => (ICommand)GetValue(InitHotKeyProperty);
+        private set => SetValue(InitHotKeyProperty, value);
+    }
+
+    private static void HotKeyModelChanged(HotKeyModel? hotKeyModelN, HotKeyShow hotKeyShow)
+    {
+        var type = 0000;
+        if (hotKeyModelN == null)
+        {
+            hotKeyShow.KeyType = (KeyTypeE)type;
+            return;
+        }
+
+        var hotKeyModel = hotKeyModelN;
+        if (hotKeyModel.Type == HotKeyType.Mouse)
+        {
+            hotKeyShow.IsActivated = ServiceManager.Services.GetService<IHotKetImpl>()!.IsActive(hotKeyModel.UUID);
+            hotKeyShow.KeyType = (KeyTypeE)10000;
+            hotKeyShow.KeyName = hotKeyModel.MouseButton switch
+            {
+                (int)MouseHookType.LeftButton => "鼠标左键",
+                (int)MouseHookType.RightButton => "鼠标右键", 
+                (int)MouseHookType.MiddleButton => "鼠标中键",
+                (int)MouseHookType.XButton1 => "鼠标侧键1",
+                (int)MouseHookType.XButton2 => "鼠标侧键2",
+                _ => $"鼠标按键{hotKeyModel.MouseButton}"
+            };
+            return;
+        }
+
+        if (hotKeyModel.IsSelectAlt) type += 10;
+
+        if (hotKeyModel.IsSelectCtrl) type += 1000;
+
+        if (hotKeyModel.IsSelectShift) type += 100;
+
+        if (hotKeyModel.IsSelectWin) type += 1;
+
+        if (type == 0000 && hotKeyModel.SelectKey != EKey.未设置) type = 10000;
+
+
+        hotKeyShow.IsActivated = ServiceManager.Services.GetService<IHotKetImpl>()!.IsActive(hotKeyModel.UUID);
+        hotKeyShow.KeyType = (KeyTypeE)type;
+        hotKeyShow.KeyName = hotKeyModel.SelectKey.ToString();
+    }
+
+    private void Remove()
+    {
+        if (HotKeyModel != null)
+        {
+            IsActivated = false;
+            ServiceManager.Services.GetService<IHotKetImpl>()!.UnRegister(HotKeyModel.UUID);
+        }
+    }
+
+
+    private void Edit()
+    {
+        if (HotKeyModel is null) return;
+
+        if (ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(HotKeyModel.UUID) is null)
+        {
+            InitHotKey.Execute(HotKeyModel);
+            ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.UUID);
+            return;
+        }
+
+
+        if (!IsActivated)
+        {
+            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Modify(HotKeyModel))
+            {
+                ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
+                {
+                    Title = $"快捷键{HotKeyModel.SignName}设置失败",
+                    Content = "请重新设置快捷键，按键与系统其他程序冲突",
+                    CloseButtonText = "关闭"
+                }.ToToastRequest());
+                ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.UUID);
+                ConfigManger.Save();
+                return;
+            }
+
+            IsActivated = true;
+        }
+        else
+        {
+            ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.UUID);
+            ConfigManger.Save();
+        }
+    }
+}

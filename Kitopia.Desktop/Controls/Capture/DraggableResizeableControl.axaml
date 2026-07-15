@@ -1,0 +1,54 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:capture="clr-namespace:Kitopia.Desktop.Controls.Capture"
+        xmlns:screenCaptureWindow="clr-namespace:Kitopia.Desktop.Converter.ScreenCaptureWindow">
+    <Design.PreviewWith>
+        <capture:DraggableResizeableControl Width="200" Height="200" />
+    </Design.PreviewWith>
+
+    <Style Selector="capture|DraggableResizeableControl">
+        <!-- Set Defaults -->
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Panel.Resources>
+                        <screenCaptureWindow:SizeToIntegerStringConverter x:Key="SizeToIntegerStringConverter" />
+                    </Panel.Resources>
+        
+                    <ContentPresenter Name="Presenter" Content="{TemplateBinding Content}" Margin="4" />
+        
+                    <TextBlock
+                        Text="{Binding #Presenter.Bounds.Size,Converter={StaticResource SizeToIntegerStringConverter}}"
+                        IsVisible="{TemplateBinding IsSelected}" Foreground="White" Background="#80000000" Margin="4,-20,0,0" Padding="2,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        
+                    <Border BorderBrush="#1890ff" BorderThickness="1.5" IsHitTestVisible="False" Margin="4"
+                            IsVisible="{TemplateBinding IsSelected}" />
+
+                    <Panel IsVisible="{TemplateBinding IsDragThumbsVisible}">
+                        <Thumb Name="ThumbTL" Classes="ResizeThumb" HorizontalAlignment="Left" VerticalAlignment="Top" Cursor="TopLeftCorner" />
+                        <Thumb Name="ThumbTC" Classes="ResizeThumb" HorizontalAlignment="Center" VerticalAlignment="Top" Cursor="TopSide" />
+                        <Thumb Name="ThumbTR" Classes="ResizeThumb" HorizontalAlignment="Right" VerticalAlignment="Top" Cursor="TopRightCorner" />
+            
+                        <Thumb Name="ThumbLC" Classes="ResizeThumb" HorizontalAlignment="Left" VerticalAlignment="Center" Cursor="LeftSide" />
+                        <Thumb Name="ThumbRC" Classes="ResizeThumb" HorizontalAlignment="Right" VerticalAlignment="Center" Cursor="RightSide" />
+            
+                        <Thumb Name="ThumbBL" Classes="ResizeThumb" HorizontalAlignment="Left" VerticalAlignment="Bottom" Cursor="BottomLeftCorner" />
+                        <Thumb Name="ThumbBC" Classes="ResizeThumb" HorizontalAlignment="Center" VerticalAlignment="Bottom" Cursor="BottomSide" />
+                        <Thumb Name="ThumbBR" Classes="ResizeThumb" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="BottomRightCorner" />
+                    </Panel>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="Thumb.ResizeThumb">
+        <Setter Property="Width" Value="8" />
+        <Setter Property="Height" Value="8" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}" BorderBrush="#1890ff" BorderThickness="1" CornerRadius="4" />
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>

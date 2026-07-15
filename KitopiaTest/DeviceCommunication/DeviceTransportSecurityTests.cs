@@ -1,8 +1,10 @@
 using System.Net;
 using System.Security.Cryptography;
-using Kitopia.DeviceCommunication.Discovery;
-using Core.Services.DeviceCommunication.Security;
-using Kitopia.DeviceCommunication.Identity;
+using System.Security.Cryptography.X509Certificates;
+using Kitopia.Feature.DeviceCommunication.Discovery;
+using Kitopia.Feature.DeviceCommunication.Identity;
+using Kitopia.Feature.DeviceCommunication.Security;
+using Kitopia.Desktop.Services;
 using ObservableCollections;
 
 namespace KitopiaTest.DeviceCommunication;
@@ -14,7 +16,7 @@ public sealed class DeviceTransportSecurityTests
     public void CreateIdentityCertificate_CreatesCertificateMatchingConfiguredDeviceIdentity()
     {
         var identity = CreateIdentity();
-        var security = new DeviceTransportSecurity(new FakeDeviceDiscoveryService(), new FakeIdentityStore(identity));
+        var security = new DeviceTransportSecurity(new FakeIdentityStore(identity));
 
         using var certificate = security.CreateIdentityCertificate("CN=Kitopia-Test");
 
@@ -22,11 +24,46 @@ public sealed class DeviceTransportSecurityTests
     }
 
     [TestMethod]
+    public void CreateIdentityCertificate_Pkcs12RoundTrip_PreservesIdentityAndPrivateKey()
+    {
+        var identity = CreateIdentity();
+        var security = new DeviceTransportSecurity(
+            new FakeIdentityStore(identity),
+            EphemeralDeviceCertificateStoragePolicy.Instance);
+        using var certificate = security.CreateIdentityCertificate("CN=Kitopia-RoundTrip");
+
+        var pkcs12 = certificate.Export(X509ContentType.Pfx);
+        using var reloadedCertificate = X509CertificateLoader.LoadPkcs12(
+            pkcs12,
+            password: null,
+            X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
+
+        Assert.IsTrue(reloadedCertificate.HasPrivateKey);
+        Assert.IsTrue(security.ValidateRemoteCertificate(reloadedCertificate, identity.PublicKey));
+        using var privateKey = reloadedCertificate.GetRSAPrivateKey();
+        Assert.IsNotNull(privateKey);
+    }
+
+    [TestMethod]
+    public void CertificateStoragePolicies_ExposeExpectedBclKeyStorageFlags()
+    {
+        Assert.AreEqual(
+            X509KeyStorageFlags.UserKeySet |
+            X509KeyStorageFlags.PersistKeySet |
+            X509KeyStorageFlags.Exportable,
+            PersistedUserDeviceCertificateStoragePolicy.Instance.KeyStorageFlags);
+        Assert.AreEqual(
+            X509KeyStorageFlags.EphemeralKeySet |
+            X509KeyStorageFlags.Exportable,
+            EphemeralDeviceCertificateStoragePolicy.Instance.KeyStorageFlags);
+    }
+
+    [TestMethod]
     public void ValidateRemoteCertificate_ReturnsFalse_WhenExpectedIdentityDiffers()
     {
         var identity = CreateIdentity();
         var otherIdentity = CreateIdentity();
-        var security = new DeviceTransportSecurity(new FakeDeviceDiscoveryService(), new FakeIdentityStore(identity));
+        var security = new DeviceTransportSecurity(new FakeIdentityStore(identity));
         using var certificate = security.CreateIdentityCertificate("CN=Kitopia-Test");
 
         var result = security.ValidateRemoteCertificate(certificate, otherIdentity.PublicKey);
@@ -44,10 +81,10 @@ public sealed class DeviceTransportSecurityTests
             Ipv4Address = IPAddress.Parse("192.168.1.20"),
             TcpPort = 22001
         });
-        var security = new DeviceTransportSecurity(discoveryService, new FakeIdentityStore(CreateIdentity()));
+        var resolver = new DesktopRemoteIdentityResolver(discoveryService);
         var mappedAddress = IPAddress.Parse("::ffff:192.168.1.20");
 
-        var result = security.ResolveExpectedIdentityPublicKey(new IPEndPoint(mappedAddress, 22001));
+        var result = resolver.ResolveExpectedIdentityPublicKey(new IPEndPoint(mappedAddress, 22001));
 
         Assert.AreEqual("peer-public-key", result);
     }
@@ -55,9 +92,9 @@ public sealed class DeviceTransportSecurityTests
     [TestMethod]
     public void ResolveExpectedIdentityPublicKey_ReturnsNull_WhenEndpointUnknown()
     {
-        var security = new DeviceTransportSecurity(new FakeDeviceDiscoveryService(), new FakeIdentityStore(CreateIdentity()));
+        var resolver = new DesktopRemoteIdentityResolver(new FakeDeviceDiscoveryService());
 
-        var result = security.ResolveExpectedIdentityPublicKey(new IPEndPoint(IPAddress.Loopback, 22001));
+        var result = resolver.ResolveExpectedIdentityPublicKey(new IPEndPoint(IPAddress.Loopback, 22001));
 
         Assert.IsNull(result);
     }
@@ -79,7 +116,7 @@ public sealed class DeviceTransportSecurityTests
             _identity = new DeviceIdentity(
                 identity.PublicKey,
                 identity.PrivateKey,
-                Kitopia.DeviceCommunication.Discovery.DeviceDiscoverySignature.ComputePublicKeyHash(identity.PublicKey));
+                Kitopia.Feature.DeviceCommunication.Discovery.DeviceDiscoverySignature.ComputePublicKeyHash(identity.PublicKey));
         }
 
         public bool TryGetIdentity(out DeviceIdentity identity)

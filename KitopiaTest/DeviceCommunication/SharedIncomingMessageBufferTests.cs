@@ -1,5 +1,5 @@
-using Kitopia.DeviceCommunication.Application;
-using Kitopia.DeviceCommunication.Messages.Chat;
+using Kitopia.Feature.DeviceCommunication.Application;
+using Kitopia.Feature.DeviceCommunication.Messages.Chat;
 
 namespace KitopiaTest.DeviceCommunication;
 

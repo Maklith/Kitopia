@@ -1,5 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using Core.ViewModel.Pages.device;
+using Kitopia.Feature.Avalonia.DeviceCommunication.ViewModels;
 using Kitopia.Mobile.Services;
 
 namespace Kitopia.Mobile.ViewModels;

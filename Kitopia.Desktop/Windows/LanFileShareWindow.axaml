@@ -1,0 +1,112 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:Kitopia.Desktop.Features.ViewModel.Windows;assembly=Kitopia.Desktop.Features"
+        xmlns:discoveredDevice="clr-namespace:Kitopia.Feature.DeviceCommunication.Discovery;assembly=Kitopia.Feature"
+        mc:Ignorable="d"
+        d:DesignWidth="920"
+        d:DesignHeight="560"
+        Width="920"
+        Height="560"
+        MinWidth="780"
+        MinHeight="420"
+        x:Class="Kitopia.Desktop.Windows.LanFileShareWindow"
+        x:DataType="vm:LanFileShareWindowViewModel"
+        Title="局域网文件分享">
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,*">
+        <Border Grid.ColumnSpan="2" Margin="10" Padding="10" CornerRadius="8" BorderBrush="#DDDDDD" BorderThickness="1">
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <TextBlock Text="选择右侧设备后发送左侧文件" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="正在发送，请稍后.." Foreground="#CC8A2B" IsVisible="{Binding IsSending}" VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="0" Margin="10,0,5,10" Padding="10" CornerRadius="8" BorderBrush="#DDDDDD" BorderThickness="1">
+            <Grid RowDefinitions="Auto,*">
+                <DockPanel Margin="0,0,0,8">
+                    <Button DockPanel.Dock="Right"
+                            Content="清空"
+                            Command="{Binding ClearFilesCommand}"
+                            IsEnabled="{Binding HasFiles}" />
+                    <TextBlock Text="{Binding FilesHeader}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <Grid Grid.Row="1">
+                    <ListBox ItemsSource="{Binding SelectedFiles}" IsVisible="{Binding HasFiles}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ShareFileItem">
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding FilePath}" FontSize="12" Foreground="Gray" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding FileSizeText}" FontSize="11" Foreground="Gray" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Content="移除"
+                                            Command="{Binding $parent[Window].((vm:LanFileShareWindowViewModel)DataContext).RemoveFileCommand}"
+                                            CommandParameter="{Binding FilePath}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <TextBlock Text="没有可发送的文件"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="Gray"
+                               IsVisible="{Binding !HasFiles}" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="1" Margin="5,0,10,10" Padding="10" CornerRadius="8" BorderBrush="#DDDDDD" BorderThickness="1">
+            <Grid RowDefinitions="Auto,*">
+                <TextBlock Text="{Binding DevicesHeader}" FontSize="16" FontWeight="SemiBold" />
+
+                <Grid Grid.Row="1">
+                    <ListBox ItemsSource="{Binding DiscoveredDevices}" IsVisible="{Binding HasDevices}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="discoveredDevice:DiscoveredDevice">
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                    <StackPanel Spacing="2">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                            <Label Theme="{DynamicResource TagLabel}" Classes="Green"
+                                                   IsVisible="{Binding HasIpv6}">IPv6</Label>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding ComputerName}" FontSize="12" Foreground="Gray" />
+                                        <TextBlock Text="{Binding Ipv4Address, StringFormat='IPv4: {0}'}"
+                                                   FontSize="12"
+                                                   Foreground="Gray"
+                                                   IsVisible="{Binding HasIpv4}" />
+                                        <TextBlock Text="{Binding Ipv6Address, StringFormat='IPv6: {0}'}"
+                                                   FontSize="12"
+                                                   Foreground="Gray"
+                                                   IsVisible="{Binding HasIpv6}" />
+                                        <TextBlock Text="{Binding TcpPort, StringFormat='端口: {0}'}" FontSize="11" Foreground="Gray" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Content="发送"
+                                            IsEnabled="{Binding $parent[Window].((vm:LanFileShareWindowViewModel)DataContext).CanSend}"
+                                            Command="{Binding $parent[Window].((vm:LanFileShareWindowViewModel)DataContext).SendToDeviceCommand}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <TextBlock Text="尚未发现在线设备"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="Gray"
+                               IsVisible="{Binding !HasDevices}" />
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

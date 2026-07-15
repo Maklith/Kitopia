@@ -1,0 +1,45 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:capture="clr-namespace:Kitopia.Desktop.Controls.Capture">
+    <Design.PreviewWith>
+        <capture:DraggableArrowControl Source="0,0" Target="100,100" Stroke="Red"
+                                       StrokeThickness="2" Fill="Red" />
+    </Design.PreviewWith>
+
+    <Style Selector="capture|DraggableArrowControl">
+        <!-- Set Defaults -->
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Canvas Width="{Binding $parent[Canvas].Bounds.Width}"
+                        Height="{Binding $parent[Canvas].Bounds.Height}">
+                    <Rectangle
+                        Name="S"
+                        IsVisible="{TemplateBinding IsSelected}"
+                        Canvas.Left="{Binding $parent[capture:DraggableArrowControl].Source.X}"
+                        Canvas.Top="{Binding $parent[capture:DraggableArrowControl].Source.Y}"
+
+                        Width="10" Height="10" Fill="White" ZIndex="1" Stroke="#1890ff" StrokeThickness="1.5" Cursor="Hand">
+                        <Rectangle.RenderTransform>
+                            <TranslateTransform X="-5" Y="-5" />
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                    <Rectangle
+                        Name="E"
+                        IsVisible="{TemplateBinding IsSelected}"
+                        Canvas.Left="{Binding $parent[capture:DraggableArrowControl].Target.X}"
+                        Canvas.Top="{Binding $parent[capture:DraggableArrowControl].Target.Y}"
+                        Width="10" Height="10" Fill="White" ZIndex="2" Stroke="#1890ff" StrokeThickness="1.5" Cursor="Hand">
+                        <Rectangle.RenderTransform>
+                            <TranslateTransform X="-5" Y="-5" />
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                    <capture:ArrowLine
+                        Source="{Binding $parent[capture:DraggableArrowControl].Source}"
+                        Target="{Binding $parent[capture:DraggableArrowControl].Target}"
+                        Stroke="{TemplateBinding Stroke}" StrokeThickness="{TemplateBinding StrokeThickness}"
+                        Fill="{TemplateBinding Fill}" />
+                </Canvas>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>

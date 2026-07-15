@@ -1,15 +1,55 @@
-using Kitopia.DeviceCommunication.Codecs;
-using Kitopia.DeviceCommunication.Messages;
-using Kitopia.DeviceCommunication.Messages.Chat;
-using Kitopia.DeviceCommunication.Messages.Clipboard;
-using Kitopia.DeviceCommunication.Protocol;
-using Kitopia.DeviceCommunication.Routing;
+using System.Text.Json;
+using Kitopia.Feature.DeviceCommunication.Codecs;
+using Kitopia.Feature.DeviceCommunication.Messages;
+using Kitopia.Feature.DeviceCommunication.Messages.Chat;
+using Kitopia.Feature.DeviceCommunication.Messages.Clipboard;
+using Kitopia.Feature.DeviceCommunication.Protocol;
+using Kitopia.Feature.DeviceCommunication.Routing;
 
 namespace KitopiaTest.DeviceCommunication;
 
 [TestClass]
 public sealed class CodecTests
 {
+    [TestMethod]
+    public void Registry_DecodesLegacyCoreFileOfferEnvelope()
+    {
+        const string legacyEnvelopeJson =
+            """
+            {
+              "Route": "chat",
+              "Command": "file.offer",
+              "StreamType": 3,
+              "ChannelId": "f559b65f-0487-44cc-b789-7f533e7fbd5e",
+              "Sequence": 0,
+              "ContentType": "application/pdf",
+              "Metadata": {
+                "conversationId": "local-conversation",
+                "senderId": "legacy-peer",
+                "fileName": "document.pdf",
+                "sizeBytes": "512",
+                "hash": "sha256-value",
+                "iconPng": "iVBORw=="
+              }
+            }
+            """;
+        var envelope = JsonSerializer.Deserialize<DataEnvelope>(legacyEnvelopeJson);
+        var registry = new MessageCodecRegistry();
+
+        Assert.IsNotNull(envelope);
+        Assert.IsTrue(registry.TryDecode(envelope, out var decoded));
+        Assert.IsInstanceOfType<FileOfferChatMessage>(decoded);
+
+        var offer = (FileOfferChatMessage)decoded;
+        Assert.AreEqual("legacy-peer", offer.ConversationId);
+        Assert.AreEqual(Guid.Parse("f559b65f-0487-44cc-b789-7f533e7fbd5e"), offer.TransferId);
+        Assert.AreEqual("document.pdf", offer.FileName);
+        Assert.AreEqual(512, offer.SizeBytes);
+        Assert.AreEqual("application/pdf", offer.ContentType);
+        Assert.AreEqual("sha256-value", offer.Hash);
+        CollectionAssert.AreEqual(new byte[] { 0x89, 0x50, 0x4e, 0x47 }, offer.IconPng);
+    }
+
     [TestMethod]
     public void Registry_Encode_ProducesExpectedEnvelope_ForTextChat()
     {
@@ -223,6 +263,25 @@ public sealed class CodecTests
         {
             Assert.AreEqual(reason, envelope.Metadata!["reason"]);
         }
+    }
+
+    [TestMethod]
+    public void Registry_EncodeDecode_RoundTripsFileOfferIcon()
+    {
+        var registry = new MessageCodecRegistry();
+        byte[] iconPng = [0x89, 0x50, 0x4E, 0x47];
+        var offer = new FileOfferChatMessage(
+            "peer-1",
+            Guid.NewGuid(),
+            "doc.pdf",
+            2048,
+            "application/pdf",
+            IconPng: iconPng);
+
+        Assert.IsTrue(registry.TryEncode(offer, out var envelope));
+        Assert.IsTrue(registry.TryDecode(envelope, out var decoded));
+        var decodedOffer = (FileOfferChatMessage)decoded;
+        CollectionAssert.AreEqual(iconPng, decodedOffer.IconPng);
     }
 
     private sealed class FixedIdentityProvider : IDeviceIdentityProvider

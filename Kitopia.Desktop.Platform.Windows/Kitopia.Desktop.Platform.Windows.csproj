@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0-windows10.0.19041.0</TargetFrameworks>
+        <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+        <PlatformTarget>x64</PlatformTarget>
+        <Platform>x64</Platform>
+    </PropertyGroup>
+    <PropertyGroup>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Reference Include="Microsoft.Windows.SDK.NET">
+            <HintPath>Microsoft.Windows.SDK.NET.dll</HintPath>
+        </Reference>
+        <Reference Include="WinRT.Runtime">
+            <HintPath>WinRT.Runtime.dll</HintPath>
+        </Reference>
+        <ProjectReference Include="..\Kitopia.Desktop.Abstractions\Kitopia.Desktop.Abstractions.csproj"/>
+        <ProjectReference Include="..\Kitopia.Desktop.Features\Kitopia.Desktop.Features.csproj"/>
+    </ItemGroup>
+    <ItemGroup>
+        <None Remove="Everything32.dll"/>
+        <None Remove="Everything64.dll"/>
+        <None Update="WinRT.Runtime.dll">
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+        <None Update="Microsoft.Windows.SDK.NET.dll">
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+    <ItemGroup>
+        <Content Include="Everything32.dll">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Include="Everything64.dll">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="PeNet" Version="6.1.2" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+        <PackageReference Include="Polly" Version="8.7.0" />
+        <PackageReference Include="Polly.RateLimiting" Version="8.4.2" />
+        <PackageReference Include="System.Threading.RateLimiting" Version="10.0.9" />
+        <PackageReference Include="Vanara.Core" Version="5.0.5" />
+        <PackageReference Include="Vanara.PInvoke.FirewallApi" Version="5.0.5" />
+        <PackageReference Include="Vanara.PInvoke.NetApi32" Version="5.0.5" />
+        <PackageReference Include="Vanara.PInvoke.NetListMgr" Version="5.0.5" />
+        <PackageReference Include="Vanara.PInvoke.SHCore" Version="5.0.5" />
+        <PackageReference Include="Vanara.Windows.Shell" Version="5.0.5" />
+    </ItemGroup>
+    <ItemGroup>
+      <Compile Update="TopMostBorderWindow.axaml.cs">
+        <DependentUpon>TopMostBorderWindow.axaml</DependentUpon>
+      </Compile>
+    </ItemGroup>
+</Project>

@@ -1,0 +1,100 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+
+        xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
+        xmlns:windows="clr-namespace:Kitopia.Desktop.Features.Search.ViewModels;assembly=Kitopia.Desktop.Features"
+        xmlns:converter="clr-namespace:Kitopia.Desktop.Converter"
+        xmlns:searchWindow="clr-namespace:Kitopia.Desktop.Converter.SearchWindow"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Kitopia.Desktop.Windows.MouseQuickWindow"
+        x:DataType="windows:MouseQuickWindowViewModel"
+        TransparencyLevelHint="AcrylicBlur"
+        Background="Transparent"
+        MinWidth="300"
+        MinHeight="400"
+        Height="410"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ExtendClientAreaToDecorationsHint="True"
+        Width="300"
+        SizeToContent="Height"
+        WindowDecorations="BorderOnly"
+        Deactivated="WindowBase_OnDeactivated"
+        Title="MouseQuickWindow">
+    <Window.Resources>
+        <converter:MouseQuickSelectedItem x:Key="MouseQuickSelectedItem" />
+        <searchWindow:PathToImageConverter x:Key="PathToImageConverter" />
+        <searchWindow:SymbolToVisible x:Key="SymbolToVisible" />
+        <converter:IntToIconSymbol x:Key="IntToIconSymbol" />
+    </Window.Resources>
+    <Grid RowDefinitions="Auto,*">
+        <TextBlock Grid.Row="0" Text="{Binding SelectedItem,Converter={StaticResource MouseQuickSelectedItem}}"
+                   TextWrapping="Wrap" FontSize="20" Margin="10,10,10,10" />
+
+        <ItemsControl Grid.Row="1" Margin="15,10,8,10"
+                      ItemsSource="{Binding Items}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button
+                        Command="{Binding Path=$parent[Window].((windows:MouseQuickWindowViewModel)DataContext).ExcuteCommand}"
+                        CommandParameter="{Binding .}" Width="80" Height="80" Padding="0" Margin="0"
+                        Background="Transparent">
+                        <Button.Resources>
+                            <converter:MouseQuickItemCanRemoveCtr x:Key="MouseQuickItemCanRemoveCtr" />
+                        </Button.Resources>
+                        <Button.ContextFlyout>
+                            <MenuFlyout>
+                                <!-- ReSharper disable once Xaml.RedundantResource -->
+
+                                <MenuItem Header="移除"
+                                          Command="{Binding $parent[Window].((windows:MouseQuickWindowViewModel)DataContext).RemoveCommand}"
+                                          IsVisible="{Binding .,Converter={StaticResource MouseQuickItemCanRemoveCtr}}"
+                                          CommandParameter="{Binding .}" />
+                            </MenuFlyout>
+
+                        </Button.ContextFlyout>
+                        <Grid Height="74" Width="76" Margin="2,5,2,1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="32" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Image HorizontalAlignment="Center" Focusable="False" Width="32"
+                                   Height="32">
+                                <Image.Source>
+                                    <MultiBinding Converter="{StaticResource PathToImageConverter}">
+                                        <Binding Path="Icon" />
+                                        <Binding Path="." />
+                                    </MultiBinding>
+                                </Image.Source>
+                            </Image>
+                            <controls:FontIcon Height="48" Width="48" FontSize="48"
+                                               FontFamily="{StaticResource FluentFont}"
+                                               IsVisible="{Binding IconSymbol,Converter={StaticResource SymbolToVisible}}"
+                                               Glyph="{Binding IconSymbol,Converter={StaticResource IntToIconSymbol}}" />
+
+                            <TextBlock Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                       Margin="0"
+                                       Focusable="False"
+                                       Text="{Binding Path=ItemDisplayName}"
+                                       TextWrapping="Wrap"
+                                       Background="{x:Null}"
+                                       FontWeight="Normal" FontSize="15" />
+                        </Grid>
+
+
+                    </Button>
+
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+
+
+    </Grid>
+</Window>

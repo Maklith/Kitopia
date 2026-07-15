@@ -3,9 +3,44 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:Kitopia.Mobile.ViewModels"
-             xmlns:deviceUi="clr-namespace:Core.UI.DeviceCommunication;assembly=Core"
+             xmlns:deviceUi="clr-namespace:Kitopia.Feature.Avalonia.DeviceCommunication.Views;assembly=Kitopia.Feature.Avalonia"
              x:Class="Kitopia.Mobile.Views.MainView"
              x:DataType="vm:MainViewModel"
              mc:Ignorable="d">
-    <deviceUi:DeviceCommunicationPage DataContext="{Binding Chat}" />
+    <Grid>
+        <deviceUi:DeviceCommunicationPage DataContext="{Binding Chat}" />
+
+        <Border x:Name="TextPromptOverlay"
+                IsVisible="False"
+                Background="#99000000"
+                Padding="24">
+            <Border MaxWidth="520"
+                    Padding="20"
+                    CornerRadius="12"
+                    Background="{DynamicResource SemiColorFill0}"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center">
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="TextPromptTitle"
+                               FontSize="18"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="TextPromptMessage"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource SemiColorText1}" />
+                    <TextBox x:Name="TextPromptInput"
+                             PlaceholderText="请输入内容" />
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Spacing="8">
+                        <Button Content="取消"
+                                Classes="Secondary"
+                                Click="OnTextPromptCancelClicked" />
+                        <Button Content="确定"
+                                Classes="Primary"
+                                Click="OnTextPromptConfirmClicked" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
 </UserControl>

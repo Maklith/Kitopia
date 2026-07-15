@@ -1,5 +1,5 @@
-using Kitopia.DeviceCommunication.Transport;
-using Kitopia.DeviceCommunication.Diagnostics;
+using Kitopia.Feature.DeviceCommunication.Transport;
+using Kitopia.Feature.DeviceCommunication.Diagnostics;
 
 namespace Kitopia.Mobile.Services;
 

@@ -2,7 +2,7 @@ using Android.Content;
 using Android.Net.Wifi;
 using Android.OS;
 using Android.Provider;
-using Kitopia.DeviceCommunication.Diagnostics;
+using Kitopia.Feature.DeviceCommunication.Diagnostics;
 using Kitopia.Mobile.Services;
 
 namespace Kitopia.Mobile;
@@ -12,6 +12,7 @@ public sealed class AndroidPlatformRuntimeFeatures : IMobilePlatformRuntimeFeatu
     private const string LogCategory = "AndroidRuntime";
 
     public string DefaultDeviceName => ResolveDefaultDeviceName();
+    public string OperatingSystemName => "Android";
 
     public IMobileCommunicationRuntime WrapCommunicationRuntime(IMobileCommunicationRuntime innerRuntime)
     {

@@ -6,6 +6,7 @@ namespace Kitopia.Mobile;
 public sealed class IosPlatformRuntimeFeatures : IMobilePlatformRuntimeFeatures
 {
     public string DefaultDeviceName => ResolveDefaultDeviceName();
+    public string OperatingSystemName => "iOS";
 
     public IMobileCommunicationRuntime WrapCommunicationRuntime(IMobileCommunicationRuntime innerRuntime)
     {

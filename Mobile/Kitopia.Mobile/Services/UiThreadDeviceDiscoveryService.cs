@@ -1,7 +1,7 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using Avalonia.Threading;
-using Kitopia.DeviceCommunication.Discovery;
+using Kitopia.Feature.DeviceCommunication.Discovery;
 using ObservableCollections;
 
 namespace Kitopia.Mobile.Services;

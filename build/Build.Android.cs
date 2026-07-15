@@ -28,14 +28,22 @@ partial class Build
     {
         var output = ArtifactsDirectory / "android" / runtime;
         output.DeleteDirectory();
+        var androidSdkDirectory = ResolveAndroidSdkDirectory();
 
-        DotNetPublish(c => c
-            .SetProject(AndroidProjectFile)
-            .SetOutput(output)
-            .SetRuntime(runtime)
-            .SetFramework("net10.0-android36.0")
-            .SetConfiguration(ReleaseConfiguration)
-            .SetProperty("RunAOTCompilation", false));
+        DotNetPublish(c =>
+        {
+            c = c
+                .SetProject(AndroidProjectFile)
+                .SetOutput(output)
+                .SetRuntime(runtime)
+                .SetFramework("net10.0-android36.0")
+                .SetConfiguration(ReleaseConfiguration)
+                .SetProperty("PublishAot", true);
+
+            return androidSdkDirectory is null
+                ? c
+                : c.SetProperty("AndroidSdkDirectory", androidSdkDirectory);
+        });
 
         RemoveSymbolsAndDocs(output);
         var apk = Directory.EnumerateFiles(output, "*.apk", SearchOption.AllDirectories)
@@ -49,5 +57,22 @@ partial class Build
         File.Copy(apk, artifact);
         Log.Information("Created Android artifact {Artifact}", artifact);
         UploadReleaseAsset(artifact);
+    }
+
+    static string ResolveAndroidSdkDirectory()
+    {
+        foreach (var variableName in new[] { "ANDROID_SDK_ROOT", "ANDROID_HOME" })
+        {
+            var configuredPath = Environment.GetEnvironmentVariable(variableName);
+            if (!string.IsNullOrWhiteSpace(configuredPath) && Directory.Exists(configuredPath))
+                return configuredPath;
+        }
+
+        if (!OperatingSystem.IsWindows())
+            return null;
+
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var userSdk = Path.Combine(localAppData, "Android", "Sdk");
+        return Directory.Exists(Path.Combine(userSdk, "ndk")) ? userSdk : null;
     }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+
 namespace Kitopia.Mobile.Services;
 
 public sealed class MobileConfigService
@@ -32,7 +33,9 @@ public sealed class MobileConfigService
         {
             if (File.Exists(FilePath))
             {
-                return JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(FilePath))
+                return JsonSerializer.Deserialize(
+                           File.ReadAllText(FilePath),
+                           MobilePersistenceJsonSerializerContext.Default.StringDictionary)
                        ?? new Dictionary<string, string>();
             }
         }
@@ -44,6 +47,10 @@ public sealed class MobileConfigService
     {
         var dir = Path.GetDirectoryName(FilePath);
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-        File.WriteAllText(FilePath, JsonSerializer.Serialize(names));
+        File.WriteAllText(
+            FilePath,
+            JsonSerializer.Serialize(
+                names,
+                MobilePersistenceJsonSerializerContext.Default.StringDictionary));
     }
 }

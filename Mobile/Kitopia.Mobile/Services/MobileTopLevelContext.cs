@@ -6,6 +6,20 @@ public sealed class MobileTopLevelContext
 {
     public TopLevel? CurrentTopLevel { get; set; }
     public bool IsActivityActive { get; set; } = true;
+    public Func<MobileTextPromptRequest, Task>? TextPromptHandler { get; set; }
+
+    public async Task<string?> PromptTextAsync(string title, string prompt, string? initialValue)
+    {
+        var handler = TextPromptHandler;
+        if (handler is null)
+        {
+            return null;
+        }
+
+        var request = new MobileTextPromptRequest(title, prompt, initialValue);
+        await handler(request);
+        return await request.Completion;
+    }
 
     /// <summary>
     /// Set while this app is showing its own file picker / save dialog. On Android the picker

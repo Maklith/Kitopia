@@ -7,14 +7,12 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceInclude Source="avares://Core/UI/DeviceCommunication/DeviceCommunicationIcons.axaml" />
-                <ResourceInclude Source="avares://Core/UI/DeviceCommunication/DeviceCommunicationStyles.axaml" />
+                <ResourceInclude Source="avares://Kitopia.Feature.Avalonia/Views/DeviceCommunication/DeviceCommunicationStyles.axaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>
         <u-semi:UrsaSemiTheme Locale="zh-CN" />
         <semi:SemiTheme Locale="zh-CN" />
-        <StyleInclude Source="avares://Core/UI/DeviceCommunication/FontIcon.axaml" />
     </Application.Styles>
 </Application>

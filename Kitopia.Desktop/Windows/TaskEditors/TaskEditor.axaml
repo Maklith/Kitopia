@@ -1,0 +1,486 @@
+<u:UrsaWindow xmlns="https://github.com/avaloniaui"
+              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+              xmlns:controls1="clr-namespace:Kitopia.Desktop.Controls"
+              xmlns:taskEditor1="clr-namespace:Kitopia.Desktop.Features.CustomScenario.ViewModels.TaskEditor;assembly=Kitopia.Desktop.Features"
+              xmlns:generic="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
+              xmlns:controls2="clr-namespace:NodifyM.Avalonia.Controls;assembly=NodifyM.Avalonia"
+              xmlns:u="https://irihi.tech/ursa"
+              xmlns:settingsExpander="clr-namespace:Kitopia.Desktop.Controls.SettingsExpander"
+              xmlns:customScenario1="clr-namespace:Kitopia.Desktop.Features.CustomScenario;assembly=Kitopia.Desktop.Features"
+              xmlns:taskEditor="clr-namespace:Kitopia.Desktop.Converter.TaskEditor"
+              xmlns:converter="clr-namespace:Kitopia.Desktop.Converter"
+              xmlns:taskEditors="clr-namespace:Kitopia.Desktop.Windows.TaskEditors"
+              xmlns:kitopiaAvalonia="clr-namespace:Kitopia.Desktop"
+              xmlns:customScenario="clr-namespace:PluginCore.CustomScenario;assembly=PluginCore"
+              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+              x:Class="Kitopia.Desktop.Windows.TaskEditors.TaskEditor"
+              Title="情景编排"
+              WindowStartupLocation="CenterScreen"
+              TransparencyLevelHint="AcrylicBlur"
+              Name="TaskEditorWindow"
+              WindowState="Maximized"
+              x:DataType="taskEditor1:TaskEditorViewModel" Height="720" Width="1280">
+    <u:UrsaWindow.Background>
+        <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.55" />
+
+    </u:UrsaWindow.Background>
+    <u:UrsaWindow.Resources>
+        <converter:IfNullVisibilityHidden x:Key="IfNullVisibilityHidden" />
+
+
+        <taskEditor:ScenarioMethodCategoryGroupCtr x:Key="ScenarioMethodCategoryGroupCtr" />
+    </u:UrsaWindow.Resources>
+    <Interaction.Behaviors>
+        <EventTriggerBehavior EventName="Closing">
+            <InvokeCommandAction Command="{Binding ReloadScenarioCommand}" PassEventArgsToCommand="True" />
+        </EventTriggerBehavior>
+        <EventTriggerBehavior EventName="DataContextChanged">
+            <InvokeCommandAction Command="{Binding LoadCommand}"
+                                 CommandParameter="{Binding #TaskEditorWindow}" />
+        </EventTriggerBehavior>
+        <EventTriggerBehavior EventName="Loaded">
+            <InvokeCommandAction Command="{Binding LoadCommand}"
+                                 CommandParameter="{Binding #TaskEditorWindow}" />
+        </EventTriggerBehavior>
+    </Interaction.Behaviors>
+
+    <Grid Margin="0,40,0,0">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="4*" />
+            <ColumnDefinition Width="10" />
+            <ColumnDefinition Width="11*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+
+        <Button Grid.Row="0" Grid.Column="0" IsVisible="False" x:Name="Add" Content="添加"
+                Command="{Binding AddNodesCommand}" />
+        <!-- 左边部分 -->
+        <Border x:Name="Border" Grid.Column="0" Padding="0,0,0,0" Margin="0">
+
+            <ListBox x:Name="ListBox" Margin="3,0,0,0" ScrollViewer.VerticalSnapPointsAlignment="Center"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalSnapPointsType="MandatorySingle">
+
+                <ListBox.ItemContainerTheme>
+                    <ControlTheme TargetType="ListBoxItem">
+                        <Setter Property="Template">
+                            <ControlTemplate>
+                                <ContentPresenter Name="PART_ContentPresenter"
+                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  Background="{TemplateBinding Background}"
+                                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  CornerRadius="{TemplateBinding CornerRadius}" />
+                            </ControlTemplate>
+
+                        </Setter>
+                    </ControlTheme>
+                </ListBox.ItemContainerTheme>
+                <Expander Header="情景信息" IsExpanded="True" HorizontalContentAlignment="Stretch">
+                    <Expander.Content>
+                        <StackPanel HorizontalAlignment="Stretch">
+                            <settingsExpander:SettingsExpander Header="情景名称">
+                                <settingsExpander:SettingsExpander.Footer>
+                                    <TextBox MinWidth="80" Text="{Binding Scenario.Name}" />
+                                </settingsExpander:SettingsExpander.Footer>
+                                <settingsExpander:SettingsExpander.IconSource>
+                                    <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                        Glyph="&#xf669;" />
+                                </settingsExpander:SettingsExpander.IconSource>
+                            </settingsExpander:SettingsExpander>
+                            <settingsExpander:SettingsExpander Margin="0" Header="情景描述">
+                                <settingsExpander:SettingsExpander.Footer>
+                                    <TextBox TextWrapping="Wrap" MinWidth="80"
+                                             Text="{Binding Scenario.Description}" />
+                                </settingsExpander:SettingsExpander.Footer>
+                                <settingsExpander:SettingsExpander.IconSource>
+                                    <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                        Glyph="&#xf4a3;" />
+                                </settingsExpander:SettingsExpander.IconSource>
+                            </settingsExpander:SettingsExpander>
+                            <settingsExpander:SettingsExpander Margin="0" Header="情景图标">
+                                <settingsExpander:SettingsExpander.Footer>
+                                    <Button Command="{Binding ChangeIconCommand}"
+                                            CommandParameter="{Binding $self}">
+                                        <Image HorizontalAlignment="Left" Focusable="False"
+                                               Width="48"
+                                               Height="48" ZIndex="1">
+                                            <Image.Source>
+                                                <MultiBinding Converter="{StaticResource PathToImageConverter}">
+                                                    <Binding Path="Scenario.Icon" />
+                                                    <Binding Path="Scenario" />
+                                                </MultiBinding>
+                                            </Image.Source>
+                                        </Image>
+
+                                    </Button>
+                                </settingsExpander:SettingsExpander.Footer>
+                                <settingsExpander:SettingsExpander.IconSource>
+                                    <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                        Glyph="&#xf4a3;" />
+                                </settingsExpander:SettingsExpander.IconSource>
+                            </settingsExpander:SettingsExpander>
+                        </StackPanel>
+                    </Expander.Content>
+                </Expander>
+
+                <settingsExpander:SettingsExpander Margin="0" Header="含有入参"
+                                                   BorderThickness="0">
+
+                    <settingsExpander:SettingsExpander.Footer>
+                        <ToggleSwitch
+                            IsChecked="{Binding Scenario.IsHaveInputValue,Mode=TwoWay}" />
+                    </settingsExpander:SettingsExpander.Footer>
+
+
+                    <settingsExpander:SettingsExpander.IconSource>
+                        <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                            Glyph="&#xf226;" />
+                    </settingsExpander:SettingsExpander.IconSource>
+                    <taskEditors:TaskEditorValueNodeShow Values="{Binding Scenario.InputValue}" ValueType="InputValue"></taskEditors:TaskEditorValueNodeShow>
+
+
+                </settingsExpander:SettingsExpander>
+
+
+                <Expander Header="Tick控制" IsExpanded="True">
+                    <Expander.Content>
+                        <StackPanel>
+                            <settingsExpander:SettingsExpander Margin="0" Header="执行间隔(秒)">
+                                <settingsExpander:SettingsExpander.Footer>
+                                    <u:NumericFloatUpDown
+                                        Minimum="0.1"
+                                        Value="{Binding Scenario.TickIntervalSecond}" />
+
+                                </settingsExpander:SettingsExpander.Footer>
+
+                                <settingsExpander:SettingsExpander.IconSource>
+                                    <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                        Glyph="&#xed88;" />
+                                </settingsExpander:SettingsExpander.IconSource>
+                            </settingsExpander:SettingsExpander>
+                        </StackPanel>
+
+
+                    </Expander.Content>
+                </Expander>
+                <Expander Header="变量" FontSize="15" IsExpanded="True" FontWeight="Medium">
+                    <Expander.Content>
+                        <taskEditors:TaskEditorValueNodeShow Values="{Binding Scenario.Values}" ValueType="StoredValue"></taskEditors:TaskEditorValueNodeShow>
+                    </Expander.Content>
+                </Expander>
+                <Expander Header="临时变量(不会被序列化)" FontSize="15" IsExpanded="True" FontWeight="Medium">
+                    <Expander.Content>
+                        <taskEditors:TaskEditorValueNodeShow Values="{Binding Scenario.TempValue}"
+                                                             ValueType="TempValue">
+                        </taskEditors:TaskEditorValueNodeShow>
+
+
+                    </Expander.Content>
+                </Expander>
+                <Expander Header="触发条件" IsExpanded="True">
+                    <Expander.Content>
+
+                        <StackPanel>
+
+                            <settingsExpander:SettingsExpander Margin="0" Header="手动触发"
+                                                               BorderThickness="0">
+                                <settingsExpander:SettingsExpander.Footer>
+                                    <ToggleSwitch
+                                        IsChecked="{Binding Scenario.ExecutionManual,Mode=TwoWay}" />
+                                </settingsExpander:SettingsExpander.Footer>
+
+
+                                <settingsExpander:SettingsExpander.IconSource>
+                                    <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                        Glyph="&#xf226;" />
+                                </settingsExpander:SettingsExpander.IconSource>
+                                <StackPanel>
+                                    <settingsExpander:SettingsExpander Margin="0" Header="关键词"
+                                                                       BorderThickness="0">
+                                        <settingsExpander:SettingsExpander.IconSource>
+                                            <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                                Glyph="&#xf4b6;" />
+                                        </settingsExpander:SettingsExpander.IconSource>
+                                        <controls1:ListShow AddCommand="{Binding AddKeyCommand}"
+                                                            DelCommand="{Binding DelKeyCommand}"
+                                                            ItemsSource="{Binding Scenario.Keys}" WithAdd="True" />
+
+                                    </settingsExpander:SettingsExpander>
+
+
+                                </StackPanel>
+
+                            </settingsExpander:SettingsExpander>
+                            <settingsExpander:SettingsExpander Margin="0" Header="自动触发"
+                                                               BorderThickness="0">
+
+                                <settingsExpander:SettingsExpander.IconSource>
+                                    <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                        Glyph="&#xf217;" />
+                                </settingsExpander:SettingsExpander.IconSource>
+
+                                <ItemsControl Margin="15,0,0,0"
+                                              ItemsSource="{Binding Source={x:Static customScenario1:CustomScenarioGlobe.Triggers}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DataTemplate.DataType>
+                                                <x:Type TypeName="generic:KeyValuePair"
+                                                        x:TypeArguments="x:String, customScenario:CustomScenarioTriggerInfo" />
+                                            </DataTemplate.DataType>
+                                            <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                                                <StackPanel.Resources>
+                                                    <taskEditor:AutoTriggersCtr x:Key="AutoTriggersCtr" />
+                                                </StackPanel.Resources>
+                                                <CheckBox
+                                                    IsChecked="{Binding Path=$parent[Expander].((taskEditor1:TaskEditorViewModel)DataContext).Scenario,Converter={StaticResource AutoTriggersCtr},
+                                                              ConverterParameter={Binding .}}" />
+                                                <TextBlock VerticalAlignment="Center"
+                                                           Text="{Binding Value.Name}" />
+
+                                                <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                                    Glyph="&#xf4a3;"
+                                                                    ToolTip.Tip="{Binding Value.Description}"
+                                                                    ToolTip.ShowDelay="0"
+                                                                    IsVisible="{Binding Value.Description, Converter={StaticResource IfNullVisibilityHidden}}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                            </settingsExpander:SettingsExpander>
+                            <settingsExpander:SettingsExpander Margin="0" Header="快捷键触发"
+                                                               BorderThickness="0">
+                                <settingsExpander:SettingsExpander.IconSource>
+                                    <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                        Glyph="&#xf4b8;" />
+                                </settingsExpander:SettingsExpander.IconSource>
+                                <StackPanel Margin="0" Orientation="Vertical">
+                                    <settingsExpander:SettingsExpander Header="激活快捷键" Description="修改激活快捷键">
+                                        <settingsExpander:SettingsExpander.Footer>
+                                            <Panel>
+                                                <u:DisableContainer DisabledTip="需要先保存一次情景才可设置"
+                                                                    ToolTip.ShowDelay="100">
+                                                    <controls1:HotKeyShow
+                                                        InitHotKey="{Binding Scenario.InitHotKeyUiCommandCommand }"
+                                                        HotKeyModel="{Binding Scenario.RunHotKey}"
+                                                        IsEnabled="{Binding IsSaveInLocal}" />
+                                                </u:DisableContainer>
+
+                                            </Panel>
+
+
+                                        </settingsExpander:SettingsExpander.Footer>
+
+                                        <settingsExpander:SettingsExpander.IconSource>
+                                            <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                                Glyph="&#xf4b8;" />
+                                        </settingsExpander:SettingsExpander.IconSource>
+                                    </settingsExpander:SettingsExpander>
+                                    <settingsExpander:SettingsExpander Header="停止快捷键" Description="修改停止快捷键">
+                                        <settingsExpander:SettingsExpander.Footer>
+                                            <Panel>
+                                                <u:DisableContainer DisabledTip="需要先保存一次情景才可设置"
+                                                                    ToolTip.ShowDelay="100">
+                                                    <controls1:HotKeyShow
+                                                        InitHotKey="{Binding Scenario.InitHotKeyUiCommandCommand }"
+                                                        HotKeyModel="{Binding Scenario.StopHotKey}"
+                                                        IsEnabled="{Binding IsSaveInLocal}" />
+                                                </u:DisableContainer>
+                                            </Panel>
+                                        </settingsExpander:SettingsExpander.Footer>
+
+                                        <settingsExpander:SettingsExpander.IconSource>
+                                            <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                                Glyph="&#xf4b8;" />
+                                        </settingsExpander:SettingsExpander.IconSource>
+                                    </settingsExpander:SettingsExpander>
+                                </StackPanel>
+                            </settingsExpander:SettingsExpander>
+                        </StackPanel>
+                    </Expander.Content>
+                </Expander>
+                <ContentPresenter x:Name="ContentPresenter">
+                    <ContentPresenter.Resources>
+                        <taskEditors:NodeTemplatesSelector x:Key="ScenarioMethodNode" TemplateType="View" />
+                    </ContentPresenter.Resources>
+                    <ContentPresenter.Styles>
+                        <Style Selector="controls2|Node.View">
+
+                        </Style>
+                    </ContentPresenter.Styles>
+                    <ContentPresenter.Content>
+                        <Binding
+                            Path="ScenarioMethodCategoryGroup"
+                            Converter="{StaticResource ScenarioMethodCategoryGroupCtr}"
+                            ConverterParameter="{StaticResource ScenarioMethodNode}" UpdateSourceTrigger="PropertyChanged" />
+                    </ContentPresenter.Content>
+
+                </ContentPresenter>
+
+
+            </ListBox>
+
+
+        </Border>
+        <!-- 拖动部分 -->
+        <GridSplitter Grid.Row="0" Grid.Column="1"  Width="5" HorizontalAlignment="Center"
+                      VerticalAlignment="Stretch" />
+        <!-- 右边部分 -->
+        <Border Grid.Column="2">
+            <Grid ShowGridLines="True">
+                <Grid ZIndex="-2">
+                    <Grid.Background>
+                        <SolidColorBrush Color="{DynamicResource NodifyEditor.BackgroundColor}" Opacity="0.5" />
+                    </Grid.Background>
+                </Grid>
+                <controls2:NodifyEditor x:Name="Editor"
+                                        d:DataContext="{}"
+                                        DragDrop.AllowDrop="True"
+                                        PendingConnection="{Binding PendingConnection}"
+                                        DisconnectConnectorCommand="{Binding DisconnectConnectorCommand}"
+                                        Connections="{Binding Scenario.Connections}"
+                                        ItemsSource="{Binding Scenario.Nodes}">
+
+                    <controls2:NodifyEditor.Resources>
+                        <kitopiaAvalonia:FlowToDirectionConverter x:Key="FlowToDirectionConverter" />
+                    </controls2:NodifyEditor.Resources>
+                    <controls2:NodifyEditor.GridLineTemplate>
+                        <DataTemplate>
+                            <controls2:LargeGridLine
+                                Width="{Binding $parent[controls2:NodifyEditor].Bounds.Width}"
+                                OffsetX="{Binding $parent[controls2:NodifyEditor].OffsetX}"
+                                OffsetY="{Binding $parent[controls2:NodifyEditor].OffsetY}"
+                                Zoom="{Binding $parent[controls2:NodifyEditor].Zoom}"
+                                Height="{Binding $parent[controls2:NodifyEditor].Bounds.Height}"
+                                ZIndex="-2">
+                                <controls2:LargeGridLine.Brush>
+                                    <SolidColorBrush Color="Gainsboro" Opacity="0.5" />
+                                </controls2:LargeGridLine.Brush>
+                            </controls2:LargeGridLine>
+                        </DataTemplate>
+                    </controls2:NodifyEditor.GridLineTemplate>
+
+
+                    <controls2:NodifyEditor.ConnectionTemplate>
+                        <DataTemplate DataType="{x:Type customScenario1:ConnectionItem}">
+                            <Grid>
+                                <controls2:Connection Source="{Binding Source.Anchor}" Focusable="True"
+                                                      SplitCommand="{Binding SplitConnectionCommand }"
+                                                      Target="{Binding Target.Anchor}">
+                                    <controls2:Connection.ContextFlyout>
+                                        <MenuFlyout>
+                                            <!-- ReSharper disable once Xaml.RedundantResource -->
+                                            <MenuItem Header="删除此连接"
+                                                      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                                      Command="{Binding $parent[Window].((taskEditor1:TaskEditorViewModel)DataContext).DelConnectionCommand}"
+                                                      CommandParameter="{Binding }" />
+                                        </MenuFlyout>
+                                    </controls2:Connection.ContextFlyout>
+                                    <controls2:Connection.Stroke>
+                                        <SolidColorBrush Color="{DynamicResource SemiBlue5Color}"
+                                                         Opacity="0.5" />
+                                    </controls2:Connection.Stroke>
+                                </controls2:Connection>
+                            </Grid>
+
+                        </DataTemplate>
+                    </controls2:NodifyEditor.ConnectionTemplate>
+
+                    <controls2:NodifyEditor.PendingConnectionTemplate>
+                        <DataTemplate DataType="{x:Type taskEditor1:PendingConnectionViewModel}">
+                            <controls2:PendingConnection StartedCommand="{Binding StartCommand}"
+                                                         CompletedCommand="{Binding FinishCommand}"
+                                                         EnablePreview="True"
+                                                         EnableSnapping="True"
+                                                         Direction="{Binding Source,Converter={StaticResource FlowToDirectionConverter}}"
+
+                                                         PreviewTarget="{Binding PreviewTarget, Mode=TwoWay}">
+                                <controls2:PendingConnection.Stroke>
+                                    <SolidColorBrush Color="{DynamicResource SemiBlue5Color}"
+                                                     Opacity="0.5" />
+                                </controls2:PendingConnection.Stroke>
+                                <controls2:PendingConnection.Background>
+                                    <SolidColorBrush Color="{DynamicResource SemiBlue5Color}"
+                                                     Opacity="0.8" />
+                                </controls2:PendingConnection.Background>
+                                <TextBlock Text="{Binding PreviewText}" />
+                            </controls2:PendingConnection>
+
+                        </DataTemplate>
+                    </controls2:NodifyEditor.PendingConnectionTemplate>
+                    <controls2:NodifyEditor.DataTemplates>
+                        <taskEditors:NodeTemplatesSelector />
+                    </controls2:NodifyEditor.DataTemplates>
+                </controls2:NodifyEditor>
+
+            </Grid>
+        </Border>
+        <Grid Grid.Column="2" ZIndex="10">
+            <Border
+
+                Padding="12"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Center"
+                BorderThickness="1"
+                CornerRadius="4">
+
+                <Border.Effect>
+                    <DropShadowEffect
+                        BlurRadius="30"
+                        Opacity="0.4"
+                        Color="#202020" />
+                </Border.Effect>
+                <StackPanel Orientation="Horizontal">
+                    <StackPanel.Resources>
+                        <converter:ReverseBoolToVisibilityConverter x:Key="ReverseBoolToVisibilityConverter" />
+                    </StackPanel.Resources>
+                    <Button ToolTip.Tip="清理未连接节点" ToolTip.ShowDelay="100" FontWeight="Normal"
+                            Command="{Binding CleanUnusedNodeCommand}">
+                        <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf34c;" FontSize="24" />
+                    </Button>
+                    <ItemsControl
+                        IsVisible="{Binding Scenario.IsHaveInputValue,Converter={StaticResource ReverseBoolToVisibilityConverter}}">
+                        <Button ToolTip.Tip="运行测试" ToolTip.ShowDelay="100" FontWeight="Normal"
+                                IsVisible="{Binding Scenario.IsRunning,Converter={StaticResource ReverseBoolToVisibilityConverter}}"
+                                Foreground="GreenYellow"
+                                Command="{Binding VerifyNodeCommand}">
+                            <controls1:FontIcon Foreground="GreenYellow" FontFamily="{StaticResource FluentFont}"
+                                                FontSize="24"
+                                                Glyph="&#xf605;" />
+                        </Button>
+                        <Button ToolTip.Tip="停止测试" ToolTip.ShowDelay="100" FontWeight="Normal"
+                                IsVisible="{Binding Scenario.IsRunning}"
+
+                                Command="{Binding StopCustomScenarioCommand}">
+                            <controls1:FontIcon Foreground="OrangeRed" FontFamily="{StaticResource FluentFont}"
+                                                FontSize="24"
+                                                Glyph="&#xf72a;" />
+                        </Button>
+                    </ItemsControl>
+
+                    <Button ToolTip.Tip="保存" ToolTip.ShowDelay="100" FontWeight="Normal"
+                            Command="{Binding SaveCustomScenarioCommand}">
+                        <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf67f;" FontSize="24" />
+                    </Button>
+                    <Button ToolTip.Tip="退出并保存" ToolTip.ShowDelay="100" FontWeight="Normal"
+                            Command="{Binding SaveAndQuitCustomScenarioCommand}"
+                            CommandParameter="{Binding $parent[u:UrsaWindow]}">
+                        <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xea45;" FontSize="24" />
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+
+
+</u:UrsaWindow>
