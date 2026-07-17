@@ -11,7 +11,11 @@ namespace Kitopia.Desktop.Platform.Windows
     public class GitHubUpdateService
     {
         private static readonly ILogger Logger = LogManager.Logger.ForContext<GitHubUpdateService>();
-        private static readonly HttpClient HttpClient = new();
+        private static readonly HttpClient HttpClient = new() {
+            DefaultRequestHeaders = { 
+                { "User-Agent", $"KitopiaUpdateChecker/{ServiceManager.Version}" }
+            } 
+        };
         private const string Owner = "Maklith";
         private const string Repo = "kitopia";
 

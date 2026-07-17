@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Kitopia.Desktop.Features.CustomScenario;
 using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Features.CustomScenario.Services;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Scenario = Kitopia.Desktop.Features.CustomScenario.CustomScenario;
 
@@ -51,6 +52,6 @@ public partial class CustomScenariosManagerPageViewModel : ObservableRecipient
             PrimaryAction = () => { Dispatcher.UIThread.InvokeAsync(() => { CustomScenarioManger.Remove(scenario); }); }
         };
         ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
-            dialog.ToToastRequest());
+            dialog.ToToastRequest(), ServiceManager.Services.GetService<IWindowTool>()?.GetForegroundWindow());
     }
 }

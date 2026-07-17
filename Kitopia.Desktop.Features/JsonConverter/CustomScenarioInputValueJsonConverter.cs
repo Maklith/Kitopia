@@ -167,10 +167,6 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
             throw new CustomScenarioLoadFromJsonException(
                 CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, value.SerializeType.FullName!, null);
         }
-        else
-        {
-            writer.WriteNullValue();
-        }
 
         writer.WriteEndObject();
     }
