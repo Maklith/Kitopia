@@ -130,7 +130,7 @@ public class Plugin
 
         List<ScreenCaptureExMethod> captureActions = new();
         List<OnnxModelInfoWrapper> onnxModelInfos = new();
-        List<Func<InputDataAnalyzeTimeFlags, string, IEnumerable<InputData>>> inputDataIdentifier = new();
+        List<Func<InputDataAnalyzeTimeFlags, string?, IEnumerable<InputData>>> inputDataIdentifier = new();
         List<(Func<InputDataAnalyzeTimeFlags>, Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>)>
             inputDataAnalyzerActions = new();
         Dictionary<string, Func<IInferenceSession>> onnxRuntimes = new();
@@ -277,8 +277,10 @@ public class Plugin
 
         PluginOverall.OnnxModelInfos.Add(PluginInfo.ToPlgString(), onnxModelInfos);
         PluginOverall.OnnxRuntimes.Add(PluginInfo.ToPlgString(), onnxRuntimes);
-        PluginOverall.SearchWindowInputDataIdentifies.Add(PluginInfo.ToPlgString(), inputDataIdentifier);
-        PluginOverall.SearchWindowInputDataAnalyzers.Add(PluginInfo.ToPlgString(), inputDataAnalyzerActions);
+        if (!PluginOverall.SearchWindowInputDataIdentifies.TryAdd(PluginInfo.ToPlgString(), inputDataIdentifier))
+            throw new InvalidOperationException($"Input data identifiers are already registered for {PluginInfo.ToPlgString()}.");
+        if (!PluginOverall.SearchWindowInputDataAnalyzers.TryAdd(PluginInfo.ToPlgString(), inputDataAnalyzerActions))
+            throw new InvalidOperationException($"Input data analyzers are already registered for {PluginInfo.ToPlgString()}.");
         
         foreach (var func in inputDataAnalyzerActions)
         {
@@ -371,9 +373,9 @@ public class Plugin
         PluginOverall.ScreenCaptureExMethods.Remove(PluginInfo.ToPlgString());
         PluginOverall.OnnxModelInfos.Remove(PluginInfo.ToPlgString());
         PluginOverall.OnnxRuntimes.Remove(PluginInfo.ToPlgString());
-        PluginOverall.SearchWindowInputDataIdentifies.Remove(PluginInfo.ToPlgString());
+        PluginOverall.SearchWindowInputDataIdentifies.TryRemove(PluginInfo.ToPlgString(), out _);
 
-        if (PluginOverall.SearchWindowInputDataAnalyzers.TryGetValue(PluginInfo.ToPlgString(), out var analyzers))
+        if (PluginOverall.SearchWindowInputDataAnalyzers.TryRemove(PluginInfo.ToPlgString(), out var analyzers))
         {
             var searchFeature = ServiceManager.Services.GetService<ISearchFeatureService>();
             if (searchFeature != null)
@@ -384,7 +386,6 @@ public class Plugin
                 }
             }
         }
-        PluginOverall.SearchWindowInputDataAnalyzers.Remove(PluginInfo.ToPlgString());
         ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.RemoveMethodsByPluginName(PluginInfo.ToPlgString());
         var keyValuePairs = CustomScenarioGlobe.Triggers.Where(e => e.Value.PluginInfo == PluginInfo.ToPlgString());
         foreach (var keyValuePair in keyValuePairs) CustomScenarioGlobe.Triggers.Remove(keyValuePair.Key);

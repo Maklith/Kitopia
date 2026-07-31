@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Kitopia.Desktop.Features.Utils;
@@ -16,11 +17,11 @@ public class PluginOverall
     public static readonly Dictionary<string, List<OnnxModelInfoWrapper>> OnnxModelInfos = new();
     public static readonly Dictionary<string, Dictionary<string, Func<IInferenceSession>>> OnnxRuntimes = new();
 
-    public static readonly Dictionary<string, List<Func<InputDataAnalyzeTimeFlags, string?, IEnumerable<InputData>>>>
+    public static readonly ConcurrentDictionary<string, List<Func<InputDataAnalyzeTimeFlags, string?, IEnumerable<InputData>>>>
         SearchWindowInputDataIdentifies = new();
 
     public static readonly
-        Dictionary<string, List<(Func<InputDataAnalyzeTimeFlags>,
+        ConcurrentDictionary<string, List<(Func<InputDataAnalyzeTimeFlags>,
             Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>)>> SearchWindowInputDataAnalyzers = new();
 
     public static List<OnnxModelInfoWrapper> AllOnnxModelInfos =>
