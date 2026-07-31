@@ -128,6 +128,39 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         Assert.AreEqual(0, notificationService.ShowCount);
     }
 
+    [TestMethod]
+    public async Task SendFiles_DroppedLocalFile_SendsToSelectedConversation()
+    {
+        var filePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.txt");
+        var expectedContent = "dragged file content";
+        await File.WriteAllTextAsync(filePath, expectedContent);
+
+        try
+        {
+            var messageService = new FakeMessageAppService();
+            using var viewModel = new DeviceCommunicationPageViewModel(
+                new FakeDiscoveryService(new DiscoveredDevice { Id = "peer-1", Name = "Phone" }),
+                messageService,
+                new FakeChatAttachmentStore(),
+                new FakeChatPlatformService(),
+                new FakeDeviceCommunicationSettings(),
+                new FakeToastService(),
+                postToUi: action => action());
+            viewModel.SelectedConversation = viewModel.Conversations.Single();
+
+            viewModel.SendFiles([filePath]);
+
+            var sentFile = await messageService.FileSent.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.AreEqual("peer-1", sentFile.DeviceId);
+            Assert.AreEqual(Path.GetFileName(filePath), sentFile.Message.FileName);
+            Assert.AreEqual(expectedContent, System.Text.Encoding.UTF8.GetString(sentFile.Content));
+        }
+        finally
+        {
+            File.Delete(filePath);
+        }
+    }
+
     private sealed class FakeCommunicationRuntime : IMobileCommunicationRuntime
     {
         public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -174,8 +207,16 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
             _displayMode = displayMode;
         }
 
+        public TaskCompletionSource<(string DeviceId, FileChatMessage Message, byte[] Content)> FileSent { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public ValueTask SendTextChatAsync(string deviceId, string text, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
-        public ValueTask SendFileChatAsync(string deviceId, FileChatMessage message, Stream stream, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
+        public async ValueTask SendFileChatAsync(string deviceId, FileChatMessage message, Stream stream, CancellationToken cancellationToken = default)
+        {
+            await using var content = new MemoryStream();
+            await stream.CopyToAsync(content, cancellationToken);
+            FileSent.TrySetResult((deviceId, message, content.ToArray()));
+        }
         public ValueTask SendImageChatAsync(string deviceId, ImageChatMessage message, Stream stream, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
         public ValueTask AcceptFileAsync(string deviceId, Guid transferId, string savePath, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
         public ValueTask AcceptFileAsync(string deviceId, Guid transferId, string saveTarget, Func<CancellationToken, ValueTask<Stream>> openWriteStreamAsync, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;

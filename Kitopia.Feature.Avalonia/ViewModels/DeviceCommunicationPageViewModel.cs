@@ -393,7 +393,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         if (clipboard.Files.Count > 0) {
-            SendFilesAsync(conversation, clipboard.Files, errors);
+            QueueFilesForSending(conversation, clipboard.Files, errors);
         }
 
         if (errors.Count > 0) {
@@ -410,15 +410,23 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         var filePaths = await _attachmentStore.PickFilesToSendAsync();
-        if (filePaths.Count == 0) {
+        SendFiles(filePaths);
+    }
+
+    public bool CanSendFiles => CanOperateConversation();
+
+    public void SendFiles(IReadOnlyCollection<string> filePaths) {
+        ArgumentNullException.ThrowIfNull(filePaths);
+
+        var conversation = SelectedConversation;
+        if (conversation is null || IsSending || filePaths.Count == 0) {
             return;
         }
 
-        var errors = new List<string>();
-        SendFilesAsync(conversation, filePaths, errors);
+        QueueFilesForSending(conversation, filePaths, []);
     }
 
-    private void SendFilesAsync(DeviceConversationItem conversation, IReadOnlyCollection<string> filePaths,
+    private void QueueFilesForSending(DeviceConversationItem conversation, IReadOnlyCollection<string> filePaths,
         List<string> errors) {
         foreach (var filePath in filePaths) {
             if (!File.Exists(filePath)) continue;

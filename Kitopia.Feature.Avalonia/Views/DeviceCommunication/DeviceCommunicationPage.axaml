@@ -40,6 +40,9 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:DeviceConversationItem">
                             <Border Margin="0,0,0,8" Padding="12"
+                                    DragDrop.AllowDrop="True"
+                                    DragDrop.DragOver="OnConversationItemFileDragOver"
+                                    DragDrop.Drop="OnConversationItemFileDrop"
                                     Theme="{DynamicResource KitopiaCardBorderless}">
                                 <Border.ContextFlyout>
                                     <MenuFlyout>
@@ -132,7 +135,13 @@
                       CornerRadius="2"
                       Margin="0,8" />
 
-        <Border Grid.Column="2" Theme="{DynamicResource KitopiaCard}" IsVisible="{Binding IsChatVisible}">
+        <Border Grid.Column="2"
+                Theme="{DynamicResource KitopiaCard}"
+                IsVisible="{Binding IsChatVisible}"
+                DragDrop.AllowDrop="True"
+                DragDrop.DragOver="OnFileDragOver"
+                DragDrop.DragLeave="OnFileDragLeave"
+                DragDrop.Drop="OnFileDrop">
             <Grid RowDefinitions="*,Auto" RowSpacing="0">
                 <Grid RowDefinitions="Auto,*">
                     <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,12">
@@ -217,6 +226,28 @@
                     </Grid>
                 </Border>
             </Grid>
+        </Border>
+
+        <Border x:Name="FileDropOverlay"
+                Grid.Column="2"
+                ZIndex="50"
+                IsVisible="False"
+                IsHitTestVisible="False"
+                CornerRadius="8"
+                BorderThickness="2"
+                BorderBrush="{DynamicResource SemiColorPrimary}"
+                Background="{DynamicResource SemiColorFill0}">
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="6">
+                <TextBlock Text="发送文件"
+                           HorizontalAlignment="Center"
+                           FontSize="18"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="{Binding CurrentConversationTitle}"
+                           HorizontalAlignment="Center"
+                           Foreground="{DynamicResource SemiColorText1}" />
+            </StackPanel>
         </Border>
 
         <Border x:Name="ImagePreviewOverlay"

@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Specialized;
+using System.IO;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Kitopia.Feature.Avalonia.DeviceCommunication.ViewModels;
@@ -20,6 +23,7 @@ public partial class DeviceCommunicationPage : UserControl
     private Canvas? _imagePreviewCanvas;
     private Image? _imagePreviewContent;
     private TextBlock? _imagePreviewTitle;
+    private Border? _fileDropOverlay;
     private double _imagePreviewWidth;
     private double _imagePreviewHeight;
     private double _imagePreviewScale = 1d;
@@ -41,6 +45,7 @@ public partial class DeviceCommunicationPage : UserControl
         _imagePreviewCanvas = this.FindControl<Canvas>("ImagePreviewCanvas");
         _imagePreviewContent = this.FindControl<Image>("ImagePreviewContent");
         _imagePreviewTitle = this.FindControl<TextBlock>("ImagePreviewTitle");
+        _fileDropOverlay = this.FindControl<Border>("FileDropOverlay");
         DataContextChanged += OnDataContextChanged;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -200,6 +205,7 @@ public partial class DeviceCommunicationPage : UserControl
 
     private void OnUnloaded(object? sender, RoutedEventArgs e)
     {
+        SetFileDropOverlayVisible(false);
         CloseImagePreview();
 
         if (_boundViewModel is not null)
@@ -207,6 +213,114 @@ public partial class DeviceCommunicationPage : UserControl
             _boundViewModel.PropertyChanged -= OnViewModelPropertyChanged;
             UnbindCurrentMessages();
             _boundViewModel = null;
+        }
+    }
+
+    private void OnFileDragOver(object? sender, DragEventArgs e)
+    {
+        var canSendFiles = _boundViewModel?.CanSendFiles == true && HasLocalFiles(e);
+        e.DragEffects = canSendFiles ? DragDropEffects.Copy : DragDropEffects.None;
+        SetFileDropOverlayVisible(canSendFiles);
+        e.Handled = true;
+    }
+
+    private void OnConversationItemFileDragOver(object? sender, DragEventArgs e)
+    {
+        SetFileDropOverlayVisible(false);
+
+        var hasLocalFiles = HasLocalFiles(e);
+        if (_boundViewModel is not null &&
+            sender is Border { DataContext: DeviceConversationItem conversation } &&
+            hasLocalFiles)
+        {
+            _boundViewModel.SelectedConversation = conversation;
+        }
+
+        e.DragEffects = _boundViewModel?.CanSendFiles == true && hasLocalFiles
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnConversationItemFileDrop(object? sender, DragEventArgs e)
+    {
+        SetFileDropOverlayVisible(false);
+
+        if (_boundViewModel is null ||
+            sender is not Border { DataContext: DeviceConversationItem conversation })
+        {
+            RejectFileDrop(e);
+            return;
+        }
+
+        _boundViewModel.SelectedConversation = conversation;
+        SendDroppedFiles(_boundViewModel, e);
+    }
+
+    private void OnFileDragLeave(object? sender, DragEventArgs e)
+    {
+        SetFileDropOverlayVisible(false);
+    }
+
+    private void OnFileDrop(object? sender, DragEventArgs e)
+    {
+        SetFileDropOverlayVisible(false);
+
+        var viewModel = _boundViewModel;
+        if (viewModel?.CanSendFiles != true)
+        {
+            RejectFileDrop(e);
+            return;
+        }
+
+        SendDroppedFiles(viewModel, e);
+    }
+
+    private static void SendDroppedFiles(DeviceCommunicationPageViewModel viewModel, DragEventArgs e)
+    {
+        var filePaths = GetLocalFilePaths(e);
+
+        if (viewModel.CanSendFiles && filePaths.Length > 0)
+        {
+            viewModel.SendFiles(filePaths);
+            e.DragEffects = DragDropEffects.Copy;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
+
+        e.Handled = true;
+    }
+
+    private static string[] GetLocalFilePaths(DragEventArgs e)
+    {
+        return e.DataTransfer.TryGetFiles()?
+            .OfType<IStorageFile>()
+            .Select(file => file.TryGetLocalPath())
+            .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            .Select(path => path!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray() ?? [];
+    }
+
+    private static void RejectFileDrop(DragEventArgs e)
+    {
+        e.DragEffects = DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private static bool HasLocalFiles(DragEventArgs e)
+    {
+        return e.DataTransfer.Contains(DataFormat.File) && GetLocalFilePaths(e).Length > 0;
+    }
+
+    private void SetFileDropOverlayVisible(bool isVisible)
+    {
+        _fileDropOverlay ??= this.FindControl<Border>("FileDropOverlay");
+        if (_fileDropOverlay is not null)
+        {
+            _fileDropOverlay.IsVisible = isVisible;
         }
     }
 
