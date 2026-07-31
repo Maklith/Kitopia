@@ -1,154 +1,184 @@
-#region
-
-using System.Xml;
+using System.Xml.Linq;
+using Kitopia.Desktop.Features.Search;
 using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Config;
-using Kitopia.Desktop.Features.Search;
 using PluginCore;
 using Serilog;
-using Vanara.Extensions;
-using Vanara.PInvoke;
-using Vanara.Windows.Shell;
-
-#endregion
+using Windows.ApplicationModel;
+using Windows.Management.Deployment;
 
 namespace Kitopia.Desktop.Platform.Windows.AppTools;
 
-internal class UwpTools
+internal static class UwpTools
 {
-    private static readonly HashSet<string> ErrorUwPs = new();
-    private static readonly ILogger Logger = LogManager.Logger.ForContext<UwpTools>();
-
-    private static XmlNode? GetApplicationNode(XmlNode node)
-    {
-        foreach (XmlNode o in node.ChildNodes)
-        {
-            if (o.Name == "Application") return o;
-
-            var nodes = GetApplicationNode(o);
-            if (nodes is not null) return nodes;
-        }
-
-        return null;
-    }
+    private static readonly ILogger Logger = LogManager.Logger.ForContext(typeof(UwpTools));
 
     internal static void GetAll(SearchIndex index)
     {
-        FirewallApi.NetworkIsolationEnumAppContainers(FirewallApi.NETISO_FLAG.NETISO_FLAG_FORCE_COMPUTE_BINARIES,
-            out var pdwNuminternalAppCs, out var ppinternalAppCs);
-        var options = new ParallelOptions
+        IEnumerable<Package> packages;
+        try
         {
-            MaxDegreeOfParallelism = 5
-        };
-        Parallel.ForEach(ppinternalAppCs.ToIEnum<FirewallApi.INET_FIREWALL_APP_CONTAINER>(
-            (int)pdwNuminternalAppCs), options, file =>
+            packages = new PackageManager().FindPackagesForUser(string.Empty);
+        }
+        catch (Exception exception)
+        {
+            Logger.Error(exception, "枚举当前用户的已安装应用包失败");
+            return;
+        }
+
+        foreach (var package in packages)
         {
             try
             {
-                if (!ErrorUwPs.Contains(file.displayName)) AppContainerAnalyse(file, index);
+                IndexPackage(package, index);
             }
-            catch (Exception e)
+            catch (Exception exception)
             {
-                Logger.Error(e, "UWP索引时出现错误");
-                ErrorUwPs.Add(file.displayName);
+                Logger.Warning(exception, "索引应用包 {PackageFamilyName} 失败", package.Id.FamilyName);
             }
-        });
+        }
     }
 
-    private static void AppContainerAnalyse(FirewallApi.INET_FIREWALL_APP_CONTAINER appContainer,
-        SearchIndex index)
+    private static void IndexPackage(Package package, SearchIndex index)
     {
-        if (ConfigManger.Config.ignoreItems.Contains(appContainer.appContainerName))
-        {
-            Logger.Debug("忽略索引:" + appContainer.appContainerName);
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(appContainer.appContainerName) ||
-            string.IsNullOrWhiteSpace(appContainer.displayName) ||
-            string.IsNullOrWhiteSpace(appContainer.workingDirectory))
+        if (package.IsFramework || package.IsResourcePackage)
             return;
 
-        var fileName = appContainer.displayName;
+        var packageFamilyName = package.Id.FamilyName;
+        IReadOnlyDictionary<string, string?> iconPaths;
         try
         {
-            fileName = new IndirectString(appContainer.displayName).Value;
+            iconPaths = ReadApplicationIconPaths(package.InstalledPath);
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            Logger.Error($"错误的UWP应用{appContainer.displayName}:{e.Message}");
-            ErrorUwPs.Add(appContainer.displayName);
+            Logger.Debug(exception, "读取应用包 {PackageFamilyName} 的图标失败", packageFamilyName);
+            iconPaths = new Dictionary<string, string?>();
         }
 
-        if (string.IsNullOrWhiteSpace(fileName)) return;
-
-
-        var xmlDocument = new XmlDocument();
-        if (File.Exists($"{appContainer.workingDirectory}{Path.DirectorySeparatorChar}AppxManifest.xml"))
-            xmlDocument.Load($"{appContainer.workingDirectory}{Path.DirectorySeparatorChar}AppxManifest.xml");
-        else if (File.Exists($"{appContainer.workingDirectory}{Path.DirectorySeparatorChar}appxmanifest.xml"))
-            xmlDocument.Load($"{appContainer.workingDirectory}{Path.DirectorySeparatorChar}appxmanifest.xml");
-        else
-            return;
-
-        var application = GetApplicationNode(xmlDocument);
-
-        if (application?.Attributes == null) return;
-
-        var applicationAttribute = application.Attributes["Id"];
-        if (applicationAttribute is null) return;
-
-        var id = applicationAttribute.Value;
-        XmlNode? visualElements = null;
-        foreach (XmlNode applicationChildNode in application.ChildNodes)
-            if (applicationChildNode.Name.Contains("VisualElements"))
-                visualElements = applicationChildNode;
-
-        if (visualElements == null) return;
-
-        if (visualElements.Attributes == null) return;
-
-        var visualElementsAttribute = visualElements.Attributes["Square44x44Logo"];
-
-
-        if (visualElementsAttribute == null) return;
-
-        var squareLogo = visualElementsAttribute.Value;
-        var logoName = squareLogo.Split(Path.DirectorySeparatorChar)
-            .Last()
-            .Split(".")
-            .First();
-        var path = $"{appContainer.workingDirectory}{squareLogo.Split(Path.DirectorySeparatorChar).First()}";
-        if (!Directory.Exists(path)) return;
-
-        var logos =
-            new DirectoryInfo(path);
-        var pa = $"{path}{Path.DirectorySeparatorChar}{logoName}.scale-200.png";
-        if (File.Exists(pa))
+        foreach (var app in package.GetAppListEntries())
         {
-            index.TryAdd(new SearchEntry
+            try
             {
-                DisplayName = fileName,
-                OnlyKey = $"{appContainer.appContainerName}!{id}",
-                FileType = FileType.UWP应用,
-                IconPath = pa
-            });
-            return;
+                var appUserModelId = app.AppUserModelId;
+                if (string.IsNullOrWhiteSpace(appUserModelId))
+                    continue;
+
+                if (ConfigManger.Config.ignoreItems.Contains(appUserModelId) ||
+                    ConfigManger.Config.ignoreItems.Contains(packageFamilyName))
+                {
+                    Logger.Debug("忽略索引:{AppUserModelId}", appUserModelId);
+                    continue;
+                }
+
+                var displayName = app.DisplayInfo.DisplayName;
+                if (string.IsNullOrWhiteSpace(displayName))
+                    displayName = package.DisplayName;
+                if (string.IsNullOrWhiteSpace(displayName))
+                    continue;
+
+                var applicationId = GetApplicationId(appUserModelId);
+                iconPaths.TryGetValue(applicationId, out var iconPath);
+
+                index.TryAdd(new SearchEntry
+                {
+                    DisplayName = displayName,
+                    OnlyKey = appUserModelId,
+                    FileType = FileType.UWP应用,
+                    IconPath = iconPath
+                });
+            }
+            catch (Exception exception)
+            {
+                Logger.Warning(exception, "索引应用包 {PackageFamilyName} 中的一个启动项失败", packageFamilyName);
+            }
+        }
+    }
+
+    private static string GetApplicationId(string appUserModelId)
+    {
+        var separatorIndex = appUserModelId.IndexOf('!');
+        return separatorIndex >= 0 ? appUserModelId[(separatorIndex + 1)..] : appUserModelId;
+    }
+
+    internal static IReadOnlyDictionary<string, string?> ReadApplicationIconPaths(string packageDirectory)
+    {
+        var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        var manifestPath = Path.Combine(packageDirectory, "AppxManifest.xml");
+        if (!File.Exists(manifestPath))
+            return result;
+
+        var document = XDocument.Load(manifestPath);
+        foreach (var application in document.Descendants().Where(element => element.Name.LocalName == "Application"))
+        {
+            var applicationId = GetAttributeValue(application, "Id");
+            if (string.IsNullOrWhiteSpace(applicationId))
+                continue;
+
+            var visualElements = application.Elements()
+                .FirstOrDefault(element => element.Name.LocalName.EndsWith("VisualElements", StringComparison.Ordinal));
+            var logo = GetAttributeValue(visualElements, "Square44x44Logo")
+                       ?? GetAttributeValue(visualElements, "Square30x30Logo")
+                       ?? GetAttributeValue(visualElements, "Square150x150Logo")
+                       ?? GetAttributeValue(visualElements, "Logo")
+                       ?? GetAttributeValue(application, "Logo");
+
+            var executable = GetAttributeValue(application, "Executable");
+            result[applicationId] = ResolveAssetPath(packageDirectory, logo)
+                                    ?? ResolveAssetPath(packageDirectory, executable);
         }
 
-        {
-            foreach (var enumerateFile in logos.EnumerateFiles())
-                if (enumerateFile.Name.StartsWith(logoName))
-                {
-                    index.TryAdd(new SearchEntry
-                    {
-                        DisplayName = fileName,
-                        OnlyKey = $"{appContainer.appContainerName}!{id}",
-                        FileType = FileType.UWP应用,
-                        IconPath = enumerateFile.FullName
-                    });
-                    break;
-                }
-        }
+        return result;
+    }
+
+    private static string? GetAttributeValue(XElement? element, string localName)
+    {
+        return element?.Attributes()
+            .FirstOrDefault(attribute => attribute.Name.LocalName == localName)
+            ?.Value;
+    }
+
+    internal static string? ResolveAssetPath(string packageDirectory, string? relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath) || relativePath.StartsWith("ms-resource:", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        const string msAppxPrefix = "ms-appx:///";
+        if (relativePath.StartsWith(msAppxPrefix, StringComparison.OrdinalIgnoreCase))
+            relativePath = relativePath[msAppxPrefix.Length..];
+
+        var normalizedPath = relativePath
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar)
+            .TrimStart(Path.DirectorySeparatorChar);
+        var exactPath = Path.Combine(packageDirectory, normalizedPath);
+        if (File.Exists(exactPath))
+            return exactPath;
+
+        var directory = Path.GetDirectoryName(exactPath);
+        var fileName = Path.GetFileNameWithoutExtension(exactPath);
+        var extension = Path.GetExtension(exactPath);
+        if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileName) || !Directory.Exists(directory))
+            return null;
+
+        return Directory.EnumerateFiles(directory, $"{fileName}*{extension}", SearchOption.TopDirectoryOnly)
+            .OrderBy(GetAssetPreference)
+            .ThenBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+    }
+
+    private static int GetAssetPreference(string path)
+    {
+        var name = Path.GetFileNameWithoutExtension(path);
+        if (name.Contains("targetsize-44", StringComparison.OrdinalIgnoreCase) &&
+            name.Contains("altform-unplated", StringComparison.OrdinalIgnoreCase))
+            return 0;
+        if (name.Contains("targetsize-44", StringComparison.OrdinalIgnoreCase))
+            return 1;
+        if (name.Contains("scale-200", StringComparison.OrdinalIgnoreCase))
+            return 2;
+        if (name.Contains("scale-100", StringComparison.OrdinalIgnoreCase))
+            return 3;
+        return 4;
     }
 }

@@ -360,7 +360,11 @@ internal partial class IconTools
 
                     break;
                 case FileType.UWP应用:
-                    GetIcon(t.IconPath!, t);
+                    if (!string.IsNullOrWhiteSpace(t.IconPath))
+                    {
+                        GetIcon(t.IconPath, t);
+                    }
+
                     break;
 
                 default:
