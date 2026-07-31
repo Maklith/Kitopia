@@ -161,6 +161,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             FileType = item.FileType,
             IconSymbol = item.IconSymbol,
             Arguments = item.Arguments,
+            LaunchPath = item.LaunchPath,
             IconPath = item.IconPath,
             StartDirectory = item.StartDirectory
         };
@@ -221,6 +222,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                         FileType = item.FileType,
                         IconSymbol = item.IconSymbol,
                         Arguments = item.Arguments,
+                        LaunchPath = item.LaunchPath,
                         IconPath = item.IconPath,
                         StartDirectory = item.StartDirectory
                     };

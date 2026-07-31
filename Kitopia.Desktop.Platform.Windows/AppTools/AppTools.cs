@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;
 using PluginCore;
 using Serilog;
+using Vanara.PInvoke;
 using Vanara.Windows.Shell;
 using File = System.IO.File;
 
@@ -257,7 +258,31 @@ public class AppSolver
                         var shellItem = new ShellLink(file);
                         localizedName = shellItem.Name;
                         var targetPath = shellItem.ShortTargetPath;
-                        if (string.IsNullOrWhiteSpace(targetPath)||string.IsNullOrWhiteSpace(localizedName))
+                        if (string.IsNullOrWhiteSpace(localizedName))
+                        {
+                            return;
+                        }
+
+                        if (IsWindowsInstallerShortcut(file, targetPath))
+                        {
+                            if (ConfigManger.Config.ignoreItems.Contains(file) ||
+                                (!string.IsNullOrWhiteSpace(targetPath) &&
+                                 ConfigManger.Config.ignoreItems.Contains(targetPath)))
+                            {
+                                Logger.Debug($"忽略索引:{file}");
+                                return;
+                            }
+
+                            index.TryAdd(new SearchEntry
+                            {
+                                DisplayName = localizedName,
+                                OnlyKey = file,
+                                FileType = FileType.应用程序
+                            });
+                            break;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(targetPath))
                         {
                             return;
                         }
@@ -297,7 +322,8 @@ public class AppSolver
                                     DisplayName = localizedName,
                                     OnlyKey = fullName, Arguments = shellItem.Arguments,
                                     FileType = FileType.应用程序,
-                                    StartDirectory = shellItem.WorkingDirectory
+                                    StartDirectory = shellItem.WorkingDirectory,
+                                    LaunchPath = file
                                 });
                             }
 
@@ -405,5 +431,40 @@ public class AppSolver
         {
             Logger.Error(e, $"索引失败:{file}");
         }
+    }
+
+    internal static bool IsWindowsInstallerShortcut(string shortcutPath, string? targetPath)
+    {
+        return IsAdvertisedShortcut(shortcutPath) || IsWindowsInstallerCachePath(targetPath);
+    }
+
+    internal static bool IsWindowsInstallerCachePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        var windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (string.IsNullOrWhiteSpace(windowsDirectory))
+            return false;
+
+        try
+        {
+            var installerDirectory = Path.GetFullPath(Path.Combine(windowsDirectory, "Installer"))
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            return Path.GetFullPath(path).StartsWith(installerDirectory, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsAdvertisedShortcut(string shortcutPath)
+    {
+        var productCode = new StringBuilder(Msi.MAX_GUID_CHARS + 1);
+        var featureId = new StringBuilder(Msi.MAX_FEATURE_CHARS + 1);
+        var componentCode = new StringBuilder(Msi.MAX_GUID_CHARS + 1);
+
+        return Msi.MsiGetShortcutTarget(shortcutPath, productCode, featureId, componentCode) == 0;
     }
 }

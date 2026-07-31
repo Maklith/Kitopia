@@ -83,8 +83,11 @@ public class SearchItemTool : ISearchItemTool
                         break;
                     }
                     default:
-                        DesktopShell.Open(searchViewItem.OnlyKey, searchViewItem.Arguments,
-                            searchViewItem.StartDirectory);
+                        if (string.IsNullOrWhiteSpace(searchViewItem.LaunchPath))
+                            DesktopShell.Open(searchViewItem.OnlyKey, searchViewItem.Arguments,
+                                searchViewItem.StartDirectory);
+                        else
+                            DesktopShell.Open(searchViewItem.LaunchPath);
                         break;
                 }
                 RecordOpenTime(searchViewItem);

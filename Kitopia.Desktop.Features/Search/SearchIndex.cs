@@ -14,6 +14,7 @@ public readonly record struct SearchEntry
     public FileType FileType { get; init; }
     public string? Arguments { get; init; }
     public string? StartDirectory { get; init; }
+    public string? LaunchPath { get; init; }
     public string? IconPath { get; init; }
     public int IconSymbol { get; init; }
 
@@ -26,6 +27,7 @@ public readonly record struct SearchEntry
             FileType = FileType,
             Arguments = Arguments,
             StartDirectory = StartDirectory,
+            LaunchPath = LaunchPath,
             IconPath = IconPath,
             IconSymbol = IconSymbol,
             IsVisible = true
