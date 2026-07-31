@@ -13,22 +13,27 @@ partial class Build
 {
     Target PackInstallerX64 => _ => _
         .DependsOn(CreateRelease, PackWindowsX64)
+        .OnlyWhenDynamic(() => Release is not null)
         .Executes(() => BuildInstaller("win-x64", "x86_64-pc-windows-msvc"));
 
     Target PackInstallerX86 => _ => _
         .DependsOn(CreateRelease, PackWindowsX86)
+        .OnlyWhenDynamic(() => Release is not null)
         .Executes(() => BuildInstaller("win-x86", "i686-pc-windows-msvc"));
 
     Target PackInstallerArm64 => _ => _
         .DependsOn(CreateRelease, PackWindowsArm64)
+        .OnlyWhenDynamic(() => Release is not null)
         .Executes(() => BuildInstaller("win-arm64", "aarch64-pc-windows-msvc"));
 
     Target PackInstaller => _ => _
-        .DependsOn(PackInstallerX64, PackInstallerX86, PackInstallerArm64);
+        .DependsOn(PackInstallerX64, PackInstallerX86, PackInstallerArm64)
+        .OnlyWhenDynamic(() => Release is not null);
 
     // Compatibility alias for the previous x64-only installer target.
     Target BuildNativeInstaller => _ => _
-        .DependsOn(PackInstallerX64);
+        .DependsOn(PackInstallerX64)
+        .OnlyWhenDynamic(() => Release is not null);
 
     void BuildInstaller(string runtime, string rustTarget)
     {

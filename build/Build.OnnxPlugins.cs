@@ -8,18 +8,21 @@ partial class Build
 {
     Target PackOnnxRuntimeGpuWin => _ => _
         .DependsOn(CreateRelease, RestoreWindows)
+        .OnlyWhenDynamic(() => Release is not null)
         .Executes(() => PublishStandaloneOnnxPlugin(
             RootDirectory / "OnnxRuntime.Gpu.Win" / "OnnxRuntime.Gpu.Win.csproj",
             "OnnxRuntime.Gpu.Win"));
 
     Target PackOnnxRuntimeOpenVino => _ => _
         .DependsOn(CreateRelease, RestoreWindows)
+        .OnlyWhenDynamic(() => Release is not null)
         .Executes(() => PublishStandaloneOnnxPlugin(
             RootDirectory / "OnnxRuntime.OpenVino" / "OnnxRuntime.OpenVino.csproj",
             "OnnxRuntime.OpenVino"));
 
     Target PackOnnxPlugins => _ => _
-        .DependsOn(PackOnnxRuntimeGpuWin, PackOnnxRuntimeOpenVino);
+        .DependsOn(PackOnnxRuntimeGpuWin, PackOnnxRuntimeOpenVino)
+        .OnlyWhenDynamic(() => Release is not null);
 
     void PublishStandaloneOnnxPlugin(AbsolutePath project, string artifactName)
     {

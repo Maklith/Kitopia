@@ -15,14 +15,17 @@ partial class Build
 
     Target PackAndroidX64 => _ => _
         .DependsOn(CreateRelease, RestoreAndroid)
+        .OnlyWhenDynamic(() => Release is not null)
         .Executes(() => PublishAndroid("android-x64"));
 
     Target PackAndroidArm64 => _ => _
         .DependsOn(CreateRelease, RestoreAndroid)
+        .OnlyWhenDynamic(() => Release is not null)
         .Executes(() => PublishAndroid("android-arm64"));
 
     Target PackAndroid => _ => _
-        .DependsOn(PackAndroidX64, PackAndroidArm64);
+        .DependsOn(PackAndroidX64, PackAndroidArm64)
+        .OnlyWhenDynamic(() => Release is not null);
 
     void PublishAndroid(string runtime)
     {

@@ -12,23 +12,11 @@ using Serilog;
 partial class Build
 {
     Target CreateRelease => _ => _
+        .OnlyWhenDynamic(ShouldCreateRelease)
         .Executes(() =>
         {
-            if (!IsRelease)
-                throw new InvalidOperationException(
-                    "GitHubToken is required because every package build must create a new GitHub release.");
-
-            GitHubClient = new GitHubClient(new ProductHeaderValue("Kitopia"))
-            {
-                Credentials = new Credentials(GitHubToken)
-            };
             var repository = GitRepository.FromUrl("https://github.com/Maklith/Kitopia");
             var version = AvaloniaProject.GetProperty("Version");
-            var tags = GitHubClient.Repository.GetAllTags(repository.GetGitHubOwner(), repository.GetGitHubName()).Result;
-            if (tags.Any(tag => tag.Name == version))
-                throw new InvalidOperationException(
-                    $"GitHub tag {version} already exists. Increase Kitopia.Desktop Version before building packages.");
-
             var body = BuildReleaseNotes(repository);
 
             GitHubClient.Git.Reference.Create(
@@ -47,6 +35,26 @@ partial class Build
                     Body = body
                 }).Result;
         });
+
+    bool ShouldCreateRelease()
+    {
+        if (!IsRelease)
+            throw new InvalidOperationException(
+                "GitHubToken is required because every package build must create a new GitHub release.");
+
+        GitHubClient = new GitHubClient(new ProductHeaderValue("Kitopia"))
+        {
+            Credentials = new Credentials(GitHubToken)
+        };
+        var repository = GitRepository.FromUrl("https://github.com/Maklith/Kitopia");
+        var version = AvaloniaProject.GetProperty("Version");
+        var tags = GitHubClient.Repository.GetAllTags(repository.GetGitHubOwner(), repository.GetGitHubName()).Result;
+        if (tags.All(tag => tag.Name != version))
+            return true;
+
+        Log.Information("Skipping package build because GitHub tag {Version} already exists", version);
+        return false;
+    }
 
     string BuildReleaseNotes(GitRepository repository)
     {

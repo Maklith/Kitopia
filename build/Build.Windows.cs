@@ -21,22 +21,27 @@ partial class Build
 
     Target PackWindowsX64 => _ => _
         .DependsOn(CreateRelease, RestoreWindows)
+        .OnlyWhenDynamic(() => Release is not null)
         .Executes(() => PublishWindows("win-x64"));
 
     Target PackWindowsX86 => _ => _
         .DependsOn(CreateRelease, RestoreWindows)
+        .OnlyWhenDynamic(() => Release is not null)
         .Executes(() => PublishWindows("win-x86"));
 
     Target PackWindowsArm64 => _ => _
         .DependsOn(CreateRelease, RestoreWindows)
+        .OnlyWhenDynamic(() => Release is not null)
         .Executes(() => PublishWindows("win-arm64"));
 
     Target PackWindows => _ => _
-        .DependsOn(PackWindowsX64, PackWindowsX86, PackWindowsArm64, PackOnnxPlugins);
+        .DependsOn(PackWindowsX64, PackWindowsX86, PackWindowsArm64, PackOnnxPlugins)
+        .OnlyWhenDynamic(() => Release is not null);
 
     // Kept as a compatibility alias for local scripts that used the old target name.
     Target CompileWindowsX64 => _ => _
-        .DependsOn(PackWindowsX64);
+        .DependsOn(PackWindowsX64)
+        .OnlyWhenDynamic(() => Release is not null);
 
     void PublishWindows(string runtime)
     {
