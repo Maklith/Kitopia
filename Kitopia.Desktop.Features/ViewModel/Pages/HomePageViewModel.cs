@@ -1,97 +1,90 @@
-#region
-
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using Avalonia.Controls.Notifications;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Kitopia.Desktop.Features.Services.Interfaces;
+using Kitopia.Desktop.Features.Services.Plugin;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-
-#endregion
 
 namespace Kitopia.Desktop.Features.ViewModel.Pages;
 
 public partial class HomePageViewModel : ObservableRecipient
 {
-    [ObservableProperty] private List<FileType> _fileTypes = new()
+    private static readonly IReadOnlyDictionary<string, int> CategoryOrders = new Dictionary<string, int>
     {
-        FileType.文件, FileType.剪贴板图像, FileType.PDF文档, FileType.便签, FileType.命令
+        ["搜索与窗口"] = 0,
+        ["截图与图像"] = 1,
+        ["文件与设备"] = 2,
+        ["自动化与管理"] = 3
     };
 
-    [RelayCommand]
-    public void Click()
+    public ObservableCollection<FeatureCategory> FeatureCategories { get; } = [];
+
+    public HomePageViewModel()
     {
-        ServiceManager.Services?.GetService<INavigationService>()?.Navigate("settings");
+        PluginOverall.Features.CollectionChanged += OnFeaturesChanged;
+        RefreshFeatures();
     }
 
     [RelayCommand]
-    private void ShowBasicToast()
+    private async Task ExecuteFeatureAsync(FeatureInfo? feature)
     {
-        GetToastService()?.Show("Toast测试", "这是一个基础信息通知。", NotificationType.Information);
-    }
-
-    [RelayCommand]
-    private void ShowActionToast()
-    {
-        var toastService = GetToastService();
-        if (toastService is null)
+        if (feature is null)
         {
             return;
         }
 
-        toastService.Show(new ToastRequest
+        try
         {
-            Header = "按钮通知测试",
-            Text = "该通知包含自定义按钮和不同触发逻辑。",
-            NotificationType = NotificationType.Success,
-            AutoCloseDelay = null,
-            Actions =
-            [
-                new ToastAction
-                {
-                    Text = "打开设置",
-                    IsPrimary = true,
-                    Callback = () => ServiceManager.Services?.GetService<INavigationService>()?.Navigate("settings")
-                },
-                new ToastAction
-                {
-                    Text = "再来一条",
-                    Callback = () => toastService.Show("按钮回调", "你点击了“再来一条”。")
-                }
-            ]
-        });
+            await feature.ExecuteAsync(CancellationToken.None);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            _ = GetToastService()?.Show(
+                "功能执行失败",
+                exception.InnerException?.Message ?? exception.Message,
+                NotificationType.Error);
+        }
     }
 
-    [RelayCommand]
-    private void ShowLongTimeoutToast()
+    private void OnFeaturesChanged(object? sender, NotifyCollectionChangedEventArgs eventArgs)
     {
-        GetToastService()?.Show(new ToastRequest
+        if (Dispatcher.UIThread.CheckAccess())
         {
-            Header = "时长测试",
-            Text = "该通知会在 8 秒后自动消失。",
-            NotificationType = NotificationType.Warning,
-            AutoCloseDelay = TimeSpan.FromSeconds(8)
-        });
-    }
-
-    [RelayCommand]
-    private async Task ShowProgressToast()
-    {
-        var toastService = GetToastService();
-        if (toastService is null)
-        {
+            RefreshFeatures();
             return;
         }
 
-        var progressHandle = toastService.ShowProgress("进度通知测试", "开始处理...", NotificationType.Information,
-            initialProgress: 0, isIndeterminate: false);
-        for (var i = 0; i <= 100; i += 20)
-        {
-            await Task.Delay(300);
-            progressHandle.Update(i, $"当前进度：{i}%");
-        }
+        Dispatcher.UIThread.Post(RefreshFeatures);
+    }
 
-        progressHandle.Complete("处理完成。");
+    private void RefreshFeatures()
+    {
+        var categories = PluginOverall.AllFeatures
+            .GroupBy(feature => feature.Category)
+            .OrderBy(group => CategoryOrders.GetValueOrDefault(group.Key, int.MaxValue))
+            .ThenBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => new FeatureCategory
+            {
+                Name = group.Key,
+                Features = group
+                    .OrderBy(feature => feature.Order)
+                    .ThenBy(feature => feature.Name, StringComparer.Ordinal)
+                    .ToList()
+            })
+            .ToList();
+
+        FeatureCategories.Clear();
+        foreach (var category in categories)
+        {
+            FeatureCategories.Add(category);
+        }
     }
 
     private static IToastService? GetToastService()

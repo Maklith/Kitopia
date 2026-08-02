@@ -17,6 +17,14 @@ public class Translate
     /// Translate image capture result by performing OCR and translating the text
     /// </summary>
     /// <param name="dResult">屏幕截图结果 / Screen capture result</param>
+    [Feature(
+        "translate",
+        "翻译",
+        "选择屏幕区域，识别其中的文字并翻译为简体中文。",
+        "截图与图像",
+        0xf834,
+        120,
+        Activation = FeatureActivationMode.ScreenCapture)]
     [Capture("翻译", 0xf834)]
     public void TranslateImgCapture(ScreenCaptureResult dResult)
     {

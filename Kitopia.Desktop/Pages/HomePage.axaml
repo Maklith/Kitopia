@@ -3,39 +3,84 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages;assembly=Kitopia.Desktop.Features"
+             xmlns:plugin="clr-namespace:Kitopia.Desktop.Features.Services.Plugin;assembly=Kitopia.Desktop.Features"
+             xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
              mc:Ignorable="d"
              d:DesignWidth="800"
              d:DesignHeight="450"
              x:Class="Kitopia.Desktop.Pages.HomePage"
              x:DataType="pages:HomePageViewModel">
     <Grid RowDefinitions="Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}">
-        <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Text="首页" />
+        <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Text="功能" />
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,16,0,0">
-            <StackPanel Spacing="{DynamicResource SemiSpacingBase}">
-                <Border Classes="Shadow" Theme="{DynamicResource CardBorder}">
-                    <StackPanel Spacing="{DynamicResource SemiSpacingBase}">
-                        <TextBlock Theme="{DynamicResource SectionHeaderText}" Text="Toast 通知测试" />
-                        <TextBlock Text="用于验证基础通知、按钮回调、自动消失时长和进度条通知。"
-                                   Foreground="{DynamicResource SemiColorText1}" />
-
-                        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource SemiSpacingTight}">
-                            <Button Classes="Primary" Content="基础通知"
-                                    Command="{Binding ShowBasicToastCommand}" />
-                            <Button Classes="Secondary" Content="按钮通知"
-                                    Command="{Binding ShowActionToastCommand}" />
-                            <Button Classes="Secondary" Content="8秒自动消失"
-                                    Command="{Binding ShowLongTimeoutToastCommand}" />
+            <ItemsControl ItemsSource="{Binding FeatureCategories}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="plugin:FeatureCategory">
+                        <StackPanel Margin="0,0,0,20" Spacing="10">
+                            <TextBlock Theme="{DynamicResource SectionHeaderText}" Text="{Binding Name}" />
+                            <ItemsControl ItemsSource="{Binding Features}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="plugin:FeatureInfo">
+                                        <Button Width="224"
+                                                Height="144"
+                                                Margin="0,0,12,12"
+                                                Padding="0"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                HorizontalContentAlignment="Stretch"
+                                                VerticalContentAlignment="Stretch"
+                                                ToolTip.Tip="{Binding Description}"
+                                                Command="{Binding $parent[UserControl].((pages:HomePageViewModel)DataContext).ExecuteFeatureCommand}"
+                                                CommandParameter="{Binding .}">
+                                            <Border Classes="Shadow" Theme="{DynamicResource CardBorder}" Padding="14">
+                                                <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="6">
+                                                    <Grid ColumnDefinitions="Auto,*">
+                                                        <controls:FontIcon Width="24"
+                                                                           Height="24"
+                                                                           FontSize="24"
+                                                                           Foreground="{DynamicResource SemiColorText0}"
+                                                                           Glyph="{Binding IconGlyph}" />
+                                                        <TextBlock Grid.Column="1"
+                                                                   Margin="8,0,0,0"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource SemiColorText1}"
+                                                                   FontSize="12"
+                                                                   Text="{Binding Source}"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </Grid>
+                                                    <TextBlock Grid.Row="1"
+                                                               FontSize="16"
+                                                               FontWeight="SemiBold"
+                                                               Text="{Binding Name}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Row="2"
+                                                               Foreground="{DynamicResource SemiColorText1}"
+                                                               FontSize="12"
+                                                               LineHeight="18"
+                                                               MaxHeight="54"
+                                                               Text="{Binding Description}"
+                                                               TextWrapping="Wrap"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Row="3"
+                                                               Foreground="{DynamicResource SemiColorText2}"
+                                                               FontSize="12"
+                                                               Text="{Binding Category}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </Grid>
+                                            </Border>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource SemiSpacingTight}">
-                            <Button Classes="Primary" Content="进度通知"
-                                    Command="{Binding ShowProgressToastCommand}" />
-                            <Button Classes="Secondary" Content="打开设置页"
-                                    Command="{Binding ClickCommand}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-            </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </ScrollViewer>
     </Grid>
 </UserControl>

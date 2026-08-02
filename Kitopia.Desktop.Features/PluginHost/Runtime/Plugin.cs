@@ -129,12 +129,16 @@ public class Plugin
 
 
         List<ScreenCaptureExMethod> captureActions = new();
+        List<FeatureInfo> pluginFeatures = new();
         List<OnnxModelInfoWrapper> onnxModelInfos = new();
         List<Func<InputDataAnalyzeTimeFlags, string?, IEnumerable<InputData>>> inputDataIdentifier = new();
         List<(Func<InputDataAnalyzeTimeFlags>, Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>)>
             inputDataAnalyzerActions = new();
         Dictionary<string, Func<IInferenceSession>> onnxRuntimes = new();
         PluginInfo = pluginInfo;
+        var featureSource = string.IsNullOrWhiteSpace(PluginInfo.PluginBaseInfo.Name)
+            ? PluginInfo.ToPlgString()
+            : PluginInfo.PluginBaseInfo.Name;
         foreach (var type in t)
             if (type.GetInterface("IPlugin") != null)
             {
@@ -233,8 +237,18 @@ public class Plugin
                         scenarioMethodInfo.GenerateNode());
                 }
 
+                if (methodInfo.GetCustomAttribute<FeatureAttribute>() is { } featureAttribute)
+                {
+                    pluginFeatures.Add(PluginOverall.CreateFeature(
+                        featureSource,
+                        methodInfo,
+                        featureAttribute,
+                        ServiceProvider));
+                }
+
                 if (methodInfo.GetCustomAttribute<CaptureAttribute>() is { } captureAttribute)
-                    captureActions.Add(new ScreenCaptureExMethod
+                {
+                    var captureAction = new ScreenCaptureExMethod
                     {
                         Action = e =>
                         {
@@ -253,7 +267,10 @@ public class Plugin
                         },
                         Description = captureAttribute.Description,
                         Symbol = captureAttribute.Symbol
-                    });
+                    };
+                    captureActions.Add(captureAction);
+                }
+
             }
 
             foreach (var propertyInfo in type.GetProperties())
@@ -274,6 +291,10 @@ public class Plugin
 
 
         PluginOverall.ScreenCaptureExMethods.Add(PluginInfo.ToPlgString(), captureActions);
+        lock (PluginOverall.Features)
+        {
+            PluginOverall.Features.Add(PluginInfo.ToPlgString(), pluginFeatures);
+        }
 
         PluginOverall.OnnxModelInfos.Add(PluginInfo.ToPlgString(), onnxModelInfos);
         PluginOverall.OnnxRuntimes.Add(PluginInfo.ToPlgString(), onnxRuntimes);
@@ -371,6 +392,10 @@ public class Plugin
         ConfigManger.RemoveConfig($"{PluginInfo.ToPlgString()}");
 
         PluginOverall.ScreenCaptureExMethods.Remove(PluginInfo.ToPlgString());
+        lock (PluginOverall.Features)
+        {
+            PluginOverall.Features.Remove(PluginInfo.ToPlgString());
+        }
         PluginOverall.OnnxModelInfos.Remove(PluginInfo.ToPlgString());
         PluginOverall.OnnxRuntimes.Remove(PluginInfo.ToPlgString());
         PluginOverall.SearchWindowInputDataIdentifies.TryRemove(PluginInfo.ToPlgString(), out _);

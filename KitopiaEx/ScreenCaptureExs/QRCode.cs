@@ -8,6 +8,14 @@ namespace KitopiaEx.ScreenCaptureExs;
 
 public class QRCode
 {
+    [Feature(
+        "qr-code",
+        "识别二维码",
+        "选择屏幕区域，识别二维码并把内容复制到剪贴板。",
+        "截图与图像",
+        0xf635,
+        130,
+        Activation = FeatureActivationMode.ScreenCapture)]
     [Capture("识别二维码",0xf635)]
     public void QRCodeImgCapture(ScreenCaptureResult dResult)
     {

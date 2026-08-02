@@ -125,6 +125,7 @@ internal class Program {
         services.AddTransient<IThemeChange, ThemeChange>();
 
         services.AddSingleton<ISearchItemChooseService, SearchItemChooseService>();
+        services.AddSingleton<IFeatureFilePicker, DesktopFeatureFilePicker>();
         services.AddSingleton<IMouseQuickWindowService, MouseQuickWindowService>();
         services.AddTransient<ISearchWindowService, SearchWindowService>();
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
@@ -304,6 +305,7 @@ internal class Program {
         Logger.Debug("注册热键管理器完成");
         ConfigManger.Init();
         Logger.Information("配置文件初始化完成");
+        PluginOverall.InitializeContextMenu();
         ServiceManager.Services.GetService<IHotKetImpl>()!.StartHook();
 
         MqttManager.ProcessLocalArgs(arg).GetAwaiter().GetResult();

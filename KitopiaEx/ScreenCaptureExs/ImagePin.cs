@@ -10,6 +10,14 @@ namespace KitopiaEx.ScreenCaptureExs;
 
 public class ImagePin
 {
+    [Feature(
+        "image-pin",
+        "置顶图片",
+        "选择屏幕区域，将截图作为可移动窗口置顶显示。",
+        "截图与图像",
+        0xf602,
+        140,
+        Activation = FeatureActivationMode.ScreenCapture)]
     [Capture("置顶图片", 0xf602)]
     public void Pin(ScreenCaptureResult dResult)
     {
