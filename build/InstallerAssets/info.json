@@ -1,8 +1,8 @@
 {
   "DisplayIcon": "",
   "DisplayName": "Kitopia",
-  "DisplayVersion": "0.2.2.0",
-  "Publisher": "MakesYT",
+  "DisplayVersion": "0.3.0.0",
+  "Publisher": "Maklith",
   "CanExecutePath": "Kitopia.Desktop.exe",
   "Is64": true,
   "InstallDependencies": [
