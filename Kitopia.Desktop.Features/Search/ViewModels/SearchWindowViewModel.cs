@@ -68,6 +68,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private int _loadLastAppliedId;
     private int _loadLastScheduled;
     private int _searchVersion;
+    private CancellationTokenSource? _searchCancellation;
 
 
     [ObservableProperty] private string _search=string.Empty;
@@ -104,7 +105,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             if (e.Exception is not null) Logger.Error(e.Exception, "");
         });
         this.WhenAnyValue(e => e.Search)
-            .Throttle(TimeSpan.FromMilliseconds(100))
+            .Throttle(TimeSpan.FromMilliseconds(Math.Max(100, ConfigManger.Config.semanticSearchDebounceMilliseconds)))
             .DistinctUntilChanged()
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(ToSearch, e => { Logger.Error(e, ""); });
@@ -453,6 +454,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     {
         if (string.IsNullOrEmpty(value))
         {
+            Interlocked.Exchange(ref _searchCancellation, null)?.Cancel();
             LoadLast();
             return;
         }
@@ -467,9 +469,11 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
         var originalValue = value;
         value = value.ToLowerInvariant();
+        var version = Interlocked.Increment(ref _searchVersion);
         if (originalValue.StartsWith(ConfigManger.Config.everythingSearchPreString) &&
             originalValue.Length > ConfigManger.Config.everythingSearchPreString.Length)
         {
+            Interlocked.Exchange(ref _searchCancellation, null)?.Cancel();
             var useEverythingSearch = ServiceManager.Services.GetService<IAppToolService>()
                 .SearchWithEverything(originalValue.Remove(0, ConfigManger.Config.everythingSearchPreString.Length),
                     ConfigManger.Config.everythingSearchMaxCount);
@@ -477,14 +481,47 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         }
         else
         {
-            var version = Interlocked.Increment(ref _searchVersion);
-            Task.Run(() => SearchInBackground(value, originalValue, version));
+            var cancellation = new CancellationTokenSource();
+            Interlocked.Exchange(ref _searchCancellation, cancellation)?.Cancel();
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await SearchInBackgroundAsync(value, originalValue, version, cancellation.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // A newer query superseded this result.
+                }
+                catch (Exception exception)
+                {
+                    Logger.Error(exception, "Search failed");
+                }
+            });
         }
     }
 
-    private void SearchInBackground(string value, string originalValue, int version)
+    private async Task SearchInBackgroundAsync(
+        string value,
+        string originalValue,
+        int version,
+        CancellationToken cancellationToken)
     {
-        var rawResults = Index.Search(value);
+        var pinyinItems = CreateSearchItems(Index.Search(value)
+            .Select(result => new SearchIndexResult(result.Source, result.Weight, result.CharMatchResults))
+            .ToList());
+        if (pinyinItems.Count > 0)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (Volatile.Read(ref _searchVersion) != version) return;
+                Items.AddRange(pinyinItems);
+                RefreshFileTypes();
+            });
+        }
+
+        var rawResults = await Index.SearchAsync(value, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (rawResults.Count == 0)
         {
@@ -519,44 +556,21 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             return;
         }
 
-        rawResults.Sort((a, b) => b.Weight.CompareTo(a.Weight));
-
-        var count = 0;
-        const int limit = 100;
-        var resultsToAdd = new List<SearchViewItem>(Math.Min(rawResults.Count, limit));
-
-        foreach (var x in rawResults)
+        var resultsToAdd = CreateSearchItems(rawResults);
+        var shouldReplacePinyinResults = !pinyinItems.Select(item => item.OnlyKey)
+            .SequenceEqual(resultsToAdd.Select(item => item.OnlyKey), StringComparer.Ordinal);
+        if (!shouldReplacePinyinResults)
         {
-            if (ConfigManger.Config.lastOpens.TryGetValue(x.Source.OnlyKey, out _))
-            {
-                var searchViewItem = x.Source.ToSearchViewItem();
-                searchViewItem.PinyinItem = x.CharMatchResults;
-                if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
-                resultsToAdd.Add(searchViewItem);
-                count++;
-                if (count >= limit) break;
-            }
-        }
-
-        if (count < limit)
-        {
-            foreach (var x in rawResults)
-            {
-                if (ConfigManger.Config.lastOpens.ContainsKey(x.Source.OnlyKey)) continue;
-
-                var searchViewItem = x.Source.ToSearchViewItem();
-                searchViewItem.PinyinItem = x.CharMatchResults;
-                if (ConfigManger.Config.alwayShows.Contains(searchViewItem.OnlyKey)) searchViewItem.IsPined = true;
-                resultsToAdd.Add(searchViewItem);
-                searchViewItem.Notify();
-                count++;
-                if (count >= limit) break;
-            }
+            return;
         }
 
         Dispatcher.UIThread.Post(() =>
         {
             if (Volatile.Read(ref _searchVersion) != version) return;
+            foreach (var item in pinyinItems)
+            {
+                Items.Remove(item);
+            }
             Items.AddRange(resultsToAdd);
 
             if (Items.Count <= 0)
@@ -585,13 +599,52 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 });
             }
 
-            FileTypes.Clear();
-            var fileTypes = Items.Select(e => e.FileType).Distinct();
-            foreach (var fileType in fileTypes)
-                FileTypes.Add(new FileTypeFilter { FileType = fileType, IsChecked = false });
-
-            ShowFileTypeFilter = FileTypes.Count > 0;
+            RefreshFileTypes();
         });
+    }
+
+    private List<SearchViewItem> CreateSearchItems(IReadOnlyList<SearchIndexResult> results)
+    {
+        const int limit = 100;
+        var resultItems = new List<SearchViewItem>(Math.Min(results.Count, limit));
+
+        foreach (var result in results)
+        {
+            if (!ConfigManger.Config.lastOpens.ContainsKey(result.Source.OnlyKey)) continue;
+
+            resultItems.Add(ToSearchViewItem(result));
+            if (resultItems.Count >= limit) return resultItems;
+        }
+
+        foreach (var result in results)
+        {
+            if (ConfigManger.Config.lastOpens.ContainsKey(result.Source.OnlyKey)) continue;
+
+            resultItems.Add(ToSearchViewItem(result));
+            if (resultItems.Count >= limit) return resultItems;
+        }
+
+        return resultItems;
+    }
+
+    private static SearchViewItem ToSearchViewItem(SearchIndexResult result)
+    {
+        var item = result.Source.ToSearchViewItem();
+        item.PinyinItem = result.CharMatchResults;
+        if (ConfigManger.Config.alwayShows.Contains(item.OnlyKey)) item.IsPined = true;
+        item.Notify();
+        return item;
+    }
+
+    private void RefreshFileTypes()
+    {
+        FileTypes.Clear();
+        foreach (var fileType in Items.Select(item => item.FileType).Distinct())
+        {
+            FileTypes.Add(new FileTypeFilter { FileType = fileType, IsChecked = false });
+        }
+
+        ShowFileTypeFilter = FileTypes.Count > 0;
     }
     
 

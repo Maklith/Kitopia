@@ -88,6 +88,21 @@ public sealed class SearchIndexTests
         await WaitUntilAsync(() => index.Search("ceshi").All(result => result.Source != entry));
     }
 
+    [TestMethod]
+    public async Task SearchAsync_WhenSemanticSearchIsUnavailable_ReturnsPinyinMatches()
+    {
+        var index = new SearchIndex();
+        var entry = CreateEntry("calculator", "测试工具");
+        index.TryAddAndRefreshSearcher(entry);
+        await WaitUntilAsync(() => index.Search("ceshi").Any(result => result.Source == entry));
+
+        var results = await index.SearchAsync("ceshi", CancellationToken.None);
+
+        var result = results.Single(result => result.Source == entry);
+        Assert.IsNotNull(result.CharMatchResults);
+        Assert.IsTrue(result.Weight > 0);
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         var deadline = DateTime.UtcNow.AddSeconds(5);

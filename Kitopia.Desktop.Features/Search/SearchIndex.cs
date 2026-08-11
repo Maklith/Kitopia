@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Kitopia.Desktop.Features.Search.Semantic;
 using Pinyin.NET;
 using PluginCore;
 
@@ -39,6 +40,7 @@ public class SearchIndex
 {
     private readonly Dictionary<string, SearchEntry> _entries = new();
     private readonly object _lock = new();
+    private readonly SemanticSearchIndex _semanticIndex = new();
     private volatile PinyinSearcher<SearchEntry>? _searcher;
     private int _rebuildVersion;
 
@@ -49,10 +51,18 @@ public class SearchIndex
 
     public bool TryAdd(SearchEntry entry)
     {
+        var added = false;
         lock (_lock)
         {
-            return _entries.TryAdd(entry.OnlyKey, entry);
+            added = _entries.TryAdd(entry.OnlyKey, entry);
         }
+
+        if (added)
+        {
+            _semanticIndex.Upsert(entry);
+        }
+
+        return added;
     }
 
     /// <summary>
@@ -69,10 +79,18 @@ public class SearchIndex
 
     public bool TryRemove(string key)
     {
+        var removed = false;
         lock (_lock)
         {
-            return _entries.Remove(key);
+            removed = _entries.Remove(key);
         }
+
+        if (removed)
+        {
+            _semanticIndex.Remove(key);
+        }
+
+        return removed;
     }
 
     /// <summary>
@@ -105,17 +123,25 @@ public class SearchIndex
 
     public void Clear()
     {
+        List<string> keys;
         lock (_lock)
         {
+            keys = new List<string>(_entries.Keys);
             _entries.Clear();
+        }
+
+        foreach (var key in keys)
+        {
+            _semanticIndex.Remove(key);
         }
     }
 
     public int RemoveWhere(Func<string, SearchEntry, bool> predicate)
     {
+        List<string> keysToRemove;
         lock (_lock)
         {
-            var keysToRemove = new List<string>();
+            keysToRemove = new List<string>();
             foreach (var (key, entry) in _entries)
                 if (predicate(key, entry))
                     keysToRemove.Add(key);
@@ -123,8 +149,14 @@ public class SearchIndex
             foreach (var key in keysToRemove)
                 _entries.Remove(key);
 
-            return keysToRemove.Count;
         }
+
+        foreach (var key in keysToRemove)
+        {
+            _semanticIndex.Remove(key);
+        }
+
+        return keysToRemove.Count;
     }
 
     public void RebuildSearcher()
@@ -134,6 +166,8 @@ public class SearchIndex
         {
             snapshot = new List<SearchEntry>(_entries.Values);
         }
+
+        _semanticIndex.Synchronize(snapshot);
 
         var version = Interlocked.Increment(ref _rebuildVersion);
         Task.Run(() =>
@@ -146,13 +180,18 @@ public class SearchIndex
 
     public void AppendToSearcher(IEnumerable<SearchEntry> entries)
     {
+        var entriesToAppend = entries.ToList();
         if (_searcher is null)
         {
             RebuildSearcher();
             return;
         }
 
-        _searcher.AppendLoad(entries, e => e.DisplayName);
+        _searcher.AppendLoad(entriesToAppend, e => e.DisplayName);
+        foreach (var entry in entriesToAppend)
+        {
+            _semanticIndex.Upsert(entry);
+        }
     }
 
     public List<SearchResults<SearchEntry>> Search(string query)
@@ -169,6 +208,51 @@ public class SearchIndex
         return results;
     }
 
+    public async Task<List<SearchIndexResult>> SearchAsync(string query, CancellationToken cancellationToken)
+    {
+        var pinyinResults = Search(query);
+        var merged = new Dictionary<string, SearchIndexResult>(StringComparer.Ordinal);
+        for (var index = 0; index < pinyinResults.Count; index++)
+        {
+            var result = pinyinResults[index];
+            merged[result.Source.OnlyKey] = new SearchIndexResult(
+                result.Source,
+                1d / (60 + index + 1),
+                result.CharMatchResults);
+        }
+
+        try
+        {
+            var semanticResults = await _semanticIndex.SearchAsync(query, cancellationToken);
+            for (var index = 0; index < semanticResults.Count; index++)
+            {
+                var semanticResult = semanticResults[index];
+                if (!TryGetValue(semanticResult.OnlyKey, out var entry))
+                {
+                    continue;
+                }
+
+                // Keep rank decay for reciprocal-rank fusion while preserving the cosine similarity
+                // returned by the vector store. Negative similarities are not relevant search signals.
+                var semanticScore = Math.Max(0d, semanticResult.Score) / (60 + index + 1);
+                if (merged.TryGetValue(semanticResult.OnlyKey, out var existing))
+                {
+                    merged[semanticResult.OnlyKey] = existing with { Weight = existing.Weight + semanticScore };
+                }
+                else
+                {
+                    merged[semanticResult.OnlyKey] = new SearchIndexResult(entry, semanticScore, null);
+                }
+            }
+        }
+        catch
+        {
+            // SemanticSearchIndex logs indexing failures. Pinyin search remains the fallback.
+        }
+
+        return merged.Values.OrderByDescending(result => result.Weight).ToList();
+    }
+
     public List<KeyValuePair<string, SearchEntry>> GetEntriesSnapshot()
     {
         lock (_lock)
@@ -177,3 +261,5 @@ public class SearchIndex
         }
     }
 }
+
+public sealed record SearchIndexResult(SearchEntry Source, double Weight, bool[]? CharMatchResults);

@@ -59,6 +59,7 @@
         <PackageReference Include="System.Drawing.Common" Version="10.0.9" />
         <PackageReference Include="System.Management" Version="10.0.9" Condition="$(TargetFramework.Contains('-windows'))" />
         <PackageReference Include="System.Threading.RateLimiting" Version="10.0.9" />
+        <PackageReference Include="UglyToad.PdfPig" Version="1.7.0-custom-5" />
     </ItemGroup>
 
 

@@ -37,6 +37,16 @@ public class GPUOVInferenceSession : IInferenceSession
         }
         return null;
     }
+
+    public Memory<float> InferInt64(List<(string, Memory<int>, Memory<long>)> inputs)
+    {
+        var namedOnnxValues = inputs
+            .Select(e => NamedOnnxValue.CreateFromTensor(e.Item1, new DenseTensor<long>(e.Item3, e.Item2.Span)))
+            .ToList();
+        var asTensor = _inferenceSession?.Run(namedOnnxValues)[0].AsTensor<float>();
+
+        return asTensor is DenseTensor<float> floats ? floats.Buffer : asTensor?.ToArray() ?? [];
+    }
     
     public void Dispose()
     {
