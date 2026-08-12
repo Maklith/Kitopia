@@ -9,11 +9,6 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
     private const int EmbeddingDimensions = 512;
     private const int ModelMaximumTokens = 512;
     private const string SentenceEmbeddingOutputName = "sentence_embedding";
-    private static readonly string ManagedModelDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Kitopia", "BGE_Model");
-    private static readonly string LegacyModelDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "rag", "bge-small-zh-v1.5-onnx");
-
     private readonly string _modelPath;
     private readonly string _modelId;
     private readonly BertWordPieceTokenizer _tokenizer;
@@ -48,21 +43,15 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
                 return false;
             }
 
-            foreach (var modelDirectory in GetCandidateModelDirectories())
+            if (!BgeModelPackage.IsComplete())
             {
-                var modelPath = Path.Combine(modelDirectory, "quantized", "model_quantized.onnx");
-                var modelDataPath = modelPath + "_data";
-                var tokenizerPath = Path.Combine(modelDirectory, "tokenizer.json");
-                if (!File.Exists(modelPath) || !File.Exists(modelDataPath) || !File.Exists(tokenizerPath))
-                {
-                    continue;
-                }
-
-                service = new BgeOnnxEmbeddingService(modelPath, BertWordPieceTokenizer.Load(tokenizerPath));
-                return true;
+                return false;
             }
 
-            return false;
+            service = new BgeOnnxEmbeddingService(
+                BgeModelPackage.ModelPath,
+                BertWordPieceTokenizer.Load(BgeModelPackage.TokenizerPath));
+            return true;
         }
         catch
         {
@@ -136,35 +125,6 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
         _inferenceGate.Dispose();
     }
 
-    private static IEnumerable<string> GetCandidateModelDirectories()
-    {
-        var configuredDirectory = ConfigManger.Config.semanticSearchModelDirectory;
-        if (IsSameDirectory(configuredDirectory, LegacyModelDirectory))
-        {
-            ConfigManger.Config.semanticSearchModelDirectory = ManagedModelDirectory;
-            ConfigManger.Save("KitopiaConfig");
-            configuredDirectory = ManagedModelDirectory;
-        }
-
-        yield return configuredDirectory;
-        yield return Path.Combine(configuredDirectory, "bge-small-zh-v1.5-onnx");
-    }
-
-    private static bool IsSameDirectory(string left, string right)
-    {
-        try
-        {
-            return string.Equals(
-                Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                StringComparison.OrdinalIgnoreCase);
-        }
-        catch (Exception)
-        {
-            return false;
-        }
-    }
-
     private async Task EnsureSessionAsync(CancellationToken cancellationToken)
     {
         if (_session is not null)
@@ -180,8 +140,12 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
                 return;
             }
 
-            var runtime = PluginOverall.GetOnnxRuntime("CPU")
-                          ?? throw new InvalidOperationException("The CPU ONNX Runtime plugin is not available.");
+            var target = ConfigManger.Config.OnnxTargetDevices.TryGetValue(
+                BgeModelPackage.ModelSignName, out var configuredTarget)
+                ? configuredTarget
+                : "CPU";
+            var runtime = PluginOverall.GetOnnxRuntime(target)
+                          ?? throw new InvalidOperationException($"The {target} ONNX Runtime plugin is not available.");
             _session = runtime();
             _session.InitSession(_modelPath);
         }

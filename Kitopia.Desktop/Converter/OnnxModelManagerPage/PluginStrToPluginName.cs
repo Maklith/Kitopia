@@ -10,9 +10,14 @@ public class PluginStrToPluginName : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is string plgStr) return PluginManager.GetPluginLocalInfoByPlgStr(plgStr)?.PluginBaseInfo.Name;
+        if (value is not string pluginSource) return null;
 
-        return null;
+        if (string.Equals(pluginSource, "Kitopia", StringComparison.Ordinal))
+        {
+            return "Kitopia";
+        }
+
+        return PluginManager.GetPluginLocalInfoByPlgStr(pluginSource)?.PluginBaseInfo.Name;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

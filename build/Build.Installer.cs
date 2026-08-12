@@ -81,6 +81,12 @@ partial class Build
             compressionLevel: CompressionLevel.SmallestSize, fileMode: FileMode.Create);
         (staging / "plugins").DeleteDirectory();
 
+        var bgeModelArchive = installerAssets / "BGE_Model.zip";
+        bgeModelArchive.DeleteFile();
+        (staging / "BGE_Model").ZipTo(bgeModelArchive,
+            compressionLevel: CompressionLevel.SmallestSize, fileMode: FileMode.Create);
+        (staging / "BGE_Model").DeleteDirectory();
+
         var appArchive = installerAssets / "App.zip";
         appArchive.DeleteFile();
         staging.ZipTo(appArchive, compressionLevel: CompressionLevel.SmallestSize, fileMode: FileMode.Create);

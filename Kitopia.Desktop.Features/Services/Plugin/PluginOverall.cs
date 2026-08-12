@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Avalonia.Controls.Notifications;
+using Kitopia.Desktop.Features.Search.Semantic;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -78,6 +79,14 @@ public class PluginOverall
         }
 
         Features.Add(BuiltInFeatureSource, builtInFeatures);
+        OnnxModelInfos.Add(BuiltInFeatureSource,
+        [
+            new OnnxModelInfoWrapper
+            {
+                Model = BgeModelPackage.CreateModelInfo(),
+                PluginStr = BuiltInFeatureSource
+            }
+        ]);
 
         var exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Kitopia.Desktop.exe");
         

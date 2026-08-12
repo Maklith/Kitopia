@@ -48,6 +48,11 @@
         <Content Include="Assets\icon.png">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
+        <Content Include="..\Kitopia.Desktop.Features\Assets\BGE_Model\**\*">
+            <Link>BGE_Model\%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
 
         <ProjectReference Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' " Include="..\Kitopia.Desktop.Platform.Linux\Kitopia.Desktop.Platform.Linux.csproj"/>
         <ProjectReference Condition=" '$(OS)' == 'Windows_NT' " Include="..\Kitopia.Desktop.Platform.Windows\Kitopia.Desktop.Platform.Windows.csproj"/>
@@ -133,5 +138,16 @@
         <Folder Include="Converter\PluginManagerPage\"/>
         <Folder Include="Tools\"/>
     </ItemGroup>
+
+    <Target Name="CopyBgeModelForDebug" AfterTargets="Build"
+            Condition="'$(Configuration)' == 'Debug' And '$(LOCALAPPDATA)' != ''">
+        <ItemGroup>
+            <BgeModelFiles Include="$(MSBuildProjectDirectory)\..\Kitopia.Desktop.Features\Assets\BGE_Model\**\*" />
+        </ItemGroup>
+        <MakeDir Directories="@(BgeModelFiles->'$(LOCALAPPDATA)\Kitopia\BGE_Model\%(RecursiveDir)')" />
+        <Copy SourceFiles="@(BgeModelFiles)"
+              DestinationFiles="@(BgeModelFiles->'$(LOCALAPPDATA)\Kitopia\BGE_Model\%(RecursiveDir)%(Filename)%(Extension)')"
+              SkipUnchangedFiles="true" />
+    </Target>
 
 </Project>

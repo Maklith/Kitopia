@@ -109,20 +109,16 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("调用Everything直接搜索文件最大数量", "设置调用Everything直接搜索文件最大数量", 0xf8cb, ConfigFieldType.整数, null, 1000, 5, 5)]
     public int everythingSearchMaxCount = 50;
 
-    [ConfigFieldCategory("Semantic Search")]
-    [ConfigField("Enable local semantic search", "Use the local ONNX embedding model together with pinyin search", 0xf3ae,
+    [ConfigFieldCategory("语义搜索")]
+    [ConfigField("启用本地语义搜索", "使用内置中文语义模型理解搜索意图，并结合拼音搜索提升结果相关性。", 0xf3ae,
         (ConfigFieldType)5)]
     public bool enableSemanticSearch = true;
 
-    [ConfigField("Semantic model directory", "Directory containing tokenizer.json and the quantized BGE ONNX model", 0xf8cb)]
-    public string semanticSearchModelDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Kitopia", "BGE_Model");
-
-    [ConfigField("Semantic search debounce", "Wait for typing to stop before running local embedding inference", 0xf8cb,
+    [ConfigField("语义搜索响应延迟", "停止输入后，等待多久再开始语义匹配。数值越小，响应越快。", 0xf8cb,
         (ConfigFieldType)1, null, 1000, 100, 10)]
     public int semanticSearchDebounceMilliseconds = 300;
 
-    [ConfigField("Semantic search candidates", "Maximum candidates returned from the local vector index", 0xf8cb,
+    [ConfigField("语义搜索候选数量", "本地语义索引最多返回的候选结果数量。", 0xf8cb,
         (ConfigFieldType)1, null, 100, 5, 5)]
     public int semanticSearchMaxResults = 50;
 
@@ -144,7 +140,7 @@ public class KitopiaConfig : ConfigBase
             NameSign = "kitopiaonnxruntimecpu"
         }
     };
-
+    [ConfigFieldCategory("搜索")]
     public List<string> errorLnk = new();
     public string everythingOnlyKey = "";
 

@@ -103,19 +103,23 @@
                                             CustomSortComparer="{x:Static onnxModelManagerPage:DataGridModelSizeComparer.Default }">
                         <DataTemplate x:DataType="onnx:OnnxModelInfoWrapper">
                             <Label HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   Content="{Binding Model.ModelPath, Converter={StaticResource OnnxModelInfoWrapperToModelSizeCtr} }" />
+                                   Content="{Binding ., Converter={StaticResource OnnxModelInfoWrapperToModelSizeCtr} }" />
                         </DataTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="下载模型">
                         <DataTemplate x:DataType="onnx:OnnxModelInfoWrapper">
-                            <controls:DownloadButton DataContext="{Binding Model}"
-                                                     NeedDownload="{Binding NeedDownload}"
-                                                     CanDownload="{Binding CanDownload}"
-                                                     IsDownloading="{Binding IsDownloading}"
-                                                     IsIndeterminate="{Binding IsIndeterminate}"
-                                                     Progress="{Binding Progress}"
-                                                     DownloadCommand="{Binding DownloadCommand}"
-                                                     CancelCommand="{Binding CancelCommand}" />
+                            <Panel>
+                                <TextBlock Text="随应用提供" IsVisible="{Binding Model.IsBundled}" />
+                                <controls:DownloadButton DataContext="{Binding Model}"
+                                                         IsVisible="{Binding !IsBundled}"
+                                                         NeedDownload="{Binding NeedDownload}"
+                                                         CanDownload="{Binding CanDownload}"
+                                                         IsDownloading="{Binding IsDownloading}"
+                                                         IsIndeterminate="{Binding IsIndeterminate}"
+                                                         Progress="{Binding Progress}"
+                                                         DownloadCommand="{Binding DownloadCommand}"
+                                                         CancelCommand="{Binding CancelCommand}" />
+                            </Panel>
                         </DataTemplate>
                     </DataGridTemplateColumn>
                 </DataGrid.Columns>
