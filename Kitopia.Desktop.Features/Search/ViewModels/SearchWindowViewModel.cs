@@ -507,7 +507,10 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         int version,
         CancellationToken cancellationToken)
     {
-        var pinyinItems = CreateSearchItems(Index.Search(value)
+        cancellationToken.ThrowIfCancellationRequested();
+        var pinyinResults = Index.Search(value);
+        cancellationToken.ThrowIfCancellationRequested();
+        var pinyinItems = CreateSearchItems(pinyinResults
             .Select(result => new SearchIndexResult(result.Source, result.Weight, result.CharMatchResults))
             .ToList());
         if (pinyinItems.Count > 0)
@@ -520,7 +523,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             });
         }
 
-        var rawResults = await Index.SearchAsync(value, cancellationToken);
+        var rawResults = await Index.SearchAsync(value, pinyinResults, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
         if (rawResults.Count == 0)

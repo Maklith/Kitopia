@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using System.Text;
 using Kitopia.Desktop.Features.Search.Semantic;
 using Microsoft.Data.Sqlite;
@@ -184,11 +185,13 @@ public sealed class DocumentTextExtractorTests
         try
         {
             var store = new SqliteSemanticVectorStore(databasePath);
+            var baseVector = CreateUnitVector(0);
+            var contentVector = CreateUnitVector(1);
             await store.UpsertBatchAsync(
-                [new EmbeddingWrite("entry:base", "base-hash", "test-model", [1f, 0f])],
+                [new EmbeddingWrite("entry:base", "base-hash", "test-model", baseVector)],
                 CancellationToken.None);
             await store.UpsertContentBatchAsync(
-                [new ContentEmbeddingWrite("entry:document", "content-v1", 0, "test-model", [0f, 1f])],
+                [new ContentEmbeddingWrite("entry:document", "content-v1", 0, "test-model", contentVector)],
                 CancellationToken.None);
             await store.CompleteContentIndexAsync(
                 "entry:document",
@@ -196,15 +199,15 @@ public sealed class DocumentTextExtractorTests
                 "content-v1",
                 chunkCount: 1,
                 "test-model",
-                dimensions: 2,
+                dimensions: 512,
                 CancellationToken.None);
 
-            var baseMatches = await store.SearchAsync("test-model", new float[] { 1f, 0f }, 10, CancellationToken.None);
-            var contentMatches = await store.SearchContentAsync("test-model", new float[] { 0f, 1f }, 10, CancellationToken.None);
+            var baseMatches = await store.SearchAsync("test-model", baseVector, 10, CancellationToken.None);
+            var contentMatches = await store.SearchContentAsync("test-model", contentVector, 10, CancellationToken.None);
             var indexedContentHashes = await store.LoadIndexedContentHashesAsync(
                 ["content-v1", "missing-content"],
                 "test-model",
-                dimensions: 2,
+                dimensions: 512,
                 CancellationToken.None);
 
             CollectionAssert.AreEqual(new[] { "entry:base" }, baseMatches.Select(match => match.OnlyKey).ToArray());
@@ -212,8 +215,70 @@ public sealed class DocumentTextExtractorTests
             CollectionAssert.AreEquivalent(new[] { "content-v1" }, indexedContentHashes.ToArray());
 
             await store.DeleteBatchAsync(new[] { "entry:document" }, CancellationToken.None);
-            var matchesAfterRemoval = await store.SearchContentAsync("test-model", new float[] { 0f, 1f }, 10, CancellationToken.None);
+            var matchesAfterRemoval = await store.SearchContentAsync("test-model", contentVector, 10, CancellationToken.None);
             Assert.AreEqual(0, matchesAfterRemoval.Count);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            File.Delete(databasePath);
+            File.Delete(databasePath + "-shm");
+            File.Delete(databasePath + "-wal");
+        }
+    }
+
+    [TestMethod]
+    public async Task SemanticVectorStore_SearchAsync_RanksHighDimensionalVectors()
+    {
+        var databasePath = CreateTemporaryPath(".db");
+        try
+        {
+            var store = new SqliteSemanticVectorStore(databasePath);
+            var query = Enumerable.Repeat(1f / MathF.Sqrt(512), 512).ToArray();
+            var opposite = query.Select(value => -value).ToArray();
+
+            await store.UpsertBatchAsync(
+                [
+                    new EmbeddingWrite("matching", "matching-hash", "test-model", query),
+                    new EmbeddingWrite("opposite", "opposite-hash", "test-model", opposite)
+                ],
+                CancellationToken.None);
+
+            var matches = await store.SearchAsync("test-model", query, 2, CancellationToken.None);
+
+            CollectionAssert.AreEqual(new[] { "matching", "opposite" }, matches.Select(match => match.OnlyKey).ToArray());
+            Assert.IsTrue(matches[0].Score > 0.99d);
+            Assert.IsTrue(matches[1].Score < -0.99d);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            File.Delete(databasePath);
+            File.Delete(databasePath + "-shm");
+            File.Delete(databasePath + "-wal");
+        }
+    }
+
+    [TestMethod]
+    public async Task SemanticVectorStore_SearchAsync_FiltersOtherModelsBeforeLimitingResults()
+    {
+        var databasePath = CreateTemporaryPath(".db");
+        try
+        {
+            var query = CreateUnitVector(0);
+            var currentModelVector = CreateUnitVector(1);
+            currentModelVector[0] = 0.5f;
+            var store = new SqliteSemanticVectorStore(databasePath);
+            await store.UpsertBatchAsync(
+                [
+                    new EmbeddingWrite("stale", "stale-hash", "retired-model", query),
+                    new EmbeddingWrite("current", "current-hash", "test-model", currentModelVector)
+                ],
+                CancellationToken.None);
+
+            var matches = await store.SearchAsync("test-model", query, 1, CancellationToken.None);
+
+            CollectionAssert.AreEqual(new[] { "current" }, matches.Select(match => match.OnlyKey).ToArray());
         }
         finally
         {
@@ -234,6 +299,13 @@ public sealed class DocumentTextExtractorTests
         }
 
         return chunks;
+    }
+
+    private static float[] CreateUnitVector(int index)
+    {
+        var vector = new float[512];
+        vector[index] = 1f;
+        return vector;
     }
 
     private static async Task WriteZipEntryAsync(ZipArchive archive, string name, string content)

@@ -38,6 +38,9 @@ public readonly record struct SearchEntry
 
 public class SearchIndex
 {
+    // Lexical matches are immediate and precise enough for ordinary app and file-name searches.
+    // Reserving the expensive embedding lookup for sparse matches keeps RAG from competing with typing.
+    private const int SemanticFallbackPinyinResultLimit = 10;
     private readonly Dictionary<string, SearchEntry> _entries = new();
     private readonly object _lock = new();
     private readonly SemanticSearchIndex _semanticIndex = new();
@@ -210,7 +213,15 @@ public class SearchIndex
 
     public async Task<List<SearchIndexResult>> SearchAsync(string query, CancellationToken cancellationToken)
     {
-        var pinyinResults = Search(query);
+        return await SearchAsync(query, Search(query), cancellationToken);
+    }
+
+    public async Task<List<SearchIndexResult>> SearchAsync(
+        string query,
+        IReadOnlyList<SearchResults<SearchEntry>> pinyinResults,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         var merged = new Dictionary<string, SearchIndexResult>(StringComparer.Ordinal);
         for (var index = 0; index < pinyinResults.Count; index++)
         {
@@ -219,6 +230,11 @@ public class SearchIndex
                 result.Source,
                 1d / (60 + index + 1),
                 result.CharMatchResults);
+        }
+
+        if (pinyinResults.Count >= SemanticFallbackPinyinResultLimit)
+        {
+            return merged.Values.OrderByDescending(result => result.Weight).ToList();
         }
 
         try
@@ -244,6 +260,10 @@ public class SearchIndex
                     merged[semanticResult.OnlyKey] = new SearchIndexResult(entry, semanticScore, null);
                 }
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {

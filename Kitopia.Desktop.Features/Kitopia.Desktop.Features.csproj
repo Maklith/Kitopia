@@ -39,6 +39,7 @@
         <PackageReference Include="Avalonia" Version="12.0.5" />
 
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+        <PackageReference Include="HiraokaHyperTools.sqlite-vec" Version="0.1.9" />
         <PackageReference Include="Irihi.Ursa" Version="2.1.0" />
         <PackageReference Include="Markdown.Avalonia" Version="12.0.0-a3" />
         <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
@@ -75,6 +76,14 @@
     <ItemGroup>
         <AvaloniaResource Include="Assets\FluentSystemIcons-Filled.ttf" />
         <AvaloniaResource Include="Assets\FluentSystemIcons-Regular.ttf" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
+        <Content Include="$(NuGetPackageRoot)hiraokahypertools.sqlite-vec\0.1.9\runtimes\win-x64\native\vec0.dll">
+            <Link>vec0.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
     </ItemGroup>
 
     <ItemGroup>

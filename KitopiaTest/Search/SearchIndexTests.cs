@@ -103,6 +103,17 @@ public sealed class SearchIndexTests
         Assert.IsTrue(result.Weight > 0);
     }
 
+    [TestMethod]
+    public async Task SearchAsync_WhenCanceled_StopsBeforeSemanticRetrieval()
+    {
+        var index = new SearchIndex();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+            () => index.SearchAsync("query", cancellation.Token));
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         var deadline = DateTime.UtcNow.AddSeconds(5);
