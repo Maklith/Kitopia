@@ -176,9 +176,10 @@ internal sealed class SemanticSearchIndex
     {
         var documentVersion = 0L;
         var completed = false;
+        BgeOnnxEmbeddingService? embeddingService = null;
         try
         {
-            if (!TryGetEmbeddingService(out var embeddingService))
+            if (!TryGetEmbeddingService(out embeddingService))
             {
                 return;
             }
@@ -244,6 +245,20 @@ internal sealed class SemanticSearchIndex
         }
         finally
         {
+            // Indexing can create a large native memory arena inside ONNX Runtime. Vectors have
+            // already been persisted to SQLite, so release it here and recreate it on demand.
+            if (embeddingService is not null)
+            {
+                try
+                {
+                    await embeddingService.ReleaseSessionAsync();
+                }
+                catch (Exception exception)
+                {
+                    Logger.Warning(exception, "Failed to release the semantic search inference session.");
+                }
+            }
+
             Interlocked.Exchange(ref _synchronizationScheduled, 0);
 
             if (completed)

@@ -72,7 +72,6 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(maximumTokens, 2);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(maximumTokens, ModelMaximumTokens);
 
-        await EnsureSessionAsync(cancellationToken);
         var tokenized = texts.Select(text => _tokenizer.Encode(text, maximumTokens)).ToArray();
         var sequenceLength = tokenized.Max(tokens => tokens.Length);
         var inputIds = new long[texts.Count * sequenceLength];
@@ -90,7 +89,13 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
         await _inferenceGate.WaitAsync(cancellationToken);
         try
         {
-            var output = await Task.Run(() => _session!.InferInt64(
+            // Keep session initialization, inference, and unloading mutually exclusive.
+            // An ONNX session owns a sizeable native allocator arena which must be disposed
+            // after an indexing pass instead of staying resident for the process lifetime.
+            await EnsureSessionAsync(cancellationToken);
+            var session = _session
+                          ?? throw new InvalidOperationException("The inference session has not been initialized.");
+            var output = await Task.Run(() => session.InferInt64(
                 [
                     ("input_ids", new Memory<int>([texts.Count, sequenceLength]), new Memory<long>(inputIds)),
                     ("attention_mask", new Memory<int>([texts.Count, sequenceLength]), new Memory<long>(attentionMask)),
@@ -111,6 +116,25 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
             }
 
             return vectors;
+        }
+        finally
+        {
+            _inferenceGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Releases the native ONNX session after a background indexing pass. The tokenizer remains
+    /// available, and the session is initialized again on the next embedding request.
+    /// </summary>
+    public async Task ReleaseSessionAsync()
+    {
+        await _inferenceGate.WaitAsync();
+        try
+        {
+            var session = _session;
+            _session = null;
+            session?.Dispose();
         }
         finally
         {
