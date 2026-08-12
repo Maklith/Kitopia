@@ -227,6 +227,7 @@ public class SearchItemTool : ISearchItemTool
         {
             case FileType.文件夹:
             case FileType.应用程序:
+            case FileType.UWP应用:
             case FileType.Word文档:
             case FileType.PPT文档:
             case FileType.Excel文档:

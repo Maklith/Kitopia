@@ -85,7 +85,7 @@
                             <Button Theme="{DynamicResource BorderlessButton}" ToolTip.Tip="切换列表/预览"
                                     IsVisible="{Binding CanUsePreview}"
                                     Command="{Binding TogglePreviewModeCommand}">
-                                <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xE70F;" />
+                                <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf8cb;" />
                             </Button>
                         </TextBox.InnerRightContent>
                     </TextBox>
@@ -360,7 +360,7 @@
                         </Grid>
                         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
                             <Button ToolTip.Tip="切换列表/预览" Command="{Binding TogglePreviewModeCommand}">
-                                <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xE70F;" />
+                                <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf8cb;" />
                             </Button>
                             <Button Content="打开" Command="{Binding OpenFileCommand}" CommandParameter="{Binding SelectedItem}" />
                             <Button ToolTip.Tip="打开文件所在位置" Command="{Binding OpenFolderCommand}"

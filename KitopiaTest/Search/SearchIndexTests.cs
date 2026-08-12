@@ -1,4 +1,5 @@
 using Kitopia.Desktop.Features.Search;
+using Kitopia.Desktop.Features.Services.Config;
 using PluginCore;
 
 namespace KitopiaTest.Search;
@@ -112,6 +113,24 @@ public sealed class SearchIndexTests
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(
             () => index.SearchAsync("query", cancellation.Token));
+    }
+
+    [TestMethod]
+    public void Rank_RecentFrequentHistory_OnlyReordersCloseResults()
+    {
+        var now = new DateTime(2026, 8, 12, 12, 0, 0, DateTimeKind.Utc);
+        var first = new SearchIndexResult(CreateEntry("first", "First"), 0.0200, null);
+        var closeRecent = new SearchIndexResult(CreateEntry("close", "Close"), 0.0198, null);
+        var distantRecent = new SearchIndexResult(CreateEntry("distant", "Distant"), 0.0150, null);
+        var history = new Dictionary<string, HistoryItem>
+        {
+            ["close"] = new() { AccessTimes = [now, now.AddHours(-1), now.AddDays(-1), now.AddDays(-2), now.AddDays(-3), now.AddDays(-4)] },
+            ["distant"] = new() { AccessTimes = [now, now.AddHours(-1), now.AddDays(-1), now.AddDays(-2), now.AddDays(-3), now.AddDays(-4)] }
+        };
+
+        var ranked = SearchResultRanker.Rank([first, closeRecent, distantRecent], history, now);
+
+        CollectionAssert.AreEqual(new[] { closeRecent, first, distantRecent }, ranked);
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)

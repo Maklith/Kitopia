@@ -678,18 +678,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         const int limit = 100;
         var resultItems = new List<SearchViewItem>(Math.Min(results.Count, limit));
 
-        foreach (var result in results)
+        foreach (var result in SearchResultRanker.Rank(results, ConfigManger.Config.lastOpens, DateTime.Now))
         {
-            if (!ConfigManger.Config.lastOpens.ContainsKey(result.Source.OnlyKey)) continue;
-
-            resultItems.Add(ToSearchViewItem(result));
-            if (resultItems.Count >= limit) return resultItems;
-        }
-
-        foreach (var result in results)
-        {
-            if (ConfigManger.Config.lastOpens.ContainsKey(result.Source.OnlyKey)) continue;
-
             resultItems.Add(ToSearchViewItem(result));
             if (resultItems.Count >= limit) return resultItems;
         }
