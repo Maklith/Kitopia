@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using System.IO;
-using Nuke.Common;
-using Nuke.Common.CI.GitHubActions;
-using Nuke.Common.IO;
-using Nuke.Common.ProjectModel;
-using Nuke.Common.Tools.DotNet;
+using Fallout.Common;
+using Fallout.Common.CI.GitHubActions;
+using Fallout.Common.IO;
+using Fallout.Solutions;
+using Fallout.Common.Tools.DotNet;
 using Octokit;
-using static Nuke.Common.Tools.DotNet.DotNetTasks;
-using Project = Nuke.Common.ProjectModel.Project;
+using static Fallout.Common.Tools.DotNet.DotNetTasks;
+using Project = Fallout.Solutions.Project;
 
 [GitHubActions(
     "continuous",
@@ -16,7 +16,7 @@ using Project = Nuke.Common.ProjectModel.Project;
     ImportSecrets = new[] { nameof(Build.GitHubToken) },
     InvokedTargets = new[] { nameof(Build.Clean) },
     AutoGenerate = false)]
-partial class Build : NukeBuild
+partial class Build : FalloutBuild
 {
     internal const string ReleaseConfiguration = "Release";
     [Parameter("GitHub token used to create and upload a release")]

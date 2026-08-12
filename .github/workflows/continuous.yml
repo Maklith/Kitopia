@@ -9,7 +9,7 @@
 #
 #     - To trigger manual generation invoke:
 #
-#         nuke --generate-configuration GitHubActions_continuous --host GitHubActions
+#         fallout --generate-configuration GitHubActions_continuous --host GitHubActions
 #
 # </auto-generated>
 # ------------------------------------------------------------------------------
@@ -31,11 +31,11 @@ jobs:
         run: dotnet workload install android
       - name: Install Rust Windows targets
         run: rustup target add i686-pc-windows-msvc aarch64-pc-windows-msvc
-      - name: 'Cache: .nuke/temp, ~/.nuget/packages'
+      - name: 'Cache: .fallout/temp, ~/.nuget/packages'
         uses: actions/cache@v4
         with:
           path: |
-            .nuke/temp
+            .fallout/temp
             ~/.nuget/packages
           key: ${{ runner.os }}-${{ hashFiles('**/global.json', '**/*.csproj', '**/Directory.Packages.props') }}
       - name: 'Run: Clean'

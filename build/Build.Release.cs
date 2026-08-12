@@ -1,11 +1,11 @@
 using System;
 using System.Linq;
 using System.Text;
-using Nuke.Common;
-using Nuke.Common.Git;
-using Nuke.Common.ProjectModel;
-using Nuke.Common.Tools.Git;
-using Nuke.Common.Tools.GitHub;
+using Fallout.Common;
+using Fallout.Common.Git;
+using Fallout.Solutions;
+using Fallout.Common.Tools.Git;
+using Fallout.Common.Tools.GitHub;
 using Octokit;
 using Serilog;
 

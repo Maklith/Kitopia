@@ -1,7 +1,7 @@
 using System.IO.Compression;
-using Nuke.Common;
-using Nuke.Common.IO;
-using Nuke.Common.ProjectModel;
+using Fallout.Common;
+using Fallout.Common.IO;
+using Fallout.Solutions;
 using Serilog;
 
 partial class Build

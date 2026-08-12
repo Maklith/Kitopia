@@ -3,10 +3,10 @@ using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Nuke.Common;
-using Nuke.Common.IO;
-using Nuke.Common.ProjectModel;
-using Nuke.Common.Tools.PowerShell;
+using Fallout.Common;
+using Fallout.Common.IO;
+using Fallout.Solutions;
+using Fallout.Common.Tools.PowerShell;
 using Serilog;
 
 partial class Build

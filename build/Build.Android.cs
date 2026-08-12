@@ -1,12 +1,12 @@
 using System;
 using System.IO;
 using System.Linq;
-using Nuke.Common;
-using Nuke.Common.IO;
-using Nuke.Common.ProjectModel;
-using Nuke.Common.Tools.DotNet;
+using Fallout.Common;
+using Fallout.Common.IO;
+using Fallout.Solutions;
+using Fallout.Common.Tools.DotNet;
 using Serilog;
-using static Nuke.Common.Tools.DotNet.DotNetTasks;
+using static Fallout.Common.Tools.DotNet.DotNetTasks;
 
 partial class Build
 {
