@@ -117,7 +117,6 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             if (e.Exception is not null) Logger.Error(e.Exception, "");
         });
         this.WhenAnyValue(e => e.Search)
-            .Throttle(TimeSpan.FromMilliseconds(Math.Max(100, ConfigManger.Config.semanticSearchDebounceMilliseconds)))
             .DistinctUntilChanged()
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(ToSearch, e => { Logger.Error(e, ""); });
@@ -543,7 +542,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             {
                 try
                 {
-                    await SearchInBackgroundAsync(value, originalValue, version, cancellation.Token);
+                    await SearchPinyinInBackgroundAsync(value, originalValue, version, cancellation.Token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -557,14 +556,14 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         }
     }
 
-    private async Task SearchInBackgroundAsync(
+    private async Task SearchPinyinInBackgroundAsync(
         string value,
         string originalValue,
         int version,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var pinyinResults = Index.Search(value);
+        var pinyinResults = Index.Search(value, 100, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         var pinyinItems = CreateSearchItems(pinyinResults
             .Select(result => new SearchIndexResult(result.Source, result.Weight, result.CharMatchResults))
@@ -579,7 +578,27 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             });
         }
 
-        var rawResults = await Index.SearchAsync(value, pinyinResults, cancellationToken);
+        var shouldSearchSemantically = SearchIndex.ShouldSearchSemantically(value, pinyinResults.Count);
+        if (!shouldSearchSemantically && pinyinResults.Count > 0)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (Volatile.Read(ref _searchVersion) == version)
+                {
+                    UpdateDisplayMode();
+                }
+            });
+            return;
+        }
+
+        if (shouldSearchSemantically)
+        {
+            await Task.Delay(
+                TimeSpan.FromMilliseconds(Math.Max(100, ConfigManger.Config.semanticSearchDebounceMilliseconds)),
+                cancellationToken);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        var rawResults = await Index.SearchSemanticallyAsync(value, pinyinResults, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
         if (rawResults.Count == 0)

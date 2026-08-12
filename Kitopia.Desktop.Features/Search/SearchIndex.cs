@@ -41,6 +41,7 @@ public class SearchIndex
     // Lexical matches are immediate and precise enough for ordinary app and file-name searches.
     // Reserving the expensive embedding lookup for sparse matches keeps RAG from competing with typing.
     private const int SemanticFallbackPinyinResultLimit = 10;
+    private const int MinimumSemanticQueryLength = 2;
     private readonly Dictionary<string, SearchEntry> _entries = new();
     private readonly object _lock = new();
     private readonly SemanticSearchIndex _semanticIndex = new();
@@ -197,26 +198,32 @@ public class SearchIndex
         }
     }
 
-    public List<SearchResults<SearchEntry>> Search(string query)
+    public List<SearchResults<SearchEntry>> Search(
+        string query,
+        int maximumResults,
+        CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(query)) return [];
+        if (string.IsNullOrWhiteSpace(query) || maximumResults <= 0) return [];
+        cancellationToken.ThrowIfCancellationRequested();
 
         var searcher = _searcher;
         if (searcher is null) return [];
 
-        var results = new List<SearchResults<SearchEntry>>();
-        foreach (var r in searcher.Search(query))
-            results.Add(r);
-
-        return results;
+        return searcher.Search(query, maximumResults, cancellationToken).ToList();
     }
 
-    public async Task<List<SearchIndexResult>> SearchAsync(string query, CancellationToken cancellationToken)
+    public List<SearchResults<SearchEntry>> Search(string query)
     {
-        return await SearchAsync(query, Search(query), cancellationToken);
+        return Search(query, int.MaxValue, CancellationToken.None);
     }
 
-    public async Task<List<SearchIndexResult>> SearchAsync(
+    public static bool ShouldSearchSemantically(string query, int pinyinResultCount)
+    {
+        return pinyinResultCount < SemanticFallbackPinyinResultLimit
+               && query.Trim().Length >= MinimumSemanticQueryLength;
+    }
+
+    public async Task<List<SearchIndexResult>> SearchSemanticallyAsync(
         string query,
         IReadOnlyList<SearchResults<SearchEntry>> pinyinResults,
         CancellationToken cancellationToken)
@@ -232,7 +239,7 @@ public class SearchIndex
                 result.CharMatchResults);
         }
 
-        if (pinyinResults.Count >= SemanticFallbackPinyinResultLimit)
+        if (!ShouldSearchSemantically(query, pinyinResults.Count))
         {
             return merged.Values.OrderByDescending(result => result.Weight).ToList();
         }

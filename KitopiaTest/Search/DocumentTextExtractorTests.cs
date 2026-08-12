@@ -295,7 +295,10 @@ public sealed class DocumentTextExtractorTests
     {
         Assert.IsTrue(DocumentTextExtractor.TryCreateSource(path, out var source));
         var chunks = new List<string>();
-        await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(source, CancellationToken.None))
+        await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(
+                           source,
+                           text => text.Length,
+                           CancellationToken.None))
         {
             chunks.Add(chunk);
         }

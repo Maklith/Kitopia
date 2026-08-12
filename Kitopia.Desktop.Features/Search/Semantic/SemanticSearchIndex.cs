@@ -9,10 +9,10 @@ namespace Kitopia.Desktop.Features.Search.Semantic;
 
 internal sealed class SemanticSearchIndex
 {
-    private const int MetadataIndexingBatchSize = 128;
-    private const int ContentIndexingBatchSize = 128;
-    private const int MetadataLookupBatchSize = 500;
-    private const int ContentSearchCandidateMultiplier = 4;
+    private const int MetadataIndexingBatchSize = 32;
+    private const int ContentIndexingBatchSize = 32;
+    private const int MetadataLookupBatchSize = 128;
+    private const int ContentSearchCandidateMultiplier = 2;
     private static readonly ILogger Logger = LogManager.Logger.ForContext<SemanticSearchIndex>();
     private readonly object _lock = new();
     private readonly SqliteSemanticVectorStore _store = new();
@@ -307,11 +307,10 @@ internal sealed class SemanticSearchIndex
         }
     }
 
-    private async Task<int> SynchronizeContentAsync(
+    private async Task SynchronizeContentAsync(
         IReadOnlyList<SemanticDocument> documents,
         BgeOnnxEmbeddingService embeddingService)
     {
-        var indexedDocumentCount = 0;
         var contentDocuments = new List<SemanticContentDocument>(MetadataLookupBatchSize);
         foreach (var document in documents)
         {
@@ -322,20 +321,18 @@ internal sealed class SemanticSearchIndex
 
             if (contentDocuments.Count == MetadataLookupBatchSize)
             {
-                indexedDocumentCount += await SynchronizeContentBatchAsync(contentDocuments, embeddingService);
+                await SynchronizeContentBatchAsync(contentDocuments, embeddingService);
                 contentDocuments.Clear();
             }
         }
 
         if (contentDocuments.Count > 0)
         {
-            indexedDocumentCount += await SynchronizeContentBatchAsync(contentDocuments, embeddingService);
+            await SynchronizeContentBatchAsync(contentDocuments, embeddingService);
         }
-
-        return indexedDocumentCount;
     }
 
-    private async Task<int> SynchronizeContentBatchAsync(
+    private async Task SynchronizeContentBatchAsync(
         IReadOnlyList<SemanticContentDocument> documents,
         BgeOnnxEmbeddingService embeddingService)
     {
@@ -377,7 +374,6 @@ internal sealed class SemanticSearchIndex
             embeddingService.ModelId,
             BgeOnnxEmbeddingService.VectorDimensions,
             CancellationToken.None);
-        var indexedDocumentCount = 0;
         foreach (var (document, needsMetadataUpdate) in documentsToCheck)
         {
             try
@@ -386,9 +382,9 @@ internal sealed class SemanticSearchIndex
                 var contentAlreadyIndexed = indexedContentHashes.Contains(contentHash);
                 if (contentAlreadyIndexed)
                 {
-                    if (needsMetadataUpdate && await CompleteDuplicateContentAsync(document, embeddingService))
+                    if (needsMetadataUpdate)
                     {
-                        continue;
+                        await CompleteDuplicateContentAsync(document, embeddingService);
                     }
 
                     continue;
@@ -397,7 +393,6 @@ internal sealed class SemanticSearchIndex
                 Logger.Debug("Indexing semantic content for {DocumentPath}.", document.Source.Path);
                 if (await IndexContentAsync(document, embeddingService))
                 {
-                    indexedDocumentCount++;
                     indexedContentHashes.Add(contentHash);
                 }
             }
@@ -406,16 +401,15 @@ internal sealed class SemanticSearchIndex
             }
         }
 
-        return indexedDocumentCount;
     }
 
-    private async Task<bool> CompleteDuplicateContentAsync(
+    private async Task CompleteDuplicateContentAsync(
         SemanticContentDocument document,
         BgeOnnxEmbeddingService embeddingService)
     {
         if (!IsCurrentContentSource(document))
         {
-            return false;
+            return;
         }
 
         await _store.CompleteContentIndexAsync(
@@ -426,7 +420,6 @@ internal sealed class SemanticSearchIndex
             embeddingService.ModelId,
             BgeOnnxEmbeddingService.VectorDimensions,
             CancellationToken.None);
-        return true;
     }
 
     private async Task<bool> IndexContentAsync(

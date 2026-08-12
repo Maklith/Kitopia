@@ -97,7 +97,7 @@ public sealed class SearchIndexTests
         index.TryAddAndRefreshSearcher(entry);
         await WaitUntilAsync(() => index.Search("ceshi").Any(result => result.Source == entry));
 
-        var results = await index.SearchAsync("ceshi", CancellationToken.None);
+        var results = await index.SearchSemanticallyAsync("ceshi", index.Search("ceshi"), CancellationToken.None);
 
         var result = results.Single(result => result.Source == entry);
         Assert.IsNotNull(result.CharMatchResults);
@@ -112,7 +112,47 @@ public sealed class SearchIndexTests
         cancellation.Cancel();
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(
-            () => index.SearchAsync("query", cancellation.Token));
+            () => index.SearchSemanticallyAsync("query", [], cancellation.Token));
+    }
+
+    [TestMethod]
+    public async Task Search_WithLimit_ReturnsTheBestMatchingEntries()
+    {
+        var index = new SearchIndex();
+        index.TryAddAndRefreshSearcher(CreateEntry("first", "Calculator"));
+        index.TryAdd(CreateEntry("second", "Calendar"));
+        index.TryAdd(CreateEntry("third", "Calligraphy"));
+        index.RebuildSearcher();
+
+        await WaitUntilAsync(() => index.Search("cal").Count == 3);
+
+        var results = index.Search("cal", 2, CancellationToken.None);
+
+        Assert.AreEqual(2, results.Count);
+        CollectionAssert.AreEqual(
+            index.Search("cal").Take(2).Select(result => result.Source.OnlyKey).ToArray(),
+            results.Select(result => result.Source.OnlyKey).ToArray());
+    }
+
+    [TestMethod]
+    public void Search_WithCanceledToken_StopsPinyinSearch()
+    {
+        var index = new SearchIndex();
+        index.TryAdd(CreateEntry("calculator", "Calculator"));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.ThrowsExactly<OperationCanceledException>(
+            () => index.Search("calculator", 10, cancellation.Token));
+    }
+
+    [TestMethod]
+    public void ShouldSearchSemantically_UsesQueryAndPinyinThresholds()
+    {
+        Assert.IsFalse(SearchIndex.ShouldSearchSemantically("a", 0));
+        Assert.IsTrue(SearchIndex.ShouldSearchSemantically("ab", 0));
+        Assert.IsTrue(SearchIndex.ShouldSearchSemantically("ab", 9));
+        Assert.IsFalse(SearchIndex.ShouldSearchSemantically("ab", 10));
     }
 
     [TestMethod]
