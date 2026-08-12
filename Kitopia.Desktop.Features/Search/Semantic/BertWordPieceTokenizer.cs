@@ -78,6 +78,17 @@ internal sealed class BertWordPieceTokenizer
         return tokenIds.ToArray();
     }
 
+    public int CountTokens(string text)
+    {
+        var tokenCount = 0;
+        foreach (var token in BasicTokenize(text))
+        {
+            tokenCount += EncodeWordPiece(token).Count;
+        }
+
+        return tokenCount;
+    }
+
     public string GetFingerprint()
     {
         using var stream = new MemoryStream();

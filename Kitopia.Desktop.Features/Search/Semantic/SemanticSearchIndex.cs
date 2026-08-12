@@ -440,7 +440,10 @@ internal sealed class SemanticSearchIndex
 
         var chunks = new List<string>(ContentIndexingBatchSize);
         var chunkIndex = 0;
-        await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(document.Source, CancellationToken.None))
+        await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(
+                           document.Source,
+                           embeddingService.CountTokens,
+                           CancellationToken.None))
         {
             chunks.Add(chunk);
             if (chunks.Count == ContentIndexingBatchSize)

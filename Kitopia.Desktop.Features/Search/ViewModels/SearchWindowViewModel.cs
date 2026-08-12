@@ -820,7 +820,10 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         var lastChunkIndex = targetChunkIndex + 1;
         var chunks = new List<string>();
         var index = 0;
-        await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(source, cancellationToken))
+        await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(
+                           source,
+                           BgeOnnxEmbeddingService.CountDocumentTokens,
+                           cancellationToken))
         {
             if (index >= firstChunkIndex && index <= lastChunkIndex)
             {

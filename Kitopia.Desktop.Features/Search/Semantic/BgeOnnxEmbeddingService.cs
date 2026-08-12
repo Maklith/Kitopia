@@ -9,6 +9,7 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
     private const int EmbeddingDimensions = 512;
     private const int ModelMaximumTokens = 512;
     private const string SentenceEmbeddingOutputName = "sentence_embedding";
+    private static readonly Lazy<BertWordPieceTokenizer?> PreviewTokenizer = new(LoadPreviewTokenizer);
     private readonly string _modelPath;
     private readonly string _modelId;
     private readonly BertWordPieceTokenizer _tokenizer;
@@ -20,18 +21,25 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
     {
         _modelPath = modelPath;
         _tokenizer = tokenizer;
-        _modelId = $"bge-small-zh-v1.5-onnx-int8:512:{new FileInfo(modelPath).Length}:{tokenizer.GetFingerprint()}";
+        _modelId = $"bge-small-zh-v1.5-onnx-int8:512:content-256-overlap-48:{new FileInfo(modelPath).Length}:{tokenizer.GetFingerprint()}";
     }
 
     public const int VectorDimensions = EmbeddingDimensions;
 
     public const int MetadataMaximumTokens = 128;
 
-    public const int DocumentMaximumTokens = 128;
+    public const int DocumentMaximumTokens = 256;
 
     public const string QueryInstruction = "为这个句子生成表示以用于检索相关文章：";
 
     public string ModelId => _modelId;
+
+    public int CountTokens(string text) => _tokenizer.CountTokens(text);
+
+    internal static int CountDocumentTokens(string text)
+    {
+        return PreviewTokenizer.Value?.CountTokens(text) ?? text.Length;
+    }
 
     public static bool TryCreate(out BgeOnnxEmbeddingService? service)
     {
@@ -200,5 +208,19 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
         }
 
         return vector;
+    }
+
+    private static BertWordPieceTokenizer? LoadPreviewTokenizer()
+    {
+        try
+        {
+            return File.Exists(BgeModelPackage.TokenizerPath)
+                ? BertWordPieceTokenizer.Load(BgeModelPackage.TokenizerPath)
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

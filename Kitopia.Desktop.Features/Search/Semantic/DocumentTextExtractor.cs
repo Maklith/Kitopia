@@ -2,12 +2,15 @@ using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml;
-using UglyToad.PdfPig;
+using PdfSharp.Pdf;
+using PdfSharp.Pdf.Advanced;
+using PdfSharp.Pdf.IO;
 
 namespace Kitopia.Desktop.Features.Search.Semantic;
 
-internal static class DocumentTextExtractor
+internal static partial class DocumentTextExtractor
 {
     private static readonly HashSet<string> PlainTextExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -69,12 +72,13 @@ internal static class DocumentTextExtractor
 
     public static async IAsyncEnumerable<string> ExtractChunksAsync(
         DocumentContentSource source,
+        Func<string, int> countTokens,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var extension = Path.GetExtension(source.Path);
         if (PlainTextExtensions.Contains(extension))
         {
-            await foreach (var chunk in ReadPlainTextChunksAsync(source.Path, cancellationToken))
+            await foreach (var chunk in ReadPlainTextChunksAsync(source.Path, countTokens, cancellationToken))
             {
                 yield return chunk;
             }
@@ -84,7 +88,7 @@ internal static class DocumentTextExtractor
 
         if (extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
         {
-            foreach (var chunk in ReadPdfChunks(source.Path, cancellationToken))
+            foreach (var chunk in ReadPdfChunks(source.Path, countTokens, cancellationToken))
             {
                 yield return chunk;
             }
@@ -92,7 +96,7 @@ internal static class DocumentTextExtractor
             yield break;
         }
 
-        await foreach (var chunk in ReadOpenXmlChunksAsync(source.Path, extension, cancellationToken))
+        await foreach (var chunk in ReadOpenXmlChunksAsync(source.Path, extension, countTokens, cancellationToken))
         {
             yield return chunk;
         }
@@ -110,9 +114,10 @@ internal static class DocumentTextExtractor
 
     private static async IAsyncEnumerable<string> ReadPlainTextChunksAsync(
         string path,
+        Func<string, int> countTokens,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var chunker = new TextChunker();
+        var chunker = new TextChunker(countTokens);
         await using var stream = new FileStream(
             path,
             FileMode.Open,
@@ -143,14 +148,14 @@ internal static class DocumentTextExtractor
         }
     }
 
-    private static IEnumerable<string> ReadPdfChunks(string path, CancellationToken cancellationToken)
+    private static IEnumerable<string> ReadPdfChunks(string path, Func<string, int> countTokens, CancellationToken cancellationToken)
     {
-        var chunker = new TextChunker();
-        using var document = PdfDocument.Open(path);
-        foreach (var page in document.GetPages())
+        var chunker = new TextChunker(countTokens);
+        using var document = PdfReader.Open(path, PdfDocumentOpenMode.Import);
+        foreach (var page in document.Pages)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            foreach (var chunk in chunker.Append(page.Text))
+            foreach (var chunk in chunker.Append(DecodePdfPageText(page)))
             {
                 yield return chunk;
             }
@@ -163,9 +168,207 @@ internal static class DocumentTextExtractor
         }
     }
 
+    private static string DecodePdfPageText(PdfPage page)
+    {
+        var fontMaps = ReadPdfFontMaps(page);
+        if (fontMaps.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        var activeFont = string.Empty;
+        foreach (var content in page.Contents)
+        {
+            if (content.Stream?.UnfilteredValue is not { } stream)
+            {
+                continue;
+            }
+
+            var contentStream = Encoding.ASCII.GetString(stream);
+            foreach (Match match in PdfTextOperatorPattern().Matches(contentStream))
+            {
+                if (match.Groups[1].Success)
+                {
+                    activeFont = "/" + match.Groups[1].Value;
+                    continue;
+                }
+
+                if (!fontMaps.TryGetValue(activeFont, out var fontMap))
+                {
+                    continue;
+                }
+
+                if (match.Groups[2].Success)
+                {
+                    AppendDecodedGlyphs(builder, match.Groups[2].Value, fontMap);
+                }
+                else
+                {
+                    foreach (Match glyphs in PdfHexStringPattern().Matches(match.Groups[3].Value))
+                    {
+                        AppendDecodedGlyphs(builder, glyphs.Groups[1].Value, fontMap);
+                    }
+                }
+            }
+        }
+
+        return builder.Append('\n').ToString();
+    }
+
+    private static Dictionary<string, Dictionary<ushort, string>> ReadPdfFontMaps(PdfPage page)
+    {
+        var fontMaps = new Dictionary<string, Dictionary<ushort, string>>(StringComparer.Ordinal);
+        var fonts = page.Resources?.Elements.GetDictionary("/Font");
+        if (fonts is null)
+        {
+            return fontMaps;
+        }
+
+        foreach (var (fontName, item) in fonts)
+        {
+            var fontItem = item is PdfReference reference ? reference.Value : item;
+            if (fontItem is not PdfDictionary font
+                || font.Elements.GetReference("/ToUnicode")?.Value is not PdfDictionary cmap
+                || cmap.Stream?.UnfilteredValue is not { } cmapStream)
+            {
+                continue;
+            }
+
+            var map = new Dictionary<ushort, string>();
+            var cmapText = Encoding.ASCII.GetString(cmapStream);
+            foreach (Match block in CMapCharacterBlockPattern().Matches(cmapText))
+            {
+                foreach (Match match in CMapCharacterPattern().Matches(block.Groups[1].Value))
+                {
+                    map[Convert.ToUInt16(match.Groups[1].Value, 16)] = DecodeCMapValue(match.Groups[2].Value);
+                }
+            }
+
+            foreach (Match block in CMapRangeBlockPattern().Matches(cmapText))
+            {
+                var entries = block.Groups[1].Value;
+                foreach (Match match in CMapRangeArrayPattern().Matches(entries))
+                {
+                    var start = Convert.ToUInt16(match.Groups[1].Value, 16);
+                    var end = Convert.ToUInt16(match.Groups[2].Value, 16);
+                    var targets = PdfHexStringPattern().Matches(match.Groups[3].Value);
+                    for (var source = (int)start; source <= end && source - start < targets.Count; source++)
+                    {
+                        map[(ushort)source] = DecodeCMapValue(targets[source - start].Groups[1].Value);
+                    }
+                }
+
+                foreach (Match match in CMapRangePattern().Matches(entries))
+                {
+                    AddCMapRange(
+                        map,
+                        Convert.ToUInt16(match.Groups[1].Value, 16),
+                        Convert.ToUInt16(match.Groups[2].Value, 16),
+                        match.Groups[3].Value);
+                }
+            }
+
+            if (map.Count > 0)
+            {
+                fontMaps[fontName] = map;
+            }
+        }
+
+        return fontMaps;
+    }
+
+    private static void AppendDecodedGlyphs(StringBuilder builder, string hex, IReadOnlyDictionary<ushort, string> map)
+    {
+        if (hex.Length % 4 != 0)
+        {
+            return;
+        }
+
+        for (var index = 0; index < hex.Length; index += 4)
+        {
+            var glyph = Convert.ToUInt16(hex.Substring(index, 4), 16);
+            if (map.TryGetValue(glyph, out var character))
+            {
+                builder.Append(character);
+            }
+        }
+    }
+
+    private static void AddCMapRange(Dictionary<ushort, string> map, ushort start, ushort end, string targetHex)
+    {
+        var target = DecodeCMapValue(targetHex);
+        if (start == end)
+        {
+            map[start] = target;
+            return;
+        }
+
+        if (!TryGetUnicodeScalar(target, out var targetScalar))
+        {
+            return;
+        }
+
+        for (var source = (int)start; source <= end; source++)
+        {
+            var scalar = targetScalar + source - start;
+            if (scalar > 0x10FFFF || scalar is >= 0xD800 and <= 0xDFFF)
+            {
+                return;
+            }
+
+            map[(ushort)source] = char.ConvertFromUtf32(scalar);
+        }
+    }
+
+    private static string DecodeCMapValue(string hex)
+    {
+        return Encoding.BigEndianUnicode.GetString(Convert.FromHexString(hex));
+    }
+
+    private static bool TryGetUnicodeScalar(string value, out int scalar)
+    {
+        scalar = 0;
+        if (value.Length == 1 && !char.IsSurrogate(value[0]))
+        {
+            scalar = value[0];
+            return true;
+        }
+
+        if (value.Length == 2 && char.IsHighSurrogate(value[0]) && char.IsLowSurrogate(value[1]))
+        {
+            scalar = char.ConvertToUtf32(value[0], value[1]);
+            return true;
+        }
+
+        return false;
+    }
+
+    [GeneratedRegex(@"/(\w+)\s+[-+.\d]+\s+Tf|<([0-9A-F]+)>\s*Tj|\[([^]]*)\]\s*TJ", RegexOptions.IgnoreCase)]
+    private static partial Regex PdfTextOperatorPattern();
+
+    [GeneratedRegex(@"<([0-9A-F]+)>", RegexOptions.IgnoreCase)]
+    private static partial Regex PdfHexStringPattern();
+
+    [GeneratedRegex(@"\d+\s+beginbfchar\s*(.*?)\s*endbfchar", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex CMapCharacterBlockPattern();
+
+    [GeneratedRegex(@"<([0-9A-F]{4})>\s+<([0-9A-F]+)>", RegexOptions.IgnoreCase)]
+    private static partial Regex CMapCharacterPattern();
+
+    [GeneratedRegex(@"\d+\s+beginbfrange\s*(.*?)\s*endbfrange", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex CMapRangeBlockPattern();
+
+    [GeneratedRegex(@"<([0-9A-F]{4})>\s+<([0-9A-F]{4})>\s+<([0-9A-F]+)>", RegexOptions.IgnoreCase)]
+    private static partial Regex CMapRangePattern();
+
+    [GeneratedRegex(@"<([0-9A-F]{4})>\s+<([0-9A-F]{4})>\s+\[((?:\s*<[0-9A-F]+>\s*)+)\]", RegexOptions.IgnoreCase)]
+    private static partial Regex CMapRangeArrayPattern();
+
     private static async IAsyncEnumerable<string> ReadOpenXmlChunksAsync(
         string path,
         string extension,
+        Func<string, int> countTokens,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         using var archive = ZipFile.OpenRead(path);
@@ -182,7 +385,7 @@ internal static class DocumentTextExtractor
             _ => []
         };
 
-        var chunker = new TextChunker();
+        var chunker = new TextChunker(countTokens);
         foreach (var entry in entries.OrderBy(entry => entry.FullName, StringComparer.OrdinalIgnoreCase))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -324,13 +527,18 @@ internal static class DocumentTextExtractor
 
     private sealed class TextChunker
     {
-        // BGE accepts 512 WordPiece tokens for document content. A WordPiece cannot
-        // outnumber source characters, so 510 characters leave room for [CLS] and [SEP].
-        private const int ChunkLength = 510;
-        private const int OverlapLength = 64;
-        private const int BreakSearchLength = 48;
-        private readonly StringBuilder _text = new(ChunkLength + OverlapLength);
+        // The BGE input adds [CLS] and [SEP], leaving 254 payload WordPiece tokens.
+        // DocumentMaximumTokens is 256. The BGE sequence reserves [CLS] and [SEP].
+        private const int MaximumPayloadTokens = 254;
+        private const int OverlapTokens = 48;
+        private readonly Func<string, int> _countTokens;
+        private readonly StringBuilder _text = new();
         private bool _previousWasWhitespace;
+
+        public TextChunker(Func<string, int> countTokens)
+        {
+            _countTokens = countTokens;
+        }
 
         public IEnumerable<string> Append(string value)
         {
@@ -350,7 +558,7 @@ internal static class DocumentTextExtractor
                     _previousWasWhitespace = false;
                 }
 
-                if (_text.Length >= ChunkLength)
+                while (CountTokens() > MaximumPayloadTokens)
                 {
                     yield return TakeChunk();
                 }
@@ -368,22 +576,7 @@ internal static class DocumentTextExtractor
         {
             var breakIndex = FindBreakIndex();
             var chunk = _text.ToString(0, breakIndex).Trim();
-            var overlapStart = Math.Max(0, breakIndex - OverlapLength);
-            if (overlapStart > 0 && !char.IsWhiteSpace(_text[overlapStart - 1]))
-            {
-                // Move forward to a word boundary when one is close. Moving backwards
-                // without a bound retains an entire whitespace-free chunk indefinitely.
-                var nextWhitespace = overlapStart;
-                while (nextWhitespace < breakIndex && !char.IsWhiteSpace(_text[nextWhitespace]))
-                {
-                    nextWhitespace++;
-                }
-
-                if (nextWhitespace < breakIndex)
-                {
-                    overlapStart = nextWhitespace + 1;
-                }
-            }
+            var overlapStart = FindOverlapStart(chunk);
 
             var remainderLength = _text.Length - overlapStart;
             var remainder = _text.ToString(overlapStart, remainderLength).TrimStart();
@@ -395,17 +588,77 @@ internal static class DocumentTextExtractor
 
         private int FindBreakIndex()
         {
-            var minimumBreakIndex = ChunkLength - BreakSearchLength;
-            for (var index = Math.Min(ChunkLength, _text.Length) - 1; index >= minimumBreakIndex; index--)
+            var value = _text.ToString();
+            var breakIndex = FindMaximumPrefixLength(value);
+            var preferredStart = Math.Max(0, breakIndex - 48);
+            for (var index = breakIndex - 1; index >= preferredStart; index--)
             {
-                if (char.IsWhiteSpace(_text[index])
-                    || _text[index] is '.' or '!' or '?' or '\u3002' or '\uFF01' or '\uFF1F')
+                if (IsBreakCharacter(value[index]))
                 {
                     return index + 1;
                 }
             }
 
-            return Math.Min(ChunkLength, _text.Length);
+            return breakIndex;
+        }
+
+        private int FindMaximumPrefixLength(string value)
+        {
+            var low = 1;
+            var high = value.Length;
+            while (low < high)
+            {
+                var middle = low + (high - low + 1) / 2;
+                if (_countTokens(value[..middle]) <= MaximumPayloadTokens)
+                {
+                    low = middle;
+                }
+                else
+                {
+                    high = middle - 1;
+                }
+            }
+
+            return low;
+        }
+
+        private int FindOverlapStart(string chunk)
+        {
+            var low = 0;
+            var high = chunk.Length;
+            while (low < high)
+            {
+                var middle = low + (high - low) / 2;
+                if (_countTokens(chunk[middle..]) > OverlapTokens)
+                {
+                    low = middle + 1;
+                }
+                else
+                {
+                    high = middle;
+                }
+            }
+
+            for (var index = low; index < chunk.Length; index++)
+            {
+                if (char.IsWhiteSpace(chunk[index]) && index + 1 < chunk.Length)
+                {
+                    return index + 1;
+                }
+            }
+
+            return low;
+        }
+
+        private int CountTokens()
+        {
+            return _countTokens(_text.ToString());
+        }
+
+        private static bool IsBreakCharacter(char character)
+        {
+            return char.IsWhiteSpace(character)
+                   || character is '.' or '!' or '?' or '\u3002' or '\uFF01' or '\uFF1F';
         }
     }
 }
