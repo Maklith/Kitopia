@@ -253,11 +253,20 @@ public class SearchIndex
                 var semanticScore = Math.Max(0d, semanticResult.Score) / (60 + index + 1);
                 if (merged.TryGetValue(semanticResult.OnlyKey, out var existing))
                 {
-                    merged[semanticResult.OnlyKey] = existing with { Weight = existing.Weight + semanticScore };
+                    merged[semanticResult.OnlyKey] = existing with
+                    {
+                        Weight = existing.Weight + semanticScore,
+                        SemanticContentChunkIndex = semanticResult.ContentChunkIndex
+                                                   ?? existing.SemanticContentChunkIndex
+                    };
                 }
                 else
                 {
-                    merged[semanticResult.OnlyKey] = new SearchIndexResult(entry, semanticScore, null);
+                    merged[semanticResult.OnlyKey] = new SearchIndexResult(
+                        entry,
+                        semanticScore,
+                        null,
+                        semanticResult.ContentChunkIndex);
                 }
             }
         }
@@ -282,4 +291,8 @@ public class SearchIndex
     }
 }
 
-public sealed record SearchIndexResult(SearchEntry Source, double Weight, bool[]? CharMatchResults);
+public sealed record SearchIndexResult(
+    SearchEntry Source,
+    double Weight,
+    bool[]? CharMatchResults,
+    int? SemanticContentChunkIndex = null);

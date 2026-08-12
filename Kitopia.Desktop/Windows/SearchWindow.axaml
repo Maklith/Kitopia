@@ -41,6 +41,8 @@
         <converter1:IntToIconSymbol x:Key="IntToIconSymbol" />
         <searchWindow:ItemNameMatchCtr x:Key="ItemNameMatchCtr" />
         <converter1:ControlContentSize x:Key="ControlContentSize" />
+        <converter1:ReverseBool x:Key="ReverseBool" />
+        <searchWindow:PreviewModeToGridLengthConverter x:Key="PreviewModeToGridLengthConverter" />
     </Window.Resources>
     <Panel VerticalAlignment="Stretch">
         <Panel.Background>
@@ -79,6 +81,13 @@
                                                 FontFamily="{StaticResource FluentFont}"
                                                 Glyph="&#xf691;" />
                         </TextBox.InnerLeftContent>
+                        <TextBox.InnerRightContent>
+                            <Button Theme="{DynamicResource BorderlessButton}" ToolTip.Tip="切换列表/预览"
+                                    IsVisible="{Binding CanUsePreview}"
+                                    Command="{Binding TogglePreviewModeCommand}">
+                                <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xE70F;" />
+                            </Button>
+                        </TextBox.InnerRightContent>
                     </TextBox>
 
                     <u:Banner Focusable="False" Type="Warning" Content="Everything服务未运行,无法搜索文档,请检查"
@@ -177,13 +186,20 @@
                 </StackPanel>
             </Border>
 
-            <ListBox Grid.Row="1" Name="dataGrid"
-                     ItemsSource="{Binding ItemsViewList,Mode=OneWay }"
-                     KeyDown="DataGrid_OnKeyDown"
-                     PointerMoved="DataGrid_OnPointerMoved"
-                     BorderThickness="0"
-                     Background="Transparent"
-                     MinHeight="0">
+            <Grid Grid.Row="1" MinHeight="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="{Binding IsPreviewMode, Converter={StaticResource PreviewModeToGridLengthConverter}, ConverterParameter=List}" />
+                    <ColumnDefinition Width="{Binding IsPreviewMode, Converter={StaticResource PreviewModeToGridLengthConverter}, ConverterParameter=Divider}" />
+                    <ColumnDefinition Width="{Binding IsPreviewMode, Converter={StaticResource PreviewModeToGridLengthConverter}, ConverterParameter=Preview}" />
+                </Grid.ColumnDefinitions>
+                <ListBox Grid.Column="0" Name="dataGrid"
+                         ItemsSource="{Binding ItemsViewList,Mode=OneWay }"
+                         SelectedItem="{Binding SelectedItem,Mode=TwoWay}"
+                         KeyDown="DataGrid_OnKeyDown"
+                         PointerMoved="DataGrid_OnPointerMoved"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         MinHeight="0">
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem:selected > Button#Item /template/ ContentPresenter#PART_ContentPresenter">
                             <Setter Property="Background" Value="{DynamicResource SemiColorTertiaryLightPointerover}" />
@@ -198,7 +214,7 @@
                                             IsTabStop="True"
                                             Name="Item"
                                             Theme="{DynamicResource BorderlessButton}"
-                                            Command="{Binding  $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFileCommand}"
+                                            Click="SearchItem_OnClick"
                                             CommandParameter="{Binding .}">
                                         <Button.ContextFlyout>
                                             <MenuFlyout>
@@ -314,6 +330,47 @@
                         </Style>
                     </ListBox.Styles>
                 </ListBox>
+
+                <GridSplitter Grid.Column="1" Width="1" ResizeDirection="Columns"
+                              IsVisible="{Binding IsPreviewMode}" Background="{DynamicResource SemiColorBorder}" />
+
+                <Border Grid.Column="2" IsVisible="{Binding IsPreviewMode}" Padding="16"
+                        BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="0,0,0,0">
+                    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="8">
+                        <TextBlock Text="{Binding SelectedItem.ItemDisplayName}" FontSize="18"
+                                   FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Row="1" Text="{Binding SelectedItem.FileType}"
+                                   Foreground="{DynamicResource SemiColorText1}" />
+                        <TextBlock Grid.Row="2" Text="{Binding PreviewLocation}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource SemiColorText1}" />
+                        <Grid Grid.Row="3">
+                            <Image Stretch="Uniform" IsVisible="{Binding IsPreviewImage}">
+                                <Image.Source>
+                                    <MultiBinding Converter="{StaticResource PathToImageConverter}">
+                                        <Binding Path="SelectedItem.Icon" />
+                                        <Binding Path="SelectedItem" />
+                                    </MultiBinding>
+                                </Image.Source>
+                            </Image>
+                            <ScrollViewer IsVisible="{Binding IsPreviewImage,Converter={StaticResource ReverseBool}}"
+                                          VerticalScrollBarVisibility="Auto">
+                                <TextBlock Text="{Binding PreviewContent}" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource SemiColorText0}" />
+                            </ScrollViewer>
+                        </Grid>
+                        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                            <Button ToolTip.Tip="切换列表/预览" Command="{Binding TogglePreviewModeCommand}">
+                                <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xE70F;" />
+                            </Button>
+                            <Button Content="打开" Command="{Binding OpenFileCommand}" CommandParameter="{Binding SelectedItem}" />
+                            <Button ToolTip.Tip="打开文件所在位置" Command="{Binding OpenFolderCommand}"
+                                    CommandParameter="{Binding SelectedItem}">
+                                <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xF419;" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
     </Panel>
 </Window>

@@ -53,7 +53,7 @@ public partial class SearchWindow : Window
 
         Dispatcher.UIThread.Post(() =>
         {
-            if (dataGrid.Items.Count > 0)
+            if (dataGrid.SelectedItem is null && dataGrid.Items.Count > 0)
                 dataGrid.SelectedItem = dataGrid.Items[0];
         });
     }
@@ -97,9 +97,11 @@ public partial class SearchWindow : Window
     {
         if (e.Key == Key.Enter)
         {
-            if (dataGrid.Items.Count != 0)
-                ServiceManager.Services!.GetService<SearchWindowViewModel>()!.OpenFile(
-                    (SearchViewItem)dataGrid.Items[0]);
+            if (DataContext is SearchWindowViewModel viewModel)
+            {
+                viewModel.ActivateItem((SearchViewItem?)dataGrid.SelectedItem
+                                       ?? dataGrid.Items.Cast<SearchViewItem?>().FirstOrDefault());
+            }
 
             e.Handled = true;
         }
@@ -131,7 +133,8 @@ public partial class SearchWindow : Window
         if (e.Key == Key.Enter)
         {
             var item = (SearchViewItem?)dataGrid.SelectedItem;
-            ((SearchWindowViewModel)DataContext).OpenFile(item);
+            ((SearchWindowViewModel)DataContext).ActivateItem(item);
+            e.Handled = true;
             return;
         }
 
@@ -149,7 +152,25 @@ public partial class SearchWindow : Window
 
     private void InputElement_OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Escape) IsVisible = false;
+        if (e.Key != Key.Escape) return;
+
+        if (DataContext is SearchWindowViewModel { IsPreviewMode: true } viewModel)
+        {
+            viewModel.ClosePreviewMode();
+            e.Handled = true;
+            return;
+        }
+
+        IsVisible = false;
+    }
+
+    private void SearchItem_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: SearchViewItem item }
+            && DataContext is SearchWindowViewModel viewModel)
+        {
+            viewModel.ActivateItem(item);
+        }
     }
 
     private void Window_OnClosing(object? sender, WindowClosingEventArgs e)

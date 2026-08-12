@@ -212,6 +212,8 @@ public sealed class DocumentTextExtractorTests
 
             CollectionAssert.AreEqual(new[] { "entry:base" }, baseMatches.Select(match => match.OnlyKey).ToArray());
             CollectionAssert.AreEqual(new[] { "entry:document" }, contentMatches.Select(match => match.OnlyKey).ToArray());
+            Assert.IsNull(baseMatches.Single().ContentChunkIndex);
+            Assert.AreEqual(0, contentMatches.Single().ContentChunkIndex);
             CollectionAssert.AreEquivalent(new[] { "content-v1" }, indexedContentHashes.ToArray());
 
             await store.DeleteBatchAsync(new[] { "entry:document" }, CancellationToken.None);

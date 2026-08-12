@@ -27,7 +27,7 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
 
     public const int MetadataMaximumTokens = 128;
 
-    public const int DocumentMaximumTokens = ModelMaximumTokens;
+    public const int DocumentMaximumTokens = 128;
 
     public const string QueryInstruction = "为这个句子生成表示以用于检索相关文章：";
 

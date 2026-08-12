@@ -10,7 +10,7 @@ namespace Kitopia.Desktop.Features.Search.Semantic;
 internal sealed class SemanticSearchIndex
 {
     private const int MetadataIndexingBatchSize = 128;
-    private const int ContentIndexingBatchSize = 32;
+    private const int ContentIndexingBatchSize = 128;
     private const int MetadataLookupBatchSize = 500;
     private const int ContentSearchCandidateMultiplier = 4;
     private static readonly ILogger Logger = LogManager.Logger.ForContext<SemanticSearchIndex>();
@@ -151,11 +151,21 @@ internal sealed class SemanticSearchIndex
             checked(maximumResults * ContentSearchCandidateMultiplier),
             cancellationToken);
 
-        // A content document can have several matching chunks. Keep the strongest chunk
-        // for each entry before fusing it with the pinyin result.
+        // A content document can have several matching chunks. Preserve the strongest
+        // content chunk even when its metadata vector ranks higher, so the UI can
+        // show the passage that caused the document to match.
         return baseMatches.Concat(contentMatches)
             .GroupBy(match => match.OnlyKey, StringComparer.Ordinal)
-            .Select(group => group.MaxBy(match => match.Score)!)
+            .Select(group =>
+            {
+                var strongest = group.MaxBy(match => match.Score)!;
+                var strongestContent = group
+                    .Where(match => match.ContentChunkIndex is not null)
+                    .MaxBy(match => match.Score);
+                return strongestContent is null
+                    ? strongest
+                    : strongest with { ContentChunkIndex = strongestContent.ContentChunkIndex };
+            })
             .OrderByDescending(match => match.Score)
             .Take(maximumResults)
             .ToList();
@@ -521,7 +531,7 @@ internal sealed class SemanticSearchIndex
 
 }
 
-internal sealed record SemanticSearchMatch(string OnlyKey, double Score);
+internal sealed record SemanticSearchMatch(string OnlyKey, double Score, int? ContentChunkIndex = null);
 
 internal sealed record SemanticDocument(SearchEntry Entry, string ContentHash)
 {

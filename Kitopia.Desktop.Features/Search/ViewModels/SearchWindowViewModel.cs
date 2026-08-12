@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Runtime.InteropServices;
@@ -17,6 +18,7 @@ using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Features.Search.InputProcessing;
+using Kitopia.Desktop.Features.Search.Semantic;
 using Microsoft.Extensions.DependencyInjection;
 using ObservableCollections;
 using PluginCore;
@@ -59,6 +61,13 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     [ObservableProperty] private ObservableCollection<SearchViewItem> _pinnedItems = new();
     [ObservableProperty] private ISynchronizedView<SearchViewItem, SearchViewItem> _itemsView;
     [ObservableProperty] private NotifyCollectionChangedSynchronizedViewList<SearchViewItem> _itemsViewList;
+    [ObservableProperty] private SearchViewItem? _selectedItem;
+    [ObservableProperty] private bool _isPreviewMode;
+    [ObservableProperty] private bool _canUsePreview;
+    [ObservableProperty] private bool? _previewModeOverride;
+    [ObservableProperty] private string? _previewContent;
+    [ObservableProperty] private string? _previewLocation;
+    [ObservableProperty] private bool _isPreviewImage;
 
 
     [ObservableProperty] private bool _nowInSelectMode;
@@ -69,6 +78,9 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private int _loadLastScheduled;
     private int _searchVersion;
     private CancellationTokenSource? _searchCancellation;
+    private CancellationTokenSource? _previewCancellation;
+    private int _previewVersion;
+    private readonly Dictionary<string, SearchResultContext> _resultContexts = new(StringComparer.Ordinal);
 
 
     [ObservableProperty] private string _search=string.Empty;
@@ -109,6 +121,39 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             .DistinctUntilChanged()
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(ToSearch, e => { Logger.Error(e, ""); });
+    }
+
+    partial void OnSelectedItemChanged(SearchViewItem? value)
+    {
+        UpdatePreview(value);
+    }
+
+    partial void OnNowInSelectModeChanged(bool value)
+    {
+        if (value)
+        {
+            PreviewModeOverride = null;
+        }
+
+        UpdateDisplayMode();
+    }
+
+    [RelayCommand]
+    private void TogglePreviewMode()
+    {
+        if (!CanUsePreview)
+        {
+            return;
+        }
+
+        PreviewModeOverride = IsPreviewMode ? false : true;
+        UpdateDisplayMode();
+    }
+
+    public void ClosePreviewMode()
+    {
+        PreviewModeOverride = false;
+        UpdateDisplayMode();
     }
 
 
@@ -322,6 +367,10 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
         Items.Clear();
         PinnedItems.Clear();
+        _resultContexts.Clear();
+        PreviewModeOverride = null;
+        IsPreviewMode = false;
+        SelectedItem = null;
 
         var limit = 0;
         //Items.RaiseListChangedEvents = false;
@@ -394,6 +443,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         {
             searchViewItem.PinyinItem = null;
         }
+        UpdateDisplayMode();
     }
 
     private readonly List<SearchViewItem> _lastSearchItems = new();
@@ -464,6 +514,10 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
         Items.Clear();
         PinnedItems.Clear();
+        _resultContexts.Clear();
+        PreviewModeOverride = null;
+        IsPreviewMode = false;
+        SelectedItem = null;
 
         ProcessInputData(value, InputDataAnalyzeTimeFlags.InputChanged);
 
@@ -478,6 +532,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 .SearchWithEverything(originalValue.Remove(0, ConfigManger.Config.everythingSearchPreString.Length),
                     ConfigManger.Config.everythingSearchMaxCount);
             Items.AddRange(useEverythingSearch);
+            RefreshFileTypes();
+            UpdateDisplayMode();
         }
         else
         {
@@ -554,7 +610,10 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                             IsVisible = true
                         }
                     });
+                    RefreshFileTypes();
                 }
+
+                UpdateDisplayMode();
             });
             return;
         }
@@ -564,6 +623,12 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             .SequenceEqual(resultsToAdd.Select(item => item.OnlyKey), StringComparer.Ordinal);
         if (!shouldReplacePinyinResults)
         {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (Volatile.Read(ref _searchVersion) != version) return;
+                UpdateResultContexts(rawResults);
+                UpdateDisplayMode();
+            });
             return;
         }
 
@@ -575,6 +640,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 Items.Remove(item);
             }
             Items.AddRange(resultsToAdd);
+            UpdateResultContexts(rawResults);
 
             if (Items.Count <= 0)
             {
@@ -603,6 +669,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             }
 
             RefreshFileTypes();
+            UpdateDisplayMode();
         });
     }
 
@@ -637,6 +704,149 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         if (ConfigManger.Config.alwayShows.Contains(item.OnlyKey)) item.IsPined = true;
         item.Notify();
         return item;
+    }
+
+    private void UpdateResultContexts(IEnumerable<SearchIndexResult> results)
+    {
+        _resultContexts.Clear();
+        foreach (var result in results)
+        {
+            _resultContexts[result.Source.OnlyKey] = new SearchResultContext(result.SemanticContentChunkIndex);
+        }
+    }
+
+    private void UpdateDisplayMode()
+    {
+        CanUsePreview = !NowInSelectMode
+                        && !string.IsNullOrWhiteSpace(Search)
+                        && Items.Any(SearchDisplayPolicy.IsPreviewCandidate);
+
+        if (!CanUsePreview)
+        {
+            IsPreviewMode = false;
+        }
+        else if (PreviewModeOverride is not null)
+        {
+            IsPreviewMode = PreviewModeOverride.Value;
+        }
+        else
+        {
+            IsPreviewMode = SearchDisplayPolicy.ShouldUsePreview(NowInSelectMode, Search, Items, _resultContexts);
+        }
+
+        if (IsPreviewMode)
+        {
+            if (SelectedItem is null || !SearchDisplayPolicy.IsPreviewCandidate(SelectedItem))
+            {
+                SelectedItem = Items.FirstOrDefault(SearchDisplayPolicy.IsPreviewCandidate);
+            }
+            else
+            {
+                UpdatePreview(SelectedItem);
+            }
+        }
+        else
+        {
+            PreviewContent = null;
+            PreviewLocation = null;
+            IsPreviewImage = false;
+        }
+    }
+
+    private void UpdatePreview(SearchViewItem? item)
+    {
+        var version = Interlocked.Increment(ref _previewVersion);
+        Interlocked.Exchange(ref _previewCancellation, null)?.Cancel();
+        PreviewContent = null;
+        PreviewLocation = null;
+        IsPreviewImage = false;
+        if (!IsPreviewMode || item is null || !SearchDisplayPolicy.IsPreviewCandidate(item))
+        {
+            return;
+        }
+
+        PreviewLocation = item.OnlyKey;
+        IsPreviewImage = item.FileType == FileType.图像;
+        if (IsPreviewImage)
+        {
+            return;
+        }
+
+        if (!DocumentTextExtractor.TryCreateSource(item.OnlyKey, out var source))
+        {
+            PreviewContent = "此文件暂不支持内嵌文本预览。";
+            return;
+        }
+
+        PreviewContent = "正在载入内容...";
+        var cancellation = new CancellationTokenSource();
+        Interlocked.Exchange(ref _previewCancellation, cancellation)?.Cancel();
+        var chunkIndex = _resultContexts.TryGetValue(item.OnlyKey, out var context)
+            ? context.SemanticContentChunkIndex
+            : null;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var preview = await LoadPreviewContentAsync(source, chunkIndex, cancellation.Token);
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (Volatile.Read(ref _previewVersion) != version || SelectedItem?.OnlyKey != item.OnlyKey) return;
+                    PreviewContent = preview ?? "未能从此文件读取文本内容。";
+                });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception exception)
+            {
+                Logger.Debug(exception, "Could not load search preview");
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (Volatile.Read(ref _previewVersion) != version || SelectedItem?.OnlyKey != item.OnlyKey) return;
+                    PreviewContent = "当前无法读取此文件。";
+                });
+            }
+        });
+    }
+
+    private static async Task<string?> LoadPreviewContentAsync(
+        DocumentContentSource source,
+        int? semanticChunkIndex,
+        CancellationToken cancellationToken)
+    {
+        var targetChunkIndex = semanticChunkIndex ?? 0;
+        var firstChunkIndex = Math.Max(0, targetChunkIndex - 1);
+        var lastChunkIndex = targetChunkIndex + 1;
+        var chunks = new List<string>();
+        var index = 0;
+        await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(source, cancellationToken))
+        {
+            if (index >= firstChunkIndex && index <= lastChunkIndex)
+            {
+                chunks.Add(chunk);
+            }
+
+            if (index > lastChunkIndex)
+            {
+                break;
+            }
+
+            index++;
+        }
+
+        return chunks.Count == 0 ? null : string.Join(Environment.NewLine + Environment.NewLine, chunks);
+    }
+
+    public void ActivateItem(SearchViewItem? item)
+    {
+        if (item is not null && IsPreviewMode && SearchDisplayPolicy.IsPreviewCandidate(item))
+        {
+            SelectedItem = item;
+            return;
+        }
+
+        OpenFile(item);
     }
 
     private void RefreshFileTypes()

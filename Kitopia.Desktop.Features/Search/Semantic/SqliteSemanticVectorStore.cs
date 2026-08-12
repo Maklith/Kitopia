@@ -122,7 +122,7 @@ internal sealed class SqliteSemanticVectorStore
     {
         return await SearchVectorsAsync(
             $"""
-            SELECT metadata.document_id, vectors.distance
+            SELECT metadata.document_id, vectors.distance, NULL AS chunk_index
             FROM {EmbeddingVectorTable} AS vectors
             INNER JOIN {EmbeddingMetadataTable} AS metadata
                 ON metadata.vector_rowid = vectors.rowid
@@ -360,7 +360,7 @@ internal sealed class SqliteSemanticVectorStore
     {
         return await SearchVectorsAsync(
             $"""
-            SELECT embedding.entry_key, vectors.distance
+            SELECT embedding.entry_key, vectors.distance, embedding.chunk_index
             FROM {ContentEmbeddingVectorTable} AS vectors
             INNER JOIN {ContentEmbeddingMetadataTable} AS embedding
                 ON embedding.vector_rowid = vectors.rowid
@@ -447,7 +447,10 @@ internal sealed class SqliteSemanticVectorStore
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 // sqlite-vec returns cosine distance. Existing rank fusion consumes cosine similarity.
-                matches.Add(new SemanticSearchMatch(reader.GetString(0), 1d - reader.GetDouble(1)));
+                matches.Add(new SemanticSearchMatch(
+                    reader.GetString(0),
+                    1d - reader.GetDouble(1),
+                    reader.IsDBNull(2) ? null : reader.GetInt32(2)));
             }
 
             return matches;
