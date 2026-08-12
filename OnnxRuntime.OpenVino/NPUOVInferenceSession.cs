@@ -47,6 +47,20 @@ public class NPUOVInferenceSession : IInferenceSession
 
         return asTensor is DenseTensor<float> floats ? floats.Buffer : asTensor?.ToArray() ?? [];
     }
+
+    public Memory<float> InferInt64(
+        List<(string, Memory<int>, Memory<long>)> inputs,
+        string outputName)
+    {
+        var namedOnnxValues = inputs
+            .Select(e => NamedOnnxValue.CreateFromTensor(e.Item1, new DenseTensor<long>(e.Item3, e.Item2.Span)))
+            .ToList();
+        using var outputs = _inferenceSession?.Run(namedOnnxValues, [outputName])
+                            ?? throw new InvalidOperationException("The inference session has not been initialized.");
+        var asTensor = outputs[0].AsTensor<float>();
+
+        return asTensor is DenseTensor<float> floats ? floats.ToArray() : asTensor?.ToArray() ?? [];
+    }
     
     public void Dispose()
     {
