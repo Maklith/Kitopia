@@ -77,7 +77,8 @@ public class Ocr
                         obj._cancellationTokenSource = new CancellationTokenSource();
                     }
                     using var httpClient = new HttpClient();
-                    var response = await httpClient.GetAsync("https://hf-mirror.com/deepghs/paddleocr/resolve/main/rec/ch_PP-OCRv4_server_rec/model.onnx",
+                    httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
+                    var response = await httpClient.GetAsync("https://www.modelscope.cn/models/cycloneboy/ch_PP-OCRv4_rec_server_infer/resolve/master/model.onnx",
                         HttpCompletionOption.ResponseHeadersRead, obj._cancellationTokenSource.Token);
                     if (response.IsSuccessStatusCode)
                     {
