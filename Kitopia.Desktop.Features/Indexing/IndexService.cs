@@ -1163,8 +1163,7 @@ public sealed class IndexService : IIndexService, IDisposable
             {
                 DisplayName = Path.GetFileNameWithoutExtension(path),
                 OnlyKey = path,
-                FileType = fileType,
-                IconSymbol = 0xE7C3
+                FileType = fileType
             };
             return true;
         }

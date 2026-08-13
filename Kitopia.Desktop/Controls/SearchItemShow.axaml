@@ -11,6 +11,7 @@
     </Design.PreviewWith>
     <Styles.Resources>
         <searchWindow:PathToImageConverter x:Key="PathToImageConverter" />
+        <searchWindow:SymbolToVisible x:Key="SymbolToVisible" />
         <converter:ReverseBoolToVisibilityConverter x:Key="boolToVisibilityConverter" />
         <converter:IfNullVisibilityHidden x:Key="IfNullVisibilityHidden" />
         <converter:IntToIconSymbol x:Key="IntToIconSymbol" />
@@ -36,7 +37,7 @@
                                 </Image.Source>
                             </Image>
                             <controls:FontIcon Height="48" Width="48"
-                                               IsVisible="{Binding SearchViewItem.IconSymbol,RelativeSource={RelativeSource TemplatedParent},Converter={StaticResource IfNullVisibilityHidden}}"
+                                               IsVisible="{Binding SearchViewItem.IconSymbol,RelativeSource={RelativeSource TemplatedParent},Converter={StaticResource SymbolToVisible}}"
                                                FontFamily="{StaticResource FluentFont}"
                                                Glyph="{Binding SearchViewItem.IconSymbol,RelativeSource={RelativeSource TemplatedParent},Converter={StaticResource IntToIconSymbol},Mode=OneWay}" />
 

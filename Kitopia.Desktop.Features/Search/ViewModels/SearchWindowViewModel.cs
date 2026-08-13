@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -9,6 +10,7 @@ using System.Reactive.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -69,6 +71,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     [ObservableProperty] private string? _previewContent;
     [ObservableProperty] private string? _previewLocation;
     [ObservableProperty] private bool _isPreviewImage;
+    [ObservableProperty] private Bitmap? _previewImage;
 
 
     [ObservableProperty] private bool _nowInSelectMode;
@@ -81,7 +84,15 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private CancellationTokenSource? _searchCancellation;
     private CancellationTokenSource? _previewCancellation;
     private int _previewVersion;
+    private ImagePreviewCacheKey? _activePreviewImageKey;
     private readonly Dictionary<string, SearchResultContext> _resultContexts = new(StringComparer.Ordinal);
+
+    private const int PreviewImageDecodeWidth = 1600;
+    private const int PreviewImageCacheCapacity = 8;
+    private static readonly ConcurrentDictionary<ImagePreviewCacheKey, Lazy<Task<Bitmap?>>> PreviewImageCache = new();
+    private static readonly ConcurrentQueue<ImagePreviewCacheKey> PreviewImageCacheOrder = new();
+
+    private readonly record struct ImagePreviewCacheKey(string Path, long Length, DateTime LastWriteTimeUtc);
 
 
     [ObservableProperty] private string _search=string.Empty;
@@ -686,6 +697,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             PreviewContent = null;
             PreviewLocation = null;
             IsPreviewImage = false;
+            PreviewImage = null;
+            _activePreviewImageKey = null;
         }
     }
 
@@ -696,6 +709,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         PreviewContent = null;
         PreviewLocation = null;
         IsPreviewImage = false;
+        PreviewImage = null;
+        _activePreviewImageKey = null;
         if (!IsPreviewMode || item is null || !SearchDisplayPolicy.IsPreviewCandidate(item))
         {
             return;
@@ -705,6 +720,17 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         IsPreviewImage = item.FileType == FileType.图像;
         if (IsPreviewImage)
         {
+            if (!TryCreatePreviewImageCacheKey(item.OnlyKey, out var cacheKey))
+            {
+                IsPreviewImage = false;
+                PreviewContent = "当前无法读取此图像。";
+                return;
+            }
+
+            _activePreviewImageKey = cacheKey;
+            var imageCancellation = new CancellationTokenSource();
+            Interlocked.Exchange(ref _previewCancellation, imageCancellation)?.Cancel();
+            _ = LoadPreviewImageAsync(cacheKey, item.OnlyKey, version, imageCancellation.Token);
             return;
         }
 
@@ -744,6 +770,141 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 });
             }
         });
+    }
+
+    private async Task LoadPreviewImageAsync(
+        ImagePreviewCacheKey cacheKey,
+        string itemKey,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var bitmap = await GetPreviewImageAsync(cacheKey);
+            cancellationToken.ThrowIfCancellationRequested();
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (Volatile.Read(ref _previewVersion) != version
+                    || SelectedItem?.OnlyKey != itemKey
+                    || _activePreviewImageKey != cacheKey)
+                {
+                    return;
+                }
+
+                if (bitmap is not null)
+                {
+                    PreviewImage = bitmap;
+                    return;
+                }
+
+                IsPreviewImage = false;
+                PreviewContent = "当前无法读取此图像。";
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            Logger.Debug(exception, "Could not load search image preview");
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (Volatile.Read(ref _previewVersion) != version
+                    || SelectedItem?.OnlyKey != itemKey
+                    || _activePreviewImageKey != cacheKey)
+                {
+                    return;
+                }
+
+                IsPreviewImage = false;
+                PreviewContent = "当前无法读取此图像。";
+            });
+        }
+    }
+
+    private static bool TryCreatePreviewImageCacheKey(string path, out ImagePreviewCacheKey cacheKey)
+    {
+        try
+        {
+            var file = new FileInfo(path);
+            if (!file.Exists)
+            {
+                cacheKey = default;
+                return false;
+            }
+
+            cacheKey = new ImagePreviewCacheKey(path, file.Length, file.LastWriteTimeUtc);
+            return true;
+        }
+        catch (IOException)
+        {
+            cacheKey = default;
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            cacheKey = default;
+            return false;
+        }
+    }
+
+    private Task<Bitmap?> GetPreviewImageAsync(ImagePreviewCacheKey cacheKey)
+    {
+        var newEntry = new Lazy<Task<Bitmap?>>(
+            () => Task.Run(() => LoadPreviewImage(cacheKey.Path)),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+        var entry = PreviewImageCache.GetOrAdd(cacheKey, newEntry);
+        if (ReferenceEquals(entry, newEntry))
+        {
+            PreviewImageCacheOrder.Enqueue(cacheKey);
+            TrimPreviewImageCache();
+        }
+
+        return entry.Value;
+    }
+
+    private static Bitmap? LoadPreviewImage(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            return Bitmap.DecodeToWidth(stream, PreviewImageDecodeWidth, BitmapInterpolationMode.HighQuality);
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private void TrimPreviewImageCache()
+    {
+        while (PreviewImageCache.Count > PreviewImageCacheCapacity
+               && PreviewImageCacheOrder.TryDequeue(out var oldestCacheKey))
+        {
+            if (_activePreviewImageKey == oldestCacheKey)
+            {
+                PreviewImageCacheOrder.Enqueue(oldestCacheKey);
+                continue;
+            }
+
+            if (!PreviewImageCache.TryRemove(oldestCacheKey, out var entry) || !entry.IsValueCreated)
+            {
+                continue;
+            }
+
+            _ = entry.Value.ContinueWith(static task =>
+            {
+                if (task.Status == TaskStatus.RanToCompletion)
+                {
+                    task.Result?.Dispose();
+                }
+            }, TaskScheduler.Default);
+        }
     }
 
     private static async Task<string?> LoadPreviewContentAsync(

@@ -38,6 +38,7 @@
         <searchWindow:PathToImageConverter x:Key="PathToImageConverter" />
         <searchWindow:SearchItemToInfo x:Key="SearchItemToInfo" />
         <searchWindow:CanIgnoreCtr x:Key="CanIgnoreCtr" />
+        <searchWindow:SymbolToVisible x:Key="SymbolToVisible" />
         <converter1:IntToIconSymbol x:Key="IntToIconSymbol" />
         <searchWindow:ItemNameMatchCtr x:Key="ItemNameMatchCtr" />
         <converter1:ControlContentSize x:Key="ControlContentSize" />
@@ -161,6 +162,7 @@
                                             </Button.ContextFlyout>
                                             <Panel>
                                                 <controls1:FontIcon Width="36" Height="36" FontSize="36"
+                                                                    IsVisible="{Binding IconSymbol, Converter={StaticResource SymbolToVisible}}"
                                                                     FontFamily="{StaticResource FluentFont}"
                                                                     Glyph="{Binding IconSymbol, Converter={StaticResource IntToIconSymbol}}" />
                                                 <Image Width="36" Height="36">
@@ -255,6 +257,7 @@
                                                 </Image.Source>
                                             </Image>
                                             <controls1:FontIcon Height="48" Width="48" FontSize="48" Grid.Column="1"
+                                                                IsVisible="{Binding IconSymbol, Converter={StaticResource SymbolToVisible}}"
                                                                 FontFamily="{StaticResource FluentFont}"
                                                                 Glyph="{Binding IconSymbol,Converter={StaticResource IntToIconSymbol}}" />
 
@@ -344,14 +347,9 @@
                         <TextBlock Grid.Row="2" Text="{Binding PreviewLocation}" TextWrapping="Wrap"
                                    Foreground="{DynamicResource SemiColorText1}" />
                         <Grid Grid.Row="3">
-                            <Image Stretch="Uniform" IsVisible="{Binding IsPreviewImage}">
-                                <Image.Source>
-                                    <MultiBinding Converter="{StaticResource PathToImageConverter}">
-                                        <Binding Path="SelectedItem.Icon" />
-                                        <Binding Path="SelectedItem" />
-                                    </MultiBinding>
-                                </Image.Source>
-                            </Image>
+                            <Image Source="{Binding PreviewImage}" Stretch="Uniform"
+                                   IsVisible="{Binding IsPreviewImage}"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality" />
                             <ScrollViewer IsVisible="{Binding IsPreviewImage,Converter={StaticResource ReverseBool}}"
                                           VerticalScrollBarVisibility="Auto">
                                 <TextBlock Text="{Binding PreviewContent}" TextWrapping="Wrap"
