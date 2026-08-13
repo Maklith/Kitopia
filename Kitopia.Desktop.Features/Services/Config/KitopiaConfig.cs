@@ -105,7 +105,7 @@ public class KitopiaConfig : ConfigBase
 
     [ConfigField("Everything 自动纳入索引的文件类型", "Everything 发现匹配扩展名的全盘文件后，将其加入普通预索引；不限制 @ 实时搜索", 0xf8cb, ConfigFieldType.字符串列表支持添加)]
     public ObservableCollection<string> everythingSearchExtensions =
-        ["*.docx", "*.doc", "*.xls", "*.xlsx", "*.pdf", "*.ppt", "*.pptx", "*.txt"];
+        ["*.docx", "*.doc", "*.xls", "*.xlsx", "*.pdf", "*.ppt", "*.pptx"];
 
     [ConfigField("调用Everything直接搜索文件前缀", "如果搜索内容直接以该前缀开始,直接调用Everything而不是程序内置索引", 0xf8cb, ConfigFieldType.字符串)]
     public string everythingSearchPreString = "@";

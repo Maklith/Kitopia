@@ -14,7 +14,7 @@ internal static partial class DocumentTextExtractor
 {
     private static readonly HashSet<string> PlainTextExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".txt", ".md"
+        ".md"
     };
 
     public static bool TryCreateSource(string path, out DocumentContentSource source)
