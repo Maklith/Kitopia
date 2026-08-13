@@ -5,6 +5,8 @@ using System.Linq;
 using System.Reflection;
 using Avalonia.Controls.Notifications;
 using Kitopia.Desktop.Features.Search.Semantic;
+using Kitopia.Desktop.Features.Indexing;
+using Kitopia.Desktop.Features.Ocr;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -87,6 +89,8 @@ public class PluginOverall
                 PluginStr = BuiltInFeatureSource
             }
         ]);
+        OnnxModelInfos[BuiltInFeatureSource].AddRange(ChineseClipModelPackage.CreateModelInfos());
+        OnnxModelInfos[BuiltInFeatureSource].AddRange(OcrModelPackage.CreateModelInfos());
 
         var exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Kitopia.Desktop.exe");
         

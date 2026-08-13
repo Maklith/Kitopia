@@ -2,17 +2,23 @@ using System;
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Reflection;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Desktop.Features.Indexing;
 using Kitopia.Desktop.Features.Services.Config;
+using Kitopia.Desktop.Features.Services.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Kitopia.Desktop.Controls;
 using PluginCore;
 using PluginCore.Config;
@@ -27,12 +33,16 @@ public partial class SettingPage : UserControl
 {
     private ConfigBase? _configBase;
     private CompositeDisposable disposables = new();
+    private readonly Dictionary<string, Control> _fieldControls = new(StringComparer.Ordinal);
+    private string? _requestedFieldName;
+    private Control? _requestedFieldContainer;
 
     private StackPanel nowControl;
 
     public SettingPage()
     {
         InitializeComponent();
+        AttachedToVisualTree += (_, _) => ScheduleRequestedFieldScroll();
     }
 
     public void ChangeConfig(ConfigBase configBase)
@@ -46,9 +56,12 @@ public partial class SettingPage : UserControl
         LoadConfig(StackPanel, configBase);
     }
 
-    public void LoadAllConfigs()
+    public void LoadAllConfigs(string? requestedFieldName = null)
     {
         disposables.Clear();
+        _fieldControls.Clear();
+        _requestedFieldName = requestedFieldName;
+        _requestedFieldContainer = null;
         StackPanel.Children.Clear();
         TextBlock.Text = "设置";
         
@@ -84,6 +97,8 @@ public partial class SettingPage : UserControl
             
             LoadConfig(stackPanel, config);
         }
+
+        ScheduleRequestedFieldScroll();
     }
     
     ~SettingPage()
@@ -145,6 +160,11 @@ public partial class SettingPage : UserControl
                             .ToString()
                     }
                 };
+                _fieldControls[fieldInfo.Name] = SettingsExpander;
+                if (fieldInfo.Name == _requestedFieldName)
+                {
+                    _requestedFieldContainer = nowControl;
+                }
 
                 var selectedValue = fieldInfo.GetValue(configBase);
                 switch (configField.FieldType)
@@ -366,35 +386,15 @@ public partial class SettingPage : UserControl
                         break;
                     }
                     case ConfigFieldType.字符串列表:
-                    {
-                        var listShow = new ListShow();
-
-                        SettingsExpander.Bind(WidthProperty, new Binding("Bounds.Width")
-                        {
-                            RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor)
-                            {
-                                AncestorType = typeof(SettingsExpander)
-                            },
-                            Mode = BindingMode.OneWay
-                        });
-                        var enumerable = (IEnumerable?)selectedValue;
-                        if (enumerable is ObservableCollection<string> observableCollection)
-                        {
-                            NotifyCollectionChangedEventHandler handler = (sender, args) => ObservableCollectionChange(sender, args, configBase);
-                            observableCollection.CollectionChanged += handler;
-                            disposables.Add(new AnonymousDisposable(() => {
-                                observableCollection.CollectionChanged -= handler;
-                            }));
-                        }
-
-                        listShow.ItemsSource = enumerable;
-                        SettingsExpander.ItemsSource = new[] { listShow };
-                        break;
-                    }
                     case ConfigFieldType.字符串列表支持添加:
+                    case ConfigFieldType.目录列表:
+                    case ConfigFieldType.文件列表:
+                    case ConfigFieldType.文件和目录列表:
                     {
-                        var listShow = new ListShow();
-                        listShow.WithAdd = true;
+                        var listShow = new ListShow
+                        {
+                            WithAdd = configField.FieldType == ConfigFieldType.字符串列表支持添加
+                        };
                         SettingsExpander.Bind(WidthProperty, new Binding("Bounds.Width")
                         {
                             RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor)
@@ -406,11 +406,33 @@ public partial class SettingPage : UserControl
                         var enumerable = (IEnumerable?)selectedValue;
                         if (enumerable is ObservableCollection<string> observableCollection)
                         {
-                            NotifyCollectionChangedEventHandler handler = (sender, args) => ObservableCollectionChange(sender, args, configBase);
+                            NotifyCollectionChangedEventHandler handler = (sender, args) => ObservableCollectionChange(sender, args, configBase, fieldInfo.Name);
                             observableCollection.CollectionChanged += handler;
                             disposables.Add(new AnonymousDisposable(() => {
                                 observableCollection.CollectionChanged -= handler;
                             }));
+
+                            if (configField.FieldType is ConfigFieldType.目录列表 or ConfigFieldType.文件和目录列表)
+                            {
+                                listShow.ShowFolderPicker = true;
+                                listShow.PickFoldersCommand = new AsyncRelayCommand(async () =>
+                                {
+                                    var picker = ServiceManager.Services.GetService<IFeatureFilePicker>();
+                                    if (picker is null) return;
+                                    AddPaths(observableCollection, await picker.PickFoldersAsync("选择目录", true), handler);
+                                });
+                            }
+
+                            if (configField.FieldType is ConfigFieldType.文件列表 or ConfigFieldType.文件和目录列表)
+                            {
+                                listShow.ShowFilePicker = true;
+                                listShow.PickFilesCommand = new AsyncRelayCommand(async () =>
+                                {
+                                    var picker = ServiceManager.Services.GetService<IFeatureFilePicker>();
+                                    if (picker is null) return;
+                                    AddPaths(observableCollection, await picker.PickFilesAsync("选择文件", true), handler);
+                                });
+                            }
                         }
 
                         listShow.ItemsSource = enumerable;
@@ -504,10 +526,80 @@ public partial class SettingPage : UserControl
     }
 
     private void ObservableCollectionChange(object? sender,
-        NotifyCollectionChangedEventArgs notifyCollectionChangedEventArgs, ConfigBase configBase)
+        NotifyCollectionChangedEventArgs notifyCollectionChangedEventArgs, ConfigBase configBase, string fieldName)
     {
-        configBase.OnConfigChanged(this, "", notifyCollectionChangedEventArgs.NewItems);
+        configBase.OnConfigChanged(this, fieldName, notifyCollectionChangedEventArgs.NewItems);
         ConfigManger.Save(configBase.Name);
+        if (configBase is not KitopiaConfig)
+        {
+            return;
+        }
+
+        var maintenanceService = ServiceManager.Services.GetService<IIndexMaintenanceService>();
+        if (fieldName == nameof(KitopiaConfig.everythingSearchExtensions))
+        {
+            _ = maintenanceService?.RefreshEverythingFilesAsync();
+        }
+        else if (fieldName is nameof(KitopiaConfig.managedIndexDirectories) or nameof(KitopiaConfig.managedIndexFiles))
+        {
+            _ = RefreshManagedIndexAsync(maintenanceService);
+        }
+    }
+
+    private static void AddPaths(ObservableCollection<string> target, IEnumerable<string> paths,
+        NotifyCollectionChangedEventHandler collectionChanged)
+    {
+        var added = false;
+        target.CollectionChanged -= collectionChanged;
+        foreach (var path in paths)
+        {
+            if (!string.IsNullOrWhiteSpace(path)
+                && !target.Contains(path, StringComparer.OrdinalIgnoreCase))
+            {
+                target.Add(path);
+                added = true;
+            }
+        }
+
+        target.CollectionChanged += collectionChanged;
+        if (added)
+        {
+            collectionChanged(target, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+    }
+
+    private static async Task RefreshManagedIndexAsync(IIndexMaintenanceService? maintenanceService)
+    {
+        if (maintenanceService is null)
+        {
+            return;
+        }
+
+        await maintenanceService.RefreshManagedFilesAsync();
+        var index = ServiceManager.Services.GetService<IIndexService>();
+        if (index is null)
+        {
+            return;
+        }
+
+        await index.IndexIncrementalAsync(IndexRebuildScope.Documents);
+        await index.IndexIncrementalAsync(IndexRebuildScope.Images);
+    }
+
+    private void ScheduleRequestedFieldScroll()
+    {
+        if (string.IsNullOrEmpty(_requestedFieldName)
+            || !_fieldControls.TryGetValue(_requestedFieldName, out var field))
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            (_requestedFieldContainer ?? field).BringIntoView();
+            _requestedFieldName = null;
+            _requestedFieldContainer = null;
+        }, DispatcherPriority.Loaded);
     }
 }
 

@@ -42,4 +42,25 @@ public sealed class DesktopFeatureFilePicker : IFeatureFilePicker
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .ToList();
     }
+
+    public async Task<IReadOnlyList<string>> PickFoldersAsync(
+        string title,
+        bool allowMultiple,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        cancellationToken.ThrowIfCancellationRequested();
+        var provider = MainWindow?.StorageProvider;
+        if (provider is null) return [];
+        var folders = await provider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = allowMultiple
+        });
+        cancellationToken.ThrowIfCancellationRequested();
+        return folders
+            .Select(folder => folder.Path.LocalPath)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .ToList();
+    }
 }

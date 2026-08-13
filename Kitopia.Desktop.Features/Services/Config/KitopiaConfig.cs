@@ -93,15 +93,19 @@ public class KitopiaConfig : ConfigBase
         IsSelectShift = false, SelectKey = EKey.空格
     };
 
+    public Dictionary<string, HistoryItem> lastOpens = new();
+
+    [ConfigField("最大历史记录", "最大历史记录数", 0xF2D7, ConfigFieldType.整数列表, null, 10, 1, 1)]
+    public int maxHistory = 6;
     [ConfigField("允许程序调用Everything索引文档", "索引文档依赖于此功能", 0xF3AE, ConfigFieldType.布尔)]
     public bool useEverything = true;
 
     [ConfigField("自动启动Everything", "在Everything未启动时自动启动", 0xE61C, ConfigFieldType.布尔)]
     public bool autoStartEverything = true;
 
-    [ConfigField("允许程序调用Everything索引的文件类型", "设置Everything检索的文件类型,注意已索引的项目仅当重启软件后消失", 0xf8cb, ConfigFieldType.字符串列表支持添加)]
+    [ConfigField("Everything 自动纳入索引的文件类型", "Everything 发现匹配扩展名的全盘文件后，将其加入普通预索引；不限制 @ 实时搜索", 0xf8cb, ConfigFieldType.字符串列表支持添加)]
     public ObservableCollection<string> everythingSearchExtensions =
-        ["*.docx", "*.doc", "*.xls", "*.xlsx", "*.pdf", "*.ppt", "*.pptx", "*.txt", "*.md"];
+        ["*.docx", "*.doc", "*.xls", "*.xlsx", "*.pdf", "*.ppt", "*.pptx", "*.txt"];
 
     [ConfigField("调用Everything直接搜索文件前缀", "如果搜索内容直接以该前缀开始,直接调用Everything而不是程序内置索引", 0xf8cb, ConfigFieldType.字符串)]
     public string everythingSearchPreString = "@";
@@ -140,23 +144,19 @@ public class KitopiaConfig : ConfigBase
             NameSign = "kitopiaonnxruntimecpu"
         }
     };
-    [ConfigFieldCategory("搜索")]
     public List<string> errorLnk = new();
     public string everythingOnlyKey = "";
 
-    [ConfigField("收藏项", "添加指定的文件或文件夹到搜索", 0xF2D7, ConfigFieldType.字符串列表)]
-    public List<string> customCollections = new();
+    [ConfigFieldCategory("索引")]
+    [ConfigField("自定义索引目录", "普通搜索会预先索引这些目录中的文件", 0xF2D7, ConfigFieldType.目录列表)]
+    public ObservableCollection<string> managedIndexDirectories = new();
 
-    [ConfigField("忽略项", "忽略指定的文件或文件夹", 0xF2D7, ConfigFieldType.字符串列表)]
+    [ConfigField("自定义索引文件", "普通搜索会预先索引这些文件", 0xF2D7, ConfigFieldType.文件列表)]
+    public ObservableCollection<string> managedIndexFiles = new();
+
+    [ConfigField("忽略项", "忽略指定的文件或文件夹", 0xF2D7, ConfigFieldType.文件和目录列表)]
     public ObservableCollection<string> ignoreItems = new();
 
-    [ConfigField("输入平滑延时", "在指定时间内不处理数据以减轻性能消耗", 0xED9B, ConfigFieldType.整数滑块, null, 1000, 50, 10)]
-    public int inputSmoothingMilliseconds = 50;
-
-    public Dictionary<string, HistoryItem> lastOpens = new();
-
-    [ConfigField("最大历史记录", "最大历史记录数", 0xF2D7, ConfigFieldType.整数列表, null, 10, 1, 1)]
-    public int maxHistory = 6;
 
     [ConfigFieldCategory("鼠标快捷操作")] [ConfigField("允许对鼠标进行捕获", "允许对鼠标进行捕获(禁用后鼠标快捷键无效)", 0xE61C, ConfigFieldType.布尔)]
     public bool mouseCapture = true;

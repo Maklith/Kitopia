@@ -57,9 +57,29 @@ public class ConfigManger : IConfigService
             var json = File.ReadAllText(configF.FullName);
             try
             {
+                var legacyCollections = new List<string>();
+                using (var document = JsonDocument.Parse(json))
+                {
+                    if (document.RootElement.TryGetProperty("customCollections", out var legacy)
+                        && legacy.ValueKind == JsonValueKind.Array)
+                    {
+                        legacyCollections.AddRange(legacy.EnumerateArray()
+                            .Where(value => value.ValueKind == JsonValueKind.String)
+                            .Select(value => value.GetString())
+                            .OfType<string>());
+                    }
+                }
                 Configs["KitopiaConfig"] =
                     JsonSerializer.Deserialize(json, Config.GetType(), DefaultOptions)! as ConfigBase ??
                     Config;
+                foreach (var path in legacyCollections)
+                {
+                    var target = Directory.Exists(path)
+                        ? Config.managedIndexDirectories
+                        : Config.managedIndexFiles;
+                    if (!target.Contains(path, StringComparer.OrdinalIgnoreCase))
+                        target.Add(path);
+                }
             }
             catch (Exception e)
             {

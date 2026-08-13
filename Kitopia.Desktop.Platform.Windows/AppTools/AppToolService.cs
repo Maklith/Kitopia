@@ -4,6 +4,7 @@ using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Platform.Windows.Everything;
 using Kitopia.Desktop.Features.Search;
+using Kitopia.Desktop.Features.Indexing;
 using Pinyin.NET;
 using PluginCore;
 
@@ -11,26 +12,32 @@ namespace Kitopia.Desktop.Platform.Windows.AppTools;
 
 public class AppToolService : IAppToolService
 {
-    public void IndexItem(SearchIndex index, string filePath,
+    public void IndexItem(ISearchEntryIndex index, string filePath,
         bool isStarred = false)
     {
         AppSolver.IndexItem(index, filePath, isStarred);
     }
 
-    public void CleanupInvalidItems(SearchIndex index)
+    public void CleanupInvalidItems(IIndexService index)
     {
         AppSolver.CleanupInvalidItems(index);
     }
 
-    public void IndexAllApps(SearchIndex index, bool logging,
+    public void IndexAllApps(IIndexService index, bool logging,
         bool useEverything = false)
     {
         AppSolver.IndexAllApps(index, logging, useEverything);
     }
 
-    public void AutoStartEverything(SearchIndex index, Action onSuccess)
+    public void AutoStartEverything(IIndexService index, Action onSuccess)
     {
         AppSolver.AutoStartEverything(index, onSuccess);
+    }
+
+    public void VisitEverythingIndexedFiles(Action<string> visitor)
+    {
+        ArgumentNullException.ThrowIfNull(visitor);
+        EverythingTools.VisitIndexedFiles(visitor);
     }
 
     public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int limit = 50)

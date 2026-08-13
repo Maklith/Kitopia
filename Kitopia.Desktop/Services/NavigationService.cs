@@ -106,9 +106,15 @@ public sealed class NavigationService : INavigationService
             return route;
         }
 
+        if (route.StartsWith("settings/field/", StringComparison.Ordinal)
+            && route.Length > "settings/field/".Length)
+        {
+            return route;
+        }
+
         return route switch
         {
-            "home" or "market" or "plugin" or "scenario" or "hotkey" or "onnx/model-manager" or "device/chat" or "settings" => route,
+            "home" or "market" or "plugin" or "scenario" or "hotkey" or "onnx/model-manager" or "index/status" or "device/chat" or "settings" => route,
             _ => null
         };
     }

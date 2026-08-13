@@ -19,6 +19,7 @@ using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Features.Search.InputProcessing;
 using Kitopia.Desktop.Features.Search.Semantic;
+using Kitopia.Desktop.Features.Indexing;
 using Microsoft.Extensions.DependencyInjection;
 using ObservableCollections;
 using PluginCore;
@@ -49,7 +50,7 @@ public class FileTypeFilter
 public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeatureService
 {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<SearchWindowViewModel>();
-    public readonly SearchIndex Index = new();
+    private IIndexService Index => ServiceManager.Services.GetRequiredService<IIndexService>();
 
     [ObservableProperty] private bool? _everythingIsOk = true;
 
@@ -109,13 +110,6 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         BuiltInSearchInputs.EnsureRegistered();
         ItemsView = Items.CreateView(e => e);
         ItemsViewList = ItemsView.ToNotifyCollectionChanged();
-        Task.Run(() =>
-        {
-            ReloadApps();
-        }).ContinueWith(e =>
-        {
-            if (e.Exception is not null) Logger.Error(e.Exception, "");
-        });
         this.WhenAnyValue(e => e.Search)
             .DistinctUntilChanged()
             .ObserveOn(RxSchedulers.MainThreadScheduler)
@@ -167,10 +161,10 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     {
         foreach (var item in items)
         {
-            Index.TryAdd(ToSearchEntry(item));
+            Index.TryAdd(ToSearchEntry(item), IndexSource.Plugin);
         }
 
-        Index.RebuildSearcher();
+        Index.RebuildPinyinSearcher();
     }
 
     public void RemovePluginItems(IEnumerable<SearchViewItem> items)
@@ -194,7 +188,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             });
         }
 
-        Index.RebuildSearcher();
+        Index.RebuildPinyinSearcher();
     }
 
     private static SearchEntry ToSearchEntry(SearchViewItem item)
@@ -230,79 +224,12 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 }
             }
             _analyzerIndexedKeys.Remove(analyzer);
-            Index.RebuildSearcher();
+            Index.RebuildPinyinSearcher();
         }
     }
     
-    public void UpdateIndexOnWindowOpen()
-    {
-        var changed = false;
-        var requiresRebuild = false;
-        var appendedEntries = new List<SearchEntry>();
-        foreach (var (_, analyzers) in PluginOverall.SearchWindowInputDataAnalyzers)
-        foreach (var analyzerTuple in analyzers)
-        {
-            var timeFlags = analyzerTuple.Item1();
-            if ((timeFlags & InputDataAnalyzeTimeFlags.WindowOpenUpdateIndex) != 0)
-            {
-                if (_analyzerIndexedKeys.TryGetValue(analyzerTuple, out var oldKeys))
-                {
-                    foreach (var key in oldKeys) Index.TryRemove(key);
-                    if (oldKeys.Count > 0)
-                    {
-                        changed = true;
-                        requiresRebuild = true;
-                    }
-                }
-
-                var newItems = analyzerTuple.Item2(new List<InputData>()).ToList();
-                var newKeys = new List<string>();
-
-                foreach (var item in newItems)
-                {
-                    var entry = new SearchEntry
-                    {
-                        DisplayName = item.ItemDisplayName,
-                        OnlyKey = item.OnlyKey,
-                        FileType = item.FileType,
-                        IconSymbol = item.IconSymbol,
-                        Arguments = item.Arguments,
-                        LaunchPath = item.LaunchPath,
-                        IconPath = item.IconPath,
-                        StartDirectory = item.StartDirectory
-                    };
-                    if (Index.TryAdd(entry))
-                    {
-                        newKeys.Add(item.OnlyKey);
-                        appendedEntries.Add(entry);
-                    }
-                }
-
-                _analyzerIndexedKeys[analyzerTuple] = newKeys;
-                if (newKeys.Count > 0) changed = true;
-            }
-        }
-
-        if (requiresRebuild)
-            Index.RebuildSearcher();
-        else if (changed)
-            Index.AppendToSearcher(appendedEntries);
-    }
-    
-    public void ReloadApps(bool logging = false)
-    {
-        if (_reloading) return;
-
-
-        _reloading = true;
-        CheckEverything();
-        ServiceManager.Services.GetService<IAppToolService>()!.CleanupInvalidItems(Index);
-        ServiceManager.Services.GetService<IAppToolService>()!.IndexAllApps(Index, logging,
-            ConfigManger.Config.useEverything);
-        Index.RebuildSearcher();
-
-        _reloading = false;
-    }
+    public void UpdateIndexOnWindowOpen() =>
+        ServiceManager.Services.GetRequiredService<IIndexMaintenanceService>().RefreshWindowOpenEntries();
 
     private void CheckEverything()
     {
@@ -563,11 +490,9 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var pinyinResults = Index.Search(value, 100, cancellationToken);
+        var pinyinResults = Index.SearchPinyin(value, 100, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        var pinyinItems = CreateSearchItems(pinyinResults
-            .Select(result => new SearchIndexResult(result.Source, result.Weight, result.CharMatchResults))
-            .ToList());
+        var pinyinItems = CreateSearchItems(pinyinResults);
         if (pinyinItems.Count > 0)
         {
             Dispatcher.UIThread.Post(() =>
@@ -578,7 +503,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             });
         }
 
-        var shouldSearchSemantically = SearchIndex.ShouldSearchSemantically(value, pinyinResults.Count);
+        var shouldSearchSemantically = pinyinResults.Count < 10 && value.Trim().Length >= 2;
         if (!shouldSearchSemantically && pinyinResults.Count > 0)
         {
             Dispatcher.UIThread.Post(() =>
@@ -598,7 +523,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 cancellationToken);
         }
         cancellationToken.ThrowIfCancellationRequested();
-        var rawResults = await Index.SearchSemanticallyAsync(value, pinyinResults, cancellationToken);
+        var rawResults = await Index.SearchAsync(value, 100, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
         if (rawResults.Count == 0)
@@ -710,6 +635,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     {
         var item = result.Source.ToSearchViewItem();
         item.PinyinItem = result.CharMatchResults;
+        item.IsStared = ConfigManger.Config.managedIndexFiles.Contains(item.OnlyKey, StringComparer.OrdinalIgnoreCase)
+                        || ConfigManger.Config.managedIndexDirectories.Contains(item.OnlyKey, StringComparer.OrdinalIgnoreCase);
         if (ConfigManger.Config.alwayShows.Contains(item.OnlyKey)) item.IsPined = true;
         item.Notify();
         return item;
@@ -972,37 +899,61 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
     public bool IsIndexed(string path)
     {
-        return Index.ContainsKey(path);
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        try
+        {
+            path = Path.GetFullPath(path);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+
+        return ConfigManger.Config.managedIndexFiles.Contains(path, StringComparer.OrdinalIgnoreCase)
+               || ConfigManger.Config.managedIndexDirectories.Contains(path, StringComparer.OrdinalIgnoreCase);
     }
 
     public void AddToIndex(string path)
     {
-        if (IsIndexed(path)) return;
-        var entry = new SearchEntry
-        {
-            DisplayName = Path.GetFileName(path),
-            OnlyKey = path,
-            FileType = FileType.文件,
-            IconSymbol = 0xE7C3
-        };
-        if (Index.TryAddAndRefreshSearcher(entry))
-        {
-            Dispatcher.UIThread.InvokeAsync(() => Items.Add(entry.ToSearchViewItem()));
-        }
+        path = Path.GetFullPath(path);
+        var isDirectory = Directory.Exists(path);
+        var target = isDirectory
+            ? ConfigManger.Config.managedIndexDirectories
+            : ConfigManger.Config.managedIndexFiles;
+        if (target.Contains(path, StringComparer.OrdinalIgnoreCase)) return;
+        target.Add(path);
+        ConfigManger.Save();
+        _ = ServiceManager.Services.GetRequiredService<IIndexMaintenanceService>()
+            .RefreshManagedFilesAsync()
+            .ContinueWith(task => Logger.Warning(task.Exception, "Failed to refresh managed file {Path}.", path),
+                TaskContinuationOptions.OnlyOnFaulted);
     }
 
     public void RemoveFromIndex(string path)
     {
-        if (Index.TryRemoveAndRefreshSearcher(path))
+        var removed = RemoveManagedPath(ConfigManger.Config.managedIndexDirectories, path)
+                      | RemoveManagedPath(ConfigManger.Config.managedIndexFiles, path);
+        if (removed)
         {
-            Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                var svItem = Items.FirstOrDefault(e => e.OnlyKey == path);
-                if (svItem is not null) Items.Remove(svItem);
-                svItem = PinnedItems.FirstOrDefault(e => e.OnlyKey == path);
-                if (svItem is not null) PinnedItems.Remove(svItem);
-            });
+            ConfigManger.Save();
+            _ = ServiceManager.Services.GetRequiredService<IIndexMaintenanceService>()
+                .RefreshManagedFilesAsync()
+                .ContinueWith(task => Logger.Warning(task.Exception, "Failed to refresh managed files after removing {Path}.", path),
+                    TaskContinuationOptions.OnlyOnFaulted);
         }
+    }
+
+    private static bool RemoveManagedPath(IList<string> paths, string path)
+    {
+        var removed = false;
+        for (var index = paths.Count - 1; index >= 0; index--)
+        {
+            if (!string.Equals(paths[index], path, StringComparison.OrdinalIgnoreCase)) continue;
+            paths.RemoveAt(index);
+            removed = true;
+        }
+
+        return removed;
     }
 
     public bool IsPinned(string path)

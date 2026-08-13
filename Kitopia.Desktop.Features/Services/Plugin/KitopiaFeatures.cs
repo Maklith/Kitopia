@@ -77,6 +77,35 @@ public static class KitopiaFeatures
         return Task.CompletedTask;
     }
 
+    [Feature("ocr", "文字识别", "选择屏幕区域，使用主程序的本地 PaddleOCR 识别文字并复制结果。", "截图与图像", 0xea72, 110,
+        Activation = FeatureActivationMode.ScreenCapture)]
+    private static async Task RecognizeScreenTextAsync(ScreenCaptureResult captureResult, CancellationToken cancellationToken)
+    {
+        if (captureResult.Source is null)
+        {
+            ShowToast("文字识别", "截图中没有可识别的图像数据。", NotificationType.Warning);
+            return;
+        }
+
+        var ocr = ServiceManager.Services?.GetService<PluginCore.IOcrService>();
+        if (ocr is null || !ocr.IsAvailable)
+        {
+            ShowToast("文字识别", "本地 OCR 模型不可用。", NotificationType.Warning);
+            return;
+        }
+
+        var regions = await ocr.RecognizeAsync(captureResult.Source, cancellationToken);
+        var text = string.Join(Environment.NewLine, regions.Select(region => region.Text));
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            ShowToast("文字识别", "未识别到文字。", NotificationType.Information);
+            return;
+        }
+
+        ServiceManager.Services?.GetService<IClipboardService>()?.SetText(text);
+        ShowToast("文字识别", text, NotificationType.Information);
+    }
+
     [Feature("file-locksmith", "文件占用解锁", "选择文件后检查占用它的进程，并在需要时结束相关进程。", "文件与设备", 0xe61c, 200)]
     private static async Task CheckFileLocksAsync(CancellationToken cancellationToken)
     {
@@ -161,6 +190,12 @@ public static class KitopiaFeatures
     private static Task OpenOnnxModelManagerAsync()
     {
         return NavigateAsync("onnx/model-manager");
+    }
+
+    [Feature("index-status", "\u7d22\u5f15\u72b6\u6001", "\u67e5\u770b\u5e76\u91cd\u5efa\u62fc\u97f3\u3001\u6587\u672c\u4e0e\u56fe\u7247 sqlite-vec \u7d22\u5f15\u3002", "\u81ea\u52a8\u5316\u4e0e\u7ba1\u7406", 0xf105, 345)]
+    private static Task OpenIndexStatusAsync()
+    {
+        return NavigateAsync("index/status");
     }
 
     [Feature("settings", "设置与更新", "调整主题、截图、搜索和系统集成设置，并检查更新。", "自动化与管理", 0xf6aa, 350)]

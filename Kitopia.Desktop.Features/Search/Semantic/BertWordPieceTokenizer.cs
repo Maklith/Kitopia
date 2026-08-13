@@ -54,24 +54,37 @@ internal sealed class BertWordPieceTokenizer
         return new BertWordPieceTokenizer(vocabulary);
     }
 
+    /// <summary>
+    /// Loads the line-based BERT vocabulary distributed with Chinese-CLIP.
+    /// </summary>
+    public static BertWordPieceTokenizer LoadVocabulary(string vocabularyPath)
+    {
+        var vocabulary = new Dictionary<string, int>(StringComparer.Ordinal);
+        var index = 0;
+        foreach (var line in File.ReadLines(vocabularyPath))
+        {
+            vocabulary[line.Trim()] = index++;
+        }
+
+        return new BertWordPieceTokenizer(vocabulary);
+    }
+
     public long[] Encode(string text, int maximumTokens)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maximumTokens, 2);
 
         var tokenIds = new List<long>(Math.Min(maximumTokens, 32)) { _classificationTokenId };
-        foreach (var token in BasicTokenize(text))
+        var tokens = new BasicTokenEnumerator(text.AsSpan());
+        while (tokens.MoveNext(out var token))
         {
-            var wordPieces = EncodeWordPiece(token);
-            if (tokenIds.Count + wordPieces.Count >= maximumTokens)
+            var wordPieceCount = CountWordPieces(token);
+            if (tokenIds.Count + wordPieceCount >= maximumTokens)
             {
                 tokenIds.Add(_separatorTokenId);
                 return tokenIds.ToArray();
             }
 
-            foreach (var wordPiece in wordPieces)
-            {
-                tokenIds.Add(wordPiece);
-            }
+            AppendWordPieces(token, tokenIds);
         }
 
         tokenIds.Add(_separatorTokenId);
@@ -80,10 +93,16 @@ internal sealed class BertWordPieceTokenizer
 
     public int CountTokens(string text)
     {
+        return CountTokens(text.AsSpan());
+    }
+
+    public int CountTokens(ReadOnlySpan<char> text)
+    {
         var tokenCount = 0;
-        foreach (var token in BasicTokenize(text))
+        var tokens = new BasicTokenEnumerator(text);
+        while (tokens.MoveNext(out var token))
         {
-            tokenCount += EncodeWordPiece(token).Count;
+            tokenCount += CountWordPieces(token);
         }
 
         return tokenCount;
@@ -109,21 +128,20 @@ internal sealed class BertWordPieceTokenizer
             : throw new InvalidDataException($"The BERT tokenizer is missing the {token} token.");
     }
 
-    private IReadOnlyList<int> EncodeWordPiece(string token)
+    private int CountWordPieces(ReadOnlySpan<char> token)
     {
         if (token.Length > MaximumWordLength)
         {
-            return [_unknownTokenId];
+            return 1;
         }
 
-        var tokenIds = new List<int>();
+        var count = 0;
         for (var start = 0; start < token.Length;)
         {
-            var end = token.Length;
             var node = start == 0 ? _initialWordPieces : _continuationWordPieces;
             var matchedTokenId = node.TokenId;
             var matchedEnd = matchedTokenId >= 0 ? start : -1;
-            for (var current = start; current < end; current++)
+            for (var current = start; current < token.Length; current++)
             {
                 if (!node.Children.TryGetValue(token[current], out node))
                 {
@@ -139,14 +157,52 @@ internal sealed class BertWordPieceTokenizer
 
             if (matchedTokenId < 0)
             {
-                return [_unknownTokenId];
+                return 1;
+            }
+
+            count++;
+            start = matchedEnd;
+        }
+
+        return count;
+    }
+
+    private void AppendWordPieces(ReadOnlySpan<char> token, List<long> tokenIds)
+    {
+        if (token.Length > MaximumWordLength)
+        {
+            tokenIds.Add(_unknownTokenId);
+            return;
+        }
+
+        for (var start = 0; start < token.Length;)
+        {
+            var node = start == 0 ? _initialWordPieces : _continuationWordPieces;
+            var matchedTokenId = node.TokenId;
+            var matchedEnd = matchedTokenId >= 0 ? start : -1;
+            for (var current = start; current < token.Length; current++)
+            {
+                if (!node.Children.TryGetValue(token[current], out node))
+                {
+                    break;
+                }
+
+                if (node.TokenId >= 0)
+                {
+                    matchedTokenId = node.TokenId;
+                    matchedEnd = current + 1;
+                }
+            }
+
+            if (matchedTokenId < 0)
+            {
+                tokenIds.Add(_unknownTokenId);
+                return;
             }
 
             tokenIds.Add(matchedTokenId);
             start = matchedEnd;
         }
-
-        return tokenIds;
     }
 
     private void AddWordPiece(string wordPiece, int tokenId)
@@ -173,62 +229,58 @@ internal sealed class BertWordPieceTokenizer
         node.TokenId = tokenId;
     }
 
-    private static IEnumerable<string> BasicTokenize(string value)
+    private ref struct BasicTokenEnumerator
     {
-        var normalized = NormalizeText(value);
-        foreach (var whitespaceToken in normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var current = new StringBuilder();
-            foreach (var character in whitespaceToken)
-            {
-                if (IsPunctuation(character))
-                {
-                    if (current.Length > 0)
-                    {
-                        yield return current.ToString();
-                        current.Clear();
-                    }
+        private readonly ReadOnlySpan<char> _value;
+        private int _index;
 
-                    yield return character.ToString();
+        public BasicTokenEnumerator(ReadOnlySpan<char> value)
+        {
+            _value = value;
+            _index = 0;
+        }
+
+        public bool MoveNext(out ReadOnlySpan<char> token)
+        {
+            while (_index < _value.Length)
+            {
+                var character = _value[_index];
+                if (IsIgnored(character) || char.IsWhiteSpace(character))
+                {
+                    _index++;
                     continue;
                 }
 
-                current.Append(character);
+                if (IsChineseCharacter(character) || IsPunctuation(character))
+                {
+                    token = _value.Slice(_index++, 1);
+                    return true;
+                }
+
+                var start = _index++;
+                while (_index < _value.Length)
+                {
+                    character = _value[_index];
+                    if (IsIgnored(character) || char.IsWhiteSpace(character)
+                                             || IsChineseCharacter(character) || IsPunctuation(character))
+                    {
+                        break;
+                    }
+
+                    _index++;
+                }
+
+                token = _value.Slice(start, _index - start);
+                return true;
             }
 
-            if (current.Length > 0)
-            {
-                yield return current.ToString();
-            }
+            token = default;
+            return false;
         }
     }
 
-    private static string NormalizeText(string value)
-    {
-        var builder = new StringBuilder(value.Length + 16);
-        foreach (var character in value)
-        {
-            if (character is '\0' or '\uFFFD' || (char.IsControl(character) && character is not '\t' and not '\n' and not '\r'))
-            {
-                continue;
-            }
-
-            if (char.IsWhiteSpace(character))
-            {
-                builder.Append(' ');
-            }
-            else if (IsChineseCharacter(character))
-            {
-                builder.Append(' ').Append(character).Append(' ');
-            }
-            else
-            {
-                builder.Append(character);
-            }
-        }
-
-        return builder.ToString();
-    }
+    private static bool IsIgnored(char character) =>
+        character is '\0' or '\uFFFD' || (char.IsControl(character) && character is not '\t' and not '\n' and not '\r');
 
     private static bool IsChineseCharacter(char character)
     {

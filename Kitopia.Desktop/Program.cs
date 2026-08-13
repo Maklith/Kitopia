@@ -44,6 +44,9 @@ using Kitopia.Desktop.Features.PluginHost;
 using Kitopia.Desktop.Features.Search;
 using Kitopia.Desktop.Features.Search.Services;
 using Kitopia.Desktop.Features.Search.ViewModels;
+using Kitopia.Desktop.Features.Indexing;
+using Kitopia.Desktop.Features.Ocr;
+using DesktopOcrService = Kitopia.Desktop.Features.Ocr.IOcrService;
 using Kitopia.Desktop.Pages;
 using Kitopia.Desktop.Services;
 using Kitopia.Desktop.Windows;
@@ -156,6 +159,10 @@ internal class Program {
 
 
         services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<DesktopOcrService, PaddleOcrService>();
+        services.AddSingleton<PluginCore.IOcrService>(e => e.GetRequiredService<DesktopOcrService>());
+        services.AddSingleton<IIndexService, IndexService>();
+        services.AddSingleton<IIndexMaintenanceService, IndexMaintenanceService>();
         services.AddTransient<IInferenceSessionManager, InferenceSessionManager>();
         #if WINDOWS
         services.AddTransient<IHotKetImpl, HotKeyImpl>();
@@ -226,6 +233,9 @@ internal class Program {
         services.AddTransient<OnnxModelManagerPageViewModel>();
         services.AddKeyedTransient<UserControl, OnnxModelManagerPage>("OnnxModelManagerPage",
             (e, _) => new OnnxModelManagerPage { DataContext = e.GetService<OnnxModelManagerPageViewModel>() });
+        services.AddTransient<IndexStatusPageViewModel>();
+        services.AddKeyedTransient<UserControl, IndexStatusPage>("IndexStatusPage",
+            (e, _) => new IndexStatusPage { DataContext = e.GetRequiredService<IndexStatusPageViewModel>() });
         services.AddSingleton<Kitopia.Feature.DeviceCommunication.Application.IChatAttachmentStore,
             DesktopChatAttachmentStore>();
         services.AddSingleton<Kitopia.Feature.DeviceCommunication.Application.IChatPlatformService,
@@ -359,7 +369,21 @@ internal class Program {
         }
 
         ServiceManager.Services.GetService<IApplicationService>()!.Init();
-        Dispatcher.UIThread.InvokeAsync(() => { ServiceManager.Services.GetService<SearchWindowViewModel>(); });
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await ServiceManager.Services.GetRequiredService<IIndexMaintenanceService>().InitializeAsync();
+            }
+            catch (Exception exception)
+            {
+                Logger.Warning(exception, "Unified index initialization failed; the search UI remains available.");
+            }
+            finally
+            {
+                Dispatcher.UIThread.Post(() => { ServiceManager.Services.GetService<SearchWindowViewModel>(); });
+            }
+        });
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.

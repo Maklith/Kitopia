@@ -76,6 +76,16 @@
     <ItemGroup>
         <AvaloniaResource Include="Assets\FluentSystemIcons-Filled.ttf" />
         <AvaloniaResource Include="Assets\FluentSystemIcons-Regular.ttf" />
+        <Content Include="Assets\ChineseClip\**\*">
+            <Link>ChineseClip\%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
+        <Content Include="Assets\Ocr\**\*">
+            <Link>Ocr\%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
     </ItemGroup>
 
     <ItemGroup Condition="'$(OS)' == 'Windows_NT'">

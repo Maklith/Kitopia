@@ -83,7 +83,6 @@ public class KitopiaEx : IPlugin
         services.AddTransient<QrCoder>();
         services.AddTransient<Image>();
         
-        services.AddTransient<ScreenCaptureExs.Ocr>();
         services.AddTransient<ScreenCaptureExs.ImagePin>();
         services.AddTransient<ScreenCaptureExs.QRCode>();
         services.AddTransient<ScreenCaptureExs.Translate>();

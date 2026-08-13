@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Kitopia.Desktop.Features.Search.Semantic;
+using Kitopia.Desktop.Features.Indexing;
 using Pinyin.NET;
 using PluginCore;
 
@@ -36,15 +36,14 @@ public readonly record struct SearchEntry
     }
 }
 
-public class SearchIndex
+public class SearchIndex : ISearchEntryIndex
 {
-    // Lexical matches are immediate and precise enough for ordinary app and file-name searches.
-    // Reserving the expensive embedding lookup for sparse matches keeps RAG from competing with typing.
+    // Compatibility-only pinyin index for short-lived callers. Process-wide semantic retrieval is
+    // owned exclusively by IIndexService and its sqlite-vec index.db store.
     private const int SemanticFallbackPinyinResultLimit = 10;
     private const int MinimumSemanticQueryLength = 2;
     private readonly Dictionary<string, SearchEntry> _entries = new();
     private readonly object _lock = new();
-    private readonly SemanticSearchIndex _semanticIndex = new();
     private volatile PinyinSearcher<SearchEntry>? _searcher;
     private int _rebuildVersion;
 
@@ -59,11 +58,6 @@ public class SearchIndex
         lock (_lock)
         {
             added = _entries.TryAdd(entry.OnlyKey, entry);
-        }
-
-        if (added)
-        {
-            _semanticIndex.Upsert(entry);
         }
 
         return added;
@@ -87,11 +81,6 @@ public class SearchIndex
         lock (_lock)
         {
             removed = _entries.Remove(key);
-        }
-
-        if (removed)
-        {
-            _semanticIndex.Remove(key);
         }
 
         return removed;
@@ -127,16 +116,9 @@ public class SearchIndex
 
     public void Clear()
     {
-        List<string> keys;
         lock (_lock)
         {
-            keys = new List<string>(_entries.Keys);
             _entries.Clear();
-        }
-
-        foreach (var key in keys)
-        {
-            _semanticIndex.Remove(key);
         }
     }
 
@@ -155,11 +137,6 @@ public class SearchIndex
 
         }
 
-        foreach (var key in keysToRemove)
-        {
-            _semanticIndex.Remove(key);
-        }
-
         return keysToRemove.Count;
     }
 
@@ -170,8 +147,6 @@ public class SearchIndex
         {
             snapshot = new List<SearchEntry>(_entries.Values);
         }
-
-        _semanticIndex.Synchronize(snapshot);
 
         var version = Interlocked.Increment(ref _rebuildVersion);
         Task.Run(() =>
@@ -192,10 +167,6 @@ public class SearchIndex
         }
 
         _searcher.AppendLoad(entriesToAppend, e => e.DisplayName);
-        foreach (var entry in entriesToAppend)
-        {
-            _semanticIndex.Upsert(entry);
-        }
     }
 
     public List<SearchResults<SearchEntry>> Search(
@@ -223,7 +194,7 @@ public class SearchIndex
                && query.Trim().Length >= MinimumSemanticQueryLength;
     }
 
-    public async Task<List<SearchIndexResult>> SearchSemanticallyAsync(
+    public Task<List<SearchIndexResult>> SearchSemanticallyAsync(
         string query,
         IReadOnlyList<SearchResults<SearchEntry>> pinyinResults,
         CancellationToken cancellationToken)
@@ -239,57 +210,10 @@ public class SearchIndex
                 result.CharMatchResults);
         }
 
-        if (!ShouldSearchSemantically(query, pinyinResults.Count))
-        {
-            return merged.Values.OrderByDescending(result => result.Weight).ToList();
-        }
-
-        try
-        {
-            var semanticResults = await _semanticIndex.SearchAsync(query, cancellationToken);
-            for (var index = 0; index < semanticResults.Count; index++)
-            {
-                var semanticResult = semanticResults[index];
-                if (!TryGetValue(semanticResult.OnlyKey, out var entry))
-                {
-                    continue;
-                }
-
-                // Keep rank decay for reciprocal-rank fusion while preserving the cosine similarity
-                // returned by the vector store. Negative similarities are not relevant search signals.
-                var semanticScore = Math.Max(0d, semanticResult.Score) / (60 + index + 1);
-                if (merged.TryGetValue(semanticResult.OnlyKey, out var existing))
-                {
-                    merged[semanticResult.OnlyKey] = existing with
-                    {
-                        Weight = existing.Weight + semanticScore,
-                        SemanticContentChunkIndex = semanticResult.ContentChunkIndex
-                                                   ?? existing.SemanticContentChunkIndex
-                    };
-                }
-                else
-                {
-                    merged[semanticResult.OnlyKey] = new SearchIndexResult(
-                        entry,
-                        semanticScore,
-                        null,
-                        semanticResult.ContentChunkIndex);
-                }
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch
-        {
-            // SemanticSearchIndex logs indexing failures. Pinyin search remains the fallback.
-        }
-
-        return merged.Values.OrderByDescending(result => result.Weight).ToList();
+        return Task.FromResult(merged.Values.OrderByDescending(result => result.Weight).ToList());
     }
 
-    public List<KeyValuePair<string, SearchEntry>> GetEntriesSnapshot()
+    public IReadOnlyList<KeyValuePair<string, SearchEntry>> GetEntriesSnapshot()
     {
         lock (_lock)
         {

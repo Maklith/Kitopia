@@ -58,6 +58,8 @@ public class ViewLocator : IValueConverter
                 return ServiceManager.Services.GetKeyedService<UserControl>("HotKeyManagerPage");
             case "onnx/model-manager":
                 return ServiceManager.Services.GetKeyedService<UserControl>("OnnxModelManagerPage");
+            case "index/status":
+                return ServiceManager.Services.GetKeyedService<UserControl>("IndexStatusPage");
             case "device/chat":
                 return ServiceManager.Services.GetKeyedService<UserControl>("DeviceChatPage");
             case "settings":
@@ -81,6 +83,13 @@ public class ViewLocator : IValueConverter
                     if (ConfigManger.Configs.TryGetValue(args["plugin/settings/detail/".Length..], out var config))
                         settingPage.ChangeConfig(config);
 
+                    return settingPage;
+                }
+
+                if (args.StartsWith("settings/field/", StringComparison.Ordinal))
+                {
+                    var settingPage = ServiceManager.Services.GetService<SettingPage>();
+                    settingPage.LoadAllConfigs(args["settings/field/".Length..]);
                     return settingPage;
                 }
 

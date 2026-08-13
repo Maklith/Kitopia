@@ -80,6 +80,13 @@ public partial class MainWindowViewModel : ObservableRecipient
             Key = "device/chat",
             MenuIconGlyph = "\ue975",
             MenuIconFilledGlyph = "\ue975"
+        },
+        new MenuItemViewModel
+        {
+            MenuHeader = "\u7d22\u5f15\u72b6\u6001",
+            Key = "index/status",
+            MenuIconGlyph = "\uf105",
+            MenuIconFilledGlyph = "\uf105"
         }
     };
 

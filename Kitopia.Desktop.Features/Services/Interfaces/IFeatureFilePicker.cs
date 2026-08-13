@@ -6,4 +6,9 @@ public interface IFeatureFilePicker
         string title,
         bool allowMultiple,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<string>> PickFoldersAsync(
+        string title,
+        bool allowMultiple,
+        CancellationToken cancellationToken = default);
 }

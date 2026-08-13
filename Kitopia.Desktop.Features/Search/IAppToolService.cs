@@ -1,3 +1,4 @@
+using Kitopia.Desktop.Features.Indexing;
 using Pinyin.NET;
 using PluginCore;
 
@@ -14,14 +15,14 @@ public interface IAppToolService
     /// <param name="index">搜索索引 / Search index</param>
     /// <param name="filePath">文件或目录路径 / File or directory path</param>
     /// <param name="isStarred">是否标星(收藏) / Whether the item is starred</param>
-    public void IndexItem(SearchIndex index, string filePath,
+    public void IndexItem(ISearchEntryIndex index, string filePath,
         bool isStarred = false);
 
     /// <summary>
     /// 清理集合中无效的文件和应用 / Remove invalid files and directories from the collection
     /// </summary>
     /// <param name="index">搜索索引 / Search index</param>
-    public void CleanupInvalidItems(SearchIndex index);
+    public void CleanupInvalidItems(IIndexService index);
 
     /// <summary>
     /// 索引所有应用程序 / Index all applications
@@ -29,7 +30,7 @@ public interface IAppToolService
     /// <param name="index">搜索索引 / Search index</param>
     /// <param name="logging">是否记录日志 / Whether to enable logging</param>
     /// <param name="useEverything">是否使用Everything / Whether to use Everything search</param>
-    public void IndexAllApps(SearchIndex index, bool logging,
+    public void IndexAllApps(IIndexService index, bool logging,
         bool useEverything = false);
 
     /// <summary>
@@ -37,7 +38,14 @@ public interface IAppToolService
     /// </summary>
     /// <param name="index">搜索索引 / Search index</param>
     /// <param name="onSuccess">启动成功的回调 / Callback action on success</param>
-    public void AutoStartEverything(SearchIndex index, Action onSuccess);
+    public void AutoStartEverything(IIndexService index, Action onSuccess);
+
+    /// <summary>
+    /// Visits each file path matched by the configured Everything extension query.
+    /// Discovery is separate from application indexing so file paths remain lightweight until
+    /// a search result or vector workflow actually needs a result entry.
+    /// </summary>
+    void VisitEverythingIndexedFiles(Action<string> visitor);
     
     /// <summary>
     /// 使用Everything搜索 / Use Everything search

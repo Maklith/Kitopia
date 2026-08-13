@@ -1,4 +1,6 @@
 ﻿using System.Collections;
+using System.Collections.Specialized;
+using System.Linq;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
@@ -21,7 +23,22 @@ public class ListShow : ListBox
         AvaloniaProperty.Register<ListShow, ICommand>(nameof(AddCommand));
 
     public static readonly StyledProperty<ICommand> InnerAddCommandProperty =
-        AvaloniaProperty.Register<ListShow, ICommand>(nameof(AddCommand));
+        AvaloniaProperty.Register<ListShow, ICommand>(nameof(InnerAddCommand));
+
+    public static readonly StyledProperty<ICommand> PickFilesCommandProperty =
+        AvaloniaProperty.Register<ListShow, ICommand>(nameof(PickFilesCommand));
+
+    public static readonly StyledProperty<ICommand> PickFoldersCommandProperty =
+        AvaloniaProperty.Register<ListShow, ICommand>(nameof(PickFoldersCommand));
+
+    public static readonly StyledProperty<bool> ShowFilePickerProperty =
+        AvaloniaProperty.Register<ListShow, bool>(nameof(ShowFilePicker));
+
+    public static readonly StyledProperty<bool> ShowFolderPickerProperty =
+        AvaloniaProperty.Register<ListShow, bool>(nameof(ShowFolderPicker));
+
+    public static readonly StyledProperty<bool> ShowEmptyHintProperty =
+        AvaloniaProperty.Register<ListShow, bool>(nameof(ShowEmptyHint));
 
     public static readonly StyledProperty<string> TextValueProperty =
         AvaloniaProperty.Register<ListShow, string>(nameof(TextValue));
@@ -58,6 +75,36 @@ public class ListShow : ListBox
         set => SetValue(InnerAddCommandProperty, value);
     }
 
+    public ICommand PickFilesCommand
+    {
+        get => GetValue(PickFilesCommandProperty);
+        set => SetValue(PickFilesCommandProperty, value);
+    }
+
+    public ICommand PickFoldersCommand
+    {
+        get => GetValue(PickFoldersCommandProperty);
+        set => SetValue(PickFoldersCommandProperty, value);
+    }
+
+    public bool ShowFilePicker
+    {
+        get => GetValue(ShowFilePickerProperty);
+        set => SetValue(ShowFilePickerProperty, value);
+    }
+
+    public bool ShowFolderPicker
+    {
+        get => GetValue(ShowFolderPickerProperty);
+        set => SetValue(ShowFolderPickerProperty, value);
+    }
+
+    public bool ShowEmptyHint
+    {
+        get => GetValue(ShowEmptyHintProperty);
+        private set => SetValue(ShowEmptyHintProperty, value);
+    }
+
     public string TextValue
     {
         get => GetValue(TextValueProperty);
@@ -73,6 +120,7 @@ public class ListShow : ListBox
         {
             list.Add(obj);
             TextValue = "";
+            UpdateEmptyHint();
         }
     }
 
@@ -89,6 +137,35 @@ public class ListShow : ListBox
     {
         if (obj == null) return;
 
-        if (ItemsSource is IList list) list.Remove(obj);
+        if (ItemsSource is IList list)
+        {
+            list.Remove(obj);
+            UpdateEmptyHint();
+        }
     }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property != ItemsSourceProperty)
+        {
+            return;
+        }
+
+        if (change.OldValue is INotifyCollectionChanged oldCollection)
+        {
+            oldCollection.CollectionChanged -= OnItemsCollectionChanged;
+        }
+
+        if (change.NewValue is INotifyCollectionChanged newCollection)
+        {
+            newCollection.CollectionChanged += OnItemsCollectionChanged;
+        }
+
+        UpdateEmptyHint();
+    }
+
+    private void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateEmptyHint();
+
+    private void UpdateEmptyHint() => ShowEmptyHint = (ItemsSource as IEnumerable)?.Cast<object>().Any() != true;
 }

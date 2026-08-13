@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Kitopia.Desktop.Features.Search.ViewModels;
+using Kitopia.Desktop.Features.Indexing;
 using Kitopia.Desktop.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -76,7 +77,7 @@ public class SearchItemShow : Button
         var value = (string)e.NewValue;
         if (value is null) return;
 
-        var index = ServiceManager.Services.GetService<SearchWindowViewModel>()!.Index;
+        var index = ServiceManager.Services.GetRequiredService<IIndexService>();
         if (index.TryGetValue(value,
                 out var searchEntry))
         {

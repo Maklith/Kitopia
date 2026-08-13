@@ -1,5 +1,6 @@
 using System.Xml.Linq;
 using Kitopia.Desktop.Features.Search;
+using Kitopia.Desktop.Features.Indexing;
 using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Config;
 using PluginCore;
@@ -13,7 +14,7 @@ internal static class UwpTools
 {
     private static readonly ILogger Logger = LogManager.Logger.ForContext(typeof(UwpTools));
 
-    internal static void GetAll(SearchIndex index)
+    internal static void GetAll(IIndexService index)
     {
         IEnumerable<Package> packages;
         try
@@ -39,7 +40,7 @@ internal static class UwpTools
         }
     }
 
-    private static void IndexPackage(Package package, SearchIndex index)
+    private static void IndexPackage(Package package, IIndexService index)
     {
         if (package.IsFramework || package.IsResourcePackage)
             return;

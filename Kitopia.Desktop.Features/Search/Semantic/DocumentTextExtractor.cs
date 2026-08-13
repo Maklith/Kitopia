@@ -534,6 +534,7 @@ internal static partial class DocumentTextExtractor
         private readonly Func<string, int> _countTokens;
         private readonly StringBuilder _text = new();
         private bool _previousWasWhitespace;
+        private int _nextTokenCheckLength = MaximumPayloadTokens;
 
         public TextChunker(Func<string, int> countTokens)
         {
@@ -558,9 +559,21 @@ internal static partial class DocumentTextExtractor
                     _previousWasWhitespace = false;
                 }
 
-                while (CountTokens() > MaximumPayloadTokens)
+                if (_text.Length < _nextTokenCheckLength)
+                {
+                    continue;
+                }
+
+                if (CountTokens() > MaximumPayloadTokens)
                 {
                     yield return TakeChunk();
+                }
+                else
+                {
+                    // A Chinese character can be one token, so the first check is at 254 chars.
+                    // After that, grow the interval to avoid copying and tokenizing the complete
+                    // buffer once per appended character for ordinary multi-character words.
+                    _nextTokenCheckLength = _text.Length + Math.Max(64, _text.Length / 2);
                 }
             }
         }
@@ -583,6 +596,7 @@ internal static partial class DocumentTextExtractor
             _text.Clear();
             _text.Append(remainder);
             _previousWasWhitespace = _text.Length > 0 && char.IsWhiteSpace(_text[^1]);
+            _nextTokenCheckLength = _text.Length + Math.Max(64, _text.Length / 2);
             return chunk;
         }
 

@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Search.Services;
+using Kitopia.Desktop.Features.Indexing;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
@@ -27,7 +28,7 @@ public partial class MouseQuickWindowViewModel : ObservableRecipient
     public MouseQuickWindowViewModel()
     {
         foreach (var configMouseQuickItem in ConfigManger.Config.mouseQuickItems)
-            if (ServiceManager.Services.GetService<SearchWindowViewModel>()!.Index.TryGetValue(
+            if (ServiceManager.Services.GetRequiredService<IIndexService>().TryGetValue(
                     configMouseQuickItem, out var entry))
                 Items.Add(entry.ToSearchViewItem());
 

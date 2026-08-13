@@ -9,6 +9,7 @@ using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Abstractions.Shell;
 using Kitopia.Desktop.Platform.Windows.Everything;
 using Kitopia.Desktop.Features.Search;
+using Kitopia.Desktop.Features.Indexing;
 using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;
 using PluginCore;
@@ -27,7 +28,7 @@ public class AppSolver
     private static readonly List<string> ErrorLnkList = new();
     public static readonly PinyinProcessor PinyinProcessor = new();
 
-    internal static void AutoStartEverything(SearchIndex index, Action action)
+    internal static void AutoStartEverything(IIndexService index, Action action)
     {
         if (ConfigManger.Config.autoStartEverything)
         {
@@ -103,7 +104,7 @@ public class AppSolver
         }
     }
 
-    internal static void CleanupInvalidItems(SearchIndex index)
+    internal static void CleanupInvalidItems(IIndexService index)
     {
         index.RemoveWhere((key, entry) =>
         {
@@ -118,7 +119,7 @@ public class AppSolver
         });
     }
 
-    internal static void IndexAllApps(SearchIndex index,
+    internal static void IndexAllApps(IIndexService index,
         bool logging = false, bool useEverything = false)
     {
         Logger.Debug("索引全部软件及收藏项目");
@@ -128,14 +129,6 @@ public class AppSolver
         Logger.Debug("索引全部软件及收藏项目UWP");
         ControlPanelTools.GetAll(index);
 
-
-        foreach (var enumerateFile in Directory.EnumerateFiles(
-                     Environment.GetFolderPath(Environment.SpecialFolder.Desktop)))
-            IndexItem(index, enumerateFile, logging: logging);
-
-        foreach (var enumerateFile in Directory.EnumerateDirectories(
-                     Environment.GetFolderPath(Environment.SpecialFolder.Desktop)))
-            IndexItem(index, enumerateFile, logging: logging);
 
         foreach (var enumerateFile in Directory.EnumerateFiles(@"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
                      "*", SearchOption.AllDirectories))
@@ -172,19 +165,6 @@ public class AppSolver
 
             IndexItem(index, enumerateFile, logging: logging);
         }
-
-        foreach (var configCustomCollection in ConfigManger.Config.customCollections)
-            IndexItem(index, configCustomCollection, logging: logging);
-
-        if (useEverything)
-        {
-            List<string> filePaths = new();
-            EverythingTools.Index(filePaths);
-            foreach (var filePath in filePaths) IndexItem(index, filePath, logging: logging);
-
-            filePaths.Clear();
-        }
-
 
         if (ErrorLnkList.Any())
         {
@@ -235,7 +215,7 @@ public class AppSolver
         }
     }
 
-    internal static void IndexItem(SearchIndex index, string file,
+    internal static void IndexItem(ISearchEntryIndex index, string file,
         bool star = false, bool logging = false)
     {
 

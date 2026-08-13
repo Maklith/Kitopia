@@ -53,6 +53,16 @@
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         </Content>
+        <Content Include="..\Kitopia.Desktop.Features\Assets\ChineseClip\**\*">
+            <Link>ChineseClip\%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
+        <Content Include="..\Kitopia.Desktop.Features\Assets\Ocr\**\*">
+            <Link>Ocr\%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
 
         <ProjectReference Condition=" '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' " Include="..\Kitopia.Desktop.Platform.Linux\Kitopia.Desktop.Platform.Linux.csproj"/>
         <ProjectReference Condition=" '$(OS)' == 'Windows_NT' " Include="..\Kitopia.Desktop.Platform.Windows\Kitopia.Desktop.Platform.Windows.csproj"/>

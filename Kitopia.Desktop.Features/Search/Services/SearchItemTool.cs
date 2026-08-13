@@ -5,6 +5,7 @@ using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Abstractions.Shell;
 using Kitopia.Desktop.Features.Search.ViewModels;
+using Kitopia.Desktop.Features.Indexing;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Serilog;
@@ -108,8 +109,7 @@ public class SearchItemTool : ISearchItemTool
         {
             ConfigManger.Config.ignoreItems.Add(item.OnlyKey);
             ConfigManger.Save();
-            ServiceManager.Services.GetService<SearchWindowViewModel>()!.Index
-                .TryRemoveAndRefreshSearcher(item.OnlyKey);
+            ServiceManager.Services.GetRequiredService<IIndexService>().TryRemove(item.OnlyKey);
         });
     }
 
@@ -152,27 +152,36 @@ public class SearchItemTool : ISearchItemTool
 
     public void Star(SearchViewItem? item)
     {
-        if (item is null) return;
+        if (item is null || (!File.Exists(item.OnlyKey) && !Directory.Exists(item.OnlyKey))) return;
 
-        var index = ServiceManager.Services.GetService<SearchWindowViewModel>()!.Index;
         Logger.Information("添加/移除收藏" + item.OnlyKey);
         item.IsStared = !item.IsStared;
-        if (ConfigManger.Config!.customCollections.Contains(item.OnlyKey))
-            ConfigManger.Config.customCollections.Remove(item.OnlyKey);
-
+        var target = Directory.Exists(item.OnlyKey)
+            ? ConfigManger.Config.managedIndexDirectories
+            : ConfigManger.Config.managedIndexFiles;
         if (item.IsStared)
         {
-            ServiceManager.Services.GetService<IAppToolService>()!.IndexItem(index, item.OnlyKey, true);
-            ConfigManger.Config.customCollections.Insert(0, item.OnlyKey);
+            if (!target.Contains(item.OnlyKey, StringComparer.OrdinalIgnoreCase)) target.Insert(0, item.OnlyKey);
         }
         else
         {
-            index.TryRemove(item.OnlyKey);
+            RemoveManagedPath(ConfigManger.Config.managedIndexDirectories, item.OnlyKey);
+            RemoveManagedPath(ConfigManger.Config.managedIndexFiles, item.OnlyKey);
         }
 
-        index.RebuildSearcher();
-
         ConfigManger.Save();
+        _ = ServiceManager.Services.GetService<IIndexMaintenanceService>()?
+            .RefreshManagedFilesAsync()
+            .ContinueWith(task => Logger.Warning(task.Exception, "Failed to refresh managed files after starring {Path}.", item.OnlyKey),
+                TaskContinuationOptions.OnlyOnFaulted);
+    }
+
+    private static void RemoveManagedPath(IList<string> paths, string path)
+    {
+        for (var index = paths.Count - 1; index >= 0; index--)
+        {
+            if (string.Equals(paths[index], path, StringComparison.OrdinalIgnoreCase)) paths.RemoveAt(index);
+        }
     }
 
     public void Pin(SearchViewItem? item)
@@ -255,7 +264,7 @@ public class SearchItemTool : ISearchItemTool
 
     public void OpenSearchItemByOnlyKey(string onlyKey, params object[] inputValues)
     {
-        if (ServiceManager.Services!.GetService<SearchWindowViewModel>()!.Index
+        if (ServiceManager.Services!.GetRequiredService<IIndexService>()
             .TryGetValue(onlyKey, out var entry))
             OpenFile(entry.ToSearchViewItem(), inputValues);
     }

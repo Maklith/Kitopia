@@ -8,6 +8,7 @@
 using System.Text;
 using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Search;
+using Kitopia.Desktop.Features.Indexing;
 using Microsoft.Win32;
 using PluginCore;
 using Vanara.PInvoke;
@@ -16,7 +17,7 @@ namespace Kitopia.Desktop.Platform.Windows.AppTools;
 
 public class ControlPanelTools
 {
-    internal static void GetAll(SearchIndex index)
+    internal static void GetAll(IIndexService index)
     {
         var reg = Registry.LocalMachine.OpenSubKey(
             @"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel\NameSpace");

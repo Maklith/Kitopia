@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages;assembly=Kitopia.Desktop.Features"
+             mc:Ignorable="d"
+             d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="pages:IndexStatusPageViewModel"
+             x:Class="Kitopia.Desktop.Pages.IndexStatusPage">
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
+        <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Text="索引状态" />
+
+        <WrapPanel Grid.Row="1" ItemHeight="78" ItemWidth="150">
+            <Border Theme="{DynamicResource KitopiaCard}" Margin="4"><StackPanel Margin="12"><TextBlock Text="总条目" /><TextBlock Classes="H4" Text="{Binding Status.TotalEntries}" /></StackPanel></Border>
+            <Border Theme="{DynamicResource KitopiaCard}" Margin="4"><StackPanel Margin="12"><TextBlock Text="应用与插件" /><TextBlock Classes="H4" Text="{Binding Status.ApplicationEntries}" /></StackPanel></Border>
+            <Border Theme="{DynamicResource KitopiaCard}" Margin="4"><StackPanel Margin="12"><TextBlock Text="文档条目" /><TextBlock Classes="H4" Text="{Binding Status.DocumentEntries}" /></StackPanel></Border>
+            <Border Theme="{DynamicResource KitopiaCard}" Margin="4"><StackPanel Margin="12"><TextBlock Text="图片条目" /><TextBlock Classes="H4" Text="{Binding Status.ImageEntries}" /></StackPanel></Border>
+            <Border Theme="{DynamicResource KitopiaCard}" Margin="4"><StackPanel Margin="12"><TextBlock Text="文本向量" /><TextBlock Classes="H4" Text="{Binding Status.TextVectorEntries}" /></StackPanel></Border>
+            <Border Theme="{DynamicResource KitopiaCard}" Margin="4"><StackPanel Margin="12"><TextBlock Text="图片向量" /><TextBlock Classes="H4" Text="{Binding Status.ImageVectorEntries}" /></StackPanel></Border>
+        </WrapPanel>
+
+        <ScrollViewer Grid.Row="2">
+            <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="8">
+                    <TextBlock Grid.Row="0" Text="文本模型" Foreground="{DynamicResource SemiColorText1}" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Status.TextModel}" />
+                    <TextBlock Grid.Row="1" Text="图片模型" Foreground="{DynamicResource SemiColorText1}" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Status.ImageModel}" />
+                    <TextBlock Grid.Row="2" Text="当前操作" Foreground="{DynamicResource SemiColorText1}" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Status.CurrentOperation}" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="3" Text="失败图片" Foreground="{DynamicResource SemiColorText1}" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Status.FailedImages}" />
+                    <TextBlock Grid.Row="4" Text="最近错误" Foreground="{DynamicResource SemiColorText1}" />
+                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Status.LastError}" TextWrapping="Wrap" Foreground="{DynamicResource SemiColorText2}" />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="索引目录和文件设置" Command="{Binding OpenManagedIndexSettingsCommand}" />
+                    <Button Content="Everything 设置" Command="{Binding OpenEverythingSettingsCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <WrapPanel Grid.Row="3" HorizontalAlignment="Right" ItemHeight="36">
+            <Button Margin="4" Command="{Binding RebuildPinyinCommand}" Content="重建拼音" />
+            <Button Margin="4" Command="{Binding RebuildDocumentsCommand}" Content="重建文本" />
+            <Button Margin="4" Command="{Binding RebuildImagesCommand}" Content="重建图片" />
+            <Button Margin="4" Classes="Primary" Command="{Binding RebuildAllCommand}" Content="重建全部" />
+        </WrapPanel>
+    </Grid>
+</UserControl>
