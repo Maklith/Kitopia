@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using Kitopia.Desktop.Features.Search;
@@ -413,6 +414,7 @@ public sealed class IndexService : IIndexService, IDisposable
     public async Task IndexIncrementalAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default)
     {
         await _rebuildGate.WaitAsync(cancellationToken);
+        var originalProcessorAffinity = LimitIndexingCpu();
         try
         {
             UpdateStatus(status => status with
@@ -444,6 +446,7 @@ public sealed class IndexService : IIndexService, IDisposable
                 await ReleaseEmbeddingSessionsAsync();
             }
 
+            RestoreProcessorAffinity(originalProcessorAffinity);
             UpdateStatus(status => status with { IsRebuilding = false, CurrentOperation = null });
             _rebuildGate.Release();
             PublishStatus();
@@ -453,6 +456,7 @@ public sealed class IndexService : IIndexService, IDisposable
     public async Task RebuildAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default)
     {
         await _rebuildGate.WaitAsync(cancellationToken);
+        var originalProcessorAffinity = LimitIndexingCpu();
         try
         {
             UpdateStatus(status => status with { IsRebuilding = true, CurrentOperation = $"Rebuilding {scope} index", LastError = null });
@@ -481,6 +485,7 @@ public sealed class IndexService : IIndexService, IDisposable
                 await ReleaseEmbeddingSessionsAsync();
             }
 
+            RestoreProcessorAffinity(originalProcessorAffinity);
             UpdateStatus(status => status with { IsRebuilding = false, CurrentOperation = null });
             _rebuildGate.Release();
             PublishStatus();
@@ -698,6 +703,83 @@ public sealed class IndexService : IIndexService, IDisposable
         catch (Exception exception)
         {
             Logger.Warning(exception, "Failed to release ONNX sessions after indexing.");
+        }
+    }
+
+    private static IntPtr? LimitIndexingCpu()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return null;
+        }
+
+        var usagePercent = Math.Clamp(ConfigManger.Config.indexingMaximumCpuUsagePercent, 1, 100);
+        if (usagePercent == 100)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var process = Process.GetCurrentProcess();
+            var originalAffinity = process.ProcessorAffinity;
+            var originalMask = unchecked((nuint)originalAffinity.ToInt64());
+            var bitCount = IntPtr.Size * 8;
+            var availableProcessorCount = 0;
+            for (var bit = 0; bit < bitCount; bit++)
+            {
+                if ((originalMask & ((nuint)1 << bit)) != 0)
+                {
+                    availableProcessorCount++;
+                }
+            }
+
+            var maximumProcessors = Math.Max(1, availableProcessorCount * usagePercent / 100);
+            if (maximumProcessors >= availableProcessorCount)
+            {
+                return null;
+            }
+
+            var limitedMask = (nuint)0;
+            for (var bit = 0; bit < bitCount && maximumProcessors > 0; bit++)
+            {
+                var processor = (nuint)1 << bit;
+                if ((originalMask & processor) == 0)
+                {
+                    continue;
+                }
+
+                limitedMask |= processor;
+                maximumProcessors--;
+            }
+
+            process.ProcessorAffinity = IntPtr.Size == 8
+                ? new IntPtr(unchecked((long)limitedMask))
+                : new IntPtr(unchecked((int)limitedMask));
+            return originalAffinity;
+        }
+        catch (Exception exception)
+        {
+            Logger.Warning(exception, "Failed to limit indexing CPU usage.");
+            return null;
+        }
+    }
+
+    private static void RestoreProcessorAffinity(IntPtr? originalAffinity)
+    {
+        if (originalAffinity is not { } affinity)
+        {
+            return;
+        }
+
+        try
+        {
+            using var process = Process.GetCurrentProcess();
+            process.ProcessorAffinity = affinity;
+        }
+        catch (Exception exception)
+        {
+            Logger.Warning(exception, "Failed to restore processor affinity after indexing.");
         }
     }
 

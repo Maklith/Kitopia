@@ -27,6 +27,7 @@ public sealed class ConfigMangerServiceTests
             Assert.AreSame(ConfigManger.Configs, service.Configs);
             Assert.AreSame(ConfigManger.Config, service.Config);
             Assert.AreSame(ConfigManger.DefaultOptions, service.DefaultOptions);
+            Assert.AreEqual(50, config.indexingMaximumCpuUsagePercent);
         }
         finally
         {

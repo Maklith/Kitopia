@@ -151,6 +151,9 @@ public class KitopiaConfig : ConfigBase
     public string everythingOnlyKey = "";
 
     [ConfigFieldCategory("索引")]
+    [ConfigField("索引最大 CPU 使用率", "限制索引过程可使用的逻辑处理器比例。100 表示不限制，仅 Windows 生效。", 0xf8cb, ConfigFieldType.整数, null, 100, 5, 5)]
+    public int indexingMaximumCpuUsagePercent = 50;
+
     [ConfigField("自定义索引目录", "普通搜索会预先索引这些目录中的文件", 0xF2D7, ConfigFieldType.目录列表)]
     public ObservableCollection<string> managedIndexDirectories = new();
 
