@@ -115,6 +115,33 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
         return $"{info.Length}:{info.LastWriteTimeUtc.Ticks}";
     }
 
+    public async Task ReleaseSessionsAsync()
+    {
+        await _imageInferenceGate.WaitAsync();
+        try
+        {
+            var session = _imageSession;
+            _imageSession = null;
+            session?.Dispose();
+        }
+        finally
+        {
+            _imageInferenceGate.Release();
+        }
+
+        await _textInferenceGate.WaitAsync();
+        try
+        {
+            var session = _textSession;
+            _textSession = null;
+            session?.Dispose();
+        }
+        finally
+        {
+            _textInferenceGate.Release();
+        }
+    }
+
     public void Dispose()
     {
         _imageSession?.Dispose();

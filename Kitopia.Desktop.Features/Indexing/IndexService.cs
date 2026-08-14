@@ -439,6 +439,11 @@ public sealed class IndexService : IIndexService, IDisposable
         }
         finally
         {
+            if (scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Images)
+            {
+                await ReleaseEmbeddingSessionsAsync();
+            }
+
             UpdateStatus(status => status with { IsRebuilding = false, CurrentOperation = null });
             _rebuildGate.Release();
             PublishStatus();
@@ -471,6 +476,11 @@ public sealed class IndexService : IIndexService, IDisposable
         }
         finally
         {
+            if (scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Images)
+            {
+                await ReleaseEmbeddingSessionsAsync();
+            }
+
             UpdateStatus(status => status with { IsRebuilding = false, CurrentOperation = null });
             _rebuildGate.Release();
             PublishStatus();
@@ -673,6 +683,22 @@ public sealed class IndexService : IIndexService, IDisposable
         _imageEmbeddingService?.Dispose();
         _rebuildGate.Dispose();
         _pinyinBuildGate.Dispose();
+    }
+
+    private async Task ReleaseEmbeddingSessionsAsync()
+    {
+        try
+        {
+            var textEmbeddingService = _textEmbeddingService;
+            var imageEmbeddingService = _imageEmbeddingService;
+            await Task.WhenAll(
+                textEmbeddingService?.ReleaseSessionAsync() ?? Task.CompletedTask,
+                imageEmbeddingService?.ReleaseSessionsAsync() ?? Task.CompletedTask);
+        }
+        catch (Exception exception)
+        {
+            Logger.Warning(exception, "Failed to release ONNX sessions after indexing.");
+        }
     }
 
     private async Task<IReadOnlyList<RankedVectorMatch>> SearchTextAsync(string query, int maximumResults, CancellationToken cancellationToken)
