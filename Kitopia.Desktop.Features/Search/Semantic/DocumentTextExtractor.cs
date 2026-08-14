@@ -10,6 +10,8 @@ using PdfSharp.Pdf.IO;
 
 namespace Kitopia.Desktop.Features.Search.Semantic;
 
+internal delegate int TokenCounter(ReadOnlySpan<char> text);
+
 internal static partial class DocumentTextExtractor
 {
     private static readonly HashSet<string> PlainTextExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -72,7 +74,7 @@ internal static partial class DocumentTextExtractor
 
     public static async IAsyncEnumerable<string> ExtractChunksAsync(
         DocumentContentSource source,
-        Func<string, int> countTokens,
+        TokenCounter countTokens,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var extension = Path.GetExtension(source.Path);
@@ -114,7 +116,7 @@ internal static partial class DocumentTextExtractor
 
     private static async IAsyncEnumerable<string> ReadPlainTextChunksAsync(
         string path,
-        Func<string, int> countTokens,
+        TokenCounter countTokens,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var chunker = new TextChunker(countTokens);
@@ -135,9 +137,12 @@ internal static partial class DocumentTextExtractor
                 break;
             }
 
-            foreach (var chunk in chunker.Append(new string(buffer, 0, read)))
+            for (var index = 0; index < read; index++)
             {
-                yield return chunk;
+                if (chunker.Append(buffer[index]) is { } chunk)
+                {
+                    yield return chunk;
+                }
             }
         }
 
@@ -148,16 +153,30 @@ internal static partial class DocumentTextExtractor
         }
     }
 
-    private static IEnumerable<string> ReadPdfChunks(string path, Func<string, int> countTokens, CancellationToken cancellationToken)
+    private static IEnumerable<string> ReadPdfChunks(string path, TokenCounter countTokens, CancellationToken cancellationToken)
     {
         var chunker = new TextChunker(countTokens);
         using var document = PdfReader.Open(path, PdfDocumentOpenMode.Import);
         foreach (var page in document.Pages)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            foreach (var chunk in chunker.Append(DecodePdfPageText(page)))
+            var decoder = new PdfPageTextDecoder(page, chunker);
+            foreach (var content in page.Contents)
             {
-                yield return chunk;
+                if (content.Stream?.UnfilteredValue is not { } contentStream)
+                {
+                    continue;
+                }
+
+                foreach (var chunk in decoder.Decode(contentStream))
+                {
+                    yield return chunk;
+                }
+            }
+
+            if (chunker.Append('\n') is { } pageBreakChunk)
+            {
+                yield return pageBreakChunk;
             }
         }
 
@@ -168,52 +187,270 @@ internal static partial class DocumentTextExtractor
         }
     }
 
-    private static string DecodePdfPageText(PdfPage page)
+    private sealed class PdfPageTextDecoder
     {
-        var fontMaps = ReadPdfFontMaps(page);
-        if (fontMaps.Count == 0)
+        private readonly IReadOnlyDictionary<string, Dictionary<ushort, string>> _fontMaps;
+        private readonly TextChunker _chunker;
+        private string _activeFont = string.Empty;
+
+        public PdfPageTextDecoder(PdfPage page, TextChunker chunker)
         {
-            return string.Empty;
+            _fontMaps = ReadPdfFontMaps(page);
+            _chunker = chunker;
         }
 
-        var builder = new StringBuilder();
-        var activeFont = string.Empty;
-        foreach (var content in page.Contents)
+        public IEnumerable<string> Decode(byte[] content)
         {
-            if (content.Stream?.UnfilteredValue is not { } stream)
+            var position = 0;
+            var latestName = default(PdfContentToken);
+            var pendingHexString = default(PdfContentToken);
+            var pendingLiteralString = default(PdfContentToken);
+            while (TryReadPdfContentToken(content, ref position, out var token))
             {
-                continue;
-            }
+                switch (token.Kind)
+                {
+                    case PdfContentTokenKind.Name:
+                        latestName = token;
+                        pendingHexString = default;
+                        pendingLiteralString = default;
+                        break;
 
-            var contentStream = Encoding.ASCII.GetString(stream);
-            foreach (Match match in PdfTextOperatorPattern().Matches(contentStream))
-            {
-                if (match.Groups[1].Success)
-                {
-                    activeFont = "/" + match.Groups[1].Value;
-                    continue;
-                }
+                    case PdfContentTokenKind.HexString:
+                        pendingHexString = token;
+                        pendingLiteralString = default;
+                        break;
 
-                if (!fontMaps.TryGetValue(activeFont, out var fontMap))
-                {
-                    continue;
-                }
+                    case PdfContentTokenKind.LiteralString:
+                        pendingLiteralString = token;
+                        pendingHexString = default;
+                        break;
 
-                if (match.Groups[2].Success)
-                {
-                    AppendDecodedGlyphs(builder, match.Groups[2].Value, fontMap);
-                }
-                else
-                {
-                    foreach (Match glyphs in PdfHexStringPattern().Matches(match.Groups[3].Value))
+                    case PdfContentTokenKind.ArrayStart:
                     {
-                        AppendDecodedGlyphs(builder, glyphs.Groups[1].Value, fontMap);
+                        var arrayStart = position;
+                        if (!TryFindPdfArrayEnd(content, ref position, out var arrayEnd)
+                            || !TryReadPdfContentToken(content, ref position, out var operation))
+                        {
+                            yield break;
+                        }
+
+                        if (IsPdfToken(content, operation, "TJ"))
+                        {
+                            _fontMaps.TryGetValue(_activeFont, out var fontMap);
+                            foreach (var chunk in DecodePdfArrayStrings(content, arrayStart, arrayEnd, fontMap))
+                            {
+                                yield return chunk;
+                            }
+                        }
+
+                        latestName = default;
+                        pendingHexString = default;
+                        break;
+                    }
+
+                    case PdfContentTokenKind.Word:
+                        if (IsPdfToken(content, token, "Tf") && latestName.Kind == PdfContentTokenKind.Name)
+                        {
+                            _activeFont = "/" + Encoding.ASCII.GetString(content, latestName.Start, latestName.Length);
+                            latestName = default;
+                        }
+                        else if (IsPdfToken(content, token, "Tj"))
+                        {
+                            if (pendingHexString.Kind == PdfContentTokenKind.HexString
+                                && _fontMaps.TryGetValue(_activeFont, out var fontMap))
+                            {
+                                foreach (var chunk in DecodePdfHexString(content, pendingHexString, fontMap))
+                                {
+                                    yield return chunk;
+                                }
+                            }
+                            else if (pendingLiteralString.Kind == PdfContentTokenKind.LiteralString)
+                            {
+                                foreach (var chunk in DecodePdfLiteralString(content, pendingLiteralString))
+                                {
+                                    yield return chunk;
+                                }
+                            }
+
+                            latestName = default;
+                        }
+                        else if (!IsPdfNumber(content, token))
+                        {
+                            latestName = default;
+                        }
+
+                        pendingHexString = default;
+                        pendingLiteralString = default;
+                        break;
+
+                    default:
+                        pendingHexString = default;
+                        pendingLiteralString = default;
+                        break;
+                }
+            }
+        }
+
+        private IEnumerable<string> DecodePdfArrayStrings(
+            byte[] content,
+            int start,
+            int end,
+            IReadOnlyDictionary<ushort, string>? fontMap)
+        {
+            var position = start;
+            while (position < end)
+            {
+                if (content[position] == (byte)'(')
+                {
+                    var literalStart = position + 1;
+                    SkipPdfLiteralString(content, ref position);
+                    foreach (var chunk in DecodePdfLiteralString(
+                                 content,
+                                 new PdfContentToken(PdfContentTokenKind.LiteralString, literalStart, position - literalStart - 1)))
+                    {
+                        yield return chunk;
+                    }
+
+                    continue;
+                }
+
+                if (content[position] != (byte)'<' || position + 1 >= end || content[position + 1] == (byte)'<')
+                {
+                    position++;
+                    continue;
+                }
+
+                var hexStart = ++position;
+                while (position < end && content[position] != (byte)'>')
+                {
+                    position++;
+                }
+
+                if (position >= end)
+                {
+                    yield break;
+                }
+
+                if (fontMap is not null)
+                {
+                    foreach (var chunk in DecodePdfHexString(content, new PdfContentToken(PdfContentTokenKind.HexString, hexStart, position - hexStart), fontMap))
+                    {
+                        yield return chunk;
                     }
                 }
+
+                position++;
             }
         }
 
-        return builder.Append('\n').ToString();
+        private IEnumerable<string> DecodePdfLiteralString(byte[] content, PdfContentToken token)
+        {
+            var end = token.Start + token.Length;
+            for (var index = token.Start; index < end; index++)
+            {
+                var value = content[index];
+                if (value == (byte)'\\' && ++index < end)
+                {
+                    value = content[index];
+                    if (value is (byte)'\r' or (byte)'\n')
+                    {
+                        if (value == (byte)'\r' && index + 1 < end && content[index + 1] == (byte)'\n')
+                        {
+                            index++;
+                        }
+
+                        continue;
+                    }
+
+                    if (value is >= (byte)'0' and <= (byte)'7')
+                    {
+                        var octalValue = value - (byte)'0';
+                        for (var digits = 1; digits < 3 && index + 1 < end && content[index + 1] is >= (byte)'0' and <= (byte)'7'; digits++)
+                        {
+                            octalValue = (octalValue * 8) + content[++index] - (byte)'0';
+                        }
+
+                        value = (byte)octalValue;
+                    }
+                    else
+                    {
+                        value = value switch
+                        {
+                            (byte)'n' => (byte)'\n',
+                            (byte)'r' => (byte)'\r',
+                            (byte)'t' => (byte)'\t',
+                            (byte)'b' => (byte)'\b',
+                            (byte)'f' => (byte)'\f',
+                            _ => value
+                        };
+                    }
+                }
+
+                if (_chunker.Append((char)value) is { } chunk)
+                {
+                    yield return chunk;
+                }
+            }
+        }
+
+        private IEnumerable<string> DecodePdfHexString(
+            byte[] content,
+            PdfContentToken token,
+            IReadOnlyDictionary<ushort, string> fontMap)
+        {
+            var nibbleCount = 0;
+            for (var index = token.Start; index < token.Start + token.Length; index++)
+            {
+                if (IsPdfWhitespace(content[index]))
+                {
+                    continue;
+                }
+
+                if (GetHexValue(content[index]) < 0)
+                {
+                    yield break;
+                }
+
+                nibbleCount++;
+            }
+
+            if (nibbleCount == 0 || nibbleCount % 4 != 0)
+            {
+                yield break;
+            }
+
+            var glyph = 0;
+            var glyphNibbleCount = 0;
+            for (var index = token.Start; index < token.Start + token.Length; index++)
+            {
+                var value = GetHexValue(content[index]);
+                if (value < 0)
+                {
+                    continue;
+                }
+
+                glyph = (glyph << 4) | value;
+                glyphNibbleCount++;
+                if (glyphNibbleCount < 4)
+                {
+                    continue;
+                }
+
+                if (fontMap.TryGetValue((ushort)glyph, out var text))
+                {
+                    foreach (var character in text)
+                    {
+                        if (_chunker.Append(character) is { } chunk)
+                        {
+                            yield return chunk;
+                        }
+                    }
+                }
+
+                glyph = 0;
+                glyphNibbleCount = 0;
+            }
+        }
     }
 
     private static Dictionary<string, Dictionary<ushort, string>> ReadPdfFontMaps(PdfPage page)
@@ -278,22 +515,310 @@ internal static partial class DocumentTextExtractor
         return fontMaps;
     }
 
-    private static void AppendDecodedGlyphs(StringBuilder builder, string hex, IReadOnlyDictionary<ushort, string> map)
+    private static bool TryReadPdfContentToken(byte[] content, ref int position, out PdfContentToken token)
     {
-        if (hex.Length % 4 != 0)
+        SkipPdfWhitespaceAndComments(content, ref position);
+        if (position >= content.Length)
         {
-            return;
+            token = default;
+            return false;
         }
 
-        for (var index = 0; index < hex.Length; index += 4)
+        switch (content[position])
         {
-            var glyph = Convert.ToUInt16(hex.Substring(index, 4), 16);
-            if (map.TryGetValue(glyph, out var character))
+            case (byte)'/':
             {
-                builder.Append(character);
+                var start = ++position;
+                while (position < content.Length && !IsPdfDelimiter(content[position]))
+                {
+                    position++;
+                }
+
+                token = new PdfContentToken(PdfContentTokenKind.Name, start, position - start);
+                return true;
+            }
+
+            case (byte)'<':
+            {
+                if (position + 1 < content.Length && content[position + 1] == (byte)'<')
+                {
+                    SkipPdfDictionary(content, ref position);
+                    token = new PdfContentToken(PdfContentTokenKind.Other, 0, 0);
+                    return true;
+                }
+
+                var start = ++position;
+                while (position < content.Length && content[position] != (byte)'>')
+                {
+                    position++;
+                }
+
+                token = new PdfContentToken(PdfContentTokenKind.HexString, start, position - start);
+                if (position < content.Length)
+                {
+                    position++;
+                }
+
+                return true;
+            }
+
+            case (byte)'[':
+                position++;
+                token = new PdfContentToken(PdfContentTokenKind.ArrayStart, 0, 0);
+                return true;
+
+            case (byte)'(':
+            {
+                var start = position + 1;
+                SkipPdfLiteralString(content, ref position);
+                token = new PdfContentToken(PdfContentTokenKind.LiteralString, start, position - start - 1);
+                return true;
+            }
+
+            default:
+            {
+                var start = position;
+                while (position < content.Length && !IsPdfDelimiter(content[position]))
+                {
+                    position++;
+                }
+
+                if (start == position)
+                {
+                    position++;
+                    token = new PdfContentToken(PdfContentTokenKind.Other, 0, 0);
+                    return true;
+                }
+
+                token = new PdfContentToken(PdfContentTokenKind.Word, start, position - start);
+                return true;
             }
         }
     }
+
+    private static bool TryFindPdfArrayEnd(byte[] content, ref int position, out int end)
+    {
+        var depth = 1;
+        while (position < content.Length)
+        {
+            switch (content[position])
+            {
+                case (byte)'%':
+                    SkipPdfComment(content, ref position);
+                    break;
+
+                case (byte)'(':
+                    SkipPdfLiteralString(content, ref position);
+                    break;
+
+                case (byte)'<':
+                    if (position + 1 < content.Length && content[position + 1] == (byte)'<')
+                    {
+                        SkipPdfDictionary(content, ref position);
+                    }
+                    else
+                    {
+                        SkipPdfHexString(content, ref position);
+                    }
+
+                    break;
+
+                case (byte)'[':
+                    depth++;
+                    position++;
+                    break;
+
+                case (byte)']':
+                    if (--depth == 0)
+                    {
+                        end = position;
+                        position++;
+                        return true;
+                    }
+
+                    position++;
+                    break;
+
+                default:
+                    position++;
+                    break;
+            }
+        }
+
+        end = 0;
+        return false;
+    }
+
+    private static void SkipPdfWhitespaceAndComments(byte[] content, ref int position)
+    {
+        while (position < content.Length)
+        {
+            if (IsPdfWhitespace(content[position]))
+            {
+                position++;
+                continue;
+            }
+
+            if (content[position] == (byte)'%')
+            {
+                SkipPdfComment(content, ref position);
+                continue;
+            }
+
+            break;
+        }
+    }
+
+    private static void SkipPdfComment(byte[] content, ref int position)
+    {
+        while (position < content.Length && content[position] is not (byte)'\r' and not (byte)'\n')
+        {
+            position++;
+        }
+    }
+
+    private static void SkipPdfHexString(byte[] content, ref int position)
+    {
+        position++;
+        while (position < content.Length && content[position] != (byte)'>')
+        {
+            position++;
+        }
+
+        if (position < content.Length)
+        {
+            position++;
+        }
+    }
+
+    private static void SkipPdfDictionary(byte[] content, ref int position)
+    {
+        var depth = 0;
+        while (position < content.Length)
+        {
+            if (content[position] == (byte)'<' && position + 1 < content.Length && content[position + 1] == (byte)'<')
+            {
+                depth++;
+                position += 2;
+                continue;
+            }
+
+            if (content[position] == (byte)'>' && position + 1 < content.Length && content[position + 1] == (byte)'>')
+            {
+                depth--;
+                position += 2;
+                if (depth == 0)
+                {
+                    return;
+                }
+
+                continue;
+            }
+
+            if (content[position] == (byte)'(')
+            {
+                SkipPdfLiteralString(content, ref position);
+                continue;
+            }
+
+            position++;
+        }
+    }
+
+    private static void SkipPdfLiteralString(byte[] content, ref int position)
+    {
+        var depth = 0;
+        while (position < content.Length)
+        {
+            if (content[position] == (byte)'\\')
+            {
+                position += Math.Min(2, content.Length - position);
+                continue;
+            }
+
+            if (content[position] == (byte)'(')
+            {
+                depth++;
+            }
+            else if (content[position] == (byte)')' && --depth == 0)
+            {
+                position++;
+                return;
+            }
+
+            position++;
+        }
+    }
+
+    private static bool IsPdfWhitespace(byte value)
+    {
+        return value is 0 or 9 or 10 or 12 or 13 or 32;
+    }
+
+    private static bool IsPdfDelimiter(byte value)
+    {
+        return IsPdfWhitespace(value) || value is (byte)'(' or (byte)')' or (byte)'<' or (byte)'>' or (byte)'[' or (byte)']' or (byte)'{' or (byte)'}' or (byte)'/' or (byte)'%';
+    }
+
+    private static int GetHexValue(byte value)
+    {
+        return value switch
+        {
+            >= (byte)'0' and <= (byte)'9' => value - (byte)'0',
+            >= (byte)'A' and <= (byte)'F' => value - (byte)'A' + 10,
+            >= (byte)'a' and <= (byte)'f' => value - (byte)'a' + 10,
+            _ => -1
+        };
+    }
+
+    private static bool IsPdfToken(byte[] content, PdfContentToken token, string value)
+    {
+        if (token.Length != value.Length)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < value.Length; index++)
+        {
+            if (content[token.Start + index] != (byte)value[index])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsPdfNumber(byte[] content, PdfContentToken token)
+    {
+        if (token.Length == 0)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < token.Length; index++)
+        {
+            var value = content[token.Start + index];
+            if (value is not ((byte)'+' or (byte)'-' or (byte)'.') && (value < (byte)'0' || value > (byte)'9'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private enum PdfContentTokenKind
+    {
+        Other,
+        Name,
+        HexString,
+        LiteralString,
+        ArrayStart,
+        Word
+    }
+
+    private readonly record struct PdfContentToken(PdfContentTokenKind Kind, int Start, int Length);
 
     private static void AddCMapRange(Dictionary<ushort, string> map, ushort start, ushort end, string targetHex)
     {
@@ -344,9 +869,6 @@ internal static partial class DocumentTextExtractor
         return false;
     }
 
-    [GeneratedRegex(@"/(\w+)\s+[-+.\d]+\s+Tf|<([0-9A-F]+)>\s*Tj|\[([^]]*)\]\s*TJ", RegexOptions.IgnoreCase)]
-    private static partial Regex PdfTextOperatorPattern();
-
     [GeneratedRegex(@"<([0-9A-F]+)>", RegexOptions.IgnoreCase)]
     private static partial Regex PdfHexStringPattern();
 
@@ -368,7 +890,7 @@ internal static partial class DocumentTextExtractor
     private static async IAsyncEnumerable<string> ReadOpenXmlChunksAsync(
         string path,
         string extension,
-        Func<string, int> countTokens,
+        TokenCounter countTokens,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         using var archive = ZipFile.OpenRead(path);
@@ -386,6 +908,7 @@ internal static partial class DocumentTextExtractor
         };
 
         var chunker = new TextChunker(countTokens);
+        var textBuffer = new char[4096];
         foreach (var entry in entries.OrderBy(entry => entry.FullName, StringComparer.OrdinalIgnoreCase))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -405,7 +928,7 @@ internal static partial class DocumentTextExtractor
                 {
                     if (reader.LocalName is "p" or "br" or "tab")
                     {
-                        foreach (var chunk in chunker.Append("\n"))
+                        if (chunker.Append('\n') is { } chunk)
                         {
                             yield return chunk;
                         }
@@ -413,10 +936,35 @@ internal static partial class DocumentTextExtractor
 
                     if (reader.LocalName is "t" or "instrText")
                     {
-                        var text = await reader.ReadElementContentAsStringAsync();
-                        foreach (var chunk in chunker.Append(text))
+                        if (reader.IsEmptyElement)
                         {
-                            yield return chunk;
+                            continue;
+                        }
+
+                        while (await reader.ReadAsync())
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            if (reader.NodeType == XmlNodeType.EndElement)
+                            {
+                                break;
+                            }
+
+                            if (reader.NodeType is not (XmlNodeType.Text or XmlNodeType.CDATA or XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace))
+                            {
+                                continue;
+                            }
+
+                            int read;
+                            while ((read = await reader.ReadValueChunkAsync(textBuffer, 0, textBuffer.Length)) > 0)
+                            {
+                                for (var index = 0; index < read; index++)
+                                {
+                                    if (chunker.Append(textBuffer[index]) is { } chunk)
+                                    {
+                                        yield return chunk;
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -531,83 +1079,98 @@ internal static partial class DocumentTextExtractor
         // DocumentMaximumTokens is 256. The BGE sequence reserves [CLS] and [SEP].
         private const int MaximumPayloadTokens = 254;
         private const int OverlapTokens = 48;
-        private readonly Func<string, int> _countTokens;
+        private const int MaximumBufferedCharacters = 16 * 1024;
+        private const int ForcedOverlapCharacters = 512;
+        private readonly TokenCounter _countTokens;
         private readonly StringBuilder _text = new();
+        private char[] _tokenBuffer = [];
         private bool _previousWasWhitespace;
         private int _nextTokenCheckLength = MaximumPayloadTokens;
 
-        public TextChunker(Func<string, int> countTokens)
+        public TextChunker(TokenCounter countTokens)
         {
             _countTokens = countTokens;
         }
 
-        public IEnumerable<string> Append(string value)
+        public string? Append(char character)
         {
-            foreach (var character in value)
+            if (char.IsWhiteSpace(character))
             {
-                if (char.IsWhiteSpace(character))
+                if (!_previousWasWhitespace)
                 {
-                    if (!_previousWasWhitespace)
-                    {
-                        _text.Append(' ');
-                        _previousWasWhitespace = true;
-                    }
-                }
-                else if (!char.IsControl(character))
-                {
-                    _text.Append(character);
-                    _previousWasWhitespace = false;
-                }
-
-                if (_text.Length < _nextTokenCheckLength)
-                {
-                    continue;
-                }
-
-                if (CountTokens() > MaximumPayloadTokens)
-                {
-                    yield return TakeChunk();
-                }
-                else
-                {
-                    // A Chinese character can be one token, so the first check is at 254 chars.
-                    // After that, grow the interval to avoid copying and tokenizing the complete
-                    // buffer once per appended character for ordinary multi-character words.
-                    _nextTokenCheckLength = _text.Length + Math.Max(64, _text.Length / 2);
+                    _text.Append(' ');
+                    _previousWasWhitespace = true;
                 }
             }
+            else if (!char.IsControl(character))
+            {
+                _text.Append(character);
+                _previousWasWhitespace = false;
+            }
+
+            if (_text.Length < _nextTokenCheckLength)
+            {
+                return null;
+            }
+
+            if (CountTokens(0, _text.Length) > MaximumPayloadTokens)
+            {
+                return TakeChunk(forceCharacterLimit: false);
+            }
+
+            if (_text.Length >= MaximumBufferedCharacters)
+            {
+                return TakeChunk(forceCharacterLimit: true);
+            }
+
+            // A Chinese character can be one token, so the first check is at 254 chars.
+            // After that, increase the interval so normal text is not tokenized per character.
+            _nextTokenCheckLength = Math.Min(
+                MaximumBufferedCharacters,
+                _text.Length + Math.Max(64, _text.Length / 2));
+            return null;
         }
 
         public string? Flush()
         {
-            var value = _text.ToString().Trim();
+            var start = FindTrimmedStart(0, _text.Length);
+            var end = FindTrimmedEnd(start, _text.Length);
+            var value = start == end ? null : _text.ToString(start, end - start);
             _text.Clear();
-            return value.Length == 0 ? null : value;
+            return value;
         }
 
-        private string TakeChunk()
+        private string TakeChunk(bool forceCharacterLimit)
         {
-            var breakIndex = FindBreakIndex();
-            var chunk = _text.ToString(0, breakIndex).Trim();
-            var overlapStart = FindOverlapStart(chunk);
+            var breakIndex = forceCharacterLimit ? FindForcedBreakIndex() : FindBreakIndex();
+            var chunkStart = FindTrimmedStart(0, breakIndex);
+            var chunkEnd = FindTrimmedEnd(chunkStart, breakIndex);
+            var chunk = _text.ToString(chunkStart, chunkEnd - chunkStart);
+            var overlapStart = forceCharacterLimit
+                ? FindForcedOverlapStart(chunk)
+                : FindOverlapStart(chunk);
 
-            var remainderLength = _text.Length - overlapStart;
-            var remainder = _text.ToString(overlapStart, remainderLength).TrimStart();
-            _text.Clear();
-            _text.Append(remainder);
+            _text.Remove(0, chunkStart + overlapStart);
+            var remainderStart = FindTrimmedStart(0, _text.Length);
+            if (remainderStart > 0)
+            {
+                _text.Remove(0, remainderStart);
+            }
+
             _previousWasWhitespace = _text.Length > 0 && char.IsWhiteSpace(_text[^1]);
-            _nextTokenCheckLength = _text.Length + Math.Max(64, _text.Length / 2);
+            _nextTokenCheckLength = Math.Min(
+                MaximumBufferedCharacters,
+                _text.Length + Math.Max(64, _text.Length / 2));
             return chunk;
         }
 
         private int FindBreakIndex()
         {
-            var value = _text.ToString();
-            var breakIndex = FindMaximumPrefixLength(value);
+            var breakIndex = FindMaximumPrefixLength();
             var preferredStart = Math.Max(0, breakIndex - 48);
             for (var index = breakIndex - 1; index >= preferredStart; index--)
             {
-                if (IsBreakCharacter(value[index]))
+                if (IsBreakCharacter(_text[index]))
                 {
                     return index + 1;
                 }
@@ -616,14 +1179,29 @@ internal static partial class DocumentTextExtractor
             return breakIndex;
         }
 
-        private int FindMaximumPrefixLength(string value)
+        private int FindForcedBreakIndex()
+        {
+            var breakIndex = Math.Min(MaximumBufferedCharacters, _text.Length);
+            var preferredStart = Math.Max(0, breakIndex - ForcedOverlapCharacters);
+            for (var index = breakIndex - 1; index >= preferredStart; index--)
+            {
+                if (IsBreakCharacter(_text[index]))
+                {
+                    return index + 1;
+                }
+            }
+
+            return breakIndex;
+        }
+
+        private int FindMaximumPrefixLength()
         {
             var low = 1;
-            var high = value.Length;
+            var high = _text.Length;
             while (low < high)
             {
                 var middle = low + (high - low + 1) / 2;
-                if (_countTokens(value[..middle]) <= MaximumPayloadTokens)
+                if (CountTokens(0, middle) <= MaximumPayloadTokens)
                 {
                     low = middle;
                 }
@@ -636,6 +1214,20 @@ internal static partial class DocumentTextExtractor
             return low;
         }
 
+        private static int FindForcedOverlapStart(string chunk)
+        {
+            var start = Math.Max(0, chunk.Length - ForcedOverlapCharacters);
+            for (var index = start; index < chunk.Length; index++)
+            {
+                if (char.IsWhiteSpace(chunk[index]) && index + 1 < chunk.Length)
+                {
+                    return index + 1;
+                }
+            }
+
+            return start;
+        }
+
         private int FindOverlapStart(string chunk)
         {
             var low = 0;
@@ -643,7 +1235,7 @@ internal static partial class DocumentTextExtractor
             while (low < high)
             {
                 var middle = low + (high - low) / 2;
-                if (_countTokens(chunk[middle..]) > OverlapTokens)
+                if (_countTokens(chunk.AsSpan(middle)) > OverlapTokens)
                 {
                     low = middle + 1;
                 }
@@ -664,9 +1256,35 @@ internal static partial class DocumentTextExtractor
             return low;
         }
 
-        private int CountTokens()
+        private int CountTokens(int start, int length)
         {
-            return _countTokens(_text.ToString());
+            if (_tokenBuffer.Length < length)
+            {
+                _tokenBuffer = new char[length];
+            }
+
+            _text.CopyTo(start, _tokenBuffer, 0, length);
+            return _countTokens(_tokenBuffer.AsSpan(0, length));
+        }
+
+        private int FindTrimmedStart(int start, int end)
+        {
+            while (start < end && char.IsWhiteSpace(_text[start]))
+            {
+                start++;
+            }
+
+            return start;
+        }
+
+        private int FindTrimmedEnd(int start, int end)
+        {
+            while (end > start && char.IsWhiteSpace(_text[end - 1]))
+            {
+                end--;
+            }
+
+            return end;
         }
 
         private static bool IsBreakCharacter(char character)

@@ -18,6 +18,7 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+        <PackageReference Include="PDFsharp" Version="6.2.4" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\Kitopia.Desktop.Platform.Windows\Kitopia.Desktop.Platform.Windows.csproj" />

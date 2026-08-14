@@ -69,6 +69,33 @@ public sealed class DocumentTextExtractorTests
     }
 
     [TestMethod]
+    public async Task ExtractChunksAsync_LongSingleToken_UsesBoundedCharacterWindows()
+    {
+        var path = CreateTemporaryPath(".md");
+        try
+        {
+            await File.WriteAllTextAsync(path, new string('a', 40_000));
+            Assert.IsTrue(DocumentTextExtractor.TryCreateSource(path, out var source));
+
+            var chunks = new List<string>();
+            await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(
+                               source,
+                               _ => 1,
+                               CancellationToken.None))
+            {
+                chunks.Add(chunk);
+            }
+
+            Assert.IsTrue(chunks.Count > 1);
+            Assert.IsTrue(chunks.All(chunk => chunk.Length <= 16 * 1024));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [TestMethod]
     public async Task CreateSource_UsesFileMetadataBeforeComputingContentHash()
     {
         var path = CreateTemporaryPath(".txt");

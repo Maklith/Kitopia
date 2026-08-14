@@ -34,9 +34,9 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
 
     public string ModelId => _modelId;
 
-    public int CountTokens(string text) => _tokenizer.CountTokens(text);
+    public int CountTokens(ReadOnlySpan<char> text) => _tokenizer.CountTokens(text);
 
-    internal static int CountDocumentTokens(string text)
+    internal static int CountDocumentTokens(ReadOnlySpan<char> text)
     {
         return PreviewTokenizer.Value?.CountTokens(text) ?? text.Length;
     }
