@@ -126,6 +126,9 @@ public class KitopiaConfig : ConfigBase
         (ConfigFieldType)1, null, 100, 5, 5)]
     public int semanticSearchMaxResults = 50;
 
+    [ConfigField("语义文本扩展名", "仅提取并索引这些纯文本文件扩展名，例如 .md。", 0xf8cb, ConfigFieldType.字符串列表支持添加)]
+    public ObservableCollection<string> plainTextExtensions = [".md"];
+
 
     public List<PluginBaseInfo> EnabledPluginInfos = new()
     {

@@ -1,12 +1,33 @@
 using System.IO.Compression;
 using System.Text;
 using Kitopia.Desktop.Features.Search.Semantic;
+using Kitopia.Desktop.Features.Services.Config;
+using PluginCore.Config;
 
 namespace KitopiaTest.Search;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class DocumentTextExtractorTests
 {
+    private Dictionary<string, ConfigBase>? _originalConfigs;
+
+    [TestInitialize]
+    public void Initialize()
+    {
+        _originalConfigs = ConfigManger.Configs;
+        ConfigManger.Configs = new Dictionary<string, ConfigBase>
+        {
+            ["KitopiaConfig"] = new KitopiaConfig { Name = "KitopiaConfig" }
+        };
+    }
+
+    [TestCleanup]
+    public void Cleanup()
+    {
+        ConfigManger.Configs = _originalConfigs!;
+    }
+
     [TestMethod]
     public async Task ExtractChunksAsync_TextFile_StreamsAllTextInChunks()
     {
@@ -14,6 +35,8 @@ public sealed class DocumentTextExtractorTests
         try
         {
             await File.WriteAllTextAsync(path, string.Concat(Enumerable.Repeat("Termius connection profile ", 80)));
+            Assert.IsFalse(DocumentTextExtractor.TryCreateSource(path, out _));
+            ConfigManger.Config.plainTextExtensions.Add(".txt");
 
             var chunks = await ExtractChunksAsync(path);
 
@@ -36,6 +59,7 @@ public sealed class DocumentTextExtractorTests
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             await File.WriteAllBytesAsync(path, Encoding.GetEncoding("GB18030").GetBytes("Termius 服务器连接配置"));
+            ConfigManger.Config.plainTextExtensions.Add(".txt");
 
             var chunks = await ExtractChunksAsync(path);
 
@@ -54,6 +78,7 @@ public sealed class DocumentTextExtractorTests
         try
         {
             await File.WriteAllTextAsync(path, new string('a', 2_000));
+            ConfigManger.Config.plainTextExtensions.Add(".txt");
 
             var chunks = await ExtractChunksAsync(path);
 
@@ -96,8 +121,8 @@ public sealed class DocumentTextExtractorTests
     [TestMethod]
     public async Task CreateSource_UsesFileMetadataBeforeComputingContentHash()
     {
-        var path = CreateTemporaryPath(".txt");
-        var duplicatePath = CreateTemporaryPath(".txt");
+        var path = CreateTemporaryPath(".md");
+        var duplicatePath = CreateTemporaryPath(".md");
         try
         {
             var preservedWriteTime = DateTime.UtcNow.AddMinutes(-5);

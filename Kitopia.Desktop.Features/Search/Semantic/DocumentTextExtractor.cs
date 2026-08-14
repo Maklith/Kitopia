@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
+using Kitopia.Desktop.Features.Services.Config;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.Advanced;
 using PdfSharp.Pdf.IO;
@@ -13,12 +14,6 @@ internal delegate int TokenCounter(ReadOnlySpan<char> text);
 
 internal static partial class DocumentTextExtractor
 {
-    private static readonly HashSet<string> PlainTextExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".md",
-        ".txt"
-    };
-
     public static bool TryCreateSource(string path, out DocumentContentSource source)
     {
         source = default!;
@@ -78,7 +73,7 @@ internal static partial class DocumentTextExtractor
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var extension = Path.GetExtension(source.Path);
-        if (PlainTextExtensions.Contains(extension))
+        if (IsPlainTextExtension(extension))
         {
             await foreach (var chunk in ReadPlainTextChunksAsync(source.Path, countTokens, cancellationToken))
             {
@@ -107,11 +102,16 @@ internal static partial class DocumentTextExtractor
     private static bool IsSupported(string path)
     {
         var extension = Path.GetExtension(path);
-        return PlainTextExtensions.Contains(extension)
+        return IsPlainTextExtension(extension)
                || extension.Equals(".docx", StringComparison.OrdinalIgnoreCase)
                || extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
                || extension.Equals(".pptx", StringComparison.OrdinalIgnoreCase)
                || extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsPlainTextExtension(string extension)
+    {
+        return ConfigManger.Config.plainTextExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase);
     }
 
     private static async IAsyncEnumerable<string> ReadPlainTextChunksAsync(
