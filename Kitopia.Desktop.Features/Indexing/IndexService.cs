@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
+using System.Text;
 using Kitopia.Desktop.Features.Search;
 using Kitopia.Desktop.Features.Search.Semantic;
 using Kitopia.Desktop.Features.Services.Config;
@@ -20,6 +21,7 @@ public sealed class IndexService : IIndexService, IDisposable
     private const int SemanticFallbackPinyinResultLimit = 10;
     private const int MinimumSemanticQueryLength = 2;
     private const int ImageInferenceBatchSize = 8;
+    private const int MaximumOcrInputCharacters = 16 * 1024;
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IndexService>();
     private static readonly StringComparer EntryKeyComparer =
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
@@ -175,9 +177,8 @@ public sealed class IndexService : IIndexService, IDisposable
     public void Synchronize(IEnumerable<SearchEntry> entries, IndexSource source = IndexSource.Application)
     {
         ArgumentNullException.ThrowIfNull(entries);
-        var incoming = entries.ToArray();
-        var incomingByKey = new Dictionary<string, SearchEntry>(incoming.Length, StringComparer.Ordinal);
-        foreach (var entry in incoming)
+        var incomingByKey = new Dictionary<string, SearchEntry>(StringComparer.Ordinal);
+        foreach (var entry in entries)
         {
             incomingByKey[entry.OnlyKey] = entry;
         }
@@ -587,7 +588,7 @@ public sealed class IndexService : IIndexService, IDisposable
     }
 
     private async Task IndexImagesAsync(
-        IReadOnlyList<string> paths,
+        IReadOnlyCollection<string> paths,
         bool force,
         CancellationToken cancellationToken)
     {
@@ -875,13 +876,47 @@ public sealed class IndexService : IIndexService, IDisposable
         }
 
         var regions = await _ocrService.RecognizeFileAsync(imagePath, cancellationToken);
-        var text = string.Join(Environment.NewLine, regions.Select(region => region.Text).Where(value => !string.IsNullOrWhiteSpace(value)));
-        if (string.IsNullOrWhiteSpace(text))
+        var textBuilder = new StringBuilder();
+        foreach (var region in regions)
+        {
+            if (string.IsNullOrWhiteSpace(region.Text))
+            {
+                continue;
+            }
+
+            if (textBuilder.Length == MaximumOcrInputCharacters)
+            {
+                break;
+            }
+
+            if (textBuilder.Length > 0)
+            {
+                textBuilder.Append('\n');
+            }
+
+            var remaining = MaximumOcrInputCharacters - textBuilder.Length;
+            if (remaining == 0)
+            {
+                break;
+            }
+
+            if (region.Text.Length <= remaining)
+            {
+                textBuilder.Append(region.Text);
+                continue;
+            }
+
+            textBuilder.Append(region.Text.AsSpan(0, remaining));
+            break;
+        }
+
+        if (textBuilder.Length == 0)
         {
             await _store.DeleteOcrTextAsync(imagePath, cancellationToken);
             return;
         }
 
+        var text = textBuilder.ToString();
         var vector = (await embeddingService.EmbedAsync([text], BgeOnnxEmbeddingService.MetadataMaximumTokens, cancellationToken))[0];
         await _store.UpsertOcrTextAsync(imagePath, embeddingService.ModelId, vector, cancellationToken);
     }
@@ -985,61 +1020,104 @@ public sealed class IndexService : IIndexService, IDisposable
     {
         lock (_entriesLock)
         {
-            var managedPaths = GetManagedFilePathsUnsafe();
-            var documentPaths = managedPaths.Where(path => IsSupportedDocument(Path.GetExtension(path))).ToHashSet(EntryKeyComparer);
-            var imagePaths = managedPaths.Where(HasSupportedImageExtension).ToHashSet(EntryKeyComparer);
+            var keys = new HashSet<string>(_entries.Keys, EntryKeyComparer);
+            var documentCount = 0;
+            var imageCount = 0;
+            foreach (var sourcePaths in _filePathsBySource.Values)
+            {
+                foreach (var path in sourcePaths)
+                {
+                    keys.Add(path);
+                }
+            }
+
+            foreach (var key in keys)
+            {
+                var isManagedFile = IsManagedFilePathUnsafe(key);
+                var isDocument = isManagedFile && IsSupportedDocument(Path.GetExtension(key));
+                var isImage = isManagedFile && HasSupportedImageExtension(key);
+                if (_entries.TryGetValue(key, out var indexed))
+                {
+                    isImage |= indexed.Source == IndexSource.Image && HasSupportedImageExtension(key);
+                    isDocument |= indexed.Source is IndexSource.Document or IndexSource.Manual
+                                  && !HasSupportedImageExtension(key)
+                                  && TryGetFileFingerprint(key) is not null;
+                }
+
+                if (isDocument)
+                {
+                    documentCount++;
+                }
+
+                if (isImage)
+                {
+                    imageCount++;
+                }
+            }
+
+            return (
+                keys.Count,
+                _entries.Values.Count(entry => entry.Source is IndexSource.Application or IndexSource.Plugin),
+                documentCount,
+                imageCount);
+        }
+    }
+
+    private IReadOnlyCollection<string> GetImagePathsSnapshot()
+    {
+        lock (_entriesLock)
+        {
+            var paths = new HashSet<string>(EntryKeyComparer);
+            foreach (var sourcePaths in _filePathsBySource.Values)
+            {
+                foreach (var path in sourcePaths)
+                {
+                    if (HasSupportedImageExtension(path))
+                    {
+                        paths.Add(path);
+                    }
+                }
+            }
+
             foreach (var indexed in _entries.Values)
             {
                 if (indexed.Source == IndexSource.Image && HasSupportedImageExtension(indexed.Entry.OnlyKey))
                 {
-                    imagePaths.Add(indexed.Entry.OnlyKey);
-                }
-                else if (indexed.Source is IndexSource.Document or IndexSource.Manual
-                         && !HasSupportedImageExtension(indexed.Entry.OnlyKey)
-                         && TryGetFileFingerprint(indexed.Entry.OnlyKey) is not null)
-                {
-                    documentPaths.Add(indexed.Entry.OnlyKey);
+                    paths.Add(indexed.Entry.OnlyKey);
                 }
             }
 
-            var keys = new HashSet<string>(_entries.Keys, EntryKeyComparer);
-            keys.UnionWith(managedPaths);
-            return (
-                keys.Count,
-                _entries.Values.Count(entry => entry.Source is IndexSource.Application or IndexSource.Plugin),
-                documentPaths.Count,
-                imagePaths.Count);
+            return paths;
         }
     }
 
-    private IReadOnlyList<string> GetImagePathsSnapshot()
+    private IReadOnlyCollection<string> GetDocumentPathsSnapshot()
     {
         lock (_entriesLock)
         {
-            var paths = GetManagedFilePathsUnsafe()
-                .Where(HasSupportedImageExtension)
-                .ToHashSet(EntryKeyComparer);
-            paths.UnionWith(_entries.Values
-                .Where(indexed => indexed.Source == IndexSource.Image
-                                  && HasSupportedImageExtension(indexed.Entry.OnlyKey))
-                .Select(indexed => indexed.Entry.OnlyKey));
-            return paths.ToList();
-        }
-    }
+            var paths = new HashSet<string>(EntryKeyComparer);
+            foreach (var sourcePaths in _filePathsBySource.Values)
+            {
+                foreach (var path in sourcePaths)
+                {
+                    if (IsSupportedDocument(Path.GetExtension(path)))
+                    {
+                        paths.Add(path);
+                    }
+                }
+            }
 
-    private IReadOnlyList<string> GetDocumentPathsSnapshot()
-    {
-        lock (_entriesLock)
-        {
-            var paths = GetManagedFilePathsUnsafe()
-                .Where(path => IsSupportedDocument(Path.GetExtension(path)))
-                .ToHashSet(EntryKeyComparer);
-            paths.UnionWith(_entries.Values
-                .Where(indexed => indexed.Source is IndexSource.Document or IndexSource.Manual
-                                  && !HasSupportedImageExtension(indexed.Entry.OnlyKey)
-                                  && TryGetFileFingerprint(indexed.Entry.OnlyKey) is not null)
-                .Select(indexed => indexed.Entry.OnlyKey));
-            return paths.ToList();
+            foreach (var indexed in _entries.Values)
+            {
+                if (indexed.Source is IndexSource.Document or IndexSource.Manual
+                    && !HasSupportedImageExtension(indexed.Entry.OnlyKey)
+                    && TryGetFileFingerprint(indexed.Entry.OnlyKey) is not null)
+                {
+                    paths.Add(indexed.Entry.OnlyKey);
+                }
+            }
+
+            return paths;
         }
     }
 

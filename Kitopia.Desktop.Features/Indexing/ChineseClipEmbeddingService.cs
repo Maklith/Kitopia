@@ -4,6 +4,7 @@ using Kitopia.Desktop.Features.Search.Semantic;
 using OpenCvSharp;
 using OpenCvSharp.Dnn;
 using PluginCore.Onnx;
+using System.Runtime.InteropServices;
 
 namespace Kitopia.Desktop.Features.Indexing;
 
@@ -65,11 +66,11 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
                     throw new InvalidDataException($"Unable to decode image '{paths[index]}'.");
                 }
 
-                Preprocess(decoded).CopyTo(input, index * ImageInputElementCount);
+                Preprocess(decoded, input, index * ImageInputElementCount);
             }
 
             var output = await Task.Run(() => _imageSession!.Infer(
-                [("image", new Memory<int>([paths.Count, 3, 224, 224]), new Memory<float>(input))]).ToArray(), cancellationToken);
+                [("image", new Memory<int>([paths.Count, 3, 224, 224]), new Memory<float>(input))]), cancellationToken);
             const int dimensions = 1024;
             if (output.Length != paths.Count * dimensions)
             {
@@ -79,7 +80,7 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
             var embeddings = new float[paths.Count][];
             for (var index = 0; index < paths.Count; index++)
             {
-                embeddings[index] = Normalize(output.AsSpan(index * dimensions, dimensions));
+                embeddings[index] = Normalize(output.Span.Slice(index * dimensions, dimensions));
             }
 
             return embeddings;
@@ -98,8 +99,8 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
             await EnsureTextSessionAsync(cancellationToken);
             var tokens = _tokenizer.Encode(text, ChineseClipModelPackage.TextContextLength);
             var output = await Task.Run(() => _textSession!.InferInt64(
-                [("text", new Memory<int>([1, tokens.Length]), new Memory<long>(tokens))]).ToArray(), cancellationToken);
-            return Normalize(output);
+                [("text", new Memory<int>([1, tokens.Length]), new Memory<long>(tokens))]), cancellationToken);
+            return Normalize(output.Span);
         }
         finally
         {
@@ -169,7 +170,7 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
         return session;
     }
 
-    private static float[] Preprocess(Mat source)
+    private static void Preprocess(Mat source, float[] destination, int destinationOffset)
     {
         using var rgb = new Mat();
         Cv2.CvtColor(source, rgb, ColorConversionCodes.BGR2RGB);
@@ -183,12 +184,12 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
         // BlobFromImage converts the interleaved RGB mat to the model's NCHW layout.
         using var blob = CvDnn.BlobFromImage(normalized, 1d, new Size(224, 224), Scalar.All(0), false, false);
         using var flattened = blob.Reshape(1, [1, ImageInputElementCount]);
-        flattened.GetArray(out float[] values);
-        if (values.Length != ImageInputElementCount)
+        if (flattened.Total() != ImageInputElementCount)
         {
-            throw new InvalidDataException($"Chinese-CLIP preprocessing produced {values.Length} values; expected {ImageInputElementCount}.");
+            throw new InvalidDataException($"Chinese-CLIP preprocessing produced {flattened.Total()} values; expected {ImageInputElementCount}.");
         }
-        return values;
+
+        Marshal.Copy(flattened.Data, destination, destinationOffset, ImageInputElementCount);
     }
 
     private static float[] Normalize(ReadOnlySpan<float> values)

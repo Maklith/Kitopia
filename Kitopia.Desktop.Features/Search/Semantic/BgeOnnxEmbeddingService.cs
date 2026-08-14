@@ -109,7 +109,7 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
                     ("attention_mask", new Memory<int>([texts.Count, sequenceLength]), new Memory<long>(attentionMask)),
                     ("token_type_ids", new Memory<int>([texts.Count, sequenceLength]), new Memory<long>(tokenTypeIds))
                 ],
-                SentenceEmbeddingOutputName).ToArray(), cancellationToken);
+                SentenceEmbeddingOutputName), cancellationToken);
 
             if (output.Length != texts.Count * EmbeddingDimensions)
             {
@@ -120,7 +120,7 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
             var vectors = new float[texts.Count][];
             for (var index = 0; index < texts.Count; index++)
             {
-                vectors[index] = Normalize(output.AsSpan(index * EmbeddingDimensions, EmbeddingDimensions));
+                vectors[index] = Normalize(output.Span.Slice(index * EmbeddingDimensions, EmbeddingDimensions));
             }
 
             return vectors;

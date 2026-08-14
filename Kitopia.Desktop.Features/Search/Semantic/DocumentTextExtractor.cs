@@ -2,7 +2,6 @@ using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Xml;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.Advanced;
@@ -16,7 +15,8 @@ internal static partial class DocumentTextExtractor
 {
     private static readonly HashSet<string> PlainTextExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".md"
+        ".md",
+        ".txt"
     };
 
     public static bool TryCreateSource(string path, out DocumentContentSource source)
@@ -157,10 +157,11 @@ internal static partial class DocumentTextExtractor
     {
         var chunker = new TextChunker(countTokens);
         using var document = PdfReader.Open(path, PdfDocumentOpenMode.Import);
+        var cmapCache = new Dictionary<PdfDictionary, Dictionary<ushort, string>>(ReferenceEqualityComparer.Instance);
         foreach (var page in document.Pages)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var decoder = new PdfPageTextDecoder(page, chunker);
+            var decoder = new PdfPageTextDecoder(page, chunker, cmapCache);
             foreach (var content in page.Contents)
             {
                 if (content.Stream?.UnfilteredValue is not { } contentStream)
@@ -193,9 +194,12 @@ internal static partial class DocumentTextExtractor
         private readonly TextChunker _chunker;
         private string _activeFont = string.Empty;
 
-        public PdfPageTextDecoder(PdfPage page, TextChunker chunker)
+        public PdfPageTextDecoder(
+            PdfPage page,
+            TextChunker chunker,
+            Dictionary<PdfDictionary, Dictionary<ushort, string>> cmapCache)
         {
-            _fontMaps = ReadPdfFontMaps(page);
+            _fontMaps = ReadPdfFontMaps(page, cmapCache);
             _chunker = chunker;
         }
 
@@ -453,7 +457,9 @@ internal static partial class DocumentTextExtractor
         }
     }
 
-    private static Dictionary<string, Dictionary<ushort, string>> ReadPdfFontMaps(PdfPage page)
+    private static Dictionary<string, Dictionary<ushort, string>> ReadPdfFontMaps(
+        PdfPage page,
+        Dictionary<PdfDictionary, Dictionary<ushort, string>> cmapCache)
     {
         var fontMaps = new Dictionary<string, Dictionary<ushort, string>>(StringComparer.Ordinal);
         var fonts = page.Resources?.Elements.GetDictionary("/Font");
@@ -472,38 +478,15 @@ internal static partial class DocumentTextExtractor
                 continue;
             }
 
-            var map = new Dictionary<ushort, string>();
-            var cmapText = Encoding.ASCII.GetString(cmapStream);
-            foreach (Match block in CMapCharacterBlockPattern().Matches(cmapText))
+            if (!cmapCache.TryGetValue(cmap, out var map))
             {
-                foreach (Match match in CMapCharacterPattern().Matches(block.Groups[1].Value))
+                if (cmapCache.Count == 16)
                 {
-                    map[Convert.ToUInt16(match.Groups[1].Value, 16)] = DecodeCMapValue(match.Groups[2].Value);
-                }
-            }
-
-            foreach (Match block in CMapRangeBlockPattern().Matches(cmapText))
-            {
-                var entries = block.Groups[1].Value;
-                foreach (Match match in CMapRangeArrayPattern().Matches(entries))
-                {
-                    var start = Convert.ToUInt16(match.Groups[1].Value, 16);
-                    var end = Convert.ToUInt16(match.Groups[2].Value, 16);
-                    var targets = PdfHexStringPattern().Matches(match.Groups[3].Value);
-                    for (var source = (int)start; source <= end && source - start < targets.Count; source++)
-                    {
-                        map[(ushort)source] = DecodeCMapValue(targets[source - start].Groups[1].Value);
-                    }
+                    cmapCache.Clear();
                 }
 
-                foreach (Match match in CMapRangePattern().Matches(entries))
-                {
-                    AddCMapRange(
-                        map,
-                        Convert.ToUInt16(match.Groups[1].Value, 16),
-                        Convert.ToUInt16(match.Groups[2].Value, 16),
-                        match.Groups[3].Value);
-                }
+                map = ReadCMap(cmapStream);
+                cmapCache[cmap] = map;
             }
 
             if (map.Count > 0)
@@ -513,6 +496,193 @@ internal static partial class DocumentTextExtractor
         }
 
         return fontMaps;
+    }
+
+    private static Dictionary<ushort, string> ReadCMap(byte[] content)
+    {
+        var map = new Dictionary<ushort, string>();
+        var position = 0;
+        var block = CMapBlock.None;
+        while (TryReadCMapToken(content, ref position, out var token))
+        {
+            if (token.Kind == CMapTokenKind.Word)
+            {
+                if (IsCMapToken(content, token, "beginbfchar"))
+                {
+                    block = CMapBlock.Characters;
+                    continue;
+                }
+
+                if (IsCMapToken(content, token, "beginbfrange"))
+                {
+                    block = CMapBlock.Ranges;
+                    continue;
+                }
+
+                if (IsCMapToken(content, token, "endbfchar") || IsCMapToken(content, token, "endbfrange"))
+                {
+                    block = CMapBlock.None;
+                    continue;
+                }
+            }
+
+            if (block == CMapBlock.Characters && token.Kind == CMapTokenKind.HexString)
+            {
+                if (TryReadCMapToken(content, ref position, out var target)
+                    && target.Kind == CMapTokenKind.HexString
+                    && TryParseCMapCode(content, token, out var source))
+                {
+                    map[source] = DecodeCMapValue(content, target);
+                }
+
+                continue;
+            }
+
+            if (block != CMapBlock.Ranges || token.Kind != CMapTokenKind.HexString
+                || !TryParseCMapCode(content, token, out var rangeStart)
+                || !TryReadCMapToken(content, ref position, out var rangeEndToken)
+                || !TryParseCMapCode(content, rangeEndToken, out var rangeEnd)
+                || !TryReadCMapToken(content, ref position, out var targetToken))
+            {
+                continue;
+            }
+
+            if (targetToken.Kind == CMapTokenKind.HexString)
+            {
+                AddCMapRange(map, rangeStart, rangeEnd, DecodeCMapValue(content, targetToken));
+                continue;
+            }
+
+            if (targetToken.Kind != CMapTokenKind.ArrayStart)
+            {
+                continue;
+            }
+
+            for (var source = (int)rangeStart; source <= rangeEnd; source++)
+            {
+                if (!TryReadCMapToken(content, ref position, out var value) || value.Kind == CMapTokenKind.ArrayEnd)
+                {
+                    break;
+                }
+
+                if (value.Kind == CMapTokenKind.HexString)
+                {
+                    map[(ushort)source] = DecodeCMapValue(content, value);
+                }
+            }
+        }
+
+        return map;
+    }
+
+    private static bool TryReadCMapToken(byte[] content, ref int position, out CMapToken token)
+    {
+        SkipPdfWhitespaceAndComments(content, ref position);
+        if (position >= content.Length)
+        {
+            token = default;
+            return false;
+        }
+
+        if (content[position] == (byte)'<')
+        {
+            if (position + 1 < content.Length && content[position + 1] == (byte)'<')
+            {
+                position += 2;
+                token = new CMapToken(CMapTokenKind.Other, 0, 0);
+                return true;
+            }
+
+            var start = ++position;
+            while (position < content.Length && content[position] != (byte)'>')
+            {
+                position++;
+            }
+
+            token = new CMapToken(CMapTokenKind.HexString, start, position - start);
+            if (position < content.Length)
+            {
+                position++;
+            }
+
+            return true;
+        }
+
+        if (content[position] == (byte)'[')
+        {
+            position++;
+            token = new CMapToken(CMapTokenKind.ArrayStart, 0, 0);
+            return true;
+        }
+
+        if (content[position] == (byte)']')
+        {
+            position++;
+            token = new CMapToken(CMapTokenKind.ArrayEnd, 0, 0);
+            return true;
+        }
+
+        if (IsPdfDelimiter(content[position]))
+        {
+            position++;
+            token = new CMapToken(CMapTokenKind.Other, 0, 0);
+            return true;
+        }
+
+        var wordStart = position;
+        while (position < content.Length && !IsPdfDelimiter(content[position]))
+        {
+            position++;
+        }
+
+        token = new CMapToken(CMapTokenKind.Word, wordStart, position - wordStart);
+        return true;
+    }
+
+    private static bool IsCMapToken(byte[] content, CMapToken token, string value)
+    {
+        if (token.Length != value.Length)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < value.Length; index++)
+        {
+            var character = content[token.Start + index];
+            if (character is >= (byte)'A' and <= (byte)'Z')
+            {
+                character |= 0x20;
+            }
+
+            if (character != (byte)value[index])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryParseCMapCode(byte[] content, CMapToken token, out ushort value)
+    {
+        value = 0;
+        if (token.Kind != CMapTokenKind.HexString || token.Length != 4)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < token.Length; index++)
+        {
+            var hex = GetHexValue(content[token.Start + index]);
+            if (hex < 0)
+            {
+                return false;
+            }
+
+            value = (ushort)((value << 4) | hex);
+        }
+
+        return true;
     }
 
     private static bool TryReadPdfContentToken(byte[] content, ref int position, out PdfContentToken token)
@@ -820,9 +990,26 @@ internal static partial class DocumentTextExtractor
 
     private readonly record struct PdfContentToken(PdfContentTokenKind Kind, int Start, int Length);
 
-    private static void AddCMapRange(Dictionary<ushort, string> map, ushort start, ushort end, string targetHex)
+    private enum CMapBlock
     {
-        var target = DecodeCMapValue(targetHex);
+        None,
+        Characters,
+        Ranges
+    }
+
+    private enum CMapTokenKind
+    {
+        Other,
+        Word,
+        HexString,
+        ArrayStart,
+        ArrayEnd
+    }
+
+    private readonly record struct CMapToken(CMapTokenKind Kind, int Start, int Length);
+
+    private static void AddCMapRange(Dictionary<ushort, string> map, ushort start, ushort end, string target)
+    {
         if (start == end)
         {
             map[start] = target;
@@ -846,9 +1033,36 @@ internal static partial class DocumentTextExtractor
         }
     }
 
-    private static string DecodeCMapValue(string hex)
+    private static string DecodeCMapValue(byte[] content, CMapToken token)
     {
-        return Encoding.BigEndianUnicode.GetString(Convert.FromHexString(hex));
+        var builder = new StringBuilder(token.Length / 4);
+        var codeUnit = 0;
+        var nibbleCount = 0;
+        for (var index = 0; index < token.Length; index++)
+        {
+            var nibble = GetHexValue(content[token.Start + index]);
+            if (nibble < 0)
+            {
+                if (IsPdfWhitespace(content[token.Start + index]))
+                {
+                    continue;
+                }
+
+                return string.Empty;
+            }
+
+            codeUnit = (codeUnit << 4) | nibble;
+            if (++nibbleCount != 4)
+            {
+                continue;
+            }
+
+            builder.Append((char)codeUnit);
+            codeUnit = 0;
+            nibbleCount = 0;
+        }
+
+        return nibbleCount == 0 ? builder.ToString() : string.Empty;
     }
 
     private static bool TryGetUnicodeScalar(string value, out int scalar)
@@ -868,24 +1082,6 @@ internal static partial class DocumentTextExtractor
 
         return false;
     }
-
-    [GeneratedRegex(@"<([0-9A-F]+)>", RegexOptions.IgnoreCase)]
-    private static partial Regex PdfHexStringPattern();
-
-    [GeneratedRegex(@"\d+\s+beginbfchar\s*(.*?)\s*endbfchar", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    private static partial Regex CMapCharacterBlockPattern();
-
-    [GeneratedRegex(@"<([0-9A-F]{4})>\s+<([0-9A-F]+)>", RegexOptions.IgnoreCase)]
-    private static partial Regex CMapCharacterPattern();
-
-    [GeneratedRegex(@"\d+\s+beginbfrange\s*(.*?)\s*endbfrange", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
-    private static partial Regex CMapRangeBlockPattern();
-
-    [GeneratedRegex(@"<([0-9A-F]{4})>\s+<([0-9A-F]{4})>\s+<([0-9A-F]+)>", RegexOptions.IgnoreCase)]
-    private static partial Regex CMapRangePattern();
-
-    [GeneratedRegex(@"<([0-9A-F]{4})>\s+<([0-9A-F]{4})>\s+\[((?:\s*<[0-9A-F]+>\s*)+)\]", RegexOptions.IgnoreCase)]
-    private static partial Regex CMapRangeArrayPattern();
 
     private static async IAsyncEnumerable<string> ReadOpenXmlChunksAsync(
         string path,
@@ -1113,7 +1309,8 @@ internal static partial class DocumentTextExtractor
                 return null;
             }
 
-            if (CountTokens(0, _text.Length) > MaximumPayloadTokens)
+            var tokenCount = CountTokens(0, _text.Length);
+            if (tokenCount >= MaximumPayloadTokens)
             {
                 return TakeChunk(forceCharacterLimit: false);
             }
@@ -1123,11 +1320,11 @@ internal static partial class DocumentTextExtractor
                 return TakeChunk(forceCharacterLimit: true);
             }
 
-            // A Chinese character can be one token, so the first check is at 254 chars.
-            // After that, increase the interval so normal text is not tokenized per character.
+            // One Chinese character can be one token. Check at the earliest character
+            // position that could reach the payload limit.
             _nextTokenCheckLength = Math.Min(
                 MaximumBufferedCharacters,
-                _text.Length + Math.Max(64, _text.Length / 2));
+                _text.Length + Math.Max(1, MaximumPayloadTokens - tokenCount));
             return null;
         }
 
@@ -1158,9 +1355,10 @@ internal static partial class DocumentTextExtractor
             }
 
             _previousWasWhitespace = _text.Length > 0 && char.IsWhiteSpace(_text[^1]);
+            var tokenCount = CountTokens(0, _text.Length);
             _nextTokenCheckLength = Math.Min(
                 MaximumBufferedCharacters,
-                _text.Length + Math.Max(64, _text.Length / 2));
+                _text.Length + Math.Max(1, MaximumPayloadTokens - tokenCount));
             return chunk;
         }
 
