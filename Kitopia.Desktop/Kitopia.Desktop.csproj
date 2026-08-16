@@ -160,4 +160,15 @@
               SkipUnchangedFiles="true" />
     </Target>
 
+    <Target Name="CopyOcrModelForDebug" AfterTargets="Build"
+            Condition="'$(Configuration)' == 'Debug' And '$(LOCALAPPDATA)' != ''">
+        <ItemGroup>
+            <OcrModelFiles Include="$(MSBuildProjectDirectory)\..\Kitopia.Desktop.Features\Assets\Ocr\**\*" />
+        </ItemGroup>
+        <MakeDir Directories="@(OcrModelFiles->'$(LOCALAPPDATA)\Kitopia\Ocr\%(RecursiveDir)')" />
+        <Copy SourceFiles="@(OcrModelFiles)"
+              DestinationFiles="@(OcrModelFiles->'$(LOCALAPPDATA)\Kitopia\Ocr\%(RecursiveDir)%(Filename)%(Extension)')"
+              SkipUnchangedFiles="true" />
+    </Target>
+
 </Project>

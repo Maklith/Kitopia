@@ -31,6 +31,10 @@
     {
       "Package": "BGE_Model.zip",
       "Target": "{localUserData}\\Kitopia\\BGE_Model"
+    },
+    {
+      "Package": "Ocr.zip",
+      "Target": "{localUserData}\\Kitopia\\Ocr"
     }
   ]
 }

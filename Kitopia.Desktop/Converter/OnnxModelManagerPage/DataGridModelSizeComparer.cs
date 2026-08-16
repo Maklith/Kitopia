@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.IO;
 using PluginCore.Onnx;
 
 namespace Kitopia.Desktop.Converter.OnnxModelManagerPage;
@@ -12,14 +11,12 @@ public class DataGridModelSizeComparer : IComparer
     {
         if (x is OnnxModelInfoWrapper onnxModelInfoWrapper && y is OnnxModelInfoWrapper onnxModelInfoWrapper2)
         {
-            var fileInfo = new FileInfo(onnxModelInfoWrapper.Model.ModelPath);
-            var fileInfo2 = new FileInfo(onnxModelInfoWrapper2.Model.ModelPath);
-            if (!fileInfo2.Exists && !fileInfo.Exists) return 0;
-            if (!fileInfo2.Exists) return 1;
-            if (!fileInfo.Exists) return -1;
-            if (fileInfo.Length > fileInfo2.Length) return 1;
-
-            if (fileInfo.Length < fileInfo2.Length) return -1;
+            var hasSize = OnnxModelSize.TryGetTotalBytes(onnxModelInfoWrapper.Model, out var size);
+            var hasSize2 = OnnxModelSize.TryGetTotalBytes(onnxModelInfoWrapper2.Model, out var size2);
+            if (!hasSize && !hasSize2) return 0;
+            if (!hasSize2) return 1;
+            if (!hasSize) return -1;
+            return size.CompareTo(size2);
         }
 
         return 0;

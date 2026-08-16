@@ -87,6 +87,12 @@ partial class Build
             compressionLevel: CompressionLevel.SmallestSize, fileMode: FileMode.Create);
         (staging / "BGE_Model").DeleteDirectory();
 
+        var ocrModelArchive = installerAssets / "Ocr.zip";
+        ocrModelArchive.DeleteFile();
+        (staging / "Ocr").ZipTo(ocrModelArchive,
+            compressionLevel: CompressionLevel.SmallestSize, fileMode: FileMode.Create);
+        (staging / "Ocr").DeleteDirectory();
+
         var appArchive = installerAssets / "App.zip";
         appArchive.DeleteFile();
         staging.ZipTo(appArchive, compressionLevel: CompressionLevel.SmallestSize, fileMode: FileMode.Create);

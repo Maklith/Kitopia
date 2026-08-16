@@ -24,8 +24,8 @@ internal static class OcrModelPackage
             PluginStr = "Kitopia",
             Model = new OnnxModelInfo
             {
-                Name = "PaddleOCR text detector",
-                Description = "Detects text regions for local image and screen OCR.",
+                Name = "PaddleOCR 文字检测模型",
+                Description = "用于检测本地图片和屏幕截图中的文字区域。",
                 SignName = DetectorSignName,
                 ModelPath = DetectorPath,
                 RequiredFiles = [RecognizerPath, DictionaryPath],
@@ -37,8 +37,8 @@ internal static class OcrModelPackage
             PluginStr = "Kitopia",
             Model = new OnnxModelInfo
             {
-                Name = "PaddleOCR text recognizer",
-                Description = "Recognizes Chinese and Latin text for local image and screen OCR.",
+                Name = "PaddleOCR 文字识别模型",
+                Description = "用于识别本地图片和屏幕截图中的中文、英文等文字。",
                 SignName = RecognizerSignName,
                 ModelPath = RecognizerPath,
                 RequiredFiles = [DetectorPath, DictionaryPath],
