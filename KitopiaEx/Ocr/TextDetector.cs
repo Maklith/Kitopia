@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using OpenCvSharp;
@@ -32,16 +33,28 @@ namespace KitopiaEx.Ocr
                 int w = srcImg.Cols;
                 //0. 图像预处理 尺寸调整  归一化
                 dstImg = this.Preprocess(srcImg);
-                var clone = dstImg.Clone();
+                using var clone = dstImg.Clone();
                 Cv2.Normalize(clone, clone, 0, 1, NormTypes.MinMax, MatType.CV_32F);
                 clone.Add(new Scalar(-0.485, -0.456, -0.406));
                 clone.Mul(new Scalar(1 / 0.229, 1 / 0.224, 1 / 0.225));
-                List<(string, Memory<int>, Memory<float>)> inputs2 = new List<(string, Memory<int>, Memory<float>)>()
+                var elementCount = 3 * dstImg.Rows * dstImg.Cols;
+                var tensor = ArrayPool<float>.Shared.Rent(elementCount);
+                Memory<float> outputs;
+                try
                 {
-                    (_session.InputNames.First(), new[] { 1, 3, dstImg.Rows, dstImg.Cols }, OnnxInputDataTool.InputTensor(clone, 1 * 3 * dstImg.Rows * dstImg.Cols))
-                };
-                //2. 推理
-                var outputs = this._session.Infer(inputs2);
+                    var input = tensor.AsMemory(0, elementCount);
+                    OnnxInputDataTool.InputTensor(clone, input);
+                    List<(string, Memory<int>, Memory<float>)> inputs2 = new List<(string, Memory<int>, Memory<float>)>()
+                    {
+                        (_session.InputNames.First(), new[] { 1, 3, dstImg.Rows, dstImg.Cols }, input)
+                    };
+                    //2. 推理
+                    outputs = this._session.Infer(inputs2);
+                }
+                finally
+                {
+                    ArrayPool<float>.Shared.Return(tensor);
+                }
 
                 //3. 输出值解码
                 ReadOnlySpan<float> span = outputs.Span;
@@ -87,9 +100,6 @@ namespace KitopiaEx.Ocr
                     binary.Dispose();
                     return results;
                 }
-                
-            
-                
             }
         }
         

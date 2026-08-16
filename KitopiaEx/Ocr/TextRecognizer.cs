@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -38,19 +39,28 @@ namespace KitopiaEx.Ocr
 
         public string PredictText(Mat cv_image)
         {
-            Mat dstimg = Preprocess(cv_image);
+            using var dstimg = Preprocess(cv_image);
             Cv2.Normalize(dstimg, dstimg, 0, 1, NormTypes.MinMax, MatType.CV_32F);
 
-            
-            
-           
-            List<(string, Memory<int>, Memory<float>)> inputs2 = new List<(string, Memory<int>, Memory<float>)>()
+            var elementCount = 3 * dstimg.Width * dstimg.Height;
+            var tensor = ArrayPool<float>.Shared.Rent(elementCount);
+            Memory<float> output;
+            try
             {
-                (_session.InputNames.First(), new[] { 1, 3,dstimg.Rows, dstimg.Width }, OnnxInputDataTool.InputTensor(dstimg, 1 * 3 * dstimg.Width * dstimg.Height))
-            };
-            dstimg.Dispose();
+                var input = tensor.AsMemory(0, elementCount);
+                OnnxInputDataTool.InputTensor(dstimg, input);
+                List<(string, Memory<int>, Memory<float>)> inputs2 = new List<(string, Memory<int>, Memory<float>)>()
+                {
+                    (_session.InputNames.First(), new[] { 1, 3,dstimg.Rows, dstimg.Width }, input)
+                };
+                output = _session.Infer(inputs2);
+            }
+            finally
+            {
+                ArrayPool<float>.Shared.Return(tensor);
+            }
 
-            var outputs0 = _session.Infer(inputs2).Span;
+            var outputs0 = output.Span;
             
             int dimension = _session.OutputShape[0][2];  //输出维度
             int characters = outputs0.Length / dimension;

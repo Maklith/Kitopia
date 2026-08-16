@@ -5,4 +5,5 @@ namespace Kitopia.Desktop.Features.Ocr;
 /// </summary>
 public interface IOcrService : PluginCore.IOcrService
 {
+    Task ReleaseSessionsAsync();
 }

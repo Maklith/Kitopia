@@ -443,7 +443,7 @@ public sealed class IndexService : IIndexService, IDisposable
         {
             if (scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Images)
             {
-                await ReleaseEmbeddingSessionsAsync();
+                await ReleaseIndexingSessionsAsync();
             }
 
             RestoreProcessorAffinity(originalProcessorAffinity);
@@ -482,7 +482,7 @@ public sealed class IndexService : IIndexService, IDisposable
         {
             if (scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Images)
             {
-                await ReleaseEmbeddingSessionsAsync();
+                await ReleaseIndexingSessionsAsync();
             }
 
             RestoreProcessorAffinity(originalProcessorAffinity);
@@ -690,7 +690,7 @@ public sealed class IndexService : IIndexService, IDisposable
         _pinyinBuildGate.Dispose();
     }
 
-    private async Task ReleaseEmbeddingSessionsAsync()
+    private async Task ReleaseIndexingSessionsAsync()
     {
         try
         {
@@ -698,7 +698,8 @@ public sealed class IndexService : IIndexService, IDisposable
             var imageEmbeddingService = _imageEmbeddingService;
             await Task.WhenAll(
                 textEmbeddingService?.ReleaseSessionAsync() ?? Task.CompletedTask,
-                imageEmbeddingService?.ReleaseSessionsAsync() ?? Task.CompletedTask);
+                imageEmbeddingService?.ReleaseSessionsAsync() ?? Task.CompletedTask,
+                _ocrService?.ReleaseSessionsAsync() ?? Task.CompletedTask);
         }
         catch (Exception exception)
         {
