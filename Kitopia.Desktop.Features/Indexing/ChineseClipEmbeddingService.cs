@@ -1,6 +1,8 @@
+using System.Buffers;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Features.Search.Semantic;
+using Kitopia.Desktop.Features.Imaging;
 using OpenCvSharp;
 using OpenCvSharp.Dnn;
 using PluginCore.Onnx;
@@ -11,6 +13,7 @@ namespace Kitopia.Desktop.Features.Indexing;
 internal sealed class ChineseClipEmbeddingService : IDisposable
 {
     private const int ImageInputElementCount = 3 * 224 * 224;
+    private const int ImageInferenceBatchSize = 8;
     private static readonly float[] Mean = [0.48145466f, 0.4578275f, 0.40821073f];
     private static readonly float[] StandardDeviation = [0.26862954f, 0.26130258f, 0.27577711f];
     private readonly ChineseClipTokenizer _tokenizer;
@@ -57,20 +60,37 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
         try
         {
             await EnsureImageSessionAsync(cancellationToken);
-            var input = new float[checked(paths.Count * ImageInputElementCount)];
+            var embeddings = new List<float[]>(paths.Count);
+            foreach (var batch in paths.Chunk(ImageInferenceBatchSize))
+            {
+                var batchEmbeddings = await EmbedImageBatchAsync(batch, cancellationToken);
+                embeddings.AddRange(batchEmbeddings);
+            }
+
+            return embeddings;
+        }
+        finally
+        {
+            _imageInferenceGate.Release();
+        }
+    }
+
+    private async Task<IReadOnlyList<float[]>> EmbedImageBatchAsync(
+        IReadOnlyList<string> paths,
+        CancellationToken cancellationToken)
+    {
+        var inputLength = checked(paths.Count * ImageInputElementCount);
+        var input = ArrayPool<float>.Shared.Rent(inputLength);
+        try
+        {
             for (var index = 0; index < paths.Count; index++)
             {
-                using var decoded = Cv2.ImRead(paths[index], ImreadModes.Color);
-                if (decoded.Empty())
-                {
-                    throw new InvalidDataException($"Unable to decode image '{paths[index]}'.");
-                }
-
+                using var decoded = ImageInputLoader.LoadBgr(paths[index], ImageInputLoader.MaximumEmbeddingPixels);
                 Preprocess(decoded, input, index * ImageInputElementCount);
             }
 
             var output = await Task.Run(() => _imageSession!.Infer(
-                [("image", new Memory<int>([paths.Count, 3, 224, 224]), new Memory<float>(input))]), cancellationToken);
+                [("image", new Memory<int>([paths.Count, 3, 224, 224]), input.AsMemory(0, inputLength))]), cancellationToken);
             const int dimensions = 1024;
             if (output.Length != paths.Count * dimensions)
             {
@@ -87,7 +107,7 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
         }
         finally
         {
-            _imageInferenceGate.Release();
+            ArrayPool<float>.Shared.Return(input);
         }
     }
 
@@ -199,12 +219,12 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
 
     private static void Preprocess(Mat source, float[] destination, int destinationOffset)
     {
-        using var rgb = new Mat();
-        Cv2.CvtColor(source, rgb, ColorConversionCodes.BGR2RGB);
         using var resized = new Mat();
-        Cv2.Resize(rgb, resized, new Size(224, 224), 0d, 0d, InterpolationFlags.Cubic);
+        Cv2.Resize(source, resized, new Size(224, 224), 0d, 0d, InterpolationFlags.Cubic);
+        using var rgb = new Mat();
+        Cv2.CvtColor(resized, rgb, ColorConversionCodes.BGR2RGB);
         using var normalized = new Mat();
-        resized.ConvertTo(normalized, MatType.CV_32FC3, 1d / 255d);
+        rgb.ConvertTo(normalized, MatType.CV_32FC3, 1d / 255d);
         Cv2.Subtract(normalized, new Scalar(Mean[0], Mean[1], Mean[2]), normalized);
         Cv2.Divide(normalized, new Scalar(StandardDeviation[0], StandardDeviation[1], StandardDeviation[2]), normalized);
 

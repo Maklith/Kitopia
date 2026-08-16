@@ -1,3 +1,4 @@
+using System.Buffers;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Plugin;
 using PluginCore.Onnx;
@@ -8,6 +9,7 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
 {
     private const int EmbeddingDimensions = 512;
     private const int ModelMaximumTokens = 512;
+    private const int InferenceBatchSize = 32;
     private const string SentenceEmbeddingOutputName = "sentence_embedding";
     private static readonly Lazy<BertWordPieceTokenizer?> PreviewTokenizer = new(LoadPreviewTokenizer);
     private readonly string _modelPath;
@@ -80,20 +82,6 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
         ArgumentOutOfRangeException.ThrowIfLessThan(maximumTokens, 2);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(maximumTokens, ModelMaximumTokens);
 
-        var tokenized = texts.Select(text => _tokenizer.Encode(text, maximumTokens)).ToArray();
-        var sequenceLength = tokenized.Max(tokens => tokens.Length);
-        var inputIds = new long[texts.Count * sequenceLength];
-        var attentionMask = new long[inputIds.Length];
-        var tokenTypeIds = new long[inputIds.Length];
-
-        Array.Fill(inputIds, _tokenizer.PaddingTokenId);
-        for (var batchIndex = 0; batchIndex < tokenized.Length; batchIndex++)
-        {
-            var tokens = tokenized[batchIndex];
-            tokens.CopyTo(inputIds, batchIndex * sequenceLength);
-            Array.Fill(attentionMask, 1L, batchIndex * sequenceLength, tokens.Length);
-        }
-
         await _inferenceGate.WaitAsync(cancellationToken);
         try
         {
@@ -101,13 +89,51 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
             // An ONNX session owns a sizeable native allocator arena which must be disposed
             // after an indexing pass instead of staying resident for the process lifetime.
             await EnsureSessionAsync(cancellationToken);
+            var vectors = new List<float[]>(texts.Count);
+            foreach (var batch in texts.Chunk(InferenceBatchSize))
+            {
+                var batchVectors = await EmbedBatchAsync(batch, maximumTokens, cancellationToken);
+                vectors.AddRange(batchVectors);
+            }
+
+            return vectors;
+        }
+        finally
+        {
+            _inferenceGate.Release();
+        }
+    }
+
+    private async Task<IReadOnlyList<float[]>> EmbedBatchAsync(
+        IReadOnlyList<string> texts,
+        int maximumTokens,
+        CancellationToken cancellationToken)
+    {
+        var tokenized = texts.Select(text => _tokenizer.Encode(text, maximumTokens)).ToArray();
+        var sequenceLength = tokenized.Max(tokens => tokens.Length);
+        var inputLength = checked(texts.Count * sequenceLength);
+        var inputIds = ArrayPool<long>.Shared.Rent(inputLength);
+        var attentionMask = ArrayPool<long>.Shared.Rent(inputLength);
+        var tokenTypeIds = ArrayPool<long>.Shared.Rent(inputLength);
+        try
+        {
+            Array.Fill(inputIds, _tokenizer.PaddingTokenId, 0, inputLength);
+            Array.Clear(attentionMask, 0, inputLength);
+            Array.Clear(tokenTypeIds, 0, inputLength);
+            for (var batchIndex = 0; batchIndex < tokenized.Length; batchIndex++)
+            {
+                var tokens = tokenized[batchIndex];
+                tokens.CopyTo(inputIds, batchIndex * sequenceLength);
+                Array.Fill(attentionMask, 1L, batchIndex * sequenceLength, tokens.Length);
+            }
+
             var session = _session
                           ?? throw new InvalidOperationException("The inference session has not been initialized.");
             var output = await Task.Run(() => session.InferInt64(
                 [
-                    ("input_ids", new Memory<int>([texts.Count, sequenceLength]), new Memory<long>(inputIds)),
-                    ("attention_mask", new Memory<int>([texts.Count, sequenceLength]), new Memory<long>(attentionMask)),
-                    ("token_type_ids", new Memory<int>([texts.Count, sequenceLength]), new Memory<long>(tokenTypeIds))
+                    ("input_ids", new Memory<int>([texts.Count, sequenceLength]), inputIds.AsMemory(0, inputLength)),
+                    ("attention_mask", new Memory<int>([texts.Count, sequenceLength]), attentionMask.AsMemory(0, inputLength)),
+                    ("token_type_ids", new Memory<int>([texts.Count, sequenceLength]), tokenTypeIds.AsMemory(0, inputLength))
                 ],
                 SentenceEmbeddingOutputName), cancellationToken);
 
@@ -127,7 +153,9 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
         }
         finally
         {
-            _inferenceGate.Release();
+            ArrayPool<long>.Shared.Return(inputIds);
+            ArrayPool<long>.Shared.Return(attentionMask);
+            ArrayPool<long>.Shared.Return(tokenTypeIds);
         }
     }
 

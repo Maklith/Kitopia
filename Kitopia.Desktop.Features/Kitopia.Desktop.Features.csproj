@@ -65,6 +65,7 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="KitopiaBenchmark" />
+        <InternalsVisibleTo Include="KitopiaTest" />
     </ItemGroup>
 
 

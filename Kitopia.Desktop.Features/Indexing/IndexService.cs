@@ -614,9 +614,8 @@ public sealed class IndexService : IIndexService, IDisposable
         foreach (var batch in paths.Chunk(ImageInferenceBatchSize))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var images = batch.ToArray();
-            var vectors = await CreateImageVectorsAsync(images, force, cancellationToken);
-            foreach (var image in images)
+            var vectors = await CreateImageVectorsAsync(batch, force, cancellationToken);
+            foreach (var image in batch)
             {
                 vectors.TryGetValue(image, out var vector);
                 await IndexImageWithStatusAsync(
@@ -829,24 +828,25 @@ public sealed class IndexService : IIndexService, IDisposable
         var entries = GetGenericTextEntriesSnapshot();
         foreach (var batch in entries.Chunk(32))
         {
-            var items = batch.ToArray();
-            var pending = new List<(string Key, SearchEntry Entry)>();
-            foreach (var item in items)
+            var pending = new List<string>(batch.Length);
+            var contents = new List<string>(batch.Length);
+            foreach (var item in batch)
             {
                 if (!await _store.HasTextVectorAsync(item.OnlyKey, embeddingService.ModelId, cancellationToken))
                 {
-                    pending.Add((item.OnlyKey, item));
+                    pending.Add(item.OnlyKey);
+                    contents.Add(CreateTextContent(item));
                 }
             }
 
             if (pending.Count == 0) continue;
             var vectors = await embeddingService.EmbedAsync(
-                pending.Select(pair => CreateTextContent(pair.Entry)).ToArray(),
+                contents,
                 BgeOnnxEmbeddingService.MetadataMaximumTokens,
                 cancellationToken);
             for (var index = 0; index < pending.Count; index++)
             {
-                await _store.UpsertTextAsync(pending[index].Key, embeddingService.ModelId, vectors[index], cancellationToken);
+                await _store.UpsertTextAsync(pending[index], embeddingService.ModelId, vectors[index], cancellationToken);
             }
         }
     }

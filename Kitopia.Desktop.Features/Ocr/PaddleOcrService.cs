@@ -1,5 +1,6 @@
 using System.Text;
 using System.Buffers;
+using Kitopia.Desktop.Features.Imaging;
 using Kitopia.Desktop.Features.Services.Onnx;
 using OpenCvSharp;
 using PluginCore;
@@ -14,11 +15,15 @@ namespace Kitopia.Desktop.Features.Ocr;
 /// </summary>
 public sealed class PaddleOcrService : IOcrService, IDisposable
 {
+    private const int MaximumDetectedRegions = 1024;
     private readonly IInferenceSessionManager _sessions;
     private readonly SemaphoreSlim _inferenceGate = new(1, 1);
     private readonly string[] _alphabet;
     private IInferenceSession? _detector;
     private IInferenceSession? _recognizer;
+    private string? _detectorInputName;
+    private string? _recognizerInputName;
+    private int _recognizerOutputDimensions;
 
     public PaddleOcrService(IInferenceSessionManager sessions)
     {
@@ -35,8 +40,7 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
         CancellationToken cancellationToken = default)
     {
         if (!IsAvailable) return [];
-        using var image = Cv2.ImRead(imagePath, ImreadModes.Unchanged);
-        if (image.Empty()) throw new InvalidDataException($"Unable to decode image '{imagePath}'.");
+        using var image = ImageInputLoader.LoadBgr(imagePath, ImageInputLoader.MaximumOcrPixels);
         return await RecognizeAsync(image, cancellationToken);
     }
 
@@ -53,7 +57,12 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
             EnsureSessions();
             var detector = _detector ?? throw new InvalidOperationException("The OCR detector session has not been initialized.");
             var recognizer = _recognizer ?? throw new InvalidOperationException("The OCR recognizer session has not been initialized.");
-            return await Task.Run(() => RecognizeCore(image, detector, recognizer, cancellationToken), cancellationToken);
+            var detectorInputName = _detectorInputName ?? throw new InvalidOperationException("The OCR detector input metadata is unavailable.");
+            var recognizerInputName = _recognizerInputName ?? throw new InvalidOperationException("The OCR recognizer input metadata is unavailable.");
+            using var resized = ImageInputLoader.ResizeToMaximumPixels(image, ImageInputLoader.MaximumOcrPixels);
+            var input = resized ?? image;
+            return await Task.Run(() => RecognizeCore(input, detector, recognizer,
+                detectorInputName, recognizerInputName, _recognizerOutputDimensions, cancellationToken), cancellationToken);
         }
         finally
         {
@@ -70,6 +79,9 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
             var recognizer = _recognizer;
             _detector = null;
             _recognizer = null;
+            _detectorInputName = null;
+            _recognizerInputName = null;
+            _recognizerOutputDimensions = 0;
             detector?.Dispose();
             recognizer?.Dispose();
         }
@@ -92,31 +104,63 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
                       ?? throw new InvalidOperationException("The OCR detector runtime is unavailable.");
         _recognizer ??= _sessions.GetSession(OcrModelPackage.RecognizerSignName)
                         ?? throw new InvalidOperationException("The OCR recognizer runtime is unavailable.");
-    }
-
-    private IReadOnlyList<OcrTextRegion> RecognizeCore(Mat image, IInferenceSession detector,
-        IInferenceSession recognizer, CancellationToken cancellationToken)
-    {
-        using var detectorImage = PrepareDetectionImage(image);
-        var regions = Detect(detector, detectorImage, cancellationToken);
-        var results = new List<OcrTextRegion>(regions.Count);
-
-        foreach (var region in regions)
+        _detectorInputName ??= _detector.InputNames.FirstOrDefault()
+                              ?? throw new InvalidOperationException("The OCR detector input metadata is unavailable.");
+        _recognizerInputName ??= _recognizer.InputNames.FirstOrDefault()
+                                ?? throw new InvalidOperationException("The OCR recognizer input metadata is unavailable.");
+        if (_recognizerOutputDimensions == 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            using var crop = new Mat(detectorImage, region.Bounds);
-            var text = Recognize(recognizer, crop);
-            if (!string.IsNullOrWhiteSpace(text))
+            _recognizerOutputDimensions = _recognizer.OutputShape.FirstOrDefault()?.ElementAtOrDefault(2) ?? 0;
+            if (_recognizerOutputDimensions == 0)
             {
-                results.Add(new OcrTextRegion(text, region.Bounds.Left, region.Bounds.Top,
-                    region.Bounds.Width, region.Bounds.Height));
+                throw new InvalidOperationException("The OCR recognizer output metadata is unavailable.");
             }
         }
-
-        return results;
     }
 
-    private static List<DetectedRegion> Detect(IInferenceSession session, Mat input, CancellationToken cancellationToken)
+    private IReadOnlyList<OcrTextRegion> RecognizeCore(
+        Mat image,
+        IInferenceSession detector,
+        IInferenceSession recognizer,
+        string detectorInputName,
+        string recognizerInputName,
+        int recognizerOutputDimensions,
+        CancellationToken cancellationToken)
+    {
+        var detectorImage = PrepareDetectionImage(image);
+        try
+        {
+            var regions = Detect(detector, detectorImage, detectorInputName, cancellationToken);
+            var results = new List<OcrTextRegion>(regions.Count);
+
+            foreach (var region in regions)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                using var crop = new Mat(detectorImage, region.Bounds);
+                var text = Recognize(recognizer, recognizerInputName, recognizerOutputDimensions, crop);
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    results.Add(new OcrTextRegion(text, region.Bounds.Left, region.Bounds.Top,
+                        region.Bounds.Width, region.Bounds.Height));
+                }
+            }
+
+            return results;
+        }
+        finally
+        {
+            if (!ReferenceEquals(detectorImage, image))
+            {
+                detectorImage.Dispose();
+            }
+        }
+    }
+
+    private static List<DetectedRegion> Detect(
+        IInferenceSession session,
+        Mat input,
+        string inputName,
+        CancellationToken cancellationToken)
     {
         using var normalized = new Mat();
         input.ConvertTo(normalized, MatType.CV_32FC3, 1d / 255d);
@@ -129,7 +173,7 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
             OnnxInputDataTool.InputTensor(normalized, tensor.AsMemory(0, elementCount));
             var output = session.Infer(
             [
-                (session.InputNames.First(), new Memory<int>([1, 3, input.Rows, input.Cols]),
+                (inputName, new Memory<int>([1, 3, input.Rows, input.Cols]),
                     tensor.AsMemory(0, elementCount))
             ]);
 
@@ -141,12 +185,13 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
                 using var threshold = new Mat();
                 binary.ConvertTo(threshold, MatType.CV_8UC1, 255d);
                 Cv2.Threshold(threshold, threshold, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
-                Cv2.FindContours(threshold, out Point[][] contours, out _, RetrievalModes.List,
+                Cv2.FindContours(threshold, out Point[][] contours, out _, RetrievalModes.External,
                     ContourApproximationModes.ApproxTC89L1);
 
                 var regions = new List<DetectedRegion>(contours.Length);
                 foreach (var contour in contours)
                 {
+                    if (regions.Count == MaximumDetectedRegions) break;
                     cancellationToken.ThrowIfCancellationRequested();
                     var box = Cv2.MinAreaRect(contour);
                     if (Math.Min(box.Size.Width, box.Size.Height) < 3f) continue;
@@ -166,7 +211,7 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
         }
     }
 
-    private string Recognize(IInferenceSession session, Mat source)
+    private string Recognize(IInferenceSession session, string inputName, int dimensions, Mat source)
     {
         using var input = PrepareRecognitionImage(source);
         using var normalized = new Mat();
@@ -178,10 +223,9 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
             OnnxInputDataTool.InputTensor(normalized, tensor.AsMemory(0, elementCount));
             var output = session.Infer(
             [
-                (session.InputNames.First(), new Memory<int>([1, 3, input.Rows, input.Cols]),
+                (inputName, new Memory<int>([1, 3, input.Rows, input.Cols]),
                     tensor.AsMemory(0, elementCount))
             ]);
-            var dimensions = session.OutputShape[0][2];
             var characterCount = output.Length / dimensions;
             var values = output.Span;
             var builder = new StringBuilder(characterCount);
@@ -218,10 +262,27 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
 
     private static Mat PrepareDetectionImage(Mat source)
     {
-        if (source.Channels() == 3) return PadToMultiple(source, 32, 32);
+        if (source.Channels() == 3)
+        {
+            return source.Rows % 32 == 0 && source.Cols % 32 == 0
+                ? source
+                : PadToMultiple(source, 32, 32);
+        }
 
-        using var bgr = ConvertToBgr(source);
-        return PadToMultiple(bgr, 32, 32);
+        var bgr = ConvertToBgr(source);
+        if (bgr.Rows % 32 == 0 && bgr.Cols % 32 == 0)
+        {
+            return bgr;
+        }
+
+        try
+        {
+            return PadToMultiple(bgr, 32, 32);
+        }
+        finally
+        {
+            bgr.Dispose();
+        }
     }
 
     private static Mat PrepareRecognitionImage(Mat source)

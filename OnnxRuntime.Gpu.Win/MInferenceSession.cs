@@ -9,33 +9,37 @@ public class MInferenceSession : IInferenceSession
 {
     public string Device => "GPU(CUDA)";
     private InferenceSession? _inferenceSession;
+    private IReadOnlyList<string> _inputNames = [];
+    private IReadOnlyList<int[]> _outputShape = [];
     public void InitSession(string modelPath)
     {
-        var sessionOptions = new SessionOptions();
+        using var sessionOptions = new SessionOptions();
         sessionOptions.AppendExecutionProvider_CUDA();
-        _inferenceSession= new InferenceSession(modelPath, sessionOptions);
+        var session = new InferenceSession(modelPath, sessionOptions);
+        _inferenceSession?.Dispose();
+        _inferenceSession = session;
+        CacheMetadata(session);
     }
 
     public void InitSession(byte[] modelData)
     {
-        var sessionOptions = new SessionOptions();
+        using var sessionOptions = new SessionOptions();
         sessionOptions.AppendExecutionProvider_CUDA();
-        _inferenceSession= new InferenceSession(modelData, sessionOptions);
+        var session = new InferenceSession(modelData, sessionOptions);
+        _inferenceSession?.Dispose();
+        _inferenceSession = session;
+        CacheMetadata(session);
     }
 
-    public IReadOnlyList<string> InputNames => _inferenceSession?.InputMetadata.Keys.ToList();
+    public IReadOnlyList<string> InputNames => _inputNames;
 
-    public IReadOnlyList<int[]> OutputShape => _inferenceSession?.OutputMetadata.Select(e=>e.Value.Dimensions).ToList();
+    public IReadOnlyList<int[]> OutputShape => _outputShape;
     public Memory<float> Infer(List<(string, Memory<int>, Memory<float>)> inputs)
     {
         var namedOnnxValues = inputs.Select(e=>NamedOnnxValue.CreateFromTensor(e.Item1, new DenseTensor<float>( e.Item3, e.Item2.Span))).ToList();
-        var asTensor = _inferenceSession?.Run(namedOnnxValues)[0].AsTensor<float>();
-        
-        if (asTensor is DenseTensor<float> floats)
-        {
-            return floats.Buffer;
-        }
-        return null;
+        using var outputs = _inferenceSession?.Run(namedOnnxValues)
+                            ?? throw new InvalidOperationException("The inference session has not been initialized.");
+        return outputs[0].AsTensor<float>().ToArray();
     }
 
     public Memory<float> InferInt64(List<(string, Memory<int>, Memory<long>)> inputs)
@@ -43,13 +47,34 @@ public class MInferenceSession : IInferenceSession
         var namedOnnxValues = inputs
             .Select(e => NamedOnnxValue.CreateFromTensor(e.Item1, new DenseTensor<long>(e.Item3, e.Item2.Span)))
             .ToList();
-        var asTensor = _inferenceSession?.Run(namedOnnxValues)[0].AsTensor<float>();
+        using var outputs = _inferenceSession?.Run(namedOnnxValues)
+                            ?? throw new InvalidOperationException("The inference session has not been initialized.");
+        return outputs[0].AsTensor<float>().ToArray();
+    }
 
-        return asTensor is DenseTensor<float> floats ? floats.Buffer : asTensor?.ToArray() ?? [];
+    public Memory<float> InferInt64(
+        List<(string, Memory<int>, Memory<long>)> inputs,
+        string outputName)
+    {
+        var namedOnnxValues = inputs
+            .Select(e => NamedOnnxValue.CreateFromTensor(e.Item1, new DenseTensor<long>(e.Item3, e.Item2.Span)))
+            .ToList();
+        using var outputs = _inferenceSession?.Run(namedOnnxValues, [outputName])
+                            ?? throw new InvalidOperationException("The inference session has not been initialized.");
+        return outputs[0].AsTensor<float>().ToArray();
     }
     
     public void Dispose()
     {
         _inferenceSession?.Dispose();
+        _inferenceSession = null;
+        _inputNames = [];
+        _outputShape = [];
+    }
+
+    private void CacheMetadata(InferenceSession session)
+    {
+        _inputNames = session.InputMetadata.Keys.ToArray();
+        _outputShape = session.OutputMetadata.Select(entry => entry.Value.Dimensions).ToArray();
     }
 }
