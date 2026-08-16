@@ -414,7 +414,9 @@ public sealed class IndexService : IIndexService, IDisposable
     public async Task IndexIncrementalAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default)
     {
         await _rebuildGate.WaitAsync(cancellationToken);
-        var originalProcessorAffinity = LimitIndexingCpu();
+        var originalProcessorAffinity = scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Images
+            ? LimitIndexingCpu()
+            : null;
         try
         {
             UpdateStatus(status => status with
@@ -456,7 +458,9 @@ public sealed class IndexService : IIndexService, IDisposable
     public async Task RebuildAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default)
     {
         await _rebuildGate.WaitAsync(cancellationToken);
-        var originalProcessorAffinity = LimitIndexingCpu();
+        var originalProcessorAffinity = scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Images
+            ? LimitIndexingCpu()
+            : null;
         try
         {
             UpdateStatus(status => status with { IsRebuilding = true, CurrentOperation = $"Rebuilding {scope} index", LastError = null });
