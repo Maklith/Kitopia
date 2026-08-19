@@ -582,8 +582,7 @@ public partial class SettingPage : UserControl
             return;
         }
 
-        await index.IndexIncrementalAsync(IndexRebuildScope.Documents);
-        await index.IndexIncrementalAsync(IndexRebuildScope.Images);
+        await index.IndexIncrementalAsync(IndexRebuildScope.Files);
     }
 
     private void ScheduleRequestedFieldScroll()

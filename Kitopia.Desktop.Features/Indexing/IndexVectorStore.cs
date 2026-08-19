@@ -1,4 +1,6 @@
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
+using System.Text;
 using Kitopia.Desktop.Features.Utils;
 using Microsoft.Data.Sqlite;
 
@@ -15,19 +17,283 @@ internal sealed class IndexVectorStore
     private const string ImageVectorTable = "index_image_vectors";
     private const string ImageMetadataTable = "index_image_metadata";
     private const string FileStateTable = "index_file_states";
+    private const string FileSourceTable = "index_file_sources";
+    private const string FileSourceScanTable = "index_file_source_scans";
+    private const string FileSourceStagingTable = "index_file_source_staging";
+    private const int FileSourceBatchSize = 256;
+    private const int FileSourceReadBatchSize = 512;
+    private static readonly StringComparer FilePathComparer =
+        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    private static string FilePathCollation => OperatingSystem.IsWindows() ? " COLLATE NOCASE" : string.Empty;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly string _connectionString;
     private bool _initialized;
+    private long _fileSourceGeneration;
 
-    public IndexVectorStore()
+    public IndexVectorStore(string? databasePath = null)
     {
-        var databasePath = Path.Combine(KitopiaPaths.AppRoot, "index.db");
+        databasePath ??= Path.Combine(KitopiaPaths.AppRoot, "index.db");
         _connectionString = new SqliteConnectionStringBuilder
         {
             DataSource = databasePath,
             Mode = SqliteOpenMode.ReadWriteCreate,
             Cache = SqliteCacheMode.Shared
         }.ToString();
+    }
+
+    public async Task<bool> SynchronizeFileSourceAsync(
+        IndexSource source,
+        IEnumerable<string> paths,
+        IReadOnlySet<string> protectedKeys,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        ArgumentNullException.ThrowIfNull(protectedKeys);
+        ValidateFileSource(source);
+
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await using var connection = await OpenAsync(cancellationToken);
+            var generation = Math.Max(DateTime.UtcNow.Ticks, _fileSourceGeneration + 1);
+            _fileSourceGeneration = generation;
+            await ClearFileSourceStagingAsync(connection, source, cancellationToken);
+            var batch = new List<string>(FileSourceBatchSize);
+            var batchKeys = new HashSet<string>(FilePathComparer);
+            foreach (var path in paths)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    continue;
+                }
+
+                string normalizedPath;
+                try
+                {
+                    normalizedPath = Path.GetFullPath(path);
+                }
+                catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+                {
+                    continue;
+                }
+
+                if (!batchKeys.Add(normalizedPath))
+                {
+                    continue;
+                }
+
+                batch.Add(normalizedPath);
+                if (batch.Count < FileSourceBatchSize)
+                {
+                    continue;
+                }
+
+                await InsertFileSourceStagingBatchAsync(connection, source, batch, cancellationToken);
+                batch.Clear();
+                batchKeys.Clear();
+            }
+
+            if (batch.Count > 0)
+            {
+                await InsertFileSourceStagingBatchAsync(connection, source, batch, cancellationToken);
+            }
+
+            return await CompleteFileSourceScanAsync(
+                connection,
+                source,
+                generation,
+                protectedKeys,
+                cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async IAsyncEnumerable<string> EnumerateManagedFilePathsAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        string? lastPath = null;
+        while (true)
+        {
+            var batch = await ReadManagedFilePathBatchAsync(lastPath, cancellationToken);
+
+            if (batch.Count == 0)
+            {
+                yield break;
+            }
+
+            foreach (var path in batch)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return path;
+            }
+
+            lastPath = batch[^1];
+        }
+    }
+
+    public IEnumerable<string> EnumerateManagedFilePaths(CancellationToken cancellationToken)
+    {
+        string? lastPath = null;
+        while (true)
+        {
+            var batch = ReadManagedFilePathBatchAsync(lastPath, cancellationToken)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
+            if (batch.Count == 0)
+            {
+                yield break;
+            }
+
+            foreach (var path in batch)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return path;
+            }
+
+            lastPath = batch[^1];
+        }
+    }
+
+    private async Task<List<string>> ReadManagedFilePathBatchAsync(
+        string? lastPath,
+        CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await using var connection = await OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"""
+                SELECT file.path
+                FROM {FileSourceTable} AS file
+                INNER JOIN {FileSourceScanTable} AS scan
+                    ON scan.source = file.source
+                   AND scan.generation = file.scan_generation
+                WHERE $lastPath IS NULL OR file.path > $lastPath{FilePathCollation}
+                GROUP BY file.path{FilePathCollation}
+                ORDER BY file.path{FilePathCollation}
+                LIMIT {FileSourceReadBatchSize};
+                """;
+            command.Parameters.AddWithValue("$lastPath", (object?)lastPath ?? DBNull.Value);
+            var batch = new List<string>(FileSourceReadBatchSize);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                batch.Add(reader.GetString(0));
+            }
+
+            return batch;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<bool> ContainsManagedFilePathAsync(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await using var connection = await OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"""
+                SELECT 1
+                FROM {FileSourceTable} AS file
+                INNER JOIN {FileSourceScanTable} AS scan
+                    ON scan.source = file.source
+                   AND scan.generation = file.scan_generation
+                WHERE file.path = $path{FilePathCollation}
+                LIMIT 1;
+                """;
+            command.Parameters.AddWithValue("$path", path);
+            return await command.ExecuteScalarAsync(cancellationToken) is not null;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public bool ContainsManagedFilePath(string path)
+    {
+        _gate.Wait();
+        try
+        {
+            using var connection = OpenAsync(CancellationToken.None).GetAwaiter().GetResult();
+            using var command = connection.CreateCommand();
+            command.CommandText = $"""
+                SELECT 1
+                FROM {FileSourceTable} AS file
+                INNER JOIN {FileSourceScanTable} AS scan
+                    ON scan.source = file.source
+                   AND scan.generation = file.scan_generation
+                WHERE file.path = $path{FilePathCollation}
+                LIMIT 1;
+                """;
+            command.Parameters.AddWithValue("$path", path);
+            return command.ExecuteScalar() is not null;
+        }
+        catch (SqliteException)
+        {
+            return false;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<(int Total, int Documents, int Images)> GetManagedFileCountsAsync(
+        CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await using var connection = await OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"""
+                SELECT
+                    COUNT(*),
+                    COALESCE(SUM(CASE WHEN lower(path) LIKE '%.txt'
+                                           OR lower(path) LIKE '%.md'
+                                           OR lower(path) LIKE '%.pdf'
+                                           OR lower(path) LIKE '%.doc'
+                                           OR lower(path) LIKE '%.docx'
+                                           OR lower(path) LIKE '%.xls'
+                                           OR lower(path) LIKE '%.xlsx'
+                                           OR lower(path) LIKE '%.ppt'
+                                           OR lower(path) LIKE '%.pptx' THEN 1 ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN lower(path) LIKE '%.jpg'
+                                           OR lower(path) LIKE '%.jpeg'
+                                           OR lower(path) LIKE '%.png'
+                                           OR lower(path) LIKE '%.bmp'
+                                           OR lower(path) LIKE '%.webp' THEN 1 ELSE 0 END), 0)
+                FROM (
+                    SELECT file.path
+                    FROM {FileSourceTable} AS file
+                    INNER JOIN {FileSourceScanTable} AS scan
+                        ON scan.source = file.source
+                       AND scan.generation = file.scan_generation
+                    GROUP BY file.path{FilePathCollation}
+                );
+                """;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            return await reader.ReadAsync(cancellationToken)
+                ? (Convert.ToInt32(reader.GetValue(0)), Convert.ToInt32(reader.GetValue(1)), Convert.ToInt32(reader.GetValue(2)))
+                : (0, 0, 0);
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     public Task UpsertTextAsync(string key, string modelId, float[] vector, CancellationToken cancellationToken) =>
@@ -637,6 +903,30 @@ internal sealed class IndexVectorStore
                         updated_at INTEGER NOT NULL
                     );
                     """, cancellationToken);
+                await ExecuteAsync(connection, $"""
+                    CREATE TABLE IF NOT EXISTS {FileSourceTable} (
+                        source INTEGER NOT NULL,
+                        path TEXT NOT NULL{FilePathCollation},
+                        scan_generation INTEGER NOT NULL,
+                        PRIMARY KEY(source, path)
+                    );
+                    """, cancellationToken);
+                await ExecuteAsync(connection, $"""
+                    CREATE TABLE IF NOT EXISTS {FileSourceScanTable} (
+                        source INTEGER NOT NULL PRIMARY KEY,
+                        generation INTEGER NOT NULL
+                    );
+                    """, cancellationToken);
+                await ExecuteAsync(connection, $"""
+                    CREATE TABLE IF NOT EXISTS {FileSourceStagingTable} (
+                        source INTEGER NOT NULL,
+                        path TEXT NOT NULL{FilePathCollation},
+                        PRIMARY KEY(source, path)
+                    );
+                    """, cancellationToken);
+                await ExecuteAsync(connection,
+                    $"CREATE INDEX IF NOT EXISTS idx_{FileSourceTable}_path ON {FileSourceTable}(path);",
+                    cancellationToken);
                 _initialized = true;
             }
 
@@ -647,6 +937,338 @@ internal sealed class IndexVectorStore
             await connection.DisposeAsync();
             throw;
         }
+    }
+
+    private static void ValidateFileSource(IndexSource source)
+    {
+        if (source is not (IndexSource.Document or IndexSource.Image or IndexSource.Manual or IndexSource.EverythingManaged))
+        {
+            throw new ArgumentOutOfRangeException(nameof(source), "Only managed file sources are file-backed.");
+        }
+    }
+
+    private static async Task ClearFileSourceStagingAsync(
+        SqliteConnection connection,
+        IndexSource source,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"DELETE FROM {FileSourceStagingTable} WHERE source = $source;";
+        command.Parameters.AddWithValue("$source", (int)source);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task InsertFileSourceStagingBatchAsync(
+        SqliteConnection connection,
+        IndexSource source,
+        IReadOnlyList<string> paths,
+        CancellationToken cancellationToken)
+    {
+        using var transaction = connection.BeginTransaction();
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        var values = new StringBuilder(paths.Count * 16);
+        for (var index = 0; index < paths.Count; index++)
+        {
+            if (index > 0)
+            {
+                values.Append(',');
+            }
+
+            values.Append($"($source, $path{index})");
+            command.Parameters.AddWithValue($"$path{index}", paths[index]);
+        }
+
+        command.CommandText = $"""
+            INSERT OR IGNORE INTO {FileSourceStagingTable}(source, path)
+            VALUES {values}
+            """;
+        command.Parameters.AddWithValue("$source", (int)source);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        transaction.Commit();
+    }
+
+    private static async Task<bool> CompleteFileSourceScanAsync(
+        SqliteConnection connection,
+        IndexSource source,
+        long generation,
+        IReadOnlySet<string> protectedKeys,
+        CancellationToken cancellationToken)
+    {
+        using var transaction = connection.BeginTransaction();
+        var changed = await HasFileSourceChangesAsync(connection, transaction, source, cancellationToken);
+        if (!changed)
+        {
+            await ExecuteInTransactionAsync(connection, transaction,
+                $"DELETE FROM {FileSourceStagingTable} WHERE source = $source;",
+                cancellationToken,
+                ("$source", (int)source));
+            await ExecuteInTransactionAsync(connection, transaction, $"""
+                DELETE FROM {FileSourceTable}
+                WHERE source = $source
+                  AND NOT EXISTS (
+                      SELECT 1 FROM {FileSourceScanTable} AS scan
+                      WHERE scan.source = {FileSourceTable}.source
+                        AND scan.generation = {FileSourceTable}.scan_generation);
+                """, cancellationToken, ("$source", (int)source));
+            transaction.Commit();
+            return false;
+        }
+
+        await ExecuteInTransactionAsync(connection, transaction,
+            $"CREATE TEMP TABLE IF NOT EXISTS index_stale_file_paths(path TEXT{FilePathCollation} PRIMARY KEY);",
+            cancellationToken);
+        await ExecuteInTransactionAsync(connection, transaction,
+            $"CREATE TEMP TABLE IF NOT EXISTS index_protected_file_paths(path TEXT{FilePathCollation} PRIMARY KEY);",
+            cancellationToken);
+        await ExecuteInTransactionAsync(connection, transaction,
+            "DELETE FROM index_stale_file_paths; DELETE FROM index_protected_file_paths;",
+            cancellationToken);
+
+        await using (var stale = connection.CreateCommand())
+        {
+            stale.Transaction = transaction;
+            stale.CommandText = $"""
+                INSERT OR IGNORE INTO index_stale_file_paths(path)
+                SELECT current.path
+                FROM {FileSourceTable} AS current
+                INNER JOIN {FileSourceScanTable} AS scan
+                    ON scan.source = current.source
+                   AND scan.generation = current.scan_generation
+                WHERE current.source = $source
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM {FileSourceStagingTable} AS incoming
+                      WHERE incoming.source = $source
+                        AND incoming.path = current.path{FilePathCollation});
+                """;
+            stale.Parameters.AddWithValue("$source", (int)source);
+            await stale.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await InsertProtectedKeysAsync(connection, transaction, protectedKeys, cancellationToken);
+
+        await using (var replaceSource = connection.CreateCommand())
+        {
+            replaceSource.Transaction = transaction;
+            replaceSource.CommandText = $"""
+                DELETE FROM {FileSourceTable} WHERE source = $source;
+                INSERT INTO {FileSourceTable}(source, path, scan_generation)
+                SELECT $source, path, $generation
+                FROM {FileSourceStagingTable}
+                WHERE source = $source;
+                """;
+            replaceSource.Parameters.AddWithValue("$source", (int)source);
+            replaceSource.Parameters.AddWithValue("$generation", generation);
+            await replaceSource.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using (var scan = connection.CreateCommand())
+        {
+            scan.Transaction = transaction;
+            scan.CommandText = $"""
+                INSERT INTO {FileSourceScanTable}(source, generation)
+                VALUES($source, $generation)
+                ON CONFLICT(source) DO UPDATE SET generation = excluded.generation;
+                """;
+            scan.Parameters.AddWithValue("$source", (int)source);
+            scan.Parameters.AddWithValue("$generation", generation);
+            await scan.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await ExecuteInTransactionAsync(connection, transaction,
+            $"DELETE FROM {FileSourceStagingTable} WHERE source = $source;",
+            cancellationToken,
+            ("$source", (int)source));
+
+        // Remove only vectors belonging to paths that disappeared from every managed source.
+        // Explicit application entries are protected so removing a file source cannot erase a
+        // vector that is still intentionally searchable through the application index.
+        await ExecuteInTransactionAsync(connection, transaction, $"""
+            DELETE FROM {TextVectorTable}
+            WHERE rowid IN (
+                SELECT metadata.vector_rowid
+                FROM {TextMetadataTable} AS metadata
+                INNER JOIN index_stale_file_paths AS stale ON stale.path = metadata.key{FilePathCollation}
+                WHERE metadata.content_kind IN ({(int)TextContentKind.Document}, {(int)TextContentKind.ImageOcr})
+                  AND NOT EXISTS (
+                      SELECT 1 FROM {FileSourceTable} AS active
+                      INNER JOIN {FileSourceScanTable} AS active_scan
+                          ON active_scan.source = active.source
+                         AND active_scan.generation = active.scan_generation
+                      WHERE active.path = metadata.key{FilePathCollation})
+                  AND NOT EXISTS (
+                      SELECT 1 FROM index_protected_file_paths AS protected
+                      WHERE protected.path = metadata.key{FilePathCollation})
+            );
+            DELETE FROM {TextMetadataTable}
+            WHERE content_kind IN ({(int)TextContentKind.Document}, {(int)TextContentKind.ImageOcr})
+              AND key IN (SELECT path FROM index_stale_file_paths)
+              AND NOT EXISTS (
+                  SELECT 1 FROM {FileSourceTable} AS active
+                  INNER JOIN {FileSourceScanTable} AS active_scan
+                      ON active_scan.source = active.source
+                     AND active_scan.generation = active.scan_generation
+                  WHERE active.path = {TextMetadataTable}.key{FilePathCollation})
+              AND NOT EXISTS (
+                  SELECT 1 FROM index_protected_file_paths AS protected
+                  WHERE protected.path = {TextMetadataTable}.key{FilePathCollation});
+            DELETE FROM {ImageVectorTable}
+            WHERE rowid IN (
+                SELECT metadata.vector_rowid
+                FROM {ImageMetadataTable} AS metadata
+                INNER JOIN index_stale_file_paths AS stale ON stale.path = metadata.path{FilePathCollation}
+                WHERE NOT EXISTS (
+                          SELECT 1 FROM {FileSourceTable} AS active
+                          INNER JOIN {FileSourceScanTable} AS active_scan
+                              ON active_scan.source = active.source
+                             AND active_scan.generation = active.scan_generation
+                           WHERE active.path = metadata.path{FilePathCollation})
+                  AND NOT EXISTS (
+                          SELECT 1 FROM index_protected_file_paths AS protected
+                           WHERE protected.path = metadata.path{FilePathCollation})
+            );
+            DELETE FROM {ImageMetadataTable}
+            WHERE path IN (SELECT path FROM index_stale_file_paths)
+              AND NOT EXISTS (
+                  SELECT 1 FROM {FileSourceTable} AS active
+                  INNER JOIN {FileSourceScanTable} AS active_scan
+                      ON active_scan.source = active.source
+                     AND active_scan.generation = active.scan_generation
+                   WHERE active.path = {ImageMetadataTable}.path{FilePathCollation})
+              AND NOT EXISTS (
+                  SELECT 1 FROM index_protected_file_paths AS protected
+                   WHERE protected.path = {ImageMetadataTable}.path{FilePathCollation});
+            DELETE FROM {FileStateTable}
+            WHERE path IN (SELECT path FROM index_stale_file_paths)
+              AND NOT EXISTS (
+                  SELECT 1 FROM {FileSourceTable} AS active
+                  INNER JOIN {FileSourceScanTable} AS active_scan
+                      ON active_scan.source = active.source
+                     AND active_scan.generation = active.scan_generation
+                   WHERE active.path = {FileStateTable}.path{FilePathCollation})
+              AND NOT EXISTS (
+                  SELECT 1 FROM index_protected_file_paths AS protected
+                   WHERE protected.path = {FileStateTable}.path{FilePathCollation});
+            """, cancellationToken);
+
+        transaction.Commit();
+        return true;
+    }
+
+    private static async Task<bool> HasFileSourceChangesAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        IndexSource source,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = $"""
+            SELECT
+            EXISTS(
+                SELECT 1
+                FROM {FileSourceTable} AS current
+                INNER JOIN {FileSourceScanTable} AS scan
+                    ON scan.source = current.source
+                   AND scan.generation = current.scan_generation
+                WHERE current.source = $source
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM {FileSourceStagingTable} AS incoming
+                      WHERE incoming.source = $source
+                        AND incoming.path = current.path{FilePathCollation})
+            )
+            OR EXISTS(
+                SELECT 1
+                FROM {FileSourceStagingTable} AS incoming
+                WHERE incoming.source = $source
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM {FileSourceTable} AS current
+                      INNER JOIN {FileSourceScanTable} AS scan
+                          ON scan.source = current.source
+                         AND scan.generation = current.scan_generation
+                      WHERE current.source = $source
+                        AND current.path = incoming.path{FilePathCollation})
+            );
+            """;
+        command.Parameters.AddWithValue("$source", (int)source);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) != 0;
+    }
+
+    private static async Task InsertProtectedKeysAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        IReadOnlySet<string> protectedKeys,
+        CancellationToken cancellationToken)
+    {
+        if (protectedKeys.Count == 0)
+        {
+            return;
+        }
+
+        var batch = new List<string>(FileSourceBatchSize);
+        foreach (var key in protectedKeys)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            batch.Add(key);
+            if (batch.Count == FileSourceBatchSize)
+            {
+                await InsertProtectedKeyBatchAsync(connection, transaction, batch, cancellationToken);
+                batch.Clear();
+            }
+        }
+
+        if (batch.Count > 0)
+        {
+            await InsertProtectedKeyBatchAsync(connection, transaction, batch, cancellationToken);
+        }
+    }
+
+    private static async Task InsertProtectedKeyBatchAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        IReadOnlyList<string> keys,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        var values = new StringBuilder(keys.Count * 8);
+        for (var index = 0; index < keys.Count; index++)
+        {
+            if (index > 0)
+            {
+                values.Append(',');
+            }
+
+            values.Append($"($key{index})");
+            command.Parameters.AddWithValue($"$key{index}", keys[index]);
+        }
+
+        command.CommandText = $"INSERT OR IGNORE INTO index_protected_file_paths(path) VALUES {values};";
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task ExecuteInTransactionAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string sql,
+        CancellationToken cancellationToken,
+        params (string Name, object Value)[] parameters)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = sql;
+        foreach (var (name, value) in parameters)
+        {
+            command.Parameters.AddWithValue(name, value);
+        }
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static async Task<long> InsertVectorAsync(

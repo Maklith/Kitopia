@@ -6,7 +6,9 @@ namespace Kitopia.Desktop.Features.Services.Onnx;
 
 public class InferenceSessionManager : IInferenceSessionManager
 {
-    public IInferenceSession GetSession(string modelSignName)
+    public IInferenceSession GetSession(string modelSignName) => GetSession(modelSignName, useCpuMemoryArena: false);
+
+    public IInferenceSession GetSession(string modelSignName, bool useCpuMemoryArena)
     {
         var onnxModelInfoWrapper = PluginOverall.OnnxModelInfos.SelectMany(e => e.Value)
             .FirstOrDefault(e => e.Model.SignName == modelSignName);
@@ -20,7 +22,7 @@ public class InferenceSessionManager : IInferenceSessionManager
         var onnxRuntime = runtime.Invoke();
         if (!File.Exists(onnxModelInfoWrapper.Model.ModelPath))
             throw new Exception($"模型'{onnxModelInfoWrapper.Model.Name}'不存在,请先下载");
-        onnxRuntime.InitSession(onnxModelInfoWrapper.Model.ModelPath);
+        onnxRuntime.InitSession(onnxModelInfoWrapper.Model.ModelPath, useCpuMemoryArena);
         return onnxRuntime;
     }
 }

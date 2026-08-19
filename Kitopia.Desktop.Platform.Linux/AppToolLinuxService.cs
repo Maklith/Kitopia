@@ -32,6 +32,11 @@ public class AppToolLinuxService : IAppToolService
         ArgumentNullException.ThrowIfNull(visitor);
     }
 
+    public IEnumerable<string> EnumerateEverythingIndexedFiles()
+    {
+        yield break;
+    }
+
     public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int limit = 50)
     {
         return Array.Empty<SearchViewItem>();

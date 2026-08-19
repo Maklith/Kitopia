@@ -40,6 +40,8 @@ public class AppToolService : IAppToolService
         EverythingTools.VisitIndexedFiles(visitor);
     }
 
+    public IEnumerable<string> EnumerateEverythingIndexedFiles() => EverythingTools.EnumerateIndexedFiles();
+
     public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int limit = 50)
     {
         return EverythingTools.Search(keyword, limit);

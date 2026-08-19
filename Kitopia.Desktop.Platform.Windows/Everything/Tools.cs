@@ -32,12 +32,30 @@ public class EverythingTools
     public static void VisitIndexedFiles(Action<string> visitor)
     {
         ArgumentNullException.ThrowIfNull(visitor);
-        lock (QueryGate)
+        foreach (var path in EnumerateIndexedFiles())
         {
-            if (IntPtr.Size == 8)
-                VisitIndexedFilesAmd64(visitor);
-            else
-                VisitIndexedFilesAmd32(visitor);
+            visitor(path);
+        }
+    }
+
+    public static IEnumerable<string> EnumerateIndexedFiles()
+    {
+        for (var offset = 0; ;)
+        {
+            var page = IntPtr.Size == 8
+                ? ReadIndexedPageAmd64(offset)
+                : ReadIndexedPageAmd32(offset);
+            foreach (var path in page)
+            {
+                yield return path;
+            }
+
+            if (page.Count < DiscoveryPageSize || offset > int.MaxValue - page.Count)
+            {
+                yield break;
+            }
+
+            offset += page.Count;
         }
     }
 
@@ -51,21 +69,21 @@ public class EverythingTools
         }
     }
 
-    private static void VisitIndexedFilesAmd32(Action<string> visitor)
+    private const int DiscoveryPageSize = 2048;
+
+    private static List<string> ReadIndexedPageAmd32(int offset)
     {
-        
-        Everything32.Everything_Reset();
-        Everything32.Everything_SetSearchW(string.Join("|", ConfigManger.Config.everythingSearchExtensions));
-        Everything32.Everything_SetMatchCase(false);
-        Everything32.Everything_QueryW(true);
-        const int bufsize = 260;
-        var buf = new StringBuilder(bufsize);
-        for (var i = 0; i < Everything32.Everything_GetNumResults(); i++)
+        lock (QueryGate)
         {
-            // get the result's full path and file name.
-            Everything32.Everything_GetResultFullPathNameW(i, buf, bufsize);
-            var filePath = buf.ToString();
-            visitor(filePath);
+            Everything32.Everything_Reset();
+            Everything32.Everything_SetSearchW(string.Join("|", ConfigManger.Config.everythingSearchExtensions));
+            Everything32.Everything_SetMatchCase(false);
+            Everything32.Everything_SetOffset(offset);
+            Everything32.Everything_SetMax(DiscoveryPageSize);
+            Everything32.Everything_QueryW(true);
+
+            var count = Everything32.Everything_GetNumResults();
+            return ReadPage(count, Everything32.Everything_GetResultFullPathNameW);
         }
     }
     public static IEnumerable<SearchViewItem> SearchAmd32(string s,int limit=50)
@@ -107,20 +125,42 @@ public class EverythingTools
         return index.GetEntriesSnapshot().Select(e => e.Value.ToSearchViewItem());
     }
 
-    private static void VisitIndexedFilesAmd64(Action<string> visitor)
+    private static List<string> ReadIndexedPageAmd64(int offset)
     {
-        Everything64.Everything_Reset();
-        Everything64.Everything_SetSearchW(string.Join("|", ConfigManger.Config.everythingSearchExtensions));
-        Everything64.Everything_SetMatchCase(true);
-        Everything64.Everything_QueryW(true);
-        const int bufsize = 260;
-        var buf = new StringBuilder(bufsize);
-        for (var i = 0; i < Everything64.Everything_GetNumResults(); i++)
+        lock (QueryGate)
         {
-            // get the result's full path and file name.
-            Everything64.Everything_GetResultFullPathNameW(i, buf, bufsize);
-            var filePath = buf.ToString();
-            visitor(filePath);
+            Everything64.Everything_Reset();
+            Everything64.Everything_SetSearchW(string.Join("|", ConfigManger.Config.everythingSearchExtensions));
+            Everything64.Everything_SetMatchCase(false);
+            Everything64.Everything_SetOffset(offset);
+            Everything64.Everything_SetMax(DiscoveryPageSize);
+            Everything64.Everything_QueryW(true);
+
+            var count = Everything64.Everything_GetNumResults();
+            return ReadPage(count, Everything64.Everything_GetResultFullPathNameW);
         }
+    }
+
+    private static List<string> ReadPage(
+        int count,
+        Action<int, StringBuilder, int> getPath,
+        List<string>? paths = null)
+    {
+        // Keep the unmanaged result set bounded to one page. A large result query otherwise
+        // makes Everything retain every matching path before indexing even starts.
+        const int bufferSize = 32 * 1024;
+        paths ??= new List<string>(Math.Min(count, DiscoveryPageSize));
+        var buffer = new StringBuilder(bufferSize);
+        for (var index = 0; index < count; index++)
+        {
+            buffer.Clear();
+            getPath(index, buffer, buffer.Capacity);
+            if (buffer.Length > 0)
+            {
+                paths.Add(buffer.ToString());
+            }
+        }
+
+        return paths;
     }
 }

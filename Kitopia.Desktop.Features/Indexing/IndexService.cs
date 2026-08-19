@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using Kitopia.Desktop.Features.Search;
@@ -21,7 +22,7 @@ public sealed class IndexService : IIndexService, IDisposable
     private const int PinyinResultLimit = 100;
     private const int SemanticFallbackPinyinResultLimit = 10;
     private const int MinimumSemanticQueryLength = 2;
-    private const int ImageInferenceBatchSize = 8;
+    private const int ManagedFileSearchBatchSize = 256;
     private const int MaximumOcrInputCharacters = 16 * 1024;
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IndexService>();
     private static readonly StringComparer EntryKeyComparer =
@@ -29,7 +30,6 @@ public sealed class IndexService : IIndexService, IDisposable
     // Windows file systems are case-insensitive. Keeping file keys case-sensitive causes
     // Everything to produce a second entry when it changes the casing of a returned path.
     private readonly Dictionary<string, IndexedEntry> _entries = new(EntryKeyComparer);
-    private readonly Dictionary<IndexSource, HashSet<string>> _filePathsBySource = new();
     private readonly object _entriesLock = new();
     private readonly IndexVectorStore _store = new();
     private readonly SemaphoreSlim _rebuildGate = new(1, 1);
@@ -93,17 +93,7 @@ public sealed class IndexService : IIndexService, IDisposable
         }
 
         if (removedEntry is null) return false;
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await _store.DeleteAsync(onlyKey, CancellationToken.None);
-            }
-            catch (Exception exception)
-            {
-                Logger.Warning(exception, "Failed to delete unified index vectors for {OnlyKey}.", onlyKey);
-            }
-        });
+        DeleteVectorsInBackground([onlyKey]);
         RebuildPinyinSearcher();
         PublishStatus();
         return true;
@@ -111,7 +101,7 @@ public sealed class IndexService : IIndexService, IDisposable
 
     public bool TryGetValue(string onlyKey, out SearchEntry entry)
     {
-        var isManagedFile = false;
+        entry = default;
         lock (_entriesLock)
         {
             if (_entries.TryGetValue(onlyKey, out var indexed))
@@ -120,16 +110,15 @@ public sealed class IndexService : IIndexService, IDisposable
                 return true;
             }
 
-            isManagedFile = IsManagedFilePathUnsafe(onlyKey);
         }
 
-        if (!isManagedFile || TryGetFileFingerprint(onlyKey) is null)
+        if (TryGetFileFingerprint(onlyKey) is null)
         {
-            entry = default;
             return false;
         }
 
-        return TryCreateFileEntry(onlyKey, out entry);
+        return _store.ContainsManagedFilePath(onlyKey)
+               && TryCreateFileEntry(onlyKey, out entry);
     }
 
     public bool ContainsKey(string onlyKey)
@@ -161,14 +150,7 @@ public sealed class IndexService : IIndexService, IDisposable
             }
         }
 
-        _ = Task.Run(async () =>
-        {
-            foreach (var key in keys)
-            {
-                try { await _store.DeleteAsync(key, CancellationToken.None); }
-                catch (Exception exception) { Logger.Warning(exception, "Failed to delete unified index vectors for {OnlyKey}.", key); }
-            }
-        });
+        DeleteVectorsInBackground(keys);
         RebuildPinyinSearcher();
         PublishStatus();
 
@@ -213,14 +195,7 @@ public sealed class IndexService : IIndexService, IDisposable
 
         if (removed.Count > 0)
         {
-            _ = Task.Run(async () =>
-            {
-                foreach (var key in removed)
-                {
-                    try { await _store.DeleteAsync(key, CancellationToken.None); }
-                    catch (Exception exception) { Logger.Warning(exception, "Failed to delete stale vector for {OnlyKey}.", key); }
-                }
-            });
+            DeleteVectorsInBackground(removed);
         }
 
         if (changed)
@@ -230,41 +205,30 @@ public sealed class IndexService : IIndexService, IDisposable
         }
     }
 
-    public bool SynchronizeFiles(HashSet<string> paths, IndexSource source)
+    public async Task<bool> SynchronizeFilesAsync(
+        IEnumerable<string> paths,
+        IndexSource source,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(paths);
-        if (source is not (IndexSource.Document or IndexSource.Image or IndexSource.Manual or IndexSource.EverythingManaged))
-        {
-            throw new ArgumentOutOfRangeException(nameof(source), "Only managed file sources are file-backed.");
-        }
-
-        var normalizedPaths = paths.Comparer.Equals(EntryKeyComparer)
-            ? paths
-            : new HashSet<string>(paths, EntryKeyComparer);
-        HashSet<string> previousPaths;
-        string[] removed;
+        HashSet<string> protectedKeys;
         lock (_entriesLock)
         {
-            if (!_filePathsBySource.TryGetValue(source, out previousPaths!))
-            {
-                previousPaths = new HashSet<string>(EntryKeyComparer);
-                _filePathsBySource[source] = previousPaths;
-            }
-            if (previousPaths.SetEquals(normalizedPaths)) return false;
-            _filePathsBySource[source] = normalizedPaths;
-            removed = previousPaths.Except(normalizedPaths, EntryKeyComparer)
-                .Where(path => !IsManagedFilePathUnsafe(path))
-                .ToArray();
+            protectedKeys = _entries.Keys.ToHashSet(EntryKeyComparer);
         }
 
-        if (removed.Length > 0) DeleteVectorsInBackground(removed);
+        var changed = await _store.SynchronizeFileSourceAsync(
+            source,
+            paths,
+            protectedKeys,
+            cancellationToken);
+        if (changed)
+        {
+            Interlocked.Increment(ref _pinyinRebuildVersion);
+            PublishStatus();
+        }
 
-        // File paths are intentionally not SearchEntry instances. The old design constructed
-        // millions of entries plus pinyin tokens during startup. Vector workflows iterate these
-        // lightweight path sets, while search creates an entry only for an actual result.
-        PublishStatus();
-
-        return true;
+        return changed;
     }
 
     public void RebuildPinyinSearcher()
@@ -314,22 +278,12 @@ public sealed class IndexService : IIndexService, IDisposable
         await _pinyinBuildGate.WaitAsync(cancellationToken);
         try
         {
-            List<KeyValuePair<string, string>> snapshot;
-            lock (_entriesLock)
-            {
-                snapshot = _entries.Values
-                    .Select(indexed => new KeyValuePair<string, string>(indexed.Entry.OnlyKey, indexed.Entry.DisplayName))
-                    .ToList();
-                foreach (var path in GetManagedFilePathsUnsafe())
-                {
-                    snapshot.Add(new KeyValuePair<string, string>(path, Path.GetFileNameWithoutExtension(path)));
-                }
-            }
-
             await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var searcher = new PinyinSearcher<KeyValuePair<string, string>>(snapshot, entry => entry.Value);
+                // Managed files are searched from SQLite in bounded pages. Keeping them in this
+                // cache creates one PinyinToken graph per file and duplicates it during rebuilds.
+                var searcher = new PinyinSearcher<KeyValuePair<string, string>>(EnumeratePinyinEntries(), entry => entry.Value);
                 cancellationToken.ThrowIfCancellationRequested();
                 if (Volatile.Read(ref _pinyinRebuildVersion) == version)
                 {
@@ -341,6 +295,25 @@ public sealed class IndexService : IIndexService, IDisposable
         {
             _pinyinBuildGate.Release();
         }
+    }
+
+    private IEnumerable<KeyValuePair<string, string>> EnumeratePinyinEntries()
+    {
+        List<KeyValuePair<string, string>> entries;
+        lock (_entriesLock)
+        {
+            entries = new List<KeyValuePair<string, string>>(_entries.Count);
+            foreach (var indexed in _entries.Values)
+            {
+                entries.Add(new KeyValuePair<string, string>(indexed.Entry.OnlyKey, indexed.Entry.DisplayName));
+            }
+        }
+
+        foreach (var entry in entries)
+        {
+            yield return entry;
+        }
+
     }
 
     public IReadOnlyList<KeyValuePair<string, SearchEntry>> GetEntriesSnapshot()
@@ -358,13 +331,7 @@ public sealed class IndexService : IIndexService, IDisposable
     {
         if (string.IsNullOrWhiteSpace(query) || maximumResults <= 0) return [];
         cancellationToken.ThrowIfCancellationRequested();
-        var results = _pinyinSearcher?.Search(query, maximumResults, cancellationToken) ?? [];
-        return results.Select((result, index) =>
-            TryGetValue(result.Source.Key, out var entry)
-                ? new SearchIndexResult(entry, 1d / (60 + index + 1), result.CharMatchResults)
-                : null)
-            .OfType<SearchIndexResult>()
-            .ToArray();
+        return SearchPinyinResults(query, maximumResults, cancellationToken);
     }
 
     public async Task<IReadOnlyList<SearchIndexResult>> SearchAsync(
@@ -374,16 +341,17 @@ public sealed class IndexService : IIndexService, IDisposable
     {
         if (string.IsNullOrWhiteSpace(query) || maximumResults <= 0) return [];
         cancellationToken.ThrowIfCancellationRequested();
-        var pinyinResults = _pinyinSearcher?.Search(query, PinyinResultLimit, cancellationToken).ToList() ?? [];
+        var pinyinResults = SearchPinyinResults(query, PinyinResultLimit, cancellationToken);
         var merged = new Dictionary<string, SearchIndexResult>(EntryKeyComparer);
         for (var index = 0; index < pinyinResults.Count; index++)
         {
             var result = pinyinResults[index];
-            if (!TryGetValue(result.Source.Key, out var entry)) continue;
-            merged[entry.OnlyKey] = new SearchIndexResult(entry, 1d / (60 + index + 1), result.CharMatchResults);
+            merged[result.Source.OnlyKey] = result with { Weight = 1d / (60 + index + 1) };
         }
 
-        if (!ShouldSearchSemantically(query, pinyinResults.Count))
+        // Indexing deliberately runs CLIP, OCR, and BGE one at a time. Do not let an interactive
+        // semantic query load another native model session during that memory-sensitive pass.
+        if (!ShouldSearchSemantically(query, pinyinResults.Count) || GetStatus().IsRebuilding)
         {
             return merged.Values.OrderByDescending(result => result.Weight).Take(maximumResults).ToList();
         }
@@ -411,10 +379,197 @@ public sealed class IndexService : IIndexService, IDisposable
         return merged.Values.OrderByDescending(result => result.Weight).Take(maximumResults).ToList();
     }
 
+    private IReadOnlyList<SearchIndexResult> SearchPinyinResults(
+        string query,
+        int maximumResults,
+        CancellationToken cancellationToken)
+    {
+        var candidateLimit = maximumResults > int.MaxValue / 4
+            ? int.MaxValue
+            : maximumResults * 4;
+        var matches = new Dictionary<string, PinyinMatch>(EntryKeyComparer);
+        var explicitKeys = new HashSet<string>(EntryKeyComparer);
+        lock (_entriesLock)
+        {
+            foreach (var key in _entries.Keys)
+            {
+                explicitKeys.Add(key);
+            }
+        }
+
+        AddExplicitPinyinMatches(
+            matches,
+            _pinyinSearcher?.Search(query, candidateLimit, cancellationToken),
+            candidateLimit,
+            explicitKeys);
+
+        var batch = new List<KeyValuePair<string, string>>(ManagedFileSearchBatchSize);
+        try
+        {
+            foreach (var path in _store.EnumerateManagedFilePaths(cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (explicitKeys.Contains(path) || !TryGetManagedFileDisplayName(path, out var displayName))
+                {
+                    continue;
+                }
+
+                batch.Add(new KeyValuePair<string, string>(path, displayName));
+                if (batch.Count < ManagedFileSearchBatchSize)
+                {
+                    continue;
+                }
+
+                SearchManagedFileBatch(query, batch, matches, candidateLimit, cancellationToken);
+                batch.Clear();
+            }
+
+            if (batch.Count > 0)
+            {
+                SearchManagedFileBatch(query, batch, matches, candidateLimit, cancellationToken);
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // A temporary database/read failure must not make the interactive search fail. The
+            // application/plugin snapshot collected above is still a valid result set.
+            Logger.Debug(exception, "Managed-file pinyin search could not read index.db.");
+        }
+
+        var results = new List<SearchIndexResult>(maximumResults);
+        foreach (var match in matches.Values
+            .OrderByDescending(match => match.Weight)
+            .ThenBy(match => match.Key.Length)
+            .ThenBy(match => match.Key, EntryKeyComparer))
+        {
+            SearchEntry entry;
+            if (match.Entry is { } explicitEntry)
+            {
+                entry = explicitEntry;
+            }
+            else if (!TryGetManagedFileEntry(match.Key, out entry))
+            {
+                continue;
+            }
+
+            results.Add(new SearchIndexResult(
+                entry,
+                1d / (60 + results.Count + 1),
+                match.CharMatchResults));
+            if (results.Count == maximumResults)
+            {
+                break;
+            }
+        }
+
+        return results;
+    }
+
+    private void SearchManagedFileBatch(
+        string query,
+        IReadOnlyList<KeyValuePair<string, string>> batch,
+        Dictionary<string, PinyinMatch> matches,
+        int maximumResults,
+        CancellationToken cancellationToken)
+    {
+        var searcher = new PinyinSearcher<KeyValuePair<string, string>>(batch, entry => entry.Value);
+        foreach (var result in searcher.Search(query, maximumResults, cancellationToken))
+        {
+            var candidate = new PinyinMatch(
+                result.Source.Key,
+                null,
+                result.Weight,
+                result.CharMatchResults);
+            AddPinyinMatch(matches, candidate, maximumResults);
+        }
+    }
+
+    private void AddExplicitPinyinMatches(
+        Dictionary<string, PinyinMatch> matches,
+        IReadOnlyList<SearchResults<KeyValuePair<string, string>>>? results,
+        int maximumResults,
+        IReadOnlySet<string> explicitKeys)
+    {
+        if (results is null)
+        {
+            return;
+        }
+
+        foreach (var result in results)
+        {
+            if (!explicitKeys.Contains(result.Source.Key))
+            {
+                continue;
+            }
+
+            if (!TryGetValue(result.Source.Key, out var entry))
+            {
+                continue;
+            }
+
+            AddPinyinMatch(
+                matches,
+                new PinyinMatch(
+                    result.Source.Key,
+                    entry,
+                    result.Weight,
+                    result.CharMatchResults),
+                maximumResults);
+        }
+    }
+
+    private static void AddPinyinMatch(
+        Dictionary<string, PinyinMatch> matches,
+        PinyinMatch candidate,
+        int maximumResults)
+    {
+        if (matches.TryGetValue(candidate.Key, out var current)
+            && current.Weight >= candidate.Weight)
+        {
+            return;
+        }
+
+        matches[candidate.Key] = candidate;
+        if (matches.Count <= maximumResults)
+        {
+            return;
+        }
+
+        PinyinMatch? worst = null;
+        foreach (var match in matches.Values)
+        {
+            if (worst is null || IsWorsePinyinMatch(match, worst))
+            {
+                worst = match;
+            }
+        }
+
+        matches.Remove(worst!.Key);
+    }
+
+    private static bool IsWorsePinyinMatch(PinyinMatch candidate, PinyinMatch currentWorst)
+    {
+        var comparison = candidate.Weight.CompareTo(currentWorst.Weight);
+        if (comparison != 0)
+        {
+            return comparison < 0;
+        }
+
+        comparison = candidate.Key.Length.CompareTo(currentWorst.Key.Length);
+        if (comparison != 0)
+        {
+            return comparison > 0;
+        }
+
+        return EntryKeyComparer.Compare(candidate.Key, currentWorst.Key) > 0;
+    }
+
     public async Task IndexIncrementalAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default)
     {
         await _rebuildGate.WaitAsync(cancellationToken);
-        var originalProcessorAffinity = scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Images
+        var indexDocuments = scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Files;
+        var indexImages = scope is IndexRebuildScope.All or IndexRebuildScope.Images or IndexRebuildScope.Files;
+        var originalProcessorAffinity = indexDocuments || indexImages
             ? LimitIndexingCpu()
             : null;
         try
@@ -430,20 +585,19 @@ public sealed class IndexService : IIndexService, IDisposable
                 await RebuildPinyinSearcherAsync(cancellationToken);
             }
 
-            if (scope is IndexRebuildScope.All or IndexRebuildScope.Documents)
+            if (indexDocuments || indexImages)
             {
-                await IndexDocumentVectorsAsync(force: false, cancellationToken);
-                await IndexGenericTextEntriesAsync(cancellationToken);
+                await IndexFileVectorsAsync(indexDocuments, indexImages, force: false, cancellationToken);
             }
 
-            if (scope is IndexRebuildScope.All or IndexRebuildScope.Images)
+            if (indexDocuments)
             {
-                await IndexImagesAsync(GetImagePathsSnapshot(), force: false, cancellationToken);
+                await IndexGenericTextEntriesAsync(cancellationToken);
             }
         }
         finally
         {
-            if (scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Images)
+            if (indexDocuments || indexImages)
             {
                 await ReleaseIndexingSessionsAsync();
             }
@@ -458,7 +612,9 @@ public sealed class IndexService : IIndexService, IDisposable
     public async Task RebuildAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default)
     {
         await _rebuildGate.WaitAsync(cancellationToken);
-        var originalProcessorAffinity = scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Images
+        var indexDocuments = scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Files;
+        var indexImages = scope is IndexRebuildScope.All or IndexRebuildScope.Images or IndexRebuildScope.Files;
+        var originalProcessorAffinity = indexDocuments || indexImages
             ? LimitIndexingCpu()
             : null;
         try
@@ -469,22 +625,29 @@ public sealed class IndexService : IIndexService, IDisposable
                 await RebuildPinyinSearcherAsync(cancellationToken);
             }
 
-            if (scope is IndexRebuildScope.All or IndexRebuildScope.Documents)
+            if (indexDocuments)
             {
                 await _store.ClearAsync(IndexRebuildScope.Documents, cancellationToken);
-                await IndexDocumentVectorsAsync(force: true, cancellationToken);
-                await IndexGenericTextEntriesAsync(cancellationToken);
             }
 
-            if (scope is IndexRebuildScope.All or IndexRebuildScope.Images)
+            if (indexImages)
             {
                 await _store.ClearAsync(IndexRebuildScope.Images, cancellationToken);
-                await IndexImagesAsync(GetImagePathsSnapshot(), force: true, cancellationToken);
+            }
+
+            if (indexDocuments || indexImages)
+            {
+                await IndexFileVectorsAsync(indexDocuments, indexImages, force: true, cancellationToken);
+            }
+
+            if (indexDocuments)
+            {
+                await IndexGenericTextEntriesAsync(cancellationToken);
             }
         }
         finally
         {
-            if (scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Images)
+            if (indexDocuments || indexImages)
             {
                 await ReleaseIndexingSessionsAsync();
             }
@@ -500,8 +663,7 @@ public sealed class IndexService : IIndexService, IDisposable
         string fullPath,
         string displayName,
         bool force,
-        CancellationToken cancellationToken,
-        float[]? precomputedVector = null)
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -545,10 +707,29 @@ public sealed class IndexService : IIndexService, IDisposable
                     cancellationToken);
                 if (!copied)
                 {
-                    var vector = precomputedVector ?? await embeddingService.EmbedImageAsync(fullPath, cancellationToken);
-                    await _store.UpsertImageAsync(fullPath, fingerprint, embeddingService.ModelId, vector, cancellationToken);
+                    // This is a per-file pipeline. BGE from the preceding document or OCR must
+                    // be released before CLIP is initialized for this image.
+                    await (_textEmbeddingService?.ReleaseSessionAsync() ?? Task.CompletedTask);
+                    try
+                    {
+                        var vector = await embeddingService.EmbedImageAsync(fullPath, cancellationToken);
+                        await _store.UpsertImageAsync(
+                            fullPath,
+                            fingerprint,
+                            embeddingService.ModelId,
+                            vector,
+                            cancellationToken);
+                    }
+                    finally
+                    {
+                        await embeddingService.ReleaseImageSessionAsync();
+                    }
                 }
             }
+
+            // A semantic image search may have initialized CLIP before indexing started. Do
+            // not carry that image session into the OCR/BGE part of this same file.
+            await embeddingService.ReleaseImageSessionAsync();
 
             var ocrCompleted = !ocrAvailable
                 ? existing?.OcrCompleted ?? false
@@ -597,6 +778,15 @@ public sealed class IndexService : IIndexService, IDisposable
         }
         finally
         {
+            try
+            {
+                await (_imageEmbeddingService?.ReleaseImageSessionAsync() ?? Task.CompletedTask);
+            }
+            catch (Exception exception)
+            {
+                Logger.Warning(exception, "Failed to release the CLIP image session for {ImagePath}.", fullPath);
+            }
+
             UpdateStatus(status => status with
             {
                 ProcessingImages = Math.Max(0, status.ProcessingImages - 1),
@@ -606,82 +796,44 @@ public sealed class IndexService : IIndexService, IDisposable
         }
     }
 
-    private async Task IndexImagesAsync(
-        IReadOnlyCollection<string> paths,
+    private async Task IndexFileVectorsAsync(
+        bool indexDocuments,
+        bool indexImages,
         bool force,
         CancellationToken cancellationToken)
     {
-        foreach (var batch in paths.Chunk(ImageInferenceBatchSize))
+        BgeOnnxEmbeddingService? documentEmbeddingService = null;
+        var documentEmbeddingChecked = false;
+
+        await foreach (var (path, kind) in EnumerateIndexableFilePathsAsync(
+                           indexDocuments,
+                           indexImages,
+                           cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var vectors = await CreateImageVectorsAsync(batch, force, cancellationToken);
-            foreach (var image in batch)
+            if (kind == IndexFileKind.Document)
             {
-                vectors.TryGetValue(image, out var vector);
-                await IndexImageWithStatusAsync(
-                    image,
-                    Path.GetFileNameWithoutExtension(image),
-                    force,
-                    cancellationToken,
-                    vector);
-            }
-        }
-    }
-
-    private async Task<Dictionary<string, float[]>> CreateImageVectorsAsync(
-        IReadOnlyList<string> paths,
-        bool force,
-        CancellationToken cancellationToken)
-    {
-        if (!TryGetImageEmbeddingService(out var embeddingService))
-        {
-            return new Dictionary<string, float[]>(EntryKeyComparer);
-        }
-
-        var candidates = new List<string>(paths.Count);
-        foreach (var path in paths)
-        {
-            try
-            {
-                var file = TryGetFileFingerprint(path);
-                if (file is null)
+                if (!documentEmbeddingChecked)
                 {
-                    continue;
+                    documentEmbeddingChecked = true;
+                    TryGetTextEmbeddingService(out documentEmbeddingService);
                 }
 
-                var state = await _store.GetFileStateAsync(path, IndexFileKind.Image, cancellationToken);
-                var hasVector = await _store.HasImageVectorAsync(path, embeddingService.ModelId, cancellationToken);
-                if (force || !FileStateMatches(state, file) || !hasVector)
+                if (documentEmbeddingService is not null)
                 {
-                    candidates.Add(path);
+                    await IndexDocumentVectorAsync(path, force, documentEmbeddingService, cancellationToken);
                 }
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                Logger.Debug(exception, "Could not prepare image batch item {ImagePath}.", path);
-            }
-        }
 
-        if (candidates.Count == 0)
-        {
-            return new Dictionary<string, float[]>(EntryKeyComparer);
-        }
-
-        try
-        {
-            var embeddings = await embeddingService.EmbedImagesAsync(candidates, cancellationToken);
-            var vectors = new Dictionary<string, float[]>(candidates.Count, EntryKeyComparer);
-            for (var index = 0; index < candidates.Count; index++)
-            {
-                vectors[candidates[index]] = embeddings[index];
+                continue;
             }
 
-            return vectors;
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            Logger.Warning(exception, "Image batch inference failed; retrying its images individually.");
-            return new Dictionary<string, float[]>(EntryKeyComparer);
+            // Consume the manifest one file at a time. Image vectors, OCR recognition, and the
+            // OCR/BGE vector are completed before the next path is requested from SQLite.
+            await IndexImageWithStatusAsync(
+                path,
+                Path.GetFileNameWithoutExtension(path),
+                force,
+                cancellationToken);
         }
     }
 
@@ -851,73 +1003,71 @@ public sealed class IndexService : IIndexService, IDisposable
         }
     }
 
-    private async Task IndexDocumentVectorsAsync(bool force, CancellationToken cancellationToken)
+    private async Task IndexDocumentVectorAsync(
+        string path,
+        bool force,
+        BgeOnnxEmbeddingService embeddingService,
+        CancellationToken cancellationToken)
     {
-        if (!TryGetTextEmbeddingService(out var embeddingService)) return;
-        var paths = GetDocumentPathsSnapshot();
-
-        foreach (var path in paths)
+        UpdateStatus(status => status with { CurrentOperation = $"Indexing document: {Path.GetFileName(path)}" });
+        try
         {
-            UpdateStatus(status => status with { CurrentOperation = $"Indexing document: {Path.GetFileName(path)}" });
-            try
+            var file = TryGetFileFingerprint(path);
+            if (file is null) return;
+            var state = await _store.GetFileStateAsync(path, IndexFileKind.Document, cancellationToken);
+            var vectorExists = await _store.HasTextVectorAsync(path, embeddingService.ModelId, cancellationToken);
+            if (!force && FileStateMatches(state, file) && vectorExists)
             {
-                var file = TryGetFileFingerprint(path);
-                if (file is null) continue;
-                var state = await _store.GetFileStateAsync(path, IndexFileKind.Document, cancellationToken);
-                var vectorExists = await _store.HasTextVectorAsync(path, embeddingService.ModelId, cancellationToken);
-                if (!force && FileStateMatches(state, file) && vectorExists)
-                {
-                    continue;
-                }
+                return;
+            }
 
-                var metadataMatches = FileStateMatches(state, file);
-                var contentHash = metadataMatches
-                    ? state!.ContentHash
-                    : await TryComputeFileContentHashAsync(path, cancellationToken)
-                      ?? throw new IOException($"Unable to hash document '{path}'.");
-                var contentMatches = state is not null
-                                     && string.Equals(state.ContentHash, contentHash, StringComparison.Ordinal);
-                if (!force && contentMatches && vectorExists)
-                {
-                    await _store.UpsertFileStateAsync(
-                        new FileIndexState(path, IndexFileKind.Document, file.Length, file.LastWriteUtcTicks, contentHash, false, null),
-                        cancellationToken);
-                    continue;
-                }
-
-                var copied = await _store.TryCopyDocumentTextForContentHashAsync(
-                    path,
-                    contentHash,
-                    embeddingService.ModelId,
-                    cancellationToken);
-                if (!copied)
-                {
-                    var contentVector = DocumentTextExtractor.TryCreateSource(path, out var source)
-                        ? await EmbedDocumentAsync(
-                            source with { ContentHash = contentHash },
-                            embeddingService,
-                            cancellationToken)
-                        : null;
-                    if (contentVector is not null)
-                    {
-                        await _store.UpsertDocumentTextAsync(path, embeddingService.ModelId, contentVector, cancellationToken);
-                    }
-                    else
-                    {
-                        var fallback = (await embeddingService.EmbedAsync(
-                            [CreateFileTextContent(path)], BgeOnnxEmbeddingService.MetadataMaximumTokens, cancellationToken))[0];
-                        await _store.UpsertTextAsync(path, embeddingService.ModelId, fallback, cancellationToken);
-                    }
-                }
-
+            var metadataMatches = FileStateMatches(state, file);
+            var contentHash = metadataMatches
+                ? state!.ContentHash
+                : await TryComputeFileContentHashAsync(path, cancellationToken)
+                  ?? throw new IOException($"Unable to hash document '{path}'.");
+            var contentMatches = state is not null
+                                 && string.Equals(state.ContentHash, contentHash, StringComparison.Ordinal);
+            if (!force && contentMatches && vectorExists)
+            {
                 await _store.UpsertFileStateAsync(
                     new FileIndexState(path, IndexFileKind.Document, file.Length, file.LastWriteUtcTicks, contentHash, false, null),
                     cancellationToken);
+                return;
             }
-            catch (Exception exception) when (exception is not OperationCanceledException)
+
+            var copied = await _store.TryCopyDocumentTextForContentHashAsync(
+                path,
+                contentHash,
+                embeddingService.ModelId,
+                cancellationToken);
+            if (!copied)
             {
-                Logger.Warning(exception, "Failed to index document content for {DocumentPath}.", path);
+                var contentVector = DocumentTextExtractor.TryCreateSource(path, out var source)
+                    ? await EmbedDocumentAsync(
+                        source with { ContentHash = contentHash },
+                        embeddingService,
+                        cancellationToken)
+                    : null;
+                if (contentVector is not null)
+                {
+                    await _store.UpsertDocumentTextAsync(path, embeddingService.ModelId, contentVector, cancellationToken);
+                }
+                else
+                {
+                    var fallback = (await embeddingService.EmbedAsync(
+                        [CreateFileTextContent(path)], BgeOnnxEmbeddingService.MetadataMaximumTokens, cancellationToken))[0];
+                    await _store.UpsertTextAsync(path, embeddingService.ModelId, fallback, cancellationToken);
+                }
             }
+
+            await _store.UpsertFileStateAsync(
+                new FileIndexState(path, IndexFileKind.Document, file.Length, file.LastWriteUtcTicks, contentHash, false, null),
+                cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.Warning(exception, "Failed to index document content for {DocumentPath}.", path);
         }
     }
 
@@ -988,7 +1138,19 @@ public sealed class IndexService : IIndexService, IDisposable
             return;
         }
 
-        var regions = await _ocrService.RecognizeFileAsync(imagePath, cancellationToken);
+        IReadOnlyList<PluginCore.OcrTextRegion> regions;
+        try
+        {
+            // OCR and BGE both own dynamic ONNX allocations. Release BGE before recognizing,
+            // then release OCR before embedding the recognized text.
+            await embeddingService.ReleaseSessionAsync();
+            regions = await _ocrService.RecognizeFileAsync(imagePath, cancellationToken);
+        }
+        finally
+        {
+            await _ocrService.ReleaseSessionsAsync();
+        }
+
         var textBuilder = new StringBuilder();
         foreach (var region in regions)
         {
@@ -1030,8 +1192,18 @@ public sealed class IndexService : IIndexService, IDisposable
         }
 
         var text = textBuilder.ToString();
-        var vector = (await embeddingService.EmbedAsync([text], BgeOnnxEmbeddingService.MetadataMaximumTokens, cancellationToken))[0];
-        await _store.UpsertOcrTextAsync(imagePath, embeddingService.ModelId, vector, cancellationToken);
+        try
+        {
+            var vector = (await embeddingService.EmbedAsync(
+                [text],
+                BgeOnnxEmbeddingService.MetadataMaximumTokens,
+                cancellationToken))[0];
+            await _store.UpsertOcrTextAsync(imagePath, embeddingService.ModelId, vector, cancellationToken);
+        }
+        finally
+        {
+            await embeddingService.ReleaseSessionAsync();
+        }
     }
 
     private bool TryGetTextEmbeddingService([NotNullWhen(true)] out BgeOnnxEmbeddingService? service)
@@ -1082,7 +1254,7 @@ public sealed class IndexService : IIndexService, IDisposable
                 try
                 {
                     var vectors = await _store.GetCountsAsync(CancellationToken.None);
-                    var (total, applications, documents, images) = GetEntryCounts();
+                    var (total, applications, documents, images) = await GetEntryCountsAsync(CancellationToken.None);
                     UpdateStatus(_ => new IndexStatusSnapshot(
                         total,
                         applications,
@@ -1129,108 +1301,88 @@ public sealed class IndexService : IIndexService, IDisposable
         StatusChanged?.Invoke(this, next);
     }
 
-    private (int Total, int Applications, int Documents, int Images) GetEntryCounts()
+    private async Task<(int Total, int Applications, int Documents, int Images)> GetEntryCountsAsync(
+        CancellationToken cancellationToken)
     {
+        var managed = await _store.GetManagedFileCountsAsync(cancellationToken);
         lock (_entriesLock)
         {
-            var keys = new HashSet<string>(_entries.Keys, EntryKeyComparer);
-            var documentCount = 0;
-            var imageCount = 0;
-            foreach (var sourcePaths in _filePathsBySource.Values)
+            var applications = 0;
+            var explicitDocuments = 0;
+            var explicitImages = 0;
+            foreach (var indexed in _entries.Values)
             {
-                foreach (var path in sourcePaths)
+                if (indexed.Source is IndexSource.Application or IndexSource.Plugin)
                 {
-                    keys.Add(path);
-                }
-            }
-
-            foreach (var key in keys)
-            {
-                var isManagedFile = IsManagedFilePathUnsafe(key);
-                var isDocument = isManagedFile && IsSupportedDocument(Path.GetExtension(key));
-                var isImage = isManagedFile && HasSupportedImageExtension(key);
-                if (_entries.TryGetValue(key, out var indexed))
-                {
-                    isImage |= indexed.Source == IndexSource.Image && HasSupportedImageExtension(key);
-                    isDocument |= indexed.Source is IndexSource.Document or IndexSource.Manual
-                                  && !HasSupportedImageExtension(key)
-                                  && TryGetFileFingerprint(key) is not null;
+                    applications++;
+                    continue;
                 }
 
-                if (isDocument)
+                if (indexed.Source == IndexSource.Image && HasSupportedImageExtension(indexed.Entry.OnlyKey))
                 {
-                    documentCount++;
+                    explicitImages++;
                 }
-
-                if (isImage)
+                else if (indexed.Source is IndexSource.Document or IndexSource.Manual
+                         && IsSupportedDocument(Path.GetExtension(indexed.Entry.OnlyKey)))
                 {
-                    imageCount++;
+                    explicitDocuments++;
                 }
             }
 
             return (
-                keys.Count,
-                _entries.Values.Count(entry => entry.Source is IndexSource.Application or IndexSource.Plugin),
-                documentCount,
-                imageCount);
+                applications + managed.Total + explicitDocuments + explicitImages,
+                applications,
+                managed.Documents + explicitDocuments,
+                managed.Images + explicitImages);
         }
     }
 
-    private IReadOnlyCollection<string> GetImagePathsSnapshot()
+    private async IAsyncEnumerable<(string Path, IndexFileKind Kind)> EnumerateIndexableFilePathsAsync(
+        bool includeDocuments,
+        bool includeImages,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        lock (_entriesLock)
+        await foreach (var path in _store.EnumerateManagedFilePathsAsync(cancellationToken))
         {
-            var paths = new HashSet<string>(EntryKeyComparer);
-            foreach (var sourcePaths in _filePathsBySource.Values)
+            cancellationToken.ThrowIfCancellationRequested();
+            if (includeDocuments && IsSupportedDocument(Path.GetExtension(path)))
             {
-                foreach (var path in sourcePaths)
-                {
-                    if (HasSupportedImageExtension(path))
-                    {
-                        paths.Add(path);
-                    }
-                }
+                yield return (path, IndexFileKind.Document);
             }
-
-            foreach (var indexed in _entries.Values)
+            else if (includeImages && HasSupportedImageExtension(path))
             {
-                if (indexed.Source == IndexSource.Image && HasSupportedImageExtension(indexed.Entry.OnlyKey))
-                {
-                    paths.Add(indexed.Entry.OnlyKey);
-                }
+                yield return (path, IndexFileKind.Image);
             }
-
-            return paths;
         }
-    }
 
-    private IReadOnlyCollection<string> GetDocumentPathsSnapshot()
-    {
+        List<IndexedEntry> explicitFileEntries;
         lock (_entriesLock)
         {
-            var paths = new HashSet<string>(EntryKeyComparer);
-            foreach (var sourcePaths in _filePathsBySource.Values)
-            {
-                foreach (var path in sourcePaths)
-                {
-                    if (IsSupportedDocument(Path.GetExtension(path)))
-                    {
-                        paths.Add(path);
-                    }
-                }
-            }
+            explicitFileEntries = _entries.Values
+                .Where(indexed => indexed.Source is IndexSource.Document or IndexSource.Image or IndexSource.Manual)
+                .ToList();
+        }
 
-            foreach (var indexed in _entries.Values)
+        foreach (var indexed in explicitFileEntries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var path = indexed.Entry.OnlyKey;
+            var isManagedFile = await _store.ContainsManagedFilePathAsync(path, cancellationToken);
+            if (includeImages
+                && indexed.Source == IndexSource.Image
+                && HasSupportedImageExtension(path)
+                && !isManagedFile)
             {
-                if (indexed.Source is IndexSource.Document or IndexSource.Manual
-                    && !HasSupportedImageExtension(indexed.Entry.OnlyKey)
-                    && TryGetFileFingerprint(indexed.Entry.OnlyKey) is not null)
-                {
-                    paths.Add(indexed.Entry.OnlyKey);
-                }
+                yield return (path, IndexFileKind.Image);
             }
-
-            return paths;
+            else if (includeDocuments
+                     && indexed.Source is IndexSource.Document or IndexSource.Manual
+                     && !HasSupportedImageExtension(path)
+                     && (!isManagedFile || !IsSupportedDocument(Path.GetExtension(path)))
+                     && TryGetFileFingerprint(path) is not null)
+            {
+                yield return (path, IndexFileKind.Document);
+            }
         }
     }
 
@@ -1364,6 +1516,31 @@ public sealed class IndexService : IIndexService, IDisposable
         }
     }
 
+    private static bool TryGetManagedFileDisplayName(string path, out string displayName)
+    {
+        displayName = string.Empty;
+        try
+        {
+            displayName = Path.GetFileNameWithoutExtension(path);
+            return !string.IsNullOrWhiteSpace(displayName);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryGetManagedFileEntry(string path, out SearchEntry entry)
+    {
+        if (TryGetFileFingerprint(path) is null)
+        {
+            entry = default;
+            return false;
+        }
+
+        return TryCreateFileEntry(path, out entry);
+    }
+
     private static bool ShouldSearchSemantically(string query, int pinyinResultCount) =>
         query.Trim().Length >= MinimumSemanticQueryLength && pinyinResultCount < SemanticFallbackPinyinResultLimit;
 
@@ -1386,24 +1563,33 @@ public sealed class IndexService : IIndexService, IDisposable
         || extension.Equals(".ppt", StringComparison.OrdinalIgnoreCase)
         || extension.Equals(".pptx", StringComparison.OrdinalIgnoreCase);
 
-    private HashSet<string> GetManagedFilePathsUnsafe()
-    {
-        var paths = new HashSet<string>(EntryKeyComparer);
-        foreach (var source in _filePathsBySource.Values) paths.UnionWith(source);
-        return paths;
-    }
-
-    private bool IsManagedFilePathUnsafe(string path) =>
-        _filePathsBySource.Values.Any(paths => paths.Contains(path));
-
     private void DeleteVectorsInBackground(IEnumerable<string> paths)
     {
         _ = Task.Run(async () =>
         {
             foreach (var key in paths)
             {
-                try { await _store.DeleteAsync(key, CancellationToken.None); }
-                catch (Exception exception) { Logger.Warning(exception, "Failed to delete stale vector for {OnlyKey}.", key); }
+                try
+                {
+                    lock (_entriesLock)
+                    {
+                        if (_entries.ContainsKey(key))
+                        {
+                            continue;
+                        }
+                    }
+
+                    if (await _store.ContainsManagedFilePathAsync(key, CancellationToken.None))
+                    {
+                        continue;
+                    }
+
+                    await _store.DeleteAsync(key, CancellationToken.None);
+                }
+                catch (Exception exception)
+                {
+                    Logger.Warning(exception, "Failed to delete stale vector for {OnlyKey}.", key);
+                }
             }
         });
     }
@@ -1414,4 +1600,9 @@ public sealed class IndexService : IIndexService, IDisposable
         public string ToImageFingerprint() => $"{Length}:{LastWriteUtcTicks}";
     }
     private sealed record RankedVectorMatch(string Key, double Score, int Rank);
+    private sealed record PinyinMatch(
+        string Key,
+        SearchEntry? Entry,
+        double Weight,
+        bool[]? CharMatchResults);
 }

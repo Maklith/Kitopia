@@ -32,10 +32,13 @@ public interface IIndexService : ISearchEntryIndex
     void Synchronize(IEnumerable<SearchEntry> entries, IndexSource source = IndexSource.Application);
 
     /// <summary>
-    /// Replaces the file-discovery snapshot for one managed file source. The caller transfers
-    /// ownership of <paramref name="paths"/> and must not mutate it afterwards.
+    /// Streams a managed-file discovery pass into the persistent manifest. The enumerable is
+    /// consumed once and is never materialized as a complete path list.
     /// </summary>
-    bool SynchronizeFiles(HashSet<string> paths, IndexSource source);
+    Task<bool> SynchronizeFilesAsync(
+        IEnumerable<string> paths,
+        IndexSource source,
+        CancellationToken cancellationToken = default);
 
     void RebuildPinyinSearcher();
 
@@ -88,5 +91,6 @@ public enum IndexRebuildScope
     All,
     Pinyin,
     Documents,
-    Images
+    Images,
+    Files
 }

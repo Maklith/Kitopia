@@ -137,17 +137,7 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
 
     public async Task ReleaseSessionsAsync()
     {
-        await _imageInferenceGate.WaitAsync();
-        try
-        {
-            var session = _imageSession;
-            _imageSession = null;
-            session?.Dispose();
-        }
-        finally
-        {
-            _imageInferenceGate.Release();
-        }
+        await ReleaseImageSessionAsync();
 
         await _textInferenceGate.WaitAsync();
         try
@@ -159,6 +149,25 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
         finally
         {
             _textInferenceGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Releases only the image encoder. Image indexing can then run OCR/BGE without keeping
+    /// the considerably larger image model session alive.
+    /// </summary>
+    public async Task ReleaseImageSessionAsync()
+    {
+        await _imageInferenceGate.WaitAsync();
+        try
+        {
+            var session = _imageSession;
+            _imageSession = null;
+            session?.Dispose();
+        }
+        finally
+        {
+            _imageInferenceGate.Release();
         }
     }
 
@@ -213,7 +222,9 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
         var runtime = PluginOverall.GetOnnxRuntime(target)
                       ?? throw new InvalidOperationException($"The {target} ONNX Runtime plugin is not available.");
         var session = runtime();
-        session.InitSession(path);
+        // Both CLIP inputs have a dynamic batch/sequence dimension. ORT's CPU arena
+        // otherwise retains the largest indexing batch until the session is disposed.
+        session.InitSession(path, useCpuMemoryArena: false);
         return session;
     }
 

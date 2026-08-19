@@ -18,6 +18,8 @@ public class OldVsNewMemory
 
     private string[] _keys = null!;
     private string[] _names = null!;
+    private KeyValuePair<string, string>[] _managedFileEntries = null!;
+    private KeyValuePair<string, string>[] _managedFilePage = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -30,6 +32,11 @@ public class OldVsNewMemory
             _keys[i] = $@"C:\Program Files\AppSuite\{name}\{name}.exe";
             _names[i] = name;
         }
+
+        _managedFileEntries = _keys
+            .Select((path, index) => new KeyValuePair<string, string>(path, _names[index]))
+            .ToArray();
+        _managedFilePage = _managedFileEntries.Take(256).ToArray();
     }
 
     [Benchmark(Description = "Old: ConcurrentDict+SearchViewItem")]
@@ -79,6 +86,22 @@ public class OldVsNewMemory
             });
         idx.Search("App");
         return idx;
+    }
+
+    [Benchmark(Description = "Legacy: all managed-file Pinyin cache")]
+    public object LegacyManagedFilePinyin()
+    {
+        return new PinyinSearcher<KeyValuePair<string, string>>(
+            _managedFileEntries,
+            entry => entry.Value);
+    }
+
+    [Benchmark(Description = "Current: one managed-file Pinyin page")]
+    public object CurrentManagedFilePinyinPage()
+    {
+        return new PinyinSearcher<KeyValuePair<string, string>>(
+            _managedFilePage,
+            entry => entry.Value);
     }
 }
 

@@ -17,6 +17,12 @@ namespace Kitopia.Desktop.Features.Indexing;
 public sealed class IndexMaintenanceService : IIndexMaintenanceService
 {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IndexMaintenanceService>();
+    private static readonly EnumerationOptions ManagedFileEnumerationOptions = new()
+    {
+        RecurseSubdirectories = true,
+        IgnoreInaccessible = true,
+        AttributesToSkip = FileAttributes.ReparsePoint
+    };
     private readonly IIndexService _index;
     private readonly IAppToolService _appTools;
     private readonly Dictionary<object, List<string>> _analyzerIndexedKeys = new();
@@ -45,17 +51,16 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
         await _everythingRefreshGate.WaitAsync(cancellationToken);
         try
         {
-            var everythingPaths = new HashSet<string>(PathComparer);
             if (!ConfigManger.Config.useEverything || !OperatingSystem.IsWindows())
             {
-                await SynchronizeEverythingFilesAsync(everythingPaths, cancellationToken);
+                await SynchronizeEverythingFilesAsync([], cancellationToken);
                 return;
             }
 
             var everything = ServiceManager.Services.GetService<IEverythingService>();
             if (everything is null)
             {
-                await SynchronizeEverythingFilesAsync(everythingPaths, cancellationToken);
+                UpdateDiscoveryStatus("Everything service is unavailable; keeping the previous managed file manifest.");
                 return;
             }
 
@@ -70,45 +75,24 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
                 if (!everything.IsRun())
                 {
                     UpdateDiscoveryStatus("Everything is not running; managed file discovery is waiting for it to start.");
-                    await SynchronizeEverythingFilesAsync(everythingPaths, cancellationToken);
                     return;
                 }
             }
 
             try
             {
-                await Task.Run(() => _appTools.VisitEverythingIndexedFiles(path =>
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (string.IsNullOrWhiteSpace(path)) return;
-
-                    try
-                    {
-                        var fullPath = Path.GetFullPath(path);
-                        if (!IndexService.ShouldAutomaticallyIndexFile(fullPath))
-                        {
-                            return;
-                        }
-
-                        everythingPaths.Add(fullPath);
-                    }
-                    catch (Exception exception) when (exception is ArgumentException
-                                                       or NotSupportedException
-                                                       or PathTooLongException)
-                    {
-                    }
-                }), cancellationToken);
+                await SynchronizeEverythingFilesAsync(
+                    EnumerateFilteredEverythingFiles(cancellationToken),
+                    cancellationToken);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 Logger.Warning(exception, "Everything file discovery failed.");
                 UpdateDiscoveryStatus(exception.Message);
-                await SynchronizeEverythingFilesAsync(everythingPaths, cancellationToken);
                 return;
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            await SynchronizeEverythingFilesAsync(everythingPaths, cancellationToken);
         }
         finally
         {
@@ -116,9 +100,9 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
         }
     }
 
-    private async Task SynchronizeEverythingFilesAsync(HashSet<string> paths, CancellationToken cancellationToken)
+    private async Task SynchronizeEverythingFilesAsync(IEnumerable<string> paths, CancellationToken cancellationToken)
     {
-        if (_index.SynchronizeFiles(paths, IndexSource.EverythingManaged))
+        if (await _index.SynchronizeFilesAsync(paths, IndexSource.EverythingManaged, cancellationToken))
         {
             await _index.RebuildPinyinSearcherAsync(cancellationToken);
         }
@@ -126,36 +110,95 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
 
     public async Task RefreshManagedFilesAsync(CancellationToken cancellationToken = default)
     {
-        var paths = new HashSet<string>(PathComparer);
         var config = ConfigManger.Config;
+        try
+        {
+            if (await _index.SynchronizeFilesAsync(
+                    EnumerateManagedFiles(config, cancellationToken),
+                    IndexSource.Manual,
+                    cancellationToken))
+            {
+                await _index.RebuildPinyinSearcherAsync(cancellationToken);
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Logger.Warning(exception, "Managed file discovery failed; keeping the previous manifest.");
+        }
+    }
+
+    private IEnumerable<string> EnumerateFilteredEverythingFiles(CancellationToken cancellationToken)
+    {
+        foreach (var path in _appTools.EnumerateEverythingIndexedFiles())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                continue;
+            }
+
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(path);
+            }
+            catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                continue;
+            }
+
+            if (IndexService.ShouldAutomaticallyIndexFile(fullPath))
+            {
+                yield return fullPath;
+            }
+        }
+    }
+
+    private IEnumerable<string> EnumerateManagedFiles(KitopiaConfig config, CancellationToken cancellationToken)
+    {
         var roots = config.managedIndexDirectories
             .Concat(DefaultIndexDirectories())
-            .Where(Directory.Exists)
-            .Distinct(StringComparer.OrdinalIgnoreCase);
+            .Distinct(PathComparer);
         foreach (var root in roots)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            try
+            if (!Directory.Exists(root))
             {
-                foreach (var path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
-                {
-                    if (IndexService.ShouldAutomaticallyIndexFile(path)) paths.Add(Path.GetFullPath(path));
-                }
+                continue;
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+
+            foreach (var path in Directory.EnumerateFiles(root, "*", ManagedFileEnumerationOptions))
             {
-                Logger.Debug(exception, "Managed directory scan skipped {Directory}.", root);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (IndexService.ShouldAutomaticallyIndexFile(path)
+                    && TryNormalizePath(path, out var normalizedPath))
+                {
+                    yield return normalizedPath;
+                }
             }
         }
 
         foreach (var file in config.managedIndexFiles)
         {
-            if (File.Exists(file)) paths.Add(Path.GetFullPath(file));
+            cancellationToken.ThrowIfCancellationRequested();
+            if (File.Exists(file) && TryNormalizePath(file, out var normalizedPath))
+            {
+                yield return normalizedPath;
+            }
         }
+    }
 
-        if (_index.SynchronizeFiles(paths, IndexSource.Manual))
+    private static bool TryNormalizePath(string path, out string normalizedPath)
+    {
+        try
         {
-            await _index.RebuildPinyinSearcherAsync(cancellationToken);
+            normalizedPath = Path.GetFullPath(path);
+            return true;
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            normalizedPath = string.Empty;
+            return false;
         }
     }
 
@@ -273,8 +316,7 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
             try
             {
                 await RefreshEverythingFilesAsync();
-                await _index.IndexIncrementalAsync(IndexRebuildScope.Documents);
-                await _index.IndexIncrementalAsync(IndexRebuildScope.Images);
+                await _index.IndexIncrementalAsync(IndexRebuildScope.Files);
             }
             catch (Exception exception)
             {

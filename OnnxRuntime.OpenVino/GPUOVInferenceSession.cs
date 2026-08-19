@@ -11,9 +11,11 @@ public class GPUOVInferenceSession : IInferenceSession
     private InferenceSession? _inferenceSession;
     private IReadOnlyList<string> _inputNames = [];
     private IReadOnlyList<int[]> _outputShape = [];
-    public void InitSession(string modelPath)
+    public void InitSession(string modelPath) => InitSession(modelPath, useCpuMemoryArena: true);
+
+    public void InitSession(string modelPath, bool useCpuMemoryArena)
     {
-        using var sessionOptions = new SessionOptions();
+        using var sessionOptions = new SessionOptions { EnableCpuMemArena = useCpuMemoryArena };
         sessionOptions.AppendExecutionProvider_OpenVINO("GPU");
         var session = new InferenceSession(modelPath, sessionOptions);
         _inferenceSession?.Dispose();

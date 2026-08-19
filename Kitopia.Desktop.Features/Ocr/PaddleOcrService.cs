@@ -16,6 +16,11 @@ namespace Kitopia.Desktop.Features.Ocr;
 public sealed class PaddleOcrService : IOcrService, IDisposable
 {
     private const int MaximumDetectedRegions = 1024;
+    // The recognition model accepts a dynamic width. Without a bound, a very wide
+    // detection box creates an unbounded resize and output tensor in native memory.
+    private const int MaximumRecognitionWidth = 2048;
+    private const int RecognitionHeight = 48;
+    private const int RecognitionWidthMultiple = 32;
     private readonly IInferenceSessionManager _sessions;
     private readonly SemaphoreSlim _inferenceGate = new(1, 1);
     private readonly string[] _alphabet;
@@ -100,9 +105,9 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
 
     private void EnsureSessions()
     {
-        _detector ??= _sessions.GetSession(OcrModelPackage.DetectorSignName)
+        _detector ??= _sessions.GetSession(OcrModelPackage.DetectorSignName, useCpuMemoryArena: false)
                       ?? throw new InvalidOperationException("The OCR detector runtime is unavailable.");
-        _recognizer ??= _sessions.GetSession(OcrModelPackage.RecognizerSignName)
+        _recognizer ??= _sessions.GetSession(OcrModelPackage.RecognizerSignName, useCpuMemoryArena: false)
                         ?? throw new InvalidOperationException("The OCR recognizer runtime is unavailable.");
         _detectorInputName ??= _detector.InputNames.FirstOrDefault()
                               ?? throw new InvalidOperationException("The OCR detector input metadata is unavailable.");
@@ -226,6 +231,13 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
                 (inputName, new Memory<int>([1, 3, input.Rows, input.Cols]),
                     tensor.AsMemory(0, elementCount))
             ]);
+            if (dimensions <= 0 || output.Length % dimensions != 0
+                || output.Length > MaximumRecognitionWidth * dimensions)
+            {
+                throw new InvalidDataException(
+                    $"OCR recognizer returned an invalid output length ({output.Length}) for width {input.Cols}.");
+            }
+
             var characterCount = output.Length / dimensions;
             var values = output.Span;
             var builder = new StringBuilder(characterCount);
@@ -264,20 +276,20 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
     {
         if (source.Channels() == 3)
         {
-            return source.Rows % 32 == 0 && source.Cols % 32 == 0
+            return source.Rows % 64 == 0 && source.Cols % 64 == 0
                 ? source
-                : PadToMultiple(source, 32, 32);
+                : PadToMultiple(source, 64, 64);
         }
 
         var bgr = ConvertToBgr(source);
-        if (bgr.Rows % 32 == 0 && bgr.Cols % 32 == 0)
+        if (bgr.Rows % 64 == 0 && bgr.Cols % 64 == 0)
         {
             return bgr;
         }
 
         try
         {
-            return PadToMultiple(bgr, 32, 32);
+            return PadToMultiple(bgr, 64, 64);
         }
         finally
         {
@@ -285,7 +297,7 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
         }
     }
 
-    private static Mat PrepareRecognitionImage(Mat source)
+    internal static Mat PrepareRecognitionImage(Mat source)
     {
         if (source.Channels() == 3) return ResizeRecognitionImage(source);
 
@@ -295,10 +307,21 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
 
     private static Mat ResizeRecognitionImage(Mat source)
     {
-        using var padded = PadToMultiple(source, 48, 32);
-        var resizedWidth = Math.Max(1, (int)Math.Round(padded.Cols * 48d / padded.Rows));
+        if (source.Rows <= 0 || source.Cols <= 0)
+        {
+            throw new InvalidDataException("OCR recognition input is empty.");
+        }
+
+        // Resize directly instead of padding to the source width first. A one-pixel-high
+        // wide box would otherwise allocate a multi-million-column Mat before resizing.
+        var proportionalWidth = Math.Max(
+            RecognitionWidthMultiple,
+            (int)Math.Ceiling(source.Cols * (double)RecognitionHeight / source.Rows));
+        var resizedWidth = Math.Min(
+            MaximumRecognitionWidth,
+            RoundUp(proportionalWidth, RecognitionWidthMultiple));
         var result = new Mat();
-        Cv2.Resize(padded, result, new Size(resizedWidth, 48));
+        Cv2.Resize(source, result, new Size(resizedWidth, RecognitionHeight));
         return result;
     }
 

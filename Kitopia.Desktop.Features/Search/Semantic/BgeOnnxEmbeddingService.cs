@@ -207,7 +207,9 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
             var runtime = PluginOverall.GetOnnxRuntime(target)
                           ?? throw new InvalidOperationException($"The {target} ONNX Runtime plugin is not available.");
             _session = runtime();
-            _session.InitSession(_modelPath);
+            // BGE changes both batch and sequence dimensions during indexing. Keeping
+            // ORT's CPU arena enabled retains the largest shape for the process lifetime.
+            _session.InitSession(_modelPath, useCpuMemoryArena: false);
         }
         finally
         {

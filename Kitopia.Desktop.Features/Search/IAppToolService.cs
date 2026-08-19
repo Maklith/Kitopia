@@ -46,6 +46,8 @@ public interface IAppToolService
     /// a search result or vector workflow actually needs a result entry.
     /// </summary>
     void VisitEverythingIndexedFiles(Action<string> visitor);
+
+    IEnumerable<string> EnumerateEverythingIndexedFiles();
     
     /// <summary>
     /// 使用Everything搜索 / Use Everything search
