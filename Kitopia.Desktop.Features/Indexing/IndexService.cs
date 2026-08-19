@@ -680,9 +680,14 @@ public sealed class IndexService : IIndexService, IDisposable
             BgeOnnxEmbeddingService? textEmbeddingService = null;
             var ocrAvailable = _ocrService is { IsAvailable: true }
                                && TryGetTextEmbeddingService(out textEmbeddingService);
-            var ocrIsCurrent = !ocrAvailable
-                               || existing is { OcrCompleted: true }
-                                  && string.Equals(existing.OcrModelId, textEmbeddingService!.ModelId, StringComparison.Ordinal);
+            var ocrIsCurrent = !ocrAvailable;
+            if (ocrAvailable)
+            {
+                ocrIsCurrent = existing is { OcrCompleted: true }
+                               && string.Equals(existing.OcrModelId, textEmbeddingService!.ModelId, StringComparison.Ordinal)
+                               && await _store.HasOcrTextVectorAsync(
+                                   fullPath, textEmbeddingService.ModelId, cancellationToken);
+            }
             if (!force && FileStateMatches(existing, file) && imageIsCurrent && ocrIsCurrent)
             {
                 return;
@@ -742,17 +747,14 @@ public sealed class IndexService : IIndexService, IDisposable
                     cancellationToken);
                 if (copied)
                 {
-                    var textCopied = await _store.TryCopyOcrTextForContentHashAsync(
+                    copied = await _store.TryCopyOcrTextForContentHashAsync(
                         fullPath,
                         contentHash,
                         textEmbeddingService.ModelId,
                         cancellationToken);
-                    if (!textCopied)
-                    {
-                        await _store.DeleteOcrTextAsync(fullPath, cancellationToken);
-                    }
                 }
-                else
+
+                if (!copied)
                 {
                     await IndexOcrTextAsync(fullPath, textEmbeddingService!, cancellationToken);
                 }
@@ -1305,6 +1307,12 @@ public sealed class IndexService : IIndexService, IDisposable
         CancellationToken cancellationToken)
     {
         var managed = await _store.GetManagedFileCountsAsync(cancellationToken);
+        var managedPaths = new HashSet<string>(EntryKeyComparer);
+        await foreach (var path in _store.EnumerateManagedFilePathsAsync(cancellationToken))
+        {
+            managedPaths.Add(path);
+        }
+
         lock (_entriesLock)
         {
             var applications = 0;
@@ -1318,12 +1326,15 @@ public sealed class IndexService : IIndexService, IDisposable
                     continue;
                 }
 
-                if (indexed.Source == IndexSource.Image && HasSupportedImageExtension(indexed.Entry.OnlyKey))
+                if (indexed.Source == IndexSource.Image
+                    && HasSupportedImageExtension(indexed.Entry.OnlyKey)
+                    && !managedPaths.Contains(indexed.Entry.OnlyKey))
                 {
                     explicitImages++;
                 }
                 else if (indexed.Source is IndexSource.Document or IndexSource.Manual
-                         && IsSupportedDocument(Path.GetExtension(indexed.Entry.OnlyKey)))
+                         && IsSupportedDocument(Path.GetExtension(indexed.Entry.OnlyKey))
+                         && !managedPaths.Contains(indexed.Entry.OnlyKey))
                 {
                     explicitDocuments++;
                 }
@@ -1567,29 +1578,35 @@ public sealed class IndexService : IIndexService, IDisposable
     {
         _ = Task.Run(async () =>
         {
-            foreach (var key in paths)
+            await _rebuildGate.WaitAsync();
+            try
             {
-                try
+                foreach (var key in paths)
                 {
-                    lock (_entriesLock)
+                    try
                     {
-                        if (_entries.ContainsKey(key))
+                        lock (_entriesLock)
                         {
-                            continue;
+                            if (_entries.ContainsKey(key))
+                            {
+                                continue;
+                            }
+
+                            // The store gate makes the manifest check and vector deletion one
+                            // operation. Holding the rebuild gate also excludes file indexing
+                            // from recreating a vector between those two steps.
+                            _store.DeleteIfUnreferenced(key);
                         }
                     }
-
-                    if (await _store.ContainsManagedFilePathAsync(key, CancellationToken.None))
+                    catch (Exception exception)
                     {
-                        continue;
+                        Logger.Warning(exception, "Failed to delete stale vector for {OnlyKey}.", key);
                     }
-
-                    await _store.DeleteAsync(key, CancellationToken.None);
                 }
-                catch (Exception exception)
-                {
-                    Logger.Warning(exception, "Failed to delete stale vector for {OnlyKey}.", key);
-                }
+            }
+            finally
+            {
+                _rebuildGate.Release();
             }
         });
     }

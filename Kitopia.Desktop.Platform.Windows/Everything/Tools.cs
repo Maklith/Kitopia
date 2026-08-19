@@ -80,7 +80,7 @@ public class EverythingTools
             Everything32.Everything_SetMatchCase(false);
             Everything32.Everything_SetOffset(offset);
             Everything32.Everything_SetMax(DiscoveryPageSize);
-            Everything32.Everything_QueryW(true);
+            EnsureQuerySucceeded(Everything32.Everything_QueryW(true), Everything32.Everything_GetLastError());
 
             var count = Everything32.Everything_GetNumResults();
             return ReadPage(count, Everything32.Everything_GetResultFullPathNameW);
@@ -134,7 +134,7 @@ public class EverythingTools
             Everything64.Everything_SetMatchCase(false);
             Everything64.Everything_SetOffset(offset);
             Everything64.Everything_SetMax(DiscoveryPageSize);
-            Everything64.Everything_QueryW(true);
+            EnsureQuerySucceeded(Everything64.Everything_QueryW(true), Everything64.Everything_GetLastError());
 
             var count = Everything64.Everything_GetNumResults();
             return ReadPage(count, Everything64.Everything_GetResultFullPathNameW);
@@ -162,5 +162,13 @@ public class EverythingTools
         }
 
         return paths;
+    }
+
+    private static void EnsureQuerySucceeded(bool succeeded, int error)
+    {
+        if (!succeeded)
+        {
+            throw new InvalidOperationException($"Everything query failed (error {error}).");
+        }
     }
 }

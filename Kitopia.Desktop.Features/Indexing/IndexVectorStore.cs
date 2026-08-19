@@ -410,6 +410,9 @@ internal sealed class IndexVectorStore
     public Task<bool> HasTextVectorAsync(string key, string modelId, CancellationToken cancellationToken) =>
         HasVectorAsync(TextMetadataTable, "key", key, modelId, cancellationToken);
 
+    public Task<bool> HasOcrTextVectorAsync(string key, string modelId, CancellationToken cancellationToken) =>
+        HasTextVectorOfKindAsync(key, modelId, TextContentKind.ImageOcr, cancellationToken);
+
     public Task<bool> HasImageVectorAsync(string path, string modelId, CancellationToken cancellationToken) =>
         HasVectorAsync(ImageMetadataTable, "path", path, modelId, cancellationToken);
 
@@ -460,13 +463,21 @@ internal sealed class IndexVectorStore
             completion.CommandText = $"""
                 SELECT 1
                 FROM {FileStateTable}
-                WHERE file_kind = $kind
-                  AND content_hash = $contentHash
-                  AND ocr_completed = 1
-                  AND ocr_model_id = $modelId
+                INNER JOIN {TextMetadataTable} AS metadata
+                    ON metadata.key = {FileStateTable}.path{FilePathCollation}
+                   AND metadata.content_kind = $ocrKind
+                   AND metadata.model_id = $modelId
+                INNER JOIN {TextVectorTable} AS vector
+                    ON vector.rowid = metadata.vector_rowid
+                WHERE {FileStateTable}.file_kind = $kind
+                  AND {FileStateTable}.content_hash = $contentHash
+                  AND {FileStateTable}.ocr_completed = 1
+                  AND {FileStateTable}.ocr_model_id = $modelId
+                  AND vector.model_id = $modelId
                 LIMIT 1;
                 """;
             completion.Parameters.AddWithValue("$kind", (int)IndexFileKind.Image);
+            completion.Parameters.AddWithValue("$ocrKind", (int)TextContentKind.ImageOcr);
             completion.Parameters.AddWithValue("$contentHash", contentHash);
             completion.Parameters.AddWithValue("$modelId", modelId);
             return await completion.ExecuteScalarAsync(cancellationToken) is not null;
@@ -532,6 +543,38 @@ internal sealed class IndexVectorStore
             command.CommandText = $"SELECT 1 FROM {metadataTable} WHERE {keyColumn} = $key AND model_id = $modelId;";
             command.Parameters.AddWithValue("$key", key);
             command.Parameters.AddWithValue("$modelId", modelId);
+            return await command.ExecuteScalarAsync(cancellationToken) is not null;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task<bool> HasTextVectorOfKindAsync(
+        string key,
+        string modelId,
+        TextContentKind contentKind,
+        CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await using var connection = await OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"""
+                SELECT 1
+                FROM {TextMetadataTable} AS metadata
+                INNER JOIN {TextVectorTable} AS vector ON vector.rowid = metadata.vector_rowid
+                WHERE metadata.key = $key
+                  AND metadata.model_id = $modelId
+                  AND metadata.content_kind = $contentKind
+                  AND vector.model_id = $modelId
+                LIMIT 1;
+                """;
+            command.Parameters.AddWithValue("$key", key);
+            command.Parameters.AddWithValue("$modelId", modelId);
+            command.Parameters.AddWithValue("$contentKind", (int)contentKind);
             return await command.ExecuteScalarAsync(cancellationToken) is not null;
         }
         finally
@@ -732,6 +775,54 @@ internal sealed class IndexVectorStore
         }
     }
 
+    public void DeleteIfUnreferenced(string key)
+    {
+        _gate.Wait();
+        try
+        {
+            using var connection = OpenAsync(CancellationToken.None).GetAwaiter().GetResult();
+            using var transaction = connection.BeginTransaction();
+            using (var managed = connection.CreateCommand())
+            {
+                managed.Transaction = transaction;
+                managed.CommandText = $"""
+                    SELECT 1
+                    FROM {FileSourceTable} AS file
+                    INNER JOIN {FileSourceScanTable} AS scan
+                        ON scan.source = file.source
+                       AND scan.generation = file.scan_generation
+                    WHERE file.path = $path{FilePathCollation}
+                    LIMIT 1;
+                    """;
+                managed.Parameters.AddWithValue("$path", key);
+                if (managed.ExecuteScalar() is not null)
+                {
+                    transaction.Rollback();
+                    return;
+                }
+            }
+
+            using var delete = connection.CreateCommand();
+            delete.Transaction = transaction;
+            delete.CommandText = $"""
+                DELETE FROM {TextVectorTable}
+                WHERE rowid IN (SELECT vector_rowid FROM {TextMetadataTable} WHERE key = $key);
+                DELETE FROM {TextMetadataTable} WHERE key = $key;
+                DELETE FROM {ImageVectorTable}
+                WHERE rowid IN (SELECT vector_rowid FROM {ImageMetadataTable} WHERE path = $key);
+                DELETE FROM {ImageMetadataTable} WHERE path = $key;
+                DELETE FROM {FileStateTable} WHERE path = $key;
+                """;
+            delete.Parameters.AddWithValue("$key", key);
+            delete.ExecuteNonQuery();
+            transaction.Commit();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task ClearAsync(IndexRebuildScope scope, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
@@ -872,7 +963,7 @@ internal sealed class IndexVectorStore
                 await ExecuteAsync(connection, $"CREATE VIRTUAL TABLE IF NOT EXISTS {ImageVectorTable} USING vec0(embedding float[1024] distance_metric=cosine, model_id TEXT PARTITION KEY);", cancellationToken);
                 await ExecuteAsync(connection, $"""
                     CREATE TABLE IF NOT EXISTS {TextMetadataTable} (
-                        key TEXT NOT NULL PRIMARY KEY,
+                        key TEXT NOT NULL PRIMARY KEY{FilePathCollation},
                         model_id TEXT NOT NULL,
                         dimensions INTEGER NOT NULL,
                         vector_rowid INTEGER NOT NULL,
@@ -883,7 +974,7 @@ internal sealed class IndexVectorStore
                 await EnsureTextContentKindColumnAsync(connection, cancellationToken);
                 await ExecuteAsync(connection, $"""
                     CREATE TABLE IF NOT EXISTS {ImageMetadataTable} (
-                        path TEXT NOT NULL PRIMARY KEY,
+                        path TEXT NOT NULL PRIMARY KEY{FilePathCollation},
                         fingerprint TEXT NOT NULL,
                         model_id TEXT NOT NULL,
                         dimensions INTEGER NOT NULL,
@@ -893,7 +984,7 @@ internal sealed class IndexVectorStore
                     """, cancellationToken);
                 await ExecuteAsync(connection, $"""
                     CREATE TABLE IF NOT EXISTS {FileStateTable} (
-                        path TEXT NOT NULL PRIMARY KEY,
+                        path TEXT NOT NULL PRIMARY KEY{FilePathCollation},
                         file_kind INTEGER NOT NULL,
                         length INTEGER NOT NULL,
                         last_write_utc_ticks INTEGER NOT NULL,
@@ -927,6 +1018,12 @@ internal sealed class IndexVectorStore
                 await ExecuteAsync(connection,
                     $"CREATE INDEX IF NOT EXISTS idx_{FileSourceTable}_path ON {FileSourceTable}(path);",
                     cancellationToken);
+                if (OperatingSystem.IsWindows())
+                {
+                    await EnsureCaseInsensitiveTableAsync(connection, TextMetadataTable, cancellationToken);
+                    await EnsureCaseInsensitiveTableAsync(connection, ImageMetadataTable, cancellationToken);
+                    await EnsureCaseInsensitiveTableAsync(connection, FileStateTable, cancellationToken);
+                }
                 _initialized = true;
             }
 
@@ -1090,7 +1187,7 @@ internal sealed class IndexVectorStore
                 SELECT metadata.vector_rowid
                 FROM {TextMetadataTable} AS metadata
                 INNER JOIN index_stale_file_paths AS stale ON stale.path = metadata.key{FilePathCollation}
-                WHERE metadata.content_kind IN ({(int)TextContentKind.Document}, {(int)TextContentKind.ImageOcr})
+                WHERE metadata.content_kind IN ({(int)TextContentKind.Entry}, {(int)TextContentKind.Document}, {(int)TextContentKind.ImageOcr})
                   AND NOT EXISTS (
                       SELECT 1 FROM {FileSourceTable} AS active
                       INNER JOIN {FileSourceScanTable} AS active_scan
@@ -1102,7 +1199,7 @@ internal sealed class IndexVectorStore
                       WHERE protected.path = metadata.key{FilePathCollation})
             );
             DELETE FROM {TextMetadataTable}
-            WHERE content_kind IN ({(int)TextContentKind.Document}, {(int)TextContentKind.ImageOcr})
+            WHERE content_kind IN ({(int)TextContentKind.Entry}, {(int)TextContentKind.Document}, {(int)TextContentKind.ImageOcr})
               AND key IN (SELECT path FROM index_stale_file_paths)
               AND NOT EXISTS (
                   SELECT 1 FROM {FileSourceTable} AS active
@@ -1480,6 +1577,101 @@ internal sealed class IndexVectorStore
         await ExecuteAsync(connection,
             $"ALTER TABLE {TextMetadataTable} ADD COLUMN content_kind INTEGER NOT NULL DEFAULT 0;",
             cancellationToken);
+    }
+
+    private static async Task EnsureCaseInsensitiveTableAsync(
+        SqliteConnection connection,
+        string table,
+        CancellationToken cancellationToken)
+    {
+        string? definition;
+        await using (var definitionCommand = connection.CreateCommand())
+        {
+            definitionCommand.CommandText = """
+                SELECT sql
+                FROM sqlite_master
+                WHERE type = 'table' AND name = $table;
+                """;
+            definitionCommand.Parameters.AddWithValue("$table", table);
+            definition = await definitionCommand.ExecuteScalarAsync(cancellationToken) as string;
+        }
+
+        if (definition?.Contains("COLLATE NOCASE", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return;
+        }
+
+        var temporaryTable = $"{table}_case_migration";
+        using var transaction = connection.BeginTransaction();
+        await ExecuteInTransactionAsync(connection, transaction, $"DROP TABLE IF EXISTS {temporaryTable};", cancellationToken);
+
+        var createTable = table switch
+        {
+            TextMetadataTable => $"""
+                CREATE TABLE {temporaryTable} (
+                    key TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+                    model_id TEXT NOT NULL,
+                    dimensions INTEGER NOT NULL,
+                    vector_rowid INTEGER NOT NULL,
+                    content_kind INTEGER NOT NULL DEFAULT 0,
+                    updated_at INTEGER NOT NULL
+                );
+                """,
+            ImageMetadataTable => $"""
+                CREATE TABLE {temporaryTable} (
+                    path TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+                    fingerprint TEXT NOT NULL,
+                    model_id TEXT NOT NULL,
+                    dimensions INTEGER NOT NULL,
+                    vector_rowid INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                );
+                """,
+            FileStateTable => $"""
+                CREATE TABLE {temporaryTable} (
+                    path TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+                    file_kind INTEGER NOT NULL,
+                    length INTEGER NOT NULL,
+                    last_write_utc_ticks INTEGER NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    ocr_completed INTEGER NOT NULL DEFAULT 0,
+                    ocr_model_id TEXT NULL,
+                    updated_at INTEGER NOT NULL
+                );
+                """,
+            _ => throw new ArgumentException($"Unsupported case migration table '{table}'.", nameof(table))
+        };
+        await ExecuteInTransactionAsync(connection, transaction, createTable, cancellationToken);
+
+        var columns = table switch
+        {
+            TextMetadataTable => "key, model_id, dimensions, vector_rowid, content_kind, updated_at",
+            ImageMetadataTable => "path, fingerprint, model_id, dimensions, vector_rowid, updated_at",
+            FileStateTable => "path, file_kind, length, last_write_utc_ticks, content_hash, ocr_completed, ocr_model_id, updated_at",
+            _ => throw new ArgumentException($"Unsupported case migration table '{table}'.", nameof(table))
+        };
+        await ExecuteInTransactionAsync(
+            connection,
+            transaction,
+            $"INSERT OR REPLACE INTO {temporaryTable}({columns}) SELECT {columns} FROM {table} ORDER BY updated_at, rowid;",
+            cancellationToken);
+
+        if (table == TextMetadataTable)
+        {
+            await ExecuteInTransactionAsync(connection, transaction,
+                $"DELETE FROM {TextVectorTable} WHERE rowid NOT IN (SELECT vector_rowid FROM {temporaryTable});",
+                cancellationToken);
+        }
+        else if (table == ImageMetadataTable)
+        {
+            await ExecuteInTransactionAsync(connection, transaction,
+                $"DELETE FROM {ImageVectorTable} WHERE rowid NOT IN (SELECT vector_rowid FROM {temporaryTable});",
+                cancellationToken);
+        }
+
+        await ExecuteInTransactionAsync(connection, transaction, $"DROP TABLE {table};", cancellationToken);
+        await ExecuteInTransactionAsync(connection, transaction, $"ALTER TABLE {temporaryTable} RENAME TO {table};", cancellationToken);
+        transaction.Commit();
     }
 
     private static async Task DeleteTextByKindAsync(

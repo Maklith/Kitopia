@@ -66,8 +66,11 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
             var recognizerInputName = _recognizerInputName ?? throw new InvalidOperationException("The OCR recognizer input metadata is unavailable.");
             using var resized = ImageInputLoader.ResizeToMaximumPixels(image, ImageInputLoader.MaximumOcrPixels);
             var input = resized ?? image;
+            var scaleX = image.Cols / (double)input.Cols;
+            var scaleY = image.Rows / (double)input.Rows;
             return await Task.Run(() => RecognizeCore(input, detector, recognizer,
-                detectorInputName, recognizerInputName, _recognizerOutputDimensions, cancellationToken), cancellationToken);
+                detectorInputName, recognizerInputName, _recognizerOutputDimensions,
+                scaleX, scaleY, image.Cols, image.Rows, cancellationToken), cancellationToken);
         }
         finally
         {
@@ -130,6 +133,10 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
         string detectorInputName,
         string recognizerInputName,
         int recognizerOutputDimensions,
+        double scaleX,
+        double scaleY,
+        int outputWidth,
+        int outputHeight,
         CancellationToken cancellationToken)
     {
         var detectorImage = PrepareDetectionImage(image);
@@ -145,8 +152,10 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
                 var text = Recognize(recognizer, recognizerInputName, recognizerOutputDimensions, crop);
                 if (!string.IsNullOrWhiteSpace(text))
                 {
-                    results.Add(new OcrTextRegion(text, region.Bounds.Left, region.Bounds.Top,
-                        region.Bounds.Width, region.Bounds.Height));
+                    var bounds = ScaleBounds(region.Bounds, image.Cols, image.Rows,
+                        scaleX, scaleY, outputWidth, outputHeight);
+                    results.Add(new OcrTextRegion(text, bounds.Left, bounds.Top,
+                        bounds.Width, bounds.Height));
                 }
             }
 
@@ -353,6 +362,26 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
         var top = Math.Clamp(bounds.Top, 0, maximumHeight - 1);
         var right = Math.Clamp(bounds.Right, left + 1, maximumWidth);
         var bottom = Math.Clamp(bounds.Bottom, top + 1, maximumHeight);
+        return new Rect(left, top, right - left, bottom - top);
+    }
+
+    internal static Rect ScaleBounds(
+        Rect bounds,
+        int inputWidth,
+        int inputHeight,
+        double scaleX,
+        double scaleY,
+        int outputWidth,
+        int outputHeight)
+    {
+        var leftInput = Math.Clamp(bounds.Left, 0, inputWidth - 1);
+        var topInput = Math.Clamp(bounds.Top, 0, inputHeight - 1);
+        var left = Math.Clamp((int)Math.Floor(leftInput * scaleX), 0, outputWidth - 1);
+        var top = Math.Clamp((int)Math.Floor(topInput * scaleY), 0, outputHeight - 1);
+        var rightInput = Math.Clamp(bounds.Right, 0, inputWidth);
+        var bottomInput = Math.Clamp(bounds.Bottom, 0, inputHeight);
+        var right = Math.Clamp((int)Math.Ceiling(rightInput * scaleX), left + 1, outputWidth);
+        var bottom = Math.Clamp((int)Math.Ceiling(bottomInput * scaleY), top + 1, outputHeight);
         return new Rect(left, top, right - left, bottom - top);
     }
 
