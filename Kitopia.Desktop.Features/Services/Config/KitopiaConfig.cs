@@ -28,6 +28,17 @@ public enum ThemeEnum
 public class KitopiaConfig : ConfigBase
 {
     private static ILogger Logger = LogManager.Logger.ForContext<KitopiaConfig>();
+    internal static readonly IReadOnlyList<string> DefaultTransientDirectoryNames =
+    [
+        "temp", "tmp", "temporary", "cache", "caches", "inetcache", "temporary internet files",
+        ".minecraft", "assets", "data", "tdata", "logs","node_modules"
+    ];
+    internal static readonly IReadOnlyList<string> DefaultAllowedFileExtensions =
+    [
+        ".md", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".jpg", ".jpeg", ".png", ".bmp", ".webp"
+    ];
+
     public List<string> alwayShows = new();
 
     public Dictionary<string, string> OnnxTargetDevices = new();
@@ -153,6 +164,14 @@ public class KitopiaConfig : ConfigBase
     [ConfigFieldCategory("索引")]
     [ConfigField("索引最大 CPU 使用率", "限制索引过程可使用的逻辑处理器比例。100 表示不限制，仅 Windows 生效。", 0xf8cb, ConfigFieldType.整数, null, 100, 5, 5)]
     public int indexingMaximumCpuUsagePercent = 50;
+
+    [ConfigField("自动索引忽略的目录名称", "路径中包含这些目录名称时不会自动索引，例如缓存目录和 .minecraft。", 0xF2D7, ConfigFieldType.字符串列表支持添加)]
+    public ObservableCollection<string> transientDirectoryNames =
+        new(DefaultTransientDirectoryNames);
+
+    [ConfigField("自动索引允许的文件扩展名", "自动扫描默认目录和自定义目录时，仅纳入这些扩展名；不限制 Everything 自动发现和手动指定的索引文件。可填写 .pdf、*.pdf 或 *（允许全部扩展名）。", 0xF2D7, ConfigFieldType.字符串列表支持添加)]
+    public ObservableCollection<string> allowedFileExtensions =
+        new(DefaultAllowedFileExtensions);
 
     [ConfigField("自定义索引目录", "普通搜索会预先索引这些目录中的文件", 0xF2D7, ConfigFieldType.目录列表)]
     public ObservableCollection<string> managedIndexDirectories = new();

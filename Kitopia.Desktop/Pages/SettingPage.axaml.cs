@@ -540,6 +540,14 @@ public partial class SettingPage : UserControl
         {
             _ = maintenanceService?.RefreshEverythingFilesAsync();
         }
+        else if (fieldName == nameof(KitopiaConfig.transientDirectoryNames))
+        {
+            _ = RefreshAllFileSourcesAsync(maintenanceService);
+        }
+        else if (fieldName == nameof(KitopiaConfig.allowedFileExtensions))
+        {
+            _ = RefreshManagedIndexAsync(maintenanceService);
+        }
         else if (fieldName is nameof(KitopiaConfig.managedIndexDirectories) or nameof(KitopiaConfig.managedIndexFiles))
         {
             _ = RefreshManagedIndexAsync(maintenanceService);
@@ -583,6 +591,22 @@ public partial class SettingPage : UserControl
         }
 
         await index.IndexIncrementalAsync(IndexRebuildScope.Files);
+    }
+
+    private static async Task RefreshAllFileSourcesAsync(IIndexMaintenanceService? maintenanceService)
+    {
+        if (maintenanceService is null)
+        {
+            return;
+        }
+
+        await maintenanceService.RefreshManagedFilesAsync();
+        await maintenanceService.RefreshEverythingFilesAsync();
+        var index = ServiceManager.Services.GetService<IIndexService>();
+        if (index is not null)
+        {
+            await index.IndexIncrementalAsync(IndexRebuildScope.Files);
+        }
     }
 
     private void ScheduleRequestedFieldScroll()

@@ -1457,12 +1457,23 @@ public sealed class IndexService : IIndexService, IDisposable
         && state.Length == fingerprint.Length
         && state.LastWriteUtcTicks == fingerprint.LastWriteUtcTicks;
 
-    internal static bool ShouldAutomaticallyIndexFile(string path)
+    internal static bool ShouldAutomaticallyIndexFile(string path) =>
+        ShouldAutomaticallyIndexFile(path, enforceAllowedFileExtensions: true);
+
+    internal static bool ShouldAutomaticallyIndexEverythingFile(string path) =>
+        ShouldAutomaticallyIndexFile(path, enforceAllowedFileExtensions: false);
+
+    private static bool ShouldAutomaticallyIndexFile(string path, bool enforceAllowedFileExtensions)
     {
         try
         {
             var fileName = Path.GetFileName(path);
             if (fileName.StartsWith('$') || fileName.StartsWith("~$", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (enforceAllowedFileExtensions && !IsAllowedFileExtension(path))
             {
                 return false;
             }
@@ -1489,14 +1500,61 @@ public sealed class IndexService : IIndexService, IDisposable
         }
     }
 
-    private static bool IsTransientDirectoryName(string name) =>
-        name.Equals("temp", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("tmp", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("temporary", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("cache", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("caches", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("inetcache", StringComparison.OrdinalIgnoreCase)
-        || name.Equals("temporary internet files", StringComparison.OrdinalIgnoreCase);
+    private static bool IsAllowedFileExtension(string path)
+    {
+        var extension = Path.GetExtension(path);
+        IEnumerable<string> configuredExtensions =
+            ConfigManger.Configs.TryGetValue("KitopiaConfig", out var config)
+            && config is KitopiaConfig kitopiaConfig
+                ? kitopiaConfig.allowedFileExtensions ?? KitopiaConfig.DefaultAllowedFileExtensions
+                : KitopiaConfig.DefaultAllowedFileExtensions;
+        foreach (var configuredExtension in configuredExtensions)
+        {
+            if (string.IsNullOrWhiteSpace(configuredExtension))
+            {
+                continue;
+            }
+
+            var normalized = configuredExtension.Trim();
+            if (normalized == "*")
+            {
+                return true;
+            }
+
+            if (string.IsNullOrEmpty(extension))
+            {
+                continue;
+            }
+
+            if (normalized.StartsWith("*.", StringComparison.Ordinal))
+            {
+                normalized = normalized[1..];
+            }
+            else if (normalized[0] != '.')
+            {
+                normalized = "." + normalized;
+            }
+
+            if (extension.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsTransientDirectoryName(string name)
+    {
+        IEnumerable<string> configuredNames =
+            ConfigManger.Configs.TryGetValue("KitopiaConfig", out var config)
+            && config is KitopiaConfig kitopiaConfig
+                ? kitopiaConfig.transientDirectoryNames ?? KitopiaConfig.DefaultTransientDirectoryNames
+                : KitopiaConfig.DefaultTransientDirectoryNames;
+        return configuredNames.Any(configuredName =>
+            !string.IsNullOrWhiteSpace(configuredName)
+            && string.Equals(configuredName.Trim(), name, StringComparison.OrdinalIgnoreCase));
+    }
 
     private static bool TryCreateFileEntry(string path, out SearchEntry entry)
     {

@@ -147,7 +147,7 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
                 continue;
             }
 
-            if (IndexService.ShouldAutomaticallyIndexFile(fullPath))
+            if (IndexService.ShouldAutomaticallyIndexEverythingFile(fullPath))
             {
                 yield return fullPath;
             }
