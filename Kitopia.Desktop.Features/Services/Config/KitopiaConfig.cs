@@ -184,7 +184,7 @@ public class KitopiaConfig : ConfigBase
 
 
     [ConfigFieldCategory("鼠标快捷操作")] [ConfigField("允许对鼠标进行捕获", "允许对鼠标进行捕获(禁用后鼠标快捷键无效)", 0xE61C, ConfigFieldType.布尔)]
-    public bool mouseCapture = true;
+    public bool mouseCapture = false;
 
     [ConfigField("鼠标快捷键", "激活鼠标快捷菜单快捷键", 0xF4B8, ConfigFieldType.快捷键, actionName: "mouseHotkeyAction")]
     public HotKeyModel mouseHotkey = new()
