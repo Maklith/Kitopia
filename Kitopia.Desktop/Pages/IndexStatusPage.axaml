@@ -2,15 +2,52 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
              xmlns:pages="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages;assembly=Kitopia.Desktop.Features"
              mc:Ignorable="d"
-             d:DesignWidth="800" d:DesignHeight="450"
+             d:DesignWidth="900"
+             d:DesignHeight="620"
              x:DataType="pages:IndexStatusPageViewModel"
              x:Class="Kitopia.Desktop.Pages.IndexStatusPage">
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
-        <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Text="索引状态" />
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
+        <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Text="文件索引" />
 
-        <WrapPanel Grid.Row="1" ItemHeight="78" ItemWidth="150">
+        <Border Grid.Row="1" Theme="{DynamicResource KitopiaCard}" Padding="16">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                    <TextBlock Classes="H6" Text="总文件索引进度" />
+                    <TextBlock Grid.Column="1" Text="{Binding FileProgressText}" Foreground="{DynamicResource SemiColorText1}" />
+                </Grid>
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <ProgressBar Height="8"
+                                 Minimum="0"
+                                 Maximum="{Binding ProgressMaximum}"
+                                 Value="{Binding ProgressValue}"
+                                 IsIndeterminate="{Binding IsProgressIndeterminate}" />
+                    <Button Grid.Column="1"
+                            Width="32"
+                            Height="32"
+                            Padding="0"
+                            Command="{Binding ToggleIndexingCommand}"
+                            ToolTip.Tip="{Binding IndexControlToolTip}">
+                        <controls:FontIcon Glyph="{Binding IndexControlGlyph}" FontSize="16" />
+                    </Button>
+                </Grid>
+                <Grid Grid.Row="2" ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                    <TextBlock Text="当前阶段" Foreground="{DynamicResource SemiColorText1}" />
+                    <TextBlock Grid.Column="1" Text="{Binding ActiveOperationText}" TextWrapping="Wrap" />
+                </Grid>
+                <Grid Grid.Row="3" ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                    <TextBlock Text="当前文件" Foreground="{DynamicResource SemiColorText1}" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding CurrentItemText}"
+                               TextWrapping="Wrap"
+                               ToolTip.Tip="{Binding CurrentItemText}" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <WrapPanel Grid.Row="2" ItemHeight="78" ItemWidth="150">
             <Border Theme="{DynamicResource KitopiaCard}" Margin="4"><StackPanel Margin="12"><TextBlock Text="总条目" /><TextBlock Classes="H4" Text="{Binding Status.TotalEntries}" /></StackPanel></Border>
             <Border Theme="{DynamicResource KitopiaCard}" Margin="4"><StackPanel Margin="12"><TextBlock Text="应用与插件" /><TextBlock Classes="H4" Text="{Binding Status.ApplicationEntries}" /></StackPanel></Border>
             <Border Theme="{DynamicResource KitopiaCard}" Margin="4"><StackPanel Margin="12"><TextBlock Text="文档条目" /><TextBlock Classes="H4" Text="{Binding Status.DocumentEntries}" /></StackPanel></Border>
@@ -19,32 +56,29 @@
             <Border Theme="{DynamicResource KitopiaCard}" Margin="4"><StackPanel Margin="12"><TextBlock Text="图片向量" /><TextBlock Classes="H4" Text="{Binding Status.ImageVectorEntries}" /></StackPanel></Border>
         </WrapPanel>
 
-        <ScrollViewer Grid.Row="2">
-            <StackPanel Spacing="10">
-                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="8">
+        <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="16">
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="8">
                     <TextBlock Grid.Row="0" Text="文本模型" Foreground="{DynamicResource SemiColorText1}" />
                     <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Status.TextModel}" />
                     <TextBlock Grid.Row="1" Text="图片模型" Foreground="{DynamicResource SemiColorText1}" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Status.ImageModel}" />
-                    <TextBlock Grid.Row="2" Text="当前操作" Foreground="{DynamicResource SemiColorText1}" />
-                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Status.CurrentOperation}" TextWrapping="Wrap" />
-                    <TextBlock Grid.Row="3" Text="失败图片" Foreground="{DynamicResource SemiColorText1}" />
-                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Status.FailedImages}" />
-                    <TextBlock Grid.Row="4" Text="最近错误" Foreground="{DynamicResource SemiColorText1}" />
-                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Status.LastError}" TextWrapping="Wrap" Foreground="{DynamicResource SemiColorText2}" />
+                    <TextBlock Grid.Row="2" Text="失败图片" Foreground="{DynamicResource SemiColorText1}" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Status.FailedImages}" />
+                    <TextBlock Grid.Row="3" Text="最近错误" Foreground="{DynamicResource SemiColorText1}" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LatestErrorText}" TextWrapping="Wrap" Foreground="{DynamicResource SemiColorText2}" />
                 </Grid>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Content="索引目录和文件设置" Command="{Binding OpenManagedIndexSettingsCommand}" />
-                    <Button Content="Everything 设置" Command="{Binding OpenEverythingSettingsCommand}" />
-                </StackPanel>
+
+                <WrapPanel ItemHeight="36" ItemWidth="160">
+                    <Button Margin="4" Content="索引目录和文件设置" Command="{Binding OpenManagedIndexSettingsCommand}" />
+                    <Button Margin="4" Content="Everything 设置" Command="{Binding OpenEverythingSettingsCommand}" />
+                </WrapPanel>
+
+                <WrapPanel ItemHeight="36">
+                    <Button Margin="4" Command="{Binding CancelIndexingCommand}" Content="取消索引" />
+                    <Button Margin="4" Command="{Binding ConfirmResetAndRebuildCommand}" Content="清空文件索引并重建" />
+                </WrapPanel>
             </StackPanel>
         </ScrollViewer>
-
-        <WrapPanel Grid.Row="3" HorizontalAlignment="Right" ItemHeight="36">
-            <Button Margin="4" Command="{Binding RebuildPinyinCommand}" Content="重建拼音" />
-            <Button Margin="4" Command="{Binding RebuildDocumentsCommand}" Content="重建文本" />
-            <Button Margin="4" Command="{Binding RebuildImagesCommand}" Content="重建图片" />
-            <Button Margin="4" Classes="Primary" Command="{Binding RebuildAllCommand}" Content="重建全部" />
-        </WrapPanel>
     </Grid>
 </UserControl>

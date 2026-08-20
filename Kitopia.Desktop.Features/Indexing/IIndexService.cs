@@ -60,6 +60,18 @@ public interface IIndexService : ISearchEntryIndex
     Task IndexIncrementalAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default);
 
     Task RebuildAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes all persisted file manifests, vectors, and file fingerprints. Search entries and
+    /// user configuration remain intact and can be discovered again after the reset.
+    /// </summary>
+    Task ResetAsync(CancellationToken cancellationToken = default);
+
+    void PauseIndexing();
+
+    void ResumeIndexing();
+
+    void CancelIndexing();
 }
 
 /// <summary>
@@ -72,6 +84,8 @@ public interface IIndexMaintenanceService
     Task RefreshEverythingFilesAsync(CancellationToken cancellationToken = default);
 
     Task RefreshManagedFilesAsync(CancellationToken cancellationToken = default);
+
+    Task StopBackgroundIndexingAsync();
 
     void RefreshWindowOpenEntries();
 }

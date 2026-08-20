@@ -43,6 +43,10 @@ public sealed class IndexService : IIndexService, IDisposable
     private ChineseClipEmbeddingService? _imageEmbeddingService;
     private readonly IOcrService? _ocrService;
     private IndexStatusSnapshot _status = IndexStatusSnapshot.Empty;
+    private readonly object _operationStateLock = new();
+    private CancellationTokenSource? _activeOperationCancellation;
+    private TaskCompletionSource<bool>? _resumeSignal;
+    private bool _isPaused;
 
     public event EventHandler<IndexStatusSnapshot>? StatusChanged;
 
@@ -54,6 +58,67 @@ public sealed class IndexService : IIndexService, IDisposable
     }
 
     public IndexStatusSnapshot GetStatus() => Volatile.Read(ref _status);
+
+    public void PauseIndexing()
+    {
+        lock (_operationStateLock)
+        {
+            if (_activeOperationCancellation is null || _isPaused)
+            {
+                return;
+            }
+
+            _isPaused = true;
+            _resumeSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        UpdateStatus(status => status with { IsPaused = true });
+    }
+
+    public void ResumeIndexing()
+    {
+        TaskCompletionSource<bool>? resumeSignal;
+        lock (_operationStateLock)
+        {
+            if (!_isPaused)
+            {
+                return;
+            }
+
+            _isPaused = false;
+            resumeSignal = _resumeSignal;
+            _resumeSignal = null;
+        }
+
+        resumeSignal?.TrySetResult(true);
+        if (GetStatus().IsRebuilding)
+        {
+            UpdateStatus(status => status with { IsPaused = false });
+        }
+    }
+
+    public void CancelIndexing()
+    {
+        CancellationTokenSource? cancellation;
+        TaskCompletionSource<bool>? resumeSignal;
+        lock (_operationStateLock)
+        {
+            cancellation = _activeOperationCancellation;
+            _isPaused = false;
+            resumeSignal = _resumeSignal;
+            _resumeSignal = null;
+        }
+
+        resumeSignal?.TrySetResult(true);
+        try
+        {
+            cancellation?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The operation completed while the cancellation request was being issued.
+        }
+    }
 
     public bool TryAdd(SearchEntry entry, IndexSource source = IndexSource.Application)
     {
@@ -564,7 +629,60 @@ public sealed class IndexService : IIndexService, IDisposable
         return EntryKeyComparer.Compare(candidate.Key, currentWorst.Key) > 0;
     }
 
-    public async Task IndexIncrementalAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default)
+    public Task IndexIncrementalAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default) =>
+        RunIndexingAsync(scope, rebuild: false, cancellationToken);
+
+    public Task RebuildAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default) =>
+        RunIndexingAsync(scope, rebuild: true, cancellationToken);
+
+    public async Task ResetAsync(CancellationToken cancellationToken = default)
+    {
+        await _rebuildGate.WaitAsync(cancellationToken);
+        var operationCancellation = BeginOperation(cancellationToken);
+        try
+        {
+            var operationToken = operationCancellation.Token;
+            UpdateStatus(status => status with
+            {
+                IsRebuilding = true,
+                IsPaused = false,
+                TotalFileItems = 0,
+                CompletedFileItems = 0,
+                CurrentOperation = "正在清空文件索引",
+                CurrentItem = null,
+                LastError = null
+            });
+            await WaitIfPausedAsync(operationToken);
+            await _store.ResetAsync(operationToken);
+        }
+        catch (OperationCanceledException) when (operationCancellation.IsCancellationRequested)
+        {
+            Logger.Information("Index reset was cancelled.");
+        }
+        catch (Exception exception)
+        {
+            UpdateStatus(status => status with { LastError = exception.Message });
+            throw;
+        }
+        finally
+        {
+            FinishOperation(operationCancellation);
+            UpdateStatus(status => status with
+            {
+                IsRebuilding = false,
+                IsPaused = false,
+                CurrentOperation = null,
+                CurrentItem = null
+            });
+            _rebuildGate.Release();
+            PublishStatus();
+        }
+    }
+
+    private async Task RunIndexingAsync(
+        IndexRebuildScope scope,
+        bool rebuild,
+        CancellationToken cancellationToken)
     {
         await _rebuildGate.WaitAsync(cancellationToken);
         var indexDocuments = scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Files;
@@ -572,28 +690,62 @@ public sealed class IndexService : IIndexService, IDisposable
         var originalProcessorAffinity = indexDocuments || indexImages
             ? LimitIndexingCpu()
             : null;
+        var operationCancellation = BeginOperation(cancellationToken);
         try
         {
+            var operationToken = operationCancellation.Token;
             UpdateStatus(status => status with
             {
                 IsRebuilding = true,
-                CurrentOperation = $"Updating {scope} index", LastError = null
+                IsPaused = false,
+                TotalFileItems = 0,
+                CompletedFileItems = 0,
+                CurrentOperation = rebuild ? "正在准备重建索引" : "正在准备更新索引",
+                CurrentItem = null,
+                LastError = null
             });
 
             if (scope is IndexRebuildScope.All or IndexRebuildScope.Pinyin)
             {
-                await RebuildPinyinSearcherAsync(cancellationToken);
+                await WaitIfPausedAsync(operationToken);
+                UpdateStatus(status => status with { CurrentOperation = "正在重建拼音索引", CurrentItem = null });
+                await RebuildPinyinSearcherAsync(operationToken);
+            }
+
+            if (rebuild && indexDocuments)
+            {
+                await WaitIfPausedAsync(operationToken);
+                UpdateStatus(status => status with { CurrentOperation = "正在清空文本索引", CurrentItem = null });
+                await _store.ClearAsync(IndexRebuildScope.Documents, operationToken);
+            }
+
+            if (rebuild && indexImages)
+            {
+                await WaitIfPausedAsync(operationToken);
+                UpdateStatus(status => status with { CurrentOperation = "正在清空图片索引", CurrentItem = null });
+                await _store.ClearAsync(IndexRebuildScope.Images, operationToken);
             }
 
             if (indexDocuments || indexImages)
             {
-                await IndexFileVectorsAsync(indexDocuments, indexImages, force: false, cancellationToken);
+                await IndexFileVectorsAsync(indexDocuments, indexImages, rebuild, operationToken);
             }
 
             if (indexDocuments)
             {
-                await IndexGenericTextEntriesAsync(cancellationToken);
+                await WaitIfPausedAsync(operationToken);
+                UpdateStatus(status => status with { CurrentOperation = "正在更新应用和插件文本索引", CurrentItem = null });
+                await IndexGenericTextEntriesAsync(operationToken);
             }
+        }
+        catch (OperationCanceledException) when (operationCancellation.IsCancellationRequested)
+        {
+            Logger.Information("Index operation {Scope} was cancelled.", scope);
+        }
+        catch (Exception exception)
+        {
+            UpdateStatus(status => status with { LastError = exception.Message });
+            throw;
         }
         finally
         {
@@ -603,71 +755,85 @@ public sealed class IndexService : IIndexService, IDisposable
             }
 
             RestoreProcessorAffinity(originalProcessorAffinity);
-            UpdateStatus(status => status with { IsRebuilding = false, CurrentOperation = null });
+            FinishOperation(operationCancellation);
+            UpdateStatus(status => status with
+            {
+                IsRebuilding = false,
+                IsPaused = false,
+                CurrentOperation = null,
+                CurrentItem = null,
+                ProcessingImages = 0
+            });
             _rebuildGate.Release();
             PublishStatus();
         }
     }
 
-    public async Task RebuildAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default)
+    private CancellationTokenSource BeginOperation(CancellationToken cancellationToken)
     {
-        await _rebuildGate.WaitAsync(cancellationToken);
-        var indexDocuments = scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Files;
-        var indexImages = scope is IndexRebuildScope.All or IndexRebuildScope.Images or IndexRebuildScope.Files;
-        var originalProcessorAffinity = indexDocuments || indexImages
-            ? LimitIndexingCpu()
-            : null;
-        try
+        var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        lock (_operationStateLock)
         {
-            UpdateStatus(status => status with { IsRebuilding = true, CurrentOperation = $"Rebuilding {scope} index", LastError = null });
-            if (scope is IndexRebuildScope.All or IndexRebuildScope.Pinyin)
-            {
-                await RebuildPinyinSearcherAsync(cancellationToken);
-            }
-
-            if (indexDocuments)
-            {
-                await _store.ClearAsync(IndexRebuildScope.Documents, cancellationToken);
-            }
-
-            if (indexImages)
-            {
-                await _store.ClearAsync(IndexRebuildScope.Images, cancellationToken);
-            }
-
-            if (indexDocuments || indexImages)
-            {
-                await IndexFileVectorsAsync(indexDocuments, indexImages, force: true, cancellationToken);
-            }
-
-            if (indexDocuments)
-            {
-                await IndexGenericTextEntriesAsync(cancellationToken);
-            }
+            _activeOperationCancellation = operationCancellation;
         }
-        finally
+
+        return operationCancellation;
+    }
+
+    private void FinishOperation(CancellationTokenSource operationCancellation)
+    {
+        TaskCompletionSource<bool>? resumeSignal;
+        lock (_operationStateLock)
         {
-            if (indexDocuments || indexImages)
+            if (ReferenceEquals(_activeOperationCancellation, operationCancellation))
             {
-                await ReleaseIndexingSessionsAsync();
+                _activeOperationCancellation = null;
             }
 
-            RestoreProcessorAffinity(originalProcessorAffinity);
-            UpdateStatus(status => status with { IsRebuilding = false, CurrentOperation = null });
-            _rebuildGate.Release();
-            PublishStatus();
+            _isPaused = false;
+            resumeSignal = _resumeSignal;
+            _resumeSignal = null;
         }
+
+        resumeSignal?.TrySetResult(true);
+        operationCancellation.Dispose();
+    }
+
+    private async Task WaitIfPausedAsync(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            Task? resumeTask;
+            lock (_operationStateLock)
+            {
+                if (!_isPaused)
+                {
+                    break;
+                }
+
+                resumeTask = _resumeSignal!.Task;
+            }
+
+            await resumeTask.WaitAsync(cancellationToken);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     private async Task IndexImageWithStatusAsync(
         string fullPath,
-        string displayName,
         bool force,
         CancellationToken cancellationToken)
     {
         try
         {
-            UpdateStatus(status => status with { ProcessingImages = status.ProcessingImages + 1, CurrentOperation = $"Indexing image: {displayName}", LastError = null });
+            UpdateStatus(status => status with
+            {
+                ProcessingImages = status.ProcessingImages + 1,
+                CurrentOperation = "正在索引图片",
+                CurrentItem = fullPath,
+                LastError = null
+            });
             if (!TryGetImageEmbeddingService(out var embeddingService))
             {
                 throw new InvalidOperationException("Chinese-CLIP RN50 INT8 model files are unavailable.");
@@ -791,8 +957,7 @@ public sealed class IndexService : IIndexService, IDisposable
 
             UpdateStatus(status => status with
             {
-                ProcessingImages = Math.Max(0, status.ProcessingImages - 1),
-                CurrentOperation = null
+                ProcessingImages = Math.Max(0, status.ProcessingImages - 1)
             });
             PublishStatus();
         }
@@ -806,13 +971,40 @@ public sealed class IndexService : IIndexService, IDisposable
     {
         BgeOnnxEmbeddingService? documentEmbeddingService = null;
         var documentEmbeddingChecked = false;
+        UpdateStatus(status => status with
+        {
+            CurrentOperation = "正在统计待索引文件",
+            CurrentItem = null,
+            TotalFileItems = 0,
+            CompletedFileItems = 0
+        });
+        var totalFileItems = 0;
+        await foreach (var _ in EnumerateIndexableFilePathsAsync(indexDocuments, indexImages, cancellationToken))
+        {
+            await WaitIfPausedAsync(cancellationToken);
+            totalFileItems++;
+        }
+
+        UpdateStatus(status => status with
+        {
+            CurrentOperation = "正在索引文件",
+            CurrentItem = null,
+            TotalFileItems = totalFileItems,
+            CompletedFileItems = 0
+        });
+        var completedFileItems = 0;
 
         await foreach (var (path, kind) in EnumerateIndexableFilePathsAsync(
                            indexDocuments,
                            indexImages,
                            cancellationToken))
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            await WaitIfPausedAsync(cancellationToken);
+            UpdateStatus(status => status with
+            {
+                CurrentOperation = kind == IndexFileKind.Image ? "正在索引图片" : "正在索引文档",
+                CurrentItem = path
+            });
             if (kind == IndexFileKind.Document)
             {
                 if (!documentEmbeddingChecked)
@@ -825,17 +1017,20 @@ public sealed class IndexService : IIndexService, IDisposable
                 {
                     await IndexDocumentVectorAsync(path, force, documentEmbeddingService, cancellationToken);
                 }
-
-                continue;
+            }
+            else
+            {
+                // Consume the manifest one file at a time. Image vectors, OCR recognition, and
+                // the OCR/BGE vector are completed before the next path is requested from SQLite.
+                await IndexImageWithStatusAsync(path, force, cancellationToken);
             }
 
-            // Consume the manifest one file at a time. Image vectors, OCR recognition, and the
-            // OCR/BGE vector are completed before the next path is requested from SQLite.
-            await IndexImageWithStatusAsync(
-                path,
-                Path.GetFileNameWithoutExtension(path),
-                force,
-                cancellationToken);
+            completedFileItems++;
+            UpdateStatus(status => status with
+            {
+                CompletedFileItems = completedFileItems,
+                TotalFileItems = Math.Max(status.TotalFileItems, completedFileItems)
+            });
         }
     }
 
@@ -982,6 +1177,7 @@ public sealed class IndexService : IIndexService, IDisposable
         var entries = GetGenericTextEntriesSnapshot();
         foreach (var batch in entries.Chunk(32))
         {
+            await WaitIfPausedAsync(cancellationToken);
             var pending = new List<string>(batch.Length);
             var contents = new List<string>(batch.Length);
             foreach (var item in batch)
@@ -1011,7 +1207,6 @@ public sealed class IndexService : IIndexService, IDisposable
         BgeOnnxEmbeddingService embeddingService,
         CancellationToken cancellationToken)
     {
-        UpdateStatus(status => status with { CurrentOperation = $"Indexing document: {Path.GetFileName(path)}" });
         try
         {
             var file = TryGetFileFingerprint(path);
@@ -1257,21 +1452,25 @@ public sealed class IndexService : IIndexService, IDisposable
                 {
                     var vectors = await _store.GetCountsAsync(CancellationToken.None);
                     var (total, applications, documents, images) = await GetEntryCountsAsync(CancellationToken.None);
-                    UpdateStatus(_ => new IndexStatusSnapshot(
+                    UpdateStatus(status => new IndexStatusSnapshot(
                         total,
                         applications,
                         documents,
                         images,
                         vectors.TextVectors,
                         vectors.ImageVectors,
-                        0,
-                        GetStatus().ProcessingImages,
-                        GetStatus().FailedImages,
-                        GetStatus().IsRebuilding,
+                        status.PendingImages,
+                        status.ProcessingImages,
+                        status.FailedImages,
+                        status.IsRebuilding,
+                        status.IsPaused,
+                        status.TotalFileItems,
+                        status.CompletedFileItems,
                         "BGE small zh INT8",
                         "Chinese-CLIP RN50 INT8",
-                        GetStatus().CurrentOperation,
-                        GetStatus().LastError,
+                        status.CurrentOperation,
+                        status.CurrentItem,
+                        status.LastError,
                         DateTimeOffset.UtcNow));
                 }
                 catch (Exception exception)

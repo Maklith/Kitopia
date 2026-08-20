@@ -27,8 +27,10 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
     private readonly IAppToolService _appTools;
     private readonly Dictionary<object, List<string>> _analyzerIndexedKeys = new();
     private readonly SemaphoreSlim _everythingRefreshGate = new(1, 1);
+    private readonly object _backgroundIndexingLock = new();
     private int _reloading;
-    private int _backgroundIndexing;
+    private CancellationTokenSource? _backgroundIndexingCancellation;
+    private Task? _backgroundIndexingTask;
 
     public IndexMaintenanceService(IIndexService index, IAppToolService appTools)
     {
@@ -304,29 +306,82 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
         }
     }
 
-    private void QueueBackgroundIndexing()
+    public async Task StopBackgroundIndexingAsync()
     {
-        if (Interlocked.Exchange(ref _backgroundIndexing, 1) != 0)
+        CancellationTokenSource? cancellation;
+        Task? task;
+        lock (_backgroundIndexingLock)
+        {
+            cancellation = _backgroundIndexingCancellation;
+            task = _backgroundIndexingTask;
+        }
+
+        try
+        {
+            cancellation?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The background task finished after its state was read.
+        }
+        if (task is null)
         {
             return;
         }
 
-        _ = Task.Run(async () =>
+        try
         {
-            try
+            await task;
+        }
+        catch (OperationCanceledException)
+        {
+            // The caller deliberately stopped the startup indexing pass.
+        }
+    }
+
+    private void QueueBackgroundIndexing()
+    {
+        lock (_backgroundIndexingLock)
+        {
+            if (_backgroundIndexingTask is { IsCompleted: false })
             {
-                await RefreshEverythingFilesAsync();
-                await _index.IndexIncrementalAsync(IndexRebuildScope.Files);
+                return;
             }
-            catch (Exception exception)
+
+            var cancellation = new CancellationTokenSource();
+            _backgroundIndexingCancellation = cancellation;
+            _backgroundIndexingTask = Task.Run(() => RunBackgroundIndexingAsync(cancellation));
+        }
+    }
+
+    private async Task RunBackgroundIndexingAsync(CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await RefreshEverythingFilesAsync(cancellation.Token);
+            await _index.IndexIncrementalAsync(IndexRebuildScope.Files, cancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            Logger.Information("Background file indexing was cancelled.");
+        }
+        catch (Exception exception)
+        {
+            Logger.Warning(exception, "Background document and image indexing failed.");
+        }
+        finally
+        {
+            lock (_backgroundIndexingLock)
             {
-                Logger.Warning(exception, "Background document and image indexing failed.");
+                if (ReferenceEquals(_backgroundIndexingCancellation, cancellation))
+                {
+                    _backgroundIndexingCancellation = null;
+                    _backgroundIndexingTask = null;
+                }
             }
-            finally
-            {
-                Volatile.Write(ref _backgroundIndexing, 0);
-            }
-        });
+
+            cancellation.Dispose();
+        }
     }
 
     private void StartEverythingWhenConfigured()

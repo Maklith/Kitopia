@@ -850,6 +850,30 @@ internal sealed class IndexVectorStore
         }
     }
 
+    public async Task ResetAsync(CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await using var connection = await OpenAsync(cancellationToken);
+            await ExecuteAsync(connection, $"""
+                DELETE FROM {TextVectorTable};
+                DELETE FROM {TextMetadataTable};
+                DELETE FROM {ImageMetadataTable};
+                DELETE FROM {ImageVectorTable};
+                DELETE FROM {FileStateTable};
+                DELETE FROM {FileSourceStagingTable};
+                DELETE FROM {FileSourceScanTable};
+                DELETE FROM {FileSourceTable};
+                """, cancellationToken);
+            _fileSourceGeneration = 0;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task<(int TextVectors, int ImageVectors)> GetCountsAsync(CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);

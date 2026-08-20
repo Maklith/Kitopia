@@ -114,6 +114,36 @@ public sealed class IndexVectorStoreTests
     }
 
     [TestMethod]
+    public async Task ResetAsync_DeletesPersistentFileIndexData()
+    {
+        var document = Path.Combine(_directory, "document.txt");
+        var image = Path.Combine(_directory, "image.png");
+        const string textModel = "text-model";
+        const string imageModel = "image-model";
+        await _store.SynchronizeFileSourceAsync(
+            IndexSource.Manual,
+            [document, image],
+            NoProtectedKeys,
+            CancellationToken.None);
+        await _store.UpsertDocumentTextAsync(document, textModel, new float[512], CancellationToken.None);
+        await _store.UpsertImageAsync(image, "1:1", imageModel, new float[1024], CancellationToken.None);
+        await _store.UpsertFileStateAsync(
+            new FileIndexState(document, IndexFileKind.Document, 1, 1, "document", false, null),
+            CancellationToken.None);
+
+        await _store.ResetAsync(CancellationToken.None);
+
+        CollectionAssert.AreEqual(Array.Empty<string>(), await ReadPathsAsync());
+        Assert.AreEqual((0, 0), await _store.GetCountsAsync(CancellationToken.None));
+        Assert.IsNull(await _store.GetFileStateAsync(document, IndexFileKind.Document, CancellationToken.None));
+        Assert.IsTrue(await _store.SynchronizeFileSourceAsync(
+            IndexSource.Manual,
+            [document],
+            NoProtectedKeys,
+            CancellationToken.None));
+    }
+
+    [TestMethod]
     public async Task HasCompletedOcrForContentHashAsync_RequiresAnOcrVector()
     {
         var image = Path.Combine(_directory, "image.png");
