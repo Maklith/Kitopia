@@ -156,7 +156,12 @@ internal static partial class DocumentTextExtractor
     private static IEnumerable<string> ReadPdfChunks(string path, TokenCounter countTokens, CancellationToken cancellationToken)
     {
         var chunker = new TextChunker(countTokens);
-        using var document = PdfReader.Open(path, PdfDocumentOpenMode.Import);
+        using var document = TryOpenPdf(path);
+        if (document is null)
+        {
+            yield break;
+        }
+
         var cmapCache = new Dictionary<PdfDictionary, Dictionary<ushort, string>>(ReferenceEqualityComparer.Instance);
         foreach (var page in document.Pages)
         {
@@ -185,6 +190,18 @@ internal static partial class DocumentTextExtractor
         if (finalChunk is not null)
         {
             yield return finalChunk;
+        }
+    }
+
+    private static PdfDocument? TryOpenPdf(string path)
+    {
+        try
+        {
+            return PdfReader.Open(path, PdfDocumentOpenMode.Import);
+        }
+        catch (Exception exception) when (IsRecoverableDocumentFormatException(exception))
+        {
+            return null;
         }
     }
 
@@ -1089,7 +1106,12 @@ internal static partial class DocumentTextExtractor
         TokenCounter countTokens,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        using var archive = ZipFile.OpenRead(path);
+        using var archive = TryOpenArchive(path);
+        if (archive is null)
+        {
+            yield break;
+        }
+
         var entries = extension.ToLowerInvariant() switch
         {
             ".docx" => archive.Entries.Where(entry => entry.FullName.Equals("word/document.xml", StringComparison.OrdinalIgnoreCase)
@@ -1108,63 +1130,67 @@ internal static partial class DocumentTextExtractor
         foreach (var entry in entries.OrderBy(entry => entry.FullName, StringComparer.OrdinalIgnoreCase))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await using var stream = entry.Open();
-            using var reader = XmlReader.Create(stream, new XmlReaderSettings
+            var chunkerCheckpoint = chunker.CreateCheckpoint();
+            var entryProducedChunk = false;
+            var retryWithTolerantReader = false;
+            await using (var entryEnumerator = ReadOpenXmlEntryChunksAsync(
+                             entry,
+                             chunker,
+                             textBuffer,
+                             cancellationToken).GetAsyncEnumerator(cancellationToken))
             {
-                Async = true,
-                DtdProcessing = DtdProcessing.Prohibit,
-                IgnoreComments = true,
-                IgnoreProcessingInstructions = true
-            });
-
-            while (await reader.ReadAsync())
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (reader.NodeType == XmlNodeType.Element)
+                while (true)
                 {
-                    if (reader.LocalName is "p" or "br" or "tab")
+                    bool hasNext;
+                    try
                     {
-                        if (chunker.Append('\n') is { } chunk)
-                        {
-                            yield return chunk;
-                        }
+                        hasNext = await entryEnumerator.MoveNextAsync();
+                    }
+                    catch (XmlException)
+                    {
+                        retryWithTolerantReader = !entryProducedChunk;
+                        break;
+                    }
+                    catch (Exception exception) when (IsRecoverableDocumentFormatException(exception))
+                    {
+                        break;
                     }
 
-                    if (reader.LocalName is "t" or "instrText")
+                    if (!hasNext)
                     {
-                        if (reader.IsEmptyElement)
-                        {
-                            continue;
-                        }
-
-                        while (await reader.ReadAsync())
-                        {
-                            cancellationToken.ThrowIfCancellationRequested();
-                            if (reader.NodeType == XmlNodeType.EndElement)
-                            {
-                                break;
-                            }
-
-                            if (reader.NodeType is not (XmlNodeType.Text or XmlNodeType.CDATA or XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace))
-                            {
-                                continue;
-                            }
-
-                            int read;
-                            while ((read = await reader.ReadValueChunkAsync(textBuffer, 0, textBuffer.Length)) > 0)
-                            {
-                                for (var index = 0; index < read; index++)
-                                {
-                                    if (chunker.Append(textBuffer[index]) is { } chunk)
-                                    {
-                                        yield return chunk;
-                                    }
-                                }
-                            }
-                        }
+                        break;
                     }
 
-                    continue;
+                    entryProducedChunk = true;
+                    yield return entryEnumerator.Current;
+                }
+            }
+
+            if (retryWithTolerantReader)
+            {
+                chunker.RestoreCheckpoint(chunkerCheckpoint);
+                using var tolerantEnumerator = ReadOpenXmlEntryChunksTolerantly(
+                    entry,
+                    chunker,
+                    cancellationToken).GetEnumerator();
+                while (true)
+                {
+                    bool hasNext;
+                    try
+                    {
+                        hasNext = tolerantEnumerator.MoveNext();
+                    }
+                    catch (Exception exception) when (IsRecoverableDocumentFormatException(exception))
+                    {
+                        break;
+                    }
+
+                    if (!hasNext)
+                    {
+                        break;
+                    }
+
+                    yield return tolerantEnumerator.Current;
                 }
             }
         }
@@ -1174,6 +1200,155 @@ internal static partial class DocumentTextExtractor
         {
             yield return finalChunk;
         }
+    }
+
+    private static ZipArchive? TryOpenArchive(string path)
+    {
+        try
+        {
+            return ZipFile.OpenRead(path);
+        }
+        catch (Exception exception) when (IsRecoverableDocumentFormatException(exception))
+        {
+            return null;
+        }
+    }
+
+    private static async IAsyncEnumerable<string> ReadOpenXmlEntryChunksAsync(
+        ZipArchiveEntry entry,
+        TextChunker chunker,
+        char[] textBuffer,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await using var stream = entry.Open();
+        using var reader = XmlReader.Create(stream, new XmlReaderSettings
+        {
+            Async = true,
+            DtdProcessing = DtdProcessing.Prohibit,
+            IgnoreComments = true,
+            IgnoreProcessingInstructions = true
+        });
+
+        while (await reader.ReadAsync())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (reader.NodeType != XmlNodeType.Element)
+            {
+                continue;
+            }
+
+            if (reader.LocalName is "p" or "br" or "tab"
+                && chunker.Append('\n') is { } paragraphChunk)
+            {
+                yield return paragraphChunk;
+            }
+
+            if (reader.LocalName is not ("t" or "instrText") || reader.IsEmptyElement)
+            {
+                continue;
+            }
+
+            while (await reader.ReadAsync())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (reader.NodeType == XmlNodeType.EndElement)
+                {
+                    break;
+                }
+
+                if (reader.NodeType is not (XmlNodeType.Text or XmlNodeType.CDATA or XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace))
+                {
+                    continue;
+                }
+
+                int read;
+                while ((read = await reader.ReadValueChunkAsync(textBuffer, 0, textBuffer.Length)) > 0)
+                {
+                    for (var index = 0; index < read; index++)
+                    {
+                        if (chunker.Append(textBuffer[index]) is { } chunk)
+                        {
+                            yield return chunk;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<string> ReadOpenXmlEntryChunksTolerantly(
+        ZipArchiveEntry entry,
+        TextChunker chunker,
+        CancellationToken cancellationToken)
+    {
+        using var stream = entry.Open();
+        using var reader = new XmlTextReader(stream)
+        {
+            Namespaces = false,
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null,
+            WhitespaceHandling = WhitespaceHandling.All
+        };
+
+        while (reader.Read())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (reader.NodeType != XmlNodeType.Element)
+            {
+                continue;
+            }
+
+            var localName = GetXmlLocalName(reader);
+            if (localName is "p" or "br" or "tab"
+                && chunker.Append('\n') is { } paragraphChunk)
+            {
+                yield return paragraphChunk;
+            }
+
+            if (localName is not ("t" or "instrText") || reader.IsEmptyElement)
+            {
+                continue;
+            }
+
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (reader.NodeType == XmlNodeType.EndElement)
+                {
+                    break;
+                }
+
+                if (reader.NodeType is not (XmlNodeType.Text or XmlNodeType.CDATA or XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace))
+                {
+                    continue;
+                }
+
+                var value = reader.Value;
+                for (var index = 0; index < value.Length; index++)
+                {
+                    if (chunker.Append(value[index]) is { } chunk)
+                    {
+                        yield return chunk;
+                    }
+                }
+            }
+        }
+    }
+
+    private static string GetXmlLocalName(XmlReader reader)
+    {
+        var name = reader.LocalName;
+        var separator = name.LastIndexOf(':');
+        return separator >= 0 ? name[(separator + 1)..] : name;
+    }
+
+    internal static bool IsRecoverableDocumentFormatException(Exception exception)
+    {
+        return exception is InvalidDataException
+            or InvalidOperationException
+            or IOException
+            or PdfReaderException
+            or XmlException;
     }
 
     private static Encoding DetectPlainTextEncoding(FileStream stream)
@@ -1337,6 +1512,18 @@ internal static partial class DocumentTextExtractor
             return value;
         }
 
+        public TextChunkerCheckpoint CreateCheckpoint()
+        {
+            return new TextChunkerCheckpoint(_text.Length, _previousWasWhitespace, _nextTokenCheckLength);
+        }
+
+        public void RestoreCheckpoint(TextChunkerCheckpoint checkpoint)
+        {
+            _text.Length = checkpoint.Length;
+            _previousWasWhitespace = checkpoint.PreviousWasWhitespace;
+            _nextTokenCheckLength = checkpoint.NextTokenCheckLength;
+        }
+
         private string TakeChunk(bool forceCharacterLimit)
         {
             var breakIndex = forceCharacterLimit ? FindForcedBreakIndex() : FindBreakIndex();
@@ -1490,6 +1677,11 @@ internal static partial class DocumentTextExtractor
             return char.IsWhiteSpace(character)
                    || character is '.' or '!' or '?' or '\u3002' or '\uFF01' or '\uFF1F';
         }
+
+        public readonly record struct TextChunkerCheckpoint(
+            int Length,
+            bool PreviousWasWhitespace,
+            int NextTokenCheckLength);
     }
 }
 

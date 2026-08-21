@@ -1373,12 +1373,27 @@ public sealed class IndexService : IIndexService, IDisposable
                 cancellationToken);
             if (!copied)
             {
-                var contentVector = DocumentTextExtractor.TryCreateSource(path, out var source)
-                    ? await EmbedDocumentAsync(
-                        source with { ContentHash = contentHash },
-                        embeddingService,
-                        cancellationToken)
-                    : null;
+                float[]? contentVector = null;
+                if (DocumentTextExtractor.TryCreateSource(path, out var source))
+                {
+                    try
+                    {
+                        contentVector = await EmbedDocumentAsync(
+                            source with { ContentHash = contentHash },
+                            embeddingService,
+                            cancellationToken);
+                    }
+                    catch (Exception exception)
+                        when (DocumentTextExtractor.IsRecoverableDocumentFormatException(exception))
+                    {
+                        Logger.Debug(
+                            "Could not extract document content for {DocumentPath}; indexing file metadata instead. {ExceptionType}: {ExceptionMessage}",
+                            path,
+                            exception.GetType().Name,
+                            exception.Message);
+                    }
+                }
+
                 if (contentVector is not null)
                 {
                     await _store.UpsertDocumentTextAsync(path, embeddingService.ModelId, contentVector, cancellationToken);

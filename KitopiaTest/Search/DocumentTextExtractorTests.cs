@@ -211,6 +211,72 @@ public sealed class DocumentTextExtractorTests
     }
 
     [TestMethod]
+    public async Task ExtractChunksAsync_InvalidOpenXml_ReturnsNoChunks()
+    {
+        var path = CreateTemporaryPath(".docx");
+        try
+        {
+            await File.WriteAllTextAsync(path, "not an OpenXML package");
+
+            var chunks = await ExtractChunksAsync(path);
+
+            Assert.AreEqual(0, chunks.Count);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [TestMethod]
+    public async Task ExtractChunksAsync_MalformedOpenXmlEntry_ContinuesWithOtherEntries()
+    {
+        var path = CreateTemporaryPath(".docx");
+        try
+        {
+            using (var archive = ZipFile.Open(path, ZipArchiveMode.Create))
+            {
+                await WriteZipEntryAsync(
+                    archive,
+                    "word/document.xml",
+                    "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body><w:p><w:r><w:t>before malformed markup</w:t></w:r></w:p><wp:anchor /></w:body></w:document>");
+                await WriteZipEntryAsync(
+                    archive,
+                    "word/header1.xml",
+                    "<w:hdr xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:p><w:r><w:t>Termius header text</w:t></w:r></w:p></w:hdr>");
+            }
+
+            var chunks = await ExtractChunksAsync(path);
+            var text = string.Join(' ', chunks);
+
+            StringAssert.Contains(text, "before malformed markup");
+            StringAssert.Contains(text, "Termius header text");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [TestMethod]
+    public async Task ExtractChunksAsync_InvalidPdf_ReturnsNoChunks()
+    {
+        var path = CreateTemporaryPath(".pdf");
+        try
+        {
+            await File.WriteAllTextAsync(path, "not a PDF document");
+
+            var chunks = await ExtractChunksAsync(path);
+
+            Assert.AreEqual(0, chunks.Count);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [TestMethod]
     public async Task ExtractChunksAsync_Pdf_ExtractsPageText()
     {
         var path = CreateTemporaryPath(".pdf");

@@ -410,6 +410,9 @@ internal sealed class IndexVectorStore
     public Task<bool> HasTextVectorAsync(string key, string modelId, CancellationToken cancellationToken) =>
         HasVectorAsync(TextMetadataTable, "key", key, modelId, cancellationToken);
 
+    public Task<bool> HasOcrTextVectorAsync(string key, string modelId, CancellationToken cancellationToken) =>
+        HasTextVectorOfKindAsync(key, modelId, TextContentKind.ImageOcr, cancellationToken);
+
     public Task<bool> HasImageVectorAsync(string path, string modelId, CancellationToken cancellationToken) =>
         HasVectorAsync(ImageMetadataTable, "path", path, modelId, cancellationToken);
 
