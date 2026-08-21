@@ -198,14 +198,17 @@ public partial class IndexStatusPageViewModel : ObservableObject, IDisposable
         await _maintenanceService.RefreshEverythingFilesAsync(cancellationToken);
     }
 
-    private void OnIndexStatusChanged(object? sender, IndexStatusSnapshot status)
+    private void OnIndexStatusChanged(object? sender, IndexStatusSnapshot _)
     {
         if (_disposed)
         {
             return;
         }
 
-        Volatile.Write(ref _pendingStatus, status);
+        // StatusChanged can be raised by the indexing loop and the asynchronous count
+        // publisher concurrently. Always queue the service's newest snapshot so a late
+        // notification cannot replace a newer progress value in the page.
+        Volatile.Write(ref _pendingStatus, _indexService.GetStatus());
         if (Interlocked.Exchange(ref _statusUpdateQueued, 1) != 0)
         {
             return;

@@ -19,7 +19,7 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IndexMaintenanceService>();
     private static readonly EnumerationOptions ManagedFileEnumerationOptions = new()
     {
-        RecurseSubdirectories = true,
+        RecurseSubdirectories = false,
         IgnoreInaccessible = true,
         AttributesToSkip = FileAttributes.ReparsePoint
     };
@@ -27,6 +27,7 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
     private readonly IAppToolService _appTools;
     private readonly Dictionary<object, List<string>> _analyzerIndexedKeys = new();
     private readonly SemaphoreSlim _everythingRefreshGate = new(1, 1);
+    private readonly SemaphoreSlim _managedRefreshGate = new(1, 1);
     private readonly object _backgroundIndexingLock = new();
     private int _reloading;
     private CancellationTokenSource? _backgroundIndexingCancellation;
@@ -83,8 +84,10 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
 
             try
             {
-                await SynchronizeEverythingFilesAsync(
-                    EnumerateFilteredEverythingFiles(cancellationToken),
+                await Task.Run(
+                    () => SynchronizeEverythingFilesAsync(
+                        EnumerateFilteredEverythingFiles(cancellationToken),
+                        cancellationToken),
                     cancellationToken);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -112,13 +115,17 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
 
     public async Task RefreshManagedFilesAsync(CancellationToken cancellationToken = default)
     {
+        await _managedRefreshGate.WaitAsync(cancellationToken);
         var config = ConfigManger.Config;
         try
         {
-            if (await _index.SynchronizeFilesAsync(
+            var changed = await Task.Run(
+                () => _index.SynchronizeFilesAsync(
                     EnumerateManagedFiles(config, cancellationToken),
                     IndexSource.Manual,
-                    cancellationToken))
+                    cancellationToken),
+                cancellationToken);
+            if (changed)
             {
                 await _index.RebuildPinyinSearcherAsync(cancellationToken);
             }
@@ -126,6 +133,10 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             Logger.Warning(exception, "Managed file discovery failed; keeping the previous manifest.");
+        }
+        finally
+        {
+            _managedRefreshGate.Release();
         }
     }
 
@@ -158,24 +169,61 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
 
     private IEnumerable<string> EnumerateManagedFiles(KitopiaConfig config, CancellationToken cancellationToken)
     {
+        var transientDirectoryNames = config.transientDirectoryNames
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var roots = config.managedIndexDirectories
             .Concat(DefaultIndexDirectories())
             .Distinct(PathComparer);
         foreach (var root in roots)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!Directory.Exists(root))
+            if (!TryNormalizePath(root, out var normalizedRoot)
+                || IsTransientDirectory(normalizedRoot, transientDirectoryNames))
             {
                 continue;
             }
 
-            foreach (var path in Directory.EnumerateFiles(root, "*", ManagedFileEnumerationOptions))
+            var pendingDirectories = new Stack<string>();
+            pendingDirectories.Push(normalizedRoot);
+            while (pendingDirectories.Count > 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (IndexService.ShouldAutomaticallyIndexFile(path)
-                    && TryNormalizePath(path, out var normalizedPath))
+                var directory = pendingDirectories.Pop();
+                IEnumerable<string> files;
+                IEnumerable<string> childDirectories;
+                try
                 {
-                    yield return normalizedPath;
+                    files = Directory.EnumerateFiles(directory, "*", ManagedFileEnumerationOptions).ToArray();
+                    childDirectories = Directory.EnumerateDirectories(directory, "*", ManagedFileEnumerationOptions).ToArray();
+                }
+                catch (Exception exception) when (exception is IOException
+                                                 or UnauthorizedAccessException
+                                                 or DirectoryNotFoundException
+                                                 or PathTooLongException
+                                                 or NotSupportedException)
+                {
+                    continue;
+                }
+
+                foreach (var childDirectory in childDirectories)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!IsTransientDirectory(childDirectory, transientDirectoryNames))
+                    {
+                        pendingDirectories.Push(childDirectory);
+                    }
+                }
+
+                foreach (var path in files)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (IndexService.ShouldAutomaticallyIndexFile(path)
+                        && TryNormalizePath(path, out var normalizedPath))
+                    {
+                        yield return normalizedPath;
+                    }
                 }
             }
         }
@@ -337,6 +385,12 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
         {
             // The caller deliberately stopped the startup indexing pass.
         }
+    }
+
+    private static bool IsTransientDirectory(string path, IReadOnlySet<string> transientDirectoryNames)
+    {
+        var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        return !string.IsNullOrEmpty(name) && transientDirectoryNames.Contains(name);
     }
 
     private void QueueBackgroundIndexing()

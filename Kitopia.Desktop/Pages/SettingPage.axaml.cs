@@ -583,6 +583,7 @@ public partial class SettingPage : UserControl
             return;
         }
 
+        await maintenanceService.StopBackgroundIndexingAsync();
         await maintenanceService.RefreshManagedFilesAsync();
         var index = ServiceManager.Services.GetService<IIndexService>();
         if (index is null)
@@ -600,6 +601,7 @@ public partial class SettingPage : UserControl
             return;
         }
 
+        await maintenanceService.StopBackgroundIndexingAsync();
         await maintenanceService.RefreshManagedFilesAsync();
         await maintenanceService.RefreshEverythingFilesAsync();
         var index = ServiceManager.Services.GetService<IIndexService>();

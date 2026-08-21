@@ -24,6 +24,7 @@ public sealed class IndexService : IIndexService, IDisposable
     private const int MinimumSemanticQueryLength = 2;
     private const int ManagedFileSearchBatchSize = 256;
     private const int MaximumOcrInputCharacters = 16 * 1024;
+    private const int ImageInferenceBatchSize = 8;
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IndexService>();
     private static readonly StringComparer EntryKeyComparer =
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
@@ -820,147 +821,195 @@ public sealed class IndexService : IIndexService, IDisposable
         cancellationToken.ThrowIfCancellationRequested();
     }
 
-    private async Task IndexImageWithStatusAsync(
+    private sealed record ImageIndexWorkItem(
+        string Path,
+        FileFingerprint Fingerprint,
+        FileIndexState? Existing,
+        string ContentHash,
+        bool NeedsImageVector,
+        bool OcrAvailable,
+        bool NeedsOcr,
+        string? OcrModelId);
+
+    private async Task<ImageIndexWorkItem> PrepareImageIndexAsync(
         string fullPath,
         bool force,
         CancellationToken cancellationToken)
     {
-        try
+        if (!TryGetImageEmbeddingService(out var imageEmbeddingService))
         {
-            UpdateStatus(status => status with
+            throw new InvalidOperationException("Chinese-CLIP RN50 INT8 model files are unavailable.");
+        }
+
+        var fingerprint = TryGetFileFingerprint(fullPath)
+                          ?? throw new FileNotFoundException("Image file was not found.", fullPath);
+        var existing = await _store.GetFileStateAsync(fullPath, IndexFileKind.Image, cancellationToken);
+        var imageIsCurrent = await _store.HasImageVectorAsync(
+            fullPath, imageEmbeddingService.ModelId, cancellationToken);
+        BgeOnnxEmbeddingService? textEmbeddingService = null;
+        var ocrAvailable = _ocrService is { IsAvailable: true }
+                           && TryGetTextEmbeddingService(out textEmbeddingService);
+        var ocrIsCurrent = !ocrAvailable;
+        if (ocrAvailable)
+        {
+            ocrIsCurrent = existing is { OcrCompleted: true }
+                           && string.Equals(existing.OcrModelId, textEmbeddingService!.ModelId, StringComparison.Ordinal);
+        }
+
+        var metadataMatches = FileStateMatches(existing, fingerprint);
+        if (!force && metadataMatches && imageIsCurrent && ocrIsCurrent)
+        {
+            return new ImageIndexWorkItem(
+                fullPath,
+                fingerprint,
+                existing,
+                existing!.ContentHash,
+                false,
+                ocrAvailable,
+                false,
+                ocrAvailable ? textEmbeddingService!.ModelId : existing?.OcrModelId);
+        }
+
+        var contentHash = metadataMatches
+            ? existing!.ContentHash
+            : await TryComputeFileContentHashAsync(fullPath, cancellationToken)
+              ?? throw new IOException($"Unable to hash image '{fullPath}'.");
+        var contentMatches = existing is not null
+                             && string.Equals(existing.ContentHash, contentHash, StringComparison.Ordinal);
+        return new ImageIndexWorkItem(
+            fullPath,
+            fingerprint,
+            existing,
+            contentHash,
+            force || !imageIsCurrent || !contentMatches,
+            ocrAvailable,
+            ocrAvailable && (!ocrIsCurrent || !contentMatches || force),
+            ocrAvailable ? textEmbeddingService!.ModelId : existing?.OcrModelId);
+    }
+
+    private async Task<HashSet<string>> IndexImageVectorBatchAsync(
+        IReadOnlyList<ImageIndexWorkItem> items,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetImageEmbeddingService(out var embeddingService))
+        {
+            throw new InvalidOperationException("Chinese-CLIP RN50 INT8 model files are unavailable.");
+        }
+
+        var failed = new HashSet<string>(EntryKeyComparer);
+        var pending = new List<ImageIndexWorkItem>(items.Count);
+        foreach (var item in items)
+        {
+            if (!item.NeedsImageVector)
             {
-                ProcessingImages = status.ProcessingImages + 1,
-                CurrentOperation = "正在索引图片",
-                CurrentItem = fullPath,
-                LastError = null
-            });
-            if (!TryGetImageEmbeddingService(out var embeddingService))
-            {
-                throw new InvalidOperationException("Chinese-CLIP RN50 INT8 model files are unavailable.");
+                continue;
             }
 
-            var file = TryGetFileFingerprint(fullPath)
-                       ?? throw new FileNotFoundException("Image file was not found.", fullPath);
-            var existing = await _store.GetFileStateAsync(fullPath, IndexFileKind.Image, cancellationToken);
-            var imageIsCurrent = await _store.HasImageVectorAsync(fullPath, embeddingService.ModelId, cancellationToken);
-            BgeOnnxEmbeddingService? textEmbeddingService = null;
-            var ocrAvailable = _ocrService is { IsAvailable: true }
-                               && TryGetTextEmbeddingService(out textEmbeddingService);
-            var ocrIsCurrent = !ocrAvailable;
-            if (ocrAvailable)
-            {
-                ocrIsCurrent = existing is { OcrCompleted: true }
-                               && string.Equals(existing.OcrModelId, textEmbeddingService!.ModelId, StringComparison.Ordinal)
-                               && await _store.HasOcrTextVectorAsync(
-                                   fullPath, textEmbeddingService.ModelId, cancellationToken);
-            }
-            if (!force && FileStateMatches(existing, file) && imageIsCurrent && ocrIsCurrent)
-            {
-                return;
-            }
-
-            var metadataMatches = FileStateMatches(existing, file);
-            var contentHash = metadataMatches
-                ? existing!.ContentHash
-                : await TryComputeFileContentHashAsync(fullPath, cancellationToken)
-                  ?? throw new IOException($"Unable to hash image '{fullPath}'.");
-            var contentMatches = existing is not null
-                                 && string.Equals(existing.ContentHash, contentHash, StringComparison.Ordinal);
-            var fingerprint = file.ToImageFingerprint();
-            var needsImageVector = force || !imageIsCurrent || !contentMatches;
-            if (needsImageVector)
+            try
             {
                 var copied = await _store.TryCopyImageVectorForContentHashAsync(
-                    fullPath,
-                    fingerprint,
-                    contentHash,
+                    item.Path,
+                    item.Fingerprint.ToImageFingerprint(),
+                    item.ContentHash,
                     embeddingService.ModelId,
                     cancellationToken);
                 if (!copied)
                 {
-                    // This is a per-file pipeline. BGE from the preceding document or OCR must
-                    // be released before CLIP is initialized for this image.
-                    await (_textEmbeddingService?.ReleaseSessionAsync() ?? Task.CompletedTask);
-                    try
-                    {
-                        var vector = await embeddingService.EmbedImageAsync(fullPath, cancellationToken);
-                        await _store.UpsertImageAsync(
-                            fullPath,
-                            fingerprint,
-                            embeddingService.ModelId,
-                            vector,
-                            cancellationToken);
-                    }
-                    finally
-                    {
-                        await embeddingService.ReleaseImageSessionAsync();
-                    }
+                    pending.Add(item);
                 }
             }
-
-            // A semantic image search may have initialized CLIP before indexing started. Do
-            // not carry that image session into the OCR/BGE part of this same file.
-            await embeddingService.ReleaseImageSessionAsync();
-
-            var ocrCompleted = !ocrAvailable
-                ? existing?.OcrCompleted ?? false
-                : ocrIsCurrent && contentMatches;
-            if (ocrAvailable && (!ocrIsCurrent || !contentMatches || force))
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                var copied = await _store.HasCompletedOcrForContentHashAsync(
-                    contentHash,
-                    textEmbeddingService!.ModelId,
-                    cancellationToken);
-                if (copied)
-                {
-                    copied = await _store.TryCopyOcrTextForContentHashAsync(
-                        fullPath,
-                        contentHash,
-                        textEmbeddingService.ModelId,
-                        cancellationToken);
-                }
-
-                if (!copied)
-                {
-                    await IndexOcrTextAsync(fullPath, textEmbeddingService!, cancellationToken);
-                }
-
-                ocrCompleted = true;
+                failed.Add(item.Path);
             }
+        }
 
-            await _store.UpsertFileStateAsync(
-                new FileIndexState(
-                    fullPath,
-                    IndexFileKind.Image,
-                    file.Length,
-                    file.LastWriteUtcTicks,
-                    contentHash,
-                    ocrCompleted,
-                    ocrAvailable ? textEmbeddingService!.ModelId : existing?.OcrModelId),
+        if (pending.Count == 0)
+        {
+            return failed;
+        }
+
+        IReadOnlyList<float[]> vectors;
+        try
+        {
+            vectors = await embeddingService.EmbedImagesAsync(
+                pending.Select(item => item.Path).ToArray(),
                 cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            Logger.Warning(exception, "Failed to index image {ImagePath}.", fullPath);
-            UpdateStatus(status => status with { FailedImages = status.FailedImages + 1, LastError = exception.Message });
-        }
-        finally
-        {
-            try
+            foreach (var item in pending)
             {
-                await (_imageEmbeddingService?.ReleaseImageSessionAsync() ?? Task.CompletedTask);
-            }
-            catch (Exception exception)
-            {
-                Logger.Warning(exception, "Failed to release the CLIP image session for {ImagePath}.", fullPath);
+                failed.Add(item.Path);
             }
 
-            UpdateStatus(status => status with
-            {
-                ProcessingImages = Math.Max(0, status.ProcessingImages - 1)
-            });
-            PublishStatus();
+            return failed;
         }
+
+        for (var index = 0; index < pending.Count; index++)
+        {
+            var item = pending[index];
+            try
+            {
+                await _store.UpsertImageAsync(
+                    item.Path,
+                    item.Fingerprint.ToImageFingerprint(),
+                    embeddingService.ModelId,
+                    vectors[index],
+                    cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                failed.Add(item.Path);
+            }
+        }
+
+        return failed;
+    }
+
+    private async Task IndexImageOcrAsync(
+        ImageIndexWorkItem item,
+        CancellationToken cancellationToken)
+    {
+        var ocrCompleted = item.Existing?.OcrCompleted ?? false;
+        if (item.OcrAvailable && item.NeedsOcr)
+        {
+            if (!TryGetTextEmbeddingService(out var textEmbeddingService))
+            {
+                throw new InvalidOperationException("BGE text model files are unavailable.");
+            }
+
+            var copied = await _store.HasCompletedOcrForContentHashAsync(
+                item.ContentHash,
+                textEmbeddingService.ModelId,
+                cancellationToken);
+            if (copied)
+            {
+                copied = await _store.TryCopyOcrTextForContentHashAsync(
+                    item.Path,
+                    item.ContentHash,
+                    textEmbeddingService.ModelId,
+                    cancellationToken);
+            }
+
+            if (!copied)
+            {
+                await IndexOcrTextAsync(item.Path, textEmbeddingService, cancellationToken);
+            }
+
+            ocrCompleted = true;
+        }
+
+        await _store.UpsertFileStateAsync(
+            new FileIndexState(
+                item.Path,
+                IndexFileKind.Image,
+                item.Fingerprint.Length,
+                item.Fingerprint.LastWriteUtcTicks,
+                item.ContentHash,
+                ocrCompleted,
+                item.OcrAvailable ? item.OcrModelId : item.Existing?.OcrModelId),
+            cancellationToken);
     }
 
     private async Task IndexFileVectorsAsync(
@@ -969,8 +1018,6 @@ public sealed class IndexService : IIndexService, IDisposable
         bool force,
         CancellationToken cancellationToken)
     {
-        BgeOnnxEmbeddingService? documentEmbeddingService = null;
-        var documentEmbeddingChecked = false;
         UpdateStatus(status => status with
         {
             CurrentOperation = "正在统计待索引文件",
@@ -978,53 +1025,24 @@ public sealed class IndexService : IIndexService, IDisposable
             TotalFileItems = 0,
             CompletedFileItems = 0
         });
-        var totalFileItems = 0;
-        await foreach (var _ in EnumerateIndexableFilePathsAsync(indexDocuments, indexImages, cancellationToken))
+        var fileItems = new List<(string Path, IndexFileKind Kind)>();
+        await foreach (var item in EnumerateIndexableFilePathsAsync(indexDocuments, indexImages, cancellationToken))
         {
             await WaitIfPausedAsync(cancellationToken);
-            totalFileItems++;
+            fileItems.Add(item);
         }
 
         UpdateStatus(status => status with
         {
             CurrentOperation = "正在索引文件",
             CurrentItem = null,
-            TotalFileItems = totalFileItems,
+            TotalFileItems = fileItems.Count,
             CompletedFileItems = 0
         });
         var completedFileItems = 0;
 
-        await foreach (var (path, kind) in EnumerateIndexableFilePathsAsync(
-                           indexDocuments,
-                           indexImages,
-                           cancellationToken))
+        void MarkCompleted()
         {
-            await WaitIfPausedAsync(cancellationToken);
-            UpdateStatus(status => status with
-            {
-                CurrentOperation = kind == IndexFileKind.Image ? "正在索引图片" : "正在索引文档",
-                CurrentItem = path
-            });
-            if (kind == IndexFileKind.Document)
-            {
-                if (!documentEmbeddingChecked)
-                {
-                    documentEmbeddingChecked = true;
-                    TryGetTextEmbeddingService(out documentEmbeddingService);
-                }
-
-                if (documentEmbeddingService is not null)
-                {
-                    await IndexDocumentVectorAsync(path, force, documentEmbeddingService, cancellationToken);
-                }
-            }
-            else
-            {
-                // Consume the manifest one file at a time. Image vectors, OCR recognition, and
-                // the OCR/BGE vector are completed before the next path is requested from SQLite.
-                await IndexImageWithStatusAsync(path, force, cancellationToken);
-            }
-
             completedFileItems++;
             UpdateStatus(status => status with
             {
@@ -1032,6 +1050,121 @@ public sealed class IndexService : IIndexService, IDisposable
                 TotalFileItems = Math.Max(status.TotalFileItems, completedFileItems)
             });
         }
+
+        if (indexDocuments)
+        {
+            TryGetTextEmbeddingService(out var documentEmbeddingService);
+            foreach (var (path, _) in fileItems.Where(item => item.Kind == IndexFileKind.Document))
+            {
+                await WaitIfPausedAsync(cancellationToken);
+                UpdateStatus(status => status with
+                {
+                    CurrentOperation = "正在索引文档",
+                    CurrentItem = path
+                });
+                if (documentEmbeddingService is not null)
+                {
+                    await IndexDocumentVectorAsync(path, force, documentEmbeddingService, cancellationToken);
+                }
+
+                MarkCompleted();
+            }
+        }
+
+        if (!indexImages)
+        {
+            return;
+        }
+
+        var imageWorkItems = new List<ImageIndexWorkItem>();
+        foreach (var (path, _) in fileItems.Where(item => item.Kind == IndexFileKind.Image))
+        {
+            await WaitIfPausedAsync(cancellationToken);
+            UpdateStatus(status => status with
+            {
+                CurrentOperation = "正在准备图片索引",
+                CurrentItem = path
+            });
+            try
+            {
+                var workItem = await PrepareImageIndexAsync(path, force, cancellationToken);
+                if (!workItem.NeedsImageVector
+                    && !workItem.NeedsOcr
+                    && FileStateMatches(workItem.Existing, workItem.Fingerprint))
+                {
+                    MarkCompleted();
+                    continue;
+                }
+
+                imageWorkItems.Add(workItem);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                Logger.Warning(exception, "Failed to index image {ImagePath}.", path);
+                UpdateStatus(status => status with { FailedImages = status.FailedImages + 1, LastError = exception.Message });
+            }
+        }
+
+        UpdateStatus(status => status with
+        {
+            ProcessingImages = imageWorkItems.Count,
+            CurrentOperation = "正在索引图片向量",
+            CurrentItem = null
+        });
+        foreach (var batch in imageWorkItems.Chunk(ImageInferenceBatchSize))
+        {
+            await WaitIfPausedAsync(cancellationToken);
+            var failedVectorItems = new HashSet<string>(EntryKeyComparer);
+            try
+            {
+                failedVectorItems = await IndexImageVectorBatchAsync(batch, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                Logger.Warning(exception, "Failed to run the image vector batch.");
+                foreach (var item in batch)
+                {
+                    if (item.NeedsImageVector)
+                    {
+                        failedVectorItems.Add(item.Path);
+                    }
+                }
+            }
+
+            foreach (var item in batch)
+            {
+                await WaitIfPausedAsync(cancellationToken);
+                UpdateStatus(status => status with
+                {
+                    CurrentOperation = item.NeedsOcr ? "正在识别图片文字" : "正在更新图片索引",
+                    CurrentItem = item.Path
+                });
+                if (failedVectorItems.Contains(item.Path))
+                {
+                    UpdateStatus(status => status with
+                    {
+                        FailedImages = status.FailedImages + 1,
+                        LastError = "图片向量处理失败"
+                    });
+                    MarkCompleted();
+                    continue;
+                }
+
+                try
+                {
+                    await IndexImageOcrAsync(item, cancellationToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    Logger.Warning(exception, "Failed to index image OCR for {ImagePath}.", item.Path);
+                    UpdateStatus(status => status with { FailedImages = status.FailedImages + 1, LastError = exception.Message });
+                }
+
+                MarkCompleted();
+            }
+        }
+
+        UpdateStatus(status => status with { ProcessingImages = 0, CurrentItem = null });
     }
 
     public void Dispose()
@@ -1336,17 +1469,7 @@ public sealed class IndexService : IIndexService, IDisposable
         }
 
         IReadOnlyList<PluginCore.OcrTextRegion> regions;
-        try
-        {
-            // OCR and BGE both own dynamic ONNX allocations. Release BGE before recognizing,
-            // then release OCR before embedding the recognized text.
-            await embeddingService.ReleaseSessionAsync();
-            regions = await _ocrService.RecognizeFileAsync(imagePath, cancellationToken);
-        }
-        finally
-        {
-            await _ocrService.ReleaseSessionsAsync();
-        }
+        regions = await _ocrService.RecognizeFileAsync(imagePath, cancellationToken);
 
         var textBuilder = new StringBuilder();
         foreach (var region in regions)
@@ -1389,18 +1512,11 @@ public sealed class IndexService : IIndexService, IDisposable
         }
 
         var text = textBuilder.ToString();
-        try
-        {
-            var vector = (await embeddingService.EmbedAsync(
-                [text],
-                BgeOnnxEmbeddingService.MetadataMaximumTokens,
-                cancellationToken))[0];
-            await _store.UpsertOcrTextAsync(imagePath, embeddingService.ModelId, vector, cancellationToken);
-        }
-        finally
-        {
-            await embeddingService.ReleaseSessionAsync();
-        }
+        var vector = (await embeddingService.EmbedAsync(
+            [text],
+            BgeOnnxEmbeddingService.MetadataMaximumTokens,
+            cancellationToken))[0];
+        await _store.UpsertOcrTextAsync(imagePath, embeddingService.ModelId, vector, cancellationToken);
     }
 
     private bool TryGetTextEmbeddingService([NotNullWhen(true)] out BgeOnnxEmbeddingService? service)
@@ -1497,8 +1613,14 @@ public sealed class IndexService : IIndexService, IDisposable
 
     private void UpdateStatus(Func<IndexStatusSnapshot, IndexStatusSnapshot> update)
     {
-        var next = update(GetStatus()) with { UpdatedAt = DateTimeOffset.UtcNow };
-        Volatile.Write(ref _status, next);
+        IndexStatusSnapshot current;
+        IndexStatusSnapshot next;
+        do
+        {
+            current = GetStatus();
+            next = update(current) with { UpdatedAt = DateTimeOffset.UtcNow };
+        } while (!ReferenceEquals(Interlocked.CompareExchange(ref _status, next, current), current));
+
         StatusChanged?.Invoke(this, next);
     }
 

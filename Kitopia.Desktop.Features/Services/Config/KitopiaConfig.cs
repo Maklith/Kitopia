@@ -165,7 +165,7 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("索引最大 CPU 使用率", "限制索引过程可使用的逻辑处理器比例。100 表示不限制，仅 Windows 生效。", 0xf8cb, ConfigFieldType.整数, null, 100, 5, 5)]
     public int indexingMaximumCpuUsagePercent = 50;
 
-    [ConfigField("自动索引忽略的目录名称", "路径中包含这些目录名称时不会自动索引，例如缓存目录和 .minecraft。", 0xF2D7, ConfigFieldType.字符串列表支持添加)]
+    [ConfigField("自动索引忽略的目录名称", "路径中包含这些目录名称时不会自动索引，例如缓存目录", 0xF2D7, ConfigFieldType.字符串列表支持添加)]
     public ObservableCollection<string> transientDirectoryNames =
         new(DefaultTransientDirectoryNames);
 
