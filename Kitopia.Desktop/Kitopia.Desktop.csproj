@@ -142,6 +142,9 @@
           <DependentUpon>ToastShowWindow.axaml</DependentUpon>
           <SubType>Code</SubType>
         </Compile>
+        <Compile Update="Ocr\OcrResultShowWindow.axaml.cs">
+          <DependentUpon>OcrResultShowWindow.axaml</DependentUpon>
+        </Compile>
     </ItemGroup>
     <ItemGroup>
         <Folder Include="Converter\MarketPage\"/>

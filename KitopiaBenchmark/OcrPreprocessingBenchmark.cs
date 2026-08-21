@@ -10,8 +10,8 @@ namespace KitopiaBenchmark;
 public unsafe class OcrPreprocessingBenchmark
 {
     private const int RecognitionWidth = 320;
-    private const int RecognitionTimesteps = 80;
-    private const int RecognitionLabels = 662;
+    private const int RecognitionTimesteps = 40;
+    private const int RecognitionLabels = 6906;
     private Mat _source = null!;
     private Mat _detectorInput = null!;
     private Mat _recognizerInput = null!;

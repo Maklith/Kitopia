@@ -25,7 +25,7 @@ internal static class OcrNativeMemoryProbe
         var modelPath = args.FirstOrDefault(arg => !arg.StartsWith("--", StringComparison.Ordinal))
                         ?? Path.Combine(
                             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                            "Kitopia", "Ocr", "ocr_det.onnx");
+                            "Kitopia", "Ocr", "ppocrv6_tiny_det.onnx");
         if (!File.Exists(modelPath))
         {
             throw new FileNotFoundException("PaddleOCR detector model was not found.", modelPath);

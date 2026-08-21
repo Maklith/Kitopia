@@ -22,6 +22,7 @@ using Kitopia.Desktop.Features.ViewModel.Main;
 using Kitopia.Desktop.Features.ViewModel.Pages;
 using Kitopia.Desktop.Features.ViewModel.Pages.plugin;
 using Kitopia.Desktop.Features.ViewModel.Windows;
+using Kitopia.Desktop.Ocr;
 #if WINDOWS
 using Kitopia.Desktop.Platform.Windows;
 using Kitopia.Desktop.Platform.Windows.AppTools;
@@ -81,6 +82,15 @@ internal class Program {
             .WithPlatformServices()
             .BuildApp();
         ServiceManager.Services = ConfigureServices();
+        PluginOverall.ScreenCaptureExMethods["Kitopia"] =
+        [
+            new ScreenCaptureExMethod
+            {
+                Description = "文字提取",
+                Symbol = 0xea72,
+                Action = OcrResultShowWindow.ShowForCapture
+            }
+        ];
         try {
             TaskScheduler.UnobservedTaskException += (_, eventArgs) => { Logger.Error(eventArgs.Exception, "错误"); };
 

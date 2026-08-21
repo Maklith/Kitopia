@@ -42,7 +42,9 @@ internal static class ImageInputLoader
                 $"Image '{path}' is too large for bounded decoding ({dimensions.Width}x{dimensions.Height}).");
         }
 
-        var image = Cv2.ImRead(path, readMode);
+        // OpenCvSharp's string overload marshals the path through an ANSI P/Invoke on
+        // Windows, which fails for valid Unicode paths. Decode the file bytes instead.
+        var image = Cv2.ImDecode(File.ReadAllBytes(path), readMode);
         if (image.Empty())
         {
             image.Dispose();

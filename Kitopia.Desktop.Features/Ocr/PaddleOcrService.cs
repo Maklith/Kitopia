@@ -16,9 +16,13 @@ namespace Kitopia.Desktop.Features.Ocr;
 public sealed class PaddleOcrService : IOcrService, IDisposable
 {
     private const int MaximumDetectedRegions = 1024;
+    private const double DetectionPixelThreshold = 0.2d;
+    private const double DetectionBoxThreshold = 0.4d;
+    private const float DetectionUnclipRatio = 1.5f;
+    private const float MaximumDetectionPaddingHeightRatio = 1f;
     // The recognition model accepts a dynamic width. Without a bound, a very wide
     // detection box creates an unbounded resize and output tensor in native memory.
-    private const int MaximumRecognitionWidth = 2048;
+    private const int MaximumRecognitionWidth = 3200;
     private const int RecognitionHeight = 48;
     private const int RecognitionWidthMultiple = 32;
     private readonly IInferenceSessionManager _sessions;
@@ -34,7 +38,11 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
     {
         _sessions = sessions;
         _alphabet = OcrModelPackage.IsComplete()
-            ? File.ReadAllLines(OcrModelPackage.DictionaryPath).Append(" ").ToArray()
+            ? File.ReadAllLines(OcrModelPackage.DictionaryPath)
+                // The Paddle dictionary represents the ASCII space as an empty
+                // line. Keep that token instead of dropping it during decoding.
+                .Select(character => character.Length == 0 ? " " : character)
+                .ToArray()
             : [];
     }
 
@@ -159,7 +167,13 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
                 }
             }
 
-            return results;
+            // FindContours does not guarantee reading order (OpenCV commonly returns
+            // contours from the bottom of the image upwards). Return OCR regions in
+            // the order users read them so indexing and the result window are stable.
+            return results
+                .OrderBy(region => region.Top)
+                .ThenBy(region => region.Left)
+                .ToArray();
         }
         finally
         {
@@ -198,7 +212,8 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
                     (IntPtr)outputHandle.Pointer);
                 using var threshold = new Mat();
                 binary.ConvertTo(threshold, MatType.CV_8UC1, 255d);
-                Cv2.Threshold(threshold, threshold, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+                Cv2.Threshold(threshold, threshold, DetectionPixelThreshold * 255d, 255,
+                    ThresholdTypes.Binary);
                 Cv2.FindContours(threshold, out Point[][] contours, out _, RetrievalModes.External,
                     ContourApproximationModes.ApproxTC89L1);
 
@@ -207,10 +222,28 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
                 {
                     if (regions.Count == MaximumDetectedRegions) break;
                     cancellationToken.ThrowIfCancellationRequested();
+                    var contourBounds = Clamp(Cv2.BoundingRect(contour), input.Cols, input.Rows);
+                    // Mat.Zeros returns a lazy MatExpr; materialize a writable mask for FillPoly.
+                    using var contourMask = new Mat(contourBounds.Height, contourBounds.Width, MatType.CV_8UC1,
+                        Scalar.Black);
+                    Cv2.FillPoly(
+                        contourMask,
+                        [contour],
+                        Scalar.White,
+                        offset: new Point(-contourBounds.X, -contourBounds.Y));
+                    using var contourScores = new Mat(binary, contourBounds);
+                    if (Cv2.Mean(contourScores, contourMask).Val0 < DetectionBoxThreshold) continue;
                     var box = Cv2.MinAreaRect(contour);
                     if (Math.Min(box.Size.Width, box.Size.Height) < 3f) continue;
+                    // DB's unclip operation expands a polygon by area * (ratio - 1) / perimeter.
+                    // The height-derived cap keeps long code lines from expanding in
+                    // proportion to their full width.
+                    var padding = Math.Min(box.Size.Height * MaximumDetectionPaddingHeightRatio,
+                        box.Size.Width * box.Size.Height * (DetectionUnclipRatio - 1f) /
+                        (2f * (box.Size.Width + box.Size.Height)));
                     var expandedBox = new RotatedRect(box.Center,
-                        new Size2f(box.Size.Width * 1.6f, box.Size.Height * 1.6f), box.Angle);
+                        new Size2f(box.Size.Width + 2f * padding,
+                            box.Size.Height + 2f * padding), box.Angle);
                     if (Math.Min(expandedBox.Size.Width, expandedBox.Size.Height) < 5f) continue;
                     var bounds = Clamp(Cv2.BoundingRect(expandedBox.Points()), input.Cols, input.Rows);
                     if (bounds.Width > 1 && bounds.Height > 1) regions.Add(new DetectedRegion(bounds));
@@ -230,6 +263,8 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
         using var input = PrepareRecognitionImage(source);
         using var normalized = new Mat();
         input.ConvertTo(normalized, MatType.CV_32FC3, 1d / 255d);
+        Cv2.Subtract(normalized, new Scalar(0.5, 0.5, 0.5), normalized);
+        Cv2.Divide(normalized, new Scalar(0.5, 0.5, 0.5), normalized);
         var elementCount = 3 * input.Rows * input.Cols;
         var tensor = ArrayPool<float>.Shared.Rent(elementCount);
         try
@@ -285,20 +320,20 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
     {
         if (source.Channels() == 3)
         {
-            return source.Rows % 64 == 0 && source.Cols % 64 == 0
+            return source.Rows % 32 == 0 && source.Cols % 32 == 0
                 ? source
-                : PadToMultiple(source, 64, 64);
+                : PadToMultiple(source, 32, 32);
         }
 
         var bgr = ConvertToBgr(source);
-        if (bgr.Rows % 64 == 0 && bgr.Cols % 64 == 0)
+        if (bgr.Rows % 32 == 0 && bgr.Cols % 32 == 0)
         {
             return bgr;
         }
 
         try
         {
-            return PadToMultiple(bgr, 64, 64);
+            return PadToMultiple(bgr, 32, 32);
         }
         finally
         {
