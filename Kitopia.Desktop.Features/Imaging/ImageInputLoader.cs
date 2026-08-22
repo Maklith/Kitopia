@@ -17,6 +17,9 @@ internal static class ImageInputLoader
 
     private const long MaximumDecodedPixels = 64L * 1024 * 1024;
     private const int HeaderProbeBytes = 1024 * 1024;
+    private const ulong GifSignatureMask = 0x0000_FFFF_FFFF_FFFFUL;
+    private const ulong Gif87aSignatureLittleEndian = 0x0000_6137_3846_4947UL;
+    private const ulong Gif89aSignatureLittleEndian = 0x0000_6139_3846_4947UL;
     private static readonly byte[] PngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
 
     public static Mat LoadBgr(string path, int maximumPixels)
@@ -133,18 +136,24 @@ internal static class ImageInputLoader
             }
 
             stream.ReadExactly(signature);
-            stream.Position = 0;
             if (signature[..8].SequenceEqual(PngSignature))
             {
+                stream.Position = 0;
                 return TryReadPngDimensions(stream, out size);
             }
 
-            if (signature[..6].SequenceEqual("GIF87a"u8)
-                || signature[..6].SequenceEqual("GIF89a"u8))
+            if (signature[0] == (byte)'G')
             {
-                return TryReadGifDimensions(stream, out size);
+                var gifSignature = BinaryPrimitives.ReadUInt64LittleEndian(signature) & GifSignatureMask;
+                if (gifSignature == Gif87aSignatureLittleEndian || gifSignature == Gif89aSignatureLittleEndian)
+                {
+                    var width = BinaryPrimitives.ReadUInt16LittleEndian(signature[6..8]);
+                    var height = BinaryPrimitives.ReadUInt16LittleEndian(signature[8..10]);
+                    return TryCreateSize(width, height, out size);
+                }
             }
 
+            stream.Position = 0;
             if (signature[0] == 0xFF && signature[1] == 0xD8)
             {
                 isJpeg = true;
@@ -220,27 +229,6 @@ internal static class ImageInputLoader
 
         var width = BinaryPrimitives.ReadUInt32BigEndian(header[16..20]);
         var height = BinaryPrimitives.ReadUInt32BigEndian(header[20..24]);
-        return TryCreateSize(width, height, out size);
-    }
-
-    private static bool TryReadGifDimensions(FileStream stream, out Size size)
-    {
-        size = default;
-        Span<byte> header = stackalloc byte[10];
-        if (stream.Length < header.Length)
-        {
-            return false;
-        }
-
-        stream.ReadExactly(header);
-        if (!header[..6].SequenceEqual("GIF87a"u8)
-            && !header[..6].SequenceEqual("GIF89a"u8))
-        {
-            return false;
-        }
-
-        var width = BinaryPrimitives.ReadUInt16LittleEndian(header[6..8]);
-        var height = BinaryPrimitives.ReadUInt16LittleEndian(header[8..10]);
         return TryCreateSize(width, height, out size);
     }
 
