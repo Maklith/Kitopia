@@ -1,8 +1,10 @@
 using System.Text;
 using System.Buffers;
+using System.Runtime.InteropServices;
 using Kitopia.Desktop.Features.Imaging;
 using Kitopia.Desktop.Features.Services.Onnx;
 using OpenCvSharp;
+using OpenCvSharp.Dnn;
 using PluginCore;
 using PluginCore.Onnx;
 using Rect = OpenCvSharp.Rect;
@@ -190,15 +192,15 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
         string inputName,
         CancellationToken cancellationToken)
     {
-        using var normalized = new Mat();
-        input.ConvertTo(normalized, MatType.CV_32FC3, 1d / 255d);
-        Cv2.Subtract(normalized, new Scalar(0.485, 0.456, 0.406), normalized);
-        Cv2.Divide(normalized, new Scalar(0.229, 0.224, 0.225), normalized);
         var elementCount = 3 * input.Rows * input.Cols;
         var tensor = ArrayPool<float>.Shared.Rent(elementCount);
         try
         {
-            OnnxInputDataTool.InputTensor(normalized, tensor.AsMemory(0, elementCount));
+            PreprocessToNchw(
+                input,
+                tensor,
+                new Scalar(0.485, 0.456, 0.406),
+                new Scalar(0.229, 0.224, 0.225));
             var output = session.Infer(
             [
                 (inputName, new Memory<int>([1, 3, input.Rows, input.Cols]),
@@ -261,15 +263,11 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
     private string Recognize(IInferenceSession session, string inputName, int dimensions, Mat source)
     {
         using var input = PrepareRecognitionImage(source);
-        using var normalized = new Mat();
-        input.ConvertTo(normalized, MatType.CV_32FC3, 1d / 255d);
-        Cv2.Subtract(normalized, new Scalar(0.5, 0.5, 0.5), normalized);
-        Cv2.Divide(normalized, new Scalar(0.5, 0.5, 0.5), normalized);
         var elementCount = 3 * input.Rows * input.Cols;
         var tensor = ArrayPool<float>.Shared.Rent(elementCount);
         try
         {
-            OnnxInputDataTool.InputTensor(normalized, tensor.AsMemory(0, elementCount));
+            PreprocessToNchw(input, tensor, Scalar.All(0.5), Scalar.All(0.5));
             var output = session.Infer(
             [
                 (inputName, new Memory<int>([1, 3, input.Rows, input.Cols]),
@@ -314,6 +312,43 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
         {
             ArrayPool<float>.Shared.Return(tensor);
         }
+    }
+
+    internal static void PreprocessToNchw(
+        Mat input,
+        float[] destination,
+        Scalar mean,
+        Scalar standardDeviation)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(destination);
+        var elementCount = checked(3 * input.Rows * input.Cols);
+        if (input.Channels() != 3 || destination.Length < elementCount)
+        {
+            throw new ArgumentException(
+                "OCR preprocessing requires a three-channel image and a sufficiently large NCHW destination.");
+        }
+
+        var parameters = new Image2BlobParams(
+            new Scalar(
+                1d / (255d * standardDeviation.Val0),
+                1d / (255d * standardDeviation.Val1),
+                1d / (255d * standardDeviation.Val2)),
+            input.Size(),
+            new Scalar(255d * mean.Val0, 255d * mean.Val1, 255d * mean.Val2),
+            swapRB: false,
+            depth: MatType.CV_32F,
+            dataLayout: DataLayout.NCHW,
+            paddingMode: ImagePaddingMode.NULL,
+            borderValue: Scalar.All(0));
+        using var blob = Cv2.Dnn.BlobFromImageWithParams(input, parameters);
+        if (blob.Type() != MatType.CV_32FC1 || blob.Total() != elementCount)
+        {
+            throw new InvalidDataException(
+                $"OCR preprocessing produced a {blob.Type()} tensor with {blob.Total()} values; expected {elementCount} CV_32FC1 values.");
+        }
+
+        Marshal.Copy(blob.Data, destination, 0, elementCount);
     }
 
     private static Mat PrepareDetectionImage(Mat source)

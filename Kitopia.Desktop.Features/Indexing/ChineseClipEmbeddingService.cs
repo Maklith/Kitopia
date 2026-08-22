@@ -16,6 +16,18 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
     private const int ImageInferenceBatchSize = 8;
     private static readonly float[] Mean = [0.48145466f, 0.4578275f, 0.40821073f];
     private static readonly float[] StandardDeviation = [0.26862954f, 0.26130258f, 0.27577711f];
+    private static readonly Image2BlobParams ImageBlobParameters = new(
+        new Scalar(
+            1d / (255d * StandardDeviation[0]),
+            1d / (255d * StandardDeviation[1]),
+            1d / (255d * StandardDeviation[2])),
+        new Size(224, 224),
+        new Scalar(255d * Mean[0], 255d * Mean[1], 255d * Mean[2]),
+        true,
+        MatType.CV_32F,
+        DataLayout.NCHW,
+        ImagePaddingMode.NULL,
+        Scalar.All(0));
     private readonly ChineseClipTokenizer _tokenizer;
     private readonly SemaphoreSlim _initializationGate = new(1, 1);
     private readonly SemaphoreSlim _imageInferenceGate = new(1, 1);
@@ -81,13 +93,23 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
     {
         var inputLength = checked(paths.Count * ImageInputElementCount);
         var input = ArrayPool<float>.Shared.Rent(inputLength);
+        var images = new List<Mat>(paths.Count);
         try
         {
-            for (var index = 0; index < paths.Count; index++)
+            foreach (var path in paths)
             {
-                using var decoded = ImageInputLoader.LoadBgr(paths[index], ImageInputLoader.MaximumEmbeddingPixels);
-                Preprocess(decoded, input, index * ImageInputElementCount);
+                cancellationToken.ThrowIfCancellationRequested();
+                images.Add(ImageInputLoader.LoadBgr(path, ImageInputLoader.MaximumEmbeddingPixels));
             }
+
+            using var blob = Cv2.Dnn.BlobFromImagesWithParams(images, ImageBlobParameters);
+            if (blob.Type() != MatType.CV_32FC1 || blob.Total() != inputLength)
+            {
+                throw new InvalidDataException(
+                    $"Chinese-CLIP preprocessing produced a {blob.Type()} tensor with {blob.Total()} values; expected {inputLength} CV_32FC1 values.");
+            }
+
+            Marshal.Copy(blob.Data, input, 0, inputLength);
 
             var output = await Task.Run(() => _imageSession!.Infer(
                 [("image", new Memory<int>([paths.Count, 3, 224, 224]), input.AsMemory(0, inputLength))]), cancellationToken);
@@ -107,6 +129,11 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
         }
         finally
         {
+            foreach (var image in images)
+            {
+                image.Dispose();
+            }
+
             ArrayPool<float>.Shared.Return(input);
         }
     }
@@ -226,28 +253,6 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
         // otherwise retains the largest indexing batch until the session is disposed.
         session.InitSession(path, useCpuMemoryArena: false);
         return session;
-    }
-
-    private static void Preprocess(Mat source, float[] destination, int destinationOffset)
-    {
-        using var resized = new Mat();
-        Cv2.Resize(source, resized, new Size(224, 224), 0d, 0d, InterpolationFlags.Cubic);
-        using var rgb = new Mat();
-        Cv2.CvtColor(resized, rgb, ColorConversionCodes.BGR2RGB);
-        using var normalized = new Mat();
-        rgb.ConvertTo(normalized, MatType.CV_32FC3, 1d / 255d);
-        Cv2.Subtract(normalized, new Scalar(Mean[0], Mean[1], Mean[2]), normalized);
-        Cv2.Divide(normalized, new Scalar(StandardDeviation[0], StandardDeviation[1], StandardDeviation[2]), normalized);
-
-        // BlobFromImage converts the interleaved RGB mat to the model's NCHW layout.
-        using var blob = CvDnn.BlobFromImage(normalized, 1d, new Size(224, 224), Scalar.All(0), false, false);
-        using var flattened = blob.Reshape(1, [1, ImageInputElementCount]);
-        if (flattened.Total() != ImageInputElementCount)
-        {
-            throw new InvalidDataException($"Chinese-CLIP preprocessing produced {flattened.Total()} values; expected {ImageInputElementCount}.");
-        }
-
-        Marshal.Copy(flattened.Data, destination, destinationOffset, ImageInputElementCount);
     }
 
     private static float[] Normalize(ReadOnlySpan<float> values)

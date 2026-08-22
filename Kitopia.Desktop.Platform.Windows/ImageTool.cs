@@ -22,8 +22,7 @@ public class ImageTool : IImageTool
     {
         try
         {
-            image.SaveImage(filePath);
-            return true;
+            return Cv2.ImWrite(filePath, image);
         }
         catch (Exception)
         {

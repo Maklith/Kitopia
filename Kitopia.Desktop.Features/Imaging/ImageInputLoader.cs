@@ -15,8 +15,8 @@ internal static class ImageInputLoader
     // dynamic-shape buffers internally.
     public const int MaximumOcrPixels = 1024 * 1024;
 
-    private const long MaximumDecodedPixels = 32L * 1024 * 1024;
-    private const int HeaderProbeBytes = 64 * 1024;
+    private const long MaximumDecodedPixels = 64L * 1024 * 1024;
+    private const int HeaderProbeBytes = 1024 * 1024;
     private static readonly byte[] PngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
 
     public static Mat LoadBgr(string path, int maximumPixels)
@@ -36,7 +36,7 @@ internal static class ImageInputLoader
         }
 
         var readMode = SelectReadMode(isJpeg, dimensions, maximumPixels);
-        if (isJpeg && EstimateDecodedPixels(dimensions, readMode) > MaximumDecodedPixels)
+        if (isJpeg && EstimateDecodedPixels(dimensions, readMode) >= MaximumDecodedPixels)
         {
             throw new InvalidDataException(
                 $"Image '{path}' is too large for bounded decoding ({dimensions.Width}x{dimensions.Height}).");
@@ -139,6 +139,12 @@ internal static class ImageInputLoader
                 return TryReadPngDimensions(stream, out size);
             }
 
+            if (signature[..6].SequenceEqual("GIF87a"u8)
+                || signature[..6].SequenceEqual("GIF89a"u8))
+            {
+                return TryReadGifDimensions(stream, out size);
+            }
+
             if (signature[0] == 0xFF && signature[1] == 0xD8)
             {
                 isJpeg = true;
@@ -217,6 +223,27 @@ internal static class ImageInputLoader
         return TryCreateSize(width, height, out size);
     }
 
+    private static bool TryReadGifDimensions(FileStream stream, out Size size)
+    {
+        size = default;
+        Span<byte> header = stackalloc byte[10];
+        if (stream.Length < header.Length)
+        {
+            return false;
+        }
+
+        stream.ReadExactly(header);
+        if (!header[..6].SequenceEqual("GIF87a"u8)
+            && !header[..6].SequenceEqual("GIF89a"u8))
+        {
+            return false;
+        }
+
+        var width = BinaryPrimitives.ReadUInt16LittleEndian(header[6..8]);
+        var height = BinaryPrimitives.ReadUInt16LittleEndian(header[8..10]);
+        return TryCreateSize(width, height, out size);
+    }
+
     private static bool TryReadBmpDimensions(FileStream stream, out Size size)
     {
         size = default;
@@ -250,6 +277,13 @@ internal static class ImageInputLoader
             if (ReadNextJpegMarker(stream) is not { } marker)
             {
                 return false;
+            }
+
+            if (marker == 0xD8)
+            {
+                // Some camera/MJPEG files contain a second SOI marker before the
+                // actual frame header. Keep scanning for the first valid SOF.
+                continue;
             }
 
             if (marker is 0xD9 or 0xDA)
@@ -366,7 +400,7 @@ internal static class ImageInputLoader
             value = stream.ReadByte();
         } while (value == 0xFF);
 
-        return value is <= 0 or 0xD8 ? null : value;
+        return value <= 0 ? null : value;
     }
 
     private static bool IsJpegStartOfFrame(int marker) =>

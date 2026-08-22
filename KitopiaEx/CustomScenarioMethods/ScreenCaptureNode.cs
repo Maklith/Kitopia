@@ -1,8 +1,10 @@
 ﻿using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
 using Microsoft.Extensions.DependencyInjection;
+using OpenCvSharp;
 using PluginCore;
 using PluginCore.CustomScenario.Attribute.Scenario;
 
@@ -61,7 +63,10 @@ public class ScreenCaptureNode
             var timeStamp = Convert.ToInt64(ts.TotalMilliseconds);
             var f = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\Downloads\\Kitopia" +
                     timeStamp + ".png";
-            captureResult.Source.SaveImage(f);
+            if (!Cv2.ImWrite(f, captureResult.Source))
+            {
+                throw new IOException($"无法保存截图到 '{f}'。");
+            }
         }
         else
         {

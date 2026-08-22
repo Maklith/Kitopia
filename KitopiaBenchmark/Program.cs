@@ -12,6 +12,12 @@ internal class Program
             return;
         }
 
+        if (args.FirstOrDefault()?.Equals("ocr-dnn", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            BenchmarkSwitcher.FromTypes([typeof(OcrDnnPreprocessingBenchmark)]).Run(args.Skip(1).ToArray());
+            return;
+        }
+
         if (args.FirstOrDefault()?.Equals("search-index-memory", StringComparison.OrdinalIgnoreCase) == true)
         {
             BenchmarkSwitcher.FromTypes([typeof(OldVsNewMemory)]).Run(args.Skip(1).ToArray());

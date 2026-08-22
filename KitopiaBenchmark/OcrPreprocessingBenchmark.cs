@@ -147,7 +147,7 @@ public unsafe class OcrPreprocessingBenchmark
 
     private static unsafe Memory<float> LegacyInputTensor(Mat image, int size)
     {
-        var channels = image.Split();
+        var channels = Cv2.Split(image);
         try
         {
             var tensor = new float[size];

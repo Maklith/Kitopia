@@ -65,7 +65,7 @@ public class DeviceCommunicationUiTextTests
     [TestMethod]
     public void CreateImage_DoesNotDisplayImagePlaceholderText()
     {
-        using var source = OpenCvSharp.Mat.Zeros(4, 4, OpenCvSharp.MatType.CV_8UC3);
+        using var source = new OpenCvSharp.Mat(4, 4, OpenCvSharp.MatType.CV_8UC3, OpenCvSharp.Scalar.Black);
         OpenCvSharp.Cv2.ImEncode(".png", source, out var bytes);
 
         var item = DeviceChatMessageItem.CreateImage(bytes, isOutgoing: false, DateTimeOffset.Now);

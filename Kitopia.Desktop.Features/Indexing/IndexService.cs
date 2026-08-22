@@ -647,6 +647,8 @@ public sealed class IndexService : IIndexService, IDisposable
             {
                 IsRebuilding = true,
                 IsPaused = false,
+                FailedImages = 0,
+                ProcessingImages = 0,
                 TotalFileItems = 0,
                 CompletedFileItems = 0,
                 CurrentOperation = "正在清空文件索引",
@@ -920,6 +922,7 @@ public sealed class IndexService : IIndexService, IDisposable
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
+                Logger.Warning(exception, "Failed to reuse image vector for {ImagePath}.", item.Path);
                 failed.Add(item.Path);
             }
         }
@@ -938,9 +941,29 @@ public sealed class IndexService : IIndexService, IDisposable
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            Logger.Warning(
+                exception,
+                "Failed to embed image vector batch for {ImageCount} images: {ImagePaths}.",
+                pending.Count,
+                pending.Select(item => item.Path).ToArray());
+
             foreach (var item in pending)
             {
-                failed.Add(item.Path);
+                try
+                {
+                    var vector = await embeddingService.EmbedImageAsync(item.Path, cancellationToken);
+                    await _store.UpsertImageAsync(
+                        item.Path,
+                        item.Fingerprint.ToImageFingerprint(),
+                        embeddingService.ModelId,
+                        vector,
+                        cancellationToken);
+                }
+                catch (Exception itemException) when (itemException is not OperationCanceledException)
+                {
+                    Logger.Warning(itemException, "Failed to index image vector for {ImagePath}.", item.Path);
+                    failed.Add(item.Path);
+                }
             }
 
             return failed;
@@ -960,6 +983,7 @@ public sealed class IndexService : IIndexService, IDisposable
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
+                Logger.Warning(exception, "Failed to persist image vector for {ImagePath}.", item.Path);
                 failed.Add(item.Path);
             }
         }
@@ -1803,6 +1827,11 @@ public sealed class IndexService : IIndexService, IDisposable
     {
         try
         {
+            if (IsAppleDoublePath(path))
+            {
+                return false;
+            }
+
             var fileName = Path.GetFileName(path);
             if (fileName.StartsWith('$') || fileName.StartsWith("~$", StringComparison.Ordinal))
             {
@@ -1904,7 +1933,7 @@ public sealed class IndexService : IIndexService, IDisposable
                 ".doc" or ".docx" => PluginCore.FileType.Word文档,
                 ".xls" or ".xlsx" => PluginCore.FileType.Excel文档,
                 ".ppt" or ".pptx" => PluginCore.FileType.PPT文档,
-                ".jpg" or ".jpeg" or ".png" or ".bmp" or ".webp" => PluginCore.FileType.图像,
+                ".jpg" or ".jpeg" or ".png" or ".bmp" or ".webp" or ".gif" => PluginCore.FileType.图像,
                 _ => PluginCore.FileType.文件
             };
             entry = new SearchEntry
@@ -1955,7 +1984,23 @@ public sealed class IndexService : IIndexService, IDisposable
         string.Join('\n', Path.GetFileNameWithoutExtension(path), Path.GetExtension(path), path);
 
     private static bool HasSupportedImageExtension(string path) =>
-        Path.GetExtension(path).ToLowerInvariant() is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".webp";
+        !IsAppleDoublePath(path)
+        && Path.GetExtension(path).ToLowerInvariant() is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".webp" or ".gif";
+
+    private static bool IsAppleDoublePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var segments = path.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length > 0
+               && (segments[^1].StartsWith("._", StringComparison.Ordinal)
+                   || segments.Any(part => part.Equals("__MACOSX", StringComparison.OrdinalIgnoreCase)));
+    }
 
     private static bool IsSupportedDocument(string extension) =>
         extension.Equals(".txt", StringComparison.OrdinalIgnoreCase)

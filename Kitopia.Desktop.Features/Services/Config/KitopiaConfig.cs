@@ -36,7 +36,7 @@ public class KitopiaConfig : ConfigBase
     internal static readonly IReadOnlyList<string> DefaultAllowedFileExtensions =
     [
         ".md", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-        ".jpg", ".jpeg", ".png", ".bmp", ".webp"
+        ".jpg", ".jpeg", ".png", ".bmp", ".webp", ".gif"
     ];
 
     public List<string> alwayShows = new();
