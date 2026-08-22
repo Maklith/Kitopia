@@ -314,7 +314,7 @@ public class ScreenCaptureByWgc : IScreenCapture {
             using var src16Rgba = Mat.FromPixelData(
                 height,
                 width,
-                MatType.MakeType(7, 4), // CV_16FC4
+                MatType.CV_16FC4,
                 (nint)mappedSubresource.PData,
                 mappedSubresource.RowPitch
             );
@@ -349,9 +349,9 @@ public class ScreenCaptureByWgc : IScreenCapture {
             using var bgra32 = new Mat();
             Cv2.Transform(rgba32, bgra32, colorMat);
             
-            Cv2.Divide(bgra32, scale, bgra32);
+            Cv2.Divide(bgra32, Scalar.All(scale), bgra32);
             Cv2.Pow(bgra32, 1.0 / 2.2, bgra32);
-            Cv2.Multiply(bgra32, 255.0, bgra32);
+            Cv2.Multiply(bgra32, Scalar.All(255.0), bgra32);
 
             var mat = new Mat();
             bgra32.ConvertTo(mat, MatType.CV_8UC4);
