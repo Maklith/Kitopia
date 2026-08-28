@@ -34,6 +34,7 @@ public class Plugin
 
     private readonly AssemblyLoadContextH _plugin;
     private IPlugin _pluginService;
+    private bool _enabled;
 
     public IServiceProvider? ServiceProvider;
     internal AssemblyLoadContextH AssemblyLoadContext => _plugin;
@@ -150,37 +151,24 @@ public class Plugin
 
                 var service = ServiceProvider.GetService(type);
                 _pluginService = (IPlugin)service;
-                var dependencyServiceProviders = new Dictionary<string, IServiceProvider>();
-                if (pluginInfo.PluginBaseInfo.Dependencies != null)
-                {
-                    foreach (var dependency in pluginInfo.PluginBaseInfo.Dependencies)
-                    {
-                        if (dependency.Key == "Kitopia") continue;
-                        if (PluginManager.GetEnablePlugins().TryGetValue(dependency.Key, out var plugin))
-                        {
-                            if (plugin.ServiceProvider != null)
-                            {
-                                dependencyServiceProviders.Add(dependency.Key, plugin.ServiceProvider);
-                            }
-                        }
-                    }
-                }
-                _pluginService.OnEnabled(ServiceProvider, dependencyServiceProviders);
                 break;
             }
 
+
+        // Load every configuration before resolving plugin services that may consume it.
+        foreach (var type in t)
+        {
+            if (type.BaseType != typeof(ConfigBase)) continue;
+
+            var instance = (ConfigBase)Activator.CreateInstance(type);
+            instance.Name = $"{PluginInfo.ToPlgString()}#{type.FullName}";
+            AddConfig(instance.Name, instance);
+        }
 
         pluginMainScenarioMethodCategoryGroup.Name = PluginInfo.PluginBaseInfo.Name;
 
         foreach (var type in t)
         {
-            if (type.BaseType == typeof(ConfigBase))
-            {
-                var instance = (ConfigBase)Activator.CreateInstance(type);
-                instance.Name = $"{PluginInfo.ToPlgString()}#{type.FullName}";
-                AddConfig($"{PluginInfo.ToPlgString()}#{type.FullName}", instance);
-            }
-
             if (typeof(CustomScenarioTrigger).IsAssignableFrom(type))
             {
                 var fieldInfo = type.GetField("Info");
@@ -318,6 +306,29 @@ public class Plugin
                 pluginMainScenarioMethodCategoryGroup);
     }
 
+    public void Enable()
+    {
+        if (_enabled) return;
+
+        var dependencyServiceProviders = new Dictionary<string, IServiceProvider>();
+        if (PluginInfo.PluginBaseInfo.Dependencies != null)
+        {
+            foreach (var dependency in PluginInfo.PluginBaseInfo.Dependencies)
+            {
+                if (dependency.Key == "Kitopia") continue;
+                if (PluginManager.GetEnablePlugins().TryGetValue(dependency.Key, out var plugin) &&
+                    plugin.ServiceProvider != null)
+                {
+                    dependencyServiceProviders.Add(dependency.Key, plugin.ServiceProvider);
+                }
+            }
+        }
+
+        // Treat a partially completed callback as enabled so the unload path can still clean it up.
+        _enabled = true;
+        _pluginService.OnEnabled(ServiceProvider!, dependencyServiceProviders);
+    }
+
     private Assembly _dll => _plugin.Assembly;
 
     public PluginLocalInfo PluginInfo { set; get; }
@@ -389,6 +400,23 @@ public class Plugin
     public void Unload(out WeakReference weakReference)
     {
         Logger.Debug($"卸载插件:{PluginInfo.ToPlgString()}");
+
+        if (_enabled)
+        {
+            try
+            {
+                _pluginService.OnDisabled();
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e, $"停用插件 {PluginInfo.ToPlgString()} 时发生错误");
+            }
+            finally
+            {
+                _enabled = false;
+            }
+        }
+
         ConfigManger.RemoveConfig($"{PluginInfo.ToPlgString()}");
 
         PluginOverall.ScreenCaptureExMethods.Remove(PluginInfo.ToPlgString());
@@ -412,7 +440,9 @@ public class Plugin
             }
         }
         ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.RemoveMethodsByPluginName(PluginInfo.ToPlgString());
-        var keyValuePairs = CustomScenarioGlobe.Triggers.Where(e => e.Value.PluginInfo == PluginInfo.ToPlgString());
+        var keyValuePairs = CustomScenarioGlobe.Triggers
+            .Where(e => e.Value.PluginInfo == PluginInfo.ToPlgString())
+            .ToList();
         foreach (var keyValuePair in keyValuePairs) CustomScenarioGlobe.Triggers.Remove(keyValuePair.Key);
 
         ServiceManager.Services.GetService<ISearchFeatureService>()?.RemovePluginItems(_searchViewItems);
@@ -423,8 +453,9 @@ public class Plugin
 
         CustomScenarioManger.UnloadWhichUseThePlugin(PluginInfo.ToPlgString());
 
-        _pluginService.OnDisabled();
         _pluginService = null;
+        if (ServiceProvider is IDisposable disposable)
+            disposable.Dispose();
         PluginInfo = null;
         ServiceProvider = null;
 

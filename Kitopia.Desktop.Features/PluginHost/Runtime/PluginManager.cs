@@ -145,8 +145,27 @@ public class PluginManager
     {
         if (EnablePlugins.ContainsKey(pluginInfoEx.ToPlgString())) return;
 
-        EnablePlugins.Add(pluginInfoEx.ToPlgString(),
-            new Plugin(pluginInfoEx));
+        var plugin = new Plugin(pluginInfoEx);
+        EnablePlugins.Add(pluginInfoEx.ToPlgString(), plugin);
+        try
+        {
+            plugin.Enable();
+        }
+        catch
+        {
+            EnablePlugins.Remove(pluginInfoEx.ToPlgString());
+            try
+            {
+                plugin.Unload(out _);
+            }
+            catch (Exception cleanupException)
+            {
+                Logger.Error(cleanupException, $"启用插件 {pluginInfoEx.PluginBaseInfo.Name} 失败后的清理发生错误");
+            }
+            throw;
+        }
+
+        ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.NameSign == pluginInfoEx.PluginBaseInfo.NameSign);
         ConfigManger.Config.EnabledPluginInfos.Add(pluginInfoEx.PluginBaseInfo);
         ConfigManger.Save();
     }
@@ -213,15 +232,14 @@ public class PluginManager
     public static async Task<bool> UnloadPlugin(PluginLocalInfo pluginInfoEx,
         bool reloadPluginAndCustomScenarion = true)
     {
-        WeakReference? weakReference = null;
+        Plugin.UnloadByPluginInfo(pluginInfoEx.ToPlgString(), out var weakReference);
+        EnablePlugins.Remove(pluginInfoEx.ToPlgString());
+
+        ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.ToPlgString() == pluginInfoEx.ToPlgString());
+        ConfigManger.Save();
+
         await Task.Run(() =>
         {
-            Plugin.UnloadByPluginInfo(pluginInfoEx.ToPlgString(), out weakReference);
-            EnablePlugins.Remove(pluginInfoEx.ToPlgString());
-
-            ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.ToPlgString() == pluginInfoEx.ToPlgString());
-            ConfigManger.Save();
-
             for (var i = 0; i < 30; i++)
             {
                 GC.Collect(2, GCCollectionMode.Aggressive);
@@ -230,8 +248,6 @@ public class PluginManager
                 if (!weakReference.IsAlive) break;
             }
         });
-        if (weakReference is null) return false;
-
         if (weakReference.IsAlive)
         {
             pluginInfoEx.UnloadFailed = true;
@@ -252,7 +268,7 @@ public class PluginManager
             CustomScenarioManger.Reload();
         }
 
-        return false;
+        return !weakReference.IsAlive;
     }
 
     public static void Reload()
@@ -328,18 +344,13 @@ public class PluginManager
         // Phase 3: Sorting
         var (sortedCandidates, cyclic) = PluginDependencyService.SafeTopologicalSort(candidates);
 
-        var loadLock = new object();
-
         if (cyclic.Count > 0)
         {
             foreach (var info in cyclic)
             {
                 info.LoadFailed = true;
                 info.LoadFailedReason = "检测到循环依赖";
-                lock (loadLock)
-                {
-                    AllPluginInfos.Add(info);
-                }
+                AllPluginInfos.Add(info);
                 info.NotifyStatusChanged();
             }
 
@@ -348,101 +359,72 @@ public class PluginManager
             ServiceManager.Services.GetService<IToastService>()?.Show("循环依赖警告", $"以下插件因循环依赖无法加载: {msg}");
         }
 
-        // Phase 4: Multithreaded Loading
-        Logger.Debug($"插件加载顺序计算完成，准备并发加载: {string.Join(" -> ", sortedCandidates.Select(c => c.PluginBaseInfo.Name))}");
-
-        var loadingTasks = new Dictionary<string, Task>();
-
+        // Phase 4: Load in dependency order. Plugin preparation and lifecycle callbacks
+        // touch shared registries, so keeping this sequence explicit avoids races.
+        Logger.Debug($"插件加载顺序计算完成，准备顺序加载: {string.Join(" -> ", sortedCandidates.Select(c => c.PluginBaseInfo.Name))}");
         foreach (var info in sortedCandidates)
         {
-            var dependencyTasks = info.PluginBaseInfo.Dependencies
-                .Where(d => d.Key != "Kitopia")
-                .Select(d => loadingTasks.TryGetValue(d.Key, out var task) ? task : null)
-                .Where(t => t != null)
-                .ToArray();
-
-            var loadTask = Task.Run(async () =>
+            try
             {
-                if (dependencyTasks.Length > 0)
+                AllPluginInfos.Add(info);
+
+                // Check dependencies (ensure they are loaded and enabled)
+                var (canLoad, versionCheckResults) = PluginDependencyService.CheckDependencies(
+                    candidates.Select(c => c.PluginBaseInfo),
+                    info.PluginBaseInfo.Dependencies,
+                    EnablePlugins.Keys);
+
+                if (!canLoad)
                 {
-                    await Task.WhenAll(dependencyTasks!);
+                    var stringBuilder = new StringBuilder();
+                    foreach (var (key, value) in versionCheckResults)
+                        stringBuilder.AppendLine($"{key} {value.ToString()}");
+
+                    Logger.Error($"加载插件{info.PluginBaseInfo.Name}时错误, 依赖检查未通过:\n {stringBuilder}");
+                    ServiceManager.Services.GetService<IToastService>()?.Show($"加载插件{info.PluginBaseInfo.Name}失败", $"依赖检查未通过:\n {stringBuilder}");
+
+                    info.LoadFailed = true;
+                    info.LoadFailedReason = $"依赖检查未通过:\n {stringBuilder}";
+                    info.NotifyStatusChanged();
+                    continue;
                 }
 
-                try
+                Logger.Debug($"加载插件{info.PluginBaseInfo.Name}信息成功");
+
+                if (init && File.Exists($"{info.Path}.update"))
                 {
-                    lock (loadLock)
+                    var version = File.ReadAllText($"{info.Path}.update");
+                    if (!string.IsNullOrWhiteSpace(version))
+                        PluginNetworkService.DownloadPlugin(info.PluginBaseInfo.NameSign, version).GetAwaiter().GetResult();
+
+                    try
                     {
-                        AllPluginInfos.Add(info);
+                        File.Delete($"{info.Path}.update");
                     }
-
-                    // Check dependencies (ensure they are loaded and enabled)
-                    var (canLoad, versionCheckResults) = PluginDependencyService.CheckDependencies(
-                        candidates.Select(c => c.PluginBaseInfo), 
-                        info.PluginBaseInfo.Dependencies, 
-                        EnablePlugins.Keys);
-
-                    if (!canLoad)
+                    catch (Exception e)
                     {
-                        var stringBuilder = new StringBuilder();
-                        foreach (var (key, value) in versionCheckResults)
-                            stringBuilder.AppendLine($"{key} {value.ToString()}");
-
-                        Logger.Error($"加载插件{info.PluginBaseInfo.Name}时错误, 依赖检查未通过:\n {stringBuilder}");
-                        ServiceManager.Services.GetService<IToastService>()?.Show($"加载插件{info.PluginBaseInfo.Name}失败", $"依赖检查未通过:\n {stringBuilder}");
-                        
-                        info.LoadFailed = true;
-                        info.LoadFailedReason = $"依赖检查未通过:\n {stringBuilder}";
-                        info.NotifyStatusChanged();
-                        return;
-                    }
-
-                    Logger.Debug($"加载插件{info.PluginBaseInfo.Name}信息成功");
-
-                    if (init && File.Exists($"{info.Path}.update"))
-                    {
-                        var version = await File.ReadAllTextAsync($"{info.Path}.update");
-                        if (!string.IsNullOrWhiteSpace(version))
-                            await PluginNetworkService.DownloadPlugin(info.PluginBaseInfo.NameSign, version);
-
-                        try
-                        {
-                            File.Delete($"{info.Path}.update");
-                        }
-                        catch (Exception e)
-                        {
-                            Logger.Error(e, "删除更新标记文件错误");
-                        }
-                    }
-
-                    lock (loadLock)
-                    {
-                        if (ConfigManger.Config.EnabledPluginInfos.Any(e => e.ToPlgString() == info.PluginBaseInfo.ToPlgString()))
-                        {
-                            var configPluginInfo = ConfigManger.Config.EnabledPluginInfos.First(e => e.ToPlgString() == info.PluginBaseInfo.ToPlgString());
-                            ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.NameSign == configPluginInfo.NameSign);
-                            ConfigManger.Config.EnabledPluginInfos.Add(info.PluginBaseInfo);
-
-                            if (!EnablePlugins.ContainsKey(info.PluginBaseInfo.ToPlgString()))
-                            {
-                                EnablePluginWithoutReloadOthers(info);
-                            }
-                        }
+                        Logger.Error(e, "删除更新标记文件错误");
                     }
                 }
-                catch (Exception e)
-                {
-                    Logger.Error(e, $"加载插件 {info.PluginBaseInfo.Name} 时发生未知错误");
-                    lock (loadLock)
-                    {
-                        if (AllPluginInfos.Contains(info)) AllPluginInfos.Remove(info);
-                    }
-                }
-            });
 
-            loadingTasks[info.PluginBaseInfo.NameSign] = loadTask;
+                if (ConfigManger.Config.EnabledPluginInfos.Any(e => e.ToPlgString() == info.PluginBaseInfo.ToPlgString()))
+                {
+                    var configuredPlugin = ConfigManger.Config.EnabledPluginInfos
+                        .First(e => e.ToPlgString() == info.PluginBaseInfo.ToPlgString());
+                    ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.NameSign == configuredPlugin.NameSign);
+                    ConfigManger.Config.EnabledPluginInfos.Add(info.PluginBaseInfo);
+
+                    if (!EnablePlugins.ContainsKey(info.PluginBaseInfo.ToPlgString()))
+                        EnablePluginWithoutReloadOthers(info);
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e, $"加载插件 {info.PluginBaseInfo.Name} 时发生未知错误");
+                if (AllPluginInfos.Contains(info))
+                    AllPluginInfos.Remove(info);
+            }
         }
-
-        Task.WaitAll(loadingTasks.Values.ToArray());
 
         Logger.Debug($"加载插件信息完成共{AllPluginInfos.Count}插件被加载");
     }

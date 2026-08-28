@@ -161,7 +161,7 @@ public class ConfigManger : IConfigService
 
     public static void RemoveConfig(string key)
     {
-        foreach (var (s, value) in Configs.Where(x => x.Key.StartsWith(key)))
+        foreach (var (s, value) in Configs.Where(x => x.Key.StartsWith(key)).ToList())
         {
             value.GetType()
                 .BaseType.GetField("Instance")
