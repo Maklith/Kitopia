@@ -19,30 +19,31 @@ public sealed class CustomScenarioPluginIntegration : ICustomScenarioPluginInteg
     public CustomScenarioPluginDescriptor? GetInstalledPlugin(string pluginSign)
     {
         var plugin = PluginManager.GetPluginLocalInfoByPlgStr(pluginSign);
-        return plugin is null ? null : ToDescriptor(plugin.PluginBaseInfo.Id, plugin.PluginBaseInfo.Name,
-            plugin.PluginBaseInfo.NameSign, plugin.PluginBaseInfo.VersionId);
+        return plugin is null ? null : ToDescriptor(
+            plugin.PluginBaseInfo.Name,
+            plugin.PluginBaseInfo.NameSign,
+            plugin.PluginBaseInfo.Version);
     }
 
     public async Task<CustomScenarioPluginDescriptor?> GetOnlinePluginAsync(
-        int pluginId,
+        string pluginSign,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var plugin = await PluginNetworkService.GetOnlinePluginInfo(pluginId).ConfigureAwait(false);
+        var plugin = await PluginNetworkService.GetOnlinePluginInfo(pluginSign, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return plugin is null
             ? null
-            : ToDescriptor(plugin.Id, plugin.Name, plugin.NameSign, plugin.LastVersionId);
+            : ToDescriptor(plugin.Name, plugin.NameSign, plugin.LastVersion ?? string.Empty);
     }
 
     public async Task<bool> DownloadAndEnableAsync(
-        int pluginId,
         string pluginSign,
-        int? versionId = null,
+        string? version = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var result = await PluginManager.DownloadPluginAndEnable(pluginId, pluginSign, versionId)
+        var result = await PluginManager.DownloadPluginAndEnable(pluginSign, version)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return result;
@@ -64,11 +65,10 @@ public sealed class CustomScenarioPluginIntegration : ICustomScenarioPluginInteg
     }
 
     private static CustomScenarioPluginDescriptor ToDescriptor(
-        int id,
         string name,
         string nameSign,
-        int versionId)
+        string version)
     {
-        return new CustomScenarioPluginDescriptor(id, name, nameSign, versionId);
+        return new CustomScenarioPluginDescriptor(name, nameSign, version);
     }
 }

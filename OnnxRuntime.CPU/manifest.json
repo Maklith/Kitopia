@@ -1,17 +1,9 @@
 {
-  "Id": 2,
-  "AuthorName": "Kitopia",
-  "AuthorId": 1,
   "Name": "Onnx CPU推理环境",
   "NameSign": "kitopiaonnxruntimecpu",
-  "IsPublic": true,
   "Version": "1.0.0",
-  "VersionId": 1,
   "Description": "官方拓展插件,提供CPU推理环境",
   "Main": "OnnxRuntime.Cpu.dll",
-  "SupportSystems": [
-    "Windows"
-  ],
   "Dependencies": {
     "Kitopia": "^0.0.0"
   }

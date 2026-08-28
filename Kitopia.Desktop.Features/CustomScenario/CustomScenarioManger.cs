@@ -137,25 +137,24 @@ public class CustomScenarioManger
                             var pluginIntegration = ServiceManager.Services
                                 .GetRequiredService<ICustomScenarioPluginIntegration>();
                             var onlinePluginInfo = await pluginIntegration
-                                .GetOnlinePluginAsync(int.Parse(e1.PluginName.Split("_")[0]));
+                                .GetOnlinePluginAsync(e1.PluginName);
                             if (onlinePluginInfo is null)
                             {
                                 ServiceManager.Services.GetService<IToastService>().Show("自动下载插件失败",
-                                    $"未找到ID:{e1.PluginName.Split("_")[0]}的插件");
+                                    $"未找到插件:{e1.PluginName}");
                                 return;
                             }
 
                             var downloadPluginOnline = await pluginIntegration.DownloadAndEnableAsync(
-                                onlinePluginInfo.Id,
                                 onlinePluginInfo.NameSign,
-                                onlinePluginInfo.VersionId);
+                                onlinePluginInfo.Version);
 
                             if (downloadPluginOnline)
                                 ServiceManager.Services.GetService<IToastService>()
                                     .Show("自动下载插件成功", $"已自动下载并启用{onlinePluginInfo.Name}");
                             else
                                 ServiceManager.Services.GetService<IToastService>().Show("自动下载插件失败",
-                                    $"下载ID:{e1.PluginName.Split("_")[0]}的插件时遇到错误");
+                                    $"下载插件:{e1.PluginName}时遇到错误");
                         }
                     };
                     ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
@@ -174,7 +173,7 @@ public class CustomScenarioManger
                     }
 
                     var content =
-                        $"对应文件\n{fileInfo.FullName}\n情景所需的插件未启用\n需要插件{pluginByPlgStr.Name}(ID:{pluginByPlgStr.Id})";
+                        $"对应文件\n{fileInfo.FullName}\n情景所需的插件未启用\n需要插件{pluginByPlgStr.Name}";
 
                     var dialog = new DialogContent
                     {

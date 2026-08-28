@@ -86,7 +86,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
     {
         if (OnlinePluginInfo is not null)
         {
-            var bytes = await PluginNetworkService.GetAvatarBytesAsync(PluginBaseInfo.Id, cts);
+            var bytes = await PluginNetworkService.GetAvatarBytesAsync(PluginBaseInfo.NameSign, cts);
             if (bytes != null)
                 Icon = new Bitmap(new MemoryStream(bytes));
         }
@@ -95,7 +95,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
         {
             if (!File.Exists($"{PluginLocalInfo.Path}avatar.png"))
             {
-                var bytes = await PluginNetworkService.GetAvatarBytesAsync(PluginBaseInfo.Id, cts);
+                var bytes = await PluginNetworkService.GetAvatarBytesAsync(PluginBaseInfo.NameSign, cts);
                 if (bytes != null)
                 {
                     // Assuming we still want to save it locally if fetched
@@ -121,7 +121,11 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     private async ValueTask GetAuthorName(CancellationToken cts)
     {
-        AuthorName = await PluginNetworkService.GetAuthorNameAsync(PluginBaseInfo.AuthorId, cts);
+        OnlinePluginInfo ??= await PluginNetworkService.GetOnlinePluginInfo(PluginBaseInfo.NameSign, cts);
+        if (OnlinePluginInfo is not null)
+        {
+            AuthorName = await PluginNetworkService.GetAuthorNameAsync(OnlinePluginInfo.AuthorId, cts);
+        }
     }
 
     private string? _authorName;
@@ -178,13 +182,11 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
             }
         }
 
-        var latestInfo = await PluginNetworkService.GetLatestVersionInfoAsync(PluginBaseInfo.Id, cts);
-        
-        if (latestInfo.HasValue)
+        var latestVersion = await PluginNetworkService.GetLatestVersionAsync(PluginBaseInfo.NameSign, cts);
+        if (!string.IsNullOrWhiteSpace(latestVersion))
         {
-            CanUpdate = latestInfo.Value.VersionId > PluginLocalInfo.PluginBaseInfo.VersionId;
-            CanUpdateVersion = latestInfo.Value.Version;
-            CanUpdateVersionId = latestInfo.Value.VersionId;
+            CanUpdate = PluginDependencyService.IsVersionNewer(latestVersion, PluginLocalInfo.PluginBaseInfo.Version);
+            CanUpdateVersion = latestVersion;
         }
         else
         {
@@ -192,8 +194,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
         }
     }
 
-    [ObservableProperty] private string _canUpdateVersion;
-    [ObservableProperty] private int _canUpdateVersionId;
+    [ObservableProperty] private string? _canUpdateVersion;
 
     public void Dispose()
     {
@@ -207,9 +208,6 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     public string Version =>
         IsLocal ? PluginLocalInfo.PluginBaseInfo.Version : OnlinePluginInfo.LastVersion;
-
-    public int VersionId =>
-        IsLocal ? PluginLocalInfo.PluginBaseInfo.VersionId : OnlinePluginInfo.LastVersionId;
 
     private string? _description;
 
@@ -232,7 +230,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
     private async ValueTask GetDescription(CancellationToken cts)
     {
         if (IsLocal && OnlinePluginInfo is null)
-            OnlinePluginInfo = await PluginNetworkService.GetOnlinePluginInfo(PluginBaseInfo.Id, true);
+            OnlinePluginInfo = await PluginNetworkService.GetOnlinePluginInfo(PluginBaseInfo.NameSign, cts);
 
         if (OnlinePluginInfo is null)
         {
@@ -263,6 +261,6 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     private async ValueTask GetVersionDetails(CancellationToken cts)
     {
-        VersionDetails = await PluginNetworkService.GetVersionDetailsAsync(PluginBaseInfo.Id, null, cts);
+        VersionDetails = await PluginNetworkService.GetVersionDetailsAsync(PluginBaseInfo.NameSign, null, cts);
     }
 }

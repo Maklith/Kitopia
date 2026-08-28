@@ -72,7 +72,7 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     [RelayCommand]
     public async Task Update(PluginInfoUiHelper pluginInfoEx)
     {
-        await PluginManager.Update(pluginInfoEx.PluginBaseInfo.Id, pluginInfoEx.PluginBaseInfo.NameSign);
+        await PluginManager.Update(pluginInfoEx.PluginBaseInfo.NameSign);
     }
 
 

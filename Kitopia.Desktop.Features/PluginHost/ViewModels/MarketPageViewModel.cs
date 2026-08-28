@@ -1,8 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Features.UI.UiControls.Plugin;
 using Kitopia.Desktop.Features.ViewModel.Pages.plugin;
@@ -28,27 +26,34 @@ public partial class MarketPageViewModel : ObservableObject
 
     private async Task LoadPlugins()
     {
-        var async = await PluginNetworkService.HttpClient.GetAsync($"{ConfigManger.ApiUrl}/api/plugin/all");
-        var stringAsync = await async.Content.ReadAsStringAsync();
-        var options = new JsonSerializerOptions
+        var pageNumber = 1;
+        PluginPage? page;
+        do
         {
-            PropertyNameCaseInsensitive = true
-        };
-        var apiResponse = JsonSerializer.Deserialize<OnlinePluginInfo.ApiResponse>(stringAsync, options);
-        if (apiResponse != null && apiResponse.data != null)
-            for (var i = 0; i < apiResponse.data.Count; i++)
+            page = await PluginNetworkService.GetPluginsAsync(pageNumber, 100);
+            if (page is null)
+            {
+                return;
+            }
+
+            foreach (var plugin in page.Items)
+            {
                 Plugins.Add(new PluginInfoUiHelper
                 {
-                    PluginBaseInfo = apiResponse.data[i].ToPluginBaseInfo(),
-                    OnlinePluginInfo = apiResponse.data[i],
+                    PluginBaseInfo = plugin.ToPluginBaseInfo(),
+                    OnlinePluginInfo = plugin,
                     IsLocal = false
                 });
+            }
+
+            pageNumber++;
+        } while (pageNumber <= page.TotalPages);
     }
 
     [RelayCommand]
     private async Task<bool> DownloadPlugin(OnlinePluginInfo plugin)
     {
-        return await PluginManager.DownloadPluginAndEnable(plugin.Id, plugin.NameSign, plugin.LastVersionId);
+        return await PluginManager.DownloadPluginAndEnable(plugin.NameSign, plugin.LastVersion);
     }
 
     [RelayCommand]

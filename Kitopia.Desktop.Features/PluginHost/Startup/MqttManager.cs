@@ -153,21 +153,22 @@ public class MqttManager
             // ... copy cases ...
             case StartupAction.DownloadPlugin:
             {
-                if (jObject["pluginId"] != null)
+                var pluginSign = jObject["pluginSign"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(pluginSign))
                 {
-                    var onlinePluginInfo =
-                        await PluginNetworkService.GetOnlinePluginInfo(int.Parse(jObject["pluginId"].ToString()));
+                    var onlinePluginInfo = await PluginNetworkService.GetOnlinePluginInfo(pluginSign);
                     if (onlinePluginInfo == null)
                     {
                         toast.Show("来自URL的操作失败",
-                            $"下载安装插件ID:{jObject["pluginVersionInt"]}不存在");
+                            $"下载安装插件{pluginSign}不存在");
                         break;
                     }
-    
-                    PluginManager.DownloadPluginAndEnable(onlinePluginInfo.Id, onlinePluginInfo.NameSign,
-                        int.Parse(jObject["pluginVersionInt"].ToString()));
-                    toast.Show("来自URL的操作",
-                        $"下载安装插件{onlinePluginInfo.Name}ID:{jObject["pluginVersionInt"]}成功");
+
+                    var version = jObject["pluginVersion"]?.ToString() ?? onlinePluginInfo.LastVersion;
+                    var installed = await PluginManager.DownloadPluginAndEnable(onlinePluginInfo.NameSign, version);
+                    toast.Show("来自URL的操作", installed
+                        ? $"下载安装插件{onlinePluginInfo.Name}成功"
+                        : $"下载安装插件{onlinePluginInfo.Name}失败");
                 }
                 break;
             }
@@ -227,7 +228,7 @@ public class MqttManager
                     var onlineInfo = await PluginNetworkService.GetOnlinePluginInfo(value);
                     if (onlineInfo != null)
                     {
-                        await PluginManager.DownloadPluginAndEnable(onlineInfo.Id, onlineInfo.NameSign);
+                        await PluginManager.DownloadPluginAndEnable(onlineInfo.NameSign);
                         toast.Show("插件操作", $"插件安装/启用成功: {value}");
                     }
                     else

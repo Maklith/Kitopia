@@ -298,7 +298,7 @@ public class PluginManager
                             if (onlineInfo != null)
                             {
                                 var verStr = dep.Value.Replace("^", "").Split("-")[0];
-                                var success = PluginNetworkService.DownloadPlugin(onlineInfo.Id, verStr, onlineInfo.NameSign).GetAwaiter().GetResult();
+                                var success = PluginNetworkService.DownloadPlugin(onlineInfo.NameSign, verStr).GetAwaiter().GetResult();
                                 if (success)
                                 {
                                     Logger.Information($"依赖 {dep.Key} 下载成功，将重新扫描。");
@@ -400,9 +400,9 @@ public class PluginManager
 
                     if (init && File.Exists($"{info.Path}.update"))
                     {
-                        var allText = await File.ReadAllTextAsync($"{info.Path}.update");
-                        if (int.TryParse(allText, out var versionId))
-                            await PluginNetworkService.DownloadPlugin(info.PluginBaseInfo.Id, versionId, info.PluginBaseInfo.NameSign);
+                        var version = await File.ReadAllTextAsync($"{info.Path}.update");
+                        if (!string.IsNullOrWhiteSpace(version))
+                            await PluginNetworkService.DownloadPlugin(info.PluginBaseInfo.NameSign, version);
 
                         try
                         {
@@ -533,15 +533,20 @@ public class PluginManager
         }
     }
 
-    public static async Task<bool> DownloadPluginAndEnable(int pluginId, string pluginSign, int? targetVersionId = null,
-        string? targetVersion = null)
+    public static async Task<bool> DownloadPluginAndEnable(string pluginSign, string? targetVersion = null)
     {
-        object? key = targetVersionId.HasValue ? targetVersionId.Value : targetVersion;
-        if (key is null) return false;
-        
-        var downloadSuccess = await PluginNetworkService.DownloadPlugin(pluginId, key, pluginSign);
-        
-        if (downloadSuccess) 
+        if (string.IsNullOrWhiteSpace(targetVersion))
+        {
+            targetVersion = await PluginNetworkService.GetLatestVersionAsync(pluginSign);
+        }
+
+        if (string.IsNullOrWhiteSpace(targetVersion))
+        {
+            return false;
+        }
+
+        var downloadSuccess = await PluginNetworkService.DownloadPlugin(pluginSign, targetVersion);
+        if (downloadSuccess)
         {
             Reload();
             return EnablePlugin(pluginSign);
@@ -549,17 +554,16 @@ public class PluginManager
         return false;
     }
 
-    public static async Task<bool> Update(int pluginId, string pluginSign, int? targetVersionId = null)
+    public static async Task<bool> Update(string pluginSign, string? targetVersion = null)
     {
         try
         {
-            if (targetVersionId is null)
+            if (string.IsNullOrWhiteSpace(targetVersion))
             {
-                var onlineInfo = await PluginNetworkService.GetOnlinePluginInfo(pluginSign);
-                if (onlineInfo != null) targetVersionId = onlineInfo.LastVersionId;
+                targetVersion = await PluginNetworkService.GetLatestVersionAsync(pluginSign);
             }
 
-            if (targetVersionId is null) return false;
+            if (string.IsNullOrWhiteSpace(targetVersion)) return false;
 
             var pluginLocalInfoByPlgStr = GetPluginLocalInfoByPlgStr(pluginSign);
             if (pluginLocalInfoByPlgStr is null) return false;
@@ -567,21 +571,22 @@ public class PluginManager
 
             if (pluginLocalInfoByPlgStr.UnloadFailed)
             {
-                await File.WriteAllTextAsync($"{pluginLocalInfoByPlgStr.Path}.update", targetVersionId.ToString());
-            }
-            else
-            {
-                var downloadSuccess = await PluginNetworkService.DownloadPlugin(pluginLocalInfoByPlgStr.PluginBaseInfo.Id,
-                    targetVersionId.Value,
-                    pluginLocalInfoByPlgStr.PluginBaseInfo.NameSign);
-                    
-                if (!downloadSuccess)
-                    ServiceManager.Services.GetService<IToastService>()!.Show("更新插件失败",
-                        $"更新插件{pluginLocalInfoByPlgStr.PluginBaseInfo.Name}失败");
+                await File.WriteAllTextAsync($"{pluginLocalInfoByPlgStr.Path}.update", targetVersion);
+                return true;
             }
 
-            return await DownloadPluginAndEnable(pluginLocalInfoByPlgStr.PluginBaseInfo.Id, 
-                pluginLocalInfoByPlgStr.PluginBaseInfo.NameSign, targetVersionId);
+            var downloadSuccess = await PluginNetworkService.DownloadPlugin(
+                pluginLocalInfoByPlgStr.PluginBaseInfo.NameSign,
+                targetVersion);
+            if (!downloadSuccess)
+            {
+                ServiceManager.Services.GetService<IToastService>()!.Show("更新插件失败",
+                    $"更新插件{pluginLocalInfoByPlgStr.PluginBaseInfo.Name}失败");
+                return false;
+            }
+
+            Reload();
+            return EnablePlugin(pluginLocalInfoByPlgStr.PluginBaseInfo.NameSign);
         }
         catch (Exception e)
         {

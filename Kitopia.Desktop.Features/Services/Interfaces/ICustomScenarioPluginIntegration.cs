@@ -3,10 +3,9 @@ using System.Reflection;
 namespace Kitopia.Desktop.Features.Services.Interfaces;
 
 public sealed record CustomScenarioPluginDescriptor(
-    int Id,
     string Name,
     string NameSign,
-    int VersionId);
+    string Version);
 
 public interface ICustomScenarioPluginIntegration
 {
@@ -14,12 +13,11 @@ public interface ICustomScenarioPluginIntegration
     bool IsPluginEnabled(string pluginSign);
     CustomScenarioPluginDescriptor? GetInstalledPlugin(string pluginSign);
     Task<CustomScenarioPluginDescriptor?> GetOnlinePluginAsync(
-        int pluginId,
+        string pluginSign,
         CancellationToken cancellationToken = default);
     Task<bool> DownloadAndEnableAsync(
-        int pluginId,
         string pluginSign,
-        int? versionId = null,
+        string? version = null,
         CancellationToken cancellationToken = default);
     void EnablePlugin(string pluginSign);
     IServiceProvider GetServiceProvider(string pluginSign);

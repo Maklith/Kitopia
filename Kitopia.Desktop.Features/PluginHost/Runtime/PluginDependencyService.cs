@@ -57,6 +57,66 @@ public class PluginDependencyService
         return v == new Version(range);
     }
 
+    public static bool IsVersionNewer(string candidate, string current)
+    {
+        if (!TryParseComparableVersion(candidate, out var candidateVersion, out var candidatePreRelease) ||
+            !TryParseComparableVersion(current, out var currentVersion, out var currentPreRelease))
+        {
+            return string.CompareOrdinal(candidate, current) > 0;
+        }
+
+        var comparison = candidateVersion.CompareTo(currentVersion);
+        if (comparison != 0)
+        {
+            return comparison > 0;
+        }
+
+        if (candidatePreRelease is null || currentPreRelease is null)
+        {
+            return candidatePreRelease is null && currentPreRelease is not null;
+        }
+
+        return ComparePreRelease(candidatePreRelease, currentPreRelease) > 0;
+    }
+
+    private static bool TryParseComparableVersion(
+        string value,
+        out Version version,
+        out string? preRelease)
+    {
+        var versionWithoutBuildMetadata = value.Split('+', 2)[0];
+        var preReleaseSeparator = versionWithoutBuildMetadata.IndexOf('-');
+        var coreVersion = preReleaseSeparator < 0
+            ? versionWithoutBuildMetadata
+            : versionWithoutBuildMetadata[..preReleaseSeparator];
+        preRelease = preReleaseSeparator < 0
+            ? null
+            : versionWithoutBuildMetadata[(preReleaseSeparator + 1)..];
+        return Version.TryParse(coreVersion, out version!);
+    }
+
+    private static int ComparePreRelease(string left, string right)
+    {
+        var leftIdentifiers = left.Split('.');
+        var rightIdentifiers = right.Split('.');
+        for (var index = 0; index < Math.Min(leftIdentifiers.Length, rightIdentifiers.Length); index++)
+        {
+            var leftIdentifier = leftIdentifiers[index];
+            var rightIdentifier = rightIdentifiers[index];
+            var leftIsNumber = long.TryParse(leftIdentifier, out var leftNumber);
+            var rightIsNumber = long.TryParse(rightIdentifier, out var rightNumber);
+            var comparison = leftIsNumber && rightIsNumber
+                ? leftNumber.CompareTo(rightNumber)
+                : leftIsNumber ? -1 : rightIsNumber ? 1 : string.CompareOrdinal(leftIdentifier, rightIdentifier);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+        }
+
+        return leftIdentifiers.Length.CompareTo(rightIdentifiers.Length);
+    }
+
     /// <summary>
     /// Checks dependencies for a set of plugins or a specific requirement.
     /// This method is pure and does not perform downloads or side effects.

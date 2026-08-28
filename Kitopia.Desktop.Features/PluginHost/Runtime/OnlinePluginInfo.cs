@@ -2,67 +2,63 @@ using PluginCore;
 
 namespace Kitopia.Desktop.Features.Services.Plugin;
 
-public struct VersionDetail
+public sealed class PluginApiResponse<T>
 {
-    /*
-     "id": 1,
-            "pluginId": 7,
-            "versionInt": 1,
-            "version": "1.0.0",
-            "detail": "第一个版本",
-            "isAvailable": true
-     */
-    public int Id { get; set; }
-    public int PluginId { get; set; }
-    public int VersionInt { get; set; }
-    public string Version { get; set; }
-    public string Detail { get; set; }
-    public bool IsAvailable { get; set; }
+    public bool Flag { get; set; }
+    public T? Data { get; set; }
 }
 
-public class OnlinePluginInfo
+public sealed class PluginPage
 {
-    internal class ApiResponse
+    public List<OnlinePluginInfo> Items { get; set; } = [];
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+    public int TotalCount { get; set; }
+    public int TotalPages { get; set; }
+}
+
+public sealed class VersionDetail
+{
+    public int Id { get; set; }
+    public long PluginId { get; set; }
+    public string Version { get; set; } = string.Empty;
+    public string Detail { get; set; } = string.Empty;
+    public int Status { get; set; }
+    public DateTime CreateTime { get; set; }
+    public DateTime Updatetime { get; set; }
+}
+
+public sealed class UserBaseInfo
+{
+    public string? UserName { get; set; }
+}
+
+public sealed class OnlinePluginInfo
+{
+    public long Id { get; set; }
+    public int AuthorId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string NameSign { get; set; } = string.Empty;
+    public bool IsPublic { get; set; }
+    public string? LastVersion { get; set; }
+    public string? DescriptionShort { get; set; }
+    public string? Description { get; set; }
+    public List<string> SupportSystems { get; set; } = [];
+    public long DownloadCounts { get; set; }
+    public DateTime CreateTime { get; set; }
+    public DateTime Updatetime { get; set; }
+    public int Rank { get; set; }
+
+    public string ToPlgString() => NameSign;
+
+    public override string ToString() => ToPlgString();
+
+    public PluginBaseInfo ToPluginBaseInfo() => new()
     {
-        public bool flag { get; set; }
-        public List<OnlinePluginInfo> data { get; set; }
-    }
-
-    public int Id { set; get; }
-
-
-    public int AuthorId { set; get; }
-
-
-    public string Name { set; get; }
-    public string NameSign { set; get; }
-    public bool IsPublic { set; get; }
-
-    public string LastVersion { set; get; }
-    public int LastVersionId { set; get; }
-
-    public string DescriptionShort { set; get; }
-    public string Description { set; get; }
-    public List<string> SupportSystems { set; get; }
-
-    public string ToPlgString()
-    {
-        return NameSign;
-    }
-
-    public override string ToString()
-    {
-        return ToPlgString();
-    }
-
-    public PluginBaseInfo ToPluginBaseInfo()
-    {
-        return new PluginBaseInfo
-        {
-            Id = Id,
-            AuthorId = AuthorId,
-            Name = Name,
-            NameSign = NameSign
-        };
-    }
+        Name = Name,
+        NameSign = NameSign,
+        Version = LastVersion ?? string.Empty,
+        Description = Description ?? DescriptionShort ?? string.Empty,
+        Dependencies = []
+    };
 }

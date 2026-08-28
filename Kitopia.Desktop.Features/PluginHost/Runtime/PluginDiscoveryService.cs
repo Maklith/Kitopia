@@ -41,10 +41,10 @@ public class PluginDiscoveryService
                 if (File.Exists(manifestPath))
                 {
                     var readAllText = File.ReadAllText(manifestPath);
-                    var serialize = JsonSerializer.Deserialize<PluginBaseInfo?>(readAllText);
-                    if (serialize != null)
+                    var manifest = JsonSerializer.Deserialize<PluginManifest>(readAllText);
+                    if (manifest is not null)
                     {
-                        var pluginBaseInfo = serialize.Value;
+                        var pluginBaseInfo = manifest.ToPluginBaseInfo();
                         candidates.Add(new PluginLocalInfo
                         {
                             PluginBaseInfo = pluginBaseInfo,
