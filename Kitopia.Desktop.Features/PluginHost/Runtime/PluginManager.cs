@@ -256,6 +256,8 @@ public class PluginManager
                 while (weakReference.IsAlive) Thread.Sleep(1000);
 
                 pluginInfoEx.UnloadFailed = false;
+                if (GetPluginLocalInfoByPlgStr(pluginInfoEx.ToPlgString()) is { } reloadedPlugin)
+                    reloadedPlugin.UnloadFailed = false;
             });
         }
 
@@ -266,6 +268,10 @@ public class PluginManager
                 new PluginStateChanged(pluginInfoEx.PluginBaseInfo.NameSign));
             Reload();
             CustomScenarioManger.Reload();
+            if (weakReference.IsAlive && GetPluginLocalInfoByPlgStr(pluginInfoEx.ToPlgString()) is { } reloadedPlugin)
+            {
+                reloadedPlugin.UnloadFailed = true;
+            }
         }
 
         return !weakReference.IsAlive;
@@ -480,38 +486,50 @@ public class PluginManager
     {
         Logger.Debug($"删除插件{pluginInfoEx.PluginBaseInfo.Name}");
         await UnloadPlugin(pluginInfoEx, false);
-        if (!pluginInfoEx.UnloadFailed)
+        var restartRequired = false;
+        var pluginsDirectoryInfo = new DirectoryInfo(pluginInfoEx.Path);
+        if (pluginsDirectoryInfo.Exists)
         {
-            var pluginsDirectoryInfo =
-                new DirectoryInfo(pluginInfoEx.Path);
-            if (pluginsDirectoryInfo.Exists)
+            Logger.Information($"正在删除插件目录: {pluginsDirectoryInfo.FullName}");
+            try
             {
-                Logger.Information($"正在删除插件目录: {pluginsDirectoryInfo.FullName}");
-                try
-                {
-                    pluginsDirectoryInfo.Delete(true);
-                }
-                catch (Exception e)
-                {
-                    Logger.Error(e, $"删除插件目录失败: {pluginsDirectoryInfo.FullName}");
-                }
+                pluginsDirectoryInfo.Delete(true);
             }
-            else
+            catch (Exception e)
             {
-                Logger.Warning($"插件目录不存在，跳过删除: {pluginsDirectoryInfo.FullName}");
+                Logger.Error(e, $"删除插件目录失败: {pluginsDirectoryInfo.FullName}");
+                SchedulePluginRemovalOnRestart(pluginInfoEx);
+                restartRequired = true;
             }
         }
         else
         {
-            Logger.Warning($"插件卸载失败，创建 .remove 标记: {pluginInfoEx.Path}");
-            File.Create(
-                $"{pluginInfoEx.Path}.remove");
+            Logger.Warning($"插件目录不存在，跳过删除: {pluginsDirectoryInfo.FullName}");
         }
 
         if (reload)
         {
             Reload();
             CustomScenarioManger.Reload();
+            if (restartRequired && GetPluginLocalInfoByPlgStr(pluginInfoEx.ToPlgString()) is { } reloadedPlugin)
+            {
+                reloadedPlugin.UnloadFailed = true;
+            }
+        }
+    }
+
+    private static void SchedulePluginRemovalOnRestart(PluginLocalInfo pluginInfoEx)
+    {
+        pluginInfoEx.UnloadFailed = true;
+        var markerPath = Path.Combine(pluginInfoEx.Path, ".remove");
+        Logger.Warning($"插件卸载或删除失败，创建 .remove 标记: {markerPath}");
+        try
+        {
+            File.WriteAllText(markerPath, string.Empty);
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e, $"创建插件删除标记失败: {markerPath}");
         }
     }
 

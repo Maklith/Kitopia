@@ -154,6 +154,13 @@ public class MqttManager
             case StartupAction.DownloadPlugin:
             {
                 var pluginSign = jObject["pluginSign"]?.ToString();
+                var version = jObject["pluginVersion"]?.ToString();
+                if (string.IsNullOrWhiteSpace(pluginSign))
+                {
+                    pluginSign = values.FirstOrDefault();
+                    version ??= values.Skip(1).FirstOrDefault();
+                }
+
                 if (!string.IsNullOrWhiteSpace(pluginSign))
                 {
                     var onlinePluginInfo = await PluginNetworkService.GetOnlinePluginInfo(pluginSign);
@@ -164,11 +171,48 @@ public class MqttManager
                         break;
                     }
 
-                    var version = jObject["pluginVersion"]?.ToString() ?? onlinePluginInfo.LastVersion;
-                    var installed = await PluginManager.DownloadPluginAndEnable(onlinePluginInfo.NameSign, version);
-                    toast.Show("来自URL的操作", installed
-                        ? $"下载安装插件{onlinePluginInfo.Name}成功"
-                        : $"下载安装插件{onlinePluginInfo.Name}失败");
+                    version ??= onlinePluginInfo.LastVersion;
+                    if (string.IsNullOrWhiteSpace(version))
+                    {
+                        toast.Show("来自URL的操作失败", $"插件 {onlinePluginInfo.Name} 没有可安装的版本");
+                        break;
+                    }
+
+                    var authorNameTask = PluginNetworkService.GetAuthorNameAsync(onlinePluginInfo.AuthorId);
+                    var supportSystems = onlinePluginInfo.SupportSystems.Count > 0
+                        ? string.Join("、", onlinePluginInfo.SupportSystems.Select(system => system.ToLowerInvariant() switch
+                        {
+                            "windows" => "Windows",
+                            "macos" => "macOS",
+                            "linux" => "Linux",
+                            _ => system
+                        }))
+                        : "未知";
+                    var authorName = await authorNameTask ?? $"用户 {onlinePluginInfo.AuthorId}";
+                    var request = new ToastRequest
+                    {
+                        Header = $"安装插件 · {onlinePluginInfo.Name}",
+                        Text = $"{onlinePluginInfo.NameSign}\n\n" +
+                               $"{onlinePluginInfo.DescriptionShort ?? onlinePluginInfo.Description ?? "暂无简介"}\n\n" +
+                               $"版本：v{version}\n" +
+                               $"支持系统：{supportSystems}\n" +
+                               $"作者：{authorName}\n" +
+                               $"{onlinePluginInfo.DownloadCounts} 下载" ,
+                        NotificationType = Avalonia.Controls.Notifications.NotificationType.Information,
+                        AutoCloseDelay = null,
+                        Actions =
+                        [
+                            new ToastAction
+                            {
+                                Text = "安装",
+                                IsPrimary = true,
+                                Callback = () => _ = InstallPluginFromUrlAsync(onlinePluginInfo, version)
+                            },
+                            new ToastAction { Text = "取消" }
+                        ]
+                    };
+
+                    await ShowPluginInstallDialogAsync(request, toast);
                 }
                 break;
             }
@@ -290,6 +334,39 @@ public class MqttManager
                 }
                 break;
         }
+    }
+
+    private static async Task ShowPluginInstallDialogAsync(ToastRequest request, IToastService toast)
+    {
+        await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop ||
+                desktop.MainWindow is not { } mainWindow)
+            {
+                await toast.Show(request);
+                return;
+            }
+
+            mainWindow.Show();
+            mainWindow.WindowState = WindowState.Normal;
+            mainWindow.Activate();
+            var platformHandle = mainWindow.TryGetPlatformHandle();
+            if (platformHandle is not null)
+            {
+                ServiceManager.Services.GetService<IWindowTool>()?.SetForegroundWindow(platformHandle.Handle);
+            }
+
+            await toast.Show(request, mainWindow);
+        });
+    }
+
+    private static async Task InstallPluginFromUrlAsync(OnlinePluginInfo plugin, string version)
+    {
+        var toast = ServiceManager.Services.GetRequiredService<IToastService>();
+        var installed = await PluginManager.DownloadPluginAndEnable(plugin.NameSign, version);
+        await toast.Show("来自URL的操作", installed
+            ? $"下载安装插件{plugin.Name}成功"
+            : $"下载安装插件{plugin.Name}失败");
     }
 
     private static JObject BuildActionPayload(StartupResult result)
