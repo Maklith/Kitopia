@@ -30,7 +30,9 @@ public class PluginNetworkService
         int page = 1,
         int pageSize = 20,
         CancellationToken cancellationToken = default) =>
-        GetPluginDataAsync<PluginPage>($"all?page={page}&pageSize={pageSize}", cancellationToken);
+        GetPluginDataAsync<PluginPage>(
+            $"all?page={page}&pageSize={pageSize}&platform={GetCurrentPlatformName()}",
+            cancellationToken);
 
     public static async Task<bool> DownloadPlugin(
         string pluginSignName,
@@ -149,6 +151,13 @@ public class PluginNetworkService
         return plugin?.LastVersion;
     }
 
+    public static Task<List<VersionDetail>?> GetAvailableVersionsAsync(
+        string pluginSignName,
+        CancellationToken cancellationToken = default) =>
+        GetPluginDataAsync<List<VersionDetail>>(
+            $"versions/{GetCurrentPlatformType()}/{Uri.EscapeDataString(pluginSignName)}",
+            cancellationToken);
+
     public static async Task<List<VersionDetail>?> GetVersionDetailsAsync(
         string pluginSignName,
         string? version = null,
@@ -199,9 +208,21 @@ public class PluginNetworkService
 
     private static string GetPluginApiUrl(string path) => $"{ConfigManger.ApiUrl}/{PluginApiPath}/{path}";
 
+    public static bool SupportsCurrentPlatform(IReadOnlyCollection<string> availablePlatforms)
+    {
+        return availablePlatforms.Count > 0 && availablePlatforms.Any(platform =>
+            string.Equals(platform, GetCurrentPlatformName(), StringComparison.OrdinalIgnoreCase));
+    }
+
     private static int GetCurrentPlatformType() => OperatingSystem.IsWindows()
         ? 1
         : OperatingSystem.IsMacOS()
             ? 2
             : 3;
+
+    private static string GetCurrentPlatformName() => OperatingSystem.IsWindows()
+        ? "windows"
+        : OperatingSystem.IsMacOS()
+            ? "macos"
+            : "linux";
 }

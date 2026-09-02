@@ -1,5 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -10,6 +12,9 @@ namespace Kitopia.Desktop.Controls;
 
 public sealed class ToastDialogContentViewModel : ObservableObject, IDialogContext
 {
+    private readonly Action<string>? _selectionConfirmed;
+    private string? _selectedOption;
+
     public void Close()
     {
         RequestClose?.Invoke(this, null);
@@ -26,6 +31,13 @@ public sealed class ToastDialogContentViewModel : ObservableObject, IDialogConte
         ShowProgressBar = request.ShowProgressBar;
         IsProgressIndeterminate = request.IsProgressIndeterminate;
         ProgressValue = request.ProgressValue;
+        SelectionOptions = request.SelectionOptions;
+        SelectedOption = request.SelectedOption is { } selected && request.SelectionOptions.Contains(selected)
+            ? selected
+            : request.SelectionOptions.FirstOrDefault();
+        SelectionConfirmText = request.SelectionConfirmText;
+        _selectionConfirmed = request.SelectionConfirmed;
+        ConfirmSelectionCommand = new RelayCommand(ConfirmSelection);
         foreach (var action in request.Actions)
         {
             var callback = action.Callback;
@@ -54,9 +66,29 @@ public sealed class ToastDialogContentViewModel : ObservableObject, IDialogConte
 
     public double? ProgressValue { get; }
 
+    public IReadOnlyList<string> SelectionOptions { get; }
+
+    public string? SelectedOption
+    {
+        get => _selectedOption;
+        set => SetProperty(ref _selectedOption, value);
+    }
+
+    public string? SelectionConfirmText { get; }
+
+    public bool HasSelectionOptions => SelectionOptions.Count > 0;
+
+    public bool HasSelectionConfirmation => HasSelectionOptions &&
+                                            !string.IsNullOrWhiteSpace(SelectionConfirmText) &&
+                                            _selectionConfirmed is not null;
+
+    public IRelayCommand ConfirmSelectionCommand { get; }
+
     public ObservableCollection<ToastDialogActionViewModel> Actions { get; } = [];
 
     public bool HasActions => Actions.Count > 0;
+
+    public bool HasFooter => HasSelectionConfirmation || HasActions;
 
     public bool IsInformation => NotificationType == NotificationType.Information;
 
@@ -65,6 +97,17 @@ public sealed class ToastDialogContentViewModel : ObservableObject, IDialogConte
     public bool IsWarning => NotificationType == NotificationType.Warning;
 
     public bool IsError => NotificationType == NotificationType.Error;
+
+    private void ConfirmSelection()
+    {
+        if (SelectedOption is null)
+        {
+            return;
+        }
+
+        _selectionConfirmed?.Invoke(SelectedOption);
+        Close();
+    }
 }
 
 public sealed class ToastDialogActionViewModel

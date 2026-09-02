@@ -49,7 +49,7 @@
             MinHeight="{DynamicResource ToastCardMinHeight}"
             Padding="{DynamicResource ToastCardPadding}"
             CornerRadius="{DynamicResource ToastCardCornerRadius}">
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
               ColumnDefinitions="Auto,*,Auto"
               HorizontalAlignment="Stretch"
               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -109,25 +109,44 @@
                              Value="{Binding ProgressValue}"
                              IsIndeterminate="{Binding IsProgressIndeterminate}" />
 
-                <ItemsControl Grid.Row="3"
-                              Grid.Column="1"
-                              Grid.ColumnSpan="2"
-                              ItemsSource="{Binding Actions}"
-                              IsVisible="{Binding HasActions}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="controls:ToastDialogActionViewModel">
-                            <Button Content="{Binding Text}"
-                                    Command="{Binding Command}"
-                                    Classes="toast-dialog-action"
-                                    Classes.primary="{Binding IsPrimary}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <StackPanel Grid.Row="3"
+                            Grid.Column="1"
+                            Grid.ColumnSpan="2"
+                            Spacing="4"
+                            IsVisible="{Binding HasSelectionOptions}">
+                    <TextBlock Text="版本" Foreground="{DynamicResource SemiColorText1}" />
+                    <ComboBox ItemsSource="{Binding SelectionOptions}"
+                              SelectedItem="{Binding SelectedOption, Mode=TwoWay}" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="4"
+                            Grid.Column="1"
+                            Grid.ColumnSpan="2"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Spacing="8"
+                            IsVisible="{Binding HasFooter}">
+                    <Button Content="{Binding SelectionConfirmText}"
+                            Command="{Binding ConfirmSelectionCommand}"
+                            IsVisible="{Binding HasSelectionConfirmation}"
+                            Classes="toast-dialog-action primary" />
+                    <ItemsControl ItemsSource="{Binding Actions}"
+                                  IsVisible="{Binding HasActions}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="controls:ToastDialogActionViewModel">
+                                <Button Content="{Binding Text}"
+                                        Command="{Binding Command}"
+                                        Classes="toast-dialog-action"
+                                        Classes.primary="{Binding IsPrimary}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
         </Grid>
     </Border>
 </UserControl>

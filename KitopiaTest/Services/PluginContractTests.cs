@@ -83,4 +83,30 @@ public sealed class PluginContractTests
         Assert.IsFalse(PluginDependencyService.IsVersionNewer("1.0.0-rc.1", "1.0.0"));
         Assert.IsFalse(PluginDependencyService.IsVersionNewer("1.0.0+build.2", "1.0.0+build.1"));
     }
+
+    [TestMethod]
+    public void SupportsCurrentPlatform_HandlesMissingAndExplicitPlatformMetadata()
+    {
+        Assert.IsFalse(PluginNetworkService.SupportsCurrentPlatform([]));
+
+        var currentPlatform = OperatingSystem.IsWindows()
+            ? "windows"
+            : OperatingSystem.IsMacOS()
+                ? "macos"
+                : "linux";
+        Assert.IsTrue(PluginNetworkService.SupportsCurrentPlatform([currentPlatform.ToUpperInvariant()]));
+        Assert.IsFalse(PluginNetworkService.SupportsCurrentPlatform(["unsupported-platform"]));
+    }
+
+    [TestMethod]
+    public void VersionDetail_DeserializesAvailablePlatforms()
+    {
+        const string json = "{\"version\":\"1.2.0\",\"availablePlatforms\":[\"windows\"]}";
+
+        var detail = JsonConvert.DeserializeObject<VersionDetail>(json);
+
+        Assert.IsNotNull(detail);
+        Assert.AreEqual("1.2.0", detail.Version);
+        CollectionAssert.AreEqual(new[] { "windows" }, detail.AvailablePlatforms);
+    }
 }

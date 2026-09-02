@@ -23,6 +23,7 @@ public sealed class VersionDetail
     public long PluginId { get; set; }
     public string Version { get; set; } = string.Empty;
     public string Detail { get; set; } = string.Empty;
+    public List<string> AvailablePlatforms { get; set; } = [];
     public int Status { get; set; }
     public DateTime CreateTime { get; set; }
     public DateTime Updatetime { get; set; }

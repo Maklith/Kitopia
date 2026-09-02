@@ -188,7 +188,7 @@ internal class Program {
         services.AddTransient<Kitopia.Feature.DeviceCommunication.Application.IChatClipboardService,
             DesktopChatClipboardService>();
         services.AddSingleton<IWindowTool, WindowToolServiceWindow>();
-        services.AddTransient<IApplicationService, ApplicationService>();
+        services.AddSingleton<IApplicationService, ApplicationService>();
         services.AddTransient<IImageTool, ImageTool>();
         services.AddTransient<IExplorerContextMenuService, ExplorerContextMenuService>();
         services.AddTransient<IExplorerContextMenuConfiger, ExplorerContextMenuConfiger>();

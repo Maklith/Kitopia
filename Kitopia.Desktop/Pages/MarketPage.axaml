@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:u="https://irihi.tech/ursa"
              xmlns:pages="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages;assembly=Kitopia.Desktop.Features"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="pages:MarketPageViewModel"
@@ -9,7 +10,7 @@
     <Panel>
         <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
 
-        <Grid RowDefinitions="Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
+        <Grid RowDefinitions="Auto,*,Auto" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
             <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Text="插件市场" />
             <ScrollViewer Grid.Row="1">
                 <ItemsControl ItemsSource="{Binding Plugins}" Margin="4,0,0,0">
@@ -91,6 +92,14 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
+            <u:Pagination Grid.Row="2"
+                          HorizontalAlignment="Center"
+                          CurrentPage="{Binding CurrentPage, Mode=TwoWay}"
+                          PageCount="{Binding TotalPages}"
+                          PageSize="{Binding PageSize, Mode=TwoWay}"
+                          PageSizeOptions="{Binding PageSizeOptions}"
+                          ShowPageSizeSelector="True"
+                          IsEnabled="{Binding !IsLoading}" />
         </Grid>
     </Panel>
 </UserControl>
