@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:plugin="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages.plugin;assembly=Kitopia.Desktop.Features"
-
+             xmlns:pluginHelper="clr-namespace:Kitopia.Desktop.Features.Services.Plugin;assembly=Kitopia.Desktop.Features"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="plugin:PluginManagerPageViewModel"
              x:Class="Kitopia.Desktop.Pages.PluginManagerPage">
@@ -20,119 +20,218 @@
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Width="300" Height="210"
-                                    Theme="{DynamicResource KitopiaCard}" Margin="4">
+                        <DataTemplate x:DataType="pluginHelper:PluginInfoUiHelper">
+                            <Border Width="340" Height="240"
+                                    Theme="{DynamicResource KitopiaPluginCard}" Margin="6">
                                 <Panel>
-                                    <Grid ColumnDefinitions="68,*"
-                                          RowDefinitions="*,36"
+                                    <Grid RowDefinitions="Auto,*,Auto,Auto,Auto"
                                           IsEnabled="{Binding !PluginLocalInfo.UnloadFailed}">
-                                        <Image Grid.Column="0"
-                                               Width="56" Height="56"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Top"
-                                               Margin="0,4,0,0"
-                                               Source="{Binding Icon}" />
-                                        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Top">
-                                            <Button Content="{Binding PluginBaseInfo.Name}"
-                                                    Padding="0" MinHeight="0"
-                                                    Theme="{DynamicResource BorderlessButton}"
-                                                    HorizontalAlignment="Left"
-                                                    FontWeight="SemiBold" FontSize="16"
-                                                    Foreground="{DynamicResource SemiColorText0}"
-                                                    Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ShowPluginDetailCommand}"
-                                                    CommandParameter="{Binding }" />
+                                        <!-- 1. Header: Icon/Initial + Name/NameSign + Status Tag -->
+                                        <Grid Grid.Row="0" ColumnDefinitions="44,*,Auto" VerticalAlignment="Top">
+                                            <!-- Plugin Icon / Avatar -->
+                                            <Border Grid.Column="0" Width="44" Height="44"
+                                                    CornerRadius="10" ClipToBounds="True"
+                                                    Background="#E0F2FE" VerticalAlignment="Center">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding PluginInitial}"
+                                                               Foreground="#1D4ED8"
+                                                               FontWeight="Bold"
+                                                               FontSize="18"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center" />
+                                                    <Image Source="{Binding Icon}"
+                                                           Width="44" Height="44"
+                                                           Stretch="UniformToFill"
+                                                           IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                </Panel>
+                                            </Border>
+
+                                            <!-- Name and NameSign -->
+                                            <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
+                                                <Button Content="{Binding PluginBaseInfo.Name}"
+                                                        Padding="0" MinHeight="0"
+                                                        Theme="{DynamicResource BorderlessButton}"
+                                                        HorizontalAlignment="Left"
+                                                        FontWeight="SemiBold" FontSize="15"
+                                                        Foreground="{DynamicResource SemiColorText0}"
+                                                        Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ShowPluginDetailCommand}"
+                                                        CommandParameter="{Binding }">
+                                                    <Button.Styles>
+                                                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                            <Setter Property="Foreground" Value="#2563EB" />
+                                                        </Style>
+                                                    </Button.Styles>
+                                                </Button>
+                                                <TextBlock Text="{Binding PluginBaseInfo.NameSign}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource SemiColorText2}"
+                                                           Margin="0,2,0,0"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+
+                                            <!-- Status Tag (Enabled / Disabled) -->
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Top">
+                                                <Border CornerRadius="999" Padding="8,2"
+                                                        Background="#ECFDF5"
+                                                        IsVisible="{Binding PluginLocalInfo.IsEnabled}">
+                                                    <TextBlock Text="已启用" FontSize="11" FontWeight="Medium" Foreground="#047857" />
+                                                </Border>
+                                                <Border CornerRadius="999" Padding="8,2"
+                                                        Background="#F1F5F9"
+                                                        IsVisible="{Binding !PluginLocalInfo.IsEnabled}">
+                                                    <TextBlock Text="已禁用" FontSize="11" FontWeight="Medium" Foreground="#64748B" />
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- 2. Middle: Description & Platform Tags -->
+                                        <StackPanel Grid.Row="1" Margin="0,8,0,0" VerticalAlignment="Top">
                                             <TextBlock Text="{Binding PluginBaseInfo.Description}"
                                                        TextWrapping="Wrap" MaxLines="2"
+                                                       TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource SemiColorText1}"
-                                                       FontSize="{DynamicResource SemiFontSizeSmall}" />
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="{Binding PluginBaseInfo.Version}"
-                                                           FontSize="{DynamicResource SemiFontSizeSmall}"
-                                                           Foreground="{DynamicResource SemiColorText2}" />
+                                                       FontSize="13"
+                                                       LineHeight="18"
+                                                       Height="36" />
+                                            <ItemsControl ItemsSource="{Binding DisplayPlatforms}" Margin="0,6,0,0">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal" Spacing="6" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="x:String">
+                                                        <Border Background="{DynamicResource SemiColorBackground2}"
+                                                                CornerRadius="6" Padding="8,2">
+                                                            <TextBlock Text="{Binding .}"
+                                                                       FontSize="11"
+                                                                       Foreground="{DynamicResource SemiColorText2}" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+
+                                        <!-- 3. Divider -->
+                                        <Border Grid.Row="2" Height="1"
+                                                Background="{DynamicResource SemiColorBorder}"
+                                                Margin="0,8,0,8" />
+
+                                        <!-- 4. Footer: Author on left, Version on right -->
+                                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                                            <!-- Author -->
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                <Border Width="24" Height="24"
+                                                        CornerRadius="12" ClipToBounds="True"
+                                                        Background="#E0F2FE">
+                                                    <Panel>
+                                                        <TextBlock Text="{Binding AuthorInitial}"
+                                                                   Foreground="#1D4ED8"
+                                                                   FontSize="11" FontWeight="SemiBold"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center" />
+                                                        <Image Source="{Binding AuthorAvatar}"
+                                                               Width="24" Height="24"
+                                                               Stretch="UniformToFill"
+                                                               IsVisible="{Binding AuthorAvatar, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                    </Panel>
+                                                </Border>
+                                                <TextBlock Text="{Binding AuthorName}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource SemiColorText1}"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           MaxWidth="120" />
+                                            </StackPanel>
+
+                                            <!-- Version + CanUpdate badge -->
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Version, StringFormat='v{0}'}"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource SemiColorText2}"
+                                                           VerticalAlignment="Center" />
                                                 <StackPanel Orientation="Horizontal" Spacing="2"
-                                                            IsVisible="{Binding CanUpdate}">
-                                                    <TextBlock Text="›"
-                                                               Foreground="{DynamicResource SemiOrange4Color}" />
-                                                    <Button Content="{Binding CanUpdateVersion}"
+                                                            IsVisible="{Binding CanUpdate}"
+                                                            VerticalAlignment="Center">
+                                                    <TextBlock Text="›" Foreground="{DynamicResource SemiOrange4Color}" FontSize="12" />
+                                                    <Button Content="{Binding CanUpdateVersion, StringFormat='v{0}'}"
                                                             Padding="0" MinHeight="0"
                                                             Theme="{DynamicResource BorderlessButton}"
                                                             Foreground="{DynamicResource SemiOrange4Color}"
-                                                            FontSize="{DynamicResource SemiFontSizeSmall}"
+                                                            FontSize="11"
                                                             Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ShowPluginVersionInfoCommand}"
                                                             CommandParameter="{Binding $self}" />
                                                 </StackPanel>
-                                                <TextBlock Text="{Binding AuthorName}"
-                                                           FontSize="{DynamicResource SemiFontSizeSmall}"
-                                                           Foreground="{DynamicResource SemiColorText2}" />
                                             </StackPanel>
-                                        </StackPanel>
+                                        </Grid>
 
-                                        <StackPanel Grid.Row="1" Grid.ColumnSpan="2"
-                                                    Orientation="Horizontal" Spacing="8"
-                                                    HorizontalAlignment="Right" VerticalAlignment="Center">
-                                            <Button Classes="Secondary" Content="配置"
-                                                    IsVisible="{Binding PluginLocalInfo.IsEnabled}"
-                                                    Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ToPluginSettingPageCommand}"
-                                                    CommandParameter="{Binding }" />
-                                            <ToggleButton Classes.Success="{Binding !PluginLocalInfo.IsEnabled}"
-                                                          Classes.Danger="{Binding PluginLocalInfo.IsEnabled}"
-                                                          FontSize="{DynamicResource SemiFontSizeSmall}"
-                                                          IsChecked="{Binding PluginLocalInfo.IsEnabled,Mode=OneWay}"
-                                                          Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).SwitchCommand}"
-                                                          CommandParameter="{Binding}">
-                                                <ToggleButton.Styles>
-                                                    <Style Selector="ToggleButton[IsChecked=True]">
-                                                        <Setter Property="Content" Value="禁用" />
-                                                    </Style>
-                                                    <Style Selector="ToggleButton[IsChecked=False]">
-                                                        <Setter Property="Content" Value="启用" />
-                                                    </Style>
-                                                    <Style Selector="ToggleButton[IsChecked=False].Danger">
-                                                        <Setter Property="Content" Value="卸载中" />
-                                                    </Style>
-                                                </ToggleButton.Styles>
-                                            </ToggleButton>
-                                        </StackPanel>
-                                        <StackPanel Grid.Row="1" Grid.ColumnSpan="2"
-                                                    Orientation="Horizontal" Spacing="8"
-                                                    HorizontalAlignment="Left" VerticalAlignment="Center">
-                                            <Button Classes="Danger" Content="删除"
+                                        <!-- 5. Actions row: Delete (left) | Config, Update, Switch (right) -->
+                                        <Grid Grid.Row="4" ColumnDefinitions="Auto,*" Margin="0,8,0,0" VerticalAlignment="Center">
+                                            <Button Grid.Column="0" Classes="Danger" Content="删除"
+                                                    Padding="8,2" MinHeight="22" Height="24" FontSize="11" CornerRadius="4"
                                                     Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).DeleteCommand}"
                                                     CommandParameter="{Binding }" />
-                                            <Button Classes="Primary" Content="更新"
-                                                    IsVisible="{Binding CanUpdate}"
-                                                    Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).UpdateCommand}"
-                                                    CommandParameter="{Binding }" />
-                                        </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                                                <Button Classes="Secondary" Content="配置"
+                                                        Padding="8,2" MinHeight="22" Height="24" FontSize="11" CornerRadius="4"
+                                                        IsVisible="{Binding PluginLocalInfo.IsEnabled}"
+                                                        Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ToPluginSettingPageCommand}"
+                                                        CommandParameter="{Binding }" />
+                                                <Button Classes="Primary" Content="更新"
+                                                        Padding="8,2" MinHeight="22" Height="24" FontSize="11" CornerRadius="4"
+                                                        IsVisible="{Binding CanUpdate}"
+                                                        Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).UpdateCommand}"
+                                                        CommandParameter="{Binding }" />
+                                                <ToggleButton Classes.Success="{Binding !PluginLocalInfo.IsEnabled}"
+                                                              Classes.Danger="{Binding PluginLocalInfo.IsEnabled}"
+                                                              Padding="8,2" MinHeight="22" Height="24" FontSize="11" CornerRadius="4"
+                                                              IsChecked="{Binding PluginLocalInfo.IsEnabled, Mode=OneWay}"
+                                                              Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).SwitchCommand}"
+                                                              CommandParameter="{Binding}">
+                                                    <ToggleButton.Styles>
+                                                        <Style Selector="ToggleButton[IsChecked=True]">
+                                                            <Setter Property="Content" Value="禁用" />
+                                                        </Style>
+                                                        <Style Selector="ToggleButton[IsChecked=False]">
+                                                            <Setter Property="Content" Value="启用" />
+                                                        </Style>
+                                                        <Style Selector="ToggleButton[IsChecked=False].Danger">
+                                                            <Setter Property="Content" Value="卸载中" />
+                                                        </Style>
+                                                    </ToggleButton.Styles>
+                                                </ToggleButton>
+                                            </StackPanel>
+                                        </Grid>
                                     </Grid>
 
-                                    <Panel VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ZIndex="1"
-                                           IsVisible="{Binding PluginLocalInfo.UnloadFailed}">
-                                        <Panel.Background>
-                                            <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.4" />
-                                        </Panel.Background>
+                                    <Border VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ZIndex="1"
+                                            IsVisible="{Binding PluginLocalInfo.UnloadFailed}"
+                                            CornerRadius="12">
+                                        <Border.Background>
+                                            <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.85" />
+                                        </Border.Background>
                                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
                                             <TextBlock Text="插件动态卸载失败，重启后完成卸载/更新" />
                                             <Button Classes="Primary" Content="重启"
                                                     Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).RestartAppCommand}" />
                                         </StackPanel>
-                                    </Panel>
-                                    <Panel VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ZIndex="1"
-                                           IsVisible="{Binding PluginLocalInfo.LoadFailed}">
-                                        <Panel.Background>
-                                            <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.4" />
-                                        </Panel.Background>
+                                    </Border>
+                                    <Border VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ZIndex="1"
+                                            IsVisible="{Binding PluginLocalInfo.LoadFailed}"
+                                            CornerRadius="12">
+                                        <Border.Background>
+                                            <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.85" />
+                                        </Border.Background>
                                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6">
-                                            <TextBlock Text="插件加载失败" HorizontalAlignment="Center" FontWeight="SemiBold" />
+                                            <TextBlock Text="插件加载失败" HorizontalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource SemiColorDanger}" />
                                             <TextBlock Text="{Binding PluginLocalInfo.LoadFailedReason}"
-                                                       TextWrapping="Wrap" MaxWidth="260"
+                                                       TextWrapping="Wrap" MaxWidth="280"
                                                        FontSize="{DynamicResource SemiFontSizeSmall}" />
                                             <Button Classes="Danger" Content="删除" HorizontalAlignment="Center"
                                                     Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).DeleteCommand}"
                                                     CommandParameter="{Binding }" />
                                         </StackPanel>
-                                    </Panel>
+                                    </Border>
                                 </Panel>
                             </Border>
                         </DataTemplate>

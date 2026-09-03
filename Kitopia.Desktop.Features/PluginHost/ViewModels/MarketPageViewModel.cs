@@ -83,7 +83,12 @@ public partial class MarketPageViewModel : ObservableObject
                 {
                     PluginBaseInfo = plugin.ToPluginBaseInfo(),
                     OnlinePluginInfo = plugin,
-                    IsLocal = false
+                    IsLocal = false,
+                    AuthorName = !string.IsNullOrWhiteSpace(plugin.AuthorNickname)
+                        ? plugin.AuthorNickname
+                        : !string.IsNullOrWhiteSpace(plugin.AuthorUserName)
+                            ? plugin.AuthorUserName
+                            : null
                 });
             }
 

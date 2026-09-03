@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:pages="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages;assembly=Kitopia.Desktop.Features"
+             xmlns:plugin="clr-namespace:Kitopia.Desktop.Features.Services.Plugin;assembly=Kitopia.Desktop.Features"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="pages:MarketPageViewModel"
              x:Class="Kitopia.Desktop.Pages.MarketPage">
@@ -20,72 +21,151 @@
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Width="300" Height="210"
-                                    Theme="{DynamicResource KitopiaCard}" Margin="4">
-                                <Grid ColumnDefinitions="68,*" RowDefinitions="*,36">
-                                    <Image Grid.Column="0"
-                                           Width="56" Height="56"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Top"
-                                           Margin="0,4,0,0"
-                                           Source="{Binding Icon}" />
-                                    <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Top">
-                                        <Button Content="{Binding PluginBaseInfo.Name}"
-                                                Padding="0" MinHeight="0"
-                                                Theme="{DynamicResource BorderlessButton}"
-                                                HorizontalAlignment="Left"
-                                                FontWeight="SemiBold" FontSize="16"
-                                                Foreground="{DynamicResource SemiColorText0}"
-                                                Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).ShowPluginDetailCommand}"
-                                                CommandParameter="{Binding }" />
-                                        <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <ItemsControl ItemsSource="{Binding OnlinePluginInfo.SupportSystems}">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate>
-                                                        <WrapPanel />
-                                                    </ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="x:String">
-                                                        <Label Theme="{StaticResource TagLabel}" Content="{Binding .}"
-                                                               Classes="Ghost Cyan" Margin="0,0,4,0"
-                                                               FontSize="{DynamicResource SemiFontSizeSmall}" />
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
+                        <DataTemplate x:DataType="plugin:PluginInfoUiHelper">
+                            <Border Width="340" Height="220"
+                                    Theme="{DynamicResource KitopiaPluginCard}" Margin="6">
+                                <Grid RowDefinitions="Auto,*,Auto,Auto">
+                                    <!-- 1. Header: Icon/Initial + Name/NameSign + Status Tag -->
+                                    <Grid Grid.Row="0" ColumnDefinitions="44,*,Auto" VerticalAlignment="Top">
+                                        <!-- Plugin Icon / Avatar -->
+                                        <Border Grid.Column="0" Width="44" Height="44"
+                                                CornerRadius="10" ClipToBounds="True"
+                                                Background="#E0F2FE" VerticalAlignment="Center">
+                                            <Panel>
+                                                <TextBlock Text="{Binding PluginInitial}"
+                                                           Foreground="#1D4ED8"
+                                                           FontWeight="Bold"
+                                                           FontSize="18"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                                <Image Source="{Binding Icon}"
+                                                       Width="44" Height="44"
+                                                       Stretch="UniformToFill"
+                                                       IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                            </Panel>
+                                        </Border>
+
+                                        <!-- Name and NameSign -->
+                                        <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
+                                            <Button Content="{Binding PluginBaseInfo.Name}"
+                                                    Padding="0" MinHeight="0"
+                                                    Theme="{DynamicResource BorderlessButton}"
+                                                    HorizontalAlignment="Left"
+                                                    FontWeight="SemiBold" FontSize="15"
+                                                    Foreground="{DynamicResource SemiColorText0}"
+                                                    Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).ShowPluginDetailCommand}"
+                                                    CommandParameter="{Binding }">
+                                                <Button.Styles>
+                                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                        <Setter Property="Foreground" Value="#2563EB" />
+                                                    </Style>
+                                                </Button.Styles>
+                                            </Button>
+                                            <TextBlock Text="{Binding PluginBaseInfo.NameSign}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource SemiColorText2}"
+                                                       Margin="0,2,0,0"
+                                                       TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
-                                        <TextBlock Text="{Binding OnlinePluginInfo.DescriptionShort}"
+
+                                        <!-- Status Tag -->
+                                        <Border Grid.Column="2" CornerRadius="999" Padding="8,2"
+                                                Background="#ECFDF5" VerticalAlignment="Top">
+                                            <TextBlock Text="{Binding PublicationStatusText}"
+                                                       FontSize="11" FontWeight="Medium"
+                                                       Foreground="#047857" />
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- 2. Middle: Description & Platform Tags -->
+                                    <StackPanel Grid.Row="1" Margin="0,10,0,0" VerticalAlignment="Top">
+                                        <TextBlock Text="{Binding DescriptionShort}"
                                                    TextWrapping="Wrap" MaxLines="2"
+                                                   TextTrimming="CharacterEllipsis"
                                                    Foreground="{DynamicResource SemiColorText1}"
-                                                   FontSize="{DynamicResource SemiFontSizeSmall}" />
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{Binding OnlinePluginInfo.LastVersion}"
-                                                       FontSize="{DynamicResource SemiFontSizeSmall}"
-                                                       Foreground="{DynamicResource SemiColorText2}" />
-                                            <TextBlock Text="{Binding AuthorName}"
-                                                       FontSize="{DynamicResource SemiFontSizeSmall}"
-                                                       Foreground="{DynamicResource SemiColorText2}" />
-                                        </StackPanel>
+                                                   FontSize="13"
+                                                   LineHeight="18"
+                                                   Height="36" />
+                                        <ItemsControl ItemsSource="{Binding DisplayPlatforms}" Margin="0,8,0,0">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" Spacing="6" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="x:String">
+                                                    <Border Background="{DynamicResource SemiColorBackground2}"
+                                                            CornerRadius="6" Padding="8,2">
+                                                        <TextBlock Text="{Binding .}"
+                                                                   FontSize="11"
+                                                                   Foreground="{DynamicResource SemiColorText2}" />
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
                                     </StackPanel>
 
-                                    <StackPanel Grid.Row="1" Grid.ColumnSpan="2"
-                                                Orientation="Horizontal" Spacing="8"
-                                                HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Button Classes="Primary"
-                                                IsEnabled="{Binding !InLocal}"
-                                                Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).DownloadPluginCommand}"
-                                                CommandParameter="{Binding OnlinePluginInfo}">
-                                            <Button.Styles>
-                                                <Style Selector="Button[IsEnabled=True]">
-                                                    <Setter Property="Content" Value="下载" />
-                                                </Style>
-                                                <Style Selector="Button[IsEnabled=False]">
-                                                    <Setter Property="Content" Value="已安装" />
-                                                </Style>
-                                            </Button.Styles>
-                                        </Button>
-                                    </StackPanel>
+                                    <!-- 3. Divider -->
+                                    <Border Grid.Row="2" Height="1"
+                                            Background="{DynamicResource SemiColorBorder}"
+                                            Margin="0,10,0,8" />
+
+                                    <!-- 4. Footer: Author info on left, Version + Downloads + Download Button on right -->
+                                    <Grid Grid.Row="3" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                                        <!-- Author -->
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                            <Border Width="26" Height="26"
+                                                    CornerRadius="13" ClipToBounds="True"
+                                                    Background="#E0F2FE">
+                                                <Panel>
+                                                    <TextBlock Text="{Binding AuthorInitial}"
+                                                               Foreground="#1D4ED8"
+                                                               FontSize="11" FontWeight="SemiBold"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center" />
+                                                    <Image Source="{Binding AuthorAvatar}"
+                                                           Width="26" Height="26"
+                                                           Stretch="UniformToFill"
+                                                           IsVisible="{Binding AuthorAvatar, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                </Panel>
+                                            </Border>
+                                            <TextBlock Text="{Binding AuthorName}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource SemiColorText1}"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxWidth="100" />
+                                        </StackPanel>
+
+                                        <!-- Version + Downloads + Action -->
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                            <TextBlock Text="{Binding VersionAndDateText}"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource SemiColorText2}"
+                                                       HorizontalAlignment="Right" />
+                                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" Margin="0,2,0,0">
+                                                <TextBlock Text="{Binding DownloadCountText}"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource SemiColorText2}"
+                                                           VerticalAlignment="Center" />
+                                                <Button Classes="Primary"
+                                                        IsEnabled="{Binding !InLocal}"
+                                                        Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).DownloadPluginCommand}"
+                                                        CommandParameter="{Binding OnlinePluginInfo}"
+                                                        Padding="8,1" MinHeight="22" Height="22"
+                                                        FontSize="11" CornerRadius="4">
+                                                    <Button.Styles>
+                                                        <Style Selector="Button[IsEnabled=True]">
+                                                            <Setter Property="Content" Value="下载" />
+                                                        </Style>
+                                                        <Style Selector="Button[IsEnabled=False]">
+                                                            <Setter Property="Content" Value="已安装" />
+                                                        </Style>
+                                                    </Button.Styles>
+                                                </Button>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
                                 </Grid>
                             </Border>
                         </DataTemplate>

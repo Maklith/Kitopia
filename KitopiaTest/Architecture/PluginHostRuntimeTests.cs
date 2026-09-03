@@ -47,4 +47,39 @@ public sealed class PluginHostRuntimeTests
             PluginDependencyService.VersionCheckResult.依赖未启用,
             results["dependency"]);
     }
+
+    [TestMethod]
+    public void PluginInfoUiHelper_WebCardPresentationProperties_FormatExpectedValues()
+    {
+        var helper = new PluginInfoUiHelper
+        {
+            PluginBaseInfo = new PluginBaseInfo
+            {
+                Name = "天气小组件",
+                NameSign = "weather_show",
+                Version = "1.0.0",
+                Description = "一个桌面小组件用于显示天气"
+            },
+            OnlinePluginInfo = new OnlinePluginInfo
+            {
+                Name = "天气小组件",
+                NameSign = "weather_show",
+                LastVersion = "1.0.0",
+                AuthorNickname = "Maklith",
+                PublicationStatus = 2,
+                AvailablePlatforms = ["windows"],
+                DownloadCounts = 6,
+                Updatetime = new DateTime(2026, 8, 28)
+            },
+            IsLocal = false,
+            AuthorName = "Maklith"
+        };
+
+        Assert.AreEqual("天", helper.PluginInitial);
+        Assert.AreEqual("M", helper.AuthorInitial);
+        Assert.AreEqual("公开", helper.PublicationStatusText);
+        Assert.AreEqual("v1.0.0 · 8月28日", helper.VersionAndDateText);
+        Assert.AreEqual("6 下载", helper.DownloadCountText);
+        CollectionAssert.AreEqual(new[] { "Windows" }, (System.Collections.ICollection)helper.DisplayPlatforms);
+    }
 }

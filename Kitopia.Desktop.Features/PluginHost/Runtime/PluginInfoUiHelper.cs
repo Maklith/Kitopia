@@ -121,10 +121,35 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     private async ValueTask GetAuthorName(CancellationToken cts)
     {
+        if (OnlinePluginInfo is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(OnlinePluginInfo.AuthorNickname))
+            {
+                AuthorName = OnlinePluginInfo.AuthorNickname;
+                return;
+            }
+            if (!string.IsNullOrWhiteSpace(OnlinePluginInfo.AuthorUserName))
+            {
+                AuthorName = OnlinePluginInfo.AuthorUserName;
+                return;
+            }
+        }
+
         OnlinePluginInfo ??= await PluginNetworkService.GetOnlinePluginInfo(PluginBaseInfo.NameSign, cts);
         if (OnlinePluginInfo is not null)
         {
-            AuthorName = await PluginNetworkService.GetAuthorNameAsync(OnlinePluginInfo.AuthorId, cts);
+            if (!string.IsNullOrWhiteSpace(OnlinePluginInfo.AuthorNickname))
+            {
+                AuthorName = OnlinePluginInfo.AuthorNickname;
+            }
+            else if (!string.IsNullOrWhiteSpace(OnlinePluginInfo.AuthorUserName))
+            {
+                AuthorName = OnlinePluginInfo.AuthorUserName;
+            }
+            else
+            {
+                AuthorName = await PluginNetworkService.GetAuthorNameAsync(OnlinePluginInfo.AuthorId, cts);
+            }
         }
     }
 
@@ -132,19 +157,139 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     public string? AuthorName
     {
-        set => SetProperty(ref _authorName, value);
+        set
+        {
+            if (SetProperty(ref _authorName, value))
+            {
+                OnPropertyChanged(nameof(AuthorInitial));
+            }
+        }
         get
         {
             if (_authorName is null)
+            {
+                if (OnlinePluginInfo != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(OnlinePluginInfo.AuthorNickname))
+                    {
+                        _authorName = OnlinePluginInfo.AuthorNickname;
+                        return _authorName;
+                    }
+                    if (!string.IsNullOrWhiteSpace(OnlinePluginInfo.AuthorUserName))
+                    {
+                        _authorName = OnlinePluginInfo.AuthorUserName;
+                        return _authorName;
+                    }
+                }
+
                 lock (_cancellationTokenSource)
                 {
                     if (_cancellationTokenSource.IsCancellationRequested) return null;
                     ResiliencePipeline.ExecuteAsync(GetAuthorName, _cancellationTokenSource.Token);
                 }
+            }
 
             return _authorName;
         }
     }
+
+    public string AuthorInitial =>
+        string.IsNullOrWhiteSpace(AuthorName)
+            ? "作"
+            : AuthorName[..1].ToUpperInvariant();
+
+    public string PluginInitial =>
+        string.IsNullOrWhiteSpace(PluginBaseInfo.Name)
+            ? "?"
+            : PluginBaseInfo.Name[..1].ToUpperInvariant();
+
+    private Bitmap? _authorAvatar;
+
+    public Bitmap? AuthorAvatar
+    {
+        get
+        {
+            if (_authorAvatar is null)
+            {
+                lock (_cancellationTokenSource)
+                {
+                    if (_cancellationTokenSource.IsCancellationRequested) return null;
+                    ResiliencePipeline.ExecuteAsync(GetAuthorAvatar, _cancellationTokenSource.Token);
+                }
+            }
+
+            return _authorAvatar;
+        }
+        set => SetProperty(ref _authorAvatar, value);
+    }
+
+    private async ValueTask GetAuthorAvatar(CancellationToken cts)
+    {
+        var userName = OnlinePluginInfo?.AuthorUserName;
+        if (string.IsNullOrWhiteSpace(userName))
+        {
+            OnlinePluginInfo ??= await PluginNetworkService.GetOnlinePluginInfo(PluginBaseInfo.NameSign, cts);
+            userName = OnlinePluginInfo?.AuthorUserName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(userName))
+        {
+            var bytes = await PluginNetworkService.GetAuthorAvatarBytesAsync(userName, cts);
+            if (bytes != null)
+            {
+                AuthorAvatar = new Bitmap(new MemoryStream(bytes));
+            }
+        }
+    }
+
+    public string PublicationStatusText =>
+        OnlinePluginInfo?.PublicationStatus switch
+        {
+            1 => "待公开",
+            0 => "私有",
+            _ => "公开"
+        };
+
+    public IReadOnlyList<string> DisplayPlatforms
+    {
+        get
+        {
+            var list = OnlinePluginInfo?.AvailablePlatforms is { Count: > 0 } p
+                ? p
+                : OnlinePluginInfo?.SupportSystems;
+
+            if (list is { Count: > 0 })
+            {
+                return list.Select(FormatPlatformName).Distinct().ToList();
+            }
+
+            return ["Windows"];
+        }
+    }
+
+    private static string FormatPlatformName(string platform) =>
+        platform.ToLowerInvariant() switch
+        {
+            "windows" => "Windows",
+            "macos" => "macOS",
+            "linux" => "Linux",
+            _ => platform
+        };
+
+    public string VersionAndDateText
+    {
+        get
+        {
+            var version = !string.IsNullOrWhiteSpace(Version) ? $"v{Version}" : "—";
+            if (OnlinePluginInfo is { Updatetime: var time } && time != default)
+            {
+                return $"{version} · {time:M月d日}";
+            }
+            return version;
+        }
+    }
+
+    public string DownloadCountText => $"{OnlinePluginInfo?.DownloadCounts ?? 0} 下载";
 
     public bool InLocal => PluginManager.GetPluginLocalInfoByPlgStr(PluginBaseInfo.NameSign) is not null;
     public PluginLocalInfo? PluginLocalInfo { get; set; }
@@ -201,13 +346,14 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
         _cancellationTokenSource.Cancel();
         _cancellationTokenSource.Dispose();
         Icon?.Dispose();
+        AuthorAvatar?.Dispose();
     }
 
     public string DescriptionShort =>
-        IsLocal ? PluginLocalInfo.PluginBaseInfo.Description : OnlinePluginInfo.DescriptionShort;
+        IsLocal ? (PluginLocalInfo != null ? PluginLocalInfo.PluginBaseInfo.Description : string.Empty) : (OnlinePluginInfo?.DescriptionShort ?? OnlinePluginInfo?.Description ?? string.Empty);
 
     public string Version =>
-        IsLocal ? PluginLocalInfo.PluginBaseInfo.Version : OnlinePluginInfo.LastVersion;
+        IsLocal ? (PluginLocalInfo != null ? PluginLocalInfo.PluginBaseInfo.Version : string.Empty) : (OnlinePluginInfo?.LastVersion ?? string.Empty);
 
     private string? _description;
 

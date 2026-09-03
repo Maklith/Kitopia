@@ -143,6 +143,28 @@ public class PluginNetworkService
         }
     }
 
+    public static async Task<byte[]?> GetAuthorAvatarBytesAsync(
+        string userName,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var url = $"{ConfigManger.ApiUrl}/api/v1/user/avatar/{Uri.EscapeDataString(userName)}";
+            using var response = await HttpClient.GetAsync(url, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            Logger.Error(exception, "获取作者头像错误");
+            return null;
+        }
+    }
+
     public static async Task<string?> GetLatestVersionAsync(
         string pluginSignName,
         CancellationToken cancellationToken = default)

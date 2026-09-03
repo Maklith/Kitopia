@@ -38,13 +38,17 @@ public sealed class OnlinePluginInfo
 {
     public long Id { get; set; }
     public int AuthorId { get; set; }
+    public string? AuthorUserName { get; set; }
+    public string? AuthorNickname { get; set; }
     public string Name { get; set; } = string.Empty;
     public string NameSign { get; set; } = string.Empty;
     public bool IsPublic { get; set; }
+    public int PublicationStatus { get; set; }
     public string? LastVersion { get; set; }
     public string? DescriptionShort { get; set; }
     public string? Description { get; set; }
     public List<string> SupportSystems { get; set; } = [];
+    public List<string> AvailablePlatforms { get; set; } = [];
     public long DownloadCounts { get; set; }
     public DateTime CreateTime { get; set; }
     public DateTime Updatetime { get; set; }
