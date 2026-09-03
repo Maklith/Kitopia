@@ -267,7 +267,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
         }
     }
 
-    private static string FormatPlatformName(string platform) =>
+    public static string FormatPlatformName(string platform) =>
         platform.ToLowerInvariant() switch
         {
             "windows" => "Windows",
@@ -275,6 +275,17 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
             "linux" => "Linux",
             _ => platform
         };
+
+    public string AuthorHandle =>
+        !string.IsNullOrWhiteSpace(OnlinePluginInfo?.AuthorUserName)
+            ? $"@{OnlinePluginInfo.AuthorUserName}"
+            : string.Empty;
+
+    public IReadOnlyList<PluginTag> Tags => OnlinePluginInfo?.Tags ?? [];
+
+    public bool HasTags => Tags.Count > 0;
+
+    public long DownloadCounts => OnlinePluginInfo?.DownloadCounts ?? 0;
 
     public string VersionAndDateText
     {
@@ -289,7 +300,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
         }
     }
 
-    public string DownloadCountText => $"{OnlinePluginInfo?.DownloadCounts ?? 0} 下载";
+    public string DownloadCountText => $"{DownloadCounts} 下载";
 
     public bool InLocal => PluginManager.GetPluginLocalInfoByPlgStr(PluginBaseInfo.NameSign) is not null;
     public PluginLocalInfo? PluginLocalInfo { get; set; }

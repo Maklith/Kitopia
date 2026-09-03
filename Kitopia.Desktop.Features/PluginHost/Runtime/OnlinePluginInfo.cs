@@ -17,6 +17,12 @@ public sealed class PluginPage
     public int TotalPages { get; set; }
 }
 
+public sealed class PluginTag
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
 public sealed class VersionDetail
 {
     public int Id { get; set; }
@@ -27,6 +33,27 @@ public sealed class VersionDetail
     public int Status { get; set; }
     public DateTime CreateTime { get; set; }
     public DateTime Updatetime { get; set; }
+    public bool IsCurrent { get; set; }
+    public bool CanDownload { get; set; }
+
+    public string FormattedVersion => !string.IsNullOrWhiteSpace(Version) ? $"v{Version}" : "—";
+
+    public string FormattedCreateTime =>
+        CreateTime != default ? $"提交于 {CreateTime:yyyy年M月d日 HH:mm}" : string.Empty;
+
+    public string StatusText =>
+        Status switch
+        {
+            1 => "待审核",
+            3 => "已驳回",
+            4 => "已撤回",
+            _ => "已发布"
+        };
+
+    public IReadOnlyList<string> DisplayPlatforms =>
+        AvailablePlatforms is { Count: > 0 }
+            ? AvailablePlatforms.Select(PluginInfoUiHelper.FormatPlatformName).Distinct().ToList()
+            : ["Windows"];
 }
 
 public sealed class UserBaseInfo
@@ -49,6 +76,7 @@ public sealed class OnlinePluginInfo
     public string? Description { get; set; }
     public List<string> SupportSystems { get; set; } = [];
     public List<string> AvailablePlatforms { get; set; } = [];
+    public List<PluginTag> Tags { get; set; } = [];
     public long DownloadCounts { get; set; }
     public DateTime CreateTime { get; set; }
     public DateTime Updatetime { get; set; }

@@ -187,6 +187,14 @@ public class PluginNetworkService
     {
         try
         {
+            var history = await GetPluginDataAsync<List<VersionDetail>>(
+                $"history/{Uri.EscapeDataString(pluginSignName)}",
+                cancellationToken);
+            if (history is { Count: > 0 })
+            {
+                return history;
+            }
+
             version ??= await GetLatestVersionAsync(pluginSignName, cancellationToken);
             if (string.IsNullOrWhiteSpace(version))
             {
