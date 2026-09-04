@@ -23,14 +23,23 @@
     <Panel>
         <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
         <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
-            <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Text="推理环境" />
+            <!-- 1. Header: AI computing engine + Title + Subtitle -->
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="AI 计算引擎" Theme="{DynamicResource KitopiaPageKickerText}" />
+                    <TextBlock Text="ONNX 推理与模型" Theme="{DynamicResource KitopiaPageTitleText}" />
+                    <TextBlock Text="配置 ONNX Runtime 硬件加速推理环境与本地模型资产。"
+                               Theme="{DynamicResource KitopiaPageSubtitleText}" />
+                </StackPanel>
+            </Grid>
+
             <ScrollViewer Grid.Row="1" PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Disabled">
                 <ItemsControl ItemsSource="{Binding Source={x:Static plugin11:PluginOverall.AllTargetDevices} }">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="system:String">
-                            <Button Margin="0,0,5,0" ClickMode="Press" VerticalAlignment="Center" Content="{Binding  }"
-                                    Height="38" />
+                            <Button Margin="0,0,6,0" ClickMode="Press" VerticalAlignment="Center" Content="{Binding}"
+                                    CornerRadius="6" Height="34" Padding="14,0" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                     <ItemsControl.ItemsPanel>
@@ -41,7 +50,9 @@
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
             </ScrollViewer>
-            <TextBlock Grid.Row="2" Theme="{DynamicResource SectionHeaderText}" Text="模型列表" />
+            <StackPanel Grid.Row="2">
+                <TextBlock Text="模型列表" Theme="{DynamicResource SectionHeaderText}" />
+            </StackPanel>
             <DataGrid Grid.Row="3" ItemsSource="{Binding Source={x:Static plugin11:PluginOverall.AllOnnxModelInfos}}"
                       CanUserReorderColumns="True"
                       CanUserResizeColumns="True"

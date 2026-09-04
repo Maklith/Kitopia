@@ -29,7 +29,7 @@
     </u:UrsaWindow.Background>
     <Border Padding="10">
         <Grid RowDefinitions="Auto,*" RowSpacing="8">
-            <TextBlock Text="未读通知" FontSize="16" FontWeight="Bold" />
+            <TextBlock Text="未读通知" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource SemiColorText0}" />
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch">
                 <ItemsControl ItemsSource="{Binding Items}">
                     <ItemsControl.ItemTemplate>
@@ -37,56 +37,57 @@
                             <Button Margin="0,0,0,8"
                                     Command="{Binding OpenCommand}"
                                     HorizontalContentAlignment="Stretch"
-                                    HorizontalAlignment="Stretch"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    Padding="0">
-                                <Border Margin="{DynamicResource ToastCardMargin}"
-                                        Background="{DynamicResource ToastCardBackground}"
-                                        CornerRadius="{DynamicResource ToastCardCornerRadius}">
-                                    <Border BorderBrush="{DynamicResource SemiColorBorder}"
-                                            BorderThickness="{DynamicResource ToastCardBorderThickness}"
-                                            MinHeight="{DynamicResource ToastCardMinHeight}"
-                                            Padding="{DynamicResource ToastCardPadding}"
-                                            CornerRadius="{DynamicResource ToastCardCornerRadius}"
-                                            BoxShadow="{DynamicResource NotificationCardBoxShadows}">
-                                        <Grid RowDefinitions="Auto,Auto"
-                                              ColumnDefinitions="Auto,*,Auto"
-                                              RowSpacing="8"
-                                              ColumnSpacing="12">
-                                            <PathIcon Grid.Row="0"
-                                                      Grid.Column="0"
-                                                      Width="{DynamicResource ToastCardIconWidth}"
-                                                      Height="{DynamicResource ToastCardIconHeight}"
-                                                      Margin="{DynamicResource ToastCardIconMargin}"
-                                                      VerticalAlignment="Top"
-                                                      Data="{DynamicResource NotificationCardInformationIconPathData}"
-                                                      Foreground="{DynamicResource NotificationCardInformationIconForeground}" />
+                                     HorizontalAlignment="Stretch"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Padding="0">
+                                 <Border Margin="0,3,0,5"
+                                         Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                                         BorderBrush="{DynamicResource SemiColorBorder}"
+                                         BorderThickness="1"
+                                         CornerRadius="8"
+                                         BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
+                                         Padding="14,12">
+                                     <Grid RowDefinitions="Auto,Auto"
+                                           ColumnDefinitions="Auto,*,Auto"
+                                           RowSpacing="6"
+                                           ColumnSpacing="10">
+                                         <PathIcon Grid.Row="0"
+                                                   Grid.Column="0"
+                                                   Width="18"
+                                                   Height="18"
+                                                   Margin="0,2,0,0"
+                                                   VerticalAlignment="Top"
+                                                   Data="{DynamicResource NotificationCardInformationIconPathData}"
+                                                   Foreground="{DynamicResource NotificationCardInformationIconForeground}" />
 
-                                            <TextBlock Grid.Row="0"
-                                                       Grid.Column="1"
-                                                       Text="{Binding Header}"
-                                                       Foreground="{DynamicResource ToastCardContentForeground}"
-                                                       FontWeight="{DynamicResource ToastCardContentFontWeight}"
-                                                       TextWrapping="Wrap" />
+                                         <TextBlock Grid.Row="0"
+                                                    Grid.Column="1"
+                                                    Text="{Binding Header}"
+                                                    Foreground="{DynamicResource SemiColorText0}"
+                                                    FontSize="13"
+                                                    FontWeight="SemiBold"
+                                                    TextWrapping="Wrap" />
 
-                                            <TextBlock Grid.Row="0"
-                                                       Grid.Column="2"
-                                                       Text="{Binding CreatedAtText}"
-                                                       HorizontalAlignment="Right"
-                                                       VerticalAlignment="Top"
-                                                       Opacity="0.7" />
+                                         <TextBlock Grid.Row="0"
+                                                    Grid.Column="2"
+                                                    Text="{Binding CreatedAtText}"
+                                                    Foreground="{DynamicResource SemiColorText2}"
+                                                    FontSize="11"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center" />
 
-                                            <TextBlock Grid.Row="1"
-                                                       Grid.Column="1"
-                                                       Grid.ColumnSpan="2"
-                                                       Text="{Binding Text}"
-                                                       Foreground="{DynamicResource SemiColorText1}"
-                                                       TextWrapping="Wrap" />
-                                        </Grid>
-                                    </Border>
-                                </Border>
-                            </Button>
+                                         <TextBlock Grid.Row="1"
+                                                    Grid.Column="1"
+                                                    Grid.ColumnSpan="2"
+                                                    Text="{Binding Text}"
+                                                    FontSize="12"
+                                                    LineHeight="17"
+                                                    Foreground="{DynamicResource SemiColorText1}"
+                                                    TextWrapping="Wrap" />
+                                     </Grid>
+                                 </Border>
+                             </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

@@ -1,9 +1,12 @@
+using Avalonia;
 using Avalonia.Controls.Notifications;
+using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using Ursa.Controls;
 using PluginInfoUiHelper = Kitopia.Desktop.Features.Services.Plugin.PluginInfoUiHelper;
 
 namespace Kitopia.Desktop.Features.ViewModel.Pages.plugin;
@@ -11,13 +14,36 @@ namespace Kitopia.Desktop.Features.ViewModel.Pages.plugin;
 public partial class PluginDetailViewModel : ObservableObject
 {
     public PluginInfoUiHelper? PluginInfo { get; init; }
+    private readonly Action<string>? _onSearchAuthor;
 
     [ObservableProperty]
     private bool _isInstalling;
 
-    public PluginDetailViewModel(PluginInfoUiHelper pluginStr)
+    public PluginDetailViewModel(PluginInfoUiHelper pluginStr, Action<string>? onSearchAuthor = null)
     {
         PluginInfo = pluginStr;
+        _onSearchAuthor = onSearchAuthor;
+    }
+
+    [RelayCommand]
+    private void SearchAuthor(object? parameter)
+    {
+        var authorIdentifier = !string.IsNullOrWhiteSpace(PluginInfo?.OnlinePluginInfo?.AuthorUserName)
+            ? PluginInfo.OnlinePluginInfo.AuthorUserName
+            : PluginInfo?.AuthorName;
+
+        if (string.IsNullOrWhiteSpace(authorIdentifier)) return;
+
+        if (parameter is DialogControlBase dialog)
+        {
+            dialog.Close();
+        }
+        else if (parameter is Visual visual)
+        {
+            visual.FindAncestorOfType<DialogControlBase>()?.Close();
+        }
+
+        _onSearchAuthor?.Invoke(authorIdentifier);
     }
 
     [RelayCommand]

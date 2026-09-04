@@ -9,13 +9,21 @@
     <UserControl.Resources>
     </UserControl.Resources>
 
-    <Grid RowDefinitions="Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}">
-        <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Name="TextBlock" />
+    <Grid RowDefinitions="Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
+        <!-- 1. Header: Preferences & Configuration + Title + Subtitle -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="偏好与配置" Theme="{DynamicResource KitopiaPageKickerText}" />
+                <TextBlock Name="TextBlock" Text="设置" Theme="{DynamicResource KitopiaPageTitleText}" />
+                <TextBlock Text="自定义全局行为、外观界面、快捷键与插件功能设置。"
+                           Theme="{DynamicResource KitopiaPageSubtitleText}" />
+            </StackPanel>
+        </Grid>
+
         <ScrollViewer Grid.Row="1" Name="SettingsScrollViewer">
             <StackPanel VerticalAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                         Name="StackPanel" />
         </ScrollViewer>
-
     </Grid>
 
 

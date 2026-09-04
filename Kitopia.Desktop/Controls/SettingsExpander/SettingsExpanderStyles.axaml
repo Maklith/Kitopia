@@ -29,19 +29,21 @@
 
     <!-- ToggleButton for the Expander -->
     <ControlTheme x:Key="SettingsExpanderToggleButtonStyle" TargetType="ToggleButton">
-        <!-- <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" /> -->
-        <Setter Property="Margin"> 3</Setter>
-        <Setter Property="CornerRadius"> 5</Setter>
+        <Setter Property="Margin" Value="0,2" />
+        <Setter Property="CornerRadius" Value="8" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="BackgroundSizing" Value="InnerBorderEdge" />
         <Setter Property="Template">
             <ControlTemplate>
-                <Border Name="Root" Theme="{DynamicResource CardBorder1}"
-                        Background="{TemplateBinding Background}"
+                <Border Name="Root"
+                        Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                        BorderBrush="{DynamicResource SemiColorBorder}"
+                        BorderThickness="1"
                         CornerRadius="{TemplateBinding CornerRadius}"
                         Padding="{TemplateBinding Padding}"
+                        BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
                         BackgroundSizing="{TemplateBinding BackgroundSizing}">
                     <Border.Transitions>
                         <Transitions>
@@ -55,12 +57,12 @@
                         <ContentPresenter Content="{TemplateBinding Content}" />
 
                         <controls:FontIcon Name="ExpandCollapseChevron"
-                                           FontSize="18"
-                                           Foreground="{DynamicResource SemiColorText0}"
+                                           FontSize="14"
+                                           Foreground="{DynamicResource SemiColorText2}"
                                            RenderTransform="none"
                                            Margin="{DynamicResource SettingsExpanderExpandCollapseChevronMargin}"
                                            Grid.Column="1"
-                                           Glyph=" &#xf2a4;"
+                                           Glyph="&#xf2a4;"
                                            IsVisible="False" />
                     </Grid>
                 </Border>
@@ -69,11 +71,11 @@
 
         <Style Selector="^:allowClick">
             <Style Selector="^:pointerover /template/ Border#Root">
-                <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+                <Setter Property="Background" Value="{DynamicResource KitopiaCardHoverBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimaryLightHover}" />
             </Style>
             <Style Selector="^:pressed /template/ Border#Root">
-                <Setter Property="Background" Value="{DynamicResource ControlFillColorTertiaryBrush}" />
+                <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
                 <Setter Property="TextElement.Foreground" Value="{DynamicResource SemiColorText0}" />
             </Style>
@@ -86,13 +88,11 @@
         </Style>
 
         <Style Selector="^:checked">
-            <Setter Property="CornerRadius">5,5,0,0</Setter>
-            <Setter Property="Margin">3,3,3,0</Setter>
+            <Setter Property="CornerRadius" Value="8,8,0,0" />
+            <Setter Property="Margin" Value="0,2,0,0" />
             <Style Selector="^ /template/ controls|FontIcon#ExpandCollapseChevron">
                 <Setter Property="RenderTransform" Value="rotate(180deg)" />
             </Style>
-
-
         </Style>
 
         <Style Selector="^:not(:empty) /template/ controls|FontIcon#ExpandCollapseChevron">
@@ -108,7 +108,7 @@
 
         <Setter Property="Template">
             <ControlTemplate>
-                <Border Theme="{DynamicResource CardBorder1}">
+                <Border Background="Transparent">
                     <StackPanel>
                         <ToggleButton Name="ToggleButton"
                                       MinHeight="{TemplateBinding MinHeight}"
@@ -118,8 +118,11 @@
                                       Theme="{StaticResource SettingsExpanderToggleButtonStyle}" />
 
                         <Border Name="ExpanderContent"
-                                Margin="3,0,3,0"
-
+                                Margin="0,0,0,2"
+                                Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                                BorderBrush="{DynamicResource SemiColorBorder}"
+                                BorderThickness="1,0,1,1"
+                                CornerRadius="0,0,8,8"
                                 IsVisible="False"
                                 BackgroundSizing="InnerBorderEdge">
                             <ContentPresenter Name="PART_ContentPresenter"

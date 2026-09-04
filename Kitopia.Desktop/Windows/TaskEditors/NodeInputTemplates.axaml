@@ -123,9 +123,12 @@
                 Text="{Binding Title}"
                 Foreground="{DynamicResource SemiColorText0}" />
             <TextBox Margin="10,5,10,5"
-                     MinWidth="40"
+                     MinWidth="60"
+                     Height="28"
+                     CornerRadius="4"
+                     VerticalContentAlignment="Center"
                      Text="{Binding InputObject.Value}"
-                     Watermark="字符串" />
+                     PlaceholderText="字符串" />
         </StackPanel>
 
     </DataTemplate>
@@ -142,7 +145,9 @@
                 Foreground="{DynamicResource SemiColorText0}" />
             <ComboBox Margin="10,5,10,5"
                       x:Name="ComboBox"
-                      MinWidth="40"
+                      MinWidth="60"
+                      Height="28"
+                      CornerRadius="4"
                       SelectedValue="{Binding InputObject.Value,Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
                     <DataTemplate DataType="system:Enum">
@@ -175,11 +180,13 @@
                 Foreground="{DynamicResource SemiColorText0}" />
             <u:NumericIntUpDown
                 Margin="10,5,10,5"
-                MinWidth="40"
+                MinWidth="60"
+                Height="28"
+                CornerRadius="4"
                 Maximum="2147483647"
                 Minimum="-2147483648"
                 Value="{Binding InputObject.Value, Mode=TwoWay}"
-                Watermark="整型" />
+                PlaceholderText="整型" />
         </StackPanel>
 
     </DataTemplate>
@@ -196,9 +203,11 @@
                 Foreground="{DynamicResource SemiColorText0}" />
             <u:NumericDoubleUpDown
                 Margin="10,5,10,5"
-                MinWidth="40"
+                MinWidth="60"
+                Height="28"
+                CornerRadius="4"
                 Value="{Binding InputObject.Value, Mode=TwoWay}"
-                Watermark="浮点" />
+                PlaceholderText="浮点" />
         </StackPanel>
 
     </DataTemplate>

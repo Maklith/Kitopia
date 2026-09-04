@@ -10,13 +10,55 @@
              d:DesignHeight="450"
              x:Class="Kitopia.Desktop.Pages.HomePage"
              x:DataType="pages:HomePageViewModel">
+    <UserControl.Styles>
+        <Style Selector="Button.CardButton">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      CornerRadius="12"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalContentAlignment="Stretch"
+                                      VerticalContentAlignment="Stretch" />
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.CardButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.CardButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.CardButton:pressed Border">
+            <Setter Property="RenderTransform" Value="scale(0.985)" />
+        </Style>
+    </UserControl.Styles>
+
     <Grid RowDefinitions="Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}">
-        <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Text="功能" />
+        <!-- 1. Header: Quick launch + Title + Subtitle -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="快速启动" Theme="{DynamicResource KitopiaPageKickerText}" />
+                <TextBlock Text="功能概览" Theme="{DynamicResource KitopiaPageTitleText}" />
+                <TextBlock Text="快速访问与执行已安装插件提供的各项核心能力。"
+                           Theme="{DynamicResource KitopiaPageSubtitleText}" />
+            </StackPanel>
+        </Grid>
+
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,16,0,0">
             <ItemsControl ItemsSource="{Binding FeatureCategories}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="plugin:FeatureCategory">
-                        <StackPanel Margin="0,0,0,20" Spacing="10">
+                        <StackPanel Margin="0,0,0,24" Spacing="12">
                             <TextBlock Theme="{DynamicResource SectionHeaderText}" Text="{Binding Name}" />
                             <ItemsControl ItemsSource="{Binding Features}">
                                 <ItemsControl.ItemsPanel>
@@ -26,38 +68,50 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="plugin:FeatureInfo">
-                                        <Button Width="224"
-                                                Height="144"
+                                        <Button Classes="CardButton"
+                                                Width="240"
+                                                Height="156"
                                                 Margin="0,0,12,12"
-                                                Padding="0"
-                                                Background="Transparent"
-                                                BorderThickness="0"
-                                                HorizontalContentAlignment="Stretch"
-                                                VerticalContentAlignment="Stretch"
-                                                ToolTip.Tip="{Binding Description}"
                                                 Command="{Binding $parent[UserControl].((pages:HomePageViewModel)DataContext).ExecuteFeatureCommand}"
                                                 CommandParameter="{Binding .}">
-                                            <Border Classes="Shadow" Theme="{DynamicResource CardBorder}" Padding="14">
-                                                <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="6">
+                                            <Border Theme="{DynamicResource KitopiaPluginCard}" Padding="14">
+                                                <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="8">
+                                                    <!-- Top: Icon container + Source tag -->
                                                     <Grid ColumnDefinitions="Auto,*">
-                                                        <controls:FontIcon Width="24"
-                                                                           Height="24"
-                                                                           FontSize="24"
-                                                                           Foreground="{DynamicResource SemiColorText0}"
-                                                                           Glyph="{Binding IconGlyph}" />
-                                                        <TextBlock Grid.Column="1"
-                                                                   Margin="8,0,0,0"
-                                                                   VerticalAlignment="Center"
-                                                                   Foreground="{DynamicResource SemiColorText1}"
-                                                                   FontSize="12"
-                                                                   Text="{Binding Source}"
-                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <Border Width="34" Height="34"
+                                                                CornerRadius="8"
+                                                                Background="{DynamicResource KitopiaAvatarBackground}"
+                                                                VerticalAlignment="Center">
+                                                            <controls:FontIcon Width="20"
+                                                                               Height="20"
+                                                                               FontSize="18"
+                                                                               HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center"
+                                                                               Foreground="{DynamicResource KitopiaAvatarForeground}"
+                                                                               Glyph="{Binding IconGlyph}" />
+                                                        </Border>
+                                                        <Border Grid.Column="1"
+                                                                HorizontalAlignment="Right"
+                                                                VerticalAlignment="Center"
+                                                                Background="{DynamicResource KitopiaBadgeNeutralBackground}"
+                                                                CornerRadius="4" Padding="6,2">
+                                                            <TextBlock Text="{Binding Source}"
+                                                                       FontSize="11"
+                                                                       Foreground="{DynamicResource KitopiaBadgeNeutralForeground}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       MaxWidth="130" />
+                                                        </Border>
                                                     </Grid>
+
+                                                    <!-- Title -->
                                                     <TextBlock Grid.Row="1"
-                                                               FontSize="16"
+                                                               FontSize="15"
                                                                FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource SemiColorText0}"
                                                                Text="{Binding Name}"
                                                                TextTrimming="CharacterEllipsis" />
+
+                                                    <!-- Description -->
                                                     <TextBlock Grid.Row="2"
                                                                Foreground="{DynamicResource SemiColorText1}"
                                                                FontSize="12"
@@ -66,9 +120,11 @@
                                                                Text="{Binding Description}"
                                                                TextWrapping="Wrap"
                                                                TextTrimming="CharacterEllipsis" />
+
+                                                    <!-- Category footer -->
                                                     <TextBlock Grid.Row="3"
                                                                Foreground="{DynamicResource SemiColorText2}"
-                                                               FontSize="12"
+                                                               FontSize="11"
                                                                Text="{Binding Category}"
                                                                TextTrimming="CharacterEllipsis" />
                                                 </Grid>

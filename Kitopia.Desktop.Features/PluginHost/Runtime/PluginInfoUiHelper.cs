@@ -281,6 +281,8 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
             ? $"@{OnlinePluginInfo.AuthorUserName}"
             : string.Empty;
 
+    public string? AuthorUserName => OnlinePluginInfo?.AuthorUserName;
+
     public IReadOnlyList<PluginTag> Tags => OnlinePluginInfo?.Tags ?? [];
 
     public bool HasTags => Tags.Count > 0;

@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -22,19 +22,19 @@
     <Border ClipToBounds="True" HorizontalAlignment="Center" Name="BackgroundElement"
             BorderBrush="{DynamicResource SemiColorBorder}"
             BorderThickness="1"
-            VerticalAlignment="Center" Margin="5,5,5,0"
+            CornerRadius="8"
+            BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
+            Background="{DynamicResource KitopiaCardBackgroundBrush}"
+            VerticalAlignment="Center" Margin="10"
             PointerMoved="InputElement_OnPointerMoved" PointerPressed="InputElement_OnPointerPressed"
             PointerReleased="InputElement_OnPointerReleased">
-        <Border.Background>
-            <SolidColorBrush Opacity="0.5" Color="{DynamicResource SemiBackground0Color}" />
-        </Border.Background>
         <Panel>
             <Grid Name="DialogSpace" ClipToBounds="True"
                   RowDefinitions="Auto,*,Auto">
                 <Panel Background="{DynamicResource ContentDialogTopOverlay}">
                     <TextPresenter Name="Title"
-                                   Margin="5"
-                                   FontSize="20"
+                                   Margin="16,16,16,12"
+                                   FontSize="18"
                                    FontFamily="Default"
                                    FontWeight="SemiBold"
                                    HorizontalAlignment="Left"
@@ -42,10 +42,10 @@
                 </Panel>
                 <ScrollViewer Grid.Row="1" Name="ContentScrollViewer"
                               HorizontalScrollBarVisibility="Disabled"
-                              MinHeight="200"
+                              MinHeight="160"
                               VerticalScrollBarVisibility="Auto">
                     <Border Background="{DynamicResource ContentDialogTopOverlay}"
-                            Padding="5,0,5,0"
+                            Padding="16,0,16,12"
                             BorderThickness="{StaticResource ContentDialogSeparatorThickness}"
                             BorderBrush="{DynamicResource ContentDialogSeparatorBorderBrush}">
                         <Grid RowDefinitions="Auto,*">
@@ -67,43 +67,45 @@
                     </Border>
                 </ScrollViewer>
 
-                <Border Padding="{StaticResource ContentDialogPadding}"
+                <Border Padding="16,12,16,16"
                         Grid.Row="2"
-                        Margin="5"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Bottom">
-                    <Grid Name="CommandSpace">
-                        <!--
-                                                        B/C we can't target Row/Column defs in Styles like WinUI
-                                                        this still uses the old Col defs, but it works the same
-                                                        way in the end...
-                                                        -->
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="0.5*" />
-                            <ColumnDefinition Width="0.5*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+                    <Grid Name="CommandSpace" ColumnDefinitions="*,10,*,10,*">
                         <Button Name="PrimaryButton"
+                                Grid.Column="0"
                                 IsDefault="True"
                                 Classes="Primary"
+                                Height="32"
+                                CornerRadius="6"
+                                Padding="14,0"
+                                FontSize="13"
                                 HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"
+                                VerticalAlignment="Center"
                                 HorizontalContentAlignment="Center"
                                 VerticalContentAlignment="Center"
                                 IsVisible="False" />
 
                         <Button Name="SecondaryButton"
-
-                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                Grid.Column="2"
+                                Height="32"
+                                CornerRadius="6"
+                                Padding="14,0"
+                                FontSize="13"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Center"
                                 HorizontalContentAlignment="Center"
                                 VerticalContentAlignment="Center"
                                 IsVisible="False" />
 
                         <Button Name="CloseButton"
-
+                                Grid.Column="4"
+                                Height="32"
+                                CornerRadius="6"
+                                Padding="14,0"
+                                FontSize="13"
                                 HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"
+                                VerticalAlignment="Center"
                                 HorizontalContentAlignment="Center"
                                 VerticalContentAlignment="Center"
                                 IsVisible="False" />

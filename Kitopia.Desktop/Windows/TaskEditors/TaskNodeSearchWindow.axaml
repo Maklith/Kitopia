@@ -17,14 +17,19 @@
         Background="Transparent">
 
     <Border CornerRadius="8"
-            Background="{DynamicResource SolidBackgroundFillColorBase}"
-            BorderBrush="{DynamicResource SurfaceStrokeColorDefault}"
+            Background="{DynamicResource KitopiaCardBackgroundBrush}"
+            BorderBrush="{DynamicResource SemiColorBorder}"
             BorderThickness="1"
+            BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
             Padding="10">
         <Grid RowDefinitions="Auto, *">
             <TextBox Name="SearchBox"
                      Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                     Watermark="Search node..."
+                     PlaceholderText="搜索节点..."
+                     Height="32"
+                     CornerRadius="6"
+                     VerticalContentAlignment="Center"
+                     Classes="ClearButton"
                      Margin="0,0,0,10">
                 <TextBox.KeyBindings>
                     <KeyBinding Gesture="Enter" Command="{Binding ConfirmSelectCommand}" />
@@ -44,13 +49,14 @@
                                 HorizontalContentAlignment="Left"
                                 Background="Transparent"
                                 BorderThickness="0"
-                                Padding="4">
+                                CornerRadius="6"
+                                Padding="8,6">
                                 <StackPanel>
                                     <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
                                                Foreground="{DynamicResource SemiColorText0}" />
                                     <TextBlock Text="{Binding Detail}"
-                                               FontSize="10"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource SemiColorText2}"
                                                IsVisible="{Binding Detail, Converter={x:Static cv:StringConverters.IsNotNullOrEmpty}}" />
                                 </StackPanel>
                             </Button>

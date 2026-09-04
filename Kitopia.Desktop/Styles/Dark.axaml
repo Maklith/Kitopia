@@ -1,5 +1,40 @@
-﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!-- Add Resources Here -->
     <SolidColorBrush x:Key="KSemiColorBackground4" Opacity="0.35" Color="{StaticResource SemiBackground4Color}" />
+
+    <!-- Kitopia Fluent Design System Tokens (Dark Mode) -->
+    <SolidColorBrush x:Key="KitopiaPrimaryBrush" Color="#4CC2FF" />
+    <SolidColorBrush x:Key="KitopiaPrimaryHoverBrush" Color="#3AA8E0" />
+    <SolidColorBrush x:Key="KitopiaPrimaryActiveBrush" Color="#288DC2" />
+    <SolidColorBrush x:Key="KitopiaPrimaryLightBrush" Color="#264CC2FF" />
+
+    <SolidColorBrush x:Key="KitopiaCardBackgroundBrush" Color="#242424" />
+    <SolidColorBrush x:Key="KitopiaCardBorderBrush" Color="#1FFFFFFF" />
+    <BoxShadows x:Key="KitopiaCardBoxShadow">0 1 3 0 #30000000, 0 2 8 0 #20000000</BoxShadows>
+    <BoxShadows x:Key="KitopiaCardHoverBoxShadow">0 4 14 0 #304CC2FF</BoxShadows>
+
+    <!-- Badges & Tags -->
+    <SolidColorBrush x:Key="KitopiaBadgeSuccessBackground" Color="#40107C41" />
+    <SolidColorBrush x:Key="KitopiaBadgeSuccessForeground" Color="#6CE89F" />
+    <SolidColorBrush x:Key="KitopiaBadgeCurrentBackground" Color="#400064FA" />
+    <SolidColorBrush x:Key="KitopiaBadgeCurrentForeground" Color="#70B1FF" />
+    <SolidColorBrush x:Key="KitopiaBadgeNeutralBackground" Color="#2C2C2C" />
+    <SolidColorBrush x:Key="KitopiaBadgeNeutralForeground" Color="#D1D5DB" />
+    <SolidColorBrush x:Key="KitopiaBadgeDangerBackground" Color="#40C42B1C" />
+    <SolidColorBrush x:Key="KitopiaBadgeDangerForeground" Color="#FF9990" />
+    <SolidColorBrush x:Key="KitopiaBadgeDangerBorder" Color="#59FF9990" />
+
+    <SolidColorBrush x:Key="KitopiaAvatarBackground" Color="#334CC2FF" />
+    <SolidColorBrush x:Key="KitopiaAvatarForeground" Color="#4CC2FF" />
+
+    <!-- Fluent ToggleSwitch Accent Color -->
+    <SolidColorBrush x:Key="ToggleSwitchContainerCheckedBackground" Color="#4CC2FF" />
+    <SolidColorBrush x:Key="ToggleSwitchContainerCheckedPointeroverBackground" Color="#3AA8E0" />
+    <SolidColorBrush x:Key="ToggleSwitchContainerCheckedPressedBackground" Color="#288DC2" />
+
+    <!-- Navigation / ListBox Item Hover & Select Tokens -->
+    <SolidColorBrush x:Key="ListBoxItemPointeroverBackground" Color="#1FFFFFFF" />
+    <SolidColorBrush x:Key="ListBoxItemSelectedBackground" Color="#264CC2FF" />
+    <SolidColorBrush x:Key="ListBoxItemSelectedPointeroverBackground" Color="#334CC2FF" />
 </ResourceDictionary>

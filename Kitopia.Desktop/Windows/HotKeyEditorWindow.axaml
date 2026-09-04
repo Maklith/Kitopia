@@ -1,4 +1,4 @@
-﻿<u:UrsaWindow xmlns="https://github.com/avaloniaui"
+<u:UrsaWindow xmlns="https://github.com/avaloniaui"
               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
               xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
               xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -22,18 +22,11 @@
     </u:UrsaWindow.Background>
 
     <Grid Focusable="False" Margin="10">
-        <Border
-            Focusable="False"
-            Opacity="1">
-            <Border.Background>
-                <SolidColorBrush Color="{DynamicResource SystemFillColorSolidNeutralBackground}" />
-            </Border.Background>
-            <Border.Effect>
-                <DropShadowEffect
-                    BlurRadius="30"
-                    Opacity="0.4"
-                    Color="#202020" />
-            </Border.Effect>
+        <Border Focusable="False" CornerRadius="12" Padding="20"
+                Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                BorderBrush="{DynamicResource SemiColorBorder}"
+                BorderThickness="1"
+                BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
 
             <Grid Focusable="False" RowDefinitions="*,Auto">
                 <Grid
@@ -43,33 +36,37 @@
                     Focusable="False">
                     <StackPanel Orientation="Vertical">
                         <TextBlock
-                            Margin="0,10,0,0"
                             TextWrapping="WrapWithOverflow"
                             Text="修改快捷键"
-                            FontSize="20"
-                            FontWeight="SemiBold" />
+                            FontSize="18"
+                            FontWeight="SemiBold"
+                            Foreground="{DynamicResource SemiColorText0}" />
                         <TextBlock
                             x:Name="Name"
-                            Margin="0,10,0,0"
+                            Margin="0,4,0,0"
                             TextWrapping="WrapWithOverflow"
                             Text="快捷键"
-                            FontSize="15" />
+                            FontSize="14"
+                            FontWeight="Medium"
+                            Foreground="{DynamicResource SemiColorText1}" />
                         <TextBlock
-                            Margin="0,10,0,0"
+                            Margin="0,4,0,12"
                             TextWrapping="WrapWithOverflow"
                             Text="按下按键以修改"
-                            FontSize="15" />
+                            FontSize="12"
+                            Foreground="{DynamicResource SemiColorText2}" />
                         <RadioButton GroupName="1" Content="键盘快捷键" Name="KeyBoard" IsChecked="True" Focusable="False"
-                                     Click="KeyBoard_OnClick" />
-                        <RadioButton GroupName="1" Content="鼠标快捷键" Name="Mouse" Click="Mouse_OnClick" Focusable="False" />
-                        <StackPanel IsVisible="{Binding #Mouse.IsChecked}" HorizontalAlignment="Left">
+                                     Click="KeyBoard_OnClick" Margin="0,2" />
+                        <RadioButton GroupName="1" Content="鼠标快捷键" Name="Mouse" Click="Mouse_OnClick" Focusable="False" Margin="0,2" />
+                        <StackPanel IsVisible="{Binding #Mouse.IsChecked}" HorizontalAlignment="Left" Margin="0,8,0,0">
                             <TextBlock
-                                Margin="0,10,0,0"
+                                Margin="0,0,0,4"
                                 TextWrapping="WrapWithOverflow"
                                 Text="鼠标快捷键触发时间间隔(ms)"
-                                FontSize="15" />
+                                FontSize="12"
+                                Foreground="{DynamicResource SemiColorText2}" />
                             <Slider Maximum="5000" Minimum="100" IsSnapToTickEnabled="True" TickFrequency="100"
-                                    HorizontalAlignment="Stretch" Name="Slider">
+                                    HorizontalAlignment="Stretch" Name="Slider" Width="200">
                                 <Slider.Styles>
                                     <Style Selector="Slider /template/ Thumb">
                                         <Setter Property="ToolTip.Tip"
@@ -82,7 +79,9 @@
                                     </Style>
                                 </Slider.Styles>
                             </Slider>
-                            <TextBlock HorizontalAlignment="Center" Text="{Binding #Slider.Value}" />
+                            <TextBlock HorizontalAlignment="Center" Text="{Binding #Slider.Value}"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SemiColorText1}" />
                         </StackPanel>
 
                     </StackPanel>
@@ -127,12 +126,14 @@
                                 Grid.Column="2"
                                 HorizontalAlignment="Stretch"
                                 Classes="Primary" Theme="{DynamicResource SolidButton}"
+                                Height="32" CornerRadius="6" FontSize="13"
                                 Content="确认"
                                 Click="ButtonBase_OnClick" />
 
                             <Button
                                 Grid.Column="0"
                                 HorizontalAlignment="Stretch"
+                                Height="32" CornerRadius="6" FontSize="13"
                                 Content="取消"
                                 Click="ButtonCancle_OnClick"
                                 IsCancel="True" />

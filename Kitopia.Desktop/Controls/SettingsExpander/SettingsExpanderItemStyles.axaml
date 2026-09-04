@@ -57,7 +57,7 @@
                           RowDefinitions="*,Auto">
                         <DockPanel>
                             <Viewbox DockPanel.Dock="Left" Width="{DynamicResource SettingsExpanderItemIconSize}"
-                                     Margin="0,0,5,0"
+                                     Margin="0,0,12,0"
                                      Height="{DynamicResource SettingsExpanderItemIconSize}"
                                      HorizontalAlignment="Left"
                                      VerticalAlignment="Center"
@@ -73,13 +73,16 @@
                                 <ContentPresenter Content="{TemplateBinding Content}"
                                                   ContentTemplate="{TemplateBinding ContentTemplate}"
                                                   Name="ContentPresenter"
-                                                  FontSize="15"
+                                                  FontSize="14"
+                                                  FontWeight="SemiBold"
+                                                  Foreground="{DynamicResource SemiColorText0}"
                                                   IsVisible="False" />
 
                                 <TextBlock Text="{TemplateBinding Description}"
                                            TextWrapping="Wrap"
                                            Foreground="{DynamicResource SemiColorText2}"
-                                           FontSize="13"
+                                           FontSize="12"
+                                           Margin="0,3,0,0"
                                            Name="DescriptionText"
                                            IsVisible="False" />
                             </StackPanel>

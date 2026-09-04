@@ -78,17 +78,16 @@
     <Panel Margin="0,40,0,0">
         <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,*" ColumnSpan="5"
               Margin="{DynamicResource SemiThicknessExtraTight}">
-            <Border Grid.Row="1" Grid.Column="0" Padding="1" VerticalAlignment="Stretch"
-                    CornerRadius="{DynamicResource RadiusCardCornerRadius}"
-                    Background="{DynamicResource KSemiColorBackground4}"
-                    BoxShadow="{DynamicResource BorderCardBoxShadow}">
+            <!-- 1. Left Sidebar Navigation Pane -->
+            <Border Grid.Row="1" Grid.Column="0" VerticalAlignment="Stretch"
+                    Background="Transparent"
+                    Margin="6,0,6,0">
 
                 <u:NavMenu Name="NavView"
                            IsHorizontalCollapsed="True"
                            CanToggle="False"
-                           ExpandWidth="56"
-                           CollapseWidth="56"
-
+                           ExpandWidth="48"
+                           CollapseWidth="48"
                            ItemsSource="{Binding MenuItems}"
                            CommandBinding="{Binding ActivateCommand}"
                            HeaderBinding="{Binding}"
@@ -96,6 +95,83 @@
                     <u:NavMenu.Styles>
                         <Style Selector="u|NavMenuItem" x:DataType="main:MenuItemViewModel">
                             <Setter Property="IsSeparator" Value="{Binding IsSeparator}" />
+                            <Setter Property="CornerRadius" Value="6" />
+                            <Setter Property="Margin" Value="4,2" />
+                            <Setter Property="MinHeight" Value="40" />
+                            <Setter Property="Height" Value="40" />
+                            <Setter Property="HorizontalAlignment" Value="Stretch" />
+                        </Style>
+                        
+                        <!-- PART_Border styling: 6px corner radius -->
+                        <Style Selector="u|NavMenuItem /template/ Border#PART_Border">
+                            <Setter Property="CornerRadius" Value="6" />
+                        </Style>
+
+                        <!-- High specificity overrides for collapsed state: eliminate Ursa's 8px vertical margins/paddings and enforce full 40px height -->
+                        <Style Selector="u|NavMenuItem:horizontal-collapsed:first-level /template/ Border#PART_Border">
+                            <Setter Property="Height" Value="40" />
+                            <Setter Property="MinHeight" Value="40" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="CornerRadius" Value="6" />
+                        </Style>
+                        <Style Selector="u|NavMenuItem:horizontal-collapsed:first-level /template/ Grid#PART_RootGrid">
+                            <Setter Property="Height" Value="40" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="HorizontalAlignment" Value="Stretch" />
+                            <Setter Property="Margin" Value="0" />
+                        </Style>
+                        <Style Selector="u|NavMenuItem:horizontal-collapsed:first-level /template/ ContentPresenter#PART_IconPresenter">
+                            <Setter Property="Grid.ColumnSpan" Value="3" />
+                            <Setter Property="HorizontalAlignment" Value="Center" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                        </Style>
+
+                        <!-- Hover background on PART_Border (works across all Ursa states) -->
+                        <Style Selector="u|NavMenuItem /template/ Border#PART_Border:pointerover">
+                            <Setter Property="Background" Value="{DynamicResource ListBoxItemPointeroverBackground}" />
+                        </Style>
+                        <Style Selector="u|NavMenuItem:pointerover /template/ Border#PART_Border">
+                            <Setter Property="Background" Value="{DynamicResource ListBoxItemPointeroverBackground}" />
+                        </Style>
+                        <Style Selector="u|NavMenuItem:horizontal-collapsed:first-level /template/ Border#PART_Border:pointerover">
+                            <Setter Property="Background" Value="{DynamicResource ListBoxItemPointeroverBackground}" />
+                        </Style>
+                        <Style Selector="u|NavMenuItem:horizontal-collapsed:first-level:pointerover /template/ Border#PART_Border">
+                            <Setter Property="Background" Value="{DynamicResource ListBoxItemPointeroverBackground}" />
+                        </Style>
+
+                        <!-- Selected background on PART_Border -->
+                        <Style Selector="u|NavMenuItem:selected /template/ Border#PART_Border">
+                            <Setter Property="Background" Value="{DynamicResource ListBoxItemSelectedBackground}" />
+                        </Style>
+                        <Style Selector="u|NavMenuItem:selected /template/ Border#PART_Border:pointerover">
+                            <Setter Property="Background" Value="{DynamicResource ListBoxItemSelectedPointeroverBackground}" />
+                        </Style>
+                        <Style Selector="u|NavMenuItem:selected:pointerover /template/ Border#PART_Border">
+                            <Setter Property="Background" Value="{DynamicResource ListBoxItemSelectedPointeroverBackground}" />
+                        </Style>
+                        <Style Selector="u|NavMenuItem:selected:horizontal-collapsed:first-level /template/ Border#PART_Border:pointerover">
+                            <Setter Property="Background" Value="{DynamicResource ListBoxItemSelectedPointeroverBackground}" />
+                        </Style>
+                        <Style Selector="u|NavMenuItem:selected:horizontal-collapsed:first-level:pointerover /template/ Border#PART_Border">
+                            <Setter Property="Background" Value="{DynamicResource ListBoxItemSelectedPointeroverBackground}" />
+                        </Style>
+
+                        <Style Selector="u|NavMenuItem controls|FontIcon">
+                            <Setter Property="Foreground" Value="{DynamicResource SemiColorText1}" />
+                        </Style>
+                        <Style Selector="u|NavMenuItem:pointerover controls|FontIcon">
+                            <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+                        </Style>
+                        <Style Selector="u|NavMenuItem:selected controls|FontIcon">
+                            <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}" />
+                        </Style>
+                        <Style Selector="u|NavMenuItem:selected:pointerover controls|FontIcon">
+                            <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimaryHover}" />
                         </Style>
                     </u:NavMenu.Styles>
                     <u:NavMenu.HeaderTemplate>
@@ -108,37 +184,69 @@
                     <u:NavMenu.IconTemplate>
                         <DataTemplate x:DataType="main:MenuItemViewModel">
                             <controls:FontIcon
-                                Width="24"
-                                Height="24"
-                                FontSize="24"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Width="20"
+                                Height="20"
+                                FontSize="20"
                                 IsFilled="{Binding IsSelected}"
-                                Foreground="{DynamicResource SemiColorText0}"
                                 GlyphFilled="{Binding MenuIconFilledGlyph}"
                                 Glyph="{Binding MenuIconGlyph }" />
                         </DataTemplate>
                     </u:NavMenu.IconTemplate>
                     <u:NavMenu.Footer>
-
-                        <Button HorizontalAlignment="Stretch" Height="56" ToolTip.Tip="设置"
-                                Command="{Binding ActivateSettingPageCommand}"
-                                Foreground="{DynamicResource SemiColorText0}">
-                            <Button.Resources>
-                            </Button.Resources>
-                            <controls:FontIcon
-                                Foreground="{DynamicResource SemiColorText0}"
-                                Width="24"
-                                Height="24"
-                                FontSize="24"
-                                IsFilled="{Binding SettingPage}"
-                                FontWeight="Normal"
-                                GlyphFilled="&#xf6b3;"
-                                Glyph="&#xf6aa;" />
-                        </Button>
+                        <Border Margin="4,4,4,6">
+                            <Button HorizontalAlignment="Stretch" Height="40" ToolTip.Tip="设置"
+                                    Classes.selected="{Binding SettingPage}"
+                                    CornerRadius="6"
+                                    Padding="0"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Command="{Binding ActivateSettingPageCommand}">
+                                <Button.Styles>
+                                    <Style Selector="Button">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Setter Property="Padding" Value="0" />
+                                    </Style>
+                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="{DynamicResource ListBoxItemPointeroverBackground}" />
+                                    </Style>
+                                    <Style Selector="Button.selected /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="{DynamicResource ListBoxItemSelectedBackground}" />
+                                    </Style>
+                                    <Style Selector="Button.selected:pointerover /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="{DynamicResource ListBoxItemSelectedPointeroverBackground}" />
+                                    </Style>
+                                </Button.Styles>
+                                <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <controls:FontIcon
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        IsVisible="{Binding !SettingPage}"
+                                        Foreground="{DynamicResource SemiColorText1}"
+                                        Width="20" Height="20" FontSize="20"
+                                        Glyph="&#xf6aa;" />
+                                    <controls:FontIcon
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        IsVisible="{Binding SettingPage}"
+                                        Foreground="{DynamicResource SemiColorPrimary}"
+                                        Width="20" Height="20" FontSize="20"
+                                        IsFilled="True"
+                                        GlyphFilled="&#xf6b3;" />
+                                </Panel>
+                            </Button>
+                        </Border>
                     </u:NavMenu.Footer>
 
                 </u:NavMenu>
             </Border>
-            <Border Grid.Row="1" Grid.Column="1" Padding="3" CornerRadius="{DynamicResource RadiusCardCornerRadius}" Background="{DynamicResource KSemiColorBackground4}" BoxShadow="{DynamicResource BorderCardBoxShadow}">
+
+            <!-- 2. Right Main Content Area -->
+            <Border Grid.Row="1" Grid.Column="1" Padding="2"
+                    CornerRadius="{DynamicResource RadiusCardCornerRadius}"
+                    Background="{DynamicResource KSemiColorBackground4}">
                 <Panel>
                     <ContentPresenter
                         Content="{Binding Content,Converter={StaticResource ViewLocator}}" />

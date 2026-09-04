@@ -13,28 +13,86 @@
         <converter:HotKeySignNameToStringCtr x:Key="HotKeySignNameToStringCtr" />
     </UserControl.Resources>
     <Grid RowDefinitions="Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
-        <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Text="快捷键列表" />
+        <!-- 1. Header: Global interactions + Title + Subtitle + Count -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="全局交互" Theme="{DynamicResource KitopiaPageKickerText}" />
+                <TextBlock Text="快捷键管理" Theme="{DynamicResource KitopiaPageTitleText}" />
+                <TextBlock Text="查看与管理全局注册的快捷键热键配置。"
+                           Theme="{DynamicResource KitopiaPageSubtitleText}" />
+            </StackPanel>
+            <TextBlock Grid.Column="1"
+                       Text="{Binding KeyModels.Count, StringFormat='共 {0} 个快捷键'}"
+                       FontSize="13"
+                       Foreground="{DynamicResource SemiColorText2}"
+                       VerticalAlignment="Bottom" />
+        </Grid>
+
         <ScrollViewer Grid.Row="1">
-            <ItemsControl ItemsSource="{Binding  KeyModels}" Margin="4,0,0,0">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="pluginCore:HotKeyModel">
-                        <Border MinWidth="160" Margin="4"
-                                Theme="{DynamicResource KitopiaCard}">
-                            <StackPanel HorizontalAlignment="Center" Spacing="6">
-                                <TextBlock Text="{Binding SignName,Converter={StaticResource HotKeySignNameToStringCtr}}"
-                                           FontWeight="SemiBold" FontSize="14"
-                                           Foreground="{DynamicResource SemiColorText0}" />
-                                <controls1:HotKeyShow Foreground="{DynamicResource SemiColorText0}"
-                                                       HotKeyModel="{Binding RelativeSource={RelativeSource AncestorType=StackPanel},Path=DataContext}" />
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
+            <ItemsControl ItemsSource="{Binding KeyModels}" Margin="4,0,0,0">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="pluginCore:HotKeyModel">
+                        <Border Width="310" Height="124" Margin="6"
+                                Theme="{DynamicResource KitopiaPluginCard}"
+                                Padding="16,14">
+                            <Grid RowDefinitions="Auto,*" RowSpacing="16">
+                                <!-- 1. Top Header: Icon + Title/Subtitle + Status Badge -->
+                                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                                    <!-- 34px Soft Icon Container with Real Keyboard Glyph \uf4b9 -->
+                                    <Border Grid.Column="0" Width="34" Height="34"
+                                            CornerRadius="8"
+                                            Background="{DynamicResource KitopiaAvatarBackground}"
+                                            VerticalAlignment="Center">
+                                        <controls1:FontIcon FontSize="18" Glyph="&#xf4b9;"
+                                                           Foreground="{DynamicResource KitopiaAvatarForeground}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                    </Border>
+
+                                    <!-- Middle: Title + Scope Subtitle -->
+                                    <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding SignName, Converter={StaticResource HotKeySignNameToStringCtr}}"
+                                                   FontWeight="SemiBold" FontSize="14"
+                                                   Foreground="{DynamicResource SemiColorText0}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="全局交互热键"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource SemiColorText2}"
+                                                   Margin="0,2,0,0"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+
+                                    <!-- Right: Dynamic Status Badge (Enabled vs Disabled) -->
+                                    <Panel Grid.Column="2" VerticalAlignment="Top">
+                                        <Border CornerRadius="4" Padding="6,2"
+                                                Background="{DynamicResource KitopiaBadgeSuccessBackground}"
+                                                IsVisible="{Binding IsEnabled}">
+                                            <TextBlock Text="已启用" FontSize="11" FontWeight="Medium"
+                                                       Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" />
+                                        </Border>
+                                        <Border CornerRadius="4" Padding="6,2"
+                                                Background="{DynamicResource KitopiaBadgeNeutralBackground}"
+                                                IsVisible="{Binding !IsEnabled}">
+                                            <TextBlock Text="已停用" FontSize="11" FontWeight="Medium"
+                                                       Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
+                                        </Border>
+                                    </Panel>
+                                </Grid>
+
+                                <!-- 2. Bottom: Keycaps (Left) + Actions (Right) -->
+                                <controls1:HotKeyShow Grid.Row="1"
+                                                       VerticalAlignment="Bottom"
+                                                       HorizontalAlignment="Stretch"
+                                                       HotKeyModel="{Binding}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
     </Grid>

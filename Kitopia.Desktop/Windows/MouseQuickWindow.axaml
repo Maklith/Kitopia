@@ -2,7 +2,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-
         xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
         xmlns:windows="clr-namespace:Kitopia.Desktop.Features.Search.ViewModels;assembly=Kitopia.Desktop.Features"
         xmlns:converter="clr-namespace:Kitopia.Desktop.Converter"
@@ -29,72 +28,76 @@
         <searchWindow:SymbolToVisible x:Key="SymbolToVisible" />
         <converter:IntToIconSymbol x:Key="IntToIconSymbol" />
     </Window.Resources>
-    <Grid RowDefinitions="Auto,*">
-        <TextBlock Grid.Row="0" Text="{Binding SelectedItem,Converter={StaticResource MouseQuickSelectedItem}}"
-                   TextWrapping="Wrap" FontSize="20" Margin="10,10,10,10" />
+    <Border CornerRadius="8"
+            Background="{DynamicResource KitopiaCardBackgroundBrush}"
+            BorderBrush="{DynamicResource SemiColorBorder}"
+            BorderThickness="1"
+            BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
+            Padding="8">
+        <Grid RowDefinitions="Auto,*">
+            <TextBlock Grid.Row="0" Text="{Binding SelectedItem,Converter={StaticResource MouseQuickSelectedItem}}"
+                       TextWrapping="Wrap" FontSize="16" FontWeight="SemiBold"
+                       Foreground="{DynamicResource SemiColorText0}" Margin="8,8,8,4" />
 
-        <ItemsControl Grid.Row="1" Margin="15,10,8,10"
-                      ItemsSource="{Binding Items}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Button
-                        Command="{Binding Path=$parent[Window].((windows:MouseQuickWindowViewModel)DataContext).ExcuteCommand}"
-                        CommandParameter="{Binding .}" Width="80" Height="80" Padding="0" Margin="0"
-                        Background="Transparent">
-                        <Button.Resources>
-                            <converter:MouseQuickItemCanRemoveCtr x:Key="MouseQuickItemCanRemoveCtr" />
-                        </Button.Resources>
-                        <Button.ContextFlyout>
-                            <MenuFlyout>
-                                <!-- ReSharper disable once Xaml.RedundantResource -->
+            <ItemsControl Grid.Row="1" Margin="4"
+                          ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button
+                            Command="{Binding Path=$parent[Window].((windows:MouseQuickWindowViewModel)DataContext).ExcuteCommand}"
+                            CommandParameter="{Binding .}" Width="80" Height="80" Padding="0" Margin="4"
+                            CornerRadius="6"
+                            Background="Transparent">
+                            <Button.Resources>
+                                <converter:MouseQuickItemCanRemoveCtr x:Key="MouseQuickItemCanRemoveCtr" />
+                            </Button.Resources>
+                            <Button.ContextFlyout>
+                                <MenuFlyout>
+                                    <MenuItem Header="移除"
+                                              Command="{Binding $parent[Window].((windows:MouseQuickWindowViewModel)DataContext).RemoveCommand}"
+                                              IsVisible="{Binding .,Converter={StaticResource MouseQuickItemCanRemoveCtr}}"
+                                              CommandParameter="{Binding .}" />
+                                </MenuFlyout>
 
-                                <MenuItem Header="移除"
-                                          Command="{Binding $parent[Window].((windows:MouseQuickWindowViewModel)DataContext).RemoveCommand}"
-                                          IsVisible="{Binding .,Converter={StaticResource MouseQuickItemCanRemoveCtr}}"
-                                          CommandParameter="{Binding .}" />
-                            </MenuFlyout>
+                            </Button.ContextFlyout>
+                            <Grid Height="74" Width="76" Margin="2,4,2,2">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="32" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Image HorizontalAlignment="Center" Focusable="False" Width="32"
+                                       Height="32">
+                                    <Image.Source>
+                                        <MultiBinding Converter="{StaticResource PathToImageConverter}">
+                                            <Binding Path="Icon" />
+                                            <Binding Path="." />
+                                        </MultiBinding>
+                                    </Image.Source>
+                                </Image>
+                                <controls:FontIcon Height="32" Width="32" FontSize="28"
+                                                   FontFamily="{StaticResource FluentFont}"
+                                                   IsVisible="{Binding IconSymbol,Converter={StaticResource SymbolToVisible}}"
+                                                   Glyph="{Binding IconSymbol,Converter={StaticResource IntToIconSymbol}}" />
 
-                        </Button.ContextFlyout>
-                        <Grid Height="74" Width="76" Margin="2,5,2,1">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="32" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <Image HorizontalAlignment="Center" Focusable="False" Width="32"
-                                   Height="32">
-                                <Image.Source>
-                                    <MultiBinding Converter="{StaticResource PathToImageConverter}">
-                                        <Binding Path="Icon" />
-                                        <Binding Path="." />
-                                    </MultiBinding>
-                                </Image.Source>
-                            </Image>
-                            <controls:FontIcon Height="48" Width="48" FontSize="48"
-                                               FontFamily="{StaticResource FluentFont}"
-                                               IsVisible="{Binding IconSymbol,Converter={StaticResource SymbolToVisible}}"
-                                               Glyph="{Binding IconSymbol,Converter={StaticResource IntToIconSymbol}}" />
-
-                            <TextBlock Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center"
-                                       Margin="0"
-                                       Focusable="False"
-                                       Text="{Binding Path=ItemDisplayName}"
-                                       TextWrapping="Wrap"
-                                       Background="{x:Null}"
-                                       FontWeight="Normal" FontSize="15" />
-                        </Grid>
-
-
-                    </Button>
-
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <WrapPanel />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-        </ItemsControl>
-
-
-    </Grid>
+                                <TextBlock Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                           Margin="0,2,0,0"
+                                           Focusable="False"
+                                           Text="{Binding Path=ItemDisplayName}"
+                                           TextWrapping="Wrap"
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxLines="2"
+                                           Foreground="{DynamicResource SemiColorText0}"
+                                           FontWeight="Normal" FontSize="12" />
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </Grid>
+    </Border>
 </Window>

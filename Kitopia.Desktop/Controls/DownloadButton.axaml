@@ -1,4 +1,4 @@
-﻿<Styles xmlns="https://github.com/avaloniaui"
+<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 
         xmlns:controls="clr-namespace:Kitopia.Desktop.Controls">
@@ -11,7 +11,12 @@
                         <Button Command="{TemplateBinding DownloadCommand}"
                                 CommandParameter="{TemplateBinding DataContext}"
                                 IsVisible="{TemplateBinding NeedDownload}"
-                                IsEnabled="{TemplateBinding CanDownload}">
+                                IsEnabled="{TemplateBinding CanDownload}"
+                                Classes="Primary"
+                                CornerRadius="6"
+                                Height="32"
+                                Padding="14,0"
+                                FontSize="13">
                             <Button.Styles>
                                 <Style Selector="Button[IsEnabled=True]">
                                     <Setter Property="Content">下载</Setter>
@@ -22,18 +27,28 @@
                             </Button.Styles>
                         </Button>
                         <Button IsVisible="{Binding !NeedDownload, RelativeSource={RelativeSource TemplatedParent}}"
-                                IsEnabled="False">
+                                IsEnabled="False"
+                                CornerRadius="6"
+                                Height="32"
+                                Padding="14,0"
+                                FontSize="13">
                             已下载
                         </Button>
                     </Panel>
                     <StackPanel Orientation="Horizontal" IsVisible="{TemplateBinding IsDownloading}"
-                                VerticalAlignment="Center" Margin="15,0,15,0">
+                                VerticalAlignment="Center" Margin="8,0" Spacing="8">
                         <ProgressBar IsIndeterminate="{TemplateBinding IsIndeterminate}"
-                                     Value="{TemplateBinding Progress}" />
+                                     Value="{TemplateBinding Progress}"
+                                     Height="6" CornerRadius="3"
+                                     Foreground="{DynamicResource KitopiaPrimaryBrush}" />
                         <TextBlock VerticalAlignment="Center"
-                                   Text="{Binding  Path=Progress,StringFormat='{}{0:f2}%', RelativeSource={RelativeSource TemplatedParent} }" />
+                                   FontSize="12"
+                                   Foreground="{DynamicResource SemiColorText1}"
+                                   Text="{Binding  Path=Progress,StringFormat='{}{0:f1}%', RelativeSource={RelativeSource TemplatedParent} }" />
                         <Button Command="{TemplateBinding CancelCommand}"
-                                CommandParameter="{TemplateBinding DataContext}">
+                                CommandParameter="{TemplateBinding DataContext}"
+                                Height="26" Padding="8,0" CornerRadius="4"
+                                FontSize="12">
                             取消
                         </Button>
                     </StackPanel>

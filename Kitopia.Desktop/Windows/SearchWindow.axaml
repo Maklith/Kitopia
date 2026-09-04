@@ -73,7 +73,7 @@
                     </Border>
 
                     <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" IsTabStop="False"
-                             Watermark="搜索..." AcceptsReturn="False" KeyDown="tx_KeyDown"
+                             PlaceholderText="搜索..." AcceptsReturn="False" KeyDown="tx_KeyDown"
                              Name="tx"
                              AcceptsTab="False" FontSize="24"
                              Text="{Binding Search}">

@@ -28,11 +28,30 @@ public class PluginNetworkService
 
     public static Task<PluginPage?> GetPluginsAsync(
         int page = 1,
-        int pageSize = 20,
-        CancellationToken cancellationToken = default) =>
-        GetPluginDataAsync<PluginPage>(
-            $"all?page={page}&pageSize={pageSize}&platform={GetCurrentPlatformName()}",
-            cancellationToken);
+        int pageSize = 12,
+        string? query = null,
+        string? platform = null,
+        CancellationToken cancellationToken = default)
+    {
+        var queryParams = new List<string>
+        {
+            $"page={page}",
+            $"pageSize={pageSize}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            queryParams.Add($"query={Uri.EscapeDataString(query.Trim())}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(platform))
+        {
+            queryParams.Add($"platform={Uri.EscapeDataString(platform.Trim().ToLowerInvariant())}");
+        }
+
+        var queryString = string.Join("&", queryParams);
+        return GetPluginDataAsync<PluginPage>($"all?{queryString}", cancellationToken);
+    }
 
     public static async Task<bool> DownloadPlugin(
         string pluginSignName,

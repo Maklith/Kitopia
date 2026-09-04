@@ -82,4 +82,53 @@ public sealed class PluginHostRuntimeTests
         Assert.AreEqual("6 下载", helper.DownloadCountText);
         CollectionAssert.AreEqual(new[] { "Windows" }, (System.Collections.ICollection)helper.DisplayPlatforms);
     }
+
+    [TestMethod]
+    public void MarketPageViewModel_PaginationAndPlatformOptions_InitializeCorrectly()
+    {
+        var vm = new Kitopia.Desktop.Features.ViewModel.Pages.MarketPageViewModel();
+        Assert.AreEqual(4, vm.PlatformOptions.Count);
+        Assert.AreEqual("全部平台", vm.PlatformOptions[0].Label);
+        Assert.AreEqual("", vm.PlatformOptions[0].Value);
+        Assert.AreEqual("Windows", vm.PlatformOptions[1].Label);
+        Assert.AreEqual("windows", vm.PlatformOptions[1].Value);
+
+        Assert.AreEqual(1, vm.CurrentPage);
+        Assert.IsFalse(vm.CanPreviousPage);
+        Assert.AreEqual("1 / 1", vm.PageDisplayText);
+
+        // Test jump to page logic
+        vm.TotalPages = 5;
+        Assert.IsTrue(vm.CanNextPage);
+        Assert.IsTrue(vm.HasMultiplePages);
+
+        vm.TargetPageText = "3";
+        vm.JumpToPageCommand.Execute(null);
+        Assert.AreEqual(3, vm.CurrentPage);
+        Assert.IsTrue(vm.CanPreviousPage);
+        Assert.IsTrue(vm.CanNextPage);
+        Assert.AreEqual("3 / 5", vm.PageDisplayText);
+
+        vm.NextPageCommand.Execute(null);
+        Assert.AreEqual(4, vm.CurrentPage);
+
+        vm.PreviousPageCommand.Execute(null);
+        Assert.AreEqual(3, vm.CurrentPage);
+
+        // Test search by author
+        var pluginItem = new Kitopia.Desktop.Features.Services.Plugin.PluginInfoUiHelper
+        {
+            PluginBaseInfo = new PluginCore.PluginBaseInfo { Name = "Test", NameSign = "test_plugin" },
+            OnlinePluginInfo = new Kitopia.Desktop.Features.Services.Plugin.OnlinePluginInfo
+            {
+                AuthorUserName = "Maklith",
+                AuthorNickname = "马克里斯"
+            },
+            IsLocal = false,
+            AuthorName = "马克里斯"
+        };
+        vm.SearchAuthorCommand.Execute(pluginItem);
+        Assert.AreEqual("@Maklith", vm.Keyword);
+        Assert.AreEqual(1, vm.CurrentPage);
+    }
 }

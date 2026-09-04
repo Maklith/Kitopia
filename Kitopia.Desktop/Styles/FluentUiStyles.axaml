@@ -51,24 +51,11 @@
         </Style>
     </ControlTheme>
     <ControlTheme x:Key="KitopiaCard" TargetType="Border">
-        <Setter Property="CornerRadius" Value="{DynamicResource RadiusCardCornerRadius}" />
-        <Setter Property="Background" Value="{DynamicResource KSemiColorBackground4}" />
-        <Setter Property="BoxShadow" Value="{DynamicResource BorderCardBoxShadow}" />
-        <Setter Property="Padding" Value="12" />
-    </ControlTheme>
-    <ControlTheme x:Key="KitopiaCardBorderless" TargetType="Border">
-        <Setter Property="CornerRadius" Value="{DynamicResource RadiusCardCornerRadius}" />
-        <Setter Property="Background" Value="{DynamicResource KSemiColorBackground4}" />
-        <Setter Property="BoxShadow" Value="{DynamicResource BorderCardBoxShadow}" />
-        <Setter Property="Padding" Value="12" />
-    </ControlTheme>
-
-    <ControlTheme x:Key="KitopiaPluginCard" TargetType="Border">
         <Setter Property="CornerRadius" Value="12" />
-        <Setter Property="Background" Value="{DynamicResource SemiColorBackground0}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+        <Setter Property="Background" Value="{DynamicResource KitopiaCardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource KitopiaCardBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="BoxShadow" Value="0 1 3 0 #0F000000" />
+        <Setter Property="BoxShadow" Value="{DynamicResource KitopiaCardBoxShadow}" />
         <Setter Property="Padding" Value="16" />
         <Setter Property="Transitions">
             <Transitions>
@@ -77,9 +64,44 @@
             </Transitions>
         </Setter>
         <Style Selector="^:pointerover">
-            <Setter Property="BorderBrush" Value="#93C5FD" />
-            <Setter Property="BoxShadow" Value="0 4 14 0 #180066FF" />
+            <Setter Property="BorderBrush" Value="{DynamicResource KitopiaPrimaryBrush}" />
+            <Setter Property="BoxShadow" Value="{DynamicResource KitopiaCardHoverBoxShadow}" />
         </Style>
+    </ControlTheme>
+    <ControlTheme x:Key="KitopiaCardBorderless" TargetType="Border">
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Background" Value="{DynamicResource KitopiaCardBackgroundBrush}" />
+        <Setter Property="BoxShadow" Value="{DynamicResource KitopiaCardBoxShadow}" />
+        <Setter Property="Padding" Value="16" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="KitopiaPluginCard" TargetType="Border">
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Background" Value="{DynamicResource KitopiaCardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource KitopiaCardBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BoxShadow" Value="{DynamicResource KitopiaCardBoxShadow}" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.2" />
+                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" />
+            </Transitions>
+        </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource KitopiaPrimaryBrush}" />
+            <Setter Property="BoxShadow" Value="{DynamicResource KitopiaCardHoverBoxShadow}" />
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="KitopiaStatCard" TargetType="Border">
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Background" Value="{DynamicResource KitopiaCardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource KitopiaCardBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BoxShadow" Value="{DynamicResource KitopiaCardBoxShadow}" />
+        <Setter Property="Padding" Value="14,12" />
     </ControlTheme>
 
 
@@ -88,5 +110,49 @@
         <Setter Property="FontSize" Value="{DynamicResource SemiFontSizeHeader6}" />
         <Setter Property="FontWeight" Value="{DynamicResource SemiFontWeightBold}" />
         <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="KitopiaPageKickerText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText2}" />
+        <Setter Property="Margin" Value="0,0,0,2" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="KitopiaPageTitleText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+        <Setter Property="Margin" Value="0,0,0,2" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="KitopiaPageSubtitleText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiColorText2}" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="KitopiaDangerSubtleButton" TargetType="Button" BasedOn="{StaticResource BorderlessButton}">
+        <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeDangerForeground}" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="FontSize" Value="12" />
+        <Style Selector="^:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource KitopiaBadgeDangerBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeDangerForeground}" />
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="KitopiaLinkButton" TargetType="Button" BasedOn="{StaticResource BorderlessButton}">
+        <Setter Property="Foreground" Value="{DynamicResource KitopiaPrimaryBrush}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Style Selector="^:pointerover /template/ ContentPresenter">
+            <Setter Property="Foreground" Value="{DynamicResource KitopiaPrimaryHoverBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
     </ControlTheme>
 </ResourceDictionary>

@@ -9,35 +9,43 @@
         Icon="/Assets/icon.ico"
         Title="File Locksmith - 文件占用查看"
         Width="800" Height="500"
+        MinWidth="600" MinHeight="350"
         WindowStartupLocation="CenterScreen"
-        ExtendClientAreaToDecorationsHint="True">
+        Background="{DynamicResource SemiColorBackground0}">
 
-    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
-        <TextBlock Grid.Row="0" Text="占用文件的进程列表" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
+    <Grid RowDefinitions="Auto,*,Auto" Margin="24,20,24,24">
+        <TextBlock Grid.Row="0" Text="占用文件的进程列表" FontSize="18" FontWeight="SemiBold"
+                   Foreground="{DynamicResource SemiColorText0}" Margin="0,0,0,16"/>
 
         <DataGrid Grid.Row="1" ItemsSource="{Binding Processes}" AutoGenerateColumns="False" IsReadOnly="True"
-                  GridLinesVisibility="All" BorderThickness="1" BorderBrush="#33000000">
+                  GridLinesVisibility="All" BorderThickness="1" BorderBrush="{DynamicResource SemiColorBorder}"
+                  CornerRadius="6">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="进程名" Binding="{Binding ProcessName}" Width="150"/>
                 <DataGridTextColumn Header="PID" Binding="{Binding ProcessId}" Width="80"/>
                 <DataGridTextColumn Header="启动时间" Binding="{Binding StartTime}" Width="180"/>
                 <DataGridTextColumn Header="执行路径" Binding="{Binding ExecutablePath}" Width="*"/>
-                <DataGridTemplateColumn Header="操作" Width="100">
+                <DataGridTemplateColumn Header="操作" Width="110">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="结束进程" 
+                            <Button Content="结束进程" Classes="Danger"
+                                    Height="26" Padding="10,0" CornerRadius="4" FontSize="12"
                                     Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).UnlockCommand}"
                                     CommandParameter="{Binding}"
-                                    HorizontalAlignment="Center"/>
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0" Spacing="10">
-            <Button Content="全部解锁" Command="{Binding UnlockAllCommand}" Background="#FF4444" Foreground="White"/>
-            <Button Content="关闭" Click="CloseButton_Click"/>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0" Spacing="10">
+            <Button Content="全部解锁" Classes="Danger"
+                    Height="32" Padding="14,0" CornerRadius="6" FontSize="13"
+                    Command="{Binding UnlockAllCommand}" />
+            <Button Content="关闭"
+                    Height="32" Padding="14,0" CornerRadius="6" FontSize="13"
+                    Click="CloseButton_Click"/>
         </StackPanel>
     </Grid>
 </Window>

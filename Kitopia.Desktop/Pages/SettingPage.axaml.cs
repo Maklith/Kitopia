@@ -66,36 +66,40 @@ public partial class SettingPage : UserControl
         TextBlock.Text = "设置";
         
         // Main Config
-        var mainExpander = new Expander();
-        mainExpander.Classes.Add("SemiExpander");
-        mainExpander.Header = new TextBlock { Text = "主程序设置", FontSize = 16, FontWeight = FontWeight.SemiBold };
-        mainExpander.HorizontalAlignment = HorizontalAlignment.Stretch;
-        mainExpander.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-        mainExpander.IsExpanded = true;
-        mainExpander.Margin = new Thickness(0, 0, 0, 8);
-        var mainStackPanel = new StackPanel();
-        mainExpander.Content = mainStackPanel;
-        StackPanel.Children.Add(mainExpander);
+        var mainStackPanel = new StackPanel { Spacing = 4 };
+        StackPanel.Children.Add(mainStackPanel);
         
         LoadConfig(mainStackPanel, ConfigManger.Config);
 
         // Plugin Configs
-        foreach (var config in ConfigManger.Configs.Values)
+        var pluginConfigs = ConfigManger.Configs.Values.Where(c => c != ConfigManger.Config).ToList();
+        if (pluginConfigs.Count > 0)
         {
-            if (config == ConfigManger.Config) continue; 
+            var pluginHeader = new TextBlock
+            {
+                Text = "扩展与插件设置",
+                FontSize = 13,
+                FontWeight = FontWeight.SemiBold,
+                Foreground = Application.Current?.FindResource("SemiColorText2") as IBrush ?? Brushes.Gray,
+                Margin = new Thickness(4, 24, 0, 8)
+            };
+            StackPanel.Children.Add(pluginHeader);
 
-            var expander = new Expander();
-            expander.Classes.Add("SemiExpander");
-            expander.Header = new TextBlock { Text = config.GetType().GetCustomAttribute<ConfigName>()?.Name ?? config.Name, FontSize = 14, FontWeight = FontWeight.SemiBold };
-            expander.HorizontalAlignment = HorizontalAlignment.Stretch;
-            expander.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-            expander.IsExpanded = false;
-            expander.Margin = new Thickness(0, 4);
-            var stackPanel = new StackPanel();
-            expander.Content = stackPanel;
-            StackPanel.Children.Add(expander);
-            
-            LoadConfig(stackPanel, config);
+            foreach (var config in pluginConfigs)
+            {
+                var expander = new Expander();
+                expander.Classes.Add("SemiExpander");
+                expander.Header = new TextBlock { Text = config.GetType().GetCustomAttribute<ConfigName>()?.Name ?? config.Name, FontSize = 14, FontWeight = FontWeight.SemiBold };
+                expander.HorizontalAlignment = HorizontalAlignment.Stretch;
+                expander.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                expander.IsExpanded = false;
+                expander.Margin = new Thickness(0, 4);
+                var stackPanel = new StackPanel { Spacing = 4 };
+                expander.Content = stackPanel;
+                StackPanel.Children.Add(expander);
+                
+                LoadConfig(stackPanel, config);
+            }
         }
 
         ScheduleRequestedFieldScroll();
@@ -131,19 +135,22 @@ public partial class SettingPage : UserControl
             var configFieldCategory = fieldInfo.GetCustomAttribute<ConfigFieldCategory>();
             if (configFieldCategory is not null)
             {
-                var category = new Expander
+                var categoryHeader = new TextBlock
                 {
-                    Header = new TextBlock { Text = configFieldCategory.Category, FontSize = 14, FontWeight = FontWeight.SemiBold },
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                    IsExpanded = true
+                    Text = configFieldCategory.Category,
+                    FontSize = 13,
+                    FontWeight = FontWeight.SemiBold,
+                    Foreground = Application.Current?.FindResource("SemiColorText2") as IBrush ?? Brushes.Gray,
+                    Margin = new Thickness(4, 18, 0, 6)
                 };
-                var stackPanel = new StackPanel();
-
-                stackPanel.HorizontalAlignment = HorizontalAlignment.Stretch;
-                category.Content = stackPanel;
+                var stackPanel = new StackPanel
+                {
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Spacing = 4
+                };
                 nowControl = stackPanel;
-                container.Children.Add(category);
+                container.Children.Add(categoryHeader);
+                container.Children.Add(stackPanel);
             }
 
             if (fieldInfo.GetCustomAttribute<ConfigField>() is { } configField)
@@ -173,7 +180,11 @@ public partial class SettingPage : UserControl
                     {
                         var textBox = new TextBox
                         {
-                            Text = selectedValue?.ToString()
+                            Text = selectedValue?.ToString(),
+                            Width = 220,
+                            Height = 32,
+                            CornerRadius = new CornerRadius(6),
+                            VerticalContentAlignment = VerticalAlignment.Center
                         };
                         disposables.Add(textBox.GetObservable(TextBox.TextProperty)
                             .Subscribe((d) =>
@@ -193,7 +204,12 @@ public partial class SettingPage : UserControl
                             Value = value,
                             Maximum = configField.MaxValue,
                             Minimum = configField.MinValue,
-                            Step = configField.Step
+                            Step = configField.Step,
+                            Width = 140,
+                            Height = 32,
+                            CornerRadius = new CornerRadius(6),
+                            VerticalAlignment = VerticalAlignment.Center,
+                            HorizontalAlignment = HorizontalAlignment.Right
                         };
                         disposables.Add(
                             textBox.GetObservable(NumericIntUpDown.ValueProperty)
@@ -215,7 +231,12 @@ public partial class SettingPage : UserControl
                                 .Select(x => (int)x % configField.Step == 0 ? x : 0)
                                 .Where(x => x != 0)
                                 .ToList(),
-                            SelectedValue = selectedValue
+                            SelectedValue = selectedValue,
+                            MinWidth = 140,
+                            Height = 32,
+                            CornerRadius = new CornerRadius(6),
+                            VerticalAlignment = VerticalAlignment.Center,
+                            HorizontalAlignment = HorizontalAlignment.Right
                         };
                         disposables.Add(
                             comboBox.GetObservable(ComboBox.SelectedValueProperty)
@@ -230,9 +251,12 @@ public partial class SettingPage : UserControl
                     }
                     case ConfigFieldType.整数滑块:
                     {
-                        var stackPanel = new StackPanel();
-                        stackPanel.Orientation = Orientation.Horizontal;
-                        stackPanel.VerticalAlignment = VerticalAlignment.Center;
+                        var stackPanel = new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            HorizontalAlignment = HorizontalAlignment.Right
+                        };
                         var slider = new Slider
                         {
                             Maximum = configField.MaxValue,
@@ -245,8 +269,11 @@ public partial class SettingPage : UserControl
                         };
                         var textBox = new TextBlock
                         {
-                            FontSize = 14,
-                            Margin = new Thickness(10, 0, 0, 0),
+                            FontSize = 13,
+                            FontWeight = FontWeight.Medium,
+                            MinWidth = 36,
+                            TextAlignment = TextAlignment.Right,
+                            Margin = new Thickness(12, 0, 0, 0),
                             VerticalAlignment = VerticalAlignment.Center
                         };
 
@@ -268,8 +295,8 @@ public partial class SettingPage : UserControl
                                     fieldInfo.SetValue(configBase, (int)d);
                                     ConfigManger.Save(configBase.Name);
                                 }));
-                        stackPanel.Children.Add(textBox);
                         stackPanel.Children.Add(slider);
+                        stackPanel.Children.Add(textBox);
 
                         SettingsExpander.Footer = stackPanel;
                         break;
@@ -280,7 +307,12 @@ public partial class SettingPage : UserControl
                         {
                             Value = (double)selectedValue,
                             Maximum = configField.MaxValue,
-                            Minimum = configField.MinValue
+                            Minimum = configField.MinValue,
+                            Width = 140,
+                            Height = 32,
+                            CornerRadius = new CornerRadius(6),
+                            VerticalAlignment = VerticalAlignment.Center,
+                            HorizontalAlignment = HorizontalAlignment.Right
                         };
 
                         disposables.Add(
@@ -299,9 +331,9 @@ public partial class SettingPage : UserControl
                         var toggleSwitch = new ToggleSwitch
                         {
                             IsChecked = (bool)selectedValue,
-                            FlowDirection = FlowDirection.RightToLeft,
-                            OnContent = "开",
-                            OffContent = "关"
+                            OnContent = null,
+                            OffContent = null,
+                            VerticalAlignment = VerticalAlignment.Center
                         };
                         disposables.Add(
                             toggleSwitch.GetObservable(ToggleSwitch.IsCheckedProperty)
@@ -343,7 +375,10 @@ public partial class SettingPage : UserControl
                                 {
                                     ItemsSource = typeArguments[0]
                                         .GetEnumValues(),
-                                    SelectedValue = selectedValue
+                                    SelectedValue = selectedValue,
+                                    MinWidth = 140,
+                                    Height = 32,
+                                    CornerRadius = new CornerRadius(6)
                                 };
                                 disposables.Add(
                                     comboBox.GetObservable(ComboBox.SelectedValueProperty)
@@ -368,7 +403,10 @@ public partial class SettingPage : UserControl
                                 var comboBox = new ComboBox
                                 {
                                     ItemsSource = result as IEnumerable,
-                                    SelectedValue = selectedValue
+                                    SelectedValue = selectedValue,
+                                    MinWidth = 140,
+                                    Height = 32,
+                                    CornerRadius = new CornerRadius(6)
                                 };
 
                                 disposables.Add(
@@ -453,19 +491,22 @@ public partial class SettingPage : UserControl
              var configFieldCategory = methodInfo.GetCustomAttribute<ConfigFieldCategory>();
             if (configFieldCategory is not null)
             {
-                var category = new Expander
+                var categoryHeader = new TextBlock
                 {
-                    Header = new TextBlock { Text = configFieldCategory.Category, FontSize = 14, FontWeight = FontWeight.SemiBold },
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                    IsExpanded = true
+                    Text = configFieldCategory.Category,
+                    FontSize = 13,
+                    FontWeight = FontWeight.SemiBold,
+                    Foreground = Application.Current?.FindResource("SemiColorText2") as IBrush ?? Brushes.Gray,
+                    Margin = new Thickness(4, 16, 0, 8)
                 };
-                var stackPanel = new StackPanel();
-
-                stackPanel.HorizontalAlignment = HorizontalAlignment.Stretch;
-                category.Content = stackPanel;
+                var stackPanel = new StackPanel
+                {
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Spacing = 4
+                };
                 nowControl = stackPanel;
-                container.Children.Add(category);
+                container.Children.Add(categoryHeader);
+                container.Children.Add(stackPanel);
             }
 
             if (methodInfo.GetCustomAttribute<ConfigField>() is { } configField)
@@ -507,11 +548,19 @@ public partial class SettingPage : UserControl
                             });
                         }
 
-                        SettingsExpander.Footer = new Button()
+                        var actionButton = new Button
                         {
                             Command = command,
-                            Content = configField.ActionName
+                            Content = configField.ActionName,
+                            Height = 32,
+                            Padding = new Thickness(14, 0),
+                            CornerRadius = new CornerRadius(6),
+                            FontSize = 13,
+                            FontWeight = FontWeight.Medium,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            HorizontalAlignment = HorizontalAlignment.Right
                         };
+                        SettingsExpander.Footer = actionButton;
                         break;
                     }
                   

@@ -1,4 +1,4 @@
-﻿<Styles xmlns="https://github.com/avaloniaui"
+<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:Kitopia.Desktop.Controls">
     <Design.PreviewWith>
@@ -39,60 +39,105 @@
 
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Button Width="{Binding $parent.Bounds.Width, Mode=OneWay}" Margin="0,2,0,2"
-                                        HorizontalContentAlignment="Stretch">
-                                    <DockPanel Margin="15,0,0,0">
+                                <Border Margin="0,2" Padding="12,6"
+                                        Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                                        BorderBrush="{DynamicResource SemiColorBorder}"
+                                        BorderThickness="1"
+                                        CornerRadius="6">
+                                    <DockPanel>
                                         <TextBlock VerticalAlignment="Center" Text="{ReflectionBinding}"
+                                                   FontSize="13"
                                                    Foreground="{DynamicResource SemiColorText0}" />
                                         <Button Name="Button"
                                                 ToolTip.Tip="删除"
                                                 HorizontalAlignment="Right"
                                                 Background="Transparent"
+                                                BorderThickness="0"
+                                                Width="28" Height="28" Padding="0"
+                                                CornerRadius="4"
                                                 Command="{Binding $parent[controls:ListShow].DelCommand}"
-                                                Padding="6,0,6,0"
-                                                CommandParameter="{ReflectionBinding}" Margin="3">
-
-                                            <controls:FontIcon FontSize="16" HorizontalAlignment="Center"
+                                                CommandParameter="{ReflectionBinding}">
+                                            <Button.Styles>
+                                                <Style Selector="Button controls|FontIcon">
+                                                    <Setter Property="Foreground" Value="{DynamicResource SemiColorText2}" />
+                                                </Style>
+                                                <Style Selector="Button:pointerover controls|FontIcon">
+                                                    <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeDangerForeground}" />
+                                                </Style>
+                                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                    <Setter Property="Background" Value="{DynamicResource KitopiaBadgeDangerBackground}" />
+                                                </Style>
+                                            </Button.Styles>
+                                            <controls:FontIcon FontSize="12" HorizontalAlignment="Center"
                                                                VerticalAlignment="Center"
                                                                Glyph="&#xf36a;" />
                                         </Button>
                                     </DockPanel>
-                                </Button>
-
+                                </Border>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
 
                     </ListBox>
 
-
                     <TextBlock Grid.Row="0"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
+                               Margin="0,16"
                                IsHitTestVisible="False"
                                IsVisible="{TemplateBinding ShowEmptyHint}"
                                Text="无项目"
+                               FontSize="13"
                                Foreground="{DynamicResource SemiColorText2}" />
 
-                    <TextBox Grid.Row="1" Margin="0,5,0,0" IsVisible="{TemplateBinding WithAdd}"
-                             Text="{Binding $parent[controls:ListShow].TextValue,Mode=TwoWay}">
-                        <TextBox.InnerRightContent>
-                            <Button Command="{Binding $parent[controls:ListShow].InnerAddCommand}" Padding="2,3,0,0"
-                                    CommandParameter="{Binding $parent[controls:ListShow].TextValue}" Margin="3"
-                                    Grid.Column="1">
+                    <!-- Input & Add Item Row (Separated Clean Layout) -->
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,8,0,0"
+                          IsVisible="{TemplateBinding WithAdd}">
+                        <TextBox Grid.Column="0" Height="32" CornerRadius="6"
+                                 VerticalContentAlignment="Center"
+                                 PlaceholderText="输入新项目内容..."
+                                 Text="{Binding $parent[controls:ListShow].TextValue, Mode=TwoWay}">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter"
+                                            Command="{Binding $parent[controls:ListShow].InnerAddCommand}"
+                                            CommandParameter="{Binding $parent[controls:ListShow].TextValue}" />
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                        <Button Grid.Column="1"
+                                Classes="Primary"
+                                Margin="8,0,0,0"
+                                Height="32"
+                                Padding="16,0"
+                                CornerRadius="6"
+                                FontSize="13"
+                                Command="{Binding $parent[controls:ListShow].InnerAddCommand}"
+                                CommandParameter="{Binding $parent[controls:ListShow].TextValue}">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <controls:FontIcon FontSize="12" HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   Glyph="&#xf107;" />
+                                <TextBlock Text="添加" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
 
-                                <controls:FontIcon FontSize="24" HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center" Foreground="GreenYellow" Glyph="&#xf107;" />
-                            </Button>
-                        </TextBox.InnerRightContent>
-                    </TextBox>
-
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,5,0,0">
-                        <Button Content="选择目录"
+                    <!-- Pickers Row -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                        <Button Height="32" Padding="14,0" CornerRadius="6" FontSize="13"
                                 IsVisible="{TemplateBinding ShowFolderPicker}"
-                                Command="{TemplateBinding PickFoldersCommand}" />
-                        <Button Content="选择文件"
+                                Command="{TemplateBinding PickFoldersCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <controls:FontIcon FontSize="13" VerticalAlignment="Center" Glyph="&#xF419;" />
+                                <TextBlock Text="选择目录" FontSize="13" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Height="32" Padding="14,0" CornerRadius="6" FontSize="13"
                                 IsVisible="{TemplateBinding ShowFilePicker}"
-                                Command="{TemplateBinding PickFilesCommand}" />
+                                Command="{TemplateBinding PickFilesCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <controls:FontIcon FontSize="13" VerticalAlignment="Center" Glyph="&#xf3de;" />
+                                <TextBlock Text="选择文件" FontSize="13" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
 
                 </Grid>

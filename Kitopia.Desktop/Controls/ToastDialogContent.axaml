@@ -30,7 +30,10 @@
         <Style Selector="Button.toast-dialog-action">
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="MinWidth" Value="68" />
-            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
             <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
@@ -43,12 +46,11 @@
     </UserControl.Styles>
     
     <Border 
-        Background="{DynamicResource ToastCardBackground}"
+            Background="{DynamicResource KitopiaCardBackgroundBrush}"
             BorderBrush="{DynamicResource SemiColorBorder}"
-            BorderThickness="{DynamicResource ToastCardBorderThickness}"
-            MinHeight="{DynamicResource ToastCardMinHeight}"
-            Padding="{DynamicResource ToastCardPadding}"
-            CornerRadius="{DynamicResource ToastCardCornerRadius}">
+            BorderThickness="1"
+            Padding="16,14"
+            CornerRadius="8">
         <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
               ColumnDefinitions="Auto,*,Auto"
               HorizontalAlignment="Stretch"
@@ -62,9 +64,9 @@
                           Classes.error="{Binding IsError}"
                           Grid.Row="0"
                           Grid.Column="0"
-                          Width="{DynamicResource ToastCardIconWidth}"
-                          Height="{DynamicResource ToastCardIconHeight}"
-                          Margin="{DynamicResource ToastCardIconMargin}"
+                          Width="18"
+                          Height="18"
+                          Margin="0,2,0,0"
                           VerticalAlignment="Top"
                           Data="{DynamicResource NotificationCardInformationIconPathData}"
                           Foreground="{DynamicResource NotificationCardInformationIconForeground}" />
@@ -74,23 +76,29 @@
                            HorizontalAlignment="Stretch"
                            Text="{Binding Header}"
                            TextTrimming="CharacterEllipsis"
-                           Foreground="{DynamicResource ToastCardContentForeground}"
-                           FontWeight="{DynamicResource ToastCardContentFontWeight}"
+                           Foreground="{DynamicResource SemiColorText0}"
+                           FontWeight="SemiBold"
+                           FontSize="13"
                            TextWrapping="Wrap" />
 
                 <Button Grid.Row="0"
                         Grid.Column="2"
                         IsVisible="{Binding ShowCloseButton}"
-                        Width="20"
-                        Height="20"
+                        Width="24"
+                        Height="24"
                         Padding="0"
+                        CornerRadius="4"
                         BorderThickness="0"
                         Background="Transparent"
                         Foreground="{DynamicResource NotificationCardCloseButtonForeground}"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Top"
                         Click="CloseButton_OnClick"
-                        Content="x" />
+                        ToolTip.Tip="关闭">
+                    <controls:FontIcon FontSize="10" Glyph="&#xf36a;"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                </Button>
 
                 <TextBlock Grid.Row="1"
                            Grid.Column="1"
@@ -116,6 +124,7 @@
                             IsVisible="{Binding HasSelectionOptions}">
                     <TextBlock Text="版本" Foreground="{DynamicResource SemiColorText1}" />
                     <ComboBox ItemsSource="{Binding SelectionOptions}"
+                              Height="32" CornerRadius="6"
                               SelectedItem="{Binding SelectedOption, Mode=TwoWay}" />
                 </StackPanel>
 

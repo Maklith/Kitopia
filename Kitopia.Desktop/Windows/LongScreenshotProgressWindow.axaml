@@ -8,15 +8,22 @@
         Width="300" Height="400"
         WindowStartupLocation="Manual"
         Topmost="True"
-        SystemDecorations="None"
+        WindowDecorations="None"
         Background="Transparent"
         TransparencyLevelHint="AcrylicBlur">
     
-    <Border CornerRadius="8" Background="Transparent" BorderThickness="1" >
+    <Border CornerRadius="8"
+            Background="{DynamicResource KitopiaCardBackgroundBrush}"
+            BorderBrush="{DynamicResource SemiColorBorder}"
+            BorderThickness="1"
+            BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
+            Padding="12">
         <Grid RowDefinitions="*,Auto">
-            <Image    StretchDirection="Both" Name="PreviewImage" Grid.Row="0" Margin="0,0,0,10" Stretch="Uniform"/>
+            <Image StretchDirection="Both" Name="PreviewImage" Grid.Row="0" Margin="0,0,0,12" Stretch="Uniform"/>
             
-            <Button Name="StopButton" Grid.Row="1" Content="完成 / 停止" HorizontalAlignment="Center" Click="StopButton_Click"/>
+            <Button Name="StopButton" Grid.Row="1" Classes="Primary"
+                    Height="32" Padding="18,0" CornerRadius="6" FontSize="13"
+                    Content="完成 / 停止" HorizontalAlignment="Center" Click="StopButton_Click"/>
         </Grid>
     </Border>
 </Window>

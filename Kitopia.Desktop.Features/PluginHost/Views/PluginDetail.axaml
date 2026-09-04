@@ -5,6 +5,7 @@
              xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia.Tight"
              xmlns:plugin="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages.plugin;assembly=Kitopia.Desktop.Features"
              xmlns:plugin11="clr-namespace:Kitopia.Desktop.Features.Services.Plugin"
+             xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="950" d:DesignHeight="590"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch"
@@ -92,33 +93,47 @@
                                 <TextBlock Text="{Binding PluginInfo.PluginBaseInfo.NameSign}"
                                            FontSize="13" Foreground="{DynamicResource SemiColorText2}" />
 
-                                <!-- Author row: Avatar + Name + @Handle -->
-                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,2,0,0">
-                                    <Border Width="30" Height="30"
-                                            CornerRadius="15" ClipToBounds="True"
-                                            Background="#E0F2FE">
-                                        <Panel>
-                                            <TextBlock Text="{Binding PluginInfo.AuthorInitial}"
-                                                       Foreground="#1D4ED8"
-                                                       FontSize="12" FontWeight="SemiBold"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center" />
-                                            <Image Source="{Binding PluginInfo.AuthorAvatar}"
-                                                   Width="30" Height="30"
-                                                   Stretch="UniformToFill"
-                                                   IsVisible="{Binding PluginInfo.AuthorAvatar, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                                        </Panel>
-                                    </Border>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding PluginInfo.AuthorName}"
-                                                   FontSize="13" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource SemiColorText0}" />
-                                        <TextBlock Text="{Binding PluginInfo.AuthorHandle}"
-                                                   FontSize="11"
-                                                   Foreground="{DynamicResource SemiColorText2}"
-                                                   IsVisible="{Binding PluginInfo.AuthorHandle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                <!-- Author row: Avatar + Name + @Handle (Clickable to search author) -->
+                                <Button Command="{Binding SearchAuthorCommand}"
+                                        CommandParameter="{Binding $parent[u:DialogControlBase]}"
+                                        Padding="0" MinHeight="0"
+                                        Theme="{DynamicResource BorderlessButton}"
+                                        Cursor="Hand"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,2,0,0">
+                                    <Button.Styles>
+                                        <Style Selector="Button:pointerover TextBlock.DetailAuthorName">
+                                            <Setter Property="Foreground" Value="#2563EB" />
+                                        </Style>
+                                    </Button.Styles>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <Border Width="30" Height="30"
+                                                CornerRadius="15" ClipToBounds="True"
+                                                Background="#E0F2FE">
+                                            <Panel>
+                                                <TextBlock Text="{Binding PluginInfo.AuthorInitial}"
+                                                           Foreground="#1D4ED8"
+                                                           FontSize="12" FontWeight="SemiBold"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                                <Image Source="{Binding PluginInfo.AuthorAvatar}"
+                                                       Width="30" Height="30"
+                                                       Stretch="UniformToFill"
+                                                       IsVisible="{Binding PluginInfo.AuthorAvatar, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                            </Panel>
+                                        </Border>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Classes="DetailAuthorName"
+                                                       Text="{Binding PluginInfo.AuthorName}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource SemiColorText0}" />
+                                            <TextBlock Text="{Binding PluginInfo.AuthorHandle}"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource SemiColorText2}"
+                                                       IsVisible="{Binding PluginInfo.AuthorHandle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                        </StackPanel>
                                     </StackPanel>
-                                </StackPanel>
+                                </Button>
 
                                 <!-- Short Description -->
                                 <TextBlock Text="{Binding PluginInfo.DescriptionShort}"

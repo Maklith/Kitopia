@@ -11,7 +11,21 @@
     <Panel>
         <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
         <Grid RowDefinitions="Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
-            <TextBlock Classes="H5" Theme="{DynamicResource TitleTextBlock}" Text="插件列表" />
+            <!-- 1. Header: Local extensions + Title + Subtitle + Count -->
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="本地扩展" Theme="{DynamicResource KitopiaPageKickerText}" />
+                    <TextBlock Text="已安装插件" Theme="{DynamicResource KitopiaPageTitleText}" />
+                    <TextBlock Text="管理本地已安装的扩展与组件，支持配置、更新与状态切换。"
+                               Theme="{DynamicResource KitopiaPageSubtitleText}" />
+                </StackPanel>
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Items.Count, StringFormat='共 {0} 个插件'}"
+                           FontSize="13"
+                           Foreground="{DynamicResource SemiColorText2}"
+                           VerticalAlignment="Bottom" />
+            </Grid>
+
             <ScrollViewer Grid.Row="1">
                 <ItemsControl ItemsSource="{Binding Items}" Margin="4,0,0,0">
                     <ItemsControl.ItemsPanel>
@@ -21,20 +35,21 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="pluginHelper:PluginInfoUiHelper">
-                            <Border Width="340" Height="240"
+                            <Border Width="340" Height="246"
                                     Theme="{DynamicResource KitopiaPluginCard}" Margin="6">
                                 <Panel>
                                     <Grid RowDefinitions="Auto,*,Auto,Auto,Auto"
                                           IsEnabled="{Binding !PluginLocalInfo.UnloadFailed}">
-                                        <!-- 1. Header: Icon/Initial + Name/NameSign + Status Tag -->
+                                        <!-- 1. Header: Icon/Initial + Name/NameSign + Status Tag + Details Link -->
                                         <Grid Grid.Row="0" ColumnDefinitions="44,*,Auto" VerticalAlignment="Top">
-                                            <!-- Plugin Icon / Avatar -->
+                                            <!-- Plugin Icon / Circular Avatar -->
                                             <Border Grid.Column="0" Width="44" Height="44"
-                                                    CornerRadius="10" ClipToBounds="True"
-                                                    Background="#E0F2FE" VerticalAlignment="Center">
+                                                    CornerRadius="22" ClipToBounds="True"
+                                                    Background="{DynamicResource KitopiaAvatarBackground}"
+                                                    VerticalAlignment="Center">
                                                 <Panel>
                                                     <TextBlock Text="{Binding PluginInitial}"
-                                                               Foreground="#1D4ED8"
+                                                               Foreground="{DynamicResource KitopiaAvatarForeground}"
                                                                FontWeight="Bold"
                                                                FontSize="18"
                                                                HorizontalAlignment="Center"
@@ -46,42 +61,44 @@
                                                 </Panel>
                                             </Border>
 
-                                            <!-- Name and NameSign -->
+                                            <!-- Name, Status & NameSign -->
+                                            <!-- Name & NameSign -->
                                             <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
-                                                <Button Content="{Binding PluginBaseInfo.Name}"
-                                                        Padding="0" MinHeight="0"
+                                                <Button Padding="0" MinHeight="0"
                                                         Theme="{DynamicResource BorderlessButton}"
                                                         HorizontalAlignment="Left"
-                                                        FontWeight="SemiBold" FontSize="15"
-                                                        Foreground="{DynamicResource SemiColorText0}"
                                                         Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ShowPluginDetailCommand}"
                                                         CommandParameter="{Binding }">
-                                                    <Button.Styles>
-                                                        <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                                            <Setter Property="Foreground" Value="#2563EB" />
-                                                        </Style>
-                                                    </Button.Styles>
+                                                    <TextBlock Text="{Binding PluginBaseInfo.Name}"
+                                                               FontWeight="SemiBold" FontSize="15"
+                                                               Foreground="{DynamicResource SemiColorText0}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               MaxWidth="210" />
                                                 </Button>
+
                                                 <TextBlock Text="{Binding PluginBaseInfo.NameSign}"
                                                            FontSize="12"
                                                            Foreground="{DynamicResource SemiColorText2}"
-                                                           Margin="0,2,0,0"
-                                                           TextTrimming="CharacterEllipsis" />
+                                                           Margin="0,3,0,0"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           MaxWidth="210" />
                                             </StackPanel>
 
-                                            <!-- Status Tag (Enabled / Disabled) -->
-                                            <StackPanel Grid.Column="2" VerticalAlignment="Top">
-                                                <Border CornerRadius="999" Padding="8,2"
-                                                        Background="#ECFDF5"
+                                            <!-- Top-Right: Status Badge (Enabled / Disabled) -->
+                                            <Panel Grid.Column="2" VerticalAlignment="Top">
+                                                <Border CornerRadius="4" Padding="7,2"
+                                                        Background="{DynamicResource KitopiaBadgeSuccessBackground}"
                                                         IsVisible="{Binding PluginLocalInfo.IsEnabled}">
-                                                    <TextBlock Text="已启用" FontSize="11" FontWeight="Medium" Foreground="#047857" />
+                                                    <TextBlock Text="已启用" FontSize="11" FontWeight="Medium"
+                                                               Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" />
                                                 </Border>
-                                                <Border CornerRadius="999" Padding="8,2"
-                                                        Background="#F1F5F9"
+                                                <Border CornerRadius="4" Padding="7,2"
+                                                        Background="{DynamicResource KitopiaBadgeNeutralBackground}"
                                                         IsVisible="{Binding !PluginLocalInfo.IsEnabled}">
-                                                    <TextBlock Text="已禁用" FontSize="11" FontWeight="Medium" Foreground="#64748B" />
+                                                    <TextBlock Text="已禁用" FontSize="11" FontWeight="Medium"
+                                                               Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
                                                 </Border>
-                                            </StackPanel>
+                                            </Panel>
                                         </Grid>
 
                                         <!-- 2. Middle: Description & Platform Tags -->
@@ -101,11 +118,11 @@
                                                 </ItemsControl.ItemsPanel>
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate x:DataType="x:String">
-                                                        <Border Background="{DynamicResource SemiColorBackground2}"
-                                                                CornerRadius="6" Padding="8,2">
+                                                        <Border Background="{DynamicResource KitopiaBadgeNeutralBackground}"
+                                                                CornerRadius="4" Padding="7,2">
                                                             <TextBlock Text="{Binding .}"
                                                                        FontSize="11"
-                                                                       Foreground="{DynamicResource SemiColorText2}" />
+                                                                       Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
                                                         </Border>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
@@ -123,10 +140,10 @@
                                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                                 <Border Width="24" Height="24"
                                                         CornerRadius="12" ClipToBounds="True"
-                                                        Background="#E0F2FE">
+                                                        Background="{DynamicResource KitopiaAvatarBackground}">
                                                     <Panel>
                                                         <TextBlock Text="{Binding AuthorInitial}"
-                                                                   Foreground="#1D4ED8"
+                                                                   Foreground="{DynamicResource KitopiaAvatarForeground}"
                                                                    FontSize="11" FontWeight="SemiBold"
                                                                    HorizontalAlignment="Center"
                                                                    VerticalAlignment="Center" />
@@ -165,26 +182,22 @@
                                             </StackPanel>
                                         </Grid>
 
-                                        <!-- 5. Actions row: Delete (left) | Config, Update, Switch (right) -->
-                                        <Grid Grid.Row="4" ColumnDefinitions="Auto,*" Margin="0,8,0,0" VerticalAlignment="Center">
-                                            <Button Grid.Column="0" Classes="Danger" Content="删除"
-                                                    Padding="8,2" MinHeight="22" Height="24" FontSize="11" CornerRadius="4"
-                                                    Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).DeleteCommand}"
-                                                    CommandParameter="{Binding }" />
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
-                                                <Button Classes="Secondary" Content="配置"
-                                                        Padding="8,2" MinHeight="22" Height="24" FontSize="11" CornerRadius="4"
+                                        <!-- 5. Actions row: Config, Update, Toggle on left | Delete on right -->
+                                        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,8,0,0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <Button Content="配置"
+                                                        Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
                                                         IsVisible="{Binding PluginLocalInfo.IsEnabled}"
                                                         Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ToPluginSettingPageCommand}"
                                                         CommandParameter="{Binding }" />
                                                 <Button Classes="Primary" Content="更新"
-                                                        Padding="8,2" MinHeight="22" Height="24" FontSize="11" CornerRadius="4"
+                                                        Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
                                                         IsVisible="{Binding CanUpdate}"
                                                         Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).UpdateCommand}"
                                                         CommandParameter="{Binding }" />
                                                 <ToggleButton Classes.Success="{Binding !PluginLocalInfo.IsEnabled}"
                                                               Classes.Danger="{Binding PluginLocalInfo.IsEnabled}"
-                                                              Padding="8,2" MinHeight="22" Height="24" FontSize="11" CornerRadius="4"
+                                                              Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
                                                               IsChecked="{Binding PluginLocalInfo.IsEnabled, Mode=OneWay}"
                                                               Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).SwitchCommand}"
                                                               CommandParameter="{Binding}">
@@ -201,6 +214,12 @@
                                                     </ToggleButton.Styles>
                                                 </ToggleButton>
                                             </StackPanel>
+
+                                            <!-- Subtle Danger Button on Right (like Image 1) -->
+                                            <Button Grid.Column="1" Content="删除"
+                                                    Theme="{DynamicResource KitopiaDangerSubtleButton}"
+                                                    Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).DeleteCommand}"
+                                                    CommandParameter="{Binding }" />
                                         </Grid>
                                     </Grid>
 

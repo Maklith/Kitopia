@@ -13,9 +13,11 @@ using PluginInfoUiHelper = Kitopia.Desktop.Features.Services.Plugin.PluginInfoUi
 
 namespace Kitopia.Desktop.Features.ViewModel.Pages;
 
+public sealed record PlatformOption(string Label, string Value);
+
 public partial class MarketPageViewModel : ObservableObject
 {
-    private const int DefaultPageSize = 20;
+    private const int DefaultPageSize = 12;
 
     [ObservableProperty] private ObservableCollection<PluginInfoUiHelper> _plugins = new();
     [ObservableProperty] private int _currentPage = 1;
@@ -23,13 +25,30 @@ public partial class MarketPageViewModel : ObservableObject
     [ObservableProperty] private int _totalCount;
     [ObservableProperty] private int _pageSize = DefaultPageSize;
     [ObservableProperty] private bool _isLoading;
+    [ObservableProperty] private string _keyword = string.Empty;
+    [ObservableProperty] private PlatformOption _selectedPlatform;
+    [ObservableProperty] private string _targetPageText = string.Empty;
 
     private int _loadGeneration;
+    private CancellationTokenSource? _searchCts;
 
-    public IReadOnlyList<int> PageSizeOptions { get; } = [20, 40, 80, 100];
+    public IReadOnlyList<PlatformOption> PlatformOptions { get; } =
+    [
+        new("全部平台", ""),
+        new("Windows", "windows"),
+        new("macOS", "macos"),
+        new("Linux", "linux")
+    ];
+
+    public bool CanPreviousPage => CurrentPage > 1;
+    public bool CanNextPage => CurrentPage < TotalPages;
+    public bool HasMultiplePages => TotalPages > 1;
+    public string PageDisplayText => $"{CurrentPage} / {TotalPages}";
+    public bool HasNoPlugins => !IsLoading && Plugins.Count == 0;
 
     public MarketPageViewModel()
     {
+        _selectedPlatform = PlatformOptions[0];
         _ = LoadPluginsAsync();
     }
 
@@ -38,34 +57,103 @@ public partial class MarketPageViewModel : ObservableObject
         for (var i = 0; i < _plugins.Count; i++) _plugins[i].Icon?.Dispose();
     }
 
-    partial void OnCurrentPageChanged(int value)
+    partial void OnKeywordChanged(string value)
     {
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(250, token);
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (token.IsCancellationRequested) return;
+                    CurrentPage = 1;
+                    _ = LoadPluginsAsync();
+                });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }, token);
+    }
+
+    partial void OnSelectedPlatformChanged(PlatformOption value)
+    {
+        CurrentPage = 1;
         _ = LoadPluginsAsync();
     }
 
-    partial void OnPageSizeChanged(int value)
+    partial void OnCurrentPageChanged(int value)
     {
-        if (value <= 0)
-        {
-            return;
-        }
+        OnPropertyChanged(nameof(CanPreviousPage));
+        OnPropertyChanged(nameof(CanNextPage));
+        OnPropertyChanged(nameof(PageDisplayText));
+        _ = LoadPluginsAsync();
+    }
 
-        if (CurrentPage == 1)
-        {
-            _ = LoadPluginsAsync();
-            return;
-        }
+    partial void OnTotalPagesChanged(int value)
+    {
+        OnPropertyChanged(nameof(CanPreviousPage));
+        OnPropertyChanged(nameof(CanNextPage));
+        OnPropertyChanged(nameof(HasMultiplePages));
+        OnPropertyChanged(nameof(PageDisplayText));
+    }
 
+    [RelayCommand]
+    private void PreviousPage()
+    {
+        if (CanPreviousPage)
+        {
+            CurrentPage--;
+        }
+    }
+
+    [RelayCommand]
+    private void NextPage()
+    {
+        if (CanNextPage)
+        {
+            CurrentPage++;
+        }
+    }
+
+    [RelayCommand]
+    private void JumpToPage()
+    {
+        if (int.TryParse(TargetPageText?.Trim(), out var target) && target >= 1 && target <= TotalPages)
+        {
+            TargetPageText = string.Empty;
+            CurrentPage = target;
+        }
+        else
+        {
+            TargetPageText = string.Empty;
+        }
+    }
+
+    [RelayCommand]
+    private void Search()
+    {
         CurrentPage = 1;
+        _ = LoadPluginsAsync();
     }
 
     private async Task LoadPluginsAsync()
     {
         var generation = ++_loadGeneration;
         IsLoading = true;
+        OnPropertyChanged(nameof(HasNoPlugins));
         try
         {
-            var page = await PluginNetworkService.GetPluginsAsync(CurrentPage, PageSize);
+            var page = await PluginNetworkService.GetPluginsAsync(
+                CurrentPage,
+                PageSize,
+                Keyword,
+                SelectedPlatform?.Value);
+
             if (generation != _loadGeneration || page is null)
             {
                 return;
@@ -100,6 +188,7 @@ public partial class MarketPageViewModel : ObservableObject
             if (generation == _loadGeneration)
             {
                 IsLoading = false;
+                OnPropertyChanged(nameof(HasNoPlugins));
             }
         }
     }
@@ -177,6 +266,25 @@ public partial class MarketPageViewModel : ObservableObject
             CanLightDismiss = true
         };
         await OverlayDialog.ShowCustomModal<PluginDetail, PluginDetailViewModel, object>(
-            new PluginDetailViewModel(pluginInfoUiHelper), "LocalHost", overlayDialogOptions);
+            new PluginDetailViewModel(pluginInfoUiHelper, SearchAuthorByName), "LocalHost", overlayDialogOptions);
+    }
+
+    [RelayCommand]
+    public void SearchAuthor(PluginInfoUiHelper? plugin)
+    {
+        if (plugin is null) return;
+        var authorIdentifier = !string.IsNullOrWhiteSpace(plugin.OnlinePluginInfo?.AuthorUserName)
+            ? plugin.OnlinePluginInfo.AuthorUserName
+            : plugin.AuthorName;
+
+        SearchAuthorByName(authorIdentifier);
+    }
+
+    public void SearchAuthorByName(string? author)
+    {
+        if (string.IsNullOrWhiteSpace(author)) return;
+        Keyword = $"@{author.TrimStart('@')}";
+        CurrentPage = 1;
+        _ = LoadPluginsAsync();
     }
 }
