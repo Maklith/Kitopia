@@ -50,7 +50,7 @@
             <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.55" />
         </Panel.Background>
         <Grid RowDefinitions="Auto,*" VerticalAlignment="Stretch">
-            <Border Theme="{DynamicResource KitopiaCard}" CornerRadius="0" Padding="12,8">
+            <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="0,0,0,1" Padding="12,8">
                 <StackPanel Spacing="8">
                     <Border Height="30">
                         <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto"
