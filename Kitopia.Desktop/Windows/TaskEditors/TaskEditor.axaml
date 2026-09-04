@@ -381,7 +381,7 @@
                                         <MenuFlyout>
                                             <!-- ReSharper disable once Xaml.RedundantResource -->
                                             <MenuItem Header="删除此连接"
-                                                      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                                      Foreground="{DynamicResource SemiColorText0}"
                                                       Command="{Binding $parent[Window].((taskEditor1:TaskEditorViewModel)DataContext).DelConnectionCommand}"
                                                       CommandParameter="{Binding }" />
                                         </MenuFlyout>
@@ -428,54 +428,50 @@
         <Grid Grid.Column="2" ZIndex="10">
             <Border
 
-                Padding="12"
+                Padding="6" Margin="0,12,0,0"
                 VerticalAlignment="Top"
                 HorizontalAlignment="Center"
                 BorderThickness="1"
-                CornerRadius="4">
-
-                <Border.Effect>
-                    <DropShadowEffect
-                        BlurRadius="30"
-                        Opacity="0.4"
-                        Color="#202020" />
-                </Border.Effect>
-                <StackPanel Orientation="Horizontal">
+                CornerRadius="8"
+                Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                BorderBrush="{DynamicResource SemiColorBorder}"
+                BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
+                <StackPanel Orientation="Horizontal" Spacing="4">
                     <StackPanel.Resources>
                         <converter:ReverseBoolToVisibilityConverter x:Key="ReverseBoolToVisibilityConverter" />
                     </StackPanel.Resources>
-                    <Button ToolTip.Tip="清理未连接节点" ToolTip.ShowDelay="100" FontWeight="Normal"
+                    <Button ToolTip.Tip="清理未连接节点" ToolTip.ShowDelay="100" FontWeight="Normal" Height="32" Width="32" Padding="0" CornerRadius="6" Theme="{DynamicResource BorderlessButton}"
                             Command="{Binding CleanUnusedNodeCommand}">
-                        <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf34c;" FontSize="24" />
+                        <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf34c;" FontSize="18" />
                     </Button>
                     <ItemsControl
                         IsVisible="{Binding Scenario.IsHaveInputValue,Converter={StaticResource ReverseBoolToVisibilityConverter}}">
-                        <Button ToolTip.Tip="运行测试" ToolTip.ShowDelay="100" FontWeight="Normal"
+                        <Button ToolTip.Tip="运行测试" ToolTip.ShowDelay="100" FontWeight="Normal" Height="32" Width="32" Padding="0" CornerRadius="6" Theme="{DynamicResource BorderlessButton}"
                                 IsVisible="{Binding Scenario.IsRunning,Converter={StaticResource ReverseBoolToVisibilityConverter}}"
-                                Foreground="GreenYellow"
+                                Foreground="{DynamicResource SemiColorSuccess}"
                                 Command="{Binding VerifyNodeCommand}">
-                            <controls1:FontIcon Foreground="GreenYellow" FontFamily="{StaticResource FluentFont}"
-                                                FontSize="24"
+                            <controls1:FontIcon Foreground="{DynamicResource SemiColorSuccess}" FontFamily="{StaticResource FluentFont}"
+                                                FontSize="18"
                                                 Glyph="&#xf605;" />
                         </Button>
-                        <Button ToolTip.Tip="停止测试" ToolTip.ShowDelay="100" FontWeight="Normal"
+                        <Button ToolTip.Tip="停止测试" ToolTip.ShowDelay="100" FontWeight="Normal" Height="32" Width="32" Padding="0" CornerRadius="6" Theme="{DynamicResource BorderlessButton}"
                                 IsVisible="{Binding Scenario.IsRunning}"
 
                                 Command="{Binding StopCustomScenarioCommand}">
-                            <controls1:FontIcon Foreground="OrangeRed" FontFamily="{StaticResource FluentFont}"
-                                                FontSize="24"
+                            <controls1:FontIcon Foreground="{DynamicResource SemiColorDanger}" FontFamily="{StaticResource FluentFont}"
+                                                FontSize="18"
                                                 Glyph="&#xf72a;" />
                         </Button>
                     </ItemsControl>
 
-                    <Button ToolTip.Tip="保存" ToolTip.ShowDelay="100" FontWeight="Normal"
+                    <Button ToolTip.Tip="保存" ToolTip.ShowDelay="100" FontWeight="Normal" Height="32" Width="32" Padding="0" CornerRadius="6" Theme="{DynamicResource BorderlessButton}"
                             Command="{Binding SaveCustomScenarioCommand}">
-                        <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf67f;" FontSize="24" />
+                        <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf67f;" FontSize="18" />
                     </Button>
-                    <Button ToolTip.Tip="退出并保存" ToolTip.ShowDelay="100" FontWeight="Normal"
+                    <Button ToolTip.Tip="退出并保存" ToolTip.ShowDelay="100" FontWeight="Normal" Height="32" Width="32" Padding="0" CornerRadius="6" Theme="{DynamicResource BorderlessButton}"
                             Command="{Binding SaveAndQuitCustomScenarioCommand}"
                             CommandParameter="{Binding $parent[u:UrsaWindow]}">
-                        <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xea45;" FontSize="24" />
+                        <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xea45;" FontSize="18" />
                     </Button>
                 </StackPanel>
             </Border>

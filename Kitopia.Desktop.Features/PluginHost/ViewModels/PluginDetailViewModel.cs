@@ -3,6 +3,7 @@ using Avalonia.Controls.Notifications;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Irihi.Avalonia.Shared.Contracts;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -11,10 +12,23 @@ using PluginInfoUiHelper = Kitopia.Desktop.Features.Services.Plugin.PluginInfoUi
 
 namespace Kitopia.Desktop.Features.ViewModel.Pages.plugin;
 
-public partial class PluginDetailViewModel : ObservableObject
+public partial class PluginDetailViewModel : ObservableObject, IDialogContext
 {
     public PluginInfoUiHelper? PluginInfo { get; init; }
     private readonly Action<string>? _onSearchAuthor;
+
+    public void Close()
+    {
+        RequestClose?.Invoke(this, null);
+    }
+
+    public event EventHandler<object?>? RequestClose;
+
+    [RelayCommand]
+    public void CloseDialog()
+    {
+        Close();
+    }
 
     [ObservableProperty]
     private bool _isInstalling;
@@ -34,14 +48,7 @@ public partial class PluginDetailViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(authorIdentifier)) return;
 
-        if (parameter is DialogControlBase dialog)
-        {
-            dialog.Close();
-        }
-        else if (parameter is Visual visual)
-        {
-            visual.FindAncestorOfType<DialogControlBase>()?.Close();
-        }
+        Close();
 
         _onSearchAuthor?.Invoke(authorIdentifier);
     }

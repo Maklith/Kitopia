@@ -14,21 +14,9 @@
               TransparencyLevelHint="AcrylicBlur"
               Width="600"
               Height="370"
-              Title="HotKeyEditorWindow">
+              Title="修改快捷键" WindowStartupLocation="CenterScreen" Background="{DynamicResource SemiColorBackground0}">
 
-    <u:UrsaWindow.Background>
-        <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.65" />
-
-    </u:UrsaWindow.Background>
-
-    <Grid Focusable="False" Margin="10">
-        <Border Focusable="False" CornerRadius="12" Padding="20"
-                Background="{DynamicResource KitopiaCardBackgroundBrush}"
-                BorderBrush="{DynamicResource SemiColorBorder}"
-                BorderThickness="1"
-                BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
-
-            <Grid Focusable="False" RowDefinitions="*,Auto">
+    <Grid Focusable="False" Margin="24,16,24,20" RowDefinitions="*,Auto">
                 <Grid
                     Grid.Row="0"
 
@@ -143,7 +131,4 @@
 
                 </Border>
             </Grid>
-        </Border>
-    </Grid>
-
 </u:UrsaWindow>

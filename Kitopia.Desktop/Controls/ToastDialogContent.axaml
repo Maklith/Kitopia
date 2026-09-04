@@ -5,8 +5,10 @@
              xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
              xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d"
-             d:DesignWidth="520"
-             d:DesignHeight="280"
+             d:DesignWidth="440"
+             d:DesignHeight="220"
+             MinWidth="420"
+             MaxWidth="520"
              x:Class="Kitopia.Desktop.Controls.ToastDialogContent"
              x:DataType="controls:ToastDialogContentViewModel">
     <UserControl.Styles>
@@ -28,134 +30,167 @@
         </Style>
 
         <Style Selector="Button.toast-dialog-action">
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="MinWidth" Value="68" />
-            <Setter Property="Height" Value="28" />
+            <Setter Property="MinWidth" Value="80" />
+            <Setter Property="Height" Value="32" />
             <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="10,0" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="FontSize" Value="13" />
             <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.toast-dialog-action:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
         </Style>
+        <Style Selector="Button.toast-dialog-action:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill2}" />
+        </Style>
+
         <Style Selector="Button.toast-dialog-action.primary">
             <Setter Property="Foreground" Value="White" />
             <Setter Property="Background" Value="{DynamicResource SemiColorPrimary}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.toast-dialog-action.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryHover}" />
+        </Style>
+        <Style Selector="Button.toast-dialog-action.primary:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryActive}" />
         </Style>
     </UserControl.Styles>
-    
-    <Border 
-            Background="{DynamicResource KitopiaCardBackgroundBrush}"
-            BorderBrush="{DynamicResource SemiColorBorder}"
-            BorderThickness="1"
-            Padding="16,14"
-            CornerRadius="8">
+
+    <Border Background="Transparent"
+            Padding="24,20,24,20">
         <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
-              ColumnDefinitions="Auto,*,Auto"
-              HorizontalAlignment="Stretch"
-              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-              RowSpacing="8"
-              ColumnSpacing="12">
+              HorizontalAlignment="Stretch">
+
+            <!-- Row 0: Header Area (Icon + Title + Close Button) -->
+            <Grid Grid.Row="0"
+                  ColumnDefinitions="Auto,*,Auto"
+                  VerticalAlignment="Center">
                 <PathIcon x:Name="ToastIcon"
+                          Grid.Column="0"
+                          IsVisible="{Binding HasIcon}"
                           Classes.information="{Binding IsInformation}"
                           Classes.success="{Binding IsSuccess}"
                           Classes.warning="{Binding IsWarning}"
                           Classes.error="{Binding IsError}"
-                          Grid.Row="0"
-                          Grid.Column="0"
-                          Width="18"
-                          Height="18"
-                          Margin="0,2,0,0"
-                          VerticalAlignment="Top"
+                          Width="20"
+                          Height="20"
+                          Margin="0,0,10,0"
+                          VerticalAlignment="Center"
                           Data="{DynamicResource NotificationCardInformationIconPathData}"
                           Foreground="{DynamicResource NotificationCardInformationIconForeground}" />
 
-                <TextBlock Grid.Row="0"
-                           Grid.Column="1"
-                           HorizontalAlignment="Stretch"
+                <TextBlock Grid.Column="1"
+                           IsVisible="{Binding HasHeader}"
                            Text="{Binding Header}"
                            TextTrimming="CharacterEllipsis"
                            Foreground="{DynamicResource SemiColorText0}"
                            FontWeight="SemiBold"
-                           FontSize="13"
+                           FontSize="18"
+                           LineHeight="24"
+                           VerticalAlignment="Center"
                            TextWrapping="Wrap" />
 
-                <Button Grid.Row="0"
-                        Grid.Column="2"
+                <Button Grid.Column="2"
                         IsVisible="{Binding ShowCloseButton}"
-                        Width="24"
-                        Height="24"
+                        Width="28"
+                        Height="28"
                         Padding="0"
-                        CornerRadius="4"
+                        CornerRadius="6"
                         BorderThickness="0"
                         Background="Transparent"
-                        Foreground="{DynamicResource NotificationCardCloseButtonForeground}"
+                        Foreground="{DynamicResource SemiColorText2}"
                         HorizontalAlignment="Right"
-                        VerticalAlignment="Top"
+                        VerticalAlignment="Center"
+                        Cursor="Hand"
                         Click="CloseButton_OnClick"
                         ToolTip.Tip="关闭">
-                    <controls:FontIcon FontSize="10" Glyph="&#xf36a;"
+                    <Button.Styles>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+                        </Style>
+                        <Style Selector="Button:pressed /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{DynamicResource SemiColorFill2}" />
+                        </Style>
+                    </Button.Styles>
+                    <controls:FontIcon FontSize="11" Glyph="&#xf36a;"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center" />
                 </Button>
+            </Grid>
 
-                <TextBlock Grid.Row="1"
-                           Grid.Column="1"
-                           Grid.ColumnSpan="2"
-                           Text="{Binding Text}"
-                           Foreground="{DynamicResource SemiColorText1}"
-                           TextWrapping="Wrap" />
+            <!-- Row 1: Content Text -->
+            <TextBlock Grid.Row="1"
+                       Text="{Binding Text}"
+                       FontSize="14"
+                       LineHeight="20"
+                       Foreground="{DynamicResource SemiColorText1}"
+                       TextWrapping="Wrap"
+                       Margin="{Binding ContentMargin}" />
 
-                <ProgressBar Grid.Row="2"
-                             Grid.Column="1"
-                             Grid.ColumnSpan="2"
-                             IsVisible="{Binding ShowProgressBar}"
-                             Height="6"
-                             Minimum="0"
-                             Maximum="100"
-                             Value="{Binding ProgressValue}"
-                             IsIndeterminate="{Binding IsProgressIndeterminate}" />
+            <!-- Row 2: Progress Bar -->
+            <ProgressBar Grid.Row="2"
+                         IsVisible="{Binding ShowProgressBar}"
+                         Height="4"
+                         CornerRadius="2"
+                         Minimum="0"
+                         Maximum="100"
+                         Value="{Binding ProgressValue}"
+                         IsIndeterminate="{Binding IsProgressIndeterminate}"
+                         Margin="0,16,0,0" />
 
-                <StackPanel Grid.Row="3"
-                            Grid.Column="1"
-                            Grid.ColumnSpan="2"
-                            Spacing="4"
-                            IsVisible="{Binding HasSelectionOptions}">
-                    <TextBlock Text="版本" Foreground="{DynamicResource SemiColorText1}" />
-                    <ComboBox ItemsSource="{Binding SelectionOptions}"
-                              Height="32" CornerRadius="6"
-                              SelectedItem="{Binding SelectedOption, Mode=TwoWay}" />
-                </StackPanel>
+            <!-- Row 3: Selection Options -->
+            <StackPanel Grid.Row="3"
+                        Spacing="6"
+                        Margin="0,16,0,0"
+                        IsVisible="{Binding HasSelectionOptions}">
+                <TextBlock Text="版本"
+                           FontSize="13"
+                           Foreground="{DynamicResource SemiColorText1}" />
+                <ComboBox ItemsSource="{Binding SelectionOptions}"
+                          Height="32"
+                          CornerRadius="6"
+                          HorizontalAlignment="Stretch"
+                          SelectedItem="{Binding SelectedOption, Mode=TwoWay}" />
+            </StackPanel>
 
-                <StackPanel Grid.Row="4"
-                            Grid.Column="1"
-                            Grid.ColumnSpan="2"
-                            Orientation="Horizontal"
-                            HorizontalAlignment="Right"
-                            Spacing="8"
-                            IsVisible="{Binding HasFooter}">
-                    <Button Content="{Binding SelectionConfirmText}"
-                            Command="{Binding ConfirmSelectionCommand}"
-                            IsVisible="{Binding HasSelectionConfirmation}"
-                            Classes="toast-dialog-action primary" />
-                    <ItemsControl ItemsSource="{Binding Actions}"
-                                  IsVisible="{Binding HasActions}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="controls:ToastDialogActionViewModel">
-                                <Button Content="{Binding Text}"
-                                        Command="{Binding Command}"
-                                        Classes="toast-dialog-action"
-                                        Classes.primary="{Binding IsPrimary}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
+            <!-- Row 4: Action Buttons Footer -->
+            <StackPanel Grid.Row="4"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="8"
+                        Margin="0,24,0,0"
+                        IsVisible="{Binding HasFooter}">
+                <Button Content="{Binding SelectionConfirmText}"
+                        Command="{Binding ConfirmSelectionCommand}"
+                        IsVisible="{Binding HasSelectionConfirmation}"
+                        Classes="toast-dialog-action primary" />
+                <ItemsControl ItemsSource="{Binding Actions}"
+                              IsVisible="{Binding HasActions}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="controls:ToastDialogActionViewModel">
+                            <Button Content="{Binding Text}"
+                                    Command="{Binding Command}"
+                                    Classes="toast-dialog-action"
+                                    Classes.primary="{Binding IsPrimary}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </Grid>
     </Border>
 </UserControl>

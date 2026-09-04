@@ -150,25 +150,25 @@
 
         <Style Selector="^:allowClick">
             <Style Selector="^:pointerover /template/ Border#Root">
-                <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+                <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
             </Style>
             <Style Selector="^:pressed /template/ Border#Root">
-                <Setter Property="Background" Value="{DynamicResource ControlFillColorTertiaryBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
-                <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+                <Setter Property="TextElement.Foreground" Value="{DynamicResource SemiColorText0}" />
             </Style>
         </Style>
 
         <Style Selector="^:disabled">
             <Style Selector="^ /template/ Border#Root">
-                <Setter Property="Background" Value="{DynamicResource ControlFillColorDisabledBrush}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
-                <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+                <Setter Property="Background" Value="{DynamicResource SemiColorDisabledBackground}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorDisabledBorder}" />
+                <Setter Property="TextElement.Foreground" Value="{DynamicResource SemiColorDisabledText}" />
             </Style>
 
             <Style Selector="^ /template/ TextBlock#DescriptionText">
-                <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+                <Setter Property="TextElement.Foreground" Value="{DynamicResource SemiColorDisabledText}" />
             </Style>
         </Style>
     </ControlTheme>

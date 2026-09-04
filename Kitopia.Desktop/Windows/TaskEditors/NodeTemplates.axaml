@@ -25,12 +25,12 @@
                     <MenuFlyout>
                         <!-- ReSharper disable once Xaml.RedundantResource -->
                         <MenuItem Header="复制节点"
-                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                  Foreground="{DynamicResource SemiColorText0}"
                                   Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).CopyNodeCommand}"
                                   CommandParameter="{Binding }" />
                         <!-- ReSharper disable once Xaml.RedundantResource -->
                         <MenuItem Header="删除此节点"
-                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                  Foreground="{DynamicResource SemiColorText0}"
                                   Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).DelNodeCommand}"
                                   CommandParameter="{Binding }" />
 
@@ -89,12 +89,12 @@
                             <MenuFlyout>
                                 <!-- ReSharper disable once Xaml.RedundantResource -->
                                 <MenuItem Header="复制节点"
-                                          Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                          Foreground="{DynamicResource SemiColorText0}"
                                           Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).CopyNodeCommand}"
                                           CommandParameter="{Binding }" />
                                 <!-- ReSharper disable once Xaml.RedundantResource -->
                                 <MenuItem Header="删除此节点"
-                                          Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                          Foreground="{DynamicResource SemiColorText0}"
                                           Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).DelNodeCommand}"
                                           CommandParameter="{Binding }" />
 
@@ -190,7 +190,7 @@
                                                Text="{Binding Title}" />
                                     <TextBlock VerticalAlignment="Center" FontSize="12"
                                                Background="{DynamicResource SemiColorText0}"
-                                               Foreground="{DynamicResource SemiBackground4Color}"
+                                               Foreground="{DynamicResource SemiColorBackground0}"
                                                Text="{Binding  InputObject.SerializeType,Converter={StaticResource NodeTypeNameI18NCtr}}" />
 
                                     <controls:FontIcon FontFamily="{StaticResource FluentFont}"

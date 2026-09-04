@@ -39,12 +39,12 @@
 
                 <DataTemplate>
                     <Grid x:Name="NodeRootGrid">
-                        <Border BorderBrush="LightGray" BorderThickness="1"
-                                CornerRadius="3"
+                        <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
+                                CornerRadius="6"
 
                                 ToolTip.Tip="{ReflectionBinding Value ,Converter={StaticResource ToolTipConverter}}"
                                 ToolTip.ShowDelay="0"
-                                Background="{DynamicResource SemiBackground4Color}">
+                                Background="{DynamicResource SemiColorFill0}">
                             <Border.ContextFlyout>
                                 <MenuFlyout>
                                     <!-- ReSharper disable once Xaml.RedundantResource -->
@@ -87,9 +87,9 @@
         </ListBox>
         <Grid ColumnDefinitions="*,5,Auto,Auto" VerticalAlignment="Center"
               HorizontalAlignment="Stretch">
-            <TextBox PlaceholderText="变量名称" HorizontalAlignment="Stretch"
+            <TextBox PlaceholderText="变量名称" HorizontalAlignment="Stretch" Height="32" CornerRadius="6" VerticalContentAlignment="Center"
                      Text="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueNameToAdd,Mode=TwoWay}" />
-            <ComboBox Grid.Column="2" VerticalAlignment="Center"
+            <ComboBox Grid.Column="2" VerticalAlignment="Center" Height="32" CornerRadius="6"
                       Classes.DontShowTypeComboBox="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueType,Converter={StaticResource EnumEqualCtr},ConverterParameter='2'}"
                       SelectedItem="{Binding $parent[taskEditors:TaskEditorValueNodeShow].ValueTypeToAdd}"
                       ItemsSource="{Binding Source={x:Static customScenario1:CustomScenarioGlobe.GetAllCouldUseTypeInValue}}">
@@ -105,11 +105,11 @@
                 </ComboBox.Styles>
             </ComboBox>
             <Button Command="{Binding $parent[taskEditors:TaskEditorValueNodeShow].AddCommand}" Grid.Column="3"
-                    CommandParameter="{Binding $self.Parent}" Padding="2,3,0,0"
-                    Margin="3">
+                    CommandParameter="{Binding $self.Parent}" Classes="Primary" Height="32" Width="32" Padding="0" CornerRadius="6"
+                    Margin="4,0,0,0">
 
-                <controls:FontIcon FontSize="24" HorizontalAlignment="Center"
-                                   VerticalAlignment="Center" Foreground="GreenYellow"
+                <controls:FontIcon FontSize="18" HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
                                    Glyph="&#xf107;" />
             </Button>
         </Grid>

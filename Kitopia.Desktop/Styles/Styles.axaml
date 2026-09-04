@@ -1,5 +1,6 @@
-﻿<Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:u="https://irihi.tech/ursa">
     <Design.PreviewWith>
         <Border Padding="20">
             <!-- Add Controls for Previewer Here -->
@@ -28,6 +29,12 @@
 
     <Style Selector=":is(ListBox).draggableVirtualizing > :is(ListBoxItem):pressed">
         <Setter Property="ZIndex" Value="1" />
+    </Style>
+
+    <!-- Ensure CustomDialogControl's draggable overlay does not block child interactive content -->
+    <Style Selector="u|CustomDialogControl /template/ Panel#PART_TitleArea">
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="IsVisible" Value="False" />
     </Style>
 
 </Styles>

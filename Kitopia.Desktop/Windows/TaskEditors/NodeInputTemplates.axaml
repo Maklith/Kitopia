@@ -99,7 +99,7 @@
 
                 FontSize="12"
                 Background="{DynamicResource SemiColorText0}"
-                Foreground="{DynamicResource SemiBackground4Color}"
+                Foreground="{DynamicResource SemiColorBackground0}"
                 Text="{Binding  InputObject.SerializeType,Converter={StaticResource NodeTypeNameI18NCtr}}" />
 
 
@@ -125,7 +125,7 @@
             <TextBox Margin="10,5,10,5"
                      MinWidth="60"
                      Height="28"
-                     CornerRadius="4"
+                     CornerRadius="6"
                      VerticalContentAlignment="Center"
                      Text="{Binding InputObject.Value}"
                      PlaceholderText="字符串" />
@@ -147,7 +147,7 @@
                       x:Name="ComboBox"
                       MinWidth="60"
                       Height="28"
-                      CornerRadius="4"
+                      CornerRadius="6"
                       SelectedValue="{Binding InputObject.Value,Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
                     <DataTemplate DataType="system:Enum">
@@ -182,7 +182,7 @@
                 Margin="10,5,10,5"
                 MinWidth="60"
                 Height="28"
-                CornerRadius="4"
+                CornerRadius="6"
                 Maximum="2147483647"
                 Minimum="-2147483648"
                 Value="{Binding InputObject.Value, Mode=TwoWay}"
@@ -205,7 +205,7 @@
                 Margin="10,5,10,5"
                 MinWidth="60"
                 Height="28"
-                CornerRadius="4"
+                CornerRadius="6"
                 Value="{Binding InputObject.Value, Mode=TwoWay}"
                 PlaceholderText="浮点" />
         </StackPanel>

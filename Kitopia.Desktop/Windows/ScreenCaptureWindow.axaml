@@ -161,7 +161,7 @@
         </Border>
         
         <Border ZIndex="20" Name="ColorInspector" IsVisible="False" IsHitTestVisible="False" 
-                CornerRadius="6" BorderThickness="1" Padding="8" Background="{DynamicResource SemiBackground0Color}" BorderBrush="{DynamicResource SemiColorBorder}" BoxShadow="0 4 12 0 #40000000">
+                CornerRadius="6" BorderThickness="1" Padding="8" Background="{DynamicResource SemiColorBackground0}" BorderBrush="{DynamicResource SemiColorBorder}" BoxShadow="0 4 12 0 #40000000">
             <StackPanel Spacing="6">
                 <!-- Magnifier -->
                 <Border BorderBrush="Gray" BorderThickness="1" Width="110" Height="110" ClipToBounds="True">

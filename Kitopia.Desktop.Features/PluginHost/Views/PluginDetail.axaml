@@ -16,9 +16,8 @@
              Height="590"
              x:Class="Kitopia.Desktop.Features.UI.UiControls.Plugin.PluginDetail">
 
-    <Border BorderBrush="{DynamicResource SemiColorBorder}"
-            BorderThickness="1"
-            CornerRadius="16"
+    <Border BorderThickness="0"
+            CornerRadius="12"
             Background="{DynamicResource SemiColorBackground1}"
             ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
@@ -33,11 +32,30 @@
                 <Button Grid.Column="1"
                         Name="CloseButton"
                         Theme="{DynamicResource BorderlessButton}"
-                        Padding="8,4"
-                        FontSize="18"
+                        Command="{Binding CloseDialogCommand}"
+                        Width="28"
+                        Height="28"
+                        Padding="0"
+                        CornerRadius="6"
+                        FontSize="14"
                         Foreground="{DynamicResource SemiColorText2}"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Cursor="Hand"
                         Click="CloseButton_Click"
-                        Content="✕" />
+                        ToolTip.Tip="关闭"
+                        Content="✕">
+                    <Button.Styles>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+                        </Style>
+                        <Style Selector="Button:pressed /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{DynamicResource SemiColorFill2}" />
+                        </Style>
+                    </Button.Styles>
+                </Button>
             </Grid>
 
             <!-- Scrollable Content with 3 Cards -->

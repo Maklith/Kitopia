@@ -4,11 +4,11 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Kitopia.Desktop.Windows.DialogWindow"
-        Foreground="{DynamicResource ContentDialogForeground}"
+        Foreground="{DynamicResource SemiColorText0}"
 
-        BorderBrush="{DynamicResource ContentDialogBorderBrush}"
-        BorderThickness="{DynamicResource ContentDialogBorderWidth}"
-        CornerRadius="{DynamicResource OverlayCornerRadius}"
+        
+        
+        
         Topmost="True"
         CanResize="False"
         WindowDecorations="BorderOnly"
@@ -36,13 +36,13 @@
             VerticalAlignment="Center" Margin="10">
         <Grid Name="DialogSpace" ClipToBounds="True"
               RowDefinitions="Auto,*,Auto">
-            <Panel Background="{DynamicResource ContentDialogTopOverlay}"
+            <Panel Background="Transparent"
                    PointerMoved="InputElement_OnPointerMoved" PointerPressed="InputElement_OnPointerPressed"
                    PointerReleased="InputElement_OnPointerReleased">
                 <TextPresenter Name="Title"
                                Margin="16,16,16,12"
                                FontSize="18"
-                               FontFamily="Default"
+                               
                                FontWeight="SemiBold"
                                HorizontalAlignment="Left"
                                VerticalAlignment="Top" />
@@ -51,10 +51,10 @@
                           HorizontalScrollBarVisibility="Disabled"
                           MinHeight="100"
                           VerticalScrollBarVisibility="Auto">
-                <Border Background="{DynamicResource ContentDialogTopOverlay}"
+                <Border Background="Transparent"
                         Padding="16,0,16,12"
-                        BorderThickness="{StaticResource ContentDialogSeparatorThickness}"
-                        BorderBrush="{DynamicResource ContentDialogSeparatorBorderBrush}">
+                        BorderThickness="0"
+                        >
                     <Grid RowDefinitions="Auto,*">
                         <Grid.Styles>
                             <!--Make sure text wrapping is on-->
@@ -66,8 +66,8 @@
 
                         <ContentPresenter Name="Content"
 
-                                          FontSize="{StaticResource ControlContentThemeFontSize}"
-                                          FontFamily="{StaticResource ContentControlThemeFontFamily}"
+                                          FontSize="13"
+                                          
 
                                           Grid.Row="1" />
                     </Grid>

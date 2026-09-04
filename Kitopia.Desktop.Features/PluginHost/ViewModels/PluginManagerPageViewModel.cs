@@ -99,7 +99,9 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     {
         var overlayDialogOptions = new OverlayDialogOptions
         {
-            CanLightDismiss = true
+            CanLightDismiss = true,
+            CanDragMove = false,
+            IsCloseButtonVisible = false,
         };
         await OverlayDialog.ShowCustomModal<PluginDetail, PluginDetailViewModel, object>(
             new PluginDetailViewModel(pluginInfoUiHelper), "LocalHost", overlayDialogOptions);

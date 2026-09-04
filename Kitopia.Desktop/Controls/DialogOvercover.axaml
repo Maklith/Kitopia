@@ -4,11 +4,11 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="Kitopia.Desktop.Controls.DialogOvercover"
-             Foreground="{DynamicResource ContentDialogForeground}"
+             Foreground="{DynamicResource SemiColorText0}"
              AttachedToVisualTree="Visual_OnAttachedToVisualTree"
-             BorderBrush="{DynamicResource ContentDialogBorderBrush}"
-             BorderThickness="{DynamicResource ContentDialogBorderWidth}"
-             CornerRadius="{DynamicResource OverlayCornerRadius}"
+             
+             
+             
              PointerPressed="InputElement_OnPointerPressed">
 
     <UserControl.Background>
@@ -31,11 +31,11 @@
         <Panel>
             <Grid Name="DialogSpace" ClipToBounds="True"
                   RowDefinitions="Auto,*,Auto">
-                <Panel Background="{DynamicResource ContentDialogTopOverlay}">
+                <Panel Background="Transparent">
                     <TextPresenter Name="Title"
                                    Margin="16,16,16,12"
                                    FontSize="18"
-                                   FontFamily="Default"
+                                   
                                    FontWeight="SemiBold"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Top" />
@@ -44,10 +44,10 @@
                               HorizontalScrollBarVisibility="Disabled"
                               MinHeight="160"
                               VerticalScrollBarVisibility="Auto">
-                    <Border Background="{DynamicResource ContentDialogTopOverlay}"
+                    <Border Background="Transparent"
                             Padding="16,0,16,12"
-                            BorderThickness="{StaticResource ContentDialogSeparatorThickness}"
-                            BorderBrush="{DynamicResource ContentDialogSeparatorBorderBrush}">
+                            BorderThickness="0"
+                            >
                         <Grid RowDefinitions="Auto,*">
                             <Grid.Styles>
                                 <!--Make sure text wrapping is on-->
@@ -59,8 +59,8 @@
 
                             <ContentPresenter Name="Content"
 
-                                              FontSize="{StaticResource ControlContentThemeFontSize}"
-                                              FontFamily="{StaticResource ContentControlThemeFontFamily}"
+                                              FontSize="13"
+                                              
 
                                               Grid.Row="1" />
                         </Grid>

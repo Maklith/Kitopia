@@ -84,8 +84,8 @@
         <PackageReference Include="Avalonia.Controls.ColorPicker" Version="12.0.5" />
         <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-        <PackageReference Include="Irihi.Ursa" Version="2.1.0" />
-        <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="2.1.0" />
+        <PackageReference Include="Irihi.Ursa" Version="2.2.0" />
+        <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="2.2.0" />
         <PackageReference Include="Markdown.Avalonia" Version="12.0.0-a3" />
         <PackageReference Include="Semi.Avalonia" Version="12.0.3" />
         <PackageReference Include="Semi.Avalonia.ColorPicker" Version="12.0.3" />

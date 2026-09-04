@@ -170,11 +170,11 @@
                                                 <StackPanel Orientation="Horizontal" Spacing="2"
                                                             IsVisible="{Binding CanUpdate}"
                                                             VerticalAlignment="Center">
-                                                    <TextBlock Text="›" Foreground="{DynamicResource SemiOrange4Color}" FontSize="12" />
+                                                    <TextBlock Text="›" Foreground="{DynamicResource SemiColorWarning}" FontSize="12" />
                                                     <Button Content="{Binding CanUpdateVersion, StringFormat='v{0}'}"
                                                             Padding="0" MinHeight="0"
                                                             Theme="{DynamicResource BorderlessButton}"
-                                                            Foreground="{DynamicResource SemiOrange4Color}"
+                                                            Foreground="{DynamicResource SemiColorWarning}"
                                                             FontSize="11"
                                                             Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ShowPluginVersionInfoCommand}"
                                                             CommandParameter="{Binding $self}" />

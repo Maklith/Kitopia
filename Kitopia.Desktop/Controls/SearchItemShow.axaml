@@ -1,4 +1,4 @@
-﻿<Styles xmlns="https://github.com/avaloniaui"
+<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:Kitopia.Desktop.Controls"
 
@@ -21,14 +21,24 @@
         <!-- Set Defaults -->
         <Setter Property="Template">
             <ControlTemplate TargetType="{x:Type controls:SearchItemShow}">
-                <Button Padding="10" Margin="0" Command="{TemplateBinding Command}"
-                        DataContext="{TemplateBinding SearchViewItem}">
-
-                    <StackPanel Orientation="Horizontal" Height="{TemplateBinding Height}" VerticalAlignment="Center">
-
-                        <Grid>
-                            <Image HorizontalAlignment="Left" Focusable="False" Width="48"
-                                   Height="48" ZIndex="1">
+                <Button Padding="12,10" Margin="0" Command="{TemplateBinding Command}"
+                        DataContext="{TemplateBinding SearchViewItem}"
+                        Background="{DynamicResource SemiColorFill0}"
+                        BorderBrush="{DynamicResource SemiColorBorder}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch">
+                    <Button.Styles>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+                        </Style>
+                    </Button.Styles>
+                    <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                        <Grid Grid.Column="0" Margin="0,0,12,0" Width="44" Height="44" VerticalAlignment="Center">
+                            <Image HorizontalAlignment="Center" VerticalAlignment="Center" Focusable="False" Width="40"
+                                   Height="40" ZIndex="1">
                                 <Image.Source>
                                     <MultiBinding Converter="{StaticResource PathToImageConverter}">
                                         <Binding Path="$parent[Button].((pluginCore:SearchViewItem)DataContext).Icon" />
@@ -36,32 +46,34 @@
                                     </MultiBinding>
                                 </Image.Source>
                             </Image>
-                            <controls:FontIcon Height="48" Width="48"
+                            <controls:FontIcon Height="40" Width="40" FontSize="36"
                                                IsVisible="{Binding SearchViewItem.IconSymbol,RelativeSource={RelativeSource TemplatedParent},Converter={StaticResource SymbolToVisible}}"
                                                FontFamily="{StaticResource FluentFont}"
                                                Glyph="{Binding SearchViewItem.IconSymbol,RelativeSource={RelativeSource TemplatedParent},Converter={StaticResource IntToIconSymbol},Mode=OneWay}" />
 
                             <TextBlock
                                 IsVisible="{TemplateBinding IsSelected,Converter={StaticResource ReverseBool}}"
-                                Foreground="{DynamicResource SemiColorText0}"
-                                VerticalAlignment="Center" Text="未设置" />
-
-
+                                Foreground="{DynamicResource SemiColorText2}"
+                                VerticalAlignment="Center" HorizontalAlignment="Center" Text="未设置" FontSize="12" />
                         </Grid>
-                        <StackPanel Margin="5" VerticalAlignment="Top">
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                             <TextBlock VerticalAlignment="Center" Margin="0" Focusable="False"
                                        Text="{Binding Path=SearchViewItem.ItemDisplayName,RelativeSource={RelativeSource TemplatedParent}}"
                                        Foreground="{DynamicResource SemiColorText0}"
                                        Background="{x:Null}"
-                                       FontWeight="Normal" FontSize="18" />
-                            <TextBlock VerticalAlignment="Top" Margin="0"
-                                       Foreground="{DynamicResource SemiColorText0}"
-                                       Text="{Binding Path=SearchViewItem.FileType,RelativeSource={RelativeSource TemplatedParent}}" />
+                                       FontWeight="Medium" FontSize="15"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock VerticalAlignment="Center" Margin="0"
+                                       Foreground="{DynamicResource SemiColorText2}"
+                                       FontSize="12"
+                                       Text="{Binding Path=SearchViewItem.FileType,RelativeSource={RelativeSource TemplatedParent}}"
+                                       TextTrimming="CharacterEllipsis" />
                         </StackPanel>
-                        <controls:FontIcon Glyph="&#xf3de;" Name="ControlChevronIcon" />
-                    </StackPanel>
-
-
+                        <controls:FontIcon Grid.Column="2" Glyph="&#xf3de;" Name="ControlChevronIcon"
+                                           FontSize="13"
+                                           Foreground="{DynamicResource SemiColorText2}"
+                                           VerticalAlignment="Center" Margin="8,0,0,0" />
+                    </Grid>
                 </Button>
 
 

@@ -99,6 +99,7 @@ public class ToastService : IToastService
             TopLevelHashCode = dialogWindow.GetHashCode(),
             CanLightDismiss = request.ShowCloseButton,
             HorizontalAnchor = HorizontalPosition.Center,
+            IsCloseButtonVisible = false,
         };
 
         await OverlayDialog.ShowCustomModal<Controls.ToastDialogContent, Controls.ToastDialogContentViewModel, object>(

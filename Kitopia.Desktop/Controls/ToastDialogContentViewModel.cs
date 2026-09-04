@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,6 +14,7 @@ namespace Kitopia.Desktop.Controls;
 public sealed class ToastDialogContentViewModel : ObservableObject, IDialogContext
 {
     private readonly Action<string>? _selectionConfirmed;
+    private readonly bool? _showIcon;
     private string? _selectedOption;
 
     public void Close()
@@ -27,6 +29,7 @@ public sealed class ToastDialogContentViewModel : ObservableObject, IDialogConte
         Header = request.Header;
         Text = request.Text;
         NotificationType = request.NotificationType;
+        _showIcon = request.ShowIcon;
         ShowCloseButton = request.ShowCloseButton;
         ShowProgressBar = request.ShowProgressBar;
         IsProgressIndeterminate = request.IsProgressIndeterminate;
@@ -57,6 +60,18 @@ public sealed class ToastDialogContentViewModel : ObservableObject, IDialogConte
     public string Text { get; }
 
     public NotificationType NotificationType { get; }
+
+    public bool HasHeader => !string.IsNullOrWhiteSpace(Header);
+
+    public bool HasIcon => _showIcon ?? (NotificationType switch
+    {
+        NotificationType.Warning => true,
+        NotificationType.Error => true,
+        NotificationType.Success => true,
+        _ => Actions.Count == 0 && HasHeader
+    });
+
+    public Thickness ContentMargin => HasHeader ? new Thickness(0, 12, 0, 0) : new Thickness(0);
 
     public bool ShowCloseButton { get; }
 
