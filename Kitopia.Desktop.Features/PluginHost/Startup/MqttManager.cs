@@ -312,27 +312,30 @@ public class MqttManager
             }
                 break;
             case StartupAction.FileLocksmith:
-                if (!string.IsNullOrEmpty(value))
+            {
+                var windowService = ServiceManager.Services.GetService<IFileLocksmithWindow>();
+                if (windowService != null)
                 {
-                    // Basic implementation: Show toast with locking processes?
-                    // Or ideally open a window. Since we don't have a FileLocksmith Window yet,
-                    // we will list processes in a toast or dialog for now as a proof of concept.
-                    var service = ServiceManager.Services.GetService<IFileLockService>();
-                    var windowService = ServiceManager.Services.GetService<IFileLocksmithWindow>();
-                    if (service != null && windowService != null)
+                    var targetList = values.Count > 0
+                        ? values.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim().Trim('"')).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+                        : string.IsNullOrWhiteSpace(value) ? [] : [value.Trim().Trim('"')];
+
+                    string? rootDir = null;
+                    List<string>? targetFiles = null;
+
+                    if (targetList.Count == 1 && Directory.Exists(targetList[0]))
                     {
-                        var lockingProcesses = await service.CheckFileLocksAsync(new[] { value });
-                        if (lockingProcesses.Any())
-                        {
-                            await Dispatcher.UIThread.InvokeAsync(() => windowService.Show(lockingProcesses));
-                        }
-                        else
-                        {
-                            toast.Show("File Locksmith", $"未发现占用文件: {value}");
-                        }
+                        rootDir = targetList[0];
                     }
+                    else if (targetList.Count > 0)
+                    {
+                        targetFiles = targetList;
+                    }
+
+                    await Dispatcher.UIThread.InvokeAsync(() => windowService.ShowForScope(rootDir, targetFiles));
                 }
                 break;
+            }
         }
     }
 

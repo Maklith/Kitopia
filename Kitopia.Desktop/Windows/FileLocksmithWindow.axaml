@@ -3,49 +3,444 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:Kitopia.Desktop.Features.ViewModel.Windows"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        xmlns:fs="using:Kitopia.Desktop.Abstractions.FileSystem"
+        mc:Ignorable="d" d:DesignWidth="1080" d:DesignHeight="640"
         x:Class="Kitopia.Desktop.Windows.FileLocksmithWindow"
         x:DataType="vm:FileLocksmithWindowViewModel"
         Icon="/Assets/icon.ico"
-        Title="File Locksmith - 文件占用查看"
-        Width="800" Height="500"
-        MinWidth="600" MinHeight="350"
+        Title="文件占用监控 - Kitopia"
+        Width="1080" Height="640"
+        MinWidth="820" MinHeight="480"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource SemiColorBackground0}">
 
-    <Grid RowDefinitions="Auto,*,Auto" Margin="24,20,24,24">
-        <TextBlock Grid.Row="0" Text="占用文件的进程列表" FontSize="18" FontWeight="SemiBold"
-                   Foreground="{DynamicResource SemiColorText0}" Margin="0,0,0,16"/>
+    <Window.Styles>
+        <Style Selector="Button">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="TextBlock.locked-text">
+            <Setter Property="Foreground" Value="#C42B1C"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="TextBlock.bold-title">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Border.badge">
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.badge-danger">
+            <Setter Property="Background" Value="#FFF1F0"/>
+        </Style>
+        <Style Selector="Border.badge-warning">
+            <Setter Property="Background" Value="#FFF7E6"/>
+        </Style>
+        <Style Selector="Border.badge-neutral">
+            <Setter Property="Background" Value="{DynamicResource SemiColorBackground3}"/>
+        </Style>
+        <Style Selector="TextBlock.warning-text">
+            <Setter Property="Foreground" Value="#D46B08"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="TreeViewItem" x:DataType="vm:FileLockTreeNodeViewModel">
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+        </Style>
+    </Window.Styles>
 
-        <DataGrid Grid.Row="1" ItemsSource="{Binding Processes}" AutoGenerateColumns="False" IsReadOnly="True"
-                  GridLinesVisibility="All" BorderThickness="1" BorderBrush="{DynamicResource SemiColorBorder}"
-                  CornerRadius="6">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="进程名" Binding="{Binding ProcessName}" Width="150"/>
-                <DataGridTextColumn Header="PID" Binding="{Binding ProcessId}" Width="80"/>
-                <DataGridTextColumn Header="启动时间" Binding="{Binding StartTime}" Width="180"/>
-                <DataGridTextColumn Header="执行路径" Binding="{Binding ExecutablePath}" Width="*"/>
-                <DataGridTemplateColumn Header="操作" Width="110">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <Button Content="结束进程" Classes="Danger"
-                                    Height="26" Padding="10,0" CornerRadius="4" FontSize="12"
-                                    Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).UnlockCommand}"
-                                    CommandParameter="{Binding}"
-                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-            </DataGrid.Columns>
-        </DataGrid>
+    <Grid RowDefinitions="Auto,*,Auto" Margin="16,14,16,14">
+        <!-- Top Toolbar Card (Layer 1) -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource SemiColorBackground1}"
+                BorderBrush="{DynamicResource SemiColorBorder}"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="16,12"
+                Margin="0,0,0,12">
+            <StackPanel Spacing="10">
+                <!-- Header / Scope info -->
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2">
+                        <TextBlock Text="系统诊断 · 文件占用监控"
+                                   FontSize="12"
+                                   FontWeight="Medium"
+                                   Foreground="{DynamicResource SemiColorText2}"/>
+                        <TextBlock Text="{Binding ScopeTitle}"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SemiColorText0}"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <ProgressBar IsIndeterminate="True"
+                                     IsVisible="{Binding IsScanning}"
+                                     Width="100"
+                                     Height="4"
+                                     VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0" Spacing="10">
-            <Button Content="全部解锁" Classes="Danger"
-                    Height="32" Padding="14,0" CornerRadius="6" FontSize="13"
-                    Command="{Binding UnlockAllCommand}" />
-            <Button Content="关闭"
-                    Height="32" Padding="14,0" CornerRadius="6" FontSize="13"
+                <!-- Action Controls Row 1: Refresh, Auto, Intervals, Toggles, Directory -->
+                <WrapPanel Orientation="Horizontal">
+                    <Button Classes="Primary"
+                            Content="刷新"
+                            Command="{Binding ScanCommand}"
+                            IsEnabled="{Binding !IsScanning}"
+                            Margin="0,0,10,0"/>
+
+                    <CheckBox Content="自动刷新"
+                              IsChecked="{Binding AutoRefresh}"
+                              VerticalAlignment="Center"
+                              Margin="0,0,6,0"/>
+
+                    <ComboBox SelectedIndex="{Binding SelectedIntervalIndex}"
+                              Width="82"
+                              Margin="0,0,14,0">
+                        <ComboBoxItem Content="2 秒"/>
+                        <ComboBoxItem Content="5 秒"/>
+                        <ComboBoxItem Content="10 秒"/>
+                    </ComboBox>
+
+                    <CheckBox Content="只看被锁定"
+                              IsChecked="{Binding OnlyLocked}"
+                              VerticalAlignment="Center"
+                              Margin="0,0,12,0"/>
+
+                    <CheckBox Content="包含子目录"
+                              IsChecked="{Binding IncludeSubDirs}"
+                              VerticalAlignment="Center"
+                              Margin="0,0,14,0"/>
+
+                    <Button Content="选择目录"
+                            Click="PickFolder_Click"
+                            Margin="0,0,10,0"/>
+
+                    <Button Content="全系统监控"
+                            Click="ClearScope_Click"
+                            IsVisible="{Binding RootDir, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            Margin="0,0,0,0"/>
+                </WrapPanel>
+
+                <!-- Action Controls Row 2: Search Filter, View Mode, Tree Operations & Batch Actions -->
+                <DockPanel LastChildFill="False">
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="8">
+                        <TextBox Width="240"
+                                 PlaceholderText="搜索文件名、进程名或路径..."
+                                 Text="{Binding FilterText}"/>
+
+                        <!-- View Toggle: Tree View vs Table View -->
+                        <Border Theme="{DynamicResource RadioButtonGroupBorder}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}"
+                                             Content="树形结构"
+                                             IsChecked="{Binding IsTreeView}"/>
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}"
+                                             Content="表格视图"
+                                             IsChecked="{Binding !IsTreeView}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Button Content="展开全部"
+                                Height="32"
+                                Padding="10,0"
+                                Command="{Binding ExpandAllCommand}"
+                                IsVisible="{Binding IsTreeView}"/>
+                        <Button Content="折叠全部"
+                                Height="32"
+                                Padding="10,0"
+                                Command="{Binding CollapseAllCommand}"
+                                IsVisible="{Binding IsTreeView}"/>
+                    </StackPanel>
+
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
+                        <Button Content="解除选中占用"
+                                Command="{Binding KillSelectedCommand}"
+                                IsEnabled="{Binding HasSelection}"/>
+                        <Button Content="解除同文件全部占用"
+                                Command="{Binding KillAllForFileCommand}"
+                                IsEnabled="{Binding HasSelection}"/>
+                        <Button Classes="Danger"
+                                Content="解除占用并删除"
+                                Command="{Binding UnlockAndDeleteCommand}"
+                                IsEnabled="{Binding HasSelection}"/>
+                    </StackPanel>
+                </DockPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Main Content Card (Layer 1) -->
+        <Border Grid.Row="1"
+                Background="{DynamicResource SemiColorBackground1}"
+                BorderBrush="{DynamicResource SemiColorBorder}"
+                BorderThickness="1"
+                CornerRadius="12"
+                ClipToBounds="True">
+            <Grid>
+                <!-- Tree View (Default) -->
+                <TreeView ItemsSource="{Binding TreeNodes}"
+                          SelectedItem="{Binding SelectedNode}"
+                          IsVisible="{Binding IsTreeView}"
+                          BorderThickness="0"
+                          Background="Transparent"
+                          Padding="8">
+                    <TreeView.Styles>
+                        <Style Selector="TreeViewItem" x:DataType="vm:FileLockTreeNodeViewModel">
+                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                        </Style>
+                    </TreeView.Styles>
+                    <TreeView.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="打开所在位置"
+                                      Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).OpenFileLocationCommand}"
+                                      CommandParameter="{Binding SelectedNode.FilePath}"/>
+                            <Separator/>
+                            <MenuItem Header="结束此进程 / 解除占用"
+                                      Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).KillNodeCommand}"
+                                      CommandParameter="{Binding SelectedNode}"/>
+                            <MenuItem Header="解除同文件全部占用"
+                                      Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).KillAllForFileCommand}"
+                                      CommandParameter="{Binding SelectedNode.FilePath}"/>
+                            <Separator/>
+                            <MenuItem Header="解除占用并删除"
+                                      Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).UnlockAndDeleteCommand}"
+                                      CommandParameter="{Binding SelectedNode.FilePath}"/>
+                        </ContextMenu>
+                    </TreeView.ContextMenu>
+                    <TreeView.ItemTemplate>
+                        <TreeDataTemplate DataType="vm:FileLockTreeNodeViewModel" ItemsSource="{Binding Children}">
+                            <Border Padding="6,4" Margin="0,1" CornerRadius="6">
+                                <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                                    <!-- Left: Icon, Title, and Badges -->
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <!-- Directory Icon -->
+                                        <PathIcon Width="16" Height="16"
+                                                  Data="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+                                                  Foreground="#0064FA"
+                                                  IsVisible="{Binding IsDirectory}"/>
+                                        <!-- File Icon -->
+                                        <PathIcon Width="16" Height="16"
+                                                  Data="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"
+                                                  Foreground="{DynamicResource SemiColorText1}"
+                                                  IsVisible="{Binding IsFile}"/>
+                                        <!-- Process Icon -->
+                                        <PathIcon Width="15" Height="15"
+                                                  Data="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+                                                  Foreground="{DynamicResource SemiColorText2}"
+                                                  IsVisible="{Binding IsProcess}"/>
+
+                                        <!-- Title Text -->
+                                        <TextBlock Text="{Binding Title}"
+                                                   Classes.locked-text="{Binding IsLocked}"
+                                                   Classes.bold-title="{Binding !IsProcess}"
+                                                   FontSize="13"
+                                                   VerticalAlignment="Center"/>
+
+                                        <!-- Process PID Badge -->
+                                        <Border Classes="badge"
+                                                Background="{DynamicResource SemiColorBackground3}"
+                                                IsVisible="{Binding IsProcess}">
+                                            <TextBlock Text="{Binding PidText, StringFormat='PID: {0}'}"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource SemiColorText2}"/>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Middle: Subtitle / Path and State Badges -->
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="14,0,14,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Subtitle}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource SemiColorText2}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center"
+                                                   ToolTip.Tip="{Binding Subtitle}"/>
+
+                                        <!-- Directory Badges: Self-lock & Child-lock -->
+                                        <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsDirectory}">
+                                            <!-- Self-lock Badge -->
+                                            <Border Classes="badge"
+                                                    Classes.badge-danger="{Binding IsSelfLocked}"
+                                                    Classes.badge-neutral="{Binding !IsSelfLocked}">
+                                                <TextBlock Text="{Binding SelfLockBadgeText}"
+                                                           Classes.locked-text="{Binding IsSelfLocked}"
+                                                           FontSize="11"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+
+                                            <!-- Child-lock Badge -->
+                                            <Border Classes="badge"
+                                                    Classes.badge-warning="{Binding HasChildLocks}"
+                                                    Classes.badge-neutral="{Binding !HasChildLocks}">
+                                                <TextBlock Text="{Binding ChildLockBadgeText}"
+                                                           Classes.warning-text="{Binding HasChildLocks}"
+                                                           FontSize="11"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+                                        </StackPanel>
+
+                                        <!-- File State Badge -->
+                                        <Border Classes="badge"
+                                                Classes.badge-danger="{Binding IsLocked}"
+                                                Classes.badge-neutral="{Binding !IsLocked}"
+                                                IsVisible="{Binding IsFile}">
+                                            <TextBlock Text="{Binding State}"
+                                                       Classes.locked-text="{Binding IsLocked}"
+                                                       FontSize="11"
+                                                       VerticalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Right: Node Action Buttons -->
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <!-- Process: Kill Process -->
+                                        <Button Content="结束进程"
+                                                Classes="Danger"
+                                                Height="26"
+                                                Padding="8,0"
+                                                FontSize="12"
+                                                IsVisible="{Binding IsProcess}"
+                                                Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).KillNodeCommand}"
+                                                CommandParameter="{Binding}"/>
+
+                                        <!-- File or Directory: Unlock -->
+                                        <Button Content="解除占用"
+                                                Height="26"
+                                                Padding="8,0"
+                                                FontSize="12"
+                                                IsVisible="{Binding CanUnlock}"
+                                                Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).KillNodeCommand}"
+                                                CommandParameter="{Binding}"/>
+
+                                        <!-- File: Unlock & Delete -->
+                                        <Button Content="删除"
+                                                Classes="Danger"
+                                                Height="26"
+                                                Padding="8,0"
+                                                FontSize="12"
+                                                IsVisible="{Binding IsFile}"
+                                                Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).UnlockAndDeleteCommand}"
+                                                CommandParameter="{Binding FilePath}"/>
+
+                                        <!-- Open Location -->
+                                        <Button Content="打开位置"
+                                                Height="26"
+                                                Padding="8,0"
+                                                FontSize="12"
+                                                IsVisible="{Binding CanOpenLocation}"
+                                                Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).OpenFileLocationCommand}"
+                                                CommandParameter="{Binding FilePath}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </TreeDataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+
+                <!-- Table View (DataGrid) -->
+                <DataGrid ItemsSource="{Binding FilteredRecords}"
+                          SelectedItem="{Binding SelectedRecord}"
+                          IsVisible="{Binding !IsTreeView}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="{DynamicResource SemiColorBorder}"
+                          SelectionMode="Single"
+                          RowBackground="Transparent"
+                          HeadersVisibility="Column"
+                          BorderThickness="0">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="PID" Binding="{Binding PidText}" Width="75"/>
+                        <DataGridTemplateColumn Header="文件名" Width="220">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="fs:FileLockInfo">
+                                    <TextBlock Text="{Binding FileName}"
+                                               Classes.locked-text="{Binding IsLocked}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding FileName}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="进程名" Binding="{Binding ProcessName}" Width="180"/>
+                        <DataGridTemplateColumn Header="状态" Width="95">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="fs:FileLockInfo">
+                                    <Border Classes="badge"
+                                            Background="{DynamicResource SemiColorBackground3}">
+                                        <TextBlock Text="{Binding State}"
+                                                   Classes.locked-text="{Binding IsLocked}"
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="文件路径" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="fs:FileLockInfo">
+                                    <TextBlock Text="{Binding FilePath}"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SemiColorText1}"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding FilePath}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+
+                    <DataGrid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="打开所在位置"
+                                      Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).OpenFileLocationCommand}"
+                                      CommandParameter="{Binding SelectedRecord}"/>
+                            <Separator/>
+                            <MenuItem Header="结束此进程 (解除占用)"
+                                      Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).KillSelectedCommand}"
+                                      CommandParameter="{Binding SelectedRecord}"/>
+                            <MenuItem Header="结束占用此文件的全部进程"
+                                      Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).KillAllForFileCommand}"
+                                      CommandParameter="{Binding SelectedRecord}"/>
+                            <Separator/>
+                            <MenuItem Header="解除占用并删除"
+                                      Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).UnlockAndDeleteCommand}"
+                                      CommandParameter="{Binding SelectedRecord}"/>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <!-- Bottom Status Bar -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="4,10,4,0">
+            <TextBlock Grid.Column="0"
+                       Text="{Binding StatusMessage}"
+                       FontSize="12"
+                       Foreground="{DynamicResource SemiColorText2}"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"/>
+
+            <Button Grid.Column="1"
+                    Content="关闭"
+                    Height="30"
+                    Padding="16,0"
                     Click="CloseButton_Click"/>
-        </StackPanel>
+        </Grid>
     </Grid>
 </Window>
+

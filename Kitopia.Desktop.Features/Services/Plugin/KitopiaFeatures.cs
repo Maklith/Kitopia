@@ -122,17 +122,11 @@ public static class KitopiaFeatures
         var filePaths = await filePicker.PickFilesAsync("选择要检查占用的文件", true, cancellationToken);
         if (filePaths.Count == 0)
         {
+            await Dispatcher.UIThread.InvokeAsync(() => fileLocksmithWindow.ShowForScope(null, null));
             return;
         }
 
-        var lockingProcesses = await fileLockService.CheckFileLocksAsync(filePaths.ToArray(), cancellationToken);
-        if (lockingProcesses.Count == 0)
-        {
-            ShowToast("文件占用解锁", "未发现占用所选文件的进程。", NotificationType.Information);
-            return;
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() => fileLocksmithWindow.Show(lockingProcesses));
+        await Dispatcher.UIThread.InvokeAsync(() => fileLocksmithWindow.ShowForScope(null, filePaths));
     }
 
     [Feature("lan-file-share", "局域网分享", "选择文件并发送到局域网内已发现的设备。", "文件与设备", 0xe974, 210)]

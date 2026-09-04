@@ -110,7 +110,7 @@ public class PluginOverall
                     Title = "文件占用解锁",
                     Icon = exePath,
                     Command = exePath,
-                    Arguments = StartupArgumentManager.GenerateCmd(StartupAction.FileLocksmith, "{0}"), // Pass path to FileLocksmith
+                    Arguments = StartupArgumentManager.GenerateCmd(StartupAction.FileLocksmith, "{all}"),
                 },
                 new ContextMenuItem
                 {
