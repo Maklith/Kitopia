@@ -95,9 +95,11 @@ public partial class MainWindowViewModel : ObservableRecipient
         Content = route;
         SettingPage = route == "settings";
 
+        UpdateMenuSelection(MenuItems, route);
+
         try
         {
-            var messageAppService = ServiceManager.Services.GetService<IMessageAppService>();
+            var messageAppService = ServiceManager.Services?.GetService<IMessageAppService>();
             messageAppService?.UpdateDisplayContext(
                 isMainWindowActive: true,
                 isDeviceChatPageOpen: string.Equals(route, "device/chat", StringComparison.Ordinal),
@@ -106,6 +108,18 @@ public partial class MainWindowViewModel : ObservableRecipient
         }
         catch
         {
+        }
+    }
+
+    private static void UpdateMenuSelection(IEnumerable<MenuItemViewModel> items, string route)
+    {
+        foreach (var item in items)
+        {
+            item.IsSelected = string.Equals(item.Key, route, StringComparison.Ordinal);
+            if (item.Children.Count > 0)
+            {
+                UpdateMenuSelection(item.Children, route);
+            }
         }
     }
 
@@ -151,6 +165,7 @@ public partial class MenuItemViewModel : ObservableObject
     private void OnActivate()
     {
         if (IsSeparator) return;
-        _navigationService?.Navigate(Key);
+        var navigationService = _navigationService ?? ServiceManager.Services?.GetService<INavigationService>();
+        navigationService?.Navigate(Key);
     }
 }
