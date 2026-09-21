@@ -1,134 +1,92 @@
 <u:UrsaWindow xmlns="https://github.com/avaloniaui"
               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-
               xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
-
               xmlns:u="https://irihi.tech/ursa"
-              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
               x:Class="Kitopia.Desktop.Windows.HotKeyEditorWindow"
               KeyDown="HotKeyEditorWindow_OnKeyDown"
-              KeyUp="HotKeyEditorWindow_OnKeyUp"
-              PointerPressed="InputElement_OnPointerPressed"
-              TransparencyLevelHint="AcrylicBlur"
-              Width="600"
-              Height="370"
-              Title="修改快捷键" WindowStartupLocation="CenterScreen" Background="{DynamicResource SemiColorBackground0}">
-
-    <Grid Focusable="False" Margin="24,16,24,20" RowDefinitions="*,Auto">
-                <Grid
-                    Grid.Row="0"
-
-                    ColumnDefinitions="*,*"
-                    Focusable="False">
-                    <StackPanel Orientation="Vertical">
-                        <TextBlock
-                            TextWrapping="WrapWithOverflow"
-                            Text="修改快捷键"
-                            FontSize="18"
-                            FontWeight="SemiBold"
-                            Foreground="{DynamicResource SemiColorText0}" />
-                        <TextBlock
-                            x:Name="Name"
-                            Margin="0,4,0,0"
-                            TextWrapping="WrapWithOverflow"
-                            Text="快捷键"
-                            FontSize="14"
-                            FontWeight="Medium"
-                            Foreground="{DynamicResource SemiColorText1}" />
-                        <TextBlock
-                            Margin="0,4,0,12"
-                            TextWrapping="WrapWithOverflow"
-                            Text="按下按键以修改"
-                            FontSize="12"
-                            Foreground="{DynamicResource SemiColorText2}" />
-                        <RadioButton GroupName="1" Content="键盘快捷键" Name="KeyBoard" IsChecked="True" Focusable="False"
-                                     Click="KeyBoard_OnClick" Margin="0,2" />
-                        <RadioButton GroupName="1" Content="鼠标快捷键" Name="Mouse" Click="Mouse_OnClick" Focusable="False" Margin="0,2" />
-                        <StackPanel IsVisible="{Binding #Mouse.IsChecked}" HorizontalAlignment="Left" Margin="0,8,0,0">
-                            <TextBlock
-                                Margin="0,0,0,4"
-                                TextWrapping="WrapWithOverflow"
-                                Text="鼠标快捷键触发时间间隔(ms)"
-                                FontSize="12"
-                                Foreground="{DynamicResource SemiColorText2}" />
-                            <Slider Maximum="5000" Minimum="100" IsSnapToTickEnabled="True" TickFrequency="100"
-                                    HorizontalAlignment="Stretch" Name="Slider" Width="200">
-                                <Slider.Styles>
-                                    <Style Selector="Slider /template/ Thumb">
-                                        <Setter Property="ToolTip.Tip"
-                                                Value="{Binding $parent[Slider].Value, Mode=OneWay, StringFormat='\{0:d\}'}" />
-                                        <Setter Property="IsVisible" Value="True" />
-                                        <Setter Property="ToolTip.Placement" Value="Top" />
-                                        <Setter Property="ToolTip.ShowDelay" Value="0" />
-                                        <Setter Property="ToolTip.VerticalOffset" Value="-10" />
-                                        <Setter Property="ToolTip.HorizontalOffset" Value="-15" />
-                                    </Style>
-                                </Slider.Styles>
-                            </Slider>
-                            <TextBlock HorizontalAlignment="Center" Text="{Binding #Slider.Value}"
-                                       FontSize="12" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource SemiColorText1}" />
+              Width="720" Height="550" MinWidth="560" MinHeight="500"
+              Title="修改快捷键" WindowStartupLocation="CenterOwner"
+              Background="{DynamicResource HotKeyCanvasBrush}">
+    <u:UrsaWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="HotKeyCanvasBrush" Color="#F5F6F8" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="HotKeyCanvasBrush" Color="#181818" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </u:UrsaWindow.Resources>
+    <Grid Margin="24,12,24,20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
+        <StackPanel Spacing="4">
+            <TextBlock Text="快捷键设置" FontSize="12" Foreground="{DynamicResource SemiColorText2}" />
+            <TextBlock Name="Name" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="16">
+                <Border Padding="16" CornerRadius="12" Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                        BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1">
+                    <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="24">
+                            <RadioButton Name="KeyBoard" GroupName="InputType" Content="键盘快捷键" Click="KeyBoard_OnClick" />
+                            <RadioButton Name="Mouse" GroupName="InputType" Content="鼠标快捷键" Click="Mouse_OnClick" />
                         </StackPanel>
-
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center"
-                                VerticalAlignment="Center">
-
-
-                        <controls:HotKeyShowItme x:Name="Ctrl" IsVisible="False"
-                                                 FontSize="20" Content="Ctrl" Margin="0" Height="64" />
-                        <controls:HotKeyShowItme x:Name="Win" Height="64"
-                                                 IsVisible="False"
-                                                 Margin="5,0,0,0">
-                            <controls:HotKeyShowItme.Icon>
-                                <Image Source="{StaticResource WinImageIcon}" Width="26"
-                                       Height="26" />
-                            </controls:HotKeyShowItme.Icon>
-                        </controls:HotKeyShowItme>
-                        <controls:HotKeyShowItme x:Name="Shift" FontSize="20"
-                                                 IsVisible="False"
-                                                 Content="Shift" Margin="5,0,0,0" Height="64" />
-                        <controls:HotKeyShowItme x:Name="Alt" FontSize="20" Content="Alt"
-                                                 Margin="5,0,0,0" IsVisible="False"
-                                                 Height="64" />
-                        <controls:HotKeyShowItme x:Name="KeyName" FontSize="20"
-                                                 Margin="5,0,20,0" Height="64" />
-
-
-                    </StackPanel>
-
-
-                </Grid>
-                <Border
-                    Grid.Row="1"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Bottom"
-
-                    Focusable="False">
-                    <StackPanel>
-                        <Grid ColumnDefinitions="*,*,*" ColumnSpan="8">
-                            <Button
-                                Grid.Column="2"
-                                HorizontalAlignment="Stretch"
-                                Classes="Primary" Theme="{DynamicResource SolidButton}"
-                                Height="32" CornerRadius="6" FontSize="13"
-                                Content="确认"
-                                Click="ButtonBase_OnClick" />
-
-                            <Button
-                                Grid.Column="0"
-                                HorizontalAlignment="Stretch"
-                                Height="32" CornerRadius="6" FontSize="13"
-                                Content="取消"
-                                Click="ButtonCancle_OnClick"
-                                IsCancel="True" />
-
+                        <Border Name="MouseCaptureArea" Padding="16" MinHeight="90" CornerRadius="6" Focusable="True"
+                                Background="{DynamicResource SemiColorFill0}" PointerPressed="InputElement_OnPointerPressed">
+                            <StackPanel Spacing="12" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6">
+                                    <controls:HotKeyShowItme Name="Ctrl" IsVisible="False" Content="Ctrl" Height="36" FontSize="16" />
+                                    <controls:HotKeyShowItme Name="Win" IsVisible="False" Content="Win" Height="36" FontSize="16" />
+                                    <controls:HotKeyShowItme Name="Shift" IsVisible="False" Content="Shift" Height="36" FontSize="16" />
+                                    <controls:HotKeyShowItme Name="Alt" IsVisible="False" Content="Alt" Height="36" FontSize="16" />
+                                    <controls:HotKeyShowItme Name="KeyName" Height="36" FontSize="16" />
+                                </StackPanel>
+                                <TextBlock Text="点击此处后按下快捷键；鼠标按键也在此录入" FontSize="12" TextAlignment="Center"
+                                           Foreground="{DynamicResource SemiColorText2}" />
+                            </StackPanel>
+                        </Border>
+                        <Grid IsVisible="{Binding #Mouse.IsChecked}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                            <TextBlock Text="长按时间" VerticalAlignment="Center" FontSize="12" />
+                            <Slider Grid.Column="1" Name="Slider" Minimum="100" Maximum="5000" Value="1000"
+                                    TickFrequency="100" IsSnapToTickEnabled="True" />
+                            <TextBlock Grid.Column="2" Text="{Binding #Slider.Value, StringFormat='{}{0:0} ms'}"
+                                       MinWidth="58" VerticalAlignment="Center" FontSize="12" />
                         </Grid>
                     </StackPanel>
-
                 </Border>
-            </Grid>
+                <Border Padding="16" CornerRadius="12" Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                        BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="生效范围" FontSize="14" FontWeight="SemiBold" />
+                                <TextBlock Text="按当前前台窗口所属进程判断" FontSize="12" Foreground="{DynamicResource SemiColorText2}" />
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Name="ProcessScope" Width="180" SelectionChanged="ProcessScope_OnSelectionChanged">
+                                <ComboBoxItem Content="所有进程" />
+                                <ComboBoxItem Content="仅指定进程" />
+                                <ComboBoxItem Content="排除指定进程" />
+                            </ComboBox>
+                        </Grid>
+                        <StackPanel Name="ProcessListSection" Spacing="6">
+                            <TextBox Name="ProcessNames" AcceptsReturn="True" Height="76" TextWrapping="Wrap"
+                                     Watermark="例如 explorer.exe、code.exe，每行一个或用逗号分隔" />
+                            <TextBlock Text="不区分大小写，可省略 .exe；范围外保留按键原本的行为。" FontSize="11"
+                                       Foreground="{DynamicResource SemiColorText2}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <CheckBox Name="IgnoreTextInput" Content="在文本输入框中暂停此快捷键" FontSize="12" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <TextBlock Name="ValidationMessage" VerticalAlignment="Center" Foreground="{DynamicResource KitopiaBadgeDangerForeground}"
+                       FontSize="12" TextWrapping="Wrap" Margin="0,0,12,0" />
+            <Button Grid.Column="1" Content="取消" Click="ButtonCancle_OnClick" IsCancel="True" Height="32" CornerRadius="6" Padding="20,0" />
+            <Button Grid.Column="2" Name="SaveButton" Content="保存" Click="ButtonBase_OnClick"
+                    Classes="Primary" Theme="{DynamicResource SolidButton}" Height="32" CornerRadius="6" Padding="20,0" />
+        </Grid>
+    </Grid>
 </u:UrsaWindow>

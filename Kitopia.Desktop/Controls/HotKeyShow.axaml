@@ -2,125 +2,44 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:Kitopia.Desktop.Controls"
         xmlns:converter="clr-namespace:Kitopia.Desktop.Converter">
-    <Design.PreviewWith>
-        <controls:HotKeyShow />
-    </Design.PreviewWith>
-
+    <Design.PreviewWith><controls:HotKeyShow /></Design.PreviewWith>
     <Style Selector="controls|HotKeyShow">
-        <!-- Set Defaults -->
-        <Style.Resources>
-            <converter:HotKey_KeyTypeToVisible x:Key="HotKeyKeyTypeToVisible" />
-        </Style.Resources>
+        <Style.Resources><converter:HotKey_KeyTypeToVisible x:Key="HotKeyKeyTypeToVisible" /></Style.Resources>
         <Setter Property="Template">
             <ControlTemplate>
-                <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-                    <!-- Left: Clickable keycaps container -->
-                    <Button Grid.Column="0"
-                            Name="Button"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Padding="0"
-                            Margin="0"
-                            HorizontalAlignment="Left"
-                            Cursor="Hand"
-                            Command="{TemplateBinding EditHotKey}">
-                        <Button.Styles>
-                            <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                <Setter Property="Background" Value="Transparent" />
-                            </Style>
-                        </Button.Styles>
-                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
-                                    IsEnabled="{TemplateBinding IsActivated}">
-                            <controls:HotKeyShowItme Name="Ctrl"
-                                                     IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent},
-                                                     Path=KeyType,Converter={StaticResource HotKeyKeyTypeToVisible},ConverterParameter='Ctrl'}"
-                                                     Content="Ctrl" />
-                            <controls:HotKeyShowItme Name="Win"
-                                                     IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent},
-                                                     Path=KeyType,Converter={StaticResource HotKeyKeyTypeToVisible},ConverterParameter='Win'}">
-                                <controls:HotKeyShowItme.Icon>
-                                    <Image Source="{StaticResource WinImageIcon}" Width="16" Height="16" />
-                                </controls:HotKeyShowItme.Icon>
-                            </controls:HotKeyShowItme>
-                            <controls:HotKeyShowItme Name="Shift"
-                                                     IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent},
-                                                     Path=KeyType,Converter={StaticResource HotKeyKeyTypeToVisible},ConverterParameter='Shift'}"
-                                                     Content="Shift" />
-                            <controls:HotKeyShowItme Name="Alt"
-                                                     IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent},
-                                                     Path=KeyType,Converter={StaticResource HotKeyKeyTypeToVisible},ConverterParameter='Alt'}"
-                                                     Content="Alt" />
-                            <controls:HotKeyShowItme Name="KeyName"
-                                                     IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent},
-                                                     Path=KeyType,Converter={StaticResource HotKeyKeyTypeToVisible},ConverterParameter='KeyName'}"
-                                                     Content="{TemplateBinding KeyName}" />
-                            <TextBlock
-                                IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent},
-                                                     Path=KeyType,Converter={StaticResource HotKeyKeyTypeToVisible},ConverterParameter='None'}"
-                                Name="None" Margin="2,0" Text="未设置快捷键" VerticalAlignment="Center"
-                                FontSize="12"
-                                Foreground="{DynamicResource SemiColorText2}" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" VerticalAlignment="Center">
+                    <Button Name="Button" Background="Transparent" BorderThickness="0" Padding="0" Margin="0"
+                            HorizontalAlignment="Left" HorizontalContentAlignment="Left" Cursor="Hand"
+                            ToolTip.Tip="修改按键与生效范围" Command="{TemplateBinding EditHotKey}">
+                        <StackPanel Spacing="5">
+                            <StackPanel Orientation="Horizontal" Spacing="4" IsEnabled="{TemplateBinding IsActivated}">
+                                <controls:HotKeyShowItme Content="Ctrl" IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='Ctrl'}" />
+                                <controls:HotKeyShowItme Content="Win" IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='Win'}" />
+                                <controls:HotKeyShowItme Content="Shift" IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='Shift'}" />
+                                <controls:HotKeyShowItme Content="Alt" IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='Alt'}" />
+                                <controls:HotKeyShowItme Content="{TemplateBinding KeyName}" IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='KeyName'}" />
+                                <TextBlock Text="未设置快捷键" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource SemiColorText2}"
+                                           IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='None'}" />
+                            </StackPanel>
+                            <TextBlock Text="{TemplateBinding ScopeDescription}" FontSize="11" MaxWidth="260"
+                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{TemplateBinding ScopeDescription}"
+                                       Foreground="{DynamicResource SemiColorText2}" />
                         </StackPanel>
                     </Button>
-
-                    <!-- Right: Action Buttons (Edit + Delete) -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                        <!-- Edit / Enable Button -->
-                        <Button Height="26" Padding="8,0" CornerRadius="6"
-                                Background="{DynamicResource SemiColorFill0}"
-                                BorderBrush="{DynamicResource SemiColorBorder}"
-                                BorderThickness="1"
-                                ToolTip.Tip="修改快捷键"
-                                Command="{TemplateBinding EditHotKey}">
-                            <Button.Styles>
-                                <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                    <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
-                                </Style>
-                            </Button.Styles>
-                            <Panel VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
-                                            IsVisible="{TemplateBinding IsActivated}">
-                                    <controls:FontIcon FontSize="11" Glyph="&#xf3de;"
-                                                       Foreground="{DynamicResource SemiColorText1}"
-                                                       VerticalAlignment="Center" />
-                                    <TextBlock Text="修改" FontSize="11"
-                                               Foreground="{DynamicResource SemiColorText1}"
-                                               VerticalAlignment="Center" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
-                                            IsVisible="{TemplateBinding IsActivated, Converter={x:Static BoolConverters.Not}}">
-                                    <controls:FontIcon FontSize="11" Glyph="&#xf3de;"
-                                                       Foreground="{DynamicResource SemiColorPrimary}"
-                                                       VerticalAlignment="Center" />
-                                    <TextBlock Text="启用" FontSize="11" FontWeight="Medium"
-                                               Foreground="{DynamicResource SemiColorPrimary}"
-                                               VerticalAlignment="Center" />
-                                </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Button Name="EditButton" Height="28" Padding="10,0" CornerRadius="6" Content="修改"
+                                ToolTip.Tip="修改按键与生效范围" Command="{TemplateBinding EditHotKey}" />
+                        <Button Name="ToggleButton" Height="28" Padding="10,0" CornerRadius="6"
+                                ToolTip.Tip="启用或停用此快捷键" Command="{TemplateBinding ToggleHotKey}">
+                            <Panel>
+                                <TextBlock Text="停用" FontSize="12" IsVisible="{TemplateBinding IsActivated}" />
+                                <TextBlock Text="启用" FontSize="12" Foreground="{DynamicResource SemiColorPrimary}"
+                                           IsVisible="{TemplateBinding IsActivated, Converter={x:Static BoolConverters.Not}}" />
                             </Panel>
-                        </Button>
-
-                        <!-- Disable/Delete Button -->
-                        <Button Width="26" Height="26" Padding="0" CornerRadius="6"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                IsVisible="{TemplateBinding IsActivated}"
-                                ToolTip.Tip="禁用此快捷键"
-                                Command="{TemplateBinding RemoveHotKey}">
-                            <Button.Styles>
-                                <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                    <Setter Property="Background" Value="{DynamicResource KitopiaBadgeDangerBackground}" />
-                                </Style>
-                            </Button.Styles>
-                            <controls:FontIcon FontSize="11" Glyph="&#xf36a;"
-                                               Foreground="{DynamicResource KitopiaBadgeDangerForeground}"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center" />
                         </Button>
                     </StackPanel>
                 </Grid>
             </ControlTemplate>
         </Setter>
     </Style>
-
-
 </Styles>

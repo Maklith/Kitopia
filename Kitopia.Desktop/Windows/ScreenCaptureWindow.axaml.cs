@@ -271,51 +271,65 @@ public partial class ScreenCaptureWindow : Window
                 progressWindow.UpdateImage(accumulator);
 
                 // Setup Global Hook to stop on any key
+#if WINDOWS
+                var hook = ServiceManager.Services.GetRequiredService<SimpleGlobalHook>();
+#else
                 using var hook = new SimpleGlobalHook();
-                hook.MouseClicked += (_, _) => progressWindow.RequestStop();
-                hook.KeyPressed += (_, _) => progressWindow.RequestStop();
                 _ = hook.RunAsync();
+#endif
+                EventHandler<MouseHookEventArgs> stopOnMouse = (_, _) => progressWindow.RequestStop();
+                EventHandler<KeyboardHookEventArgs> stopOnKey = (_, _) => progressWindow.RequestStop();
+                hook.MouseClicked += stopOnMouse;
+                hook.KeyPressed += stopOnKey;
 
-                // 5. Scroll and Stitch Loop
-                int maxScrolls = 50;
-            
-                double stepRatio = captureInfo.RequestRect.Value.Height / 600.0;
-                int stepMagnitude = (int)(120 * stepRatio);
-            
-                if (stepMagnitude < 120) stepMagnitude = 120;
-                if (stepMagnitude > 360) stepMagnitude = 360; 
-
-                short scrollStep = (short)-stepMagnitude; 
-            
-                for (int i = 0; i < maxScrolls; i++)
+                try
                 {
-                    if (progressWindow.IsStopRequested) break;
+                    // 5. Scroll and Stitch Loop
+                    int maxScrolls = 50;
+            
+                    double stepRatio = captureInfo.RequestRect.Value.Height / 600.0;
+                    int stepMagnitude = (int)(120 * stepRatio);
+            
+                    if (stepMagnitude < 120) stepMagnitude = 120;
+                    if (stepMagnitude > 360) stepMagnitude = 360;
+
+                    short scrollStep = (short)-stepMagnitude;
+            
+                    for (int i = 0; i < maxScrolls; i++)
+                    {
+                        if (progressWindow.IsStopRequested) break;
                 
-                    simulator.SimulateMouseWheel(scrollStep);
-                    await Task.Delay(500); 
+                        simulator.SimulateMouseWheel(scrollStep);
+                        await Task.Delay(500);
 
-                    var newResult = captureManager.CaptureScreenBytes(captureInfo);
-                    var newFrame = newResult.Source;
+                        var newResult = captureManager.CaptureScreenBytes(captureInfo);
+                        var newFrame = newResult.Source;
 
-                    if (newFrame == null || newFrame.Empty())
-                    {
-                        break;
+                        if (newFrame == null || newFrame.Empty())
+                        {
+                            break;
+                        }
+
+                        var stitched = ImageStitcher.StitchImages(accumulator, newFrame);
+                        newFrame.Dispose();
+
+                        if (stitched != null)
+                        {
+                            var oldAccumulator = accumulator;
+                            accumulator = stitched;
+                            oldAccumulator.Dispose();
+                            progressWindow.UpdateImage(accumulator);
+                        }
+                        else
+                        {
+                            break;
+                        }
                     }
-
-                    var stitched = ImageStitcher.StitchImages(accumulator, newFrame);
-                    newFrame.Dispose(); 
-
-                    if (stitched != null)
-                    {
-                        var oldAccumulator = accumulator;
-                        accumulator = stitched;
-                        oldAccumulator.Dispose();
-                        progressWindow.UpdateImage(accumulator);
-                    }
-                    else
-                    {
-                        break;
-                    }
+                }
+                finally
+                {
+                    hook.MouseClicked -= stopOnMouse;
+                    hook.KeyPressed -= stopOnKey;
                 }
             
                 progressWindow.Close();

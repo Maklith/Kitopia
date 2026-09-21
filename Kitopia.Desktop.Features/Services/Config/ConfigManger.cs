@@ -5,6 +5,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.JsonConverter;
 using Kitopia.Desktop.Features.Services.HotKey;
@@ -88,8 +89,12 @@ public class ConfigManger : IConfigService
             try
             {
                 var legacyCollections = new List<string>();
+                var migratePreviewScope = false;
                 using (var document = JsonDocument.Parse(json))
                 {
+                    migratePreviewScope = document.RootElement.TryGetProperty("mouseHotkey", out var previewHotkey)
+                        && previewHotkey.ValueKind == JsonValueKind.Object
+                        && !previewHotkey.TryGetProperty(nameof(HotKeyModel.ProcessScope), out _);
                     if (document.RootElement.TryGetProperty("customCollections", out var legacy)
                         && legacy.ValueKind == JsonValueKind.Array)
                     {
@@ -104,6 +109,12 @@ public class ConfigManger : IConfigService
                     Config;
                 deserialized.Name = "KitopiaConfig";
                 Configs["KitopiaConfig"] = deserialized;
+                if (migratePreviewScope)
+                {
+                    Config.mouseHotkey.ProcessScope = HotKeyProcessScope.Include;
+                    Config.mouseHotkey.ProcessNames = ["explorer.exe"];
+                    Config.mouseHotkey.IgnoreTextInput = true;
+                }
                 foreach (var path in legacyCollections)
                 {
                     var target = Directory.Exists(path)
@@ -144,6 +155,12 @@ public class ConfigManger : IConfigService
         {
             switch (args.Name)
             {
+                case "mouseCapture":
+                {
+                    Dispatcher.UIThread.Invoke(() =>
+                        ServiceManager.Services.GetRequiredService<IHotKetImpl>().StartHook());
+                    break;
+                }
                 case "autoStart":
                 {
                     ServiceManager.Services.GetService<IApplicationService>()

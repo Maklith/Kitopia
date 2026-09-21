@@ -5,7 +5,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.LogicalTree;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
@@ -48,6 +47,20 @@ public class HotKeyShow : TemplatedControl
     public static readonly StyledProperty<ICommand> EditHotKeyProperty =
         AvaloniaProperty.Register<HotKeyShow, ICommand>(nameof(EditHotKey));
 
+    public static readonly StyledProperty<ICommand> ToggleHotKeyProperty =
+        AvaloniaProperty.Register<HotKeyShow, ICommand>(nameof(ToggleHotKey));
+
+    public static readonly StyledProperty<string> ScopeDescriptionProperty =
+        AvaloniaProperty.Register<HotKeyShow, string>(nameof(ScopeDescription), "所有进程");
+
+    public string ScopeDescription
+    {
+        get => GetValue(ScopeDescriptionProperty);
+        private set => SetValue(ScopeDescriptionProperty, value);
+    }
+
+    public ICommand ToggleHotKey => GetValue(ToggleHotKeyProperty);
+
     public static readonly StyledProperty<ICommand> InitHotKeyProperty =
         AvaloniaProperty.Register<HotKeyShow, ICommand>(nameof(InitHotKey));
 
@@ -73,10 +86,8 @@ public class HotKeyShow : TemplatedControl
             if (args.NewValue is HotKeyModel newModel)
             {
                 newModel.PropertyChanged += control.OnHotKeyModelPropertyChanged;
-                HotKeyModelChanged(newModel, control);
             }
-
-            
+            HotKeyModelChanged(args.NewValue as HotKeyModel, control);
         });
     }
 
@@ -84,6 +95,7 @@ public class HotKeyShow : TemplatedControl
     {
         SetValue(RemoveHotKeyProperty, new RelayCommand(Remove));
         SetValue(EditHotKeyProperty, new RelayCommand(Edit));
+        SetValue(ToggleHotKeyProperty, new RelayCommand(Toggle));
         
     }
 
@@ -103,6 +115,15 @@ public class HotKeyShow : TemplatedControl
         }
 
         base.OnDetachedFromLogicalTree(e);
+    }
+
+    protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToLogicalTree(e);
+        if (HotKeyModel is null) return;
+        HotKeyModel.PropertyChanged -= OnHotKeyModelPropertyChanged;
+        HotKeyModel.PropertyChanged += OnHotKeyModelPropertyChanged;
+        HotKeyModelChanged(HotKeyModel, this);
     }
 
 
@@ -160,13 +181,18 @@ public class HotKeyShow : TemplatedControl
         if (hotKeyModelN == null)
         {
             hotKeyShow.KeyType = (KeyTypeE)type;
+            hotKeyShow.IsActivated = false;
+            hotKeyShow.ScopeDescription = "未设置";
             return;
         }
 
         var hotKeyModel = hotKeyModelN;
+        hotKeyShow.ScopeDescription = hotKeyModel.ProcessScopeDescription +
+            (hotKeyModel.Type == HotKeyType.Mouse ? $" · 长按 {hotKeyModel.PressTimeMillis} ms" : "") +
+            (hotKeyModel.IsEnabled ? "" : " · 已停用");
         if (hotKeyModel.Type == HotKeyType.Mouse)
         {
-            hotKeyShow.IsActivated = ServiceManager.Services.GetService<IHotKetImpl>()!.IsActive(hotKeyModel.UUID);
+            hotKeyShow.IsActivated = hotKeyModel.IsEnabled;
             hotKeyShow.KeyType = (KeyTypeE)10000;
             hotKeyShow.KeyName = hotKeyModel.MouseButton switch
             {
@@ -191,7 +217,7 @@ public class HotKeyShow : TemplatedControl
         if (type == 0000 && hotKeyModel.SelectKey != EKey.未设置) type = 10000;
 
 
-        hotKeyShow.IsActivated = ServiceManager.Services.GetService<IHotKetImpl>()!.IsActive(hotKeyModel.UUID);
+        hotKeyShow.IsActivated = hotKeyModel.IsEnabled;
         hotKeyShow.KeyType = (KeyTypeE)type;
         hotKeyShow.KeyName = hotKeyModel.SelectKey.ToString();
     }
@@ -212,32 +238,32 @@ public class HotKeyShow : TemplatedControl
 
         if (ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(HotKeyModel.UUID) is null)
         {
-            InitHotKey.Execute(HotKeyModel);
-            ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.UUID);
+            InitHotKey?.Execute(HotKeyModel);
+        }
+        ServiceManager.Services.GetRequiredService<IHotKetImpl>().RequestUserModify(HotKeyModel.UUID);
+    }
+
+    private void Toggle()
+    {
+        if (HotKeyModel is null) return;
+        if (IsActivated)
+        {
+            Remove();
             return;
         }
-
-
-        if (!IsActivated)
+        var hotkeys = ServiceManager.Services.GetRequiredService<IHotKetImpl>();
+        if (hotkeys.GetByUuid(HotKeyModel.UUID) is null) InitHotKey?.Execute(HotKeyModel);
+        HotKeyModel.IsEnabled = true;
+        if (!hotkeys.Modify(HotKeyModel))
         {
-            if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Modify(HotKeyModel))
+            HotKeyModel.IsEnabled = false;
+            ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
             {
-                ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
-                {
-                    Title = $"快捷键{HotKeyModel.SignName}设置失败",
-                    Content = "请重新设置快捷键，按键与系统其他程序冲突",
-                    CloseButtonText = "关闭"
-                }.ToToastRequest());
-                ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.UUID);
-                ConfigManger.Save();
-                return;
-            }
-
-            IsActivated = true;
-        }
-        else
-        {
-            ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(HotKeyModel.UUID);
+                Title = $"快捷键{HotKeyModel.SignName}设置失败",
+                Content = "请重新设置快捷键，按键与系统其他程序冲突",
+                CloseButtonText = "关闭"
+            }.ToToastRequest());
+            hotkeys.RequestUserModify(HotKeyModel.UUID);
             ConfigManger.Save();
         }
     }

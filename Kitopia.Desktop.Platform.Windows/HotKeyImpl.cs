@@ -1,30 +1,38 @@
+using System.Collections.Concurrent;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
+using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
-using Kitopia.Desktop.Features.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using SharpHook;
 using SharpHook.Data;
 using Vanara.PInvoke;
-using Timer = System.Timers.Timer;
 
 namespace Kitopia.Desktop.Platform.Windows;
 
 public class HotKeyImpl : IHotKetImpl
 {
     private static Avalonia.Controls.Window _globalHotKeyWindow = null!;
-    private static ObservableDictionary<string, HotkeyInfo> HotKeys { get; set; }= new();
-    private static readonly SimpleGlobalHook Hook = new(GlobalHookType.Mouse);
+    private static readonly ConcurrentDictionary<string, HotkeyInfo> HotKeys = new();
+    private SimpleGlobalHook? _inputHook;
+    private bool _wndProcHookAttached;
+    private static readonly HashSet<ushort> PressedKeys = new();
 
     public class HotkeyInfo
     {
         public HotKeyModel HotKeyModel;
+        // 正数为 Win32 热键 ID，0 为共享钩子处理的快捷键，-1 为停用。
         public int Id;
         public required Action<HotKeyModel> CallBack;
-        public Timer? Timer;
+        public DispatcherTimer? Timer;
+        public HWND PressWindow;
     }
 
     private static int _id;
@@ -48,54 +56,141 @@ public class HotKeyImpl : IHotKetImpl
 
     public void StartHook()
     {
-        Win32Properties.AddWndProcHookCallback(_globalHotKeyWindow, OnWndProc);
-        if (ConfigManger.Config.mouseCapture) {
-            Hook.MousePressed += OnMousePressed;
-            Hook.MouseReleased += OnMouseReleased;
-            Hook.RunAsync();
+        if (!_wndProcHookAttached)
+        {
+            Win32Properties.AddWndProcHookCallback(_globalHotKeyWindow, OnWndProc);
+            _wndProcHookAttached = true;
         }
-        
+
+        if (!ConfigManger.Config.mouseCapture)
+        {
+            foreach (var (_, hotkey) in HotKeys) hotkey.Timer?.Stop();
+        }
+
+        // SharpHook 在同一进程中只能运行一个监听器。
+        if (_inputHook is not null) return;
+        _inputHook = ServiceManager.Services.GetRequiredService<SimpleGlobalHook>();
+        _inputHook.MousePressed += OnMousePressed;
+        _inputHook.MouseReleased += OnMouseReleased;
+        _inputHook.KeyPressed += OnKeyPressed;
+        _inputHook.KeyReleased += OnKeyReleased;
+        _ = _inputHook.RunAsync().ContinueWith(task =>
+            LogManager.Logger.Error(task.Exception, "快捷键监听启动失败"),
+            TaskContinuationOptions.OnlyOnFaulted);
+    }
+
+    private static void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
+    {
+        var key = e.Data.RawCode;
+        if (PressedKeys.Contains(key))
+        {
+            e.SuppressEvent = true;
+            return;
+        }
+
+        var mask = e.RawEvent.Mask;
+        foreach (var (_, hotkey) in HotKeys)
+        {
+            var model = hotkey.HotKeyModel;
+            if (hotkey.Id != 0 || !model.IsEnabled || model.Type != HotKeyType.Keyboard ||
+                (int)model.SelectKey != key ||
+                model.IsSelectCtrl != ((mask & EventMask.Ctrl) != 0) ||
+                model.IsSelectAlt != ((mask & EventMask.Alt) != 0) ||
+                model.IsSelectShift != ((mask & EventMask.Shift) != 0) ||
+                model.IsSelectWin != ((mask & EventMask.Meta) != 0)) continue;
+            var foreground = User32.GetForegroundWindow();
+            if (!CanExecuteInWindow(model, foreground)) continue;
+            PressedKeys.Add(key);
+            e.SuppressEvent = true;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (hotkey.Id == 0 && model.IsEnabled && User32.GetForegroundWindow() == foreground &&
+                    CanExecuteInWindow(model, foreground)) hotkey.CallBack(model);
+            });
+            return;
+        }
+    }
+
+    private static void OnKeyReleased(object? sender, KeyboardHookEventArgs e)
+    {
+        if (PressedKeys.Remove(e.Data.RawCode)) e.SuppressEvent = true;
+    }
+
+    private static bool CanExecuteInWindow(HotKeyModel model, HWND window)
+    {
+        if (model.ProcessScope != HotKeyProcessScope.All)
+        {
+            User32.GetWindowThreadProcessId(window, out var processId);
+            try
+            {
+                using var process = Process.GetProcessById((int)processId);
+                if (!model.CanExecuteInProcess(process.ProcessName)) return false;
+            }
+            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or Win32Exception)
+            {
+                return false;
+            }
+        }
+        if (model.IgnoreTextInput)
+        {
+            var info = new User32.GUITHREADINFO { cbSize = (uint)Marshal.SizeOf<User32.GUITHREADINFO>() };
+            if (!User32.GetGUIThreadInfo(0, ref info)) return false;
+            var name = new StringBuilder(128);
+            User32.GetClassName(info.hwndFocus, name, name.Capacity);
+            if (name.ToString().Contains("Edit", StringComparison.OrdinalIgnoreCase)) return false;
+        }
+        return true;
     }
 
     private static void OnMousePressed(object? sender, MouseHookEventArgs e)
     {
-        foreach (var (_, value) in HotKeys)
-        {
-            if (value.HotKeyModel.Type != HotKeyType.Mouse) continue;
-            if (value.Id == -1) continue;
-            var dataButton = (int)e.Data.Button;
-            if (dataButton == 0) continue;
+        var dataButton = (ushort)e.Data.Button;
+        if (dataButton == 0) return;
+        var foreground = User32.GetForegroundWindow();
 
-            if (value.HotKeyModel.MouseButton == dataButton - 1)
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!ConfigManger.Config.mouseCapture || User32.GetForegroundWindow() != foreground) return;
+            foreach (var (_, value) in HotKeys)
             {
+                if (value.HotKeyModel.Type != HotKeyType.Mouse || value.Id == -1 ||
+                    !value.HotKeyModel.IsEnabled || value.HotKeyModel.MouseButton != dataButton) continue;
+
+                if (!CanExecuteInWindow(value.HotKeyModel, foreground)) continue;
+                value.PressWindow = foreground;
+
                 if (value.Timer is null)
                 {
-                    value.Timer = new Timer(value.HotKeyModel.PressTimeMillis)
+                    var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(value.HotKeyModel.PressTimeMillis) };
+                    timer.Tick += (_, _) =>
                     {
-                        AutoReset = false
+                        timer.Stop();
+                        if (value.Id != -1 && value.HotKeyModel.IsEnabled && ConfigManger.Config.mouseCapture &&
+                            User32.GetForegroundWindow() == value.PressWindow &&
+                            CanExecuteInWindow(value.HotKeyModel, value.PressWindow))
+                            value.CallBack.Invoke(value.HotKeyModel);
                     };
-                    value.Timer.Elapsed += (_, _) =>
-                    {
-                        ThreadPool.QueueUserWorkItem(_ => { value.CallBack.Invoke(value.HotKeyModel); });
-                    };
+                    value.Timer = timer;
                 }
 
                 value.Timer.Start();
             }
-        }
+        });
     }
 
     private static void OnMouseReleased(object? sender, MouseHookEventArgs e)
     {
-        foreach (var (_, value) in HotKeys)
-        {
-            if (value.HotKeyModel.Type != HotKeyType.Mouse) continue;
-            if (value.Id == -1) continue;
-            var dataButton = (int)e.Data.Button;
-            if (dataButton == 0) continue;
+        var dataButton = (ushort)e.Data.Button;
+        if (dataButton == 0) return;
 
-            if (value.HotKeyModel.MouseButton == dataButton - 1) value.Timer?.Stop();
-        }
+        Dispatcher.UIThread.Post(() =>
+        {
+            foreach (var (_, value) in HotKeys)
+            {
+                if (value.HotKeyModel.Type == HotKeyType.Mouse && value.HotKeyModel.MouseButton == dataButton)
+                    value.Timer?.Stop();
+            }
+        });
     }
 
     private static IntPtr OnWndProc(IntPtr hwnd, uint msg, IntPtr wparam, IntPtr lparam, ref bool handled)
@@ -103,8 +198,9 @@ public class HotKeyImpl : IHotKetImpl
         if (msg == (uint)User32.WindowMessage.WM_HOTKEY)
         {
             var int32 = wparam.ToInt32();
-            var keyValuePair = HotKeys.First(e => e.Value.Id == int32);
-            keyValuePair.Value.CallBack.Invoke(keyValuePair.Value.HotKeyModel);
+            var hotkey = HotKeys.FirstOrDefault(entry => entry.Value.Id == int32 && entry.Value.HotKeyModel.IsEnabled).Value;
+            if (hotkey is not null && CanExecuteInWindow(hotkey.HotKeyModel, User32.GetForegroundWindow()))
+                hotkey.CallBack.Invoke(hotkey.HotKeyModel);
         }
 
         return IntPtr.Zero;
@@ -115,12 +211,12 @@ public class HotKeyImpl : IHotKetImpl
     {
         if (!hotKeyModel.IsEnabled)//没有激活直接返回注册完成
         {
-            HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo
+            HotKeys[hotKeyModel.UUID] = new HotkeyInfo
             {
                 HotKeyModel = hotKeyModel,
                 Id = -1,
                 CallBack = rallBack
-            });
+            };
             return true;
         }
 
@@ -128,6 +224,16 @@ public class HotKeyImpl : IHotKetImpl
         {
             case HotKeyType.Keyboard:
             {
+                if (hotKeyModel.ProcessScope != HotKeyProcessScope.All || hotKeyModel.IgnoreTextInput)
+                {
+                    var enabled = initHotKey && hotKeyModel.SelectKey is not (EKey.未设置 or 0);
+                    hotKeyModel.IsEnabled = enabled;
+                    HotKeys[hotKeyModel.UUID] = new HotkeyInfo
+                    {
+                        HotKeyModel = hotKeyModel, Id = enabled ? 0 : -1, CallBack = rallBack
+                    };
+                    return enabled;
+                }
                 User32.HotKeyModifiers hotkeyModifiers = 0;
                 if (hotKeyModel.IsSelectAlt) hotkeyModifiers |= User32.HotKeyModifiers.MOD_ALT;
 
@@ -158,7 +264,7 @@ public class HotKeyImpl : IHotKetImpl
                     }
                     else
                     {
-                        HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo
+                        HotKeys.TryAdd(hotKeyModel.UUID, new HotkeyInfo
                         {
                             HotKeyModel = hotKeyModel,
                             Id = _id,
@@ -169,12 +275,12 @@ public class HotKeyImpl : IHotKetImpl
                 else
                 {
                     hotKeyModel.IsEnabled = false;
-                    HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo
+                    HotKeys[hotKeyModel.UUID] = new HotkeyInfo
                     {
                         HotKeyModel = hotKeyModel,
                         Id = -1,
                         CallBack = rallBack
-                    });
+                    };
                 }
 
                 return registerHotKey;
@@ -184,16 +290,15 @@ public class HotKeyImpl : IHotKetImpl
                 hotKeyModel.IsEnabled = true;
                 if (HotKeys.TryGetValue(hotKeyModel.UUID, out var hotKeyModel1) && hotKeyModel1.Id == -1)
                 {
-                    hotKeyModel1.Id = 1;
+                    hotKeyModel1.Id = 0;
                     hotKeyModel1.HotKeyModel = hotKeyModel;
                 }
                 else
                 {
-                    hotKeyModel.IsEnabled = false;
-                    HotKeys.Add(hotKeyModel.UUID, new HotkeyInfo
+                    HotKeys.TryAdd(hotKeyModel.UUID, new HotkeyInfo
                     {
                         HotKeyModel = hotKeyModel,
-                        Id = 1,
+                        Id = 0,
                         CallBack = rallBack
                     });
                 }
@@ -214,26 +319,18 @@ public class HotKeyImpl : IHotKetImpl
     {
         if (HotKeys.TryGetValue(uuid, out var hotkey))
         {
+            var unregistered = hotkey.Id <= 0 || Dispatcher.UIThread.Invoke(() =>
+                User32.UnregisterHotKey(_globalHotKeyWindow.TryGetPlatformHandle()!.Handle, hotkey.Id));
+            if (!unregistered) return false;
+
+            hotkey.Id = -1;
+            hotkey.Timer?.Stop();
+            hotkey.Timer = null;
             hotkey.HotKeyModel.IsEnabled = false;
-            WeakReferenceMessenger.Default.Send(hotkey.HotKeyModel.UUID, "hotkey");
             ConfigManger.RequsetUpdateHotKey(hotkey.HotKeyModel);
             ConfigManger.Save();
-            switch (hotkey.HotKeyModel.Type)
-            {
-                case HotKeyType.Keyboard:
-                {
-                    var unregisterHotKey =
-                        User32.UnregisterHotKey(_globalHotKeyWindow.TryGetPlatformHandle()!.Handle, hotkey.Id);
-                    HotKeys[uuid].Id = -1;
-                    return unregisterHotKey;
-                }
-                case HotKeyType.Mouse:
-                {
-                    hotkey.Timer?.Stop();
-                    hotkey.Id = -1;
-                    break;
-                }
-            }
+            WeakReferenceMessenger.Default.Send(hotkey.HotKeyModel.UUID, "hotkey");
+            return true;
         }
 
         return false;
@@ -242,7 +339,7 @@ public class HotKeyImpl : IHotKetImpl
     public bool Remove(string uuid) {
         if (UnRegister(uuid))
         {
-            HotKeys.Remove(uuid);
+            HotKeys.TryRemove(uuid, out _);
             WeakReferenceMessenger.Default.Send("", "hotkey");
             return true;
         }
@@ -266,13 +363,14 @@ public class HotKeyImpl : IHotKetImpl
         if (HotKeys.ContainsKey(hotKeyModel.UUID))
         {
             var rallback = HotKeys[hotKeyModel.UUID].CallBack;
-            UnRegister(hotKeyModel.UUID);
-            hotKeyModel.IsEnabled = true;
+            var enabled = hotKeyModel.IsEnabled;
+            if (!UnRegister(hotKeyModel.UUID)) return false;
+            hotKeyModel.IsEnabled = enabled;
+            var registered = Register(hotKeyModel, rallback);
             ConfigManger.RequsetUpdateHotKey(hotKeyModel);
             ConfigManger.Save();
-            if (!Register(hotKeyModel, rallback)) return false;
-
-            return true;
+            WeakReferenceMessenger.Default.Send(hotKeyModel.UUID, "hotkey");
+            return registered;
         }
 
         return false;
@@ -295,6 +393,6 @@ public class HotKeyImpl : IHotKetImpl
 
     public IEnumerable<HotKeyModel> GetAllRegistered()
     {
-        return HotKeys.Values.Select(x => x.HotKeyModel);
+        return HotKeys.Select(entry => entry.Value.HotKeyModel);
     }
 }

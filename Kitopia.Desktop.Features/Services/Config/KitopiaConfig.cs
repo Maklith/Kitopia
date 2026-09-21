@@ -189,19 +189,22 @@ public class KitopiaConfig : ConfigBase
     public ObservableCollection<string> ignoreItems = new();
 
 
-    [ConfigFieldCategory("鼠标快捷操作")] [ConfigField("允许对鼠标进行捕获", "允许对鼠标进行捕获(禁用后鼠标快捷键无效)", 0xE61C, ConfigFieldType.布尔)]
+    [ConfigFieldCategory("文件速览")] [ConfigField("允许对鼠标进行捕获", "允许对鼠标进行捕获(禁用后鼠标快捷键无效)", 0xE61C, ConfigFieldType.布尔)]
     public bool mouseCapture = false;
 
-    [ConfigField("鼠标快捷键", "激活鼠标快捷菜单快捷键", 0xF4B8, ConfigFieldType.快捷键, actionName: "mouseHotkeyAction")]
+    [ConfigField("速览快捷键", "预览资源管理器中选中的文件，支持键盘或鼠标快捷键", 0xF4B8, ConfigFieldType.快捷键, actionName: "mouseHotkeyAction")]
     public HotKeyModel mouseHotkey = new()
     {
         IsEnabled = true,
-        MainName = "Kitopia", Name = "激活鼠标快捷菜单", IsSelectCtrl = false, IsSelectAlt = true,
-        Type = HotKeyType.Mouse,
+        MainName = "Kitopia", Name = "文件速览", IsSelectCtrl = false, IsSelectAlt = false,
+        Type = HotKeyType.Keyboard,
+        ProcessScope = HotKeyProcessScope.Include,
+        ProcessNames = ["explorer.exe"],
+        IgnoreTextInput = true,
         MouseButton = 1,
         PressTimeMillis = 1500,
         IsSelectWin = false,
-        IsSelectShift = false, SelectKey = EKey.未设置
+        IsSelectShift = false, SelectKey = EKey.空格
     };
 
 
@@ -265,7 +268,7 @@ public class KitopiaConfig : ConfigBase
         }));
         invokes.Add("mouseHotkeyAction", new Action<HotKeyModel>(e =>
         {
-            Logger.Debug("鼠标快捷菜单快捷键触发");
+            Logger.Debug("文件速览快捷键触发");
             ServiceManager.Services.GetService<IMouseQuickWindowService>()!.Open();
         }));
         invokes.Add("searchHotKeyAction", new Action<HotKeyModel>(e =>

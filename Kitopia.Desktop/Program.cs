@@ -58,6 +58,7 @@ using Kitopia.Feature.DeviceCommunication.Identity;
 using PluginCore;
 using PluginCore.Onnx;
 using Serilog;
+using SharpHook;
 using ScreenCaptureWindow = Kitopia.Desktop.Services.ScreenCaptureWindow;
 using SharedApplication = Kitopia.Feature.DeviceCommunication.Application;
 using SharedCodecs = Kitopia.Feature.DeviceCommunication.Codecs;
@@ -142,6 +143,10 @@ internal class Program {
         services.AddSingleton<ISearchItemChooseService, SearchItemChooseService>();
         services.AddSingleton<IFeatureFilePicker, DesktopFeatureFilePicker>();
         services.AddSingleton<IMouseQuickWindowService, MouseQuickWindowService>();
+#if WINDOWS
+        services.AddSingleton<ExplorerFileSelection>();
+        services.AddSingleton<SimpleGlobalHook>();
+#endif
         services.AddTransient<ISearchWindowService, SearchWindowService>();
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
 

@@ -43,6 +43,7 @@
         </Content>
     </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
         <PackageReference Include="PeNet" Version="6.1.2" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageReference Include="Polly" Version="8.7.0" />

@@ -49,13 +49,13 @@ public static class KitopiaFeatures
         return Task.CompletedTask;
     }
 
-    [Feature("mouse-quick", "鼠标快捷菜单", "打开由常用搜索项目组成的鼠标快捷菜单。", "搜索与窗口", 0xf4b8, 50)]
+    [Feature("mouse-quick", "文件速览", "快速预览资源管理器中选中的图片、文档和音视频文件。", "搜索与窗口", 0xf4b8, 50)]
     private static Task OpenMouseQuickMenuAsync()
     {
         var mouseQuickWindowService = ServiceManager.Services?.GetService<IMouseQuickWindowService>();
         if (mouseQuickWindowService is null)
         {
-            ShowUnavailable("鼠标快捷菜单");
+            ShowUnavailable("文件速览");
             return Task.CompletedTask;
         }
 
