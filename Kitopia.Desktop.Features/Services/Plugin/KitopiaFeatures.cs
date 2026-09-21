@@ -122,7 +122,6 @@ public static class KitopiaFeatures
         var filePaths = await filePicker.PickFilesAsync("选择要检查占用的文件", true, cancellationToken);
         if (filePaths.Count == 0)
         {
-            await Dispatcher.UIThread.InvokeAsync(() => fileLocksmithWindow.ShowForScope(null, null));
             return;
         }
 
