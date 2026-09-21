@@ -27,7 +27,7 @@
                 <SolidColorBrush Color="Black" Opacity="0.5" />
             </Rectangle.Fill>
         </Rectangle>
-        <capture:DraggableResizeableControl IsVisible="False" IsSelected="True" ZIndex="2" Name="SelectBox"
+        <capture:DraggableResizeableControl IsVisible="False" IsHitTestVisible="False" IsSelected="True" ZIndex="2" Name="SelectBox"
                                              OnlyShowReSizingBoxOnSelect="False" ShowDragThumbs="False">
             <Rectangle PointerMoved="SelectBox_OnPointerMoved" PointerReleased="SelectBox_OnPointerReleased"
                        PointerPressed="SelectBox_OnPointerPressed" PointerCaptureLost="SelectBox_OnPointerCaptureLost">

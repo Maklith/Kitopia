@@ -41,6 +41,21 @@ public class DraggableResizeableControl : CaptureToolBase
         set => SetValue(StartTranslateTransformProperty, value);
     }
 
+    // Coordinates in the parent canvas, excluding the space reserved for resize handles.
+    public Rect ContentRect
+    {
+        get => ScreenCaptureSelectionGeometry.GetContentRectForDisplayRect(
+            new Rect(_dragTransform.X, _dragTransform.Y, Width, Height));
+        set
+        {
+            var displayRect = ScreenCaptureSelectionGeometry.GetDisplayRectForContentRect(value);
+            _dragTransform.X = displayRect.X;
+            _dragTransform.Y = displayRect.Y;
+            Width = displayRect.Width;
+            Height = displayRect.Height;
+        }
+    }
+
     public static readonly StyledProperty<bool> ShowDragThumbsProperty =
         AvaloniaProperty.Register<DraggableResizeableControl, bool>(nameof(ShowDragThumbs), true);
 
@@ -127,7 +142,7 @@ public class DraggableResizeableControl : CaptureToolBase
                 EditType = ScreenCaptureEditType.调整大小,
                 Target = this,
                 StartPoint = new Point(_dragTransform.X, _dragTransform.Y),
-                Size = DesiredSize,
+                Size = new Size(Width, Height),
                 Type = 截图工具.矩形
             });
         }
@@ -135,6 +150,7 @@ public class DraggableResizeableControl : CaptureToolBase
 
     private void UpdateSizeAndPosition(double deltaX, double deltaY, bool updateLeft, bool updateTop, bool updateRight, bool updateBottom)
     {
+        const double minimumSize = ScreenCaptureSelectionGeometry.SelectionChromeInset * 2 + 1;
         double newWidth = Width;
         double newHeight = Height;
         double newX = _dragTransform.X;
@@ -142,38 +158,22 @@ public class DraggableResizeableControl : CaptureToolBase
 
         if (updateLeft)
         {
-            newWidth -= deltaX;
-            if (newWidth > 0)
-            {
-                newX += deltaX;
-            }
-            else
-            {
-                newWidth = 0;
-            }
+            newWidth = Math.Max(minimumSize, Width - deltaX);
+            newX += Width - newWidth;
         }
         else if (updateRight)
         {
-            newWidth += deltaX;
-            if (newWidth < 0) newWidth = 0;
+            newWidth = Math.Max(minimumSize, Width + deltaX);
         }
 
         if (updateTop)
         {
-            newHeight -= deltaY;
-            if (newHeight > 0)
-            {
-                newY += deltaY;
-            }
-            else
-            {
-                newHeight = 0;
-            }
+            newHeight = Math.Max(minimumSize, Height - deltaY);
+            newY += Height - newHeight;
         }
         else if (updateBottom)
         {
-            newHeight += deltaY;
-            if (newHeight < 0) newHeight = 0;
+            newHeight = Math.Max(minimumSize, Height + deltaY);
         }
 
         if (newWidth >= 0)
@@ -211,10 +211,10 @@ public class DraggableResizeableControl : CaptureToolBase
     private void ContentOnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         Focus();
-        var visualParent = (Canvas?)this.GetVisualParent();
-        if (visualParent != null)
+        var visualParent = this.GetVisualParent();
+        if (visualParent is Canvas canvas)
         {
-            foreach (var canvasChild in visualParent.Children)
+            foreach (var canvasChild in canvas.Children)
                 if (canvasChild is CaptureToolBase captureTool)
                     captureTool.IsSelected = false;
         }
@@ -222,12 +222,11 @@ public class DraggableResizeableControl : CaptureToolBase
         IsSelected = true;
         if (e.Handled) return;
         
-        var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel != null && e.GetCurrentPoint(topLevel).Properties.IsLeftButtonPressed)
+        if (visualParent != null && e.GetCurrentPoint(visualParent).Properties.IsLeftButtonPressed)
         {
             e.Pointer.Capture((IInputElement?)sender);
             _isDragging = true;
-            _dragStartPoint = e.GetPosition(topLevel);
+            _dragStartPoint = e.GetPosition(visualParent);
             if (Name != "SelectBox")
             {
                 this.GetParentOfType<ScreenCaptureWindow>()?.RedoStack.Push(new ScreenCaptureRedoInfo
@@ -256,10 +255,10 @@ public class DraggableResizeableControl : CaptureToolBase
 
         if (_isDragging)
         {
-            var topLevel = TopLevel.GetTopLevel(this);
-            if (topLevel != null)
+            var visualParent = this.GetVisualParent();
+            if (visualParent != null)
             {
-                var currentPoint = e.GetPosition(topLevel);
+                var currentPoint = e.GetPosition(visualParent);
                 var dragDelta = currentPoint - _dragStartPoint;
                 _dragStartPoint = currentPoint;
                 _dragTransform.X += dragDelta.X;
@@ -274,7 +273,11 @@ public class DraggableResizeableControl : CaptureToolBase
     private void ContentOnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (e.Handled) return;
-        if (_isDragging && e.InitialPressMouseButton == MouseButton.Left) _isDragging = false;
+        if (_isDragging && e.InitialPressMouseButton == MouseButton.Left)
+        {
+            _isDragging = false;
+            e.Pointer.Capture(null);
+        }
     }
 
     #endregion

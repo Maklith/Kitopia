@@ -6,6 +6,7 @@ namespace Kitopia.Desktop.Windows;
 public static class ScreenCaptureSelectionGeometry
 {
     public const double SelectionChromeInset = 4d;
+    public static readonly Thickness SelectionChromePadding = new(SelectionChromeInset);
 
     public static Rect GetDisplayRectForContentRect(Rect contentRect)
     {

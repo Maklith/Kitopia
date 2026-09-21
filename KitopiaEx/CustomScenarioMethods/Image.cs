@@ -44,6 +44,9 @@ public class Image
             throw new System.Exception("图像数据为空，无法复制到剪贴板。");
         }
         var clipboardService = Kitopia.ServiceProvider.GetService<IClipboardService>()!;
-        clipboardService.SetImageAsync(captureResult).GetAwaiter().GetResult();
+        if (!clipboardService.SetImageAsync(captureResult).GetAwaiter().GetResult())
+        {
+            throw new System.InvalidOperationException("无法将图片复制到剪贴板。");
+        }
     }
 }

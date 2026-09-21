@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Threading.RateLimiting;
 using System.Windows;
 using System.Windows.Media.Imaging;
@@ -31,11 +32,12 @@ public class ClipboardWindow : IClipboardService
         .AddRetry(
             new RetryStrategyOptions
             {
-                ShouldHandle = new PredicateBuilder().Handle<Exception>(exception =>
-                {
-                    Logger.Error(exception, "错误");
-                    return true;
-                }),
+                ShouldHandle = new PredicateBuilder().Handle<ExternalException>(exception =>
+                    exception.ErrorCode is
+                        unchecked((int)0x800401D0) or // CLIPBRD_E_CANT_OPEN
+                        unchecked((int)0x800401D1) or // CLIPBRD_E_CANT_EMPTY
+                        unchecked((int)0x800401D2) or // CLIPBRD_E_CANT_SET
+                        unchecked((int)0x800401D4)),  // CLIPBRD_E_CANT_CLOSE
                 Delay = TimeSpan.FromSeconds(1),
                 MaxRetryAttempts = 5,
                 BackoffType = DelayBackoffType.Linear,
@@ -253,70 +255,58 @@ public class ClipboardWindow : IClipboardService
         return writeableBitmap;
     }
 
-    [STAThread]
     public async Task<bool> SetImageAsync(ScreenCaptureResult screenCaptureResult)
     {
-        var executeAsync = await ResiliencePipeline.ExecuteAsync(async _ =>
+        try
         {
-            var tcs = new TaskCompletionSource<bool>();
-            var thread = new Thread(() =>
+            return await ResiliencePipeline.ExecuteAsync(async _ =>
             {
-                try
+                var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var thread = new Thread(() =>
                 {
-                    var src = screenCaptureResult.Source;
-                    if (src == null || src.Width == 0 || src.Height == 0)
+                    try
                     {
-                        tcs.SetResult(false);
-                        return;
-                    }
+                        var src = screenCaptureResult.Source;
+                        if (src == null || src.IsDisposed || src.Empty())
+                        {
+                            tcs.SetResult(false);
+                            return;
+                        }
 
-                    // Ensure we have a 4-channel BGRA buffer
-                    Mat bgra = new Mat();
-                    if (src.Channels() == 4)
+                        var type = src.Type();
+                        var pixelFormat = type == MatType.CV_8UC4 ? PixelFormats.Pbgra32
+                            : type == MatType.CV_8UC3 ? PixelFormats.Bgr24
+                            : type == MatType.CV_8UC1 ? PixelFormats.Gray8
+                            : throw new ArgumentException($"不支持的剪贴板图片类型: {type}。", nameof(screenCaptureResult));
+
+                        int width = src.Width;
+                        int height = src.Height;
+                        int stride = checked((int)src.Step());
+                        int bufferSize = checked(stride * (height - 1) + width * src.Channels());
+
+                        var bitmapSource = BitmapSource.Create(width, height, 96, 96, pixelFormat,
+                            null, src.Data, bufferSize, stride);
+
+                        // SetImage already persists the data through SetDataObject(copy: true).
+                        Clipboard.SetImage(bitmapSource);
+                        tcs.SetResult(true);
+                    }
+                    catch (Exception exception)
                     {
-                        src.CopyTo(bgra);
+                        tcs.SetException(exception);
                     }
-                    else if (src.Channels() == 3)
-                    {
-                        Cv2.CvtColor(src, bgra, ColorConversionCodes.BGR2BGRA);
-                    }
-                    else if (src.Channels() == 1)
-                    {
-                        Cv2.CvtColor(src, bgra, ColorConversionCodes.GRAY2BGRA);
-                    }
-                    else
-                    {
-                        Cv2.CvtColor(src, bgra, ColorConversionCodes.BGR2BGRA);
-                    }
+                });
 
-                    int width = bgra.Width;
-                    int height = bgra.Height;
-                    int bytesPerPixel = 4;
-                    int stride = width * bytesPerPixel;
-                    int bufferSize = stride * height;
-
-                    var bitmapSource = BitmapSource.Create(width, height, 96, 96, PixelFormats.Pbgra32,
-                        null, bgra.Data, bufferSize, stride);
-
-                    Clipboard.Clear();
-                    Clipboard.SetImage(bitmapSource);
-                    Clipboard.Flush();
-                    tcs.SetResult(true);
-                }
-                catch (Exception exception)
-                {
-                    Logger.Error(exception, "设置剪贴板图片失败");
-                    tcs.SetResult(false);
-                }
-            });
-
-            thread.SetApartmentState(ApartmentState.STA);
-            thread.IsBackground = false; // Keep thread alive until operation completes for reliability
-            thread.Start();
-            return await tcs.Task;
-        });
-
-
-        return executeAsync;
+                thread.SetApartmentState(ApartmentState.STA);
+                thread.IsBackground = false; // Keep thread alive until operation completes for reliability
+                thread.Start();
+                return await tcs.Task.ConfigureAwait(false);
+            }).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            Logger.Error(exception, "设置剪贴板图片失败，错误码 {HResult:X8}", exception.HResult);
+            return false;
+        }
     }
 }

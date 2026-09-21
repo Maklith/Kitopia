@@ -1,6 +1,7 @@
 ﻿<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:capture="clr-namespace:Kitopia.Desktop.Controls.Capture"
+        xmlns:windows="clr-namespace:Kitopia.Desktop.Windows"
         xmlns:screenCaptureWindow="clr-namespace:Kitopia.Desktop.Converter.ScreenCaptureWindow">
     <Design.PreviewWith>
         <capture:DraggableResizeableControl Width="200" Height="200" />
@@ -15,13 +16,15 @@
                         <screenCaptureWindow:SizeToIntegerStringConverter x:Key="SizeToIntegerStringConverter" />
                     </Panel.Resources>
         
-                    <ContentPresenter Name="Presenter" Content="{TemplateBinding Content}" Margin="4" />
+                    <ContentPresenter Name="Presenter" Content="{TemplateBinding Content}"
+                                      Margin="{x:Static windows:ScreenCaptureSelectionGeometry.SelectionChromePadding}" />
         
                     <TextBlock
                         Text="{Binding #Presenter.Bounds.Size,Converter={StaticResource SizeToIntegerStringConverter}}"
                         IsVisible="{TemplateBinding IsSelected}" Foreground="White" Background="#80000000" Margin="4,-20,0,0" Padding="2,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
         
-                    <Border BorderBrush="#1890ff" BorderThickness="1.5" IsHitTestVisible="False" Margin="4"
+                    <Border BorderBrush="#1890ff" BorderThickness="1.5" IsHitTestVisible="False"
+                            Margin="{x:Static windows:ScreenCaptureSelectionGeometry.SelectionChromePadding}"
                             IsVisible="{TemplateBinding IsSelected}" />
 
                     <Panel IsVisible="{TemplateBinding IsDragThumbsVisible}">
