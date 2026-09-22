@@ -27,7 +27,7 @@ public sealed class ConfigMangerServiceTests
 
             Assert.AreEqual(ConfigManger.Version, service.Version);
             Assert.AreEqual(ConfigManger.ApiUrl, service.ApiUrl);
-            Assert.AreSame(ConfigManger.Configs, service.Configs);
+            Assert.AreSame(ConfigManger.AllConfigs, service.Configs);
             Assert.AreSame(ConfigManger.Config, service.Config);
             Assert.AreSame(ConfigManger.DefaultOptions, service.DefaultOptions);
             Assert.AreEqual(50, config.indexingMaximumCpuUsagePercent);
@@ -129,4 +129,116 @@ public sealed class ConfigMangerServiceTests
         Assert.AreEqual(HotKeyProcessScope.Exclude, config.mouseHotkey.ProcessScope);
         CollectionAssert.AreEqual(new[] { "notepad.exe" }, config.mouseHotkey.ProcessNames);
     }
+    [TestMethod]
+    public void LoadConfig_CallbackThrows_PreservesFileAndRemovesRegistration()
+    {
+        var key = "test-config-" + Guid.NewGuid().ToString("N");
+        var path = Kitopia.Desktop.Features.Utils.KitopiaPaths.GetConfigFilePath(key);
+        const string json = "{\"ConfigVersion\":0,\"Value\":42}";
+        File.WriteAllText(path, json);
+        try
+        {
+            Assert.ThrowsExactly<InvalidOperationException>(() => ConfigManger.LoadConfig(key, new FailingConfig()));
+            Assert.AreEqual(json, File.ReadAllText(path));
+            Assert.IsFalse(ConfigManger.AllConfigs.ContainsKey(key));
+        }
+        finally { ConfigManger.RemoveConfig(key); File.Delete(path); }
+    }
+
+    [TestMethod]
+    public void LoadConfig_InvalidJson_UsesBackupWithoutOverwritingEvidence()
+    {
+        var key = "test-config-" + Guid.NewGuid().ToString("N");
+        var path = Kitopia.Desktop.Features.Utils.KitopiaPaths.GetConfigFilePath(key);
+        File.WriteAllText(path, "broken");
+        File.WriteAllText(path + ".bak", "{\"Value\":42}");
+        try
+        {
+            var config = (SampleConfig)ConfigManger.LoadConfig(key, new SampleConfig());
+            Assert.AreEqual(42, config.Value);
+            Assert.IsTrue(config.Loaded);
+            Assert.AreEqual("broken", File.ReadAllText(path));
+            Assert.AreSame(config, new ConfigManger().Get<SampleConfig>());
+        }
+        finally
+        {
+            ConfigManger.RemoveConfig(key);
+            File.Delete(path);
+            File.Delete(path + ".bak");
+        }
+    }
+
+    [TestMethod]
+    public void RemoveConfig_PrefixOfAnotherPlugin_RemovesOnlyExactOwner()
+    {
+        var previous = ConfigManger.Configs;
+        try
+        {
+            ConfigManger.Configs = new Dictionary<string, ConfigBase>
+            {
+                ["foo#Config"] = new SampleConfig(), ["foobar#Config"] = new SampleConfig()
+            };
+            ConfigManger.RemoveConfig("foo");
+            Assert.IsFalse(ConfigManger.AllConfigs.ContainsKey("foo#Config"));
+            Assert.IsTrue(ConfigManger.AllConfigs.ContainsKey("foobar#Config"));
+            Assert.IsTrue(((IDictionary<string, ConfigBase>)ConfigManger.AllConfigs).IsReadOnly);
+        }
+        finally { ConfigManger.Configs = previous; }
+    }
+
+    [TestMethod]
+    public void LoadConfig_MigrationThrows_DoesNotFallBackToOlderConfiguration()
+    {
+        var key = "test-config-" + Guid.NewGuid().ToString("N");
+        var path = Kitopia.Desktop.Features.Utils.KitopiaPaths.GetConfigFilePath(key);
+        const string json = "{\"Value\":42}";
+        File.WriteAllText(path, json);
+        File.WriteAllText(path + ".bak", "{\"Value\":1}");
+        try
+        {
+            Assert.ThrowsExactly<JsonException>(() => ConfigManger.LoadConfig(key, new MigrationFailureConfig()));
+            Assert.AreEqual(json, File.ReadAllText(path));
+            Assert.IsFalse(ConfigManger.AllConfigs.ContainsKey(key));
+        }
+        finally { ConfigManger.RemoveConfig(key); File.Delete(path); File.Delete(path + ".bak"); }
+    }
+
+    [TestMethod]
+    public void LoadConfig_RecoveryAllowedAndBothFilesInvalid_UsesDefaultsWithoutOverwriting()
+    {
+        var key = "test-config-" + Guid.NewGuid().ToString("N");
+        var path = Kitopia.Desktop.Features.Utils.KitopiaPaths.GetConfigFilePath(key);
+        File.WriteAllText(path, "broken");
+        File.WriteAllText(path + ".bak", "broken backup");
+        try
+        {
+            var config = (SampleConfig)ConfigManger.LoadConfig(key, new SampleConfig { Value = 7 }, useDefaultsOnInvalidJson: true);
+            Assert.AreEqual(7, config.Value);
+            Assert.IsTrue(config.Loaded);
+            Assert.AreEqual("broken", File.ReadAllText(path));
+            Assert.AreEqual("broken backup", File.ReadAllText(path + ".bak"));
+        }
+        finally { ConfigManger.RemoveConfig(key); File.Delete(path); File.Delete(path + ".bak"); }
+    }
+
+    public sealed class MigrationFailureConfig : SampleConfig
+    {
+        public override void MigrateConfig(JsonElement root)
+        {
+            if (Value == 42) throw new JsonException("migration failure");
+        }
+    }
+
+    public class SampleConfig : ConfigBase
+    {
+        public int Value;
+        [System.Text.Json.Serialization.JsonIgnore] public bool Loaded;
+        public override void AfterLoad() => Loaded = true;
+    }
+
+    public sealed class FailingConfig : SampleConfig
+    {
+        public override void AfterLoad() => throw new InvalidOperationException("hook failure");
+    }
+
 }

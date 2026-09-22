@@ -5,11 +5,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Text.Json;
 using Kitopia.Desktop.Features.CustomScenario;
 using Kitopia.Desktop.Features.Services.Config;
-using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,97 +29,41 @@ public class Plugin
 {
     private static ILogger Logger = LogManager.Logger.ForContext<Plugin>();
 
-    private readonly AssemblyLoadContextH _plugin;
-    private IPlugin _pluginService;
+    private AssemblyLoadContextH? _plugin;
+    private IPlugin? _pluginService;
     private bool _enabled;
 
-    public IServiceProvider? ServiceProvider;
-    internal AssemblyLoadContextH AssemblyLoadContext => _plugin;
+    public IServiceProvider? ServiceProvider { get; private set; }
+    internal AssemblyLoadContextH AssemblyLoadContext => _plugin!;
+    private readonly List<string> _hotKeyIds = new();
 
-    private void AddConfig(string key, ConfigBase configBase)
+    private void AddConfig(string key, ConfigBase defaults)
     {
-        void SerializeConfigToFile() => ConfigManger.WriteConfigFile(key, configBase);
-
-        var activeConfig = configBase;
-        var retryFlag = false;
-        retry:
-
-        var configF = new FileInfo(KitopiaPaths.GetConfigFilePath(key));
-        if (!configF.Exists) SerializeConfigToFile();
-
-        var json = File.ReadAllText(configF.FullName);
-        if (string.IsNullOrWhiteSpace(json))
+        var config = ConfigManger.LoadConfig(key, defaults);
+        foreach (var field in config.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public))
         {
-            SerializeConfigToFile();
-            json = File.ReadAllText(configF.FullName);
-            ServiceManager.Services.GetService<IToastService>()!.Show("警告", $"{configF.Name}配置文件加载失败，已还原到最初配置");
+            if (field.GetCustomAttribute<ConfigField>() is not { FieldType: ConfigFieldType.快捷键 } attribute ||
+                field.GetValue(config) is not HotKeyModel model) continue;
+            var callback = config.GetType().GetProperty($"{field.Name}Action")?.GetValue(config) as Action<HotKeyModel>;
+            if (callback is null && attribute.ActionName is { } actionName && config.invokes.TryGetValue(actionName, out var action))
+                callback = action as Action<HotKeyModel>;
+            if (callback is null)
+                throw new InvalidOperationException($"未找到快捷键 {model.SignName} 的触发方法。");
+            _hotKeyIds.Add(model.UUID);
+            if (!ServiceManager.Services.GetRequiredService<IHotKetImpl>().Register(model, callback))
+                ServiceManager.Services.GetService<IToastService>()?.Show("快捷键注册失败", model.SignName);
         }
-
-        try
-        {
-            using var document = JsonDocument.Parse(json);
-            var deserializeObject =
-                JsonSerializer.Deserialize(json, configBase.GetType(), ConfigManger.DefaultOptions)! as ConfigBase ??
-                configBase;
-            deserializeObject.Name = key;
-            ConfigManger.MigrateConfig(key, document.RootElement, deserializeObject);
-            if (!ConfigManger.Configs.TryAdd(key, deserializeObject)) ConfigManger.Configs[key] = deserializeObject;
-            activeConfig = deserializeObject;
-
-            deserializeObject.GetType()
-                .BaseType?.GetField("Instance")?
-                .SetValue(deserializeObject, deserializeObject);
-            deserializeObject.AfterLoad();
-        }
-        catch (Exception e)
-        {
-            Logger.Error(e, "配置文件加载失败");
-
-            SerializeConfigToFile();
-
-            if (!retryFlag)
-            {
-                retryFlag = true;
-                goto retry;
-            }
-
-            ServiceManager.Services.GetService<IToastService>()!.Show("错误", $"{configF.Name}配置文件加载失败，请检查配置文件内容是否正确");
-        }
-
-        if (retryFlag)
-            ServiceManager.Services.GetService<IToastService>()!.Show("警告", $"{configF.Name}配置文件加载失败，已还原到最初配置");
-        activeConfig.GetType()
-            .GetFields(BindingFlags.Instance | BindingFlags.Public)
-            .ToList()
-            .ForEach(x =>
-            {
-                if (x.GetCustomAttribute<ConfigField>() is { } configField)
-                    if (configField.FieldType == ConfigFieldType.快捷键)
-                    {
-                        var hotKeyModel = (HotKeyModel)x.GetValue(activeConfig)!;
-
-                        var value = activeConfig.GetType().GetProperty($"{x.Name}Action")
-                            ?.GetValue(activeConfig, null);
-                        if (value is null)
-                        {
-                            Logger.Warning( $"未找到快捷键 {hotKeyModel.SignName} 的触发方法 {configField.ActionName}，请确保方法存在且命名正确");
-                            return;
-                        }
-                        if (ServiceManager.Services.GetService<IHotKetImpl>()!.Register(hotKeyModel,
-                                (Action<HotKeyModel>)value))
-                            ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
-                            {
-                                Title = $"快捷键{hotKeyModel.SignName}设置失败",
-                                Content = "请重新设置快捷键，按键与系统其他程序冲突",
-                                CloseButtonText = "关闭"
-                            }.ToToastRequest());
-                    }
-            });
     }
 
     private readonly List<SearchViewItem> _searchViewItems = new();
     public Plugin(PluginLocalInfo pluginInfo)
     {
+        PluginInfo = pluginInfo;
+    }
+
+    internal void Load()
+    {
+        var pluginInfo = PluginInfo;
         _plugin = new AssemblyLoadContextH(pluginInfo.FullPath, pluginInfo.FullPath.Split(Path.DirectorySeparatorChar)
             .Last() + "_plugin", pluginInfo.PluginBaseInfo.Dependencies);
         Logger.Debug($"加载插件:{pluginInfo.FullPath}");
@@ -138,39 +79,34 @@ public class Plugin
         List<(Func<InputDataAnalyzeTimeFlags>, Func<IEnumerable<InputData>, IEnumerable<SearchViewItem>>)>
             inputDataAnalyzerActions = new();
         Dictionary<string, Func<IInferenceSession>> onnxRuntimes = new();
-        PluginInfo = pluginInfo;
         var featureSource = string.IsNullOrWhiteSpace(PluginInfo.PluginBaseInfo.Name)
             ? PluginInfo.ToPlgString()
             : PluginInfo.PluginBaseInfo.Name;
-        foreach (var type in t)
-            if (type.GetInterface("IPlugin") != null)
-            {
-                Logger.Debug($"加载插件:{PluginInfo.ToPlgString()}");
-                //var instance = Activator.CreateInstance(type);
-                var methodInfo = type.GetMethod("GetServiceProvider");
-                ServiceProvider = (IServiceProvider)methodInfo
-                    .Invoke(null, null);
+        var entryTypes = t.Where(type => type.IsClass && !type.IsAbstract &&
+            typeof(IPlugin).IsAssignableFrom(type)).ToArray();
+        if (entryTypes.Length != 1)
+            throw new InvalidOperationException($"插件 {PluginInfo.ToPlgString()} 必须且只能提供一个 IPlugin 实现。");
 
-                var service = ServiceProvider.GetService(type);
-                _pluginService = (IPlugin)service;
-                break;
-            }
-
-
-        // Load every configuration before resolving plugin services that may consume it.
         foreach (var type in t)
         {
-            if (type.BaseType != typeof(ConfigBase)) continue;
-
-            var instance = (ConfigBase)Activator.CreateInstance(type);
-            instance.Name = $"{PluginInfo.ToPlgString()}#{type.FullName}";
-            AddConfig(instance.Name, instance);
+            if (type.IsAbstract || !typeof(ConfigBase).IsAssignableFrom(type)) continue;
+            var instance = (ConfigBase)Activator.CreateInstance(type)!;
+            AddConfig($"{PluginInfo.ToPlgString()}#{type.FullName}", instance);
         }
+
+        var entryType = entryTypes[0];
+        var factory = entryType.GetMethod(nameof(IPlugin.GetServiceProvider), BindingFlags.Public | BindingFlags.Static)
+                      ?? throw new InvalidOperationException($"插件 {entryType.FullName} 缺少 GetServiceProvider。");
+        ServiceProvider = factory.Invoke(null, null) as IServiceProvider
+                          ?? throw new InvalidOperationException($"插件 {entryType.FullName} 未提供服务容器。");
+        _pluginService = ServiceProvider.GetRequiredService(entryType) as IPlugin
+                         ?? throw new InvalidOperationException($"插件入口 {entryType.FullName} 未注册到服务容器。");
 
         pluginMainScenarioMethodCategoryGroup.Name = PluginInfo.PluginBaseInfo.Name;
 
         foreach (var type in t)
         {
+            if (type.IsAbstract || type.IsInterface) continue;
             if (typeof(CustomScenarioTrigger).IsAssignableFrom(type))
             {
                 var fieldInfo = type.GetField("Info");
@@ -308,7 +244,7 @@ public class Plugin
                 pluginMainScenarioMethodCategoryGroup);
     }
 
-    public void Enable()
+    internal void Enable()
     {
         if (_enabled) return;
 
@@ -328,12 +264,12 @@ public class Plugin
 
         // Treat a partially completed callback as enabled so the unload path can still clean it up.
         _enabled = true;
-        _pluginService.OnEnabled(ServiceProvider!, dependencyServiceProviders);
+        _pluginService!.OnEnabled(ServiceProvider!, dependencyServiceProviders);
     }
 
-    private Assembly _dll => _plugin.Assembly;
+    private Assembly _dll => _plugin!.Assembly;
 
-    public PluginLocalInfo PluginInfo { set; get; }
+    public PluginLocalInfo PluginInfo { get; }
 
 
     public Type? GetType(string typeName)
@@ -347,7 +283,7 @@ public class Plugin
 
     public bool IsPluginAssembly(Assembly assembly)
     {
-        return _plugin.Assemblies.Any(x => x == assembly);
+        return _plugin?.Assemblies.Any(x => x == assembly) == true;
     }
 
     public MethodInfo GetMethod(string methodAbsolutelyName)
@@ -385,83 +321,76 @@ public class Plugin
     }
 
 
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    internal static void UnloadByPluginInfo(string pluginInfoEx, out WeakReference weakReference)
+    public async ValueTask<(WeakReference Context, bool Succeeded)> UnloadAsync(CancellationToken cancellationToken = default)
     {
-        var plugin = PluginManager.GetEnablePlugins().TryGetValue(pluginInfoEx, out var value) ? value : null;
-        if (plugin is not null)
+        var name = PluginInfo.ToPlgString();
+        var succeeded = true;
+        void Cleanup(Action action)
         {
-            plugin.Unload(out weakReference);
-
-            return;
-        }
-
-        weakReference = new WeakReference(null);
-    }
-
-    public void Unload(out WeakReference weakReference)
-    {
-        Logger.Debug($"卸载插件:{PluginInfo.ToPlgString()}");
-
-        if (_enabled)
-        {
-            try
+            try { action(); }
+            catch (Exception exception)
             {
-                _pluginService.OnDisabled();
-            }
-            catch (Exception e)
-            {
-                Logger.Error(e, $"停用插件 {PluginInfo.ToPlgString()} 时发生错误");
-            }
-            finally
-            {
-                _enabled = false;
+                succeeded = false;
+                Logger.Error(exception, "清理插件 {Plugin} 资源失败", name);
             }
         }
 
-        ConfigManger.RemoveConfig($"{PluginInfo.ToPlgString()}");
-
-        PluginOverall.ScreenCaptureExMethods.Remove(PluginInfo.ToPlgString());
-        lock (PluginOverall.Features)
-        {
-            PluginOverall.Features.Remove(PluginInfo.ToPlgString());
-        }
-        PluginOverall.OnnxModelInfos.Remove(PluginInfo.ToPlgString());
-        PluginOverall.OnnxRuntimes.Remove(PluginInfo.ToPlgString());
-        PluginOverall.SearchWindowInputDataIdentifies.TryRemove(PluginInfo.ToPlgString(), out _);
-
-        if (PluginOverall.SearchWindowInputDataAnalyzers.TryRemove(PluginInfo.ToPlgString(), out var analyzers))
-        {
-            var searchFeature = ServiceManager.Services.GetService<ISearchFeatureService>();
-            if (searchFeature != null)
+        foreach (var uuid in _hotKeyIds)
+            Cleanup(() =>
             {
-                foreach (var analyzer in analyzers)
-                {
-                    searchFeature.RemoveAnalyzerIndex(analyzer);
-                }
-            }
+                var hotkeys = ServiceManager.Services.GetRequiredService<IHotKetImpl>();
+                if (!hotkeys.Remove(uuid) && hotkeys.GetByUuid(uuid) is not null)
+                    throw new InvalidOperationException($"快捷键 {uuid} 无法注销。");
+            });
+        _hotKeyIds.Clear();
+        Cleanup(() => CustomScenarioManger.UnloadWhichUseThePlugin(name));
+        PluginOverall.ScreenCaptureExMethods.Remove(name);
+        lock (PluginOverall.Features) PluginOverall.Features.Remove(name);
+        PluginOverall.OnnxModelInfos.Remove(name);
+        PluginOverall.OnnxRuntimes.Remove(name);
+        PluginOverall.SearchWindowInputDataIdentifies.TryRemove(name, out _);
+        if (PluginOverall.SearchWindowInputDataAnalyzers.TryRemove(name, out var analyzers))
+        {
+            foreach (var analyzer in analyzers)
+                Cleanup(() => ServiceManager.Services.GetService<ISearchFeatureService>()?.RemoveAnalyzerIndex(analyzer));
         }
-        ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.RemoveMethodsByPluginName(PluginInfo.ToPlgString());
-        var keyValuePairs = CustomScenarioGlobe.Triggers
-            .Where(e => e.Value.PluginInfo == PluginInfo.ToPlgString())
-            .ToList();
-        foreach (var keyValuePair in keyValuePairs) CustomScenarioGlobe.Triggers.Remove(keyValuePair.Key);
-
-        ServiceManager.Services.GetService<ISearchFeatureService>()?.RemovePluginItems(_searchViewItems);
+        Cleanup(() => ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.RemoveMethodsByPluginName(name));
+        foreach (var trigger in CustomScenarioGlobe.Triggers.Where(pair => pair.Value.PluginInfo == name)
+                     .Select(pair => pair.Key).ToArray())
+            CustomScenarioGlobe.Triggers.Remove(trigger);
+        Cleanup(() => ServiceManager.Services.GetService<ISearchFeatureService>()?.RemovePluginItems(_searchViewItems));
         _searchViewItems.Clear();
 
-        keyValuePairs = null;
-
-
-        CustomScenarioManger.UnloadWhichUseThePlugin(PluginInfo.ToPlgString());
-
+        if (_enabled && _pluginService is not null)
+        {
+            try { await _pluginService.OnDisabledAsync(cancellationToken); }
+            catch (Exception exception) { succeeded = false; Logger.Error(exception, "停用插件 {Plugin} 失败", name); }
+            _enabled = false;
+        }
+        Cleanup(() => ConfigManger.RemoveConfig(name));
+        // Remove plugin-owned converter keys even if OnDisabled failed before unregistering them.
+        foreach (var type in CustomScenarioGlobe.ToolTipConverters.Where(pair =>
+                     IsPluginAssembly(pair.Key.Assembly) || IsPluginAssembly(pair.Value.Method.Module.Assembly) ||
+                     pair.Value.Target is { } target && IsPluginAssembly(target.GetType().Assembly))
+                     .Select(pair => pair.Key).ToArray())
+            CustomScenarioGlobe.ToolTipConverters.Remove(type);
+        foreach (var type in CustomScenarioGlobe.JsonConverters.Where(pair =>
+                     IsPluginAssembly(pair.Key.Assembly) || IsPluginAssembly(pair.Value.GetType().Assembly))
+                     .Select(pair => pair.Key).ToArray())
+            CustomScenarioGlobe.JsonConverters.Remove(type);
         _pluginService = null;
-        if (ServiceProvider is IDisposable disposable)
-            disposable.Dispose();
-        PluginInfo = null;
-        ServiceProvider = null;
+        try
+        {
+            if (ServiceProvider is IAsyncDisposable asyncDisposable) await asyncDisposable.DisposeAsync();
+            else if (ServiceProvider is IDisposable disposable) disposable.Dispose();
+        }
+        catch (Exception exception) { succeeded = false; Logger.Error(exception, "释放插件 {Plugin} 服务容器失败", name); }
+        finally { ServiceProvider = null; }
 
-        _plugin.Unload();
-        weakReference = new WeakReference(_plugin);
+        var context = _plugin;
+        _plugin = null;
+        var weakReference = new WeakReference(context, trackResurrection: true);
+        if (context is not null) Cleanup(context.Unload);
+        return (weakReference, succeeded);
     }
 }

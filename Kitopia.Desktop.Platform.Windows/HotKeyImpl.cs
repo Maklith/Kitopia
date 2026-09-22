@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
+using Kitopia.Desktop.Features.Services.HotKey;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using SharpHook;
@@ -207,173 +208,123 @@ public class HotKeyImpl : IHotKetImpl
     }
 
     
-    public bool Register(HotKeyModel hotKeyModel, Action<HotKeyModel> rallBack,bool initHotKey=true)
+    public bool Register(HotKeyModel model, Action<HotKeyModel> callback, bool initHotKey = true)
     {
-        if (!hotKeyModel.IsEnabled)//没有激活直接返回注册完成
+        if (!Dispatcher.UIThread.CheckAccess())
+            return Dispatcher.UIThread.Invoke(() => Register(model, callback, initHotKey));
+
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(callback);
+        if (HotKeys.TryGetValue(model.UUID, out var existing))
         {
-            HotKeys[hotKeyModel.UUID] = new HotkeyInfo
-            {
-                HotKeyModel = hotKeyModel,
-                Id = -1,
-                CallBack = rallBack
-            };
+            if (!Modify(model)) return false;
+            existing.CallBack = callback;
             return true;
         }
 
-        switch (hotKeyModel.Type)
-        {
-            case HotKeyType.Keyboard:
-            {
-                if (hotKeyModel.ProcessScope != HotKeyProcessScope.All || hotKeyModel.IgnoreTextInput)
-                {
-                    var enabled = initHotKey && hotKeyModel.SelectKey is not (EKey.未设置 or 0);
-                    hotKeyModel.IsEnabled = enabled;
-                    HotKeys[hotKeyModel.UUID] = new HotkeyInfo
-                    {
-                        HotKeyModel = hotKeyModel, Id = enabled ? 0 : -1, CallBack = rallBack
-                    };
-                    return enabled;
-                }
-                User32.HotKeyModifiers hotkeyModifiers = 0;
-                if (hotKeyModel.IsSelectAlt) hotkeyModifiers |= User32.HotKeyModifiers.MOD_ALT;
-
-                if (hotKeyModel.IsSelectCtrl) hotkeyModifiers |= User32.HotKeyModifiers.MOD_CONTROL;
-
-                if (hotKeyModel.IsSelectShift) hotkeyModifiers |= User32.HotKeyModifiers.MOD_SHIFT;
-
-                if (hotKeyModel.IsSelectWin) hotkeyModifiers |= User32.HotKeyModifiers.MOD_WIN;
-
-                _id++;
-                var registerHotKey = false;
-                if (initHotKey)
-                {
-                    Dispatcher.UIThread.Invoke(() =>
-                    {
-                        registerHotKey = User32.RegisterHotKey(_globalHotKeyWindow.TryGetPlatformHandle()!.Handle, _id,
-                            hotkeyModifiers,
-                            (uint)hotKeyModel.SelectKey);
-                    });
-                }
-              
-                if (registerHotKey)
-                {
-                    if (HotKeys.TryGetValue(hotKeyModel.UUID, out var hotKeyModel1) && hotKeyModel1.Id == -1)
-                    {
-                        hotKeyModel1.Id = _id;
-                        hotKeyModel1.HotKeyModel = hotKeyModel;
-                    }
-                    else
-                    {
-                        HotKeys.TryAdd(hotKeyModel.UUID, new HotkeyInfo
-                        {
-                            HotKeyModel = hotKeyModel,
-                            Id = _id,
-                            CallBack = rallBack
-                        });
-                    }
-                }
-                else
-                {
-                    hotKeyModel.IsEnabled = false;
-                    HotKeys[hotKeyModel.UUID] = new HotkeyInfo
-                    {
-                        HotKeyModel = hotKeyModel,
-                        Id = -1,
-                        CallBack = rallBack
-                    };
-                }
-
-                return registerHotKey;
-            }
-            case HotKeyType.Mouse:
-            {
-                hotKeyModel.IsEnabled = true;
-                if (HotKeys.TryGetValue(hotKeyModel.UUID, out var hotKeyModel1) && hotKeyModel1.Id == -1)
-                {
-                    hotKeyModel1.Id = 0;
-                    hotKeyModel1.HotKeyModel = hotKeyModel;
-                }
-                else
-                {
-                    HotKeys.TryAdd(hotKeyModel.UUID, new HotkeyInfo
-                    {
-                        HotKeyModel = hotKeyModel,
-                        Id = 0,
-                        CallBack = rallBack
-                    });
-                }
-
-                return true;
-            }
-        }
-        hotKeyModel.IsEnabled = false;
-        return false;
+        model.IsEnabled &= initHotKey;
+        var registered = TryRegister(model, out var id);
+        if (!registered) model.IsEnabled = false;
+        HotKeys[model.UUID] = new HotkeyInfo { HotKeyModel = model, Id = id, CallBack = callback };
+        WeakReferenceMessenger.Default.Send(new HotKeyChanged(model.UUID, HotKeyChangeKind.Added));
+        return registered;
     }
 
-    public bool UnRegister(HotKeyModel hotKeyModel)
+    private static bool TryRegister(HotKeyModel model, out int id)
     {
-        return UnRegister(hotKeyModel.UUID);
+        id = -1;
+        if (!model.IsEnabled) return true;
+        if (model.Type == HotKeyType.Mouse)
+        {
+            if (model.MouseButton is null or 0 or ushort.MaxValue) return false;
+            id = 0;
+            return true;
+        }
+        if (model.SelectKey is EKey.未设置 or 0) return false;
+        if (model.ProcessScope != HotKeyProcessScope.All || model.IgnoreTextInput)
+        {
+            id = 0;
+            return true;
+        }
+
+        User32.HotKeyModifiers modifiers = 0;
+        if (model.IsSelectAlt) modifiers |= User32.HotKeyModifiers.MOD_ALT;
+        if (model.IsSelectCtrl) modifiers |= User32.HotKeyModifiers.MOD_CONTROL;
+        if (model.IsSelectShift) modifiers |= User32.HotKeyModifiers.MOD_SHIFT;
+        if (model.IsSelectWin) modifiers |= User32.HotKeyModifiers.MOD_WIN;
+        var nextId = ++_id;
+        if (_globalHotKeyWindow?.TryGetPlatformHandle() is not { } handle ||
+            !User32.RegisterHotKey(handle.Handle, nextId, modifiers, (uint)model.SelectKey)) return false;
+        id = nextId;
+        return true;
     }
+
+    private static bool StopRegistration(HotkeyInfo hotkey)
+    {
+        if (hotkey.Id > 0 && !User32.UnregisterHotKey(
+                _globalHotKeyWindow.TryGetPlatformHandle()!.Handle, hotkey.Id)) return false;
+        hotkey.Id = -1;
+        hotkey.Timer?.Stop();
+        hotkey.Timer = null;
+        return true;
+    }
+
+    public bool UnRegister(HotKeyModel model) => UnRegister(model.UUID);
 
     public bool UnRegister(string uuid)
     {
-        if (HotKeys.TryGetValue(uuid, out var hotkey))
-        {
-            var unregistered = hotkey.Id <= 0 || Dispatcher.UIThread.Invoke(() =>
-                User32.UnregisterHotKey(_globalHotKeyWindow.TryGetPlatformHandle()!.Handle, hotkey.Id));
-            if (!unregistered) return false;
-
-            hotkey.Id = -1;
-            hotkey.Timer?.Stop();
-            hotkey.Timer = null;
-            hotkey.HotKeyModel.IsEnabled = false;
-            ConfigManger.RequsetUpdateHotKey(hotkey.HotKeyModel);
-            ConfigManger.Save();
-            WeakReferenceMessenger.Default.Send(hotkey.HotKeyModel.UUID, "hotkey");
-            return true;
-        }
-
-        return false;
+        if (!Dispatcher.UIThread.CheckAccess())
+            return Dispatcher.UIThread.Invoke(() => UnRegister(uuid));
+        if (!HotKeys.TryGetValue(uuid, out var hotkey) || !StopRegistration(hotkey)) return false;
+        hotkey.HotKeyModel.IsEnabled = false;
+        ConfigManger.SaveHotKey(hotkey.HotKeyModel);
+        WeakReferenceMessenger.Default.Send(new HotKeyChanged(uuid, HotKeyChangeKind.Updated));
+        return true;
     }
 
-    public bool Remove(string uuid) {
-        if (UnRegister(uuid))
-        {
-            HotKeys.TryRemove(uuid, out _);
-            WeakReferenceMessenger.Default.Send("", "hotkey");
-            return true;
-        }
-
-        return false;
+    public bool Remove(string uuid)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+            return Dispatcher.UIThread.Invoke(() => Remove(uuid));
+        if (string.IsNullOrEmpty(uuid) || !HotKeys.TryGetValue(uuid, out var hotkey) ||
+            !StopRegistration(hotkey)) return false;
+        // Removing a registration (e.g. unloading a plugin) must retain its configured enabled intent.
+        HotKeys.TryRemove(uuid, out _);
+        WeakReferenceMessenger.Default.Send(new HotKeyChanged(uuid, HotKeyChangeKind.Removed));
+        return true;
     }
 
     public bool RequestUserModify(string uuid)
     {
-        if (HotKeys.ContainsKey(uuid))
-        {
-            ServiceManager.Services.GetService<IHotKeyEditor>()?.EditByUuid(uuid, null);
-            return true;
-        }
-
-        return false;
+        if (!Dispatcher.UIThread.CheckAccess())
+            return Dispatcher.UIThread.Invoke(() => RequestUserModify(uuid));
+        if (!HotKeys.ContainsKey(uuid)) return false;
+        ServiceManager.Services.GetService<IHotKeyEditor>()?.EditByUuid(uuid, null);
+        return true;
     }
 
-    public bool Modify(HotKeyModel hotKeyModel)
+    public bool Modify(HotKeyModel candidate)
     {
-        if (HotKeys.ContainsKey(hotKeyModel.UUID))
+        if (!Dispatcher.UIThread.CheckAccess())
+            return Dispatcher.UIThread.Invoke(() => Modify(candidate));
+        if (!HotKeys.TryGetValue(candidate.UUID, out var hotkey)) return false;
+        if (!StopRegistration(hotkey)) return false;
+        if (!TryRegister(candidate, out var id))
         {
-            var rallback = HotKeys[hotKeyModel.UUID].CallBack;
-            var enabled = hotKeyModel.IsEnabled;
-            if (!UnRegister(hotKeyModel.UUID)) return false;
-            hotKeyModel.IsEnabled = enabled;
-            var registered = Register(hotKeyModel, rallback);
-            ConfigManger.RequsetUpdateHotKey(hotKeyModel);
-            ConfigManger.Save();
-            WeakReferenceMessenger.Default.Send(hotKeyModel.UUID, "hotkey");
-            return registered;
+            if (!TryRegister(hotkey.HotKeyModel, out hotkey.Id))
+            {
+                hotkey.HotKeyModel.IsEnabled = false;
+                ConfigManger.SaveHotKey(hotkey.HotKeyModel);
+                WeakReferenceMessenger.Default.Send(new HotKeyChanged(candidate.UUID, HotKeyChangeKind.Updated));
+            }
+            return false;
         }
 
-        return false;
+        hotkey.Id = id;
+        hotkey.HotKeyModel.ApplySettings(candidate);
+        ConfigManger.SaveHotKey(hotkey.HotKeyModel);
+        WeakReferenceMessenger.Default.Send(new HotKeyChanged(candidate.UUID, HotKeyChangeKind.Updated));
+        return true;
     }
 
     public HotKeyModel? GetByUuid(string uuid)

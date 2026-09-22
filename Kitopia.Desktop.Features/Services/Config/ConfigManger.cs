@@ -8,7 +8,6 @@ using System.Text.Unicode;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.JsonConverter;
-using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,7 +20,7 @@ using Serilog;
 
 namespace Kitopia.Desktop.Features.Services.Config;
 
-public class ConfigManger : IConfigService
+public class ConfigManger : IConfigService, IConfigProvider
 {
     private static ILogger Logger = LogManager.Logger.ForContext<ConfigManger>();
     public static Version Version = new("1.0.0");
@@ -56,10 +55,20 @@ public class ConfigManger : IConfigService
             return "https://kitopia.top";
         }
     }
-    public static Dictionary<string, ConfigBase> Configs = new();
+    private static Dictionary<string, ConfigBase> _configs = new();
+    public static IReadOnlyDictionary<string, ConfigBase> AllConfigs { get; private set; } = _configs.AsReadOnly();
+    internal static Dictionary<string, ConfigBase> Configs
+    {
+        get => _configs;
+        set
+        {
+            _configs = value;
+            AllConfigs = value.AsReadOnly();
+        }
+    }
     public static KitopiaConfig Config => Configs.TryGetValue("KitopiaConfig", out var config) ? (KitopiaConfig)config : null!;
 
-    private static readonly Dictionary<HotKeyModel, (object, FieldInfo)> hotkeysMappings = new();
+    private static readonly Dictionary<string, (ConfigBase Config, FieldInfo Field)> hotkeysMappings = new();
     private static readonly HashSet<string> UnsupportedConfigKeys = new(StringComparer.Ordinal);
 
     public static JsonSerializerOptions DefaultOptions = new()
@@ -81,69 +90,8 @@ public class ConfigManger : IConfigService
     {
         Directory.CreateDirectory(KitopiaPaths.ConfigsDirectory);
 
-        var defaultConfig = new KitopiaConfig { Name = "KitopiaConfig" };
-        defaultConfig.ConfigVersion = defaultConfig.CurrentConfigVersion;
-        Configs["KitopiaConfig"] = defaultConfig;
-        UnsupportedConfigKeys.Remove("KitopiaConfig");
-        var configF = new FileInfo(KitopiaPaths.GetConfigFilePath("KitopiaConfig"));
-        if (!configF.Exists)
-        {
-            WriteConfigFile("KitopiaConfig", Config);
-        }
-        else
-        {
-            try
-            {
-                Configs["KitopiaConfig"] = LoadKitopiaConfig(configF.FullName);
-            }
-            catch (Exception e)
-            {
-                Logger.Error(e, "配置文件加载失败");
-
-                var backupPath = $"{configF.FullName}.bak";
-                if (File.Exists(backupPath))
-                {
-                    try
-                    {
-                        var backupConfig = LoadKitopiaConfig(backupPath);
-                        Configs["KitopiaConfig"] = backupConfig;
-                        if (backupConfig.ConfigVersion <= backupConfig.CurrentConfigVersion)
-                        {
-                            try
-                            {
-                                WriteConfigFile("KitopiaConfig", backupConfig);
-                            }
-                            catch (Exception recoveryException)
-                            {
-                                Logger.Error(recoveryException, "配置文件从备份恢复失败");
-                            }
-                        }
-
-                        Logger.Warning("主配置文件加载失败，已从备份恢复");
-                    }
-                    catch (Exception backupException)
-                    {
-                        Logger.Error(backupException, "配置文件备份加载失败");
-                    }
-                }
-
-                if (ReferenceEquals(Configs["KitopiaConfig"], defaultConfig))
-                {
-                    try
-                    {
-                        WriteConfigFile("KitopiaConfig", defaultConfig);
-                        Logger.Warning("配置文件和备份均无法加载，已恢复默认配置");
-                    }
-                    catch (Exception recoveryException)
-                    {
-                        Logger.Error(recoveryException, "默认配置恢复失败");
-                    }
-                }
-            }
-        }
-
-        Config!.BeforeLoad();
-        Config.AfterLoad();
+        RemoveConfig("KitopiaConfig");
+        LoadConfig("KitopiaConfig", new KitopiaConfig(), useDefaultsOnInvalidJson: true);
         Config.GetType()
             .GetFields(BindingFlags.Instance | BindingFlags.Public)
             .ToList()
@@ -153,7 +101,7 @@ public class ConfigManger : IConfigService
                     if (configField.FieldType == ConfigFieldType.快捷键)
                     {
                         var hotKeyModel = (HotKeyModel)x.GetValue(Config);
-                        hotkeysMappings.Add(hotKeyModel, (Config, x));
+                        hotkeysMappings[hotKeyModel.UUID] = (Config, x);
                         if (Config.invokes.TryGetValue(configField.ActionName, out var value))
                             if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(hotKeyModel, value as Action<HotKeyModel>))
                                 ServiceManager.Services.GetService<IToastService>().Show(new DialogContent
@@ -221,15 +169,85 @@ public class ConfigManger : IConfigService
         };
     }
 
-    private static KitopiaConfig LoadKitopiaConfig(string filePath)
+    internal static ConfigBase LoadConfig(string key, ConfigBase defaults, bool useDefaultsOnInvalidJson = false)
     {
-        var json = File.ReadAllText(filePath);
-        using var document = JsonDocument.Parse(json);
-        var config = JsonSerializer.Deserialize<KitopiaConfig>(json, DefaultOptions) ?? new KitopiaConfig();
-        config.Name = "KitopiaConfig";
-        MigrateConfig("KitopiaConfig", document.RootElement, config);
-        return config;
+        defaults.Name = key;
+        var filePath = KitopiaPaths.GetConfigFilePath(key);
+        var config = defaults;
+        if (File.Exists(filePath))
+        {
+            JsonDocument? document = null;
+            try
+            {
+                try
+                {
+                    try
+                    {
+                        document = JsonDocument.Parse(File.ReadAllText(filePath));
+                        config = (ConfigBase?)document.RootElement.Deserialize(defaults.GetType(), DefaultOptions)
+                                 ?? throw new JsonException($"配置 {key} 不能为空。");
+                    }
+                    catch (JsonException) when (File.Exists(filePath + ".bak"))
+                    {
+                        document?.Dispose();
+                        document = JsonDocument.Parse(File.ReadAllText(filePath + ".bak"));
+                        config = (ConfigBase?)document.RootElement.Deserialize(defaults.GetType(), DefaultOptions)
+                                 ?? throw new JsonException($"配置 {key} 的备份不能为空。");
+                        Logger.Warning("配置 {Key} 无法解析，已加载备份，原文件保留至下次保存", key);
+                    }
+                }
+                catch (JsonException exception) when (useDefaultsOnInvalidJson)
+                {
+                    document?.Dispose();
+                    document = null;
+                    config = defaults;
+                    config.ConfigVersion = config.CurrentConfigVersion;
+                    Logger.Error(exception, "配置 {Key} 和备份无法解析，本次使用默认值，保留原文件", key);
+                }
+                config.Name = key;
+                // Migration and plugin callbacks are outside JSON recovery: their failures must not replace user data.
+                if (document is not null) MigrateConfig(key, document.RootElement, config);
+            }
+            finally { document?.Dispose(); }
+        }
+        else
+        {
+            config.ConfigVersion = config.CurrentConfigVersion;
+            WriteConfigFile(key, config);
+        }
+
+        Configs.Add(key, config);
+        try
+        {
+            // Legacy plugins may read Instance inside AfterLoad. Never retain it globally.
+#pragma warning disable CS0618
+            var previous = ConfigBase.Instance;
+            try
+            {
+                ConfigBase.Instance = config;
+                config.BeforeLoad();
+                config.AfterLoad();
+            }
+            finally
+            {
+                ConfigBase.Instance = previous;
+            }
+#pragma warning restore CS0618
+            foreach (var field in config.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance))
+                if (field.GetCustomAttribute<ConfigField>()?.FieldType == ConfigFieldType.快捷键 &&
+                    field.GetValue(config) is HotKeyModel model)
+                    hotkeysMappings.Add(model.UUID, (config, field));
+            return config;
+        }
+        catch
+        {
+            RemoveConfig(key);
+            throw;
+        }
     }
+
+    public T Get<T>() where T : ConfigBase => Configs.Values.OfType<T>().SingleOrDefault()
+        ?? throw new InvalidOperationException($"配置 {typeof(T).FullName} 尚未加载。");
 
     internal static void MigrateConfig(JsonElement root, ConfigBase config)
     {
@@ -312,31 +330,30 @@ public class ConfigManger : IConfigService
 
     public static void RemoveConfig(string key)
     {
-        foreach (var (s, value) in Configs.Where(x => x.Key.StartsWith(key)).ToList())
+        foreach (var name in Configs.Keys.Where(name => name == key ||
+                     name.StartsWith(key + "#", StringComparison.Ordinal)).ToArray())
         {
-            value.GetType()
-                .BaseType.GetField("Instance")
-                .SetValue(value, null);
-            Configs.Remove(s);
-            UnsupportedConfigKeys.Remove(s);
+            var config = Configs[name];
+            foreach (var uuid in hotkeysMappings.Where(pair => ReferenceEquals(pair.Value.Config, config))
+                         .Select(pair => pair.Key).ToArray())
+                hotkeysMappings.Remove(uuid);
+            Configs.Remove(name);
+            UnsupportedConfigKeys.Remove(name);
         }
     }
 
-    public static void RequsetUpdateHotKey(HotKeyModel hotKeyModel)
+    public static void RequsetUpdateHotKey(HotKeyModel model)
     {
-        foreach (var (key, (item2, fieldInfo)) in hotkeysMappings)
-        {
-            if (key.UUID != hotKeyModel.UUID) continue;
+        if (hotkeysMappings.TryGetValue(model.UUID, out var owner))
+            owner.Field.SetValue(owner.Config, model);
+    }
 
-            try
-            {
-                fieldInfo.SetValue(item2, hotKeyModel);
-            }
-            catch
-            {
-                // ignored
-            }
-        }
+    public static void SaveHotKey(HotKeyModel model)
+    {
+        if (!hotkeysMappings.TryGetValue(model.UUID, out var owner)) return;
+        owner.Field.SetValue(owner.Config, model);
+        Save(owner.Config.Name);
+        owner.Config.OnConfigChanged(model, owner.Field.Name, model);
     }
 
     public static void Save()
@@ -372,7 +389,7 @@ public class ConfigManger : IConfigService
     Version IConfigService.Version => Version;
     string IConfigService.ApiUrl => ApiUrl;
     string IConfigService.WebUrl => WebUrl;
-    Dictionary<string, ConfigBase> IConfigService.Configs => Configs;
+    IReadOnlyDictionary<string, ConfigBase> IConfigService.Configs => AllConfigs;
     KitopiaConfig IConfigService.Config => Config;
     JsonSerializerOptions IConfigService.DefaultOptions => DefaultOptions;
 

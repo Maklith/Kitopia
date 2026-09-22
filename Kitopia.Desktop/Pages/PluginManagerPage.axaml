@@ -223,7 +223,7 @@
                                         </Grid>
                                     </Grid>
 
-                                    <Border VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ZIndex="1"
+                                    <Border VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ZIndex="2"
                                             IsVisible="{Binding PluginLocalInfo.UnloadFailed}"
                                             CornerRadius="12">
                                         <Border.Background>

@@ -5,7 +5,7 @@
   "Description": "官方拓展插件,提供更多功能",
   "Main": "HasDependencyPlugin.dll",
   "Dependencies": {
-    "Kitopia": "^0.0.0",
-    "hasdependencypluginbase": "^1.0.0"
+    "Kitopia": "*",
+    "hasdependencypluginbase": "[1.0.0,2.0.0)"
   }
 }

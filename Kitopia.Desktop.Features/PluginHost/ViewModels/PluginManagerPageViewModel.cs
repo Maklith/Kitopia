@@ -2,6 +2,7 @@
 
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -22,23 +23,33 @@ namespace Kitopia.Desktop.Features.ViewModel.Pages.plugin;
 public partial class PluginManagerPageViewModel : ObservableRecipient
 {
     private static ILogger Logger = LogManager.Logger.ForContext<PluginManagerPageViewModel>();
-    private readonly TaskScheduler _scheduler = TaskScheduler.FromCurrentSynchronizationContext();
-
-    public ObservableCollection<PluginInfoUiHelper> Items => new(PluginManager.GetPluginLocalInfos().Select(e =>
-        new PluginInfoUiHelper
-        {
-            PluginBaseInfo = e.PluginBaseInfo,
-            PluginLocalInfo = e,
-            IsLocal = true
-        }).OrderBy(e=>e.PluginBaseInfo.NameSign).ToList());
+    public ObservableCollection<PluginInfoUiHelper> Items { get; } = new();
 
     public PluginManagerPageViewModel()
     {
-        // PluginManager.CheckAllUpdate();
-        WeakReferenceMessenger.Default.Register<PluginsReloaded>(this, (r, m) =>
+        RefreshItems();
+        WeakReferenceMessenger.Default.Register<PluginsReloaded>(this, static (recipient, _) =>
         {
-            Task.Run(() => OnPropertyChanged(nameof(Items)));
+            var viewModel = (PluginManagerPageViewModel)recipient;
+            if (Dispatcher.UIThread.CheckAccess()) viewModel.RefreshItems();
+            else Dispatcher.UIThread.Post(viewModel.RefreshItems);
         });
+    }
+
+    private void RefreshItems()
+    {
+        var installed = PluginManager.GetPluginLocalInfos().OrderBy(info => info.ToPlgString()).ToArray();
+        foreach (var obsolete in Items.Where(item => !installed.Any(info => info.ToPlgString() == item.PluginBaseInfo.NameSign)).ToArray())
+        {
+            Items.Remove(obsolete);
+            obsolete.Dispose();
+        }
+        foreach (var info in installed)
+        {
+            var item = Items.FirstOrDefault(item => item.PluginBaseInfo.NameSign == info.ToPlgString());
+            if (item is not null) continue;
+            Items.Add(new PluginInfoUiHelper { PluginBaseInfo = info.PluginBaseInfo, PluginLocalInfo = info, IsLocal = true });
+        }
     }
 
     [RelayCommand]
@@ -64,7 +75,7 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
         else
             //加载插件
             //Plugin.NewPlugin(pluginInfoEx.Path, out var weakReference);
-            PluginManager.EnablePlugin(pluginInfoEx);
+            await PluginManager.EnablePluginAsync(pluginInfoEx.ToPlgString());
 
         Logger.Debug(pluginInfoEx.IsEnabled.ToString());
     }

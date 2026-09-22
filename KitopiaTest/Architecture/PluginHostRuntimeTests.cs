@@ -1,3 +1,4 @@
+using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Plugin;
 using PluginCore;
 using PluginCore.Config;
@@ -7,6 +8,126 @@ namespace KitopiaTest.Architecture;
 [TestClass]
 public sealed class PluginHostRuntimeTests
 {
+    [TestMethod]
+    [DataRow("1.2.0", "1.0.0", true)]
+    [DataRow("2.0.0", "1.0.0", true)]
+    [DataRow("0.9.0", "1.0.0", false)]
+    [DataRow("1.0.0", "[1.0]", true)]
+    [DataRow("1.0.0+build.2", "[1.0.0+build.1]", true)]
+    [DataRow("1.0.0.1", "[1.0.0]", false)]
+    [DataRow("1.0.1", "[1.0.0]", false)]
+    [DataRow("1.0.0", "[1.0.0,2.0.0)", true)]
+    [DataRow("2.0.0", "[1.0.0,2.0.0)", false)]
+    [DataRow("1.0.0", "(1.0.0,2.0.0]", false)]
+    [DataRow("2.0.0", "(1.0.0,2.0.0]", true)]
+    [DataRow("0.9.0", "(,1.0.0)", true)]
+    [DataRow("1.0.0", "(,1.0.0)", false)]
+    [DataRow("2.0.0", "[1.0.0,)", true)]
+    [DataRow("1.2.5", "1.2.*", true)]
+    [DataRow("1.3.0", "1.2.*", false)]
+    [DataRow("1.2.5-beta.1", "1.2.*", false)]
+    [DataRow("1.2.5-beta.1", "1.2.*-*", true)]
+    [DataRow("1.3.0-beta.1", "1.2.*-*", false)]
+    [DataRow("1.2.3-rc.2", "1.2.3-rc.*", true)]
+    [DataRow("1.2.3-beta.2", "1.2.3-rc.*", false)]
+    [DataRow("1.0.0-beta.2", "[1.0.0-beta.2]", true)]
+    [DataRow("1.0.0-BETA.2", "[1.0.0-beta.2]", true)]
+    [DataRow("1.5.0-beta.2", "[1.0.0,2.0.0)", false)]
+    [DataRow("1.5.0-beta.2", "[1.0.0-beta.1,2.0.0)", true)]
+    [DataRow("1.5.0-beta.2", "(,2.0.0-beta.1)", true)]
+    [DataRow("0.3.5.1", "*", true)]
+    [DataRow("2.0.0", " * ", true)]
+    [DataRow("1.0.0-beta.1", "*", false)]
+    [DataRow("1.0.0-beta.1", "*-*", true)]
+    [DataRow("invalid", "*", false)]
+    [DataRow("1.0.0", "", false)]
+    [DataRow("1.0.0", "^1.0.0", false)]
+    [DataRow("1.0.0", "1.0.0 - 2.0.0", false)]
+    [DataRow("1.0.0", ">=1.0.0", false)]
+    public void VersionInRange_NuGetRangesAndPrereleasePolicy_AreEnforced(string version, string range, bool expected)
+        => Assert.AreEqual(expected, PluginDependencyService.VersionInRange(version, range));
+
+    [TestMethod]
+    [DataRow("1.0.0", "1.2.0")]
+    [DataRow("[1.0.0,2.0.0)", "1.2.0")]
+    [DataRow("[1.2.5]", "1.2.5")]
+    [DataRow("1.2.*", "1.2.5")]
+    [DataRow("1.*", "1.5.0")]
+    [DataRow("*", "2.0.0")]
+    [DataRow("*-*", "3.0.0-beta.1")]
+    [DataRow("1.2.*-*", "1.2.6-rc.1")]
+    [DataRow("[1.2.6-rc.1,2.0.0)", "1.2.6-rc.1")]
+    [DataRow("[1.9.0]", null)]
+    [DataRow("4.*", null)]
+    [DataRow("^1.0.0", null)]
+    public void SelectDependencyVersion_UsesLowestOrFloatingHighestMatch(string range, string? expected)
+    {
+        string[] versions = ["1.5.0", "invalid", "3.0.0-beta.1", "1.2.5", "2.0.0", "1.2.6-rc.1", "1.2.0"];
+
+        Assert.AreEqual(expected, PluginDependencyService.SelectDependencyVersion(versions, range));
+        Assert.AreEqual(expected, PluginDependencyService.SelectDependencyVersion(versions.Reverse(), range));
+    }
+
+    [TestMethod]
+    [DoNotParallelize]
+    [DataRow("0.3.5.1", "*", true)]
+    [DataRow("0.3.5.1", "[0.3.0,0.4.0)", true)]
+    [DataRow("0.3.5.1", "[0.3.5.1]", true)]
+    [DataRow("0.3.5.1", "0.3.0", true)]
+    [DataRow("0.3.5.1", "[0.2.0,0.3.0)", false)]
+    [DataRow("0.3.5.1", "[0.3.5.0]", false)]
+    [DataRow("0.3.5.1", "1.0.0", false)]
+    [DataRow("0.3.5.1", "invalid", false)]
+    public void CheckDependencies_HostVersion_UsesNuGetRanges(string version, string range, bool expected)
+    {
+        var previousVersion = ConfigManger.Version;
+        ConfigManger.Version = new Version(version);
+        try
+        {
+            var info = new PluginLocalInfo
+            {
+                PluginBaseInfo = new PluginBaseInfo
+                {
+                    Name = "Test plugin", NameSign = "test", Version = "1.0.0",
+                    Dependencies = new Dictionary<string, string> { ["Kitopia"] = range }
+                }
+            };
+            var (canLoad, results) = PluginDependencyService.CheckDependencies([], info.PluginBaseInfo.Dependencies, []);
+            Assert.AreEqual(expected, canLoad);
+            if (expected)
+            {
+                Assert.IsEmpty(results);
+                PluginManager.ValidateDependencies(info, [], []);
+            }
+            else
+            {
+                Assert.AreEqual(PluginDependencyService.VersionCheckResult.Kitopia版本不匹配, results["Kitopia"]);
+                var exception = Assert.ThrowsExactly<InvalidOperationException>(() =>
+                    PluginManager.ValidateDependencies(info, [], []));
+                StringAssert.Contains(exception.Message, $"当前 {version}");
+                StringAssert.Contains(exception.Message, $"要求 {range}");
+            }
+        }
+        finally
+        {
+            ConfigManger.Version = previousVersion;
+        }
+    }
+
+    [TestMethod]
+    public void CheckDependencies_InstalledOutsideFloatingRange_ReportsMismatch()
+    {
+        var available = new PluginBaseInfo
+        {
+            Name = "Dependency", NameSign = "dependency", Version = "0.3.5.1", Dependencies = new()
+        };
+        var (canLoad, results) = PluginDependencyService.CheckDependencies(
+            [available], new Dictionary<string, string> { ["dependency"] = "0.2.*" }, ["dependency"]);
+
+        Assert.IsFalse(canLoad);
+        Assert.AreEqual(PluginDependencyService.VersionCheckResult.依赖版本不匹配, results["dependency"]);
+    }
+
     [TestMethod]
     public void CheckDependencies_EnabledCompatibleDependency_CanLoad()
     {
@@ -20,7 +141,7 @@ public sealed class PluginHostRuntimeTests
 
         var (canLoad, results) = PluginDependencyService.CheckDependencies(
             [available],
-            new Dictionary<string, string> { ["dependency"] = "^1.0.0" },
+            new Dictionary<string, string> { ["dependency"] = "[1.0.0,2.0.0)" },
             ["dependency"]);
 
         Assert.IsTrue(canLoad);
@@ -40,7 +161,7 @@ public sealed class PluginHostRuntimeTests
 
         var (canLoad, results) = PluginDependencyService.CheckDependencies(
             [available],
-            new Dictionary<string, string> { ["dependency"] = "^1.0.0" },
+            new Dictionary<string, string> { ["dependency"] = "[1.0.0,2.0.0)" },
             []);
 
         Assert.IsFalse(canLoad);

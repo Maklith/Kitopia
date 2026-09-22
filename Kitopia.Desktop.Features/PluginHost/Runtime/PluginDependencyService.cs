@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Kitopia.Desktop.Features.Services.Config;
+using NuGet.Versioning;
 using PluginCore;
-using Serilog;
 
 namespace Kitopia.Desktop.Features.Services.Plugin;
 
@@ -18,103 +18,42 @@ public class PluginDependencyService
         Kitopia版本不匹配
     }
 
-    private static readonly ILogger Log = LogManager.Logger.ForContext<PluginDependencyService>();
-
     public static bool VersionInRange(string version, string range)
     {
-        var v = new Version(version);
-        if (range.StartsWith("^"))
-        {
-            var r = new Version(range.Substring(1));
-            return v >= r;
-        }
-
-        if (range.Contains("-"))
-        {
-            var strings = range.Split('-');
-            var r = new Version(strings[0]);
-            return v >= r && v <= new Version(strings[1]);
-        }
-
-        return version == range;
-    }
-
-    public static bool VersionInRange(Version v, string range)
-    {
-        if (range.StartsWith("^"))
-        {
-            var r = new Version(range.Substring(1));
-            return v >= r;
-        }
-
-        if (range.Contains("-"))
-        {
-            var strings = range.Split('-');
-            var r = new Version(strings[0]);
-            return v >= r && v <= new Version(strings[1]);
-        }
-
-        return v == new Version(range);
+        return NuGetVersion.TryParse(version, out var parsedVersion) &&
+               VersionRange.TryParse(range, out var parsedRange) &&
+               SatisfiesDependency(parsedVersion, parsedRange);
     }
 
     public static bool IsVersionNewer(string candidate, string current)
     {
-        if (!TryParseComparableVersion(candidate, out var candidateVersion, out var candidatePreRelease) ||
-            !TryParseComparableVersion(current, out var currentVersion, out var currentPreRelease))
-        {
-            return string.CompareOrdinal(candidate, current) > 0;
-        }
-
-        var comparison = candidateVersion.CompareTo(currentVersion);
-        if (comparison != 0)
-        {
-            return comparison > 0;
-        }
-
-        if (candidatePreRelease is null || currentPreRelease is null)
-        {
-            return candidatePreRelease is null && currentPreRelease is not null;
-        }
-
-        return ComparePreRelease(candidatePreRelease, currentPreRelease) > 0;
+        return NuGetVersion.TryParse(candidate, out var candidateVersion) &&
+               NuGetVersion.TryParse(current, out var currentVersion) &&
+               VersionComparer.VersionRelease.Compare(candidateVersion, currentVersion) > 0;
     }
 
-    private static bool TryParseComparableVersion(
-        string value,
-        out Version version,
-        out string? preRelease)
+    internal static string? SelectDependencyVersion(IEnumerable<string> versions, string range)
     {
-        var versionWithoutBuildMetadata = value.Split('+', 2)[0];
-        var preReleaseSeparator = versionWithoutBuildMetadata.IndexOf('-');
-        var coreVersion = preReleaseSeparator < 0
-            ? versionWithoutBuildMetadata
-            : versionWithoutBuildMetadata[..preReleaseSeparator];
-        preRelease = preReleaseSeparator < 0
-            ? null
-            : versionWithoutBuildMetadata[(preReleaseSeparator + 1)..];
-        return Version.TryParse(coreVersion, out version!);
+        if (!VersionRange.TryParse(range, out var parsedRange)) return null;
+        NuGetVersion? best = null;
+        string? selected = null;
+        foreach (var version in versions)
+        {
+            if (!NuGetVersion.TryParse(version, out var candidate) ||
+                !SatisfiesDependency(candidate, parsedRange) || !parsedRange.IsBetter(best, candidate)) continue;
+            best = candidate;
+            selected = version;
+        }
+        return selected;
     }
 
-    private static int ComparePreRelease(string left, string right)
+    private static bool SatisfiesDependency(NuGetVersion version, VersionRange range)
     {
-        var leftIdentifiers = left.Split('.');
-        var rightIdentifiers = right.Split('.');
-        for (var index = 0; index < Math.Min(leftIdentifiers.Length, rightIdentifiers.Length); index++)
-        {
-            var leftIdentifier = leftIdentifiers[index];
-            var rightIdentifier = rightIdentifiers[index];
-            var leftIsNumber = long.TryParse(leftIdentifier, out var leftNumber);
-            var rightIsNumber = long.TryParse(rightIdentifier, out var rightNumber);
-            var comparison = leftIsNumber && rightIsNumber
-                ? leftNumber.CompareTo(rightNumber)
-                : leftIsNumber ? -1 : rightIsNumber ? 1 : string.CompareOrdinal(leftIdentifier, rightIdentifier);
-            if (comparison != 0)
-            {
-                return comparison;
-            }
-        }
-
-        return leftIdentifiers.Length.CompareTo(rightIdentifiers.Length);
+        // Satisfies checks interval bounds only; floating patterns and prerelease opt-in are separate.
+        return range.Satisfies(version) &&
+               (range.Float is not null
+                   ? range.Float.Satisfies(version)
+                   : !version.IsPrerelease || range.MinVersion?.IsPrerelease == true || range.MaxVersion?.IsPrerelease == true);
     }
 
     /// <summary>
@@ -135,7 +74,7 @@ public class PluginDependencyService
         {
             if (pluginSignName == "Kitopia")
             {
-                if (!VersionInRange(ConfigManger.Version, verStr))
+                if (!VersionInRange(ConfigManger.Version.ToString(), verStr))
                 {
                     canLoad = false;
                     results.TryAdd(pluginSignName, VersionCheckResult.Kitopia版本不匹配);

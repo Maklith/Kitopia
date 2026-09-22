@@ -43,4 +43,16 @@
       <ProjectReference Include="..\Mobile\Kitopia.Mobile\Kitopia.Mobile.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <Compile Remove="Fixtures/**/*.cs" />
+        <ProjectReference Include="Fixtures/PluginLifecycle/PluginLifecycle.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="Fixtures/PluginUnload/PluginUnload.csproj" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+    <Target Name="CopyPluginLifecycleFixture" AfterTargets="Build">
+        <ItemGroup>
+            <PluginFixtureFiles Include="Fixtures/PluginLifecycle/bin/$(Configuration)/net10.0/*" />
+            <PluginFixtureFiles Include="Fixtures/PluginUnload/bin/$(Configuration)/net10.0/PluginUnload.*" />
+        </ItemGroup>
+        <Copy SourceFiles="@(PluginFixtureFiles)" DestinationFolder="$(OutDir)PluginFixture" SkipUnchangedFiles="true" />
+    </Target>
 </Project>

@@ -43,16 +43,14 @@ public sealed class CustomScenarioPluginIntegration : ICustomScenarioPluginInteg
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var result = await PluginManager.DownloadPluginAndEnable(pluginSign, version)
+        var result = await PluginManager.DownloadPluginAndEnable(pluginSign, version, cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return result;
     }
 
-    public void EnablePlugin(string pluginSign)
-    {
-        PluginManager.EnablePlugin(pluginSign);
-    }
+    public Task<bool> EnablePluginAsync(string pluginSign, CancellationToken cancellationToken = default) =>
+        PluginManager.EnablePluginAsync(pluginSign, cancellationToken);
 
     public IServiceProvider GetServiceProvider(string pluginSign)
     {

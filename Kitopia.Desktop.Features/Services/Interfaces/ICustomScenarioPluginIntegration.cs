@@ -19,7 +19,7 @@ public interface ICustomScenarioPluginIntegration
         string pluginSign,
         string? version = null,
         CancellationToken cancellationToken = default);
-    void EnablePlugin(string pluginSign);
+    Task<bool> EnablePluginAsync(string pluginSign, CancellationToken cancellationToken = default);
     IServiceProvider GetServiceProvider(string pluginSign);
     MethodInfo GetMethodInfo(string pluginSign, string methodAbsolutelyName);
 }

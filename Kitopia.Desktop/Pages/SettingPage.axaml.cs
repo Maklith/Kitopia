@@ -48,6 +48,9 @@ public partial class SettingPage : UserControl
     public void ChangeConfig(ConfigBase configBase)
     {
         disposables.Clear();
+        _fieldControls.Clear();
+        _requestedFieldName = null;
+        _requestedFieldContainer = null;
         _configBase = configBase;
         TextBlock.Text = configBase.GetType()
             .GetCustomAttribute<ConfigName>()
@@ -72,7 +75,7 @@ public partial class SettingPage : UserControl
         LoadConfig(mainStackPanel, ConfigManger.Config);
 
         // Plugin Configs
-        var pluginConfigs = ConfigManger.Configs.Values.Where(c => c != ConfigManger.Config).ToList();
+        var pluginConfigs = ConfigManger.AllConfigs.Values.Where(c => c != ConfigManger.Config).ToList();
         if (pluginConfigs.Count > 0)
         {
             var pluginHeader = new TextBlock
@@ -115,6 +118,9 @@ public partial class SettingPage : UserControl
         base.OnUnloaded(e);
         disposables.Clear();
         _configBase = null;
+        _fieldControls.Clear();
+        _requestedFieldName = null;
+        _requestedFieldContainer = null;
         nowControl = null;
         StackPanel.Children.Clear();
     }
@@ -131,7 +137,7 @@ public partial class SettingPage : UserControl
         if (configBase is null) return;
         if (string.IsNullOrWhiteSpace(configBase.Name))
         {
-            configBase.Name = ConfigManger.Configs.FirstOrDefault(x => x.Value == configBase).Key
+            configBase.Name = ConfigManger.AllConfigs.FirstOrDefault(x => x.Value == configBase).Key
                               ?? (configBase is KitopiaConfig ? "KitopiaConfig" : string.Empty);
         }
         foreach (var fieldInfo in configBase.GetType()
@@ -402,6 +408,11 @@ public partial class SettingPage : UserControl
                                             fieldInfo.SetValue(configBase, d);
                                             ConfigManger.Save(configBase.Name);
                                         }));
+                                disposables.Add(Disposable.Create(() =>
+                                {
+                                    comboBox.ItemsSource = null;
+                                    comboBox.SelectedValue = null;
+                                }));
                                 SettingsExpander.Footer = comboBox;
                             }
                         }
@@ -431,6 +442,11 @@ public partial class SettingPage : UserControl
                                             fieldInfo.SetValue(configBase, d);
                                             ConfigManger.Save(configBase.Name);
                                         }));
+                                disposables.Add(Disposable.Create(() =>
+                                {
+                                    comboBox.ItemsSource = null;
+                                    comboBox.SelectedValue = null;
+                                }));
                                 SettingsExpander.Footer = comboBox;
                             }
 
@@ -460,7 +476,7 @@ public partial class SettingPage : UserControl
                         {
                             NotifyCollectionChangedEventHandler handler = (sender, args) => ObservableCollectionChange(sender, args, configBase, fieldInfo.Name);
                             observableCollection.CollectionChanged += handler;
-                            disposables.Add(new AnonymousDisposable(() => {
+                            disposables.Add(Disposable.Create(() => {
                                 observableCollection.CollectionChanged -= handler;
                             }));
 
@@ -488,6 +504,13 @@ public partial class SettingPage : UserControl
                         }
 
                         listShow.ItemsSource = enumerable;
+                        // Detached controls can remain in Avalonia's composition tree. Drop plugin references explicitly.
+                        disposables.Add(Disposable.Create(() =>
+                        {
+                            listShow.ClearValue(ListShow.PickFoldersCommandProperty);
+                            listShow.ClearValue(ListShow.PickFilesCommandProperty);
+                            listShow.ItemsSource = null;
+                        }));
                         SettingsExpander.ItemsSource = new[] { listShow };
                         break;
                     }
@@ -574,6 +597,7 @@ public partial class SettingPage : UserControl
                             VerticalAlignment = VerticalAlignment.Center,
                             HorizontalAlignment = HorizontalAlignment.Right
                         };
+                        disposables.Add(Disposable.Create(() => actionButton.Command = null));
                         SettingsExpander.Footer = actionButton;
                         break;
                     }
@@ -688,20 +712,5 @@ public partial class SettingPage : UserControl
             _requestedFieldName = null;
             _requestedFieldContainer = null;
         }, DispatcherPriority.Loaded);
-    }
-}
-
-public class AnonymousDisposable : IDisposable
-{
-    private readonly Action _onDispose;
-
-    public AnonymousDisposable(Action onDispose)
-    {
-        _onDispose = onDispose;
-    }
-
-    public void Dispose()
-    {
-        _onDispose.Invoke();
     }
 }

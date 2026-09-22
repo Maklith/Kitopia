@@ -181,7 +181,7 @@ public class CustomScenarioManger
                         Content = content,
                         PrimaryButtonText = "启用该插件",
                         CloseButtonText = "我知道了",
-                        PrimaryAction = () => { pluginIntegration.EnablePlugin(e1.PluginName); }
+                        PrimaryAction = async () => { await pluginIntegration.EnablePluginAsync(e1.PluginName); }
                     };
                     ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
                         dialog.ToToastRequest());

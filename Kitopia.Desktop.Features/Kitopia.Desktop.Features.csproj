@@ -47,6 +47,7 @@
         <PackageReference Include="MQTTnet" Version="5.2.0.1603" />
         <PackageReference Include="MQTTnet.Server" Version="5.2.0.1603" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+        <PackageReference Include="NuGet.Versioning" Version="7.9.0" />
         <PackageReference Include="ObservableCollections" Version="3.3.4"/>
         <PackageReference Include="Polly" Version="8.7.0" />
         <PackageReference Include="Polly.RateLimiting" Version="8.4.2" />
@@ -114,4 +115,7 @@
         <AdditionalFiles Include="UI\DeviceCommunication\DeviceCommunicationIcons.axaml" />
     </ItemGroup>
 
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+    </ItemGroup>
 </Project>

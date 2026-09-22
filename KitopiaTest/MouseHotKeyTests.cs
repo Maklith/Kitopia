@@ -6,6 +6,8 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using CommunityToolkit.Mvvm.Messaging;
+using Kitopia.Desktop.Features.ViewModel.Pages;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
@@ -209,7 +211,8 @@ public sealed class MouseHotKeyTests
             StringAssert.Contains(control.ScopeDescription, "已停用");
             control.ToggleHotKey.Execute(null);
             Assert.IsTrue(model.IsEnabled);
-            Assert.AreSame(model, recorder.Modified);
+            Assert.AreNotSame(model, recorder.Modified);
+            Assert.AreEqual(model.UUID, recorder.Modified!.UUID);
             Assert.IsFalse(control.ScopeDescription.Contains("已停用"));
         }
         finally { ServiceManager.Services = originalServices; }
@@ -325,6 +328,80 @@ public sealed class MouseHotKeyTests
         }
     }
 
+    [TestMethod]
+    public Task Modify_NewSettings_CommitsOnceAndKeepsBoundModel() => RunAsync(service =>
+    {
+        var messages = new List<HotKeyChanged>();
+        WeakReferenceMessenger.Default.Register<HotKeyChanged>(messages, static (recipient, message) =>
+            ((List<HotKeyChanged>)recipient).Add(message));
+        try
+        {
+            var model = new HotKeyModel { Type = HotKeyType.Mouse, MouseButton = 1, IsEnabled = true };
+            service.Register(model, _ => { });
+            messages.Clear();
+            var candidate = new HotKeyModel(model) { MouseButton = 2, PressTimeMillis = 750 };
+            Assert.IsTrue(service.Modify(candidate));
+            Assert.AreSame(model, service.GetByUuid(model.UUID));
+            Assert.AreEqual((ushort)2, model.MouseButton);
+            Assert.AreEqual((ushort)750, model.PressTimeMillis);
+            Assert.HasCount(1, messages);
+            Assert.AreEqual(HotKeyChangeKind.Updated, messages[0].Kind);
+        }
+        finally { WeakReferenceMessenger.Default.UnregisterAll(messages); }
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    public Task Modify_InvalidCandidate_RestoresOriginalRegistration() => RunAsync(service =>
+    {
+        var model = new HotKeyModel { Type = HotKeyType.Mouse, MouseButton = 1, IsEnabled = true };
+        service.Register(model, _ => { });
+        var candidate = new HotKeyModel(model) { Type = HotKeyType.Keyboard, SelectKey = EKey.未设置 };
+        Assert.IsFalse(service.Modify(candidate));
+        Assert.AreSame(model, service.GetByUuid(model.UUID));
+        Assert.AreEqual(HotKeyType.Mouse, model.Type);
+        Assert.AreEqual((ushort)1, model.MouseButton);
+        Assert.IsTrue(model.IsEnabled);
+        Assert.AreEqual(0, GetHotkey(model.UUID).Id);
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    public Task RegisterAndRemove_OpenPage_UpdatesExistingCollectionAndPreservesEnabledIntent() => RunAsync(service =>
+    {
+        var previousServices = ServiceManager.Services;
+        using var provider = new ServiceCollection().AddSingleton<IHotKetImpl>(service).BuildServiceProvider();
+        ServiceManager.Services = provider;
+        var viewModel = new HotKeyManagerPageViewModel();
+        var collection = viewModel.KeyModels;
+        try
+        {
+            var model = new HotKeyModel { Type = HotKeyType.Mouse, MouseButton = 1, IsEnabled = true };
+            Assert.IsTrue(service.Register(model, _ => { }));
+            Assert.IsTrue(collection.Contains(model));
+            Assert.AreSame(collection, viewModel.KeyModels);
+            Assert.IsTrue(service.Remove(model.UUID));
+            Assert.IsFalse(collection.Contains(model));
+            Assert.IsTrue(model.IsEnabled);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(viewModel);
+            ServiceManager.Services = previousServices;
+        }
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    public Task Modify_UninitializedScenario_DoesNotBreakNotification() => RunAsync(service =>
+    {
+        using var scenario = new Kitopia.Desktop.Features.CustomScenario.CustomScenario();
+        var model = new HotKeyModel { Type = HotKeyType.Mouse, MouseButton = 1, IsEnabled = true };
+        service.Register(model, _ => { });
+        Assert.IsTrue(service.Modify(new HotKeyModel(model) { MouseButton = 2 }));
+        return Task.CompletedTask;
+    });
+
     private static void RaiseMouseEvent(HookMouseButton button, bool pressed) => typeof(HotKeyImpl)
         .GetMethod(pressed ? "OnMousePressed" : "OnMouseReleased", BindingFlags.Static | BindingFlags.NonPublic)!
         .Invoke(null, [null, new MouseHookEventArgs(new UioHookEvent { Mouse = new MouseEventData { Button = button } })]);
@@ -355,7 +432,7 @@ public sealed class MouseHotKeyTests
         public HotKeyModel? Existing { get; init; }
         public string? RequestedUuid { get; private set; }
         public HotKeyModel? Modified { get; private set; }
-        public bool Modify(HotKeyModel model) { Modified = model; return true; }
+        public bool Modify(HotKeyModel model) { Modified = model; Existing?.ApplySettings(model); return true; }
         public void Init() => throw new NotSupportedException();
         public void StartHook() => throw new NotSupportedException();
         public bool Register(HotKeyModel model, Action<HotKeyModel> callback, bool initHotKey = true) => throw new NotSupportedException();

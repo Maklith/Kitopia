@@ -10,16 +10,6 @@ using Serilog;
 
 namespace Kitopia.Desktop.Features.Services.Plugin;
 
-public class PluginStateChanged
-{
-    public string PluginSignName { get; set; }
-
-    public PluginStateChanged(string pluginSignName)
-    {
-        PluginSignName = pluginSignName;
-    }
-}
-
 public class PluginsReloaded
 {
 }
@@ -50,19 +40,22 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     public PluginInfoUiHelper()
     {
-        WeakReferenceMessenger.Default.Register<PluginStateChanged>(this, (e, a) =>
+        WeakReferenceMessenger.Default.Register<PluginsReloaded>(this, static (recipient, _) =>
         {
-            if (a.PluginSignName == PluginBaseInfo.NameSign) PluginLocalInfo?.NotifyStatusChanged();
+            var item = (PluginInfoUiHelper)recipient;
+            item.PluginLocalInfo = PluginManager.GetPluginLocalInfoByPlgStr(item.PluginBaseInfo.NameSign);
+            if (item.PluginLocalInfo is { } local) item.PluginBaseInfo = local.PluginBaseInfo;
+            item.OnPropertyChanged(nameof(PluginLocalInfo));
+            item.OnPropertyChanged(nameof(Version));
+            item.OnPropertyChanged(nameof(DescriptionShort));
+            item.OnPropertyChanged(nameof(InLocal));
         });
     }
 
-    ~PluginInfoUiHelper()
-    {
-        Dispose();
-    }
+    private bool _disposed;
 
     private CancellationTokenSource _cancellationTokenSource = new();
-    public PluginBaseInfo PluginBaseInfo { get; init; }
+    public PluginBaseInfo PluginBaseInfo { get; set; }
 
     private Bitmap? _icon;
 
@@ -356,10 +349,12 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+        WeakReferenceMessenger.Default.UnregisterAll(this);
         _cancellationTokenSource.Cancel();
-        _cancellationTokenSource.Dispose();
-        Icon?.Dispose();
-        AuthorAvatar?.Dispose();
+        _icon?.Dispose();
+        _authorAvatar?.Dispose();
     }
 
     public string DescriptionShort =>

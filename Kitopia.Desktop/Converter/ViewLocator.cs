@@ -80,7 +80,7 @@ public class ViewLocator : IValueConverter
                 if (args.StartsWith("plugin/settings/detail/"))
                 {
                     var settingPage = ServiceManager.Services.GetService<SettingPage>();
-                    if (ConfigManger.Configs.TryGetValue(args["plugin/settings/detail/".Length..], out var config))
+                    if (ConfigManger.AllConfigs.TryGetValue(args["plugin/settings/detail/".Length..], out var config))
                         settingPage.ChangeConfig(config);
 
                     return settingPage;

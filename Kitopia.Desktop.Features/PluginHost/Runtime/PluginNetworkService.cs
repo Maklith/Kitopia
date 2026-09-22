@@ -81,52 +81,37 @@ public class PluginNetworkService
         return GetPluginDataAsync<PluginPage>($"all?{queryString}", cancellationToken);
     }
 
-    public static async Task<bool> DownloadPlugin(
-        string pluginSignName,
-        string version,
-        CancellationToken cancellationToken = default)
+    internal static async Task<PluginPackage> DownloadPackageAsync(
+        string pluginSignName, string version, CancellationToken cancellationToken = default)
     {
+        PluginDiscoveryService.ValidatePluginSign(pluginSignName);
+        var staging = Path.Combine(KitopiaPaths.PluginsDirectory, $".staging-{Guid.NewGuid():N}");
+        var archive = Path.Combine(KitopiaPaths.TempDirectory, $"{Guid.NewGuid():N}.zip");
         try
         {
-            Logger.Debug("从服务器下载插件 {PluginSignName} 版本 {Version}", pluginSignName, version);
-            var downloadPath =
-                $"download/{GetCurrentPlatformType()}/{Uri.EscapeDataString(pluginSignName)}/{Uri.EscapeDataString(version)}";
-            using var request = CreateAuthorizedGetRequest(downloadPath);
-            using var response = await HttpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
+            using var request = CreateAuthorizedGetRequest(
+                $"download/{GetCurrentPlatformType()}/{Uri.EscapeDataString(pluginSignName)}/{Uri.EscapeDataString(version)}");
+            using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             HandlePossibleUnauthorized(response.StatusCode);
             response.EnsureSuccessStatusCode();
-
-            var tempPath = Path.Combine(KitopiaPaths.TempDirectory, $"{Guid.NewGuid():N}.zip");
-            try
-            {
-                await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
-                await using (var output = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                {
-                    await input.CopyToAsync(output, cancellationToken);
-                }
-
-                var pluginDirectory = KitopiaPaths.GetPluginDirectory(pluginSignName);
-                Directory.CreateDirectory(pluginDirectory);
-                ZipFile.ExtractToDirectory(tempPath, pluginDirectory, overwriteFiles: true);
-            }
-            finally
-            {
-                if (File.Exists(tempPath))
-                {
-                    File.Delete(tempPath);
-                }
-            }
-
-            await DownloadAvatar(pluginSignName, cancellationToken);
-            return true;
+            await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
+            await using (var output = new FileStream(archive, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                await input.CopyToAsync(output, cancellationToken);
+            await Task.Run(() => ZipFile.ExtractToDirectory(archive, staging), cancellationToken);
+            var package = new PluginPackage(staging, pluginSignName, version);
+            var avatar = await GetAvatarBytesAsync(pluginSignName, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (avatar is not null) await File.WriteAllBytesAsync(Path.Combine(staging, "avatar.png"), avatar, cancellationToken);
+            return package;
         }
-        catch (Exception exception)
+        catch
         {
-            Logger.Error(exception, "下载插件错误");
-            return false;
+            if (Directory.Exists(staging)) Directory.Delete(staging, true);
+            throw;
+        }
+        finally
+        {
+            if (File.Exists(archive)) File.Delete(archive);
         }
     }
 
@@ -144,29 +129,6 @@ public class PluginNetworkService
         {
             Logger.Error(exception, "获取插件图标错误");
             return null;
-        }
-    }
-
-    private static async Task DownloadAvatar(string pluginSignName, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var bytes = await GetAvatarBytesAsync(pluginSignName, cancellationToken);
-            if (bytes is null)
-            {
-                return;
-            }
-
-            var pluginDirectory = KitopiaPaths.GetPluginDirectory(pluginSignName);
-            Directory.CreateDirectory(pluginDirectory);
-            await File.WriteAllBytesAsync(
-                KitopiaPaths.GetPluginAvatarPath(pluginSignName),
-                bytes,
-                cancellationToken);
-        }
-        catch (Exception exception)
-        {
-            Logger.Error(exception, "下载插件图标错误");
         }
     }
 

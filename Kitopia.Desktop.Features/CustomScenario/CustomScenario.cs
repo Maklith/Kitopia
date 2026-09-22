@@ -113,16 +113,16 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
         };
         
 
-        WeakReferenceMessenger.Default.Register<string, string>(this, "hotkey", (_, message) => {
-            if (_stopHotKey.UUID == message) {
-                _stopHotKey = ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(message);
-                CustomScenarioManger.Save(this);
-            }
-
-            if (_runHotKey.UUID == message) {
-                _runHotKey = ServiceManager.Services.GetService<IHotKetImpl>()!.GetByUuid(message);
-                CustomScenarioManger.Save(this);
-            }
+        WeakReferenceMessenger.Default.Register<HotKeyChanged>(this, static (recipient, message) => {
+            var scenario = (CustomScenario)recipient;
+            if (message.Kind != HotKeyChangeKind.Updated) return;
+            var matchesRun = scenario.RunHotKey?.UUID == message.Uuid;
+            var matchesStop = scenario.StopHotKey?.UUID == message.Uuid;
+            if (!matchesRun && !matchesStop) return;
+            var model = ServiceManager.Services.GetRequiredService<IHotKetImpl>().GetByUuid(message.Uuid);
+            if (matchesRun) scenario.RunHotKey = model;
+            if (matchesStop) scenario.StopHotKey = model;
+            CustomScenarioManger.Save(scenario);
         });
     }
 
@@ -219,6 +219,7 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
     }
 
     public void Dispose() {
+        WeakReferenceMessenger.Default.UnregisterAll(this);
         try {
             _cancellationTokenSource.Cancel();
             _cancellationTokenSource.Dispose();

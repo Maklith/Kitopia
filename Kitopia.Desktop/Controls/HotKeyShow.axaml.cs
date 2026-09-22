@@ -4,8 +4,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.LogicalTree;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
-using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
@@ -103,7 +103,10 @@ public class HotKeyShow : TemplatedControl
     {
         if (sender is HotKeyModel hotKeyModel)
         {
-            HotKeyModelChanged(hotKeyModel, this);
+            if (Dispatcher.UIThread.CheckAccess())
+                HotKeyModelChanged(hotKeyModel, this);
+            else
+                Dispatcher.UIThread.Post(() => HotKeyModelChanged(HotKeyModel, this));
         }
     }
 
@@ -226,7 +229,6 @@ public class HotKeyShow : TemplatedControl
     {
         if (HotKeyModel != null)
         {
-            IsActivated = false;
             ServiceManager.Services.GetService<IHotKetImpl>()!.UnRegister(HotKeyModel.UUID);
         }
     }
@@ -253,10 +255,9 @@ public class HotKeyShow : TemplatedControl
         }
         var hotkeys = ServiceManager.Services.GetRequiredService<IHotKetImpl>();
         if (hotkeys.GetByUuid(HotKeyModel.UUID) is null) InitHotKey?.Execute(HotKeyModel);
-        HotKeyModel.IsEnabled = true;
-        if (!hotkeys.Modify(HotKeyModel))
+        var candidate = new HotKeyModel(HotKeyModel) { IsEnabled = true };
+        if (!hotkeys.Modify(candidate))
         {
-            HotKeyModel.IsEnabled = false;
             ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
             {
                 Title = $"快捷键{HotKeyModel.SignName}设置失败",
@@ -264,7 +265,6 @@ public class HotKeyShow : TemplatedControl
                 CloseButtonText = "关闭"
             }.ToToastRequest());
             hotkeys.RequestUserModify(HotKeyModel.UUID);
-            ConfigManger.Save();
         }
     }
 }

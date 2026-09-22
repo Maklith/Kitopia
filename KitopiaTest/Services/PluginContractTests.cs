@@ -59,7 +59,7 @@ public sealed class PluginContractTests
               "Version": "1.2.0",
               "Description": "Example plugin",
               "Main": "Example.dll",
-              "Dependencies": { "Kitopia": "^1.0.0" }
+              "Dependencies": { "Kitopia": "[1.0.0,2.0.0)" }
             }
             """;
 
@@ -70,7 +70,7 @@ public sealed class PluginContractTests
         Assert.AreEqual("example", plugin.NameSign);
         Assert.AreEqual("1.2.0", plugin.Version);
         Assert.AreEqual("Example.dll", plugin.Main);
-        Assert.AreEqual("^1.0.0", plugin.Dependencies["Kitopia"]);
+        Assert.AreEqual("[1.0.0,2.0.0)", plugin.Dependencies["Kitopia"]);
         Assert.AreEqual(0, plugin.Id);
         Assert.AreEqual(0, plugin.VersionId);
     }
@@ -82,6 +82,10 @@ public sealed class PluginContractTests
         Assert.IsTrue(PluginDependencyService.IsVersionNewer("1.0.0-rc.2", "1.0.0-rc.1"));
         Assert.IsFalse(PluginDependencyService.IsVersionNewer("1.0.0-rc.1", "1.0.0"));
         Assert.IsFalse(PluginDependencyService.IsVersionNewer("1.0.0+build.2", "1.0.0+build.1"));
+        Assert.IsTrue(PluginDependencyService.IsVersionNewer("1.0.0-rc.10", "1.0.0-rc.2"));
+        Assert.IsTrue(PluginDependencyService.IsVersionNewer("1.0.0.1", "1.0.0"));
+        Assert.IsFalse(PluginDependencyService.IsVersionNewer("1.0.0.0", "1.0"));
+        Assert.IsFalse(PluginDependencyService.IsVersionNewer("invalid", "1.0.0"));
     }
 
     [TestMethod]

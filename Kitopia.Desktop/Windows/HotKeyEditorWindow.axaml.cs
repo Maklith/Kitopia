@@ -77,18 +77,21 @@ public partial class HotKeyEditorWindow : UrsaWindow
             ProcessNames.Focus();
             return;
         }
-        _hotKeyModel.IsSelectAlt = Alt.IsVisible;
-        _hotKeyModel.IsSelectWin = Win.IsVisible;
-        _hotKeyModel.IsSelectShift = Shift.IsVisible;
-        _hotKeyModel.IsSelectCtrl = Ctrl.IsVisible;
-        _hotKeyModel.SelectKey = _selectedKey ?? EKey.未设置;
-        _hotKeyModel.MouseButton = _selectedMouseButton;
-        _hotKeyModel.Type = _type;
-        _hotKeyModel.PressTimeMillis = (ushort)Slider.Value;
-        _hotKeyModel.ProcessScope = scope;
-        _hotKeyModel.ProcessNames = processes;
-        _hotKeyModel.IgnoreTextInput = IgnoreTextInput.IsChecked == true;
-        if (!ServiceManager.Services.GetRequiredService<IHotKetImpl>().Modify(_hotKeyModel))
+        var candidate = new HotKeyModel(_hotKeyModel)
+        {
+            IsSelectAlt = Alt.IsVisible,
+            IsSelectWin = Win.IsVisible,
+            IsSelectShift = Shift.IsVisible,
+            IsSelectCtrl = Ctrl.IsVisible,
+            SelectKey = _selectedKey ?? EKey.未设置,
+            MouseButton = _selectedMouseButton,
+            Type = _type,
+            PressTimeMillis = (ushort)Slider.Value,
+            ProcessScope = scope,
+            ProcessNames = processes,
+            IgnoreTextInput = IgnoreTextInput.IsChecked == true
+        };
+        if (!ServiceManager.Services.GetRequiredService<IHotKetImpl>().Modify(candidate))
         {
             ValidationMessage.Text = "快捷键注册失败，可能已被其他程序占用。";
             return;

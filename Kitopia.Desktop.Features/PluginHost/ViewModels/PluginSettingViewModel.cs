@@ -30,7 +30,7 @@ public partial class PluginSettingViewModel : ObservableRecipient
         PluginName = $"选择{pluginInfo}配置文件";
         SettingItems.Clear();
         foreach (var (key, value) in ConfigManger.Configs)
-            if (key.StartsWith(pluginInfo))
+            if (key.StartsWith(pluginInfo + "#", StringComparison.Ordinal))
                 SettingItems.Add(new PluginSettingItem
                 {
                     Title = value.GetType().GetCustomAttribute<ConfigName>()?.Name ?? value.Name,

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="../../../HasDependencyPluginBase/TestBase.cs" Link="TestBase.cs" />
+        <ProjectReference Include="../../../Kitopia.Desktop.PluginSdk/Kitopia.Desktop.PluginSdk.csproj" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+    </ItemGroup>
+</Project>

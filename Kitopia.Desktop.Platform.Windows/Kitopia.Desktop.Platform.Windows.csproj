@@ -62,4 +62,7 @@
         <DependentUpon>TopMostBorderWindow.axaml</DependentUpon>
       </Compile>
     </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="OpenCvSharp5.runtime.win" Version="5.0.0.20260806" />
+    </ItemGroup>
 </Project>

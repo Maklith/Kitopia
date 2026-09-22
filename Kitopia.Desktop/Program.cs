@@ -109,7 +109,7 @@ internal class Program {
             Task.Run(async () => {
                 while (Application.Current is null) await Task.Delay(100);
                 try {
-                    OnStartup(args);
+                    await OnStartupAsync(args);
                 }
                 catch (Exception e) {
                     Logger.Fatal(e, "启动失败");
@@ -150,7 +150,9 @@ internal class Program {
         services.AddTransient<ISearchWindowService, SearchWindowService>();
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();
 
-        services.AddSingleton<IConfigService, ConfigManger>();
+        services.AddSingleton<ConfigManger>();
+        services.AddSingleton<IConfigService>(provider => provider.GetRequiredService<ConfigManger>());
+        services.AddSingleton<PluginCore.Config.IConfigProvider>(provider => provider.GetRequiredService<ConfigManger>());
         services.AddSingleton<IAccountService, AccountService>();
         services.AddSingleton<AccountCardViewModel>();
         services.AddSingleton<IDeviceIdentityStore, DesktopDeviceIdentityStore>();
@@ -314,7 +316,7 @@ internal class Program {
         return await ServiceManager.Services.GetService<IApplicationService>()!.CheckUpdate(toastIfNoUpdate);
     }
 
-    private static void OnStartup(string[] arg) {
+    private static async Task OnStartupAsync(string[] arg) {
         Logger.Information("启动");
         CheckAndDeleteLogFiles();
         ServiceManager.Services.GetService<IToastService>()!.Init();
@@ -389,7 +391,7 @@ internal class Program {
 
         Logger.Information("主题初始化完成");
 
-        PluginManager.Init();
+        await PluginManager.InitAsync();
         Logger.Information("插件管理器初始化完成");
         CustomScenarioManger.Init();
         Logger.Information("场景管理器初始化完成");

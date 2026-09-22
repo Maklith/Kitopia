@@ -9,10 +9,6 @@ using System.Text.Unicode;
 using Avalonia;
 using Kitopia.Desktop.Features.JsonConverter;
 using Kitopia.Desktop.Features.Services.Config;
-using Kitopia.Desktop.Features.Services.Interfaces;
-using Microsoft.Extensions.DependencyInjection;
-using PluginCore;
-using Serilog;
 
 #endregion
 
@@ -22,24 +18,16 @@ public class AssemblyLoadContextH : AssemblyLoadContext
 {
     private readonly AssemblyDependencyResolver _resolver;
     private readonly Dictionary<string, string> _dependencies;
-    private Assembly _assembly;
-    private static ILogger Logger = LogManager.Logger.ForContext<AssemblyLoadContextH>();
+    private Assembly? _assembly;
+    private readonly string _pluginPath;
 
     public AssemblyLoadContextH(string pluginPath, string name, Dictionary<string, string> dependencies) : base(isCollectible: true, name: name)
     {
         _resolver = new AssemblyDependencyResolver(pluginPath);
         _dependencies = dependencies;
-        _assembly = LoadFromAssemblyPath(pluginPath);
+        _pluginPath = pluginPath;
         Unloading += sender =>
         {
-            // AppDomain.CurrentDomain.GetAssemblies()
-            //     .FirstOrDefault(x => x.GetName()
-            //         .Name == "System.Text.Json")
-            //     ?.GetType("System.Text.Json.Serialization.Metadata.ReflectionEmitCachingMemberAccessor")
-            //     ?.GetMethod("Clear")
-            //     ?.Invoke(null, null);
-            // var fieldInfo = ConfigManger.DefaultOptions.GetType().GetField("_cachingContext", BindingFlags.NonPublic | BindingFlags.Instance);
-            // fieldInfo.FieldType.GetMethod("Clear")?.Invoke(fieldInfo.GetValue(ConfigManger.DefaultOptions), null);
             ConfigManger.DefaultOptions = new JsonSerializerOptions
             {
                 IncludeFields = true,
@@ -49,29 +37,40 @@ public class AssemblyLoadContextH : AssemblyLoadContext
                 Converters = { new CustomScenarioInputValueJsonConverter(), new INodeInputJsonConverter() }
             };
             _assembly = null;
-            Logger.Information($"Unloading {sender.Assemblies.First()}");
-            AvaloniaPropertyRegistry.Instance.UnregisterByModule(sender.Assemblies.First()
-                .DefinedTypes);
-            ServiceManager.Services.GetService<IPluginToolService>()!.RequestUninstallPlugin(pluginPath);
+            foreach (var assembly in sender.Assemblies)
+                AvaloniaPropertyRegistry.Instance.UnregisterByModule(assembly.DefinedTypes);
+
         };
     }
 
-    public Assembly Assembly => _assembly;
+    public Assembly Assembly => _assembly ??= LoadFromAssemblyPath(_pluginPath);
 
     protected override Assembly Load(AssemblyName assemblyName)
     {
-        var assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
-        if (assemblyPath != null)
+        var name = assemblyName.Name ?? string.Empty;
+        // Types crossing the SDK boundary must use the host's assembly identity.
+        if (name is "PluginCore" or "Pinyin.NET" or "WinRT.Runtime" or "Microsoft.Windows.SDK.NET" or
+            "OpenCvSharp" or "Serilog" or "CommunityToolkit.Mvvm" or "Ursa" ||
+            name.StartsWith("Avalonia", StringComparison.Ordinal) ||
+            name.StartsWith("Irihi.", StringComparison.Ordinal) ||
+            name.StartsWith("Semi.Avalonia", StringComparison.Ordinal) ||
+            name.StartsWith("Microsoft.Extensions.", StringComparison.Ordinal))
         {
-            if (assemblyPath.EndsWith("WinRT.Runtime.dll") || assemblyPath.EndsWith("Microsoft.Windows.SDK.NET.dll") ||
-                assemblyPath.EndsWith("PluginCore.dll") || assemblyPath.EndsWith("Pinyin.NET.dll") ||
-                assemblyPath.EndsWith("Microsoft.Extensions.Logging.Abstractions.dll") ||
-                assemblyPath.EndsWith("Microsoft.Extensions.DependencyInjection.Abstractions.dll"))
-                return null;
-
-
-            return LoadFromAssemblyPath(assemblyPath);
+            try { return Default.LoadFromAssemblyName(assemblyName); }
+            catch (FileNotFoundException) when (name != "PluginCore")
+            {
+                // Optional extensions absent from the host may still be private plugin dependencies.
+            }
         }
+
+        foreach (var dependency in _dependencies.Keys)
+        {
+            if (PluginManager.GetEnablePlugins().TryGetValue(dependency, out var plugin) &&
+                plugin.AssemblyLoadContext.Assembly.GetName().Name == name)
+                return plugin.AssemblyLoadContext.Assembly;
+        }
+        var assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
+        if (assemblyPath is not null) return LoadFromAssemblyPath(assemblyPath);
 
         // 如果本地未找到，尝试从依赖项中加载
         if (_dependencies != null)
@@ -105,7 +104,10 @@ public class AssemblyLoadContextH : AssemblyLoadContext
     protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)
     {
         var libraryPath = _resolver.ResolveUnmanagedDllToPath(unmanagedDllName);
-        if (libraryPath != null) return LoadUnmanagedDllFromPath(libraryPath);
+        if (libraryPath != null)
+        {
+            return LoadUnmanagedDllFromPath(libraryPath);
+        }
 
         return IntPtr.Zero;
     }

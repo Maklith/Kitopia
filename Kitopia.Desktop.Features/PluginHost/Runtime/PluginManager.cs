@@ -1,6 +1,7 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Reflection;
-using System.Text;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.CustomScenario;
 using Kitopia.Desktop.Features.Services.Config;
@@ -14,25 +15,65 @@ using PluginKitopia = PluginCore.Kitopia;
 
 namespace Kitopia.Desktop.Features.Services.Plugin;
 
-public class PluginManager
+public static class PluginManager
 {
-    private static ILogger Logger = LogManager.Logger.ForContext<PluginManager>();
-    private static readonly ObservableCollection<PluginLocalInfo> AllPluginInfos = new();
-    private static readonly Dictionary<string, Plugin> EnablePlugins = new();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext(typeof(PluginManager));
+    private static IReadOnlyList<PluginLocalInfo> AllPluginInfos = Array.Empty<PluginLocalInfo>();
+    private static readonly ConcurrentDictionary<string, Plugin> EnablePlugins = new();
+    private static readonly ReadOnlyDictionary<string, Plugin> EnabledView = new(EnablePlugins);
+    private static readonly Dictionary<string, (WeakReference Context, bool Succeeded)> PendingUnloads = new();
+    // All mutations run on the UI dispatcher. This flag rejects overlapping async operations.
+    private static bool _operationInProgress;
 
-    public static void Init()
+    public static async Task InitAsync(CancellationToken cancellationToken = default)
     {
         PluginKitopia.ServiceProvider = ServiceManager.Services;
-        PluginKitopia.ISearchItemTool =
-            (ISearchItemTool)ServiceManager.Services.GetService(typeof(ISearchItemTool))!;
-        PluginKitopia.IClipboardService = ServiceManager.Services.GetService<IClipboardService>()!;
-        PluginKitopia.IToastService = (IToastService)ServiceManager.Services.GetService(typeof(IToastService))!;
+        PluginKitopia.ISearchItemTool = ServiceManager.Services.GetRequiredService<ISearchItemTool>();
+        PluginKitopia.IClipboardService = ServiceManager.Services.GetRequiredService<IClipboardService>();
+        PluginKitopia.IToastService = ServiceManager.Services.GetRequiredService<IToastService>();
         PluginKitopia._i18n = CustomScenarioGlobe.I18N;
         PluginKitopia.ToolTipConverters = CustomScenarioGlobe.ToolTipConverters;
         PluginKitopia.JsonConverters = CustomScenarioGlobe.JsonConverters;
-        PluginKitopia.InferenceSessionManager = ServiceManager.Services.GetService<IInferenceSessionManager>()!;
+        PluginKitopia.InferenceSessionManager = ServiceManager.Services.GetRequiredService<IInferenceSessionManager>();
         PluginKitopia.Logger = LogManager.Logger;
-        Load(true);
+        await RunOperationAsync(async () =>
+        {
+            RefreshInstalled(handleRemovals: true);
+            // A failed removal in an older version may have deleted the manifest before the locked DLL.
+            foreach (var directory in Directory.GetDirectories(KitopiaPaths.PluginsDirectory))
+            {
+                if (Path.GetFileName(directory).StartsWith('.')) continue;
+                var marker = Path.Combine(directory, ".update");
+                if (!File.Exists(marker)) continue;
+                var name = AllPluginInfos.FirstOrDefault(info =>
+                    string.Equals(Path.TrimEndingDirectorySeparator(info.Path), directory, StringComparison.OrdinalIgnoreCase))
+                    ?.ToPlgString() ?? Path.GetFileName(directory);
+                try
+                {
+                    var version = (await File.ReadAllTextAsync(marker, cancellationToken)).Trim();
+                    var package = await PluginNetworkService.DownloadPackageAsync(name, version, cancellationToken);
+                    if (await ApplyAsync(name, package,
+                            ConfigManger.Config.EnabledPluginInfos.Any(item => item.NameSign == name), cancellationToken))
+                        File.Delete(marker);
+                }
+                catch (Exception exception) { Logger.Error(exception, "启动时更新插件 {Plugin} 失败，保留更新标记", name); }
+            }
+            foreach (var name in ConfigManger.Config.EnabledPluginInfos.Select(info => info.NameSign).ToArray())
+            {
+                if (EnablePlugins.ContainsKey(name)) continue;
+                try { await ApplyAsync(name, null, true, cancellationToken); }
+                catch (Exception exception)
+                {
+                    Logger.Error(exception, "启动插件 {Plugin} 失败", name);
+                    if (GetPluginLocalInfoByPlgStr(name) is { } info)
+                    {
+                        info.LoadFailed = true;
+                        info.LoadFailedReason = exception.Message;
+                    }
+                }
+            }
+            return true;
+        }, refreshScenarios: false);
     }
 
     public static PluginLocalInfo? GetPluginLocalInfoByPlgStr(string plgStr)
@@ -64,9 +105,9 @@ public class PluginManager
         return AllPluginInfos;
     }
 
-    public static Dictionary<string, Plugin> GetEnablePlugins()
+    public static IReadOnlyDictionary<string, Plugin> GetEnablePlugins()
     {
-        return EnablePlugins;
+        return EnabledView;
     }
 
     public static IServiceProvider GetServiceProvider(string plgStr)
@@ -93,505 +134,358 @@ public class PluginManager
             strings[1]);
     }
 
-    public static void EnablePlugin(PluginLocalInfo pluginInfoEx)
-    {
-        if (EnablePlugins.ContainsKey(pluginInfoEx.ToPlgString())) return;
-        EnablePluginWithoutReloadOthers(pluginInfoEx);
-        CustomScenarioManger.ReCheck(true);
-        RefreshPluginDependencyStatus();
-        WeakReferenceMessenger.Default.Send(
-            new PluginStateChanged(pluginInfoEx.PluginBaseInfo.NameSign));
-    }
+    public static Task<bool> EnablePluginAsync(string pluginSign, CancellationToken cancellationToken = default) =>
+        RunOperationAsync(() => ApplyAsync(pluginSign, null, true, cancellationToken));
 
-    public static void RefreshPluginDependencyStatus()
+    private static async Task<bool> RunOperationAsync(Func<Task<bool>> operation, bool refreshScenarios = true)
     {
-        var allBaseInfos = AllPluginInfos.Select(x => x.PluginBaseInfo).ToList();
-        var enabledSignatures = EnablePlugins.Keys.ToList();
-
-        foreach (var info in AllPluginInfos)
+        if (!Dispatcher.UIThread.CheckAccess())
+            return await Dispatcher.UIThread.InvokeAsync(() => RunOperationAsync(operation, refreshScenarios));
+        if (_operationInProgress)
         {
-            var (canLoad, versionCheckResults) = PluginDependencyService.CheckDependencies(
-                allBaseInfos,
-                info.PluginBaseInfo.Dependencies,
-                enabledSignatures);
-
-            if (!canLoad)
+            ServiceManager.Services.GetService<IToastService>()?.Show("插件操作进行中", "请等待当前插件操作完成。");
+            return false;
+        }
+        _operationInProgress = true;
+        try { return await operation(); }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception exception)
+        {
+            Logger.Error(exception, "插件操作失败");
+            ServiceManager.Services.GetService<IToastService>()?.Show("插件操作失败", exception.Message);
+            return false;
+        }
+        finally
+        {
+            try
             {
-                var stringBuilder = new StringBuilder();
-                foreach (var (key, value) in versionCheckResults)
-                    stringBuilder.AppendLine($"{key} {value.ToString()}");
-
-                var reason = $"依赖检查未通过:\n {stringBuilder}";
-                if (!info.LoadFailed || info.LoadFailedReason != reason)
-                {
-                    info.LoadFailed = true;
-                    info.LoadFailedReason = reason;
-                    info.NotifyStatusChanged();
-                }
+                foreach (var info in AllPluginInfos) info.NotifyStatusChanged();
+                WeakReferenceMessenger.Default.Send(new PluginsReloaded());
+                if (refreshScenarios) CustomScenarioManger.ReCheck(true);
             }
-            else
-            {
-                if (info.LoadFailed)
-                {
-                    info.LoadFailed = false;
-                    info.LoadFailedReason = null;
-                    info.NotifyStatusChanged();
-                }
-            }
+            catch (Exception exception) { Logger.Error(exception, "刷新插件界面或情景失败"); }
+            finally { _operationInProgress = false; }
         }
     }
 
-    public static void EnablePluginWithoutReloadOthers(PluginLocalInfo pluginInfoEx)
+    private static void RefreshInstalled(bool handleRemovals = false)
     {
-        if (EnablePlugins.ContainsKey(pluginInfoEx.ToPlgString())) return;
+        var discovered = PluginDiscoveryService.DiscoverPlugins(KitopiaPaths.PluginsDirectory, handleRemovals);
+        var old = AllPluginInfos.ToDictionary(info => info.ToPlgString());
+        for (var index = 0; index < discovered.Count; index++)
+        {
+            var info = discovered[index];
+            if (old.TryGetValue(info.ToPlgString(), out var current) && current.FullPath == info.FullPath &&
+                current.PluginBaseInfo.Version == info.PluginBaseInfo.Version)
+                discovered[index] = current;
+            discovered[index].UnloadFailed = PendingUnloads.TryGetValue(info.ToPlgString(), out var pending) &&
+                                             (!pending.Succeeded || pending.Context.IsAlive);
+        }
+        // Publish a complete snapshot so readers cannot observe a partially rescanned list.
+        AllPluginInfos = discovered.AsReadOnly();
+    }
 
-        var plugin = new Plugin(pluginInfoEx);
-        EnablePlugins.Add(pluginInfoEx.ToPlgString(), plugin);
+    internal static async Task EnableOneAsync(PluginLocalInfo info)
+    {
+        var name = info.ToPlgString();
+        if (EnablePlugins.ContainsKey(name)) return;
+        if (PendingUnloads.TryGetValue(name, out var previous))
+        {
+            if (!previous.Succeeded || previous.Context.IsAlive)
+                throw new InvalidOperationException($"插件 {info.PluginBaseInfo.Name} 动态卸载失败，需要重启后再启用。");
+            PendingUnloads.Remove(name);
+            info.UnloadFailed = false;
+        }
+        ValidateDependencies(info, AllPluginInfos, EnablePlugins.Keys);
+        var plugin = new Plugin(info);
         try
         {
+            plugin.Load();
+            EnablePlugins[name] = plugin;
             plugin.Enable();
+            info.LoadFailed = false;
+            info.LoadFailedReason = null;
+        }
+        catch (Exception exception)
+        {
+            EnablePlugins.TryRemove(name, out _);
+            var cleanup = await plugin.UnloadAsync();
+            PendingUnloads[name] = cleanup;
+            info.UnloadFailed = !cleanup.Succeeded || cleanup.Context.IsAlive;
+            info.LoadFailed = true;
+            info.LoadFailedReason = exception.Message;
+            throw;
+        }
+    }
+
+    internal static void ValidateDependencies(PluginLocalInfo info, IEnumerable<PluginLocalInfo> available,
+        IEnumerable<string> enabled)
+    {
+        var (valid, errors) = PluginDependencyService.CheckDependencies(
+            available.Select(item => item.PluginBaseInfo), info.PluginBaseInfo.Dependencies, enabled);
+        if (!valid) throw new InvalidOperationException($"插件 {info.PluginBaseInfo.Name} 依赖检查失败：" +
+            string.Join("；", errors.Select(error => error.Key == "Kitopia"
+                ? $"Kitopia：{error.Value}（当前 {ConfigManger.Version}，要求 {info.PluginBaseInfo.Dependencies[error.Key]}）"
+                : $"{error.Key}：{error.Value}")));
+    }
+
+    internal static async Task<bool> UnloadCoreAsync(PluginLocalInfo info)
+    {
+        var name = info.ToPlgString();
+        if (EnablePlugins.TryGetValue(name, out var plugin))
+        {
+            var cleanup = await plugin.UnloadAsync();
+            EnablePlugins.TryRemove(name, out _);
+            PendingUnloads[name] = cleanup;
+        }
+        if (PendingUnloads.TryGetValue(name, out var pending))
+        {
+            // Unload only requests collection. Yield so cleanup frames can unwind and finalizers can run.
+            // Bound verification: a retained plugin must fail instead of silently starting another instance.
+            for (var attempt = 0; attempt < 10 && pending.Context.IsAlive; attempt++)
+            {
+                await Task.Delay(50);
+                GC.Collect();
+            }
+            info.UnloadFailed = !pending.Succeeded || pending.Context.IsAlive;
+        }
+        else
+        {
+            info.UnloadFailed = false;
+        }
+        if (!info.UnloadFailed) PendingUnloads.Remove(name);
+        else Logger.Warning("插件 {Plugin} 动态卸载失败，清理成功：{CleanupSucceeded}，程序集上下文仍存活：{ContextAlive}，需要重启",
+            name, pending.Succeeded, pending.Context.IsAlive);
+        return !info.UnloadFailed;
+    }
+
+    private static List<PluginLocalInfo> GetAffectedPlugins(PluginLocalInfo target)
+    {
+        var dependents = new HashSet<PluginLocalInfo> { target };
+        PluginDependencyService.GetAllDependentPlugins(target, AllPluginInfos, dependents);
+        var (sorted, cyclic) = PluginDependencyService.SafeTopologicalSort(dependents.ToList());
+        sorted.AddRange(cyclic);
+        sorted.Reverse();
+        return sorted;
+    }
+
+    private static async Task PrepareDependenciesAsync(PluginLocalInfo root, Dictionary<string, PluginLocalInfo> candidates,
+        List<PluginPackage> packages, HashSet<string> visited, HashSet<string> visiting, CancellationToken cancellationToken)
+    {
+        var name = root.ToPlgString();
+        if (visiting.Contains(name)) throw new InvalidOperationException($"插件依赖存在循环：{name}");
+        if (visited.Contains(name)) return;
+        visiting.Add(name);
+        foreach (var (dependency, range) in root.PluginBaseInfo.Dependencies)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (dependency == "Kitopia") continue;
+            if (!candidates.TryGetValue(dependency, out var info))
+            {
+                var versions = await PluginNetworkService.GetVersionDetailsAsync(dependency, null, cancellationToken);
+                var version = PluginDependencyService.SelectDependencyVersion(
+                    versions?.Where(item => item.CanDownload &&
+                        PluginNetworkService.SupportsCurrentPlatform(item.AvailablePlatforms))
+                        .Select(item => item.Version) ?? [], range);
+                if (version is null) throw new InvalidOperationException($"找不到依赖 {dependency} 满足 {range} 的可用版本。");
+                var package = await PluginNetworkService.DownloadPackageAsync(dependency, version, cancellationToken);
+                packages.Add(package);
+                info = package.Info;
+                candidates.Add(dependency, info);
+            }
+            if (!PluginDependencyService.VersionInRange(info.PluginBaseInfo.Version, range))
+                throw new InvalidOperationException($"依赖 {dependency} 的版本 {info.PluginBaseInfo.Version} 不满足 {range}。");
+            await PrepareDependenciesAsync(info, candidates, packages, visited, visiting, cancellationToken);
+        }
+        visiting.Remove(name);
+        visited.Add(name);
+    }
+
+    private static async Task<bool> ApplyAsync(string name, PluginPackage? replacement, bool enable,
+        CancellationToken cancellationToken)
+    {
+        var packages = new List<PluginPackage>();
+        if (replacement is not null) packages.Add(replacement);
+        var desiredBefore = ConfigManger.Config.EnabledPluginInfos.ToArray();
+        var runningBefore = EnablePlugins.Keys.ToHashSet();
+        var started = new List<PluginLocalInfo>();
+        var stopped = new List<PluginLocalInfo>();
+        var updatePending = false;
+        string? updateDirectory = null;
+        try
+        {
+            RefreshInstalled();
+            if (replacement is not null)
+                updateDirectory = GetPluginLocalInfoByPlgStr(name)?.Path ?? KitopiaPaths.GetPluginDirectory(name);
+            var candidates = AllPluginInfos.ToDictionary(info => info.ToPlgString());
+            if (replacement is not null) candidates[name] = replacement.Info;
+            if (!candidates.TryGetValue(name, out var root)) throw new InvalidOperationException($"插件 {name} 未安装。");
+            var closure = new HashSet<string>();
+            await PrepareDependenciesAsync(root, candidates, packages, closure, new HashSet<string>(), cancellationToken);
+            var toEnable = new HashSet<string>(runningBefore);
+            if (enable) toEnable.UnionWith(closure);
+            foreach (var target in toEnable.Concat(closure).Distinct())
+                ValidateDependencies(candidates[target], candidates.Values, toEnable.Union(closure));
+            var order = PluginDependencyService.TopologicalSort(candidates.Values.Where(info =>
+                toEnable.Contains(info.ToPlgString())).ToList());
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (replacement is not null && GetPluginLocalInfoByPlgStr(name) is { } old)
+            {
+                foreach (var affected in GetAffectedPlugins(old).Where(info => runningBefore.Contains(info.ToPlgString())))
+                {
+                    stopped.Add(affected);
+                    if (!await UnloadCoreAsync(affected))
+                    {
+                        updatePending = true;
+                        throw new InvalidOperationException($"插件 {affected.PluginBaseInfo.Name} 仍被引用，已保留启用设置并安排重启更新。");
+                    }
+                }
+                if (!await UnloadCoreAsync(old))
+                {
+                    updatePending = true;
+                    throw new InvalidOperationException($"插件 {old.PluginBaseInfo.Name} 尚未完全卸载，需要重启更新。");
+                }
+            }
+            try
+            {
+                foreach (var package in packages)
+                    package.Activate(GetPluginLocalInfoByPlgStr(package.Info.ToPlgString())?.Path ??
+                        KitopiaPaths.GetPluginDirectory(package.Info.ToPlgString()));
+            }
+            catch (Exception exception) when (replacement is not null && exception is IOException or UnauthorizedAccessException)
+            {
+                updatePending = true;
+                throw new IOException($"插件 {replacement.Info.PluginBaseInfo.Name} 的目录暂时无法替换，已安排下次启动重试安装。", exception);
+            }
+            RefreshInstalled();
+            foreach (var candidate in order)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (EnablePlugins.ContainsKey(candidate.ToPlgString())) continue;
+                var installed = GetPluginLocalInfoByPlgStr(candidate.ToPlgString())!;
+                await EnableOneAsync(installed);
+                started.Add(installed);
+            }
+            var desired = desiredBefore.Select(info => info.NameSign).ToHashSet();
+            if (enable) desired.UnionWith(closure);
+            ConfigManger.Config.EnabledPluginInfos.Clear();
+            foreach (var sign in desired)
+                ConfigManger.Config.EnabledPluginInfos.Add(GetPluginLocalInfoByPlgStr(sign)?.PluginBaseInfo ??
+                    desiredBefore.First(info => info.NameSign == sign));
+            ConfigManger.Save("KitopiaConfig");
+            foreach (var package in packages) package.Complete();
+            return true;
         }
         catch
         {
-            EnablePlugins.Remove(pluginInfoEx.ToPlgString());
-            try
+            for (var index = started.Count - 1; index >= 0; index--) await UnloadCoreAsync(started[index]);
+            for (var index = packages.Count - 1; index >= 0; index--)
             {
-                plugin.Unload(out _);
+                try { packages[index].Dispose(); }
+                catch (Exception exception) { Logger.Error(exception, "恢复插件目录失败，备份目录已保留"); }
             }
-            catch (Exception cleanupException)
+            packages.Clear();
+            ConfigManger.Config.EnabledPluginInfos.Clear();
+            ConfigManger.Config.EnabledPluginInfos.AddRange(desiredBefore);
+            if (updatePending && replacement is not null)
             {
-                Logger.Error(cleanupException, $"启用插件 {pluginInfoEx.PluginBaseInfo.Name} 失败后的清理发生错误");
+                // Persist after rollback so restoring the old directory cannot discard the update request.
+                Directory.CreateDirectory(updateDirectory!);
+                File.WriteAllText(Path.Combine(updateDirectory!, ".update"), replacement.Info.PluginBaseInfo.Version);
+                if (enable && !ConfigManger.Config.EnabledPluginInfos.Any(info => info.NameSign == name))
+                {
+                    ConfigManger.Config.EnabledPluginInfos.Add(replacement.Info.PluginBaseInfo);
+                    ConfigManger.Save("KitopiaConfig");
+                }
+            }
+            RefreshInstalled();
+            foreach (var original in stopped.AsEnumerable().Reverse())
+            {
+                try { await EnableOneAsync(GetPluginLocalInfoByPlgStr(original.ToPlgString())!); }
+                catch (Exception exception) { Logger.Error(exception, "恢复插件 {Plugin} 失败，保留重启时的启用设置", original.ToPlgString()); }
             }
             throw;
         }
-
-        ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.NameSign == pluginInfoEx.PluginBaseInfo.NameSign);
-        ConfigManger.Config.EnabledPluginInfos.Add(pluginInfoEx.PluginBaseInfo);
-        ConfigManger.Save();
+        finally
+        {
+            foreach (var package in packages) package.Dispose();
+        }
     }
 
-    public static bool EnablePlugin(string pluginSign)
+    public static Task<bool> DownloadPluginAndEnable(string pluginSign, string? targetVersion = null,
+        CancellationToken cancellationToken = default) => RunOperationAsync(async () =>
     {
-        var pluginInfoEx = AllPluginInfos.FirstOrDefault(e => e.ToPlgString() == pluginSign);
-        if (pluginInfoEx is null) return false;
-        EnablePlugin(pluginInfoEx);
+        targetVersion ??= await PluginNetworkService.GetLatestVersionAsync(pluginSign, cancellationToken);
+        if (string.IsNullOrWhiteSpace(targetVersion)) return false;
+        var package = await PluginNetworkService.DownloadPackageAsync(pluginSign, targetVersion, cancellationToken);
+        return await ApplyAsync(pluginSign, package, true, cancellationToken);
+    });
+
+    public static Task<bool> Update(string pluginSign, string? targetVersion = null,
+        CancellationToken cancellationToken = default) => RunOperationAsync(async () =>
+    {
+        if (GetPluginLocalInfoByPlgStr(pluginSign) is null) return false;
+        targetVersion ??= await PluginNetworkService.GetLatestVersionAsync(pluginSign, cancellationToken);
+        if (string.IsNullOrWhiteSpace(targetVersion)) return false;
+        var package = await PluginNetworkService.DownloadPackageAsync(pluginSign, targetVersion, cancellationToken);
+        var enable = EnablePlugins.ContainsKey(pluginSign) ||
+                     ConfigManger.Config.EnabledPluginInfos.Any(info => info.NameSign == pluginSign);
+        return await ApplyAsync(pluginSign, package, enable, cancellationToken);
+    });
+
+    public static void DisablePlugin(PluginLocalInfo info) => RequestRemoval(info, delete: false);
+    public static void DeletePlugin(PluginLocalInfo info) => RequestRemoval(info, delete: true);
+    public static void DeletePlugin(string name)
+    {
+        if (GetPluginLocalInfoByPlgStr(name) is { } info) DeletePlugin(info);
+    }
+
+    private static void RequestRemoval(PluginLocalInfo info, bool delete)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => RequestRemoval(info, delete));
+            return;
+        }
+        var affected = GetAffectedPlugins(info);
+        if (!delete && affected.Count == 1)
+        {
+            _ = RemovePluginsAsync(info.ToPlgString(), false);
+            return;
+        }
+        ServiceManager.Services.GetRequiredService<IToastService>().Show(new DialogContent
+        {
+            Title = $"{(delete ? "删除" : "停用")}插件 {info.PluginBaseInfo.Name}",
+            Content = "将处理以下插件及其依赖者：\n" + string.Join("、", affected.Select(item => item.PluginBaseInfo.Name)),
+            PrimaryButtonText = "确定", CloseButtonText = "取消",
+            PrimaryAction = async () => { await RemovePluginsAsync(info.ToPlgString(), delete); }
+        }.ToToastRequest());
+    }
+
+    private static Task<bool> RemovePluginsAsync(string name, bool delete) => RunOperationAsync(async () =>
+    {
+        if (GetPluginLocalInfoByPlgStr(name) is not { } root) return false;
+        var affected = GetAffectedPlugins(root);
+        foreach (var info in affected)
+        {
+            var unloaded = await UnloadCoreAsync(info);
+            ConfigManger.Config.EnabledPluginInfos.RemoveAll(item => item.NameSign == info.ToPlgString());
+            if (!unloaded)
+                ServiceManager.Services.GetService<IToastService>()?.Show("插件动态卸载失败",
+                    $"插件 {info.PluginBaseInfo.Name} 尚未完全释放，请重启后完成{(delete ? "删除" : "停用")}。");
+            if (!delete) continue;
+            File.Delete(Path.Combine(info.Path, ".update"));
+            try
+            {
+                if (!unloaded) throw new IOException("插件仍被引用。");
+                PluginDiscoveryService.RemovePluginDirectory(info.Path);
+            }
+            catch (IOException) { File.WriteAllText(Path.Combine(info.Path, ".remove"), string.Empty); }
+            catch (UnauthorizedAccessException) { File.WriteAllText(Path.Combine(info.Path, ".remove"), string.Empty); }
+        }
+        ConfigManger.Save("KitopiaConfig");
+        RefreshInstalled();
         return true;
-    }
-
-    public static void DisablePlugin(PluginLocalInfo pluginInfoEx)
-    {
-        var deps = new HashSet<PluginLocalInfo>();
-        PluginDependencyService.GetAllDependentPlugins(pluginInfoEx, AllPluginInfos, deps);
-
-        if (deps.Count > 0)
-        {
-            var sortedDeps = new List<PluginLocalInfo>();
-            try
-            {
-                sortedDeps = PluginDependencyService.TopologicalSort(deps.ToList());
-                sortedDeps.Reverse(); // Disable dependents first
-            }
-            catch (Exception)
-            {
-                sortedDeps = deps.ToList();
-            }
-
-            var content = "检测到以下插件依赖于此插件，也将被一并禁用：\n" + string.Join(", ", sortedDeps.Select(p => p.PluginBaseInfo.Name));
-
-            var dialog = new DialogContent
-            {
-                Title = $"禁用 {pluginInfoEx.PluginBaseInfo.Name}?",
-                Content = content,
-                PrimaryButtonText = "确定",
-                CloseButtonText = "取消",
-                PrimaryAction = async () =>
-                {
-                    try
-                    {
-                        foreach (var dep in sortedDeps)
-                        {
-                            await UnloadPlugin(dep, false);
-                        }
-                        await UnloadPlugin(pluginInfoEx, true);
-                    }
-                    catch (Exception e)
-                    {
-                        Logger.Error(e, "批量禁用插件时发生错误");
-                    }
-                }
-            };
-            ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
-                dialog.ToToastRequest());
-        }
-        else
-        {
-            _ = UnloadPlugin(pluginInfoEx, true);
-        }
-    }
-
-    public static async Task<bool> UnloadPlugin(PluginLocalInfo pluginInfoEx,
-        bool reloadPluginAndCustomScenarion = true)
-    {
-        Plugin.UnloadByPluginInfo(pluginInfoEx.ToPlgString(), out var weakReference);
-        EnablePlugins.Remove(pluginInfoEx.ToPlgString());
-
-        ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.ToPlgString() == pluginInfoEx.ToPlgString());
-        ConfigManger.Save();
-
-        await Task.Run(() =>
-        {
-            for (var i = 0; i < 30; i++)
-            {
-                GC.Collect(2, GCCollectionMode.Aggressive);
-                GC.WaitForPendingFinalizers();
-                Thread.Sleep(50);
-                if (!weakReference.IsAlive) break;
-            }
-        });
-        if (weakReference.IsAlive)
-        {
-            pluginInfoEx.UnloadFailed = true;
-            Task.Run(() =>
-            {
-                while (weakReference.IsAlive) Thread.Sleep(1000);
-
-                pluginInfoEx.UnloadFailed = false;
-                if (GetPluginLocalInfoByPlgStr(pluginInfoEx.ToPlgString()) is { } reloadedPlugin)
-                    reloadedPlugin.UnloadFailed = false;
-            });
-        }
-
-        // Items.ResetBindings();
-        if (reloadPluginAndCustomScenarion)
-        {
-            WeakReferenceMessenger.Default.Send(
-                new PluginStateChanged(pluginInfoEx.PluginBaseInfo.NameSign));
-            Reload();
-            CustomScenarioManger.Reload();
-            if (weakReference.IsAlive && GetPluginLocalInfoByPlgStr(pluginInfoEx.ToPlgString()) is { } reloadedPlugin)
-            {
-                reloadedPlugin.UnloadFailed = true;
-            }
-        }
-
-        return !weakReference.IsAlive;
-    }
-
-    public static void Reload()
-    {
-        AllPluginInfos.Clear();
-        Load();
-        WeakReferenceMessenger.Default.Send(new PluginsReloaded());
-    }
-
-    public static void Load(bool init = false)
-    {
-        var pluginsPath = KitopiaPaths.PluginsDirectory;
-        
-        // Phase 1: Discovery
-        var candidates = PluginDiscoveryService.DiscoverPlugins(pluginsPath, handleRemovals: init);
-
-        // Phase 2: Resolve & Download Dependencies
-        bool newPluginDownloaded = true;
-        int maxIterations = 5;
-
-        while (newPluginDownloaded && maxIterations-- > 0)
-        {
-            newPluginDownloaded = false;
-            if (candidates.Count == 0 || maxIterations < 4)
-            {
-                 candidates = PluginDiscoveryService.DiscoverPlugins(pluginsPath, handleRemovals: false);
-            }
-
-            var localMap = candidates.Select(c => c.PluginBaseInfo.NameSign).ToHashSet();
-            
-            foreach (var candidate in candidates.ToList())
-            {
-                foreach (var dep in candidate.PluginBaseInfo.Dependencies)
-                {
-                    if (dep.Key == "Kitopia") continue;
-
-                    if (!localMap.Contains(dep.Key))
-                    {
-                        Logger.Information($"插件 {candidate.PluginBaseInfo.Name} 缺少依赖 {dep.Key}，尝试自动下载...");
-                        try 
-                        {
-                            var onlineInfo = PluginNetworkService.GetOnlinePluginInfo(dep.Key).GetAwaiter().GetResult();
-                            if (onlineInfo != null)
-                            {
-                                var verStr = dep.Value.Replace("^", "").Split("-")[0];
-                                var success = PluginNetworkService.DownloadPlugin(onlineInfo.NameSign, verStr).GetAwaiter().GetResult();
-                                if (success)
-                                {
-                                    Logger.Information($"依赖 {dep.Key} 下载成功，将重新扫描。");
-                                    newPluginDownloaded = true;
-                                    goto ReScan; 
-                                }
-                                else
-                                {
-                                    Logger.Error($"依赖 {dep.Key} 下载失败。");
-                                }
-                            }
-                            else
-                            {
-                                Logger.Error($"依赖 {dep.Key} 在服务器上未找到。");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Error(ex, $"尝试下载依赖 {dep.Key} 时发生异常");
-                        }
-                    }
-                }
-            }
-            ReScan:;
-        }
-
-        // Phase 3: Sorting
-        var (sortedCandidates, cyclic) = PluginDependencyService.SafeTopologicalSort(candidates);
-
-        if (cyclic.Count > 0)
-        {
-            foreach (var info in cyclic)
-            {
-                info.LoadFailed = true;
-                info.LoadFailedReason = "检测到循环依赖";
-                AllPluginInfos.Add(info);
-                info.NotifyStatusChanged();
-            }
-
-            var msg = string.Join(", ", cyclic.Select(c => c.PluginBaseInfo.Name));
-            Logger.Error($"插件加载检测到循环依赖，以下插件将被排除: {msg}");
-            ServiceManager.Services.GetService<IToastService>()?.Show("循环依赖警告", $"以下插件因循环依赖无法加载: {msg}");
-        }
-
-        // Phase 4: Load in dependency order. Plugin preparation and lifecycle callbacks
-        // touch shared registries, so keeping this sequence explicit avoids races.
-        Logger.Debug($"插件加载顺序计算完成，准备顺序加载: {string.Join(" -> ", sortedCandidates.Select(c => c.PluginBaseInfo.Name))}");
-        foreach (var info in sortedCandidates)
-        {
-            try
-            {
-                AllPluginInfos.Add(info);
-
-                // Check dependencies (ensure they are loaded and enabled)
-                var (canLoad, versionCheckResults) = PluginDependencyService.CheckDependencies(
-                    candidates.Select(c => c.PluginBaseInfo),
-                    info.PluginBaseInfo.Dependencies,
-                    EnablePlugins.Keys);
-
-                if (!canLoad)
-                {
-                    var stringBuilder = new StringBuilder();
-                    foreach (var (key, value) in versionCheckResults)
-                        stringBuilder.AppendLine($"{key} {value.ToString()}");
-
-                    Logger.Error($"加载插件{info.PluginBaseInfo.Name}时错误, 依赖检查未通过:\n {stringBuilder}");
-                    ServiceManager.Services.GetService<IToastService>()?.Show($"加载插件{info.PluginBaseInfo.Name}失败", $"依赖检查未通过:\n {stringBuilder}");
-
-                    info.LoadFailed = true;
-                    info.LoadFailedReason = $"依赖检查未通过:\n {stringBuilder}";
-                    info.NotifyStatusChanged();
-                    continue;
-                }
-
-                Logger.Debug($"加载插件{info.PluginBaseInfo.Name}信息成功");
-
-                if (init && File.Exists($"{info.Path}.update"))
-                {
-                    var version = File.ReadAllText($"{info.Path}.update");
-                    if (!string.IsNullOrWhiteSpace(version))
-                        PluginNetworkService.DownloadPlugin(info.PluginBaseInfo.NameSign, version).GetAwaiter().GetResult();
-
-                    try
-                    {
-                        File.Delete($"{info.Path}.update");
-                    }
-                    catch (Exception e)
-                    {
-                        Logger.Error(e, "删除更新标记文件错误");
-                    }
-                }
-
-                if (ConfigManger.Config.EnabledPluginInfos.Any(e => e.ToPlgString() == info.PluginBaseInfo.ToPlgString()))
-                {
-                    var configuredPlugin = ConfigManger.Config.EnabledPluginInfos
-                        .First(e => e.ToPlgString() == info.PluginBaseInfo.ToPlgString());
-                    ConfigManger.Config.EnabledPluginInfos.RemoveAll(e => e.NameSign == configuredPlugin.NameSign);
-                    ConfigManger.Config.EnabledPluginInfos.Add(info.PluginBaseInfo);
-
-                    if (!EnablePlugins.ContainsKey(info.PluginBaseInfo.ToPlgString()))
-                        EnablePluginWithoutReloadOthers(info);
-                }
-            }
-            catch (Exception e)
-            {
-                Logger.Error(e, $"加载插件 {info.PluginBaseInfo.Name} 时发生未知错误");
-                if (AllPluginInfos.Contains(info))
-                    AllPluginInfos.Remove(info);
-            }
-        }
-
-        Logger.Debug($"加载插件信息完成共{AllPluginInfos.Count}插件被加载");
-    }
-
-    public static void DeletePlugin(string pluginSignName)
-    {
-        var pluginLocalInfo = AllPluginInfos.FirstOrDefault(e => e.PluginBaseInfo.NameSign == pluginSignName);
-        if (pluginLocalInfo is not null) DeletePlugin(pluginLocalInfo);
-    }
-
-    public static void DeletePlugin(PluginLocalInfo pluginInfoEx)
-    {
-        if (pluginInfoEx is null) return;
-        var deps = new HashSet<PluginLocalInfo>();
-        PluginDependencyService.GetAllDependentPlugins(pluginInfoEx, AllPluginInfos, deps);
-
-        var content = "是否确定删除?\n他真的会丢失很久很久(不可恢复)";
-        var sortedDeps = new List<PluginLocalInfo>();
-        if (deps.Count > 0)
-        {
-            try
-            {
-                sortedDeps = PluginDependencyService.TopologicalSort(deps.ToList());
-                sortedDeps.Reverse(); // Delete dependents first
-            }
-            catch (Exception)
-            {
-                sortedDeps = deps.ToList();
-            }
-            content += $"\n\n注意：以下插件依赖于此插件，也将被一并删除：\n{string.Join(", ", sortedDeps.Select(p => p.PluginBaseInfo.Name))}";
-        }
-
-        var dialog = new DialogContent
-        {
-            Title = $"删除{pluginInfoEx.PluginBaseInfo.Name}?",
-            Content = content,
-            PrimaryButtonText = "确定",
-            CloseButtonText = "取消",
-            PrimaryAction = async () =>
-            {
-                foreach (var dep in sortedDeps)
-                {
-                    await DeletePluginWithoutUserCheck(dep, false);
-                }
-                await DeletePluginWithoutUserCheck(pluginInfoEx, true);
-            }
-        };
-        ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
-            dialog.ToToastRequest());
-    }
-
-    public static async Task DeletePluginWithoutUserCheck(PluginLocalInfo pluginInfoEx, bool reload = true)
-    {
-        Logger.Debug($"删除插件{pluginInfoEx.PluginBaseInfo.Name}");
-        await UnloadPlugin(pluginInfoEx, false);
-        var restartRequired = false;
-        var pluginsDirectoryInfo = new DirectoryInfo(pluginInfoEx.Path);
-        if (pluginsDirectoryInfo.Exists)
-        {
-            Logger.Information($"正在删除插件目录: {pluginsDirectoryInfo.FullName}");
-            try
-            {
-                pluginsDirectoryInfo.Delete(true);
-            }
-            catch (Exception e)
-            {
-                Logger.Error(e, $"删除插件目录失败: {pluginsDirectoryInfo.FullName}");
-                SchedulePluginRemovalOnRestart(pluginInfoEx);
-                restartRequired = true;
-            }
-        }
-        else
-        {
-            Logger.Warning($"插件目录不存在，跳过删除: {pluginsDirectoryInfo.FullName}");
-        }
-
-        if (reload)
-        {
-            Reload();
-            CustomScenarioManger.Reload();
-            if (restartRequired && GetPluginLocalInfoByPlgStr(pluginInfoEx.ToPlgString()) is { } reloadedPlugin)
-            {
-                reloadedPlugin.UnloadFailed = true;
-            }
-        }
-    }
-
-    private static void SchedulePluginRemovalOnRestart(PluginLocalInfo pluginInfoEx)
-    {
-        pluginInfoEx.UnloadFailed = true;
-        var markerPath = Path.Combine(pluginInfoEx.Path, ".remove");
-        Logger.Warning($"插件卸载或删除失败，创建 .remove 标记: {markerPath}");
-        try
-        {
-            File.WriteAllText(markerPath, string.Empty);
-        }
-        catch (Exception e)
-        {
-            Logger.Error(e, $"创建插件删除标记失败: {markerPath}");
-        }
-    }
-
-    public static async Task<bool> DownloadPluginAndEnable(string pluginSign, string? targetVersion = null)
-    {
-        if (string.IsNullOrWhiteSpace(targetVersion))
-        {
-            targetVersion = await PluginNetworkService.GetLatestVersionAsync(pluginSign);
-        }
-
-        if (string.IsNullOrWhiteSpace(targetVersion))
-        {
-            return false;
-        }
-
-        var downloadSuccess = await PluginNetworkService.DownloadPlugin(pluginSign, targetVersion);
-        if (downloadSuccess)
-        {
-            Reload();
-            return EnablePlugin(pluginSign);
-        }
-        return false;
-    }
-
-    public static async Task<bool> Update(string pluginSign, string? targetVersion = null)
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(targetVersion))
-            {
-                targetVersion = await PluginNetworkService.GetLatestVersionAsync(pluginSign);
-            }
-
-            if (string.IsNullOrWhiteSpace(targetVersion)) return false;
-
-            var pluginLocalInfoByPlgStr = GetPluginLocalInfoByPlgStr(pluginSign);
-            if (pluginLocalInfoByPlgStr is null) return false;
-            await UnloadPlugin(pluginLocalInfoByPlgStr);
-
-            if (pluginLocalInfoByPlgStr.UnloadFailed)
-            {
-                await File.WriteAllTextAsync($"{pluginLocalInfoByPlgStr.Path}.update", targetVersion);
-                return true;
-            }
-
-            var downloadSuccess = await PluginNetworkService.DownloadPlugin(
-                pluginLocalInfoByPlgStr.PluginBaseInfo.NameSign,
-                targetVersion);
-            if (!downloadSuccess)
-            {
-                ServiceManager.Services.GetService<IToastService>()!.Show("更新插件失败",
-                    $"更新插件{pluginLocalInfoByPlgStr.PluginBaseInfo.Name}失败");
-                return false;
-            }
-
-            Reload();
-            return EnablePlugin(pluginLocalInfoByPlgStr.PluginBaseInfo.NameSign);
-        }
-        catch (Exception e)
-        {
-            Logger.Error(e, "错误");
-            return false;
-        }
-    }
+    });
 }

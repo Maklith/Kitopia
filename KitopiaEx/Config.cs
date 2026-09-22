@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using KitopiaEx.Translate;
 using PluginCore.Config;
 using PluginCore.CustomScenario.Attribute.ConfigField;
@@ -24,8 +24,8 @@ public class Config : ConfigBase
     public override void AfterLoad()
     {
         base.AfterLoad();
-        INSTANCE = (Config)Instance;
-        Instance.ConfigChanged += (sender, args) =>
+        INSTANCE = this;
+        ConfigChanged += (sender, args) =>
         {
             switch (args.Name)
             {
