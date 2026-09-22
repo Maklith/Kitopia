@@ -24,6 +24,9 @@ namespace Kitopia.Desktop.Features.Services.Config;
 public class ConfigManger : IConfigService
 {
     private static ILogger Logger = LogManager.Logger.ForContext<ConfigManger>();
+    internal const int CurrentConfigVersion = 2;
+    private const int ManagedCollectionsVersion = 1;
+    private const int PreviewScopeVersion = 2;
     public static Version Version = new("1.0.0");
     public static string ApiUrl
     {
@@ -76,7 +79,11 @@ public class ConfigManger : IConfigService
     {
         Directory.CreateDirectory(KitopiaPaths.ConfigsDirectory);
 
-        Configs.Add("KitopiaConfig", new KitopiaConfig { Name = "KitopiaConfig" });
+        Configs.Add("KitopiaConfig", new KitopiaConfig
+        {
+            Name = "KitopiaConfig",
+            ConfigVersion = CurrentConfigVersion
+        });
         var configF = new FileInfo(KitopiaPaths.GetConfigFilePath("KitopiaConfig"));
         if (!configF.Exists)
         {
@@ -88,41 +95,11 @@ public class ConfigManger : IConfigService
             var json = File.ReadAllText(configF.FullName);
             try
             {
-                var legacyCollections = new List<string>();
-                var migratePreviewScope = false;
-                using (var document = JsonDocument.Parse(json))
-                {
-                    migratePreviewScope = document.RootElement.TryGetProperty("mouseHotkey", out var previewHotkey)
-                        && previewHotkey.ValueKind == JsonValueKind.Object
-                        && !previewHotkey.TryGetProperty(nameof(HotKeyModel.ProcessScope), out _);
-                    if (document.RootElement.TryGetProperty("customCollections", out var legacy)
-                        && legacy.ValueKind == JsonValueKind.Array)
-                    {
-                        legacyCollections.AddRange(legacy.EnumerateArray()
-                            .Where(value => value.ValueKind == JsonValueKind.String)
-                            .Select(value => value.GetString())
-                            .OfType<string>());
-                    }
-                }
-                var deserialized =
-                    JsonSerializer.Deserialize(json, Config.GetType(), DefaultOptions)! as ConfigBase ??
-                    Config;
+                using var document = JsonDocument.Parse(json);
+                var deserialized = JsonSerializer.Deserialize<KitopiaConfig>(json, DefaultOptions) ?? Config;
                 deserialized.Name = "KitopiaConfig";
+                MigrateConfig(document.RootElement, deserialized);
                 Configs["KitopiaConfig"] = deserialized;
-                if (migratePreviewScope)
-                {
-                    Config.mouseHotkey.ProcessScope = HotKeyProcessScope.Include;
-                    Config.mouseHotkey.ProcessNames = ["explorer.exe"];
-                    Config.mouseHotkey.IgnoreTextInput = true;
-                }
-                foreach (var path in legacyCollections)
-                {
-                    var target = Directory.Exists(path)
-                        ? Config.managedIndexDirectories
-                        : Config.managedIndexFiles;
-                    if (!target.Contains(path, StringComparer.OrdinalIgnoreCase))
-                        target.Add(path);
-                }
             }
             catch (Exception e)
             {
@@ -206,6 +183,50 @@ public class ConfigManger : IConfigService
                 }
             }
         };
+    }
+
+    internal static void MigrateConfig(JsonElement root, KitopiaConfig config)
+    {
+        if (config.ConfigVersion > CurrentConfigVersion)
+        {
+            Logger.Warning("配置版本 {ConfigVersion} 高于当前版本 {CurrentConfigVersion}，跳过迁移",
+                config.ConfigVersion, CurrentConfigVersion);
+            return;
+        }
+
+        if (config.ConfigVersion < ManagedCollectionsVersion)
+            MigrateLegacyCollections(root, config);
+
+        if (config.ConfigVersion < PreviewScopeVersion
+            && root.TryGetProperty("mouseHotkey", out var previewHotkey)
+            && previewHotkey.ValueKind == JsonValueKind.Object
+            && !previewHotkey.TryGetProperty(nameof(HotKeyModel.ProcessScope), out _))
+        {
+            config.mouseHotkey.ProcessScope = HotKeyProcessScope.Include;
+            config.mouseHotkey.ProcessNames = ["explorer.exe"];
+            config.mouseHotkey.IgnoreTextInput = true;
+        }
+
+        config.ConfigVersion = CurrentConfigVersion;
+    }
+
+    private static void MigrateLegacyCollections(JsonElement root, KitopiaConfig config)
+    {
+        if (!root.TryGetProperty("customCollections", out var legacy)
+            || legacy.ValueKind != JsonValueKind.Array)
+            return;
+
+        foreach (var value in legacy.EnumerateArray())
+        {
+            if (value.ValueKind != JsonValueKind.String || value.GetString() is not { } path)
+                continue;
+
+            var target = Directory.Exists(path)
+                ? config.managedIndexDirectories
+                : config.managedIndexFiles;
+            if (!target.Contains(path, StringComparer.OrdinalIgnoreCase))
+                target.Add(path);
+        }
     }
 
     public static void RemoveConfig(string key)

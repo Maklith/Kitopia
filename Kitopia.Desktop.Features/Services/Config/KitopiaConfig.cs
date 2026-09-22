@@ -27,6 +27,8 @@ public enum ThemeEnum
 [ConfigName("Kitopia主配置文件")]
 public class KitopiaConfig : ConfigBase
 {
+    public int ConfigVersion { get; set; }
+
     public KitopiaConfig()
     {
         Name = "KitopiaConfig";
