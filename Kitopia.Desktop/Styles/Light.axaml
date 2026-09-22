@@ -38,4 +38,12 @@
     <SolidColorBrush x:Key="ListBoxItemPointeroverBackground" Color="#0F000000" />
     <SolidColorBrush x:Key="ListBoxItemSelectedBackground" Color="#E8F3FF" />
     <SolidColorBrush x:Key="ListBoxItemSelectedPointeroverBackground" Color="#D5EAFF" />
+
+    <!-- Fluent Keycap (Keyboard KBD) Tokens -->
+    <SolidColorBrush x:Key="KitopiaKeycapBackground" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="KitopiaKeycapHoverBackground" Color="#F9FAFB" />
+    <SolidColorBrush x:Key="KitopiaKeycapBorderBrush" Color="#26000000" />
+    <SolidColorBrush x:Key="KitopiaKeycapBottomBorderBrush" Color="#48000000" />
+    <SolidColorBrush x:Key="KitopiaKeycapForeground" Color="#111827" />
+    <BoxShadows x:Key="KitopiaKeycapBoxShadow">0 1 2 0 #15000000, 0 1 1 0 #0A000000</BoxShadows>
 </ResourceDictionary>

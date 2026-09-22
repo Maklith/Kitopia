@@ -6,6 +6,9 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Kitopia.Desktop.Features.Search.ViewModels;
+using Kitopia.Desktop.Features.Services;
+using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 #if WINDOWS
 using Kitopia.Desktop.Platform.Windows;
 #endif
@@ -20,13 +23,37 @@ public partial class MouseQuickWindow : Window
     public MouseQuickWindow()
     {
         InitializeComponent();
+        Focusable = true;
         Deactivated += (_, _) => Close();
+        Activated += (_, _) => Focus();
         DataContextChanged += (_, _) =>
         {
             if (_viewModel is not null) _viewModel.PropertyChanged -= ViewModel_OnPropertyChanged;
             _viewModel = DataContext as MouseQuickWindowViewModel;
             if (_viewModel is not null) _viewModel.PropertyChanged += ViewModel_OnPropertyChanged;
         };
+    }
+
+    public void ActivateAndFocus()
+    {
+        Activate();
+        Focus();
+        BringToForeground();
+        Dispatcher.UIThread.Post(() =>
+        {
+            Activate();
+            Focus();
+            BringToForeground();
+        }, DispatcherPriority.Input);
+    }
+
+    private void BringToForeground()
+    {
+        var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        if (handle != IntPtr.Zero)
+        {
+            ServiceManager.Services?.GetService<IWindowTool>()?.SetForegroundWindow(handle);
+        }
     }
 
     private void ViewModel_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -74,6 +101,7 @@ public partial class MouseQuickWindow : Window
         Width = placement.Width / screen.Scaling;
         Height = placement.Height / screen.Scaling;
         Position = placement.Position;
+        ActivateAndFocus();
     }
 
     internal static PixelRect GetPreviewBounds(PixelRect? anchor, PixelRect area, double scaling, Size desiredSize)

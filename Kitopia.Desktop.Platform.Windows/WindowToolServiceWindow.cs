@@ -33,10 +33,23 @@ public class WindowToolServiceWindow : IWindowTool
         return GetClassLongPtr32(hWnd, nIndex);
     }
 
+    [DllImport("user32.dll")]
+    private static extern bool LockSetForegroundWindow(uint uLockCode);
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    private const uint LSFW_UNLOCK = 2;
+    private const byte VK_MENU = 0x12;
+    private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
+    private const uint KEYEVENTF_KEYUP = 0x0002;
+
     private readonly Dictionary<IntPtr, OverlaySet> _overlays = new();
 
     public void SetForegroundWindow(IntPtr hWnd)
     {
+        if (hWnd == IntPtr.Zero) return;
+
         if (User32.IsIconic(hWnd))
         {
             User32.ShowWindow(hWnd, ShowWindowCommand.SW_RESTORE);
@@ -48,20 +61,50 @@ public class WindowToolServiceWindow : IWindowTool
             return;
         }
 
-        var currentThreadId = Kernel32.GetCurrentThreadId();
-        var windowThreadId = User32.GetWindowThreadProcessId(hWnd, out _);
+        LockSetForegroundWindow(LSFW_UNLOCK);
 
-        if (currentThreadId != windowThreadId)
+        var currentThreadId = Kernel32.GetCurrentThreadId();
+        var foregroundThreadId = foregroundWnd != IntPtr.Zero
+            ? User32.GetWindowThreadProcessId(foregroundWnd, out _)
+            : 0;
+
+        var attached = false;
+        uint attachFrom = 0;
+        uint attachTo = 0;
+
+        if (foregroundThreadId != 0 && foregroundThreadId != currentThreadId)
         {
-            User32.AttachThreadInput(currentThreadId, windowThreadId, true);
-            User32.BringWindowToTop(hWnd);
-            User32.SetForegroundWindow(hWnd);
-            User32.AttachThreadInput(currentThreadId, windowThreadId, false);
+            if (User32.AttachThreadInput(foregroundThreadId, currentThreadId, true))
+            {
+                attached = true;
+                attachFrom = foregroundThreadId;
+                attachTo = currentThreadId;
+            }
+            else if (User32.AttachThreadInput(currentThreadId, foregroundThreadId, true))
+            {
+                attached = true;
+                attachFrom = currentThreadId;
+                attachTo = foregroundThreadId;
+            }
         }
-        else
+
+        try
         {
             User32.BringWindowToTop(hWnd);
-            User32.SetForegroundWindow(hWnd);
+            User32.ShowWindow(hWnd, ShowWindowCommand.SW_SHOW);
+            if (!User32.SetForegroundWindow(hWnd))
+            {
+                keybd_event(VK_MENU, 0, KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero);
+                keybd_event(VK_MENU, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, UIntPtr.Zero);
+                User32.SetForegroundWindow(hWnd);
+            }
+        }
+        finally
+        {
+            if (attached)
+            {
+                User32.AttachThreadInput(attachFrom, attachTo, false);
+            }
         }
     }
 

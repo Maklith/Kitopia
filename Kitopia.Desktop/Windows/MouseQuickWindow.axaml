@@ -10,7 +10,8 @@
         Width="960" Height="680" MinWidth="620" MinHeight="400"
         CanResize="True" TransparencyLevelHint="Transparent" Background="Transparent"
         ShowInTaskbar="False" ShowActivated="True" Topmost="True" ExtendClientAreaToDecorationsHint="True" WindowDecorations="None"
-        WindowStartupLocation="Manual" Title="{Binding FileName, StringFormat='{}{0} · 文件速览'}">
+        WindowStartupLocation="Manual" Title="{Binding FileName, StringFormat='{}{0} · 文件速览'}"
+        Focusable="True">
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>

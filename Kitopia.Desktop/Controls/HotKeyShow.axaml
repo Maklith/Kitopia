@@ -8,11 +8,13 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" VerticalAlignment="Center">
+                    <!-- Left: Clickable Keycaps + Scope Description -->
                     <Button Name="Button" Background="Transparent" BorderThickness="0" Padding="0" Margin="0"
                             HorizontalAlignment="Left" HorizontalContentAlignment="Left" Cursor="Hand"
-                            ToolTip.Tip="修改按键与生效范围" Command="{TemplateBinding EditHotKey}">
-                        <StackPanel Spacing="5">
-                            <StackPanel Orientation="Horizontal" Spacing="4" IsEnabled="{TemplateBinding IsActivated}">
+                            Theme="{DynamicResource BorderlessButton}"
+                            ToolTip.Tip="点击修改按键与生效范围" Command="{TemplateBinding EditHotKey}">
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="5" IsEnabled="{TemplateBinding IsActivated}">
                                 <controls:HotKeyShowItme Content="Ctrl" IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='Ctrl'}" />
                                 <controls:HotKeyShowItme Content="Win" IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='Win'}" />
                                 <controls:HotKeyShowItme Content="Shift" IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='Shift'}" />
@@ -21,22 +23,22 @@
                                 <TextBlock Text="未设置快捷键" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource SemiColorText2}"
                                            IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='None'}" />
                             </StackPanel>
-                            <TextBlock Text="{TemplateBinding ScopeDescription}" FontSize="11" MaxWidth="260"
+                            <TextBlock Text="{TemplateBinding ScopeDescription}" FontSize="11.5" MaxWidth="210"
                                        TextTrimming="CharacterEllipsis" ToolTip.Tip="{TemplateBinding ScopeDescription}"
                                        Foreground="{DynamicResource SemiColorText2}" />
                         </StackPanel>
                     </Button>
+
+                    <!-- Right: Secondary Edit Button & Status-Aware Toggle Button -->
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <Button Name="EditButton" Height="28" Padding="10,0" CornerRadius="6" Content="修改"
+                        <Button Name="EditButton" Height="28" Padding="12,0" CornerRadius="6" FontSize="12" Content="修改"
                                 ToolTip.Tip="修改按键与生效范围" Command="{TemplateBinding EditHotKey}" />
-                        <Button Name="ToggleButton" Height="28" Padding="10,0" CornerRadius="6"
-                                ToolTip.Tip="启用或停用此快捷键" Command="{TemplateBinding ToggleHotKey}">
-                            <Panel>
-                                <TextBlock Text="停用" FontSize="12" IsVisible="{TemplateBinding IsActivated}" />
-                                <TextBlock Text="启用" FontSize="12" Foreground="{DynamicResource SemiColorPrimary}"
-                                           IsVisible="{TemplateBinding IsActivated, Converter={x:Static BoolConverters.Not}}" />
-                            </Panel>
-                        </Button>
+                        <Button Name="DisableButton" Classes="Tertiary" Height="28" Padding="12,0" CornerRadius="6" FontSize="12" Content="停用"
+                                IsVisible="{TemplateBinding IsActivated}"
+                                ToolTip.Tip="停用此快捷键" Command="{TemplateBinding ToggleHotKey}" />
+                        <Button Name="EnableButton" Classes="Primary" Height="28" Padding="12,0" CornerRadius="6" FontSize="12" Content="启用"
+                                IsVisible="{TemplateBinding IsActivated, Converter={x:Static BoolConverters.Not}}"
+                                ToolTip.Tip="启用此快捷键" Command="{TemplateBinding ToggleHotKey}" />
                     </StackPanel>
                 </Grid>
             </ControlTemplate>

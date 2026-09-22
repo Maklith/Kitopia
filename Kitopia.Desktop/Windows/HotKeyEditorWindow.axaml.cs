@@ -24,7 +24,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
         ArgumentNullException.ThrowIfNull(hotKeyModel);
         InitializeComponent();
         _hotKeyModel = hotKeyModel;
-        Name.Text = hotKeyModel.SignName;
+        Name.Text = Converter.HotKeySignNameToStringCtr.FormatFriendlyName(hotKeyModel.SignName);
         _type = hotKeyModel.Type;
         _selectedKey = hotKeyModel.SelectKey;
         _selectedMouseButton = hotKeyModel.MouseButton;

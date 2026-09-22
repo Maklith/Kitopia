@@ -42,6 +42,7 @@ public sealed class MouseQuickWindowService : IMouseQuickWindowService
                 window.AnchorBounds = selection.Bounds;
 #endif
                 window.Show();
+                window.ActivateAndFocus();
                 await ((MouseQuickWindowViewModel)window.DataContext!).SetFilesAsync(files);
             }
             catch (Exception exception)

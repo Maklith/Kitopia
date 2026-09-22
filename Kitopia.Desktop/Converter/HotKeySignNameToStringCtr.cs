@@ -10,7 +10,11 @@ public class HotKeySignNameToStringCtr : IValueConverter
 {
     public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
     {
-        var s = (string)value!;
+        return FormatFriendlyName(value as string);
+    }
+
+    public static string FormatFriendlyName(string? s)
+    {
         if (string.IsNullOrWhiteSpace(s)) return string.Empty;
 
         if (s.StartsWith("Kitopia情景"))

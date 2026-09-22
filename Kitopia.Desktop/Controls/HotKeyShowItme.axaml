@@ -14,20 +14,28 @@
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+        <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI, -apple-system, BlinkMacSystemFont, PingFang SC, Microsoft YaHei, sans-serif" />
+        <Setter Property="Foreground" Value="{DynamicResource KitopiaKeycapForeground}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Name="Root"
-                        Background="{DynamicResource SemiColorBackground0}"
-                        BorderBrush="{DynamicResource SemiColorBorder}"
+                        Background="{DynamicResource KitopiaKeycapBackground}"
+                        BorderBrush="{DynamicResource KitopiaKeycapBorderBrush}"
                         BorderThickness="1,1,1,2"
-                        CornerRadius="5"
-                        Padding="7,2"
+                        CornerRadius="6"
+                        Padding="8,3"
                         MinHeight="26"
-                        MinWidth="26"
-                        BoxShadow="0 1 1 0 #15000000"
+                        MinWidth="28"
+                        BoxShadow="{DynamicResource KitopiaKeycapBoxShadow}"
                         HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
                         VerticalAlignment="{TemplateBinding VerticalAlignment}">
+                    <Border.Transitions>
+                        <Transitions>
+                            <BrushTransition Property="Background" Duration="0:0:0.15" />
+                            <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                            <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.15" />
+                        </Transitions>
+                    </Border.Transitions>
                     <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center" HorizontalAlignment="Center">
                         <ContentPresenter
                             x:Name="ControlIcon"
@@ -46,11 +54,20 @@
                             HorizontalAlignment="Center"
                             Content="{TemplateBinding Content}"
                             Foreground="{TemplateBinding Foreground}"
+                            FontFamily="{TemplateBinding FontFamily}"
                             FontSize="{TemplateBinding FontSize}"
                             FontWeight="{TemplateBinding FontWeight}" />
                     </Grid>
                 </Border>
             </ControlTemplate>
         </Setter>
+    </Style>
+
+    <Style Selector="controls|HotKeyShowItme:pointerover /template/ Border#Root">
+        <Setter Property="Background" Value="{DynamicResource KitopiaKeycapHoverBackground}" />
+    </Style>
+
+    <Style Selector="controls|HotKeyShowItme:disabled">
+        <Setter Property="Opacity" Value="0.45" />
     </Style>
 </Styles>

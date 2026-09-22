@@ -19,6 +19,12 @@
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </u:UrsaWindow.Resources>
+    <u:UrsaWindow.Styles>
+        <Style Selector="Border#MouseCaptureArea:focus">
+            <Setter Property="BorderBrush" Value="{DynamicResource KitopiaPrimaryBrush}" />
+            <Setter Property="BoxShadow" Value="0 0 0 2 #300064FA" />
+        </Style>
+    </u:UrsaWindow.Styles>
     <Grid Margin="24,12,24,20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
         <StackPanel Spacing="4">
             <TextBlock Text="快捷键设置" FontSize="12" Foreground="{DynamicResource SemiColorText2}" />
@@ -33,15 +39,22 @@
                             <RadioButton Name="KeyBoard" GroupName="InputType" Content="键盘快捷键" Click="KeyBoard_OnClick" />
                             <RadioButton Name="Mouse" GroupName="InputType" Content="鼠标快捷键" Click="Mouse_OnClick" />
                         </StackPanel>
-                        <Border Name="MouseCaptureArea" Padding="16" MinHeight="90" CornerRadius="6" Focusable="True"
-                                Background="{DynamicResource SemiColorFill0}" PointerPressed="InputElement_OnPointerPressed">
+                        <Border Name="MouseCaptureArea" Padding="16" MinHeight="96" CornerRadius="8" Focusable="True"
+                                Background="{DynamicResource SemiColorFill0}" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
+                                PointerPressed="InputElement_OnPointerPressed">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.15" />
+                                </Transitions>
+                            </Border.Transitions>
                             <StackPanel Spacing="12" VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6">
-                                    <controls:HotKeyShowItme Name="Ctrl" IsVisible="False" Content="Ctrl" Height="36" FontSize="16" />
-                                    <controls:HotKeyShowItme Name="Win" IsVisible="False" Content="Win" Height="36" FontSize="16" />
-                                    <controls:HotKeyShowItme Name="Shift" IsVisible="False" Content="Shift" Height="36" FontSize="16" />
-                                    <controls:HotKeyShowItme Name="Alt" IsVisible="False" Content="Alt" Height="36" FontSize="16" />
-                                    <controls:HotKeyShowItme Name="KeyName" Height="36" FontSize="16" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                    <controls:HotKeyShowItme Name="Ctrl" IsVisible="False" Content="Ctrl" Height="38" FontSize="15" />
+                                    <controls:HotKeyShowItme Name="Win" IsVisible="False" Content="Win" Height="38" FontSize="15" />
+                                    <controls:HotKeyShowItme Name="Shift" IsVisible="False" Content="Shift" Height="38" FontSize="15" />
+                                    <controls:HotKeyShowItme Name="Alt" IsVisible="False" Content="Alt" Height="38" FontSize="15" />
+                                    <controls:HotKeyShowItme Name="KeyName" Height="38" FontSize="15" />
                                 </StackPanel>
                                 <TextBlock Text="点击此处后按下快捷键；鼠标按键也在此录入" FontSize="12" TextAlignment="Center"
                                            Foreground="{DynamicResource SemiColorText2}" />
@@ -72,7 +85,7 @@
                         </Grid>
                         <StackPanel Name="ProcessListSection" Spacing="6">
                             <TextBox Name="ProcessNames" AcceptsReturn="True" Height="76" TextWrapping="Wrap"
-                                     Watermark="例如 explorer.exe、code.exe，每行一个或用逗号分隔" />
+                                     PlaceholderText="例如 explorer.exe、code.exe，每行一个或用逗号分隔" />
                             <TextBlock Text="不区分大小写，可省略 .exe；范围外保留按键原本的行为。" FontSize="11"
                                        Foreground="{DynamicResource SemiColorText2}" TextWrapping="Wrap" />
                         </StackPanel>
@@ -84,9 +97,9 @@
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
             <TextBlock Name="ValidationMessage" VerticalAlignment="Center" Foreground="{DynamicResource KitopiaBadgeDangerForeground}"
                        FontSize="12" TextWrapping="Wrap" Margin="0,0,12,0" />
-            <Button Grid.Column="1" Content="取消" Click="ButtonCancle_OnClick" IsCancel="True" Height="32" CornerRadius="6" Padding="20,0" />
+            <Button Grid.Column="1" Content="取消" Click="ButtonCancle_OnClick" IsCancel="True" Height="34" CornerRadius="6" Padding="20,0" />
             <Button Grid.Column="2" Name="SaveButton" Content="保存" Click="ButtonBase_OnClick"
-                    Classes="Primary" Theme="{DynamicResource SolidButton}" Height="32" CornerRadius="6" Padding="20,0" />
+                    Classes="Primary" Theme="{DynamicResource SolidButton}" Height="34" CornerRadius="6" Padding="20,0" />
         </Grid>
     </Grid>
 </u:UrsaWindow>
