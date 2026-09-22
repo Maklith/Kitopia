@@ -184,7 +184,7 @@ internal class Program {
         services.AddSingleton<IIndexMaintenanceService, IndexMaintenanceService>();
         services.AddTransient<IInferenceSessionManager, InferenceSessionManager>();
         #if WINDOWS
-        services.AddTransient<IHotKetImpl, HotKeyImpl>();
+        services.AddSingleton<IHotKetImpl, HotKeyImpl>();
         services.AddTransient<IScreenCaptureManager, ScreenCaptureManager>();
         services.AddTransient<IScreenCapture, ScreenCaptureByWgc>();
 
