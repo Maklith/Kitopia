@@ -85,7 +85,7 @@ public sealed class ConfigMangerServiceTests
 
             ConfigManger.MigrateConfig(document.RootElement, config);
 
-            Assert.AreEqual(ConfigManger.CurrentConfigVersion, config.ConfigVersion);
+            Assert.AreEqual(config.CurrentConfigVersion, config.ConfigVersion);
             CollectionAssert.AreEqual(new[] { directoryPath }, config.managedIndexDirectories.ToArray());
             CollectionAssert.AreEqual(new[] { filePath }, config.managedIndexFiles.ToArray());
             Assert.AreEqual(HotKeyProcessScope.Include, config.mouseHotkey.ProcessScope);
@@ -103,7 +103,7 @@ public sealed class ConfigMangerServiceTests
     public void MigrateConfig_CurrentConfig_PreservesExplicitPreviewScope()
     {
         using var document = JsonDocument.Parse("{\"mouseHotkey\":{}}");
-        var config = new KitopiaConfig { ConfigVersion = ConfigManger.CurrentConfigVersion };
+        var config = new KitopiaConfig { ConfigVersion = new KitopiaConfig().CurrentConfigVersion };
         config.mouseHotkey.ProcessScope = HotKeyProcessScope.Exclude;
         config.mouseHotkey.ProcessNames = ["notepad.exe"];
         config.mouseHotkey.IgnoreTextInput = false;
@@ -113,5 +113,20 @@ public sealed class ConfigMangerServiceTests
         Assert.AreEqual(HotKeyProcessScope.Exclude, config.mouseHotkey.ProcessScope);
         CollectionAssert.AreEqual(new[] { "notepad.exe" }, config.mouseHotkey.ProcessNames);
         Assert.IsFalse(config.mouseHotkey.IgnoreTextInput);
+    }
+
+    [TestMethod]
+    public void MigrateConfig_FutureConfig_PreservesLoadedValues()
+    {
+        using var document = JsonDocument.Parse("{\"mouseHotkey\":{}}");
+        var config = new KitopiaConfig { ConfigVersion = new KitopiaConfig().CurrentConfigVersion + 1 };
+        config.mouseHotkey.ProcessScope = HotKeyProcessScope.Exclude;
+        config.mouseHotkey.ProcessNames = ["notepad.exe"];
+
+        ConfigManger.MigrateConfig(document.RootElement, config);
+
+        Assert.AreEqual(config.CurrentConfigVersion + 1, config.ConfigVersion);
+        Assert.AreEqual(HotKeyProcessScope.Exclude, config.mouseHotkey.ProcessScope);
+        CollectionAssert.AreEqual(new[] { "notepad.exe" }, config.mouseHotkey.ProcessNames);
     }
 }

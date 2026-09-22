@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using DeviceDiscoverySignature = Kitopia.Feature.DeviceCommunication.Discovery.DeviceDiscoverySignature;
@@ -27,11 +29,55 @@ public enum ThemeEnum
 [ConfigName("Kitopia主配置文件")]
 public class KitopiaConfig : ConfigBase
 {
-    public int ConfigVersion { get; set; }
+    internal const int CurrentSchemaVersion = 2;
+
+    [JsonIgnore]
+    public override int CurrentConfigVersion => CurrentSchemaVersion;
 
     public KitopiaConfig()
     {
         Name = "KitopiaConfig";
+    }
+
+    public override void MigrateConfig(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object)
+            return;
+
+        const int managedCollectionsVersion = 1;
+        const int previewScopeVersion = 2;
+
+        if (ConfigVersion < managedCollectionsVersion)
+            MigrateLegacyCollections(root);
+
+        if (ConfigVersion < previewScopeVersion
+            && root.TryGetProperty("mouseHotkey", out var previewHotkey)
+            && previewHotkey.ValueKind == JsonValueKind.Object
+            && !previewHotkey.TryGetProperty(nameof(HotKeyModel.ProcessScope), out _))
+        {
+            mouseHotkey.ProcessScope = HotKeyProcessScope.Include;
+            mouseHotkey.ProcessNames = ["explorer.exe"];
+            mouseHotkey.IgnoreTextInput = true;
+        }
+    }
+
+    private void MigrateLegacyCollections(JsonElement root)
+    {
+        if (!root.TryGetProperty("customCollections", out var legacy)
+            || legacy.ValueKind != JsonValueKind.Array)
+            return;
+
+        foreach (var value in legacy.EnumerateArray())
+        {
+            if (value.ValueKind != JsonValueKind.String || value.GetString() is not { } path)
+                continue;
+
+            var target = Directory.Exists(path)
+                ? managedIndexDirectories
+                : managedIndexFiles;
+            if (!target.Contains(path, StringComparer.OrdinalIgnoreCase))
+                target.Add(path);
+        }
     }
 
     private static ILogger Logger = LogManager.Logger.ForContext<KitopiaConfig>();

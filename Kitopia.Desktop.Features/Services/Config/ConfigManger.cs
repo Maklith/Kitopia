@@ -24,9 +24,6 @@ namespace Kitopia.Desktop.Features.Services.Config;
 public class ConfigManger : IConfigService
 {
     private static ILogger Logger = LogManager.Logger.ForContext<ConfigManger>();
-    internal const int CurrentConfigVersion = 2;
-    private const int ManagedCollectionsVersion = 1;
-    private const int PreviewScopeVersion = 2;
     public static Version Version = new("1.0.0");
     public static string ApiUrl
     {
@@ -63,6 +60,7 @@ public class ConfigManger : IConfigService
     public static KitopiaConfig Config => Configs.TryGetValue("KitopiaConfig", out var config) ? (KitopiaConfig)config : null!;
 
     private static readonly Dictionary<HotKeyModel, (object, FieldInfo)> hotkeysMappings = new();
+    private static readonly HashSet<string> UnsupportedConfigKeys = new(StringComparer.Ordinal);
 
     public static JsonSerializerOptions DefaultOptions = new()
     {
@@ -70,7 +68,11 @@ public class ConfigManger : IConfigService
         WriteIndented = true,
         ReferenceHandler = ReferenceHandler.Preserve,
         Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
-        Converters = { new CustomScenarioInputValueJsonConverter(), new INodeInputJsonConverter() }
+        Converters =
+        {
+            new CustomScenarioInputValueJsonConverter(),
+            new INodeInputJsonConverter()
+        }
 
         // DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
@@ -79,35 +81,69 @@ public class ConfigManger : IConfigService
     {
         Directory.CreateDirectory(KitopiaPaths.ConfigsDirectory);
 
-        Configs.Add("KitopiaConfig", new KitopiaConfig
-        {
-            Name = "KitopiaConfig",
-            ConfigVersion = CurrentConfigVersion
-        });
+        var defaultConfig = new KitopiaConfig { Name = "KitopiaConfig" };
+        defaultConfig.ConfigVersion = defaultConfig.CurrentConfigVersion;
+        Configs["KitopiaConfig"] = defaultConfig;
+        UnsupportedConfigKeys.Remove("KitopiaConfig");
         var configF = new FileInfo(KitopiaPaths.GetConfigFilePath("KitopiaConfig"));
         if (!configF.Exists)
         {
-            var j = JsonSerializer.Serialize(Config, DefaultOptions);
-            File.WriteAllText(configF.FullName, j);
+            WriteConfigFile("KitopiaConfig", Config);
         }
         else
         {
-            var json = File.ReadAllText(configF.FullName);
             try
             {
-                using var document = JsonDocument.Parse(json);
-                var deserialized = JsonSerializer.Deserialize<KitopiaConfig>(json, DefaultOptions) ?? Config;
-                deserialized.Name = "KitopiaConfig";
-                MigrateConfig(document.RootElement, deserialized);
-                Configs["KitopiaConfig"] = deserialized;
+                Configs["KitopiaConfig"] = LoadKitopiaConfig(configF.FullName);
             }
             catch (Exception e)
             {
                 Logger.Error(e, "配置文件加载失败");
+
+                var backupPath = $"{configF.FullName}.bak";
+                if (File.Exists(backupPath))
+                {
+                    try
+                    {
+                        var backupConfig = LoadKitopiaConfig(backupPath);
+                        Configs["KitopiaConfig"] = backupConfig;
+                        if (backupConfig.ConfigVersion <= backupConfig.CurrentConfigVersion)
+                        {
+                            try
+                            {
+                                WriteConfigFile("KitopiaConfig", backupConfig);
+                            }
+                            catch (Exception recoveryException)
+                            {
+                                Logger.Error(recoveryException, "配置文件从备份恢复失败");
+                            }
+                        }
+
+                        Logger.Warning("主配置文件加载失败，已从备份恢复");
+                    }
+                    catch (Exception backupException)
+                    {
+                        Logger.Error(backupException, "配置文件备份加载失败");
+                    }
+                }
+
+                if (ReferenceEquals(Configs["KitopiaConfig"], defaultConfig))
+                {
+                    try
+                    {
+                        WriteConfigFile("KitopiaConfig", defaultConfig);
+                        Logger.Warning("配置文件和备份均无法加载，已恢复默认配置");
+                    }
+                    catch (Exception recoveryException)
+                    {
+                        Logger.Error(recoveryException, "默认配置恢复失败");
+                    }
+                }
             }
         }
 
         Config!.BeforeLoad();
+        Config.AfterLoad();
         Config.GetType()
             .GetFields(BindingFlags.Instance | BindingFlags.Public)
             .ToList()
@@ -140,7 +176,7 @@ public class ConfigManger : IConfigService
                 }
                 case "autoStart":
                 {
-                    ServiceManager.Services.GetService<IApplicationService>()
+                    ServiceManager.Services.GetService<IApplicationService>()!
                         .ChangeAutoStart(args.Value as bool? ?? false);
 
                     break;
@@ -157,23 +193,23 @@ public class ConfigManger : IConfigService
                     {
                         case ThemeEnum.跟随系统:
                         {
-                            ServiceManager.Services.GetService<IThemeChange>()
+                            ServiceManager.Services.GetService<IThemeChange>()!
                                 .followSys(true);
                             break;
                         }
                         case ThemeEnum.深色:
                         {
-                            ServiceManager.Services.GetService<IThemeChange>()
+                            ServiceManager.Services.GetService<IThemeChange>()!
                                 .followSys(false);
-                            ServiceManager.Services.GetService<IThemeChange>()
+                            ServiceManager.Services.GetService<IThemeChange>()!
                                 .changeTo("theme_dark");
                             break;
                         }
                         case ThemeEnum.浅色:
                         {
-                            ServiceManager.Services.GetService<IThemeChange>()
+                            ServiceManager.Services.GetService<IThemeChange>()!
                                 .followSys(false);
-                            ServiceManager.Services.GetService<IThemeChange>()
+                            ServiceManager.Services.GetService<IThemeChange>()!
                                 .changeTo("theme_light");
                             break;
                         }
@@ -185,48 +221,93 @@ public class ConfigManger : IConfigService
         };
     }
 
-    internal static void MigrateConfig(JsonElement root, KitopiaConfig config)
+    private static KitopiaConfig LoadKitopiaConfig(string filePath)
     {
-        if (config.ConfigVersion > CurrentConfigVersion)
-        {
-            Logger.Warning("配置版本 {ConfigVersion} 高于当前版本 {CurrentConfigVersion}，跳过迁移",
-                config.ConfigVersion, CurrentConfigVersion);
-            return;
-        }
-
-        if (config.ConfigVersion < ManagedCollectionsVersion)
-            MigrateLegacyCollections(root, config);
-
-        if (config.ConfigVersion < PreviewScopeVersion
-            && root.TryGetProperty("mouseHotkey", out var previewHotkey)
-            && previewHotkey.ValueKind == JsonValueKind.Object
-            && !previewHotkey.TryGetProperty(nameof(HotKeyModel.ProcessScope), out _))
-        {
-            config.mouseHotkey.ProcessScope = HotKeyProcessScope.Include;
-            config.mouseHotkey.ProcessNames = ["explorer.exe"];
-            config.mouseHotkey.IgnoreTextInput = true;
-        }
-
-        config.ConfigVersion = CurrentConfigVersion;
+        var json = File.ReadAllText(filePath);
+        using var document = JsonDocument.Parse(json);
+        var config = JsonSerializer.Deserialize<KitopiaConfig>(json, DefaultOptions) ?? new KitopiaConfig();
+        config.Name = "KitopiaConfig";
+        MigrateConfig("KitopiaConfig", document.RootElement, config);
+        return config;
     }
 
-    private static void MigrateLegacyCollections(JsonElement root, KitopiaConfig config)
+    internal static void MigrateConfig(JsonElement root, ConfigBase config)
     {
-        if (!root.TryGetProperty("customCollections", out var legacy)
-            || legacy.ValueKind != JsonValueKind.Array)
-            return;
+        MigrateConfig(null, root, config);
+    }
 
-        foreach (var value in legacy.EnumerateArray())
+    internal static void MigrateConfig(string? key, JsonElement root, ConfigBase config)
+    {
+        if (config.ConfigVersion > config.CurrentConfigVersion)
         {
-            if (value.ValueKind != JsonValueKind.String || value.GetString() is not { } path)
-                continue;
+            if (key is not null)
+                UnsupportedConfigKeys.Add(key);
 
-            var target = Directory.Exists(path)
-                ? config.managedIndexDirectories
-                : config.managedIndexFiles;
-            if (!target.Contains(path, StringComparer.OrdinalIgnoreCase))
-                target.Add(path);
+            Logger.Warning("配置版本 {ConfigVersion} 高于当前版本 {CurrentConfigVersion}，跳过迁移",
+                config.ConfigVersion, config.CurrentConfigVersion);
+            return;
         }
+
+        if (key is not null)
+            UnsupportedConfigKeys.Remove(key);
+
+        config.MigrateConfig(root);
+        config.ConfigVersion = config.CurrentConfigVersion;
+    }
+
+    internal static void WriteConfigFile(string key, ConfigBase configBase)
+    {
+        var configFile = new FileInfo(KitopiaPaths.GetConfigFilePath(key));
+        if (configFile.DirectoryName is { } directory)
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        var temporaryPath = $"{configFile.FullName}.{Guid.NewGuid():N}.tmp";
+        var backupPath = $"{configFile.FullName}.bak";
+        try
+        {
+            configBase.ConfigVersion = configBase.CurrentConfigVersion;
+            var json = JsonSerializer.Serialize(configBase, configBase.GetType(), DefaultOptions);
+            File.WriteAllText(temporaryPath, json);
+
+            if (configFile.Exists)
+            {
+                try
+                {
+                    File.Replace(temporaryPath, configFile.FullName, backupPath, true);
+                }
+                catch (PlatformNotSupportedException)
+                {
+                    File.Move(temporaryPath, configFile.FullName, true);
+                }
+            }
+            else
+            {
+                File.Move(temporaryPath, configFile.FullName);
+            }
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
+        }
+    }
+
+    private static void SaveConfigFile(string key, ConfigBase configBase)
+    {
+        if (configBase.ConfigVersion > configBase.CurrentConfigVersion)
+            UnsupportedConfigKeys.Add(key);
+
+        if (UnsupportedConfigKeys.Contains(key))
+        {
+            Logger.Warning("配置 {Key} 使用更高版本，跳过保存以避免覆盖未知字段", key);
+            return;
+        }
+
+        configBase.BeforeSave();
+        WriteConfigFile(key, configBase);
+        configBase.AfterSave();
     }
 
     public static void RemoveConfig(string key)
@@ -237,6 +318,7 @@ public class ConfigManger : IConfigService
                 .BaseType.GetField("Instance")
                 .SetValue(value, null);
             Configs.Remove(s);
+            UnsupportedConfigKeys.Remove(s);
         }
     }
 
@@ -263,11 +345,7 @@ public class ConfigManger : IConfigService
         foreach (var configsKey in keyCollection)
         {
             var configBase = Configs[configsKey];
-            var configF = new FileInfo(KitopiaPaths.GetConfigFilePath(configsKey));
-
-
-            var j = JsonSerializer.Serialize(configBase, configBase.GetType(), DefaultOptions);
-            File.WriteAllText(configF.FullName, j);
+            SaveConfigFile(configsKey, configBase);
         }
 
         WeakReferenceMessenger.Default.Send<string, string>("ConfigSave", "ConfigSave");
@@ -281,16 +359,13 @@ public class ConfigManger : IConfigService
             return;
         }
 
-        if (!Configs.TryGetValue(key, out var configBase) || configBase is null)
+        if (!Configs.TryGetValue(key, out var configBase))
         {
             Logger.Warning("未找到 key 为 {Key} 的配置，跳过保存", key);
             return;
         }
 
-        var configF = new FileInfo(KitopiaPaths.GetConfigFilePath(key));
-
-        var j = JsonSerializer.Serialize(configBase, configBase.GetType(), DefaultOptions);
-        File.WriteAllText(configF.FullName, j);
+        SaveConfigFile(key, configBase);
         WeakReferenceMessenger.Default.Send<string, string>("ConfigSave", "ConfigSave");
     }
 

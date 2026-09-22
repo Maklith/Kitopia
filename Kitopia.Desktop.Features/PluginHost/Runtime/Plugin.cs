@@ -41,32 +41,33 @@ public class Plugin
 
     private void AddConfig(string key, ConfigBase configBase)
     {
-        void SerializeConfigToFile(FileInfo fileInfo)
-        {
-            var j = JsonSerializer.Serialize(configBase, configBase.GetType(), ConfigManger.DefaultOptions);
-            File.WriteAllText(fileInfo.FullName, j);
-        }
+        void SerializeConfigToFile() => ConfigManger.WriteConfigFile(key, configBase);
 
+        var activeConfig = configBase;
         var retryFlag = false;
         retry:
 
         var configF = new FileInfo(KitopiaPaths.GetConfigFilePath(key));
-        if (!configF.Exists) SerializeConfigToFile(configF);
+        if (!configF.Exists) SerializeConfigToFile();
 
         var json = File.ReadAllText(configF.FullName);
         if (string.IsNullOrWhiteSpace(json))
         {
-            SerializeConfigToFile(configF);
+            SerializeConfigToFile();
+            json = File.ReadAllText(configF.FullName);
             ServiceManager.Services.GetService<IToastService>()!.Show("警告", $"{configF.Name}配置文件加载失败，已还原到最初配置");
         }
 
         try
         {
+            using var document = JsonDocument.Parse(json);
             var deserializeObject =
                 JsonSerializer.Deserialize(json, configBase.GetType(), ConfigManger.DefaultOptions)! as ConfigBase ??
                 configBase;
             deserializeObject.Name = key;
+            ConfigManger.MigrateConfig(key, document.RootElement, deserializeObject);
             if (!ConfigManger.Configs.TryAdd(key, deserializeObject)) ConfigManger.Configs[key] = deserializeObject;
+            activeConfig = deserializeObject;
 
             deserializeObject.GetType()
                 .BaseType?.GetField("Instance")?
@@ -77,7 +78,7 @@ public class Plugin
         {
             Logger.Error(e, "配置文件加载失败");
 
-            SerializeConfigToFile(configF);
+            SerializeConfigToFile();
 
             if (!retryFlag)
             {
@@ -90,7 +91,7 @@ public class Plugin
 
         if (retryFlag)
             ServiceManager.Services.GetService<IToastService>()!.Show("警告", $"{configF.Name}配置文件加载失败，已还原到最初配置");
-        configBase.GetType()
+        activeConfig.GetType()
             .GetFields(BindingFlags.Instance | BindingFlags.Public)
             .ToList()
             .ForEach(x =>
@@ -98,10 +99,10 @@ public class Plugin
                 if (x.GetCustomAttribute<ConfigField>() is { } configField)
                     if (configField.FieldType == ConfigFieldType.快捷键)
                     {
-                        var hotKeyModel = (HotKeyModel)x.GetValue(configBase)!;
+                        var hotKeyModel = (HotKeyModel)x.GetValue(activeConfig)!;
 
-                        var value = configBase.GetType().GetProperty($"{x.Name}Action")
-                            ?.GetValue(configBase, null);
+                        var value = activeConfig.GetType().GetProperty($"{x.Name}Action")
+                            ?.GetValue(activeConfig, null);
                         if (value is null)
                         {
                             Logger.Warning( $"未找到快捷键 {hotKeyModel.SignName} 的触发方法 {configField.ActionName}，请确保方法存在且命名正确");
