@@ -132,67 +132,81 @@ public sealed class FileLocksmithService : IFileLockService
             }
 
             using var handleTable = GetHandleTable();
+            var processHandles = new ConcurrentDictionary<int, Lazy<IntPtr>>();
             if (handleTable.Count > 0 && handleTable.First != IntPtr.Zero)
             {
-                Parallel.For(0L, handleTable.Count,
-                    new ParallelOptions
-                    {
-                        MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount * 4, 8, 64),
-                        CancellationToken = cancellationToken
-                    },
-                    i =>
-                    {
-                        var e = Marshal.PtrToStructure<NativeMethods.SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX>(
-                            (IntPtr)((nint)handleTable.First + (nint)(i * handleTable.Stride)));
-                        int pid = (int)e.ProcessId.ToUInt32();
-                        if (pid == 0 || pid == selfPid) return;
-
-                        var key = (pid, (nint)e.Handle);
-                        if (HandleCache.TryGetValue(key, out CachedHandle? cached))
+                try
+                {
+                    Parallel.For(0L, handleTable.Count,
+                        new ParallelOptions
                         {
-                            cached.Seen = true;
-                            if (IsPathMatching(cached.DosPath, normalizedRoot, includeSubDirs, targetSet))
+                            MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount * 4, 8, 64),
+                            CancellationToken = cancellationToken
+                        },
+                        i =>
+                        {
+                            var e = Marshal.PtrToStructure<NativeMethods.SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX>(
+                                (IntPtr)((nint)handleTable.First + (nint)(i * handleTable.Stride)));
+                            int pid = (int)e.ProcessId.ToUInt32();
+                            if (pid == 0 || pid == selfPid) return;
+
+                            var key = (pid, (nint)e.Handle);
+                            if (HandleCache.TryGetValue(key, out CachedHandle? cached))
                             {
-                                if (seen.TryAdd((pid, cached.DosPath), 0))
+                                cached.Seen = true;
+                                if (IsPathMatching(cached.DosPath, normalizedRoot, includeSubDirs, targetSet))
                                 {
-                                    string pname0 = _procNames.TryGetValue(pid, out string? n0) ? n0 : $"PID {pid}";
-                                    rawResults.Add((pid, pname0, cached.DosPath, false));
+                                    if (seen.TryAdd((pid, cached.DosPath), 0))
+                                    {
+                                        string pname0 = _procNames.TryGetValue(pid, out string? n0) ? n0 : $"PID {pid}";
+                                        rawResults.Add((pid, pname0, cached.DosPath, false));
+                                    }
+                                }
+                                return;
+                            }
+
+                            IntPtr dup = TryDuplicate(pid, e.Handle, processHandles);
+                            if (dup == IntPtr.Zero) return;
+
+                            try
+                            {
+                                if (NativeMethods.GetFileType(dup) != 1) return;
+
+                                string typeName = QueryString(dup, NativeMethods.ObjectTypeInformation) ?? "";
+                                if (!string.Equals(typeName, "File", StringComparison.Ordinal)) return;
+
+                                string ntPath = QueryString(dup, NativeMethods.ObjectNameInformation) ?? "";
+                                if (string.IsNullOrEmpty(ntPath)) return;
+
+                                if (!TryNtToDosPath(ntPath, driveMap, out string dosPath)) return;
+
+                                HandleCache[key] = new CachedHandle { DosPath = dosPath, Seen = true };
+
+                                if (IsPathMatching(dosPath, normalizedRoot, includeSubDirs, targetSet))
+                                {
+                                    if (seen.TryAdd((pid, dosPath), 0))
+                                    {
+                                        string pname = _procNames.TryGetValue(pid, out string? n) ? n : $"PID {pid}";
+                                        rawResults.Add((pid, pname, dosPath, false));
+                                    }
                                 }
                             }
-                            return;
-                        }
-
-                        IntPtr dup = TryDuplicate(pid, e.Handle);
-                        if (dup == IntPtr.Zero) return;
-
-                        try
-                        {
-                            if (NativeMethods.GetFileType(dup) != 1) return;
-
-                            string typeName = QueryString(dup, NativeMethods.ObjectTypeInformation) ?? "";
-                            if (!string.Equals(typeName, "File", StringComparison.Ordinal)) return;
-
-                            string ntPath = QueryString(dup, NativeMethods.ObjectNameInformation) ?? "";
-                            if (string.IsNullOrEmpty(ntPath)) return;
-
-                            if (!TryNtToDosPath(ntPath, driveMap, out string dosPath)) return;
-
-                            HandleCache[key] = new CachedHandle { DosPath = dosPath, Seen = true };
-
-                            if (IsPathMatching(dosPath, normalizedRoot, includeSubDirs, targetSet))
+                            finally
                             {
-                                if (seen.TryAdd((pid, dosPath), 0))
-                                {
-                                    string pname = _procNames.TryGetValue(pid, out string? n) ? n : $"PID {pid}";
-                                    rawResults.Add((pid, pname, dosPath, false));
-                                }
+                                NativeMethods.CloseHandle(dup);
                             }
-                        }
-                        finally
+                        });
+                }
+                finally
+                {
+                    foreach (Lazy<IntPtr> processHandle in processHandles.Values)
+                    {
+                        if (processHandle.IsValueCreated && processHandle.Value != IntPtr.Zero)
                         {
-                            NativeMethods.CloseHandle(dup);
+                            NativeMethods.CloseHandle(processHandle.Value);
                         }
-                    });
+                    }
+                }
             }
 
             foreach (var kv in HandleCache)
@@ -457,21 +471,24 @@ public sealed class FileLocksmithService : IFileLockService
         return new HandleTableSnapshot(buffer, buffer + IntPtr.Size * 2, count, stride);
     }
 
-    private static IntPtr TryDuplicate(int pid, IntPtr handle)
+    private static IntPtr TryDuplicate(
+        int pid,
+        IntPtr handle,
+        ConcurrentDictionary<int, Lazy<IntPtr>> processHandles)
     {
-        IntPtr proc = NativeMethods.OpenProcess(NativeMethods.PROCESS_DUP_HANDLE, false, pid);
+        // The cached process handle is owned by the scan and closed after Parallel.For completes.
+        Lazy<IntPtr> processHandle = processHandles.GetOrAdd(
+            pid,
+            static processId => new Lazy<IntPtr>(
+                () => NativeMethods.OpenProcess(NativeMethods.PROCESS_DUP_HANDLE, false, processId),
+                LazyThreadSafetyMode.ExecutionAndPublication));
+        IntPtr proc = processHandle.Value;
         if (proc == IntPtr.Zero) return IntPtr.Zero;
-        try
-        {
-            return NativeMethods.DuplicateHandle(proc, handle, NativeMethods.GetCurrentProcess(),
-                out IntPtr dup, 0, false, NativeMethods.DUPLICATE_SAME_ACCESS)
-                ? dup
-                : IntPtr.Zero;
-        }
-        finally
-        {
-            NativeMethods.CloseHandle(proc);
-        }
+
+        return NativeMethods.DuplicateHandle(proc, handle, NativeMethods.GetCurrentProcess(),
+            out IntPtr dup, 0, false, NativeMethods.DUPLICATE_SAME_ACCESS)
+            ? dup
+            : IntPtr.Zero;
     }
 
     private static string? QueryString(IntPtr handle, int infoClass)
