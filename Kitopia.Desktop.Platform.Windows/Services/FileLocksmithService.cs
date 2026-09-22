@@ -137,6 +137,9 @@ public sealed class FileLocksmithService : IFileLockService
             {
                 try
                 {
+                    // Parallel.For waits for every worker before the snapshot is disposed.
+                    IntPtr firstHandle = handleTable.First;
+                    int handleStride = handleTable.Stride;
                     Parallel.For(0L, handleTable.Count,
                         new ParallelOptions
                         {
@@ -146,11 +149,11 @@ public sealed class FileLocksmithService : IFileLockService
                         i =>
                         {
                             var e = Marshal.PtrToStructure<NativeMethods.SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX>(
-                                (IntPtr)((nint)handleTable.First + (nint)(i * handleTable.Stride)));
+                                firstHandle + (nint)(i * handleStride));
                             int pid = (int)e.ProcessId.ToUInt32();
                             if (pid == 0 || pid == selfPid) return;
 
-                            var key = (pid, (nint)e.Handle);
+                            var key = (pid, e.Handle);
                             if (HandleCache.TryGetValue(key, out CachedHandle? cached))
                             {
                                 cached.Seen = true;
