@@ -12,28 +12,28 @@
     <Style Selector="controls|HotKeyShowItme">
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="11.5" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI, -apple-system, BlinkMacSystemFont, PingFang SC, Microsoft YaHei, sans-serif" />
+        <Setter Property="FontFamily" Value="Cascadia Code, Segoe UI Variable, Segoe UI, -apple-system, sans-serif" />
         <Setter Property="Foreground" Value="{DynamicResource KitopiaKeycapForeground}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Name="Root"
                         Background="{DynamicResource KitopiaKeycapBackground}"
                         BorderBrush="{DynamicResource KitopiaKeycapBorderBrush}"
-                        BorderThickness="1,1,1,2"
-                        CornerRadius="6"
-                        Padding="8,3"
-                        MinHeight="26"
-                        MinWidth="28"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="7,2"
+                        MinHeight="25"
+                        MinWidth="26"
                         BoxShadow="{DynamicResource KitopiaKeycapBoxShadow}"
                         HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
                         VerticalAlignment="{TemplateBinding VerticalAlignment}">
                     <Border.Transitions>
                         <Transitions>
-                            <BrushTransition Property="Background" Duration="0:0:0.15" />
-                            <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
-                            <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.15" />
+                            <BrushTransition Property="Background" Duration="0:0:0.12" />
+                            <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+                            <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.12" />
                         </Transitions>
                     </Border.Transitions>
                     <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -63,11 +63,7 @@
         </Setter>
     </Style>
 
-    <Style Selector="controls|HotKeyShowItme:pointerover /template/ Border#Root">
-        <Setter Property="Background" Value="{DynamicResource KitopiaKeycapHoverBackground}" />
-    </Style>
-
     <Style Selector="controls|HotKeyShowItme:disabled">
-        <Setter Property="Opacity" Value="0.45" />
+        <Setter Property="Opacity" Value="0.4" />
     </Style>
 </Styles>

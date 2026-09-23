@@ -12,6 +12,7 @@
     <UserControl.Resources>
         <converter:HotKeySignNameToStringCtr x:Key="HotKeySignNameToStringCtr" />
         <converter:HotKeySignNameToIconConverter x:Key="HotKeySignNameToIconConverter" />
+        <converter:HotKeySignNameToDescriptionCtr x:Key="HotKeySignNameToDescriptionCtr" />
     </UserControl.Resources>
     <Grid RowDefinitions="Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
         <!-- 1. Header: Global interactions + Title + Subtitle + Count -->
@@ -38,9 +39,9 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="pluginCore:HotKeyModel">
-                        <Border Width="340" Height="138" Margin="0,0,14,14"
+                        <Border Width="340" Height="124" Margin="0,0,14,14"
                                 Theme="{DynamicResource KitopiaPluginCard}"
-                                Padding="18,16">
+                                Padding="18,14">
                             <Grid RowDefinitions="Auto,*" RowSpacing="14">
                                 <!-- 1. Top Header: Icon + Title/Subtitle + Status Badge -->
                                 <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
@@ -56,13 +57,13 @@
                                                            VerticalAlignment="Center" />
                                     </Border>
 
-                                    <!-- Middle: Title + Scope Subtitle -->
+                                    <!-- Middle: Title + Feature Description -->
                                     <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding SignName, Converter={StaticResource HotKeySignNameToStringCtr}}"
-                                                   FontWeight="SemiBold" FontSize="15"
+                                                   FontWeight="SemiBold" FontSize="14.5"
                                                    Foreground="{DynamicResource SemiColorText0}"
                                                    TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="全局交互热键"
+                                        <TextBlock Text="{Binding SignName, Converter={StaticResource HotKeySignNameToDescriptionCtr}}"
                                                    FontSize="12"
                                                    Foreground="{DynamicResource SemiColorText2}"
                                                    Margin="0,2,0,0"
@@ -70,7 +71,7 @@
                                     </StackPanel>
 
                                     <!-- Right: Dynamic Status Badge (Enabled vs Disabled) -->
-                                    <Panel Grid.Column="2" VerticalAlignment="Top">
+                                    <Panel Grid.Column="2" VerticalAlignment="Center">
                                         <Border CornerRadius="4" Padding="8,3"
                                                 Background="{DynamicResource KitopiaBadgeSuccessBackground}"
                                                 IsVisible="{Binding IsEnabled}">
@@ -86,9 +87,9 @@
                                     </Panel>
                                 </Grid>
 
-                                <!-- 2. Bottom: Keycaps (Left) + Actions (Right) -->
+                                <!-- 2. Bottom: Keycaps + Scope Tag (Left) + Actions (Right) -->
                                 <controls1:HotKeyShow Grid.Row="1"
-                                                       VerticalAlignment="Bottom"
+                                                       VerticalAlignment="Center"
                                                        HorizontalAlignment="Stretch"
                                                        HotKeyModel="{Binding}" />
                             </Grid>

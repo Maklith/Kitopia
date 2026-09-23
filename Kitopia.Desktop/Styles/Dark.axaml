@@ -12,8 +12,9 @@
     <SolidColorBrush x:Key="KitopiaCardBackgroundBrush" Color="#242424" />
     <SolidColorBrush x:Key="KitopiaCardHoverBackgroundBrush" Color="#2E2E2E" />
     <SolidColorBrush x:Key="KitopiaCardBorderBrush" Color="#1FFFFFFF" />
+    <SolidColorBrush x:Key="KitopiaCardHoverBorderBrush" Color="#30FFFFFF" />
     <BoxShadows x:Key="KitopiaCardBoxShadow">0 1 3 0 #30000000, 0 2 8 0 #20000000</BoxShadows>
-    <BoxShadows x:Key="KitopiaCardHoverBoxShadow">0 4 14 0 #304CC2FF</BoxShadows>
+    <BoxShadows x:Key="KitopiaCardHoverBoxShadow">0 4 14 0 #50000000, 0 2 4 0 #30000000</BoxShadows>
 
     <!-- Badges & Tags -->
     <SolidColorBrush x:Key="KitopiaBadgeSuccessBackground" Color="#40107C41" />
@@ -40,10 +41,10 @@
     <SolidColorBrush x:Key="ListBoxItemSelectedPointeroverBackground" Color="#334CC2FF" />
 
     <!-- Fluent Keycap (Keyboard KBD) Tokens -->
-    <SolidColorBrush x:Key="KitopiaKeycapBackground" Color="#2E2E2E" />
-    <SolidColorBrush x:Key="KitopiaKeycapHoverBackground" Color="#363636" />
-    <SolidColorBrush x:Key="KitopiaKeycapBorderBrush" Color="#33FFFFFF" />
-    <SolidColorBrush x:Key="KitopiaKeycapBottomBorderBrush" Color="#60000000" />
-    <SolidColorBrush x:Key="KitopiaKeycapForeground" Color="#F9FAFB" />
-    <BoxShadows x:Key="KitopiaKeycapBoxShadow">0 1 2 0 #40000000, 0 1 1 0 #30000000</BoxShadows>
+    <SolidColorBrush x:Key="KitopiaKeycapBackground" Color="#2A2A2D" />
+    <SolidColorBrush x:Key="KitopiaKeycapHoverBackground" Color="#333337" />
+    <SolidColorBrush x:Key="KitopiaKeycapBorderBrush" Color="#3F3F46" />
+    <SolidColorBrush x:Key="KitopiaKeycapForeground" Color="#F8FAFC" />
+    <BoxShadows x:Key="KitopiaKeycapBoxShadow">0 1 0 0 #18181B, 0 1 2 0 #40000000</BoxShadows>
+    <BoxShadows x:Key="KitopiaKeycapHoverBoxShadow">0 1 0 0 #09090B, 0 2 4 0 #60000000</BoxShadows>
 </ResourceDictionary>
