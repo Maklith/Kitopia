@@ -1,8 +1,13 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.Win32.Input;
 using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
@@ -15,6 +20,9 @@ namespace Kitopia.Desktop.Windows;
 public partial class HotKeyEditorWindow : UrsaWindow
 {
     private readonly HotKeyModel _hotKeyModel;
+    private readonly ObservableCollection<string> _processTags;
+    private readonly ObservableCollection<string> _filteredSuggestions = [];
+    private List<string> _runningProcesses = [];
     private HotKeyType _type;
     private EKey? _selectedKey;
     private ushort? _selectedMouseButton;
@@ -37,7 +45,35 @@ public partial class HotKeyEditorWindow : UrsaWindow
         Win.IsVisible = _type == HotKeyType.Keyboard && hotKeyModel.IsSelectWin;
         KeyName.Content = _type == HotKeyType.Keyboard ? hotKeyModel.SelectKey.ToString() : MouseButtonName(hotKeyModel.MouseButton);
         ProcessScope.SelectedIndex = (int)hotKeyModel.ProcessScope;
-        ProcessNames.Text = string.Join(Environment.NewLine, hotKeyModel.ProcessNames);
+        _processTags = new ObservableCollection<string>(
+            hotKeyModel.ProcessNames
+                .Select(HotKeyModel.NormalizeProcessName)
+                .Where(name => name.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase));
+        ProcessTagsControl.ItemsSource = _processTags;
+        _processTags.CollectionChanged += (_, _) => UpdateEmptyTagsHint();
+        UpdateEmptyTagsHint();
+
+        ProcessSuggestionsList.ItemsSource = _filteredSuggestions;
+        ProcessSuggestionsPopup.PlacementTarget = ProcessNames;
+        ProcessSuggestionsPopup.Placement = PlacementMode.BottomEdgeAlignedLeft;
+        ProcessSuggestionsPopup.Opened += (_, _) =>
+        {
+            if (ProcessSuggestionsPopup.Child is Control child && ProcessNames.Bounds.Width > 0)
+            {
+                child.Width = ProcessNames.Bounds.Width;
+            }
+        };
+        ProcessNames.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == TextBox.TextProperty)
+            {
+                UpdateSuggestions();
+            }
+        };
+        ProcessNames.GotFocus += (_, _) => UpdateSuggestions();
+
+        LoadRunningProcesses();
         IgnoreTextInput.IsChecked = hotKeyModel.IgnoreTextInput;
         Opened += (_, _) => MouseCaptureArea.Focus();
     }
@@ -67,9 +103,13 @@ public partial class HotKeyEditorWindow : UrsaWindow
             return;
         }
         var scope = (HotKeyProcessScope)ProcessScope.SelectedIndex;
-        var processes = (ProcessNames.Text ?? "").Split(['\r', '\n', ',', ';', '，', '；', '、'],
+        var textProcesses = (ProcessNames.Text ?? "").Split(['\r', '\n', ',', ';', '，', '；', '、'],
                 StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(HotKeyModel.NormalizeProcessName).Where(name => name.Length > 0)
+            .Select(HotKeyModel.NormalizeProcessName).Where(name => name.Length > 0);
+        var processes = _processTags
+            .Select(HotKeyModel.NormalizeProcessName)
+            .Concat(textProcesses)
+            .Where(name => name.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         if (scope != HotKeyProcessScope.All && processes.Length == 0)
         {
@@ -148,5 +188,191 @@ public partial class HotKeyEditorWindow : UrsaWindow
     private void ProcessScope_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (ProcessListSection is not null) ProcessListSection.IsVisible = ProcessScope.SelectedIndex > 0;
+    }
+
+    private void UpdateEmptyTagsHint()
+    {
+        if (EmptyTagsHint is not null)
+        {
+            EmptyTagsHint.IsVisible = _processTags.Count == 0;
+        }
+    }
+
+    private void LoadRunningProcesses()
+    {
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var p in Process.GetProcesses())
+                {
+                    try
+                    {
+                        var name = p.ProcessName;
+                        if (!string.IsNullOrWhiteSpace(name))
+                        {
+                            names.Add(HotKeyModel.NormalizeProcessName(name));
+                        }
+                    }
+                    catch
+                    {
+                    }
+                    finally
+                    {
+                        p.Dispose();
+                    }
+                }
+                var result = names.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+                Dispatcher.UIThread.Post(() =>
+                {
+                    _runningProcesses = result;
+                    if (!string.IsNullOrWhiteSpace(ProcessNames.Text))
+                    {
+                        UpdateSuggestions();
+                    }
+                });
+            }
+            catch
+            {
+                Dispatcher.UIThread.Post(() => _runningProcesses = []);
+            }
+        });
+    }
+
+    private void UpdateSuggestions()
+    {
+        if (ProcessSuggestionsPopup is null || ProcessSuggestionsList is null) return;
+        var query = ProcessNames.Text?.Trim();
+        if (string.IsNullOrEmpty(query) || !ProcessNames.IsKeyboardFocusWithin)
+        {
+            ProcessSuggestionsPopup.IsOpen = false;
+            return;
+        }
+
+        var queryNorm = HotKeyModel.NormalizeProcessName(query);
+        var available = _runningProcesses
+            .Where(p => !_processTags.Contains(p, StringComparer.OrdinalIgnoreCase)
+                        && (p.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                            p.Contains(queryNorm, StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(p => p.StartsWith(queryNorm, StringComparison.OrdinalIgnoreCase) || p.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+            .ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
+            .Take(12)
+            .ToList();
+
+        _filteredSuggestions.Clear();
+        foreach (var item in available)
+        {
+            _filteredSuggestions.Add(item);
+        }
+
+        if (ProcessSuggestionsPopup.Child is Control child && ProcessNames.Bounds.Width > 0)
+        {
+            child.Width = ProcessNames.Bounds.Width;
+        }
+        ProcessSuggestionsPopup.IsOpen = _filteredSuggestions.Count > 0;
+    }
+
+    private void AddProcessTag(string? rawInput)
+    {
+        if (string.IsNullOrWhiteSpace(rawInput)) return;
+        var items = rawInput.Split(['\r', '\n', ',', ';', '，', '；', '、'],
+            StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        foreach (var item in items)
+        {
+            var normalized = HotKeyModel.NormalizeProcessName(item);
+            if (normalized.Length > 0 && !_processTags.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+            {
+                _processTags.Add(normalized);
+            }
+        }
+        ProcessNames.Text = string.Empty;
+        if (ProcessSuggestionsPopup is not null)
+        {
+            ProcessSuggestionsPopup.IsOpen = false;
+        }
+        ValidationMessage.Text = string.Empty;
+    }
+
+    private void RemoveProcessTag_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: string tag })
+        {
+            _processTags.Remove(tag);
+            UpdateSuggestions();
+        }
+    }
+
+    private void AddProcessButton_OnClick(object? sender, RoutedEventArgs e)
+    {
+        AddProcessTag(ProcessNames.Text);
+        ProcessNames.Focus();
+    }
+
+    private void ProcessNames_OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Down && ProcessSuggestionsPopup.IsOpen && _filteredSuggestions.Count > 0)
+        {
+            ProcessSuggestionsList.Focus();
+            if (ProcessSuggestionsList.SelectedIndex < 0)
+            {
+                ProcessSuggestionsList.SelectedIndex = 0;
+            }
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.Enter)
+        {
+            if (!string.IsNullOrWhiteSpace(ProcessNames.Text))
+            {
+                AddProcessTag(ProcessNames.Text);
+            }
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.Escape && ProcessSuggestionsPopup.IsOpen)
+        {
+            ProcessSuggestionsPopup.IsOpen = false;
+            e.Handled = true;
+            return;
+        }
+    }
+
+    private void ProcessSuggestionsList_OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            if (ProcessSuggestionsList.SelectedItem is string selected)
+            {
+                AddProcessTag(selected);
+                ProcessNames.Focus();
+            }
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.Escape)
+        {
+            ProcessSuggestionsPopup.IsOpen = false;
+            ProcessNames.Focus();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.Up && ProcessSuggestionsList.SelectedIndex <= 0)
+        {
+            ProcessSuggestionsList.SelectedIndex = -1;
+            ProcessNames.Focus();
+            e.Handled = true;
+            return;
+        }
+    }
+
+    private void SuggestionItem_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is Control { DataContext: string procName })
+        {
+            AddProcessTag(procName);
+            ProcessNames.Focus();
+            e.Handled = true;
+        }
     }
 }

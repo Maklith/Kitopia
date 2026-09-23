@@ -310,6 +310,53 @@ public sealed class MouseHotKeyTests
         return Task.CompletedTask;
     });
 
+    [TestMethod]
+    public Task Editor_ProcessTags_AddRemoveAndMerge_SavesCorrectly() => RunAsync(_ =>
+    {
+        var recorder = new RecordingHotkeys();
+        var originalServices = ServiceManager.Services;
+        using var services = new ServiceCollection().AddSingleton<IHotKetImpl>(recorder).BuildServiceProvider();
+        var model = new HotKeyModel
+        {
+            IsEnabled = true,
+            SelectKey = EKey.A,
+            ProcessScope = HotKeyProcessScope.Include,
+            ProcessNames = ["notepad.exe"]
+        };
+        var window = new HotKeyEditorWindow(model);
+        try
+        {
+            ServiceManager.Services = services;
+            window.Show();
+            var tagsControl = window.FindControl<ItemsControl>("ProcessTagsControl")!;
+            Assert.IsNotNull(tagsControl.ItemsSource);
+            var initialTags = ((System.Collections.IEnumerable)tagsControl.ItemsSource).Cast<string>().ToList();
+            CollectionAssert.AreEqual(new[] { "notepad" }, initialTags);
+
+            var input = window.FindControl<TextBox>("ProcessNames")!;
+            var addButton = window.FindControl<Button>("AddProcessButton")!;
+            input.Text = "custom-app.exe";
+            addButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            var updatedTags = ((System.Collections.IEnumerable)tagsControl.ItemsSource).Cast<string>().ToList();
+            CollectionAssert.AreEqual(new[] { "notepad", "custom-app" }, updatedTags);
+            Assert.AreEqual(string.Empty, input.Text);
+
+            // Also verify uncommitted text in TextBox is merged on save
+            input.Text = "pending-app.exe";
+            window.FindControl<Button>("SaveButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            Assert.IsNotNull(recorder.Modified);
+            CollectionAssert.AreEqual(new[] { "notepad", "custom-app", "pending-app" }, recorder.Modified.ProcessNames);
+        }
+        finally
+        {
+            window.Close();
+            ServiceManager.Services = originalServices;
+        }
+        return Task.CompletedTask;
+    });
+
     private static HotKeyImpl.HotkeyInfo GetHotkey(string uuid) =>
         ((ConcurrentDictionary<string, HotKeyImpl.HotkeyInfo>)typeof(HotKeyImpl)
             .GetField("HotKeys", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!)[uuid];

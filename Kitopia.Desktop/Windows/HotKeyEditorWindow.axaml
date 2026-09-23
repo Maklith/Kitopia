@@ -83,9 +83,85 @@
                                 <ComboBoxItem Content="排除指定进程" />
                             </ComboBox>
                         </Grid>
-                        <StackPanel Name="ProcessListSection" Spacing="6">
-                            <TextBox Name="ProcessNames" AcceptsReturn="True" Height="76" TextWrapping="Wrap"
-                                     PlaceholderText="例如 explorer.exe、code.exe，每行一个或用逗号分隔" />
+                        <StackPanel Name="ProcessListSection" Spacing="10">
+                            <!-- 已添加的进程标签展示区 -->
+                            <Border MinHeight="42" Padding="8,8,8,2" CornerRadius="8"
+                                    Background="{DynamicResource SemiColorFill0}"
+                                    BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1">
+                                <Panel>
+                                    <TextBlock Name="EmptyTagsHint" Text="暂无配置的进程，请在下方输入并添加"
+                                               FontSize="12" Foreground="{DynamicResource SemiColorText3}"
+                                               VerticalAlignment="Center" Margin="6,0,0,6" IsVisible="False" />
+                                    <ItemsControl Name="ProcessTagsControl">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <Border Margin="0,0,6,6" Padding="8,4" CornerRadius="6"
+                                                        Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                                                        BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding}" FontSize="12"
+                                                                   Foreground="{DynamicResource SemiColorText0}"
+                                                                   VerticalAlignment="Center" />
+                                                        <Button Classes="Tertiary" Theme="{DynamicResource BorderlessButton}"
+                                                                Width="18" Height="18" Padding="0" CornerRadius="9"
+                                                                Click="RemoveProcessTag_OnClick" ToolTip.Tip="移除此进程">
+                                                            <PathIcon Width="8" Height="8"
+                                                                      Data="M 1,0 L 6,5 11,0 12,1 7,6 12,11 11,12 6,7 1,12 0,11 5,6 0,1 Z"
+                                                                      Foreground="{DynamicResource SemiColorText2}" />
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Panel>
+                            </Border>
+
+                            <!-- 进程输入与自动补全区域 -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Panel>
+                                    <TextBox Name="ProcessNames" Height="34" CornerRadius="6"
+                                             VerticalContentAlignment="Center"
+                                             PlaceholderText="输入进程名（例如 explorer 或 code），按回车添加"
+                                             KeyDown="ProcessNames_OnKeyDown" />
+                                    <Popup Name="ProcessSuggestionsPopup"
+                                           PlacementTarget="{Binding #ProcessNames}"
+                                           Placement="BottomEdgeAlignedLeft"
+                                           IsLightDismissEnabled="True">
+                                        <Border Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                                                BorderBrush="{DynamicResource SemiColorBorder}"
+                                                BorderThickness="1" CornerRadius="8"
+                                                BoxShadow="{DynamicResource KitopiaCardHoverBoxShadow}"
+                                                MaxHeight="200"
+                                                Width="{Binding #ProcessNames.Bounds.Width}"
+                                                Margin="0,4,0,0">
+                                            <ListBox Name="ProcessSuggestionsList" Background="Transparent"
+                                                     BorderThickness="0" SelectionMode="Single"
+                                                     KeyDown="ProcessSuggestionsList_OnKeyDown"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="x:String">
+                                                        <Border Background="Transparent" Padding="10,6" Cursor="Hand"
+                                                                PointerReleased="SuggestionItem_OnPointerReleased">
+                                                            <TextBlock Text="{Binding}" FontSize="12"
+                                                                       Foreground="{DynamicResource SemiColorText0}"
+                                                                       VerticalAlignment="Center" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </Border>
+                                    </Popup>
+                                </Panel>
+                                <Button Grid.Column="1" Name="AddProcessButton" Content="添加"
+                                        Height="34" CornerRadius="6" Padding="16,0"
+                                        Click="AddProcessButton_OnClick" />
+                            </Grid>
                             <TextBlock Text="不区分大小写，可省略 .exe；范围外保留按键原本的行为。" FontSize="11"
                                        Foreground="{DynamicResource SemiColorText2}" TextWrapping="Wrap" />
                         </StackPanel>
