@@ -45,6 +45,9 @@
         <AvaloniaResource Include="Assets\HarmonyOS_Sans_SC_Regular.ttf"/>
         <AvaloniaResource Include="Assets\icon.png" />
         <AvaloniaResource Include="Assets\icon.ico" />
+        <Content Include="..\KitopiaVersion.props">
+          <Link>KitopiaVersion.props</Link>
+        </Content>
     
         <Content Include="Assets\icon.png">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
