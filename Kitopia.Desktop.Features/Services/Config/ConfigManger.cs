@@ -23,7 +23,7 @@ namespace Kitopia.Desktop.Features.Services.Config;
 public class ConfigManger : IConfigService, IConfigProvider
 {
     private static ILogger Logger = LogManager.Logger.ForContext<ConfigManger>();
-    public static Version Version = new("1.0.0");
+    public static Version Version = System.Version.Parse(ServiceManager.Version);
     public static string ApiUrl
     {
         get

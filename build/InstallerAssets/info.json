@@ -1,7 +1,6 @@
 {
   "DisplayIcon": "",
   "DisplayName": "Kitopia",
-  "DisplayVersion": "0.3.5.1",
   "Publisher": "Maklith",
   "CanExecutePath": "Kitopia.Desktop.exe",
   "Is64": true,
