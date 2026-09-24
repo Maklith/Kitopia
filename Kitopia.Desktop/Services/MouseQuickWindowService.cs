@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 #if WINDOWS
 using Kitopia.Desktop.Platform.Windows;
+using Vanara.PInvoke;
 #endif
 
 namespace Kitopia.Desktop.Services;
@@ -29,6 +30,7 @@ public sealed class MouseQuickWindowService : IMouseQuickWindowService
                     return;
                 }
 #if WINDOWS
+                var originalWindowHandle = (nint)User32.GetForegroundWindow();
                 var selection = ServiceManager.Services.GetRequiredService<ExplorerFileSelection>().GetSelection();
                 var files = selection.Paths;
 #else
@@ -40,6 +42,7 @@ public sealed class MouseQuickWindowService : IMouseQuickWindowService
                 window.Closed += (_, _) => { if (ReferenceEquals(_window, window)) _window = null; };
 #if WINDOWS
                 window.AnchorBounds = selection.Bounds;
+                window.OriginalWindowHandle = originalWindowHandle;
 #endif
                 window.Show();
                 window.ActivateAndFocus();

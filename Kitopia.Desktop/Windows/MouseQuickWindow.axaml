@@ -79,16 +79,12 @@
                     Background="{DynamicResource KitopiaCardBackgroundBrush}"
                     BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1">
                 <Grid Name="PreviewSurface">
-                    <Grid Name="ImageViewport" IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                            <LayoutTransformControl HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <LayoutTransformControl.LayoutTransform>
-                                    <ScaleTransform ScaleX="{Binding #ImageZoom.Value}" ScaleY="{Binding #ImageZoom.Value}" />
-                                </LayoutTransformControl.LayoutTransform>
-                                <Image Source="{Binding PreviewImage}" Stretch="Uniform"
-                                       Width="{Binding #ImageViewport.Bounds.Width}" Height="{Binding #ImageViewport.Bounds.Height}" />
-                            </LayoutTransformControl>
-                        </ScrollViewer>
+                    <Grid Name="ImageViewport" ClipToBounds="True"
+                          IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <Image Name="ImagePreview" Source="{Binding PreviewImage}" Stretch="Uniform"
+                               Width="{Binding #ImageViewport.Bounds.Width}" Height="{Binding #ImageViewport.Bounds.Height}"
+                               RenderOptions.BitmapInterpolationMode="MediumQuality"
+                               RenderTransformOrigin="0%,0%" />
                     </Grid>
                     <ScrollViewer Padding="24" IsVisible="{Binding PreviewText, Converter={x:Static ObjectConverters.IsNotNull}}"
                                   HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
