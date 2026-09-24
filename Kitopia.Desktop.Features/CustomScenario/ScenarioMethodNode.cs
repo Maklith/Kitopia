@@ -305,36 +305,24 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
             case ScenarioMethodType.TempVariableGet:
             {
                 if (tempValues.ContainsKey(ScenarioMethod.ValueName))
-                    Output[1].InputObject.Value = tempValues[ScenarioMethod.ValueName];
+                    Output[1].InputObject.Value = tempValues[ScenarioMethod.ValueName].Value;
 
                 break;
             }
             case ScenarioMethodType.InputVariableGet:
             {
-                if (tempValues.ContainsKey(ScenarioMethod.ValueName))
-                    Output[1].InputObject.Value = inputValues[ScenarioMethod.ValueName];
+                if (inputValues.TryGetValue(ScenarioMethod.ValueName, out var input))
+                    Output[1].InputObject.Value = input.Value;
 
                 break;
             }
             case ScenarioMethodType.Condition:
             {
-                if (Input[1].InputObject.Value is bool b1)
-                {
-                    if (b1)
-                    {
-                        Output[0].IsNotUsed = false;
-                        Output[0].InputObject.Value = "当前流";
-                        Output[1].IsNotUsed = true;
-                        Output[1].InputObject.Value = "未使用的流";
-                    }
-                    else
-                    {
-                        Output[0].IsNotUsed = true;
-                        Output[0].InputObject.Value = "未使用的流";
-                        Output[1].IsNotUsed = false;
-                        Output[1].InputObject.Value = "当前流";
-                    }
-                }
+                if (Input[1].InputObject.Value is not bool condition) return false;
+                Output[0].IsNotUsed = !condition;
+                Output[0].InputObject.Value = condition ? "当前流" : "未使用的流";
+                Output[1].IsNotUsed = condition;
+                Output[1].InputObject.Value = condition ? "未使用的流" : "当前流";
 
                 break;
             }
@@ -343,7 +331,8 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                 if (Input.Count<ConnectorItem>() >= 3)
                 {
                     List<object> parameterList = new();
-                    for (var index = 2; index < Input.Count; index++) parameterList.Add(Input[index].InputObject);
+                    for (var index = 2; index < Input.Count; index++)
+                        parameterList.Add(Input[index].InputObject.Value!);
 
                     ServiceManager.Services.GetService<ISearchItemTool>()
                         .OpenSearchItemByOnlyKey((string)Input[1].InputObject.Value,
@@ -362,7 +351,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                 if (Input == null || Input.Count == 0) break;
 
                 var connectorItem =
-                    Input.First<ConnectorItem>(e => e.InputObject.ShowType != typeof(NodeConnectorClass));
+                    Input.FirstOrDefault(e => e.InputObject.ShowType != typeof(NodeConnectorClass));
                 if (connectorItem == null) break;
 
                 foreach (var item in Output) item.InputObject.Value = connectorItem.InputObject.Value;
@@ -493,7 +482,10 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
 
     public override void ResetData()
     {
-        foreach (var connectorItem in Output) connectorItem.InputObject.Value = null;
+        foreach (var connectorItem in Output) {
+            connectorItem.InputObject.Value = null;
+            connectorItem.IsNotUsed = false;
+        }
 
         foreach (var connectorItem in Input)
             if (!connectorItem.InputObject.IsSelf)

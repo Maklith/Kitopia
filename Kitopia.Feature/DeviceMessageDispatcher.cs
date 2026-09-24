@@ -4,11 +4,14 @@ using Kitopia.Feature.DeviceCommunication.Codecs;
 using Kitopia.Feature.DeviceCommunication.Messages;
 using Kitopia.Feature.DeviceCommunication.Messages.Chat;
 using Kitopia.Feature.DeviceCommunication.Protocol;
+using Kitopia.Feature.DeviceCommunication.Transport;
 
 namespace Kitopia.Feature.DeviceCommunication;
 
 public sealed class DeviceMessageDispatcher
 {
+    public const int MaximumDirectImageBytes = 5 * 1024 * 1024;
+
     private readonly Dictionary<string, Func<DataEnvelope, PipeReader, CancellationToken, ValueTask>> _routeHandlers;
     private readonly MessageCodecRegistry _codecRegistry;
     private readonly IIncomingMessageSink _incomingMessageSink;
@@ -24,8 +27,7 @@ public sealed class DeviceMessageDispatcher
         _fileTransferPayloadHandler = fileTransferPayloadHandler;
         _routeHandlers = new Dictionary<string, Func<DataEnvelope, PipeReader, CancellationToken, ValueTask>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["chat"] = DispatchChatAsync,
-            ["clipboard"] = DispatchClipboardAsync
+            ["chat"] = DispatchChatAsync
         };
     }
 
@@ -54,46 +56,36 @@ public sealed class DeviceMessageDispatcher
             return _fileTransferPayloadHandler.HandleAsync(fileMessage, payload, cancellationToken);
         }
 
-        if (message is ImageChatMessage)
+        if (message is ImageChatMessage imageMessage)
         {
-            return PublishPayloadMessageAsync(message, payload, cancellationToken);
-        }
-
-        return _incomingMessageSink.PublishAsync(message, cancellationToken);
-    }
-
-    private ValueTask DispatchClipboardAsync(
-        DataEnvelope envelope,
-        PipeReader payload,
-        CancellationToken cancellationToken)
-    {
-        _ = payload;
-
-        if (!_codecRegistry.TryDecode(envelope, out var message))
-        {
-            return ValueTask.CompletedTask;
+            return PublishPayloadMessageAsync(imageMessage, payload, cancellationToken);
         }
 
         return _incomingMessageSink.PublishAsync(message, cancellationToken);
     }
 
     private async ValueTask PublishPayloadMessageAsync(
-        AppMessage message,
+        ImageChatMessage message,
         PipeReader payload,
         CancellationToken cancellationToken)
     {
-        var payloadBytes = await ReadPayloadBytesAsync(payload, cancellationToken);
+        if (message.SizeBytes is <= 0 or > MaximumDirectImageBytes)
+        {
+            throw new InvalidDataException("Direct image size exceeds the allowed range.");
+        }
+
+        var payloadBytes = await LocalDataPipeIo.ReadExactlyAsync(payload, (int)message.SizeBytes,
+            cancellationToken);
+        var trailing = await payload.ReadAsync(cancellationToken);
+        var hasTrailingBytes = !trailing.Buffer.IsEmpty;
+        payload.AdvanceTo(trailing.Buffer.Start, trailing.Buffer.End);
+        if (hasTrailingBytes)
+        {
+            throw new InvalidDataException("Direct image payload exceeds its declared size.");
+        }
+
         await _incomingMessageSink.PublishEventAsync(
             DeviceMessageEventFactory.FromMessage(message, payloadBytes),
             cancellationToken);
-    }
-
-    private static async Task<byte[]?> ReadPayloadBytesAsync(
-        PipeReader payload,
-        CancellationToken cancellationToken)
-    {
-        await using var memory = new MemoryStream();
-        await payload.CopyToAsync(memory, cancellationToken);
-        return memory.Length == 0 ? null : memory.ToArray();
     }
 }

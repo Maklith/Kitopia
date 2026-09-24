@@ -94,11 +94,11 @@ public class CustomScenarioManger
             deserializeObject.OnDeserialized();
 
 
-            deserializeObject.HasInit = true;
             deserializeObject.IsRunning = false;
 
 
             foreach (var deserializeObjectNode in deserializeObject.Nodes) deserializeObjectNode.ConnectorInit();
+            deserializeObject.VerifyGraph();
             deserializeObject.InitHotKey();
             CustomScenarios.Add(deserializeObject);
         }

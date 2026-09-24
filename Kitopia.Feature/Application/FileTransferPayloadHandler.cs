@@ -19,15 +19,29 @@ public sealed class FileTransferPayloadHandler
 
     public async ValueTask HandleAsync(FileChatMessage message, PipeReader payload, CancellationToken cancellationToken)
     {
-        if (!_fileTransferSessionStore.TryGet(message.ChannelId, out var session) ||
-            session.State != FileTransferState.Accepted ||
-            (string.IsNullOrWhiteSpace(session.SavePath) && session.OpenWriteStreamAsync is null))
+        if (!_fileTransferSessionStore.TryBeginReceive(message.ChannelId, message.ConversationId,
+                message.Length, out var session, out var receiveCancellationToken))
         {
-            await DrainPayloadAsync(message, payload, cancellationToken);
-            return;
+            await _incomingMessageSink.PublishEventAsync(
+                new FileTransferUpdatedEvent(
+                    message.ConversationId,
+                    message.ChannelId,
+                    FileTransferDirection.Download,
+                    FileTransferStatus.Failed,
+                    message.FileName,
+                    null,
+                    message.Length,
+                    "invalid_accept_session",
+                    DateTimeOffset.UtcNow),
+                cancellationToken);
+            throw new InvalidDataException("File payload has no matching accepted offer.");
         }
 
-        var totalBytes = Math.Max(0L, message.Length ?? 0L);
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, receiveCancellationToken);
+        var receiveToken = linkedCancellation.Token;
+        var totalBytes = session.SizeBytes;
+        string? temporaryPath = null;
 
         long receivedBytes = 0;
         long lastReportedBytes = 0;
@@ -58,36 +72,75 @@ public sealed class FileTransferPayloadHandler
                     progressTotal,
                     null,
                     DateTimeOffset.UtcNow),
-                cancellationToken);
+                receiveToken);
             lastReportedBytes = receivedBytes;
         }
 
         try
         {
-            await using var fileStream = await OpenTargetStreamAsync(session, cancellationToken);
-
-            await using var progressStream = new ProgressReportingWriteStream(fileStream, ReportProgressAsync);
-            await payload.CopyToAsync(progressStream, cancellationToken);
-
-            if (receivedBytes > 0 && receivedBytes != lastReportedBytes)
+            Stream fileStream;
+            if (session.OpenWriteStreamAsync is { } openWriteStreamAsync)
             {
-                var finalProgressTotal = totalBytes > 0 ? totalBytes : receivedBytes;
-                await _incomingMessageSink.PublishEventAsync(
-                    new FileTransferUpdatedEvent(
-                        message.ConversationId,
-                        message.ChannelId,
-                        FileTransferDirection.Download,
-                        FileTransferStatus.InProgress,
-                        message.FileName,
-                        receivedBytes,
-                        finalProgressTotal,
-                        null,
-                        DateTimeOffset.UtcNow),
-                    cancellationToken);
+                fileStream = await openWriteStreamAsync(receiveToken);
+                if (fileStream.CanSeek)
+                {
+                    fileStream.SetLength(0);
+                }
+            }
+            else
+            {
+                var savePath = session.SavePath ?? throw new InvalidOperationException("Missing file save target.");
+                var directory = Path.GetDirectoryName(savePath);
+                directory = string.IsNullOrWhiteSpace(directory) ? Directory.GetCurrentDirectory() : directory;
+                Directory.CreateDirectory(directory);
+                temporaryPath = Path.Combine(directory, $".{Path.GetFileName(savePath)}.{Guid.NewGuid():N}.tmp");
+                fileStream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                    64 * 1024, useAsync: true);
             }
 
-            await fileStream.FlushAsync(cancellationToken);
-            _fileTransferSessionStore.TryUpdateState(message.ChannelId, FileTransferState.Accepted, FileTransferState.Completed);
+            await using (fileStream)
+            {
+                await using var progressStream = new ProgressReportingWriteStream(fileStream, totalBytes, ReportProgressAsync);
+                await payload.CopyToAsync(progressStream, receiveToken);
+                if (receivedBytes != totalBytes)
+                {
+                    throw new InvalidDataException("File payload length differs from its accepted offer.");
+                }
+
+                if (receivedBytes > 0 && receivedBytes != lastReportedBytes)
+                {
+                    var finalProgressTotal = totalBytes > 0 ? totalBytes : receivedBytes;
+                    await _incomingMessageSink.PublishEventAsync(
+                        new FileTransferUpdatedEvent(
+                            message.ConversationId,
+                            message.ChannelId,
+                            FileTransferDirection.Download,
+                            FileTransferStatus.InProgress,
+                            message.FileName,
+                            receivedBytes,
+                            finalProgressTotal,
+                            null,
+                            DateTimeOffset.UtcNow),
+                        receiveToken);
+                }
+
+                await fileStream.FlushAsync(receiveToken);
+            }
+
+            receiveToken.ThrowIfCancellationRequested();
+            if (temporaryPath is not null)
+            {
+                if (File.Exists(session.SavePath))
+                {
+                    File.Replace(temporaryPath, session.SavePath, null);
+                }
+                else
+                {
+                    File.Move(temporaryPath, session.SavePath!);
+                }
+            }
+
+            _fileTransferSessionStore.TryUpdateState(message.ChannelId, FileTransferState.Receiving, FileTransferState.Completed);
             _fileTransferSessionStore.TryRemove(message.ChannelId, out _);
 
             await _incomingMessageSink.PublishEventAsync(
@@ -101,7 +154,7 @@ public sealed class FileTransferPayloadHandler
                     Math.Max(receivedBytes, totalBytes),
                     null,
                     DateTimeOffset.UtcNow),
-                cancellationToken);
+                CancellationToken.None);
         }
         catch (OperationCanceledException)
         {
@@ -137,81 +190,36 @@ public sealed class FileTransferPayloadHandler
                 CancellationToken.None);
             throw;
         }
-    }
-
-    private static async ValueTask<Stream> OpenTargetStreamAsync(
-        FileTransferSession session,
-        CancellationToken cancellationToken)
-    {
-        if (session.OpenWriteStreamAsync is not null)
+        finally
         {
-            var stream = await session.OpenWriteStreamAsync(cancellationToken);
-            if (stream.CanSeek)
+            session.ReceiveCancellation?.Dispose();
+            if (temporaryPath is not null)
             {
-                stream.SetLength(0);
-            }
-
-            return stream;
-        }
-
-        if (string.IsNullOrWhiteSpace(session.SavePath))
-        {
-            throw new InvalidOperationException("Missing file save target.");
-        }
-
-        var directory = Path.GetDirectoryName(session.SavePath);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        return new FileStream(
-            session.SavePath,
-            FileMode.Create,
-            FileAccess.Write,
-            FileShare.None,
-            64 * 1024,
-            useAsync: true);
-    }
-
-    private async ValueTask DrainPayloadAsync(
-        FileChatMessage message,
-        PipeReader payload,
-        CancellationToken cancellationToken)
-    {
-        while (true)
-        {
-            var readResult = await payload.ReadAsync(cancellationToken);
-            var buffer = readResult.Buffer;
-            payload.AdvanceTo(buffer.End);
-            if (readResult.IsCompleted)
-            {
-                break;
+                try
+                {
+                    File.Delete(temporaryPath);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
             }
         }
-
-        await _incomingMessageSink.PublishEventAsync(
-            new FileTransferUpdatedEvent(
-                message.ConversationId,
-                message.ChannelId,
-                FileTransferDirection.Download,
-                FileTransferStatus.Failed,
-                message.FileName,
-                null,
-                message.Length,
-                "missing_accept_session",
-                DateTimeOffset.UtcNow),
-            cancellationToken);
     }
 
     private sealed class ProgressReportingWriteStream : Stream
     {
         private readonly Stream _inner;
+        private readonly long _maximumBytes;
         private readonly Func<int, ValueTask> _onWrite;
+        private long _writtenBytes;
 
-        public ProgressReportingWriteStream(Stream inner, Func<int, ValueTask> onWrite)
+        public ProgressReportingWriteStream(Stream inner, long maximumBytes, Func<int, ValueTask> onWrite)
         {
             _inner = inner;
+            _maximumBytes = maximumBytes;
             _onWrite = onWrite;
         }
 
@@ -224,7 +232,13 @@ public sealed class FileTransferPayloadHandler
         public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count)
         {
+            if (count > _maximumBytes - _writtenBytes)
+            {
+                throw new InvalidDataException("File payload exceeds its accepted offer size.");
+            }
+
             _inner.Write(buffer, offset, count);
+            _writtenBytes += count;
             if (count > 0)
             {
                 _onWrite(count).AsTask().GetAwaiter().GetResult();
@@ -233,7 +247,13 @@ public sealed class FileTransferPayloadHandler
 
         public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
         {
+            if (buffer.Length > _maximumBytes - _writtenBytes)
+            {
+                throw new InvalidDataException("File payload exceeds its accepted offer size.");
+            }
+
             await _inner.WriteAsync(buffer, cancellationToken);
+            _writtenBytes += buffer.Length;
             if (!buffer.IsEmpty)
             {
                 await _onWrite(buffer.Length);

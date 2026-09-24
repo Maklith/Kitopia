@@ -2,7 +2,6 @@ using System.Text.Json;
 using Kitopia.Feature.DeviceCommunication.Codecs;
 using Kitopia.Feature.DeviceCommunication.Messages;
 using Kitopia.Feature.DeviceCommunication.Messages.Chat;
-using Kitopia.Feature.DeviceCommunication.Messages.Clipboard;
 using Kitopia.Feature.DeviceCommunication.Protocol;
 using Kitopia.Feature.DeviceCommunication.Routing;
 
@@ -155,8 +154,7 @@ public sealed class CodecTests
             new FileAcceptChatMessage("peer-1", transferId),
             new FileRejectChatMessage("peer-1", transferId, "rejected_by_user"),
             new FileCancelChatMessage("peer-1", transferId, "user_cancelled"),
-            new FileCompleteChatMessage("peer-1", transferId),
-            new TextClipboardMessage("peer-1", "copied text")
+            new FileCompleteChatMessage("peer-1", transferId)
         };
 
         foreach (var message in messages)
@@ -209,6 +207,50 @@ public sealed class CodecTests
         var ok = registry.TryDecode(envelope, out _);
 
         Assert.IsFalse(ok);
+    }
+
+    [TestMethod]
+    public void Registry_Decode_ReturnsFalse_ForRemovedClipboardRoute()
+    {
+        var registry = new MessageCodecRegistry();
+        var envelope = new DataEnvelope
+        {
+            Route = "clipboard",
+            Command = "text",
+            StreamType = DataStreamType.Text,
+            Metadata = new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["conversationId"] = "receiver-device",
+                ["senderId"] = "sender-device",
+                ["text"] = "copied text"
+            }
+        };
+
+        Assert.IsFalse(registry.TryDecode(envelope, out _));
+    }
+
+    [TestMethod]
+    [DataRow(null)]
+    [DataRow("invalid")]
+    [DataRow("-1")]
+    public void Registry_Decode_ReturnsFalse_ForInvalidFileOfferSize(string? sizeBytes)
+    {
+        var registry = new MessageCodecRegistry();
+        var envelope = new DataEnvelope
+        {
+            Route = "chat",
+            Command = "file.offer",
+            StreamType = DataStreamType.File,
+            ChannelId = Guid.NewGuid(),
+            Metadata = new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["senderId"] = "peer-1",
+                ["fileName"] = "document.pdf",
+                ["sizeBytes"] = sizeBytes
+            }
+        };
+
+        Assert.IsFalse(registry.TryDecode(envelope, out _));
     }
 
     [TestMethod]

@@ -1,5 +1,4 @@
 using Kitopia.Feature.DeviceCommunication.Messages.Chat;
-using Kitopia.Feature.DeviceCommunication.Messages.Clipboard;
 
 namespace Kitopia.Feature.DeviceCommunication.Application;
 
@@ -23,7 +22,6 @@ public interface IMessageAppService
         CancellationToken cancellationToken = default);
     ValueTask RejectFileAsync(string deviceId, Guid transferId, string reason, CancellationToken cancellationToken = default);
     ValueTask CancelTransferAsync(string deviceId, Guid transferId, string reason, CancellationToken cancellationToken = default);
-    ValueTask SendClipboardTextAsync(string deviceId, TextClipboardMessage message, CancellationToken cancellationToken = default);
     IAsyncEnumerable<DeviceMessageEvent> ReceiveAsync(CancellationToken cancellationToken = default);
     void UpdateDisplayContext(bool isMainWindowActive, bool isDeviceChatPageOpen, string? selectedConversationId);
     void RequestOpenConversation(string conversationId);

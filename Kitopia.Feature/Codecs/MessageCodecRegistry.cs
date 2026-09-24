@@ -1,6 +1,5 @@
 using Kitopia.Feature.DeviceCommunication.Messages;
 using Kitopia.Feature.DeviceCommunication.Messages.Chat;
-using Kitopia.Feature.DeviceCommunication.Messages.Clipboard;
 using Kitopia.Feature.DeviceCommunication.Protocol;
 using Kitopia.Feature.DeviceCommunication.Routing;
 
@@ -14,7 +13,6 @@ public interface IDeviceIdentityProvider
 public sealed class MessageCodecRegistry
 {
     private const string ChatRoute = "chat";
-    private const string ClipboardRoute = "clipboard";
 
     private readonly IDeviceIdentityProvider? _deviceIdentityProvider;
 
@@ -36,7 +34,6 @@ public sealed class MessageCodecRegistry
             FileRejectChatMessage reject => TryEncodeTransferControl(reject, "file.reject", reject.TransferId, reject.Reason, out envelope),
             FileCancelChatMessage cancel => TryEncodeTransferControl(cancel, "file.cancel", cancel.TransferId, cancel.Reason, out envelope),
             FileCompleteChatMessage complete => TryEncodeTransferControl(complete, "file.complete", complete.TransferId, null, out envelope),
-            TextClipboardMessage clipboard => TryEncodeTextClipboard(clipboard, out envelope),
             _ => Fail(out envelope)
         };
     }
@@ -54,7 +51,6 @@ public sealed class MessageCodecRegistry
             (ChatRoute, "file.reject") => TryDecodeTransferControl(envelope, command: "file.reject", out message),
             (ChatRoute, "file.cancel") => TryDecodeTransferControl(envelope, command: "file.cancel", out message),
             (ChatRoute, "file.complete") => TryDecodeTransferControl(envelope, command: "file.complete", out message),
-            (ClipboardRoute, "text") => TryDecodeTextClipboard(envelope, out message),
             _ => Fail(out message)
         };
     }
@@ -133,19 +129,6 @@ public sealed class MessageCodecRegistry
         return true;
     }
 
-    private bool TryEncodeTextClipboard(TextClipboardMessage message, out DataEnvelope envelope)
-    {
-        if (string.IsNullOrWhiteSpace(message.Text))
-        {
-            return Fail(out envelope);
-        }
-
-        envelope = CreateEnvelope(ClipboardRoute, "text", DataStreamType.Text, Guid.Empty, "text/plain", message.ConversationId,
-            metadata => metadata["text"] = message.Text,
-            includeSenderId: false);
-        return true;
-    }
-
     private static bool TryDecodeTextChat(DataEnvelope envelope, out AppMessage message)
     {
         message = null!;
@@ -202,7 +185,10 @@ public sealed class MessageCodecRegistry
             return false;
         }
 
-        TryParseLong(GetMetadata(envelope, "sizeBytes"), out var sizeBytes);
+        if (!long.TryParse(GetMetadata(envelope, "sizeBytes"), out var sizeBytes) || sizeBytes < 0)
+        {
+            return false;
+        }
         byte[]? iconPng = null;
         var encodedIcon = GetMetadata(envelope, "iconPng");
         if (!string.IsNullOrWhiteSpace(encodedIcon))
@@ -249,20 +235,6 @@ public sealed class MessageCodecRegistry
         return message is not null;
     }
 
-    private static bool TryDecodeTextClipboard(DataEnvelope envelope, out AppMessage message)
-    {
-        message = null!;
-        var conversationId = GetMetadata(envelope, "conversationId");
-        var text = GetMetadata(envelope, "text");
-        if (string.IsNullOrWhiteSpace(conversationId) || string.IsNullOrWhiteSpace(text))
-        {
-            return false;
-        }
-
-        message = new TextClipboardMessage(conversationId, text);
-        return true;
-    }
-
     private DataEnvelope CreateEnvelope(
         string route,
         string command,
@@ -270,18 +242,14 @@ public sealed class MessageCodecRegistry
         Guid channelId,
         string? contentType,
         string conversationId,
-        Action<Dictionary<string, string?>>? configureMetadata = null,
-        bool includeSenderId = true)
+        Action<Dictionary<string, string?>>? configureMetadata = null)
     {
         var metadata = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
             ["conversationId"] = conversationId
         };
 
-        if (includeSenderId)
-        {
-            metadata["senderId"] = ResolveSenderId();
-        }
+        metadata["senderId"] = ResolveSenderId();
 
         configureMetadata?.Invoke(metadata);
 

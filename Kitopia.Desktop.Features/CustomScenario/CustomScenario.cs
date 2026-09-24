@@ -32,7 +32,8 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
     [property: JsonIgnore] [JsonIgnore] [ObservableProperty]
     private Bitmap? _icon;
 
-    private Dictionary<ScenarioNodeBase, Thread?> _initTasks = new();
+    private readonly object _runGate = new();
+    private Task? _runTask;
 
     [JsonIgnore] [ObservableProperty] private bool _isRunning;
 
@@ -40,8 +41,6 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
 
     [JsonIgnore] [ObservableProperty] private string _name = "情景";
 
-    private Dictionary<ScenarioNodeBase, Thread?> _tickTasks = new();
-    private TickUtil? _tickUtil;
 
     /// <summary>
     ///     手动执行
@@ -51,7 +50,6 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
     [JsonIgnore] [ObservableProperty] private bool _hasInit = true;
     [JsonIgnore] [ObservableProperty] private string? _initError;
     [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> _inputValue = new();
-    private bool _inTick;
 
     [JsonIgnore] [ObservableProperty] private bool _isHaveInputValue;
 
@@ -220,16 +218,10 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
 
     public void Dispose() {
         WeakReferenceMessenger.Default.UnregisterAll(this);
-        try {
-            _cancellationTokenSource.Cancel();
-            _cancellationTokenSource.Dispose();
+        lock (_runGate) {
+            if (IsRunning) _cancellationTokenSource.Cancel();
+            else if (_runTask is null or { IsCompleted: true }) _cancellationTokenSource.Dispose();
         }
-        catch (Exception e) { }
-
-        _tickTasks = null;
-        _initTasks = null;
-        Nodes.Clear();
-        //Log.Debug(Name + " Dispose");
     }
 
     partial void OnTickIntervalSecondChanged(double? oldValue) {
@@ -238,258 +230,185 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
 
 
     public void Run(bool realTime = false, bool onExit = false, params object[] inputValues) {
-        if (IsHaveInputValue)
-            if (inputValues.Length != InputValue.Count)
+        lock (_runGate) {
+            if (_runTask is { IsCompleted: false } || IsRunning) return;
+            if (!VerifyGraph()) return;
+            if (realTime) return;
+            if (!TryCreateRunInputs(inputValues, out var inputs)) {
+                Logger.Warning("情景 {Name} 的输入数量或类型不匹配", Name);
                 return;
+            }
 
-        StartRun(!realTime, onExit, inputValues);
-    }
-
-    private void StartRun(bool notRealTime, bool onExit = false, params object[] inputValues) {
-        if (IsRunning || !HasInit) return;
-
-        _cancellationTokenSource.Cancel();
-        _cancellationTokenSource.Dispose();
-        _cancellationTokenSource = new CancellationTokenSource();
-
-        if (notRealTime) {
-            IsRunning = true;
+            _cancellationTokenSource.Dispose();
+            _cancellationTokenSource = new CancellationTokenSource();
+            var cancellation = _cancellationTokenSource;
+            foreach (var node in Nodes) node.ResetData();
             LastRun = DateTime.Now;
             CustomScenarioManger.Save(this);
+            IsRunning = true;
+            _runTask = Task.Run(() => RunCoreAsync(inputs, onExit, cancellation));
         }
-
-
-        foreach (var task in _initTasks) task.Value?.Join();
-
-        foreach (var task in _tickTasks) task.Value?.Join();
-
-        _initTasks.Clear();
-        _tickTasks.Clear();
-        if (notRealTime) {
-            foreach (var pointItem in Nodes) pointItem.ResetData();
-        }
-
-        for (var i = Nodes.Count - 1; i >= 1; i--)
-            if (!Nodes[i].IsUsed(Connections))
-                Nodes[i].Status = NodeStatus.Unverified;
-
-        try {
-            //_initTasks.Add( nodes[0], null);
-            ParsePointItem(_initTasks, Nodes[0], false, notRealTime, _cancellationTokenSource.Token);
-        }
-        catch (Exception e) {
-            Console.WriteLine(e);
-        }
-
-        //监听任务是否结束
-        if (notRealTime)
-            new Task(() => {
-                while (true) {
-                    Thread.Sleep(100);
-                    var f = true;
-                    foreach (var (_, value) in _initTasks) {
-                        if (value is null) continue;
-
-                        if (!value.IsAlive) continue;
-
-                        f = false;
-                        break;
-                    }
-
-                    if (!f) continue;
-
-                    if (!notRealTime) return;
-
-                    if (_cancellationTokenSource.IsCancellationRequested) return;
-
-                    var connectionItem = Nodes[1].GetForwardNodes(Connections);
-                    if (!connectionItem.Any() || onExit) {
-                        //当没有tick时直接结束
-                        if (notRealTime) _cancellationTokenSource.Cancel();
-
-                        IsRunning = false;
-                        ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
-                            $"情景\'{Name}\'运行完成");
-                        Logger.Debug($"情景运行完成:{Name}");
-                        break;
-                    }
-
-                    ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
-                        $"情景\'{Name}\'进入Tick");
-                    Logger.Debug($"情景进入Tick:{Name}");
-                    try {
-                        _tickUtil = new TickUtil(1000, (uint)(_tickIntervalSecond * 1000 * 1000), 1, TickMethod);
-                        _tickUtil.Open();
-                    }
-                    catch (Exception e) {
-                        Console.WriteLine(e);
-                    }
-
-                    break;
-                }
-            }).Start();
     }
 
-    private void TickMethod(object sender, long jumpPeriod, long interval) {
-        if (_inTick) return;
-
-        var nowPointItem = Nodes[1];
-        ParsePointItem(_tickTasks, nowPointItem, false, true, _cancellationTokenSource.Token);
-
-        while (true) {
-            if (_cancellationTokenSource.Token.IsCancellationRequested) {
-                _inTick = false;
-                _tickUtil.Dispose();
-                break;
-            }
-
-            Thread.Sleep(100);
-            var f = true;
-            foreach (var (_, value) in _tickTasks) {
-                if (value is null) continue;
-
-                if (!value.IsAlive) continue;
-
-                f = false;
-                break;
-            }
-
-            if (!f) continue;
-
-            //tick完成一次
-            _inTick = false;
-            _tickTasks.Clear();
-            break;
+    internal bool VerifyGraph() {
+        if (Nodes.Count < 2 || ScenarioGraph.HasCycle(Connections)) {
+            HasInit = false;
+            InitError = Nodes.Count < 2 ? "情景缺少开始或 Tick 节点" : "情景连接存在循环";
+            foreach (var node in Nodes) node.Status = NodeStatus.Error;
+            return false;
         }
+
+        HasInit = true;
+        InitError = null;
+        foreach (var node in Nodes)
+            node.Status = node.IsUsed(Connections)
+                ? node.InputDataIsEnough(Connections) ? NodeStatus.PreliminaryVerified : NodeStatus.Error
+                : NodeStatus.Unverified;
+        return true;
+    }
+
+    internal bool TryCreateRunInputs(object?[] values,
+        out ObservableDictionary<string, CustomScenarioValue> inputs) {
+        inputs = new ObservableDictionary<string, CustomScenarioValue>();
+        if (!IsHaveInputValue) return values.Length == 0;
+        if (values.Length != InputValue.Count) return false;
+
+        var index = 0;
+        foreach (var (name, definition) in InputValue) {
+            var value = values[index++];
+            if (value is CustomScenarioValue oldValue && definition.SerializeType != typeof(CustomScenarioValue))
+                value = oldValue.Value;
+
+            var type = definition.SerializeType;
+            if ((value is null && type.IsValueType && Nullable.GetUnderlyingType(type) is null) ||
+                (value is not null && !type.IsInstanceOfType(value)))
+                return false;
+
+            inputs.Add(name, new CustomScenarioValue(type, value!));
+        }
+
+        return true;
     }
 
     public void Stop(bool inTickError = false) {
-        if (!IsRunning) return;
-
-
-        try {
-            _tickUtil?.Dispose();
+        lock (_runGate) {
+            if (!IsRunning) return;
             _cancellationTokenSource.Cancel();
         }
-        catch (Exception e) {
-            Console.WriteLine(e);
-        }
 
-        if (!inTickError) {
-            foreach (var task in _initTasks) task.Value?.Join();
-
-            foreach (var task in _tickTasks) task.Value?.Join();
-        }
-
-
-        _initTasks.Clear();
-        _tickTasks.Clear();
-        IsRunning = false;
         if (inTickError) {
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!)
-                .Show("情景", $"情景\'{Name}\'由于出现错误被停止");
-            Logger.Debug($"情景\'{Name}\'由于出现错误被停止");
+                .Show("情景", $"情景'{Name}'由于出现错误被停止");
+            Logger.Debug("情景 {Name} 由于错误被停止", Name);
         }
         else {
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!)
-                .Show("情景", $"情景\'{Name}\'被用户停止");
-            Logger.Debug($"情景\'{Name}\'被用户停止");
+                .Show("情景", $"情景'{Name}'被用户停止");
+            Logger.Debug("情景 {Name} 被用户停止", Name);
         }
     }
 
-
-    private void ParsePointItem(Dictionary<ScenarioNodeBase, Thread?> threads,
-        ScenarioNodeBase nowScenarioMethodNode, bool onlyBackward,
-        bool notRealTime,
-        CancellationToken cancellationToken) {
-        Logger.Debug($"解析节点:{nowScenarioMethodNode.Title}");
-        var valid = true;
-        List<Thread> sourceDataTask = new();
-        valid = nowScenarioMethodNode.InputDataIsEnough(Connections);
-        if (!valid) goto finnish;
-        foreach (var sourceSource in nowScenarioMethodNode.GetBackwardNodes(Connections))
-            lock (threads) {
-                if (threads.TryGetValue(sourceSource, out var task1)) {
-                    if (task1 is not null) sourceDataTask.Add(task1);
-                }
-                else {
-                    var task = new Thread(() => {
-                        ParsePointItem(threads, sourceSource, true, notRealTime, cancellationToken);
-                    });
-
-                    // Log.Debug(sourceSource.Title);
-                    threads.Add(sourceSource, task);
-                    sourceDataTask.Add(task);
-                    task.Start();
-                }
-            }
-        //源数据全部生成
-
-        foreach (var thread in sourceDataTask) thread.Join();
-
-        //这是连接当前节点的节点
-        if (cancellationToken.IsCancellationRequested) return;
-
-        // foreach (var connectorItem in nowScenarioMethodNode.Input)
-        // foreach (var sourceSource in connectorItem.GetSourceOrNextPointItems(connections))
-        //     if (sourceSource.Status == NodeStatus.Error)
-        //         valid = false;
-
-
-        if (!valid) goto finnish;
-
-
-        if (notRealTime)
-            try {
-                Logger.Debug($"执行节点:{nowScenarioMethodNode.Title}");
-                var invoke =
-                    nowScenarioMethodNode.Invoke(cancellationToken, Connections, Values, TempValue, InputValue);
-                if (!invoke) {
-                    //如果执行失败
-                    valid = false;
-                    nowScenarioMethodNode.Status = NodeStatus.Error;
-                    Logger.Debug($"执行节点失败:{nowScenarioMethodNode.Title}");
-                }
-                else {
-                    Logger.Debug($"执行节点完成:{nowScenarioMethodNode.Title}");
-                }
-            }
-            catch (Exception e) {
-                Logger.Error(e, "错误");
+    private async Task RunCoreAsync(ObservableDictionary<string, CustomScenarioValue> inputs,
+        bool onExit, CancellationTokenSource cancellation) {
+        var token = cancellation.Token;
+        try {
+            var initialized = ExecutePhase(Nodes[0], inputs, token);
+            if (!onExit && ScenarioGraph.GetFlowSuccessors(Nodes[1], Connections).Any()) {
                 ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
-                    e.InnerException is not null
-                        ? $"情景{Name}出现错误\n{e.InnerException?.Message}"
-                        : $"情景{Name}出现错误\n{e.Message}");
-
-                Task.Run(() => { Stop(true); });
-
-                valid = false;
-                goto finnish;
+                    $"情景'{Name}'进入Tick");
+                using var timer = new PeriodicTimer(TimeSpan.FromSeconds(Math.Max(0.1, TickIntervalSecond ?? 0.1)));
+                do {
+                    token.ThrowIfCancellationRequested();
+                    ExecutePhase(Nodes[1], inputs, token, initialized);
+                } while (await timer.WaitForNextTickAsync(token));
             }
 
-        if (cancellationToken.IsCancellationRequested) return;
-        finnish:
-        if (valid) {
-            nowScenarioMethodNode.Status = notRealTime ? NodeStatus.Verified : NodeStatus.PreliminaryVerified;
-            Logger.Debug($"解析节点完成:{nowScenarioMethodNode.Title}");
+            if (!token.IsCancellationRequested) {
+                ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
+                    $"情景'{Name}'运行完成");
+                Logger.Debug("情景运行完成:{Name}", Name);
+            }
         }
-        else {
-            nowScenarioMethodNode.Status = NodeStatus.Error;
-            Logger.Debug($"解析节点失败:{nowScenarioMethodNode.Title}");
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception e) {
+            Logger.Error(e, "情景运行失败:{Name}", Name);
+            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
+                $"情景{Name}出现错误\n{e.InnerException?.Message ?? e.Message}");
         }
+        finally {
+            lock (_runGate) IsRunning = false;
+            cancellation.Dispose();
+        }
+    }
 
-        if (!onlyBackward)
-            foreach (var nextPointItem in nowScenarioMethodNode.GetForwardNodes(Connections))
-                lock (threads) {
-                    if (threads.ContainsKey(nextPointItem)) return;
+    internal HashSet<ScenarioNodeBase> ExecutePhase(ScenarioNodeBase start,
+        ObservableDictionary<string, CustomScenarioValue> inputs, CancellationToken token,
+        IReadOnlySet<ScenarioNodeBase>? available = null) {
+        if (ScenarioGraph.HasCycle(Connections))
+            throw new InvalidOperationException("情景连接存在循环");
 
-                    var task = new Thread(() => {
-                        ParsePointItem(threads, nextPointItem, false, notRealTime, cancellationToken);
-                    });
+        var executed = new HashSet<ScenarioNodeBase>();
+        var pending = new Queue<ScenarioNodeBase>();
+        pending.Enqueue(start);
+        var deferred = 0;
+        while (pending.Count > 0) {
+            token.ThrowIfCancellationRequested();
+            var node = pending.Dequeue();
+            if (executed.Contains(node)) continue;
 
-                    threads.Add(nextPointItem, task);
-                    task.Start();
+            var result = TryInvokeNode(node, inputs, executed, available, token);
+            if (result is null) {
+                pending.Enqueue(node);
+                if (++deferred >= pending.Count) {
+                    node.Status = NodeStatus.Error;
+                    throw new InvalidOperationException($"节点 '{node.Title}' 的输入依赖未执行");
                 }
+                continue;
+            }
+
+            deferred = 0;
+            if (result == false)
+                throw new InvalidOperationException($"节点 '{node.Title}' 缺少输入或执行失败");
+
+            foreach (var next in ScenarioGraph.GetFlowSuccessors(node, Connections))
+                if (!executed.Contains(next)) pending.Enqueue(next);
+        }
+
+        return executed;
+    }
+
+    private bool? TryInvokeNode(ScenarioNodeBase node,
+        ObservableDictionary<string, CustomScenarioValue> inputs,
+        HashSet<ScenarioNodeBase> executed, IReadOnlySet<ScenarioNodeBase>? available,
+        CancellationToken token) {
+        if (executed.Contains(node)) return true;
+        if (!node.InputDataIsEnough(Connections)) {
+            node.Status = NodeStatus.Error;
+            return false;
+        }
+
+        foreach (var source in ScenarioGraph.GetDataDependencies(node, Connections)) {
+            if (executed.Contains(source) || available?.Contains(source) == true) continue;
+            if (ScenarioGraph.HasFlowInput(source, Connections)) return null;
+            var result = TryInvokeNode(source, inputs, executed, available, token);
+            if (result != true) return result;
+        }
+
+        token.ThrowIfCancellationRequested();
+        try {
+            if (!node.Invoke(token, Connections, Values, TempValue, inputs)) {
+                node.Status = NodeStatus.Error;
+                return false;
+            }
+        }
+        catch {
+            node.Status = NodeStatus.Error;
+            throw;
+        }
+
+        node.Status = NodeStatus.Verified;
+        executed.Add(node);
+        return true;
     }
 
     public bool IsUseThePlugin(string plugStr) {

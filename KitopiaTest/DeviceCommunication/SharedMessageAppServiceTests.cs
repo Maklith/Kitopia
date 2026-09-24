@@ -4,6 +4,7 @@ using Kitopia.Feature.DeviceCommunication;
 using Kitopia.Feature.DeviceCommunication.Application;
 using Kitopia.Feature.DeviceCommunication.Codecs;
 using Kitopia.Feature.DeviceCommunication.Discovery;
+using Kitopia.Feature.DeviceCommunication.Messages.Chat;
 using Kitopia.Feature.DeviceCommunication.Sessions;
 using Kitopia.Feature.DeviceCommunication.Transport;
 using ObservableCollections;
@@ -26,13 +27,22 @@ public sealed class SharedMessageAppServiceTests
         });
 
         var sessionStore = new FileTransferSessionStore();
+        var incoming = new IncomingMessageBuffer();
         var service = new MessageAppService(
             new MessageCodecRegistry(),
             new DeviceTransportService(listener, discovery),
-            new IncomingMessageBuffer(),
+            incoming,
             sessionStore);
         var transferId = Guid.NewGuid();
         await using var target = new MemoryStream();
+
+        await incoming.PublishAsync(new FileOfferChatMessage("peer-1", transferId, "shared.bin", 4,
+            "application/octet-stream"));
+        using var receiveCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using (var received = service.ReceiveAsync(receiveCancellation.Token).GetAsyncEnumerator())
+        {
+            Assert.IsTrue(await received.MoveNextAsync());
+        }
 
         await service.AcceptFileAsync(
             "peer-1",
@@ -42,9 +52,11 @@ public sealed class SharedMessageAppServiceTests
 
         Assert.IsTrue(sessionStore.TryGet(transferId, out var session));
         Assert.AreEqual("content://kitopia/shared.bin", session.SavePath);
+        Assert.AreEqual(4, session.SizeBytes);
+        Assert.IsTrue(session.IsIncoming);
         Assert.IsNotNull(session.OpenWriteStreamAsync);
         Assert.AreSame(target, await session.OpenWriteStreamAsync(CancellationToken.None));
-        Assert.AreEqual(1, listener.SendCount);
+        Assert.AreEqual(2, listener.SendCount);
     }
 
     private sealed class FakeDeviceDiscoveryService : IDeviceDiscoveryService

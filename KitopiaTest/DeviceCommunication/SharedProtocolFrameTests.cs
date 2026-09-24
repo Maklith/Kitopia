@@ -65,6 +65,14 @@ public sealed class SharedProtocolFrameTests
 
         Assert.ThrowsExactly<InvalidDataException>(() => ProtocolFrame.ReadHeader(headerBytes));
     }
+
+    [TestMethod]
+    public void ReadHeader_Throws_WhenEnvelopeExceedsLimit()
+    {
+        var headerBytes = ProtocolFrame.BuildHeader(ProtocolFrame.MaximumEnvelopeLength + 1, 0);
+
+        Assert.ThrowsExactly<InvalidDataException>(() => ProtocolFrame.ReadHeader(headerBytes));
+    }
     [TestMethod]
     public async Task WriteAndReadFrame_RoundTripsEnvelopeAndPayload()
     {

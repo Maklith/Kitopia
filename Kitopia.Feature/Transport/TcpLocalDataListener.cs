@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Security;
@@ -13,6 +15,12 @@ namespace Kitopia.Feature.DeviceCommunication.Transport;
 public sealed class TcpLocalDataListener : ILocalDataTransport
 {
     private const string LogCategory = "TcpLocalDataListener";
+    private const int MaximumConcurrentConnections = 32;
+    private const long MinimumBytesPerWindow = 64 * 1024;
+    private static readonly TimeSpan HandshakeTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan EnvelopeTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan ReadWindow = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan CloseTimeout = TimeSpan.FromSeconds(5);
     private static readonly SslApplicationProtocol ApplicationProtocol = new("kitopia-local-data");
     private static readonly SslProtocols EnabledProtocols = SslProtocols.Tls13 | SslProtocols.Tls12;
     private static readonly StreamPipeReaderOptions InboundPipeReaderOptions = new(
@@ -24,6 +32,7 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
     private readonly ProtocolSession _protocolSession;
     private readonly DeviceTransportSecurity _transportSecurity;
     private readonly IRemoteIdentityResolver _remoteIdentityResolver;
+    private int _activeConnections;
     private int _port;
 
     private TcpListener? _listener;
@@ -249,7 +258,24 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
             try
             {
                 var client = await listener.AcceptTcpClientAsync(token);
-                _ = Task.Run(() => HandleClientAsync(client, token), token);
+                if (Interlocked.Increment(ref _activeConnections) > MaximumConcurrentConnections)
+                {
+                    Interlocked.Decrement(ref _activeConnections);
+                    client.Dispose();
+                    continue;
+                }
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await HandleClientAsync(client, token);
+                    }
+                    finally
+                    {
+                        Interlocked.Decrement(ref _activeConnections);
+                    }
+                });
             }
             catch (OperationCanceledException)
             {
@@ -279,6 +305,11 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
 
                 var expectedRemoteIdentityPublicKey =
                     _remoteIdentityResolver.ResolveExpectedIdentityPublicKey(remoteEndPoint);
+                if (string.IsNullOrWhiteSpace(expectedRemoteIdentityPublicKey))
+                {
+                    return;
+                }
+
                 X509Certificate2? certificate;
                 lock (_sync)
                 {
@@ -295,6 +326,8 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
                     additionalCertificates: null,
                     offline: true);
                 await using var sslStream = new SslStream(client.GetStream(), leaveInnerStreamOpen: false);
+                using var handshakeCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+                handshakeCancellation.CancelAfter(HandshakeTimeout);
                 await sslStream.AuthenticateAsServerAsync(
                     new SslServerAuthenticationOptions
                     {
@@ -306,7 +339,7 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
                         RemoteCertificateValidationCallback = (_, remoteCertificate, _, _) =>
                             _transportSecurity.ValidateRemoteCertificate(remoteCertificate, expectedRemoteIdentityPublicKey)
                     },
-                    token);
+                    handshakeCancellation.Token);
 
                 if (!sslStream.NegotiatedApplicationProtocol.Equals(ApplicationProtocol))
                 {
@@ -318,7 +351,11 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
                 Exception? readerError = null;
                 try
                 {
-                    await _protocolSession.HandleAsync(reader, expectedRemoteIdentityPublicKey, token);
+                    await _protocolSession.HandleAsync(
+                        new RateLimitedPipeReader(reader),
+                        expectedRemoteIdentityPublicKey,
+                        token,
+                        envelopeTimeout: EnvelopeTimeout);
                 }
                 catch (Exception ex)
                 {
@@ -330,7 +367,9 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
                     await reader.CompleteAsync(readerError);
                 }
 
-                await CompleteReceiveAsync(sslStream, remoteEndPoint, token);
+                using var closeCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+                closeCancellation.CancelAfter(CloseTimeout);
+                await CompleteReceiveAsync(sslStream, remoteEndPoint, closeCancellation.Token);
             }
             catch (OperationCanceledException)
             {
@@ -447,5 +486,84 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
             SocketError.OperationAborted or
             SocketError.Shutdown
         };
+    }
+
+    private sealed class RateLimitedPipeReader : PipeReader
+    {
+        private readonly PipeReader _inner;
+        private ReadOnlySequence<byte> _lastBuffer;
+        private long _windowStarted = Stopwatch.GetTimestamp();
+        private long _windowBytes;
+
+        public RateLimitedPipeReader(PipeReader inner)
+        {
+            _inner = inner;
+        }
+
+        public override void AdvanceTo(SequencePosition consumed) => AdvanceTo(consumed, consumed);
+
+        public override void AdvanceTo(SequencePosition consumed, SequencePosition examined)
+        {
+            _windowBytes += _lastBuffer.Slice(0, consumed).Length;
+            _inner.AdvanceTo(consumed, examined);
+        }
+
+        public override void CancelPendingRead() => _inner.CancelPendingRead();
+
+        public override void Complete(Exception? exception = null) => _inner.Complete(exception);
+
+        public override ValueTask CompleteAsync(Exception? exception = null) => _inner.CompleteAsync(exception);
+
+        public override async ValueTask<ReadResult> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            var readBudget = GetReadBudget();
+            using var readCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            readCancellation.CancelAfter(readBudget);
+            try
+            {
+                var result = await _inner.ReadAsync(readCancellation.Token);
+                if (result.IsCanceled)
+                {
+                    throw new OperationCanceledException(readCancellation.Token);
+                }
+
+                _lastBuffer = result.Buffer;
+                return result;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException("TCP peer stopped making progress during frame receive.");
+            }
+        }
+
+        public override bool TryRead(out ReadResult result)
+        {
+            _ = GetReadBudget();
+            if (!_inner.TryRead(out result))
+            {
+                return false;
+            }
+
+            _lastBuffer = result.Buffer;
+            return true;
+        }
+
+        private TimeSpan GetReadBudget()
+        {
+            var elapsed = Stopwatch.GetElapsedTime(_windowStarted);
+            if (elapsed >= ReadWindow)
+            {
+                if (_windowBytes < MinimumBytesPerWindow)
+                {
+                    throw new TimeoutException("TCP peer transfer rate is below the minimum receive rate.");
+                }
+
+                _windowStarted = Stopwatch.GetTimestamp();
+                _windowBytes = 0;
+                elapsed = TimeSpan.Zero;
+            }
+
+            return _windowBytes < MinimumBytesPerWindow ? ReadWindow - elapsed : ReadWindow;
+        }
     }
 }

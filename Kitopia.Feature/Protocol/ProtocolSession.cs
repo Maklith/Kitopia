@@ -16,37 +16,56 @@ public sealed class ProtocolSession
 
     public async ValueTask<bool> HandleAsync(
         PipeReader frameReader,
-        string? senderIdFallback = null,
-        CancellationToken cancellationToken = default)
+        string? authenticatedSenderId = null,
+        CancellationToken cancellationToken = default,
+        TimeSpan? envelopeTimeout = null)
     {
         ArgumentNullException.ThrowIfNull(frameReader);
-
-        var frameHeader = await LocalDataPipeIo.ReadExactlyOrEndAsync(
-            frameReader,
-            ProtocolFrame.HeaderLength,
-            cancellationToken);
-        if (frameHeader is null)
+        if (envelopeTimeout is { } timeout && timeout <= TimeSpan.Zero)
         {
-            return false;
+            throw new ArgumentOutOfRangeException(nameof(envelopeTimeout));
         }
 
-        var header = ProtocolFrame.ReadHeader(frameHeader);
-        var envelopeBytes = await LocalDataPipeIo.ReadExactlyAsync(
-            frameReader,
-            header.EnvelopeLength,
-            cancellationToken);
-        var envelope = JsonSerializer.Deserialize(
-            envelopeBytes,
-            DeviceCommunicationJsonSerializerContext.Default.DataEnvelope);
+        ProtocolFrameHeader header;
+        DataEnvelope? envelope;
+        using (var envelopeCancellation = envelopeTimeout.HasValue
+                   ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+                   : null)
+        {
+            if (envelopeTimeout is { } deadline)
+            {
+                envelopeCancellation!.CancelAfter(deadline);
+            }
+
+            var readToken = envelopeCancellation?.Token ?? cancellationToken;
+            var frameHeader = await LocalDataPipeIo.ReadExactlyOrEndAsync(
+                frameReader,
+                ProtocolFrame.HeaderLength,
+                readToken);
+            if (frameHeader is null)
+            {
+                return false;
+            }
+
+            header = ProtocolFrame.ReadHeader(frameHeader);
+            var envelopeBytes = await LocalDataPipeIo.ReadExactlyAsync(
+                frameReader,
+                header.EnvelopeLength,
+                readToken);
+            envelope = JsonSerializer.Deserialize(
+                envelopeBytes,
+                DeviceCommunicationJsonSerializerContext.Default.DataEnvelope);
+            readToken.ThrowIfCancellationRequested();
+        }
+
         if (envelope is null || string.IsNullOrWhiteSpace(envelope.Route))
         {
             return false;
         }
 
-        if (!string.IsNullOrWhiteSpace(senderIdFallback) &&
-            string.IsNullOrWhiteSpace(envelope.Metadata?.TryGetValue("senderId", out var senderId) == true
-                ? senderId
-                : null))
+        if (!string.IsNullOrWhiteSpace(authenticatedSenderId) &&
+            (envelope.Metadata?.TryGetValue("senderId", out var senderId) != true ||
+             !string.Equals(senderId, authenticatedSenderId, StringComparison.Ordinal)))
         {
             envelope = new DataEnvelope
             {
@@ -56,7 +75,7 @@ public sealed class ProtocolSession
                 ChannelId = envelope.ChannelId,
                 Sequence = envelope.Sequence,
                 ContentType = envelope.ContentType,
-                Metadata = MergeMetadata(envelope.Metadata, senderIdFallback)
+                Metadata = MergeMetadata(envelope.Metadata, authenticatedSenderId)
             };
         }
 
@@ -67,15 +86,12 @@ public sealed class ProtocolSession
 
     private static IReadOnlyDictionary<string, string?> MergeMetadata(
         IReadOnlyDictionary<string, string?>? metadata,
-        string senderIdFallback)
+        string authenticatedSenderId)
     {
         var merged = metadata is null
             ? new Dictionary<string, string?>(StringComparer.Ordinal)
             : new Dictionary<string, string?>(metadata, StringComparer.Ordinal);
-        if (!merged.ContainsKey("senderId"))
-        {
-            merged["senderId"] = senderIdFallback;
-        }
+        merged["senderId"] = authenticatedSenderId;
 
         return merged;
     }

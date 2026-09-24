@@ -2,7 +2,6 @@ using System.Threading.Channels;
 using Kitopia.Feature.DeviceCommunication.Codecs;
 using Kitopia.Feature.DeviceCommunication.Messages;
 using Kitopia.Feature.DeviceCommunication.Messages.Chat;
-using Kitopia.Feature.DeviceCommunication.Messages.Clipboard;
 using Kitopia.Feature.DeviceCommunication.Protocol;
 using Kitopia.Feature.DeviceCommunication.Sessions;
 
@@ -10,14 +9,13 @@ namespace Kitopia.Feature.DeviceCommunication.Application;
 
 public sealed class MessageAppService : IMessageAppService
 {
-    private const long DirectImageThresholdBytes = 5L * 1024L * 1024L;
     private static readonly TimeSpan OfferReceiptTimeout = TimeSpan.FromSeconds(15);
 
     private readonly MessageCodecRegistry _codecRegistry;
     private readonly DeviceTransportService _transportService;
     private readonly IncomingMessageBuffer _incomingMessageBuffer;
     private readonly IFileTransferSessionStore _fileTransferSessionStore;
-    private readonly Channel<DeviceMessageEvent> _receiveChannel = Channel.CreateUnbounded<DeviceMessageEvent>();
+    private readonly Channel<DeviceMessageEvent> _receiveChannel = Channel.CreateBounded<DeviceMessageEvent>(8);
     private readonly object _stateSync = new();
     private bool _isMainWindowActive;
     private bool _isDeviceChatPageOpen;
@@ -70,7 +68,7 @@ public sealed class MessageAppService : IMessageAppService
         Stream stream,
         CancellationToken cancellationToken = default)
     {
-        if (message.SizeBytes > 0 && message.SizeBytes <= DirectImageThresholdBytes)
+        if (message.SizeBytes > 0 && message.SizeBytes <= DeviceMessageDispatcher.MaximumDirectImageBytes)
         {
             return SendDirectImageAsync(deviceId, message with { IsDirect = true }, stream, cancellationToken);
         }
@@ -129,23 +127,9 @@ public sealed class MessageAppService : IMessageAppService
         Func<CancellationToken, ValueTask<Stream>>? openWriteStreamAsync,
         CancellationToken cancellationToken)
     {
-        var fileName = Path.GetFileName(saveTarget);
-        var session = new FileTransferSession
+        if (!_fileTransferSessionStore.TryAccept(transferId, deviceId, saveTarget, openWriteStreamAsync))
         {
-            ConversationId = deviceId,
-            TransferId = transferId,
-            FileName = string.IsNullOrWhiteSpace(fileName) ? transferId.ToString("D") : fileName,
-            SizeBytes = 0,
-            ContentType = "application/octet-stream",
-            State = FileTransferState.Accepted,
-            SavePath = saveTarget,
-            OpenWriteStreamAsync = openWriteStreamAsync
-        };
-
-        if (!_fileTransferSessionStore.TryAdd(session))
-        {
-            _fileTransferSessionStore.TryRemove(transferId, out _);
-            _fileTransferSessionStore.TryAdd(session);
+            throw new InvalidOperationException("File offer is missing or no longer available.");
         }
 
         return SendCoreAsync(deviceId, new FileAcceptChatMessage(deviceId, transferId), cancellationToken);
@@ -157,6 +141,7 @@ public sealed class MessageAppService : IMessageAppService
         string reason,
         CancellationToken cancellationToken = default)
     {
+        _fileTransferSessionStore.TryRemoveIncomingOffer(transferId, deviceId);
         return SendCoreAsync(deviceId, new FileRejectChatMessage(deviceId, transferId, reason), cancellationToken);
     }
 
@@ -166,15 +151,8 @@ public sealed class MessageAppService : IMessageAppService
         string reason,
         CancellationToken cancellationToken = default)
     {
+        _fileTransferSessionStore.TryCancelIncoming(transferId, deviceId);
         return SendCoreAsync(deviceId, new FileCancelChatMessage(deviceId, transferId, reason), cancellationToken);
-    }
-
-    public ValueTask SendClipboardTextAsync(
-        string deviceId,
-        TextClipboardMessage message,
-        CancellationToken cancellationToken = default)
-    {
-        return SendCoreAsync(deviceId, message, cancellationToken);
     }
 
     public IAsyncEnumerable<DeviceMessageEvent> ReceiveAsync(CancellationToken cancellationToken = default)
@@ -263,6 +241,31 @@ public sealed class MessageAppService : IMessageAppService
     {
         await foreach (var messageEvent in _incomingMessageBuffer.ReceiveAsync())
         {
+            if (messageEvent is FileTransferUpdatedEvent
+                {
+                    Direction: FileTransferDirection.Download,
+                    Status: FileTransferStatus.WaitingForAccept
+                } offerEvent)
+            {
+                if (offerEvent.TotalBytes is null or < 0)
+                {
+                    continue;
+                }
+
+                if (!_fileTransferSessionStore.TryAdd(new FileTransferSession
+                {
+                    ConversationId = offerEvent.ConversationId,
+                    TransferId = offerEvent.TransferId,
+                    FileName = offerEvent.FileName ?? string.Empty,
+                    SizeBytes = offerEvent.TotalBytes.Value,
+                    IsIncoming = true,
+                    State = FileTransferState.Offered
+                }))
+                {
+                    continue;
+                }
+            }
+
             await SendOfferReceiptIfNeededAsync(messageEvent);
             await _receiveChannel.Writer.WriteAsync(messageEvent);
         }
@@ -337,6 +340,7 @@ public sealed class MessageAppService : IMessageAppService
 
             var receipt = await _incomingMessageBuffer.WaitForOfferReceiptAsync(
                 transferId,
+                conversationId,
                 OfferReceiptTimeout,
                 cancellationToken);
 
@@ -381,6 +385,7 @@ public sealed class MessageAppService : IMessageAppService
 
             var decision = await _incomingMessageBuffer.WaitForDecisionAsync(
                 transferId,
+                conversationId,
                 Timeout.InfiniteTimeSpan,
                 cancellationToken);
 

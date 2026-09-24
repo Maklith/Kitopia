@@ -35,6 +35,14 @@ public partial class PendingConnectionViewModel : ObservableRecipient
                     break;
                 }
 
+                var source = Source.ConnectorType == ConnectorType.Input ? con : Source;
+                var target = Source.ConnectorType == ConnectorType.Input ? Source : con;
+                if (ScenarioGraph.WouldCreateCycle(_editor.Scenario.Connections, source, target))
+                {
+                    PreviewText = "连接会形成循环";
+                    break;
+                }
+
                 if (Source.ConnectorType != ConnectorType.Both && Source.ConnectorType == con.ConnectorType)
                 {
                     PreviewText = "错误的连接";

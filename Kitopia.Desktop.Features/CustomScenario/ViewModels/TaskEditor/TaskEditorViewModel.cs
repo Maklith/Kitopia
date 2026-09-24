@@ -174,27 +174,36 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                 for (var index = 0; index < customScenario.InputValue.Count; index++)
                                 {
                                     var (key, value) = customScenario.InputValue[index];
-                                    if (e.ScenarioMethodNode.Input.Count() < index + 2)
+                                    if (e.ScenarioMethodNode.Input.Count <= index + 2)
                                         e.ScenarioMethodNode.Input.Add(new ConnectorItem
                                         {
                                             Source = e.ScenarioMethodNode,
                                             InputObject = new CustomScenarioValue
                                             {
-                                                SerializeType = value.GetType()
+                                                SerializeType = value.SerializeType
                                             },
                                             Title = key
                                         });
 
-                                    if (e.ScenarioMethodNode.Input[index + 2].Title != key)
-                                    {
-                                        e.ScenarioMethodNode.Input[index + 2].Title = key;
-                                        e.ScenarioMethodNode.Input[index + 2].InputObject.Value = value.GetType();
-                                    }
+                                    var parameter = e.ScenarioMethodNode.Input[index + 2];
+                                    parameter.Title = key;
+                                    parameter.InputObject.SerializeType = value.SerializeType;
+                                    parameter.InputObject.ShowType = value.ShowType;
+                                    if (parameter.InputObject.Value is CustomScenarioValue oldValue)
+                                        parameter.InputObject.Value = oldValue.Value;
+                                    else if (parameter.InputObject.Value is not null &&
+                                             !value.SerializeType.IsInstanceOfType(parameter.InputObject.Value))
+                                        parameter.InputObject.Value = null;
                                 }
 
                                 for (var i = e.ScenarioMethodNode.Input.Count - 1;
                                      i >= customScenario.InputValue.Count + 2;
                                      i--)
+                                    e.ScenarioMethodNode.Input.RemoveAt(i);
+                            }
+                            else
+                            {
+                                for (var i = e.ScenarioMethodNode.Input.Count - 1; i >= 2; i--)
                                     e.ScenarioMethodNode.Input.RemoveAt(i);
                             }
                         }
@@ -458,6 +467,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
     public void Connect(ConnectorItem source, ConnectorItem target, bool toFirstVerify = true)
     {
+        if (ScenarioGraph.WouldCreateCycle(Scenario.Connections, source, target)) return;
         if (source.IsConnected)
             if (Scenario.Connections
                 .Any(e => e.Source == source && e.Target == target))

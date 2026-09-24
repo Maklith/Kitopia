@@ -10,6 +10,7 @@ public static class ProtocolFrame
     private static readonly byte[] FrameMagic = Encoding.ASCII.GetBytes("KDC1");
 
     public const int HeaderLength = 16;
+    public const int MaximumEnvelopeLength = 1024 * 1024;
 
     public static byte[] BuildHeader(int envelopeLength, long payloadLength)
     {
@@ -44,9 +45,10 @@ public static class ProtocolFrame
 
         var envelopeLength = BinaryPrimitives.ReadInt32LittleEndian(headerBytes.Slice(4, 4));
         var payloadLength = BinaryPrimitives.ReadInt64LittleEndian(headerBytes.Slice(8, 8));
-        if (envelopeLength <= 0)
+        if (envelopeLength <= 0 || envelopeLength > MaximumEnvelopeLength)
         {
-            throw new InvalidDataException("Protocol frame envelope length must be positive.");
+            throw new InvalidDataException(
+                $"Protocol frame envelope length must be between 1 and {MaximumEnvelopeLength} bytes.");
         }
 
         if (payloadLength < 0)
@@ -140,6 +142,11 @@ public static class ProtocolFrame
             if (buffer.Length > _remaining)
             {
                 buffer = buffer.Slice(0, _remaining);
+            }
+
+            if (result.IsCompleted && buffer.Length < _remaining)
+            {
+                throw new EndOfStreamException("Unexpected end of stream while reading frame payload.");
             }
 
             _visibleBuffer = buffer;

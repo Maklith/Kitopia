@@ -19,12 +19,21 @@ public enum TransferOfferReceipt
 
 public sealed class IncomingMessageBuffer : IIncomingMessageSink
 {
-    private readonly Channel<DeviceMessageEvent> _channel = Channel.CreateBounded<DeviceMessageEvent>(1024);
+    private const int MaxPendingResponses = 256;
+    private static readonly TimeSpan PendingResponseLifetime = TimeSpan.FromSeconds(30);
+
+    private readonly Channel<DeviceMessageEvent> _channel = Channel.CreateBounded<DeviceMessageEvent>(8);
     private readonly object _sync = new();
-    private readonly Dictionary<Guid, TaskCompletionSource<TransferDecision>> _transferDecisions = new();
-    private readonly Dictionary<Guid, TransferDecision> _pendingTransferDecisions = new();
-    private readonly Dictionary<Guid, TaskCompletionSource<TransferOfferReceipt>> _offerReceipts = new();
-    private readonly Dictionary<Guid, TransferOfferReceipt> _pendingOfferReceipts = new();
+    private readonly TimeProvider _timeProvider;
+    private readonly Dictionary<(Guid TransferId, string ConversationId), TaskCompletionSource<TransferDecision>> _transferDecisions = new();
+    private readonly Dictionary<(Guid TransferId, string ConversationId), (TransferDecision Value, DateTimeOffset ReceivedAt)> _pendingTransferDecisions = new();
+    private readonly Dictionary<(Guid TransferId, string ConversationId), TaskCompletionSource<TransferOfferReceipt>> _offerReceipts = new();
+    private readonly Dictionary<(Guid TransferId, string ConversationId), (TransferOfferReceipt Value, DateTimeOffset ReceivedAt)> _pendingOfferReceipts = new();
+
+    public IncomingMessageBuffer(TimeProvider? timeProvider = null)
+    {
+        _timeProvider = timeProvider ?? TimeProvider.System;
+    }
 
     public ValueTask PublishAsync(AppMessage message, CancellationToken cancellationToken = default)
     {
@@ -47,49 +56,57 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
         return _channel.Reader.ReadAllAsync(cancellationToken);
     }
 
-    public Task<TransferDecision> WaitForDecisionAsync(Guid transferId, TimeSpan timeout, CancellationToken cancellationToken = default)
+    public Task<TransferDecision> WaitForDecisionAsync(
+        Guid transferId,
+        string conversationId,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
     {
-        lock (_sync)
-        {
-            if (_pendingTransferDecisions.TryGetValue(transferId, out var pendingDecision))
-            {
-                _pendingTransferDecisions.Remove(transferId);
-                return Task.FromResult(pendingDecision);
-            }
-        }
-
+        ArgumentException.ThrowIfNullOrWhiteSpace(conversationId);
+        var key = (transferId, conversationId);
         var completion = new TaskCompletionSource<TransferDecision>(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_sync)
         {
-            _transferDecisions[transferId] = completion;
+            if (_pendingTransferDecisions.TryGetValue(key, out var pendingDecision))
+            {
+                _pendingTransferDecisions.Remove(key);
+                if (_timeProvider.GetUtcNow() - pendingDecision.ReceivedAt < PendingResponseLifetime)
+                {
+                    return Task.FromResult(pendingDecision.Value);
+                }
+            }
+
+            _transferDecisions[key] = completion;
         }
 
-        return WaitCoreAsync(transferId, completion, timeout, cancellationToken);
+        return WaitCoreAsync(key, completion, timeout, cancellationToken);
     }
 
-    public Task<TransferOfferReceipt> WaitForOfferReceiptAsync(Guid transferId, TimeSpan timeout,
+    public Task<TransferOfferReceipt> WaitForOfferReceiptAsync(Guid transferId, string conversationId, TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        lock (_sync)
-        {
-            if (_pendingOfferReceipts.TryGetValue(transferId, out var pendingReceipt))
-            {
-                _pendingOfferReceipts.Remove(transferId);
-                return Task.FromResult(pendingReceipt);
-            }
-        }
-
+        ArgumentException.ThrowIfNullOrWhiteSpace(conversationId);
+        var key = (transferId, conversationId);
         var completion = new TaskCompletionSource<TransferOfferReceipt>(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_sync)
         {
-            _offerReceipts[transferId] = completion;
+            if (_pendingOfferReceipts.TryGetValue(key, out var pendingReceipt))
+            {
+                _pendingOfferReceipts.Remove(key);
+                if (_timeProvider.GetUtcNow() - pendingReceipt.ReceivedAt < PendingResponseLifetime)
+                {
+                    return Task.FromResult(pendingReceipt.Value);
+                }
+            }
+
+            _offerReceipts[key] = completion;
         }
 
-        return WaitOfferReceiptCoreAsync(transferId, completion, timeout, cancellationToken);
+        return WaitOfferReceiptCoreAsync(key, completion, timeout, cancellationToken);
     }
 
     private async Task<TransferDecision> WaitCoreAsync(
-        Guid transferId,
+        (Guid TransferId, string ConversationId) key,
         TaskCompletionSource<TransferDecision> completion,
         TimeSpan timeout,
         CancellationToken cancellationToken)
@@ -108,7 +125,7 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
         {
             lock (_sync)
             {
-                _transferDecisions.Remove(transferId);
+                _transferDecisions.Remove(key);
             }
         }
     }
@@ -130,26 +147,27 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
                 break;
             case FileOfferReceivedChatMessage fileOfferReceived:
                 transferId = fileOfferReceived.TransferId;
-                TrackOfferReceipt(transferId, TransferOfferReceipt.Received);
+                TrackOfferReceipt((transferId, message.ConversationId), TransferOfferReceipt.Received);
                 return;
             default:
                 return;
         }
 
+        var key = (transferId, message.ConversationId);
         lock (_sync)
         {
-            if (_transferDecisions.TryGetValue(transferId, out var waiter))
+            if (_transferDecisions.TryGetValue(key, out var waiter))
             {
                 waiter.TrySetResult(decision);
                 return;
             }
 
-            _pendingTransferDecisions[transferId] = decision;
+            StorePending(_pendingTransferDecisions, key, decision);
         }
     }
 
     private async Task<TransferOfferReceipt> WaitOfferReceiptCoreAsync(
-        Guid transferId,
+        (Guid TransferId, string ConversationId) key,
         TaskCompletionSource<TransferOfferReceipt> completion,
         TimeSpan timeout,
         CancellationToken cancellationToken)
@@ -168,22 +186,45 @@ public sealed class IncomingMessageBuffer : IIncomingMessageSink
         {
             lock (_sync)
             {
-                _offerReceipts.Remove(transferId);
+                _offerReceipts.Remove(key);
             }
         }
     }
 
-    private void TrackOfferReceipt(Guid transferId, TransferOfferReceipt receipt)
+    private void TrackOfferReceipt((Guid TransferId, string ConversationId) key, TransferOfferReceipt receipt)
     {
         lock (_sync)
         {
-            if (_offerReceipts.TryGetValue(transferId, out var waiter))
+            if (_offerReceipts.TryGetValue(key, out var waiter))
             {
                 waiter.TrySetResult(receipt);
                 return;
             }
 
-            _pendingOfferReceipts[transferId] = receipt;
+            StorePending(_pendingOfferReceipts, key, receipt);
         }
+    }
+
+    private void StorePending<T>(
+        Dictionary<(Guid TransferId, string ConversationId), (T Value, DateTimeOffset ReceivedAt)> pending,
+        (Guid TransferId, string ConversationId) key,
+        T value)
+    {
+        var now = _timeProvider.GetUtcNow();
+        foreach (var (pendingKey, entry) in pending)
+        {
+            if (now - entry.ReceivedAt >= PendingResponseLifetime)
+            {
+                pending.Remove(pendingKey);
+            }
+        }
+
+        if (!pending.ContainsKey(key) && pending.Count >= MaxPendingResponses)
+        {
+            var oldestKey = pending.MinBy(entry => entry.Value.ReceivedAt).Key;
+            pending.Remove(oldestKey);
+        }
+
+        pending[key] = (value, now);
     }
 }

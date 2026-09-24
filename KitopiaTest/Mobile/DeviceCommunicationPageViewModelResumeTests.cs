@@ -2,7 +2,6 @@ using Kitopia.Feature.DeviceCommunication.Application;
 using Kitopia.Feature.Avalonia.DeviceCommunication.ViewModels;
 using Kitopia.Feature.DeviceCommunication.Discovery;
 using Kitopia.Feature.DeviceCommunication.Messages.Chat;
-using Kitopia.Feature.DeviceCommunication.Messages.Clipboard;
 using Kitopia.Mobile.Services;
 using Kitopia.Mobile.ViewModels;
 using ObservableCollections;
@@ -222,7 +221,6 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         public ValueTask AcceptFileAsync(string deviceId, Guid transferId, string saveTarget, Func<CancellationToken, ValueTask<Stream>> openWriteStreamAsync, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
         public ValueTask RejectFileAsync(string deviceId, Guid transferId, string reason, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
         public ValueTask CancelTransferAsync(string deviceId, Guid transferId, string reason, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
-        public ValueTask SendClipboardTextAsync(string deviceId, TextClipboardMessage message, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
         public async IAsyncEnumerable<DeviceMessageEvent> ReceiveAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             if (_incomingEvent is not null)
