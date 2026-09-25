@@ -21,5 +21,5 @@ public interface ICustomScenarioPluginIntegration
         CancellationToken cancellationToken = default);
     Task<bool> EnablePluginAsync(string pluginSign, CancellationToken cancellationToken = default);
     IServiceProvider GetServiceProvider(string pluginSign);
-    MethodInfo GetMethodInfo(string pluginSign, string methodAbsolutelyName);
+    MethodInfo GetMethodInfo(string pluginSign, string methodAbsolutelyName, string? methodId = null);
 }

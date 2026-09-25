@@ -115,10 +115,10 @@ public static class PluginManager
         return EnablePlugins[plgStr].ServiceProvider!;
     }
 
-    public static MethodInfo GetMethodInfo(string plgStr, string methodAbsolutelyName)
+    public static MethodInfo GetMethodInfo(string plgStr, string methodAbsolutelyName, string? methodId = null)
     {
         var plugin = EnablePlugins[plgStr];
-        return plugin.GetMethod(methodAbsolutelyName) ??
+        return plugin.GetMethod(methodAbsolutelyName, methodId) ??
                throw new CustomScenarioLoadFromJsonException(CustomScenarioLoadFromJsonFailedType.方法未找到, plgStr,
                    methodAbsolutelyName);
     }

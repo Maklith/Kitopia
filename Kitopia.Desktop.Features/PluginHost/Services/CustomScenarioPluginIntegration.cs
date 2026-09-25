@@ -57,9 +57,9 @@ public sealed class CustomScenarioPluginIntegration : ICustomScenarioPluginInteg
         return PluginManager.GetServiceProvider(pluginSign);
     }
 
-    public MethodInfo GetMethodInfo(string pluginSign, string methodAbsolutelyName)
+    public MethodInfo GetMethodInfo(string pluginSign, string methodAbsolutelyName, string? methodId = null)
     {
-        return PluginManager.GetMethodInfo(pluginSign, methodAbsolutelyName);
+        return PluginManager.GetMethodInfo(pluginSign, methodAbsolutelyName, methodId);
     }
 
     private static CustomScenarioPluginDescriptor ToDescriptor(

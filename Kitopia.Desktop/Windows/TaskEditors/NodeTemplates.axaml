@@ -177,7 +177,7 @@
                     <DataTemplate DataType="{x:Type customScenario1:ConnectorItem}">
                         <controls2:NodeOutput
                             x:Name="NodeOutput"
-                            ToolTip.Tip="{Binding InputObject.Value,Converter={StaticResource ToolTipConverter}}"
+                            ToolTip.Tip="{Binding InputObject.Value,Converter={StaticResource ToolTipConverter},ConverterParameter='未设置'}"
                             ToolTip.ShowDelay="0"
                             VerticalAlignment="Center"
                             IsConnected="{Binding IsConnected}"

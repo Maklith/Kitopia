@@ -151,10 +151,9 @@ public class Plugin
                 {
                     var parameterInfos = methodInfo.GetParameters();
                     if (parameterInfos.Length == 0) continue;
-                    var parameterTypeFullName = parameterInfos[^1].ParameterType.FullName;
-                    if (parameterTypeFullName !=
-                        "System.Threading.CancellationToken" && !
-                            parameterTypeFullName.StartsWith("System.Nullable`1[[System.Threading.CancellationToken,"))
+                    var parameterType = parameterInfos[^1].ParameterType;
+                    if (parameterType != typeof(CancellationToken) &&
+                        Nullable.GetUnderlyingType(parameterType) != typeof(CancellationToken))
                         continue;
 
                     var scenarioMethodInfo = new ScenarioMethod(methodInfo, PluginInfo, scenarioMethodAttribute,
@@ -286,29 +285,41 @@ public class Plugin
         return _plugin?.Assemblies.Any(x => x == assembly) == true;
     }
 
-    public MethodInfo GetMethod(string methodAbsolutelyName)
+    public MethodInfo? GetMethod(string methodAbsolutelyName, string? methodId = null)
     {
+        if (string.IsNullOrWhiteSpace(methodAbsolutelyName)) return null;
+
         var strings = methodAbsolutelyName.Split("#");
+        if (strings.Length != 3) return null;
+
         var split = strings[2].Split("|");
+        if (split.Length == 0 || string.IsNullOrWhiteSpace(split[0])) return null;
+
+        var declaringType = GetType(strings[1]);
+        if (declaringType is null) return null;
+
         var typeJsonConverter = new TypeJsonConverter();
-        var typeNames = split.Select(e =>
+        List<Type> stringsList;
+        try
         {
-            var name = e.Replace("[", ",").Replace("]", "");
-            return name.Split(",");
-        }).ToList();
-        var typeName = typeNames[1..];
-        var stringsList = typeName.Select(e =>
+            var typeNames = split.Select(e => e.Replace("[", ",").Replace("]", "").Split(","))
+                .ToList();
+            stringsList = typeNames[1..].Select(e =>
+            {
+                var index = 0;
+                return typeJsonConverter.ParseType(e, ref index);
+            }).ToList();
+        }
+        catch (Exception exception)
         {
-            var index = 0;
-            return typeJsonConverter.ParseType(e, ref index);
-        }).ToList();
+            Logger.Warning(exception, "无法解析插件方法签名 {Method}", methodAbsolutelyName);
+            return null;
+        }
 
-        return _dll.GetType(strings[1]).GetMethods().First(x =>
+        bool MatchesParameters(MethodInfo method)
         {
-            if (x.Name != split[0]) return false;
-
-            var parameterInfos = x.GetParameters();
-            if (parameterInfos.Length != split.Length - 1) return false;
+            var parameterInfos = method.GetParameters();
+            if (parameterInfos.Length != stringsList.Count) return false;
 
             for (var index = 0; index < parameterInfos.Length; index++)
             {
@@ -317,7 +328,23 @@ public class Plugin
             }
 
             return true;
-        });
+        }
+
+        if (!string.IsNullOrWhiteSpace(methodId))
+        {
+            var compatibleMethods = declaringType.GetMethods()
+                .Where(MatchesParameters)
+                .Where(x => x.GetCustomAttributes<ScenarioMethodAttribute>()
+                    .Any(attribute => string.Equals(ScenarioMethod.GetMethodId(attribute), methodId,
+                        StringComparison.Ordinal)))
+                .Take(2)
+                .ToArray();
+            if (compatibleMethods.Length == 1)
+                return compatibleMethods[0];
+        }
+
+        return declaringType.GetMethods()
+            .FirstOrDefault(x => x.Name == split[0] && MatchesParameters(x));
     }
 
 
@@ -335,6 +362,16 @@ public class Plugin
             }
         }
 
+        async Task CleanupAsync(Func<Task> action)
+        {
+            try { await action().ConfigureAwait(false); }
+            catch (Exception exception)
+            {
+                succeeded = false;
+                Logger.Error(exception, "清理插件 {Plugin} 资源失败", name);
+            }
+        }
+
         foreach (var uuid in _hotKeyIds)
             Cleanup(() =>
             {
@@ -343,7 +380,7 @@ public class Plugin
                     throw new InvalidOperationException($"快捷键 {uuid} 无法注销。");
             });
         _hotKeyIds.Clear();
-        Cleanup(() => CustomScenarioManger.UnloadWhichUseThePlugin(name));
+        await CleanupAsync(() => CustomScenarioManger.UnloadWhichUseThePluginAsync(name));
         PluginOverall.ScreenCaptureExMethods.Remove(name);
         lock (PluginOverall.Features) PluginOverall.Features.Remove(name);
         PluginOverall.OnnxModelInfos.Remove(name);

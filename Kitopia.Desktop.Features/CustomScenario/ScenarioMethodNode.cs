@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Kitopia.Desktop.Features.JsonConverter;
@@ -51,6 +52,15 @@ public partial class ScenarioNodeBase : ObservableRecipient,INodePosition
         ObservableDictionary<string, CustomScenarioValue> inputValues)
     {
         return false;
+    }
+
+    public virtual ValueTask<bool> InvokeAsync(CancellationToken cancellationToken,
+        ObservableCollection<ConnectionItem> connections,
+        ObservableDictionary<string, CustomScenarioValue> values,
+        ObservableDictionary<string, CustomScenarioValue> tempValues,
+        ObservableDictionary<string, CustomScenarioValue> inputValues)
+    {
+        return new ValueTask<bool>(Invoke(cancellationToken, connections, values, tempValues, inputValues));
     }
 
     public virtual IEnumerable<ScenarioNodeBase> GetForwardNodes(
@@ -171,18 +181,37 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
         ObservableDictionary<string, CustomScenarioValue> tempValues,
         ObservableDictionary<string, CustomScenarioValue> inputValues)
     {
+        return InvokeAsync(cancellationToken, connections, values, tempValues, inputValues)
+            .GetAwaiter()
+            .GetResult();
+    }
+
+    public override async ValueTask<bool> InvokeAsync(CancellationToken cancellationToken,
+        ObservableCollection<ConnectionItem> connections,
+        ObservableDictionary<string, CustomScenarioValue> values,
+        ObservableDictionary<string, CustomScenarioValue> tempValues,
+        ObservableDictionary<string, CustomScenarioValue> inputValues)
+    {
         var start = DateTime.Now;
         //生成本节点所有数据
         switch (ScenarioMethod.Type)
         {
             case ScenarioMethodType.PluginMethod:
             {
-                List<object> list = new();
+                List<object?> list = new();
                 var index = 1;
                 foreach (var parameterInfo in ScenarioMethod.Method.GetParameters())
                 {
+                    if (parameterInfo.ParameterType == typeof(CancellationToken) ||
+                        Nullable.GetUnderlyingType(parameterInfo.ParameterType) == typeof(CancellationToken))
+                    {
+                        list.Add(cancellationToken);
+                        continue;
+                    }
+
                     if (parameterInfo.ParameterType.GetCustomAttribute(typeof(AutoUnbox)) is not null)
                     {
+                        if (index >= Input.Count) return false;
                         var autoUnboxIndex = Input[index].AutoUnboxIndex;
                         var instance = parameterInfo.ParameterType.GetConstructor([])
                             ?.Invoke([]);
@@ -192,8 +221,9 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                         while (Input.Count > index && Input[index].AutoUnboxIndex == autoUnboxIndex)
                         {
                             var item = Input[index].InputObject;
-                            parameterInfo.ParameterType.GetProperty(Input[index].AutoUnboxPropertyName)
-                                .SetValue(instance, item.Value);
+                            var property = parameterInfo.ParameterType.GetProperty(Input[index].AutoUnboxPropertyName);
+                            if (property is null) return false;
+                            property.SetValue(instance, item.Value);
                             index++;
                         }
 
@@ -201,59 +231,65 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                         continue;
                     }
 
-                    if (index == Input.Count)
+                    if (index >= Input.Count)
                     {
-                        list.Add(cancellationToken);
-                        break;
+                        if (!parameterInfo.HasDefaultValue) return false;
+                        list.Add(parameterInfo.DefaultValue);
+                        continue;
                     }
 
-                    if (Input[index].IsPluginInputConnector)
+                    var input = Input[index++];
+                    if (input.IsPluginInputConnector)
                     {
-                        list.Add(Input[index].InputObject.Value);
+                        list.Add(input.InputObject.Value);
                     }
                     else
                     {
-                        var inputObject = Input[index].InputObject.Value;
-                        if (inputObject != null)
+                        var inputObject = input.InputObject.Value;
+                        if (inputObject is not null)
                             list.Add(inputObject);
+                        else if (input.InputObject.IsSelf &&
+                                 (!parameterInfo.ParameterType.IsValueType ||
+                                  Nullable.GetUnderlyingType(parameterInfo.ParameterType) is not null))
+                            list.Add(null);
+                        else if (parameterInfo.HasDefaultValue)
+                            list.Add(parameterInfo.DefaultValue);
                         else
                             return false;
                     }
-
-
-                    index++;
                 }
 
-                var invoke = ScenarioMethod.Method.Invoke(
-                    ScenarioMethod.ServiceProvider!.GetService(ScenarioMethod.Method.DeclaringType!),
-                    list.ToArray());
-                if (invoke is null)
-                    break;
-                var resultProperty = invoke.GetType().GetProperty("Result");
-                if (resultProperty is not null)
-                    invoke = resultProperty.GetValue(invoke);
+                var target = ScenarioMethod.Method.IsStatic
+                    ? null
+                    : ScenarioMethod.ServiceProvider!.GetService(ScenarioMethod.Method.DeclaringType!) ??
+                      throw new InvalidOperationException(
+                          $"未注册插件情景方法类型 {ScenarioMethod.Method.DeclaringType!.FullName}");
+                var invoke = ScenarioMethod.Method.Invoke(target, list.ToArray());
 
-                if (ScenarioMethod.Method.ReturnParameter.ParameterType.GetCustomAttribute(typeof(AutoUnbox)) is not
-                    null)
+                var hasReturnValue = ScenarioMethod.TryGetReturnValueType(
+                    ScenarioMethod.Method.ReturnParameter.ParameterType, out var returnValueType);
+                var result = invoke is null && !hasReturnValue
+                    ? null
+                    : await AwaitInvocationResultAsync(invoke).ConfigureAwait(false);
+
+                if (hasReturnValue && returnValueType.GetCustomAttribute(typeof(AutoUnbox)) is not null)
                 {
-                    var type = ScenarioMethod.Method.ReturnParameter.ParameterType;
-                    foreach (var memberInfo in type.GetProperties())
-                    foreach (var connectorItem in Output)
-                        if (connectorItem.InputObject.SerializeType == memberInfo.PropertyType)
-                        {
-                            var value = invoke.GetType()
-                                .InvokeMember(memberInfo.Name,
-                                    BindingFlags.Instance | BindingFlags.IgnoreCase |
-                                    BindingFlags.Public | BindingFlags.NonPublic |
-                                    BindingFlags.GetProperty, null, invoke, null);
-                            
-                            connectorItem.InputObject.Value = value;
-                            break;
-                        }
+                    if (result is null)
+                        return false;
+
+                    foreach (var connectorItem in Output.Where(item =>
+                                 !string.IsNullOrWhiteSpace(item.AutoUnboxPropertyName)))
+                    {
+                        var property = returnValueType.GetProperty(connectorItem.AutoUnboxPropertyName!,
+                            BindingFlags.Instance | BindingFlags.IgnoreCase |
+                            BindingFlags.Public | BindingFlags.NonPublic);
+                        if (property is null) return false;
+                        connectorItem.InputObject.Value = property.GetValue(result);
+                    }
                 }
-                else
+                else if (hasReturnValue)
                 {
-                    if (Output.Count<ConnectorItem>() >= 2) Output[1].InputObject.Value = invoke;
+                    if (Output.Count<ConnectorItem>() >= 2) Output[1].InputObject.Value = result;
                 }
 
                 break;
@@ -371,6 +407,41 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
 
         InvokeTime = DateTime.Now - start;
         return true;
+    }
+
+    private static async ValueTask<object?> AwaitInvocationResultAsync(object? invocationResult)
+    {
+        if (invocationResult is null)
+            return null;
+
+        if (invocationResult is Task task)
+        {
+            await task.ConfigureAwait(false);
+            return GetTaskResult(task);
+        }
+
+        if (invocationResult is ValueTask valueTask)
+        {
+            await valueTask.ConfigureAwait(false);
+            return null;
+        }
+
+        var invocationType = invocationResult.GetType();
+        if (invocationType.IsGenericType &&
+            invocationType.GetGenericTypeDefinition() == typeof(ValueTask<>))
+        {
+            var asTask = (Task)invocationType.GetMethod(nameof(ValueTask<int>.AsTask))!
+                .Invoke(invocationResult, null)!;
+            await asTask.ConfigureAwait(false);
+            return GetTaskResult(asTask);
+        }
+
+        return invocationResult;
+    }
+
+    private static object? GetTaskResult(Task task)
+    {
+        return task.GetType().GetProperty("Result", BindingFlags.Instance | BindingFlags.Public)?.GetValue(task);
     }
 
     public override ScenarioNodeBase Copy()
@@ -503,14 +574,13 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
 
     public void ConnectorInit(ConnectorItem connectorItem)
     {
-        if (connectorItem.InputObject.ShowType == typeof(NodeConnectorClass)) return;
-
-        if (connectorItem.InputObject is null) return;
+        if (connectorItem.InputObject is null || connectorItem.InputObject.ShowType == typeof(NodeConnectorClass)) return;
         if (connectorItem.IsPluginInputConnector)
         {
-           
             var instance = Activator.CreateInstance(connectorItem.InputObject.ShowType);
-            instance.GetType().GetProperty("Value").SetValue(instance, new ObservableValue
+            var valueProperty = instance?.GetType().GetProperty("Value");
+            if (instance is null || valueProperty is null || !valueProperty.CanWrite) return;
+            valueProperty.SetValue(instance, new ObservableValue
             {
                 Value = new CustomScenarioValue
                 {

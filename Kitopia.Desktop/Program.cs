@@ -444,9 +444,6 @@ internal class Program {
             TextRenderingMode = TextRenderingMode.Antialias,
         });
         buildAvaloniaApp.LogToTrace();
-        #if DEBUG
-        buildAvaloniaApp.WithDeveloperTools();
-        #endif
         return buildAvaloniaApp;
     }
 }

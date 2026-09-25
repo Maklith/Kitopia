@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 using Kitopia.Desktop.Features.JsonConverter;
 using Kitopia.Desktop.Features.Services.Plugin;
 using PluginCore;
@@ -24,6 +25,7 @@ public class ScenarioMethod
         Method = method;
         PluginInfo = pluginInfo;
         Attribute = attribute;
+        MethodId = GetMethodId(attribute);
         Type = type;
         ServiceProvider = serviceProvider;
     }
@@ -44,6 +46,9 @@ public class ScenarioMethod
     [JsonIgnore] public Type ValueDataType { get; set; }
     [JsonIgnore] public MethodInfo Method { get; set; }
     public PluginLocalInfo? PluginInfo { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? MethodId { get; set; }
 
     [JsonConverter(typeof(ScenarioMethodAttributeJsonCtr))]
     public ScenarioMethodAttribute Attribute { get; set; }
@@ -80,6 +85,31 @@ public class ScenarioMethod
         ? Attribute.Name
         : Type.ToString();
 
+    internal static string? GetMethodId(ScenarioMethodAttribute? attribute)
+    {
+        return string.IsNullOrWhiteSpace(attribute?.Id) ? attribute?.Name : attribute.Id;
+    }
+
+    internal static bool TryGetReturnValueType(Type returnType, out Type valueType)
+    {
+        if (returnType == typeof(void) || returnType == typeof(Task) || returnType == typeof(ValueTask))
+        {
+            valueType = null!;
+            return false;
+        }
+
+        if (returnType.IsGenericType &&
+            (returnType.GetGenericTypeDefinition() == typeof(Task<>) ||
+             returnType.GetGenericTypeDefinition() == typeof(ValueTask<>)))
+        {
+            valueType = returnType.GetGenericArguments()[0];
+            return true;
+        }
+
+        valueType = returnType;
+        return true;
+    }
+
     public ScenarioMethodNode GenerateNode()
     {
         var pointItem = new ScenarioMethodNode
@@ -107,9 +137,8 @@ public class ScenarioMethod
                  index++)
             {
                 var parameterInfo = Method.GetParameters()[index];
-                if (parameterInfo.ParameterType.FullName == "System.Threading.CancellationToken") continue;
-                if (parameterInfo.ParameterType.FullName.StartsWith(
-                        "System.Nullable`1[[System.Threading.CancellationToken,")) continue;
+                if (parameterInfo.ParameterType == typeof(CancellationToken) ||
+                    Nullable.GetUnderlyingType(parameterInfo.ParameterType) == typeof(CancellationToken)) continue;
                 var IsSelf = parameterInfo.GetCustomAttributes(typeof(SelfInput))
                     .Any();
                 var defaultValue = parameterInfo.DefaultValue;
@@ -150,7 +179,7 @@ public class ScenarioMethod
                         },
 
 
-                        Title = Attribute.GetParameterName(parameterInfo.Name)
+                        Title = Attribute.GetParameterName(parameterInfo.Name ?? $"参数{index + 1}")
                     };
                     if (parameterInfo.GetCustomAttribute<CustomNodeInputType>() is not null
                         and var customNodeInputType)
@@ -188,12 +217,13 @@ public class ScenarioMethod
 
                 Title = "流输出"
             });
-            if (Method.ReturnParameter.ParameterType != typeof(void))
+            var returnType = Method.ReturnParameter.ParameterType;
+            if (TryGetReturnValueType(returnType, out var returnValueType))
             {
-                if (Method.ReturnParameter.ParameterType.GetCustomAttribute(typeof(AutoUnbox)) is not null)
+                if (returnValueType.GetCustomAttribute(typeof(AutoUnbox)) is not null)
                 {
                     autoUnboxIndex++;
-                    var type = Method.ReturnParameter.ParameterType;
+                    var type = returnValueType;
                     foreach (var memberInfo in type.GetProperties())
                     {
                         if (memberInfo.GetCustomAttribute(typeof(AutoUnboxProperty)) is null) continue;
@@ -214,17 +244,13 @@ public class ScenarioMethod
                 }
                 else
                 {
-                   
-                    var type = Method.ReturnParameter.ParameterType.BaseType==typeof(Task)&&Method.ReturnParameter.ParameterType.IsGenericType
-                        ?Method.ReturnParameter.ParameterType.GetGenericArguments()[0]
-                        :Method.ReturnParameter.ParameterType;
                     outItems.Add(new ConnectorItem
                     {
                         Source = pointItem,
                         InputObject = new CustomScenarioValue
                         {
-                            ShowType= Method.ReturnParameter.ParameterType,
-                            SerializeType = type
+                            ShowType = returnValueType,
+                            SerializeType = returnValueType
                         },
 
                         Title = Attribute.GetParameterName("return"),

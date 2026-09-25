@@ -55,12 +55,31 @@ internal static class ScenarioGraph
             ScenarioMethodNode methodNode => methodNode.Output.Where(output =>
                 output.InputObject.SerializeType == typeof(NodeConnectorClass) &&
                 (methodNode.ScenarioMethod.Type != ScenarioMethodType.Condition || !output.IsNotUsed)),
-            KnotNodeViewModel knot => [knot.Connector],
+            KnotNodeViewModel knot when knot.Connector.InputObject.SerializeType == typeof(NodeConnectorClass) =>
+                [knot.Connector],
             _ => []
         };
 
         foreach (var output in outputs)
             foreach (var edge in connections.Where(edge => edge.Source == output))
+                yield return edge.Target.Source;
+    }
+
+    public static IEnumerable<ScenarioNodeBase> GetDataSuccessors(ScenarioNodeBase node,
+        ObservableCollection<ConnectionItem> connections)
+    {
+        IEnumerable<ConnectorItem> outputs = node switch
+        {
+            ScenarioMethodNode methodNode => methodNode.Output.Where(output =>
+                output.InputObject.SerializeType != typeof(NodeConnectorClass)),
+            KnotNodeViewModel knot when knot.Connector.InputObject.SerializeType != typeof(NodeConnectorClass) =>
+                [knot.Connector],
+            _ => []
+        };
+
+        foreach (var output in outputs)
+            foreach (var edge in connections.Where(edge => edge.Source == output &&
+                         edge.Target.InputObject.SerializeType != typeof(NodeConnectorClass)))
                 yield return edge.Target.Source;
     }
 

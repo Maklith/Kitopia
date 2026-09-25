@@ -14,10 +14,12 @@
     <DataTemplate x:Key="InputTemplate"
                   DataType="{x:Type customScenario1:ConnectorItem}">
         <controls1:NodeInput
-            ToolTip.Tip="{Binding InputObject.Value,Converter={StaticResource ToolTipConverter}}"
             ToolTip.ShowDelay="0"
             IsConnected="{Binding IsConnected}"
             Anchor="{Binding Anchor, Mode=TwoWay}">
+            <ToolTip.Tip>
+                <TextBlock Text="{Binding InputObject.Value,Converter={StaticResource ToolTipConverter},ConverterParameter='未设置'}" />
+            </ToolTip.Tip>
             <controls1:NodeInput.Header>
 
                 <StackPanel Orientation="Horizontal"

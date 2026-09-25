@@ -10,7 +10,6 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
     public override CustomScenarioValue? Read(ref Utf8JsonReader reader, Type typeToConvert,
         JsonSerializerOptions options)
     {
-        object value;
         var isSelf = false;
         Type serializeType = null;
         Type showType = null;
@@ -147,25 +146,32 @@ public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenari
         {
             writer.WriteStringValue("");
         }
-
-        if (value.SerializeType == typeof(string))
+        else if (value.SerializeType == typeof(string))
         {
             writer.WriteStringValue(value.Value?.ToString());
         }
         else if (CustomScenarioGlobe.JsonConverters.TryGetValue(value.SerializeType, out var jsonConverter))
         {
-            var serialize = jsonConverter.Serialize(value.Value);
-            writer.WriteStringValue(serialize);
+            if (value.Value is null)
+                writer.WriteNullValue();
+            else
+                writer.WriteStringValue(jsonConverter.Serialize(value.Value));
         }
         else if (value.SerializeType.IsEnum)
         {
-            var valueValue = (object)value.Value;
-            writer.WriteNumberValue(Convert.ToInt32(valueValue));
+            if (value.Value is null)
+                writer.WriteNullValue();
+            else
+                writer.WriteNumberValue(Convert.ToInt32(value.Value));
         }
         else if (value.IsSelf)
         {
             throw new CustomScenarioLoadFromJsonException(
                 CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, value.SerializeType.FullName!, null);
+        }
+        else
+        {
+            writer.WriteNullValue();
         }
 
         writer.WriteEndObject();

@@ -1,8 +1,11 @@
 #region
 
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,7 +24,7 @@ using Serilog;
 
 namespace Kitopia.Desktop.Features.CustomScenario;
 
-public partial class CustomScenario : ObservableRecipient, IDisposable {
+public partial class CustomScenario : ObservableRecipient, IDisposable, IAsyncDisposable {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<CustomScenario>();
 
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> _autoTriggers = new();
@@ -34,6 +37,8 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
 
     private readonly object _runGate = new();
     private Task? _runTask;
+    private ObservableCollection<ScenarioNodeBase> _nodes = new();
+    private readonly HashSet<ScenarioNodeBase> _attachedNodes = new();
 
     [JsonIgnore] [ObservableProperty] private bool _isRunning;
 
@@ -68,48 +73,7 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
 
     public CustomScenario() {
         PropertyChanged += CustomScenarioPropertyChangedEventHandler;
-        Nodes.CollectionChanged += (e, s) => {
-            if (s.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add) {
-                if (e is IEnumerable<ScenarioNodeBase> methodNodes) {
-                    foreach (var scenarioMethodNode in methodNodes) {
-                        scenarioMethodNode.PropertyChanged += CustomScenarioPropertyChangedEventHandler;
-                        if (scenarioMethodNode is ScenarioMethodNode methodNode) {
-                            foreach (var connectorItem in methodNode.Input) {
-                                connectorItem.PropertyChanged += CustomScenarioPropertyChangedEventHandler;
-                                connectorItem.InputObjectHandler = ((_, _) => {
-                                    WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg {
-                                        Type = 0, Name = nameof(e), ConnectorItem = connectorItem,
-                                        ScenarioMethodNode = connectorItem.Source as ScenarioMethodNode,
-                                        CustomScenario = this
-                                    });
-                                });
-                                connectorItem.InputObject.PropertyChanged += connectorItem.InputObjectHandler;
-                            }
-                        }
-                    }
-                }
-            }
-            else if (s.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove) {
-                if (e is IEnumerable<ScenarioNodeBase> methodNodes) {
-                    foreach (var scenarioMethodNode in methodNodes) {
-                        scenarioMethodNode.PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
-                        if (scenarioMethodNode is ScenarioMethodNode methodNode) {
-                            foreach (var connectorItem in methodNode.Input) {
-                                connectorItem.PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
-                                if (connectorItem.InputObjectHandler != null) {
-                                    connectorItem.InputObject.PropertyChanged -= connectorItem.InputObjectHandler;
-                                    connectorItem.InputObjectHandler = null;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg
-                { Type = 0, Name = nameof(Nodes), CustomScenario = this });
-        };
-        
+        AttachNodesCollection(Nodes);
 
         WeakReferenceMessenger.Default.Register<HotKeyChanged>(this, static (recipient, message) => {
             var scenario = (CustomScenario)recipient;
@@ -128,7 +92,15 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
         .ToString();
 
 
-    public ObservableCollection<ScenarioNodeBase> Nodes { get; set; } = new();
+    public ObservableCollection<ScenarioNodeBase> Nodes {
+        get => _nodes;
+        set {
+            if (ReferenceEquals(_nodes, value)) return;
+            DetachNodesCollection(_nodes);
+            _nodes = value ?? new ObservableCollection<ScenarioNodeBase>();
+            AttachNodesCollection(_nodes);
+        }
+    }
 
     public ObservableCollection<ConnectionItem> Connections { get; set; } = new();
     public event EventHandler Saved;
@@ -197,6 +169,72 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
         }
     }
 
+    private void AttachNodesCollection(ObservableCollection<ScenarioNodeBase> nodes) {
+        nodes.CollectionChanged += NodesCollectionChanged;
+        foreach (var node in nodes) AttachNode(node);
+    }
+
+    private void DetachNodesCollection(ObservableCollection<ScenarioNodeBase> nodes) {
+        nodes.CollectionChanged -= NodesCollectionChanged;
+        foreach (var node in nodes) DetachNode(node);
+    }
+
+    private void NodesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) {
+        if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems is not null)
+            foreach (ScenarioNodeBase node in e.NewItems) AttachNode(node);
+        else if (e.Action == NotifyCollectionChangedAction.Remove && e.OldItems is not null)
+            foreach (ScenarioNodeBase node in e.OldItems) DetachNode(node);
+        else if (e.Action == NotifyCollectionChangedAction.Replace) {
+            if (e.OldItems is not null)
+                foreach (ScenarioNodeBase node in e.OldItems) DetachNode(node);
+            if (e.NewItems is not null)
+                foreach (ScenarioNodeBase node in e.NewItems) AttachNode(node);
+        }
+        else if (e.Action == NotifyCollectionChangedAction.Reset) {
+            foreach (var node in _attachedNodes.ToArray()) DetachNode(node);
+            foreach (var node in Nodes) AttachNode(node);
+        }
+
+        WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg {
+            Type = 0, Name = nameof(Nodes), CustomScenario = this
+        });
+    }
+
+    private void AttachNode(ScenarioNodeBase node) {
+        if (!_attachedNodes.Add(node)) return;
+        node.PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
+        node.PropertyChanged += CustomScenarioPropertyChangedEventHandler;
+        if (node is not ScenarioMethodNode methodNode) return;
+
+        foreach (var connectorItem in methodNode.Input) {
+            connectorItem.PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
+            connectorItem.PropertyChanged += CustomScenarioPropertyChangedEventHandler;
+            if (connectorItem.InputObjectHandler is not null)
+                connectorItem.InputObject.PropertyChanged -= connectorItem.InputObjectHandler;
+            connectorItem.InputObjectHandler = (_, _) => {
+                WeakReferenceMessenger.Default.Send(new CustomScenarioChangeMsg {
+                    Type = 0, Name = nameof(ConnectorItem.InputObject), ConnectorItem = connectorItem,
+                    ScenarioMethodNode = connectorItem.Source as ScenarioMethodNode,
+                    CustomScenario = this
+                });
+            };
+            connectorItem.InputObject.PropertyChanged += connectorItem.InputObjectHandler;
+        }
+    }
+
+    private void DetachNode(ScenarioNodeBase node) {
+        _attachedNodes.Remove(node);
+        node.PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
+        if (node is not ScenarioMethodNode methodNode) return;
+
+        foreach (var connectorItem in methodNode.Input) {
+            connectorItem.PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
+            if (connectorItem.InputObjectHandler is null) continue;
+            connectorItem.InputObject.PropertyChanged -= connectorItem.InputObjectHandler;
+            connectorItem.InputObjectHandler = null;
+        }
+    }
+
 
     private void CustomScenarioPropertyChangedEventHandler(object? s, PropertyChangedEventArgs e) {
         if (e.PropertyName == nameof(IsRunning)) return;
@@ -216,16 +254,26 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
         }
     }
 
-    public void Dispose() {
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+    public async ValueTask DisposeAsync() {
+        Task? runTask;
         lock (_runGate) {
             if (IsRunning) _cancellationTokenSource.Cancel();
-            else if (_runTask is null or { IsCompleted: true }) _cancellationTokenSource.Dispose();
+            runTask = _runTask is { IsCompleted: false } task ? task : null;
+            if (runTask is null) _cancellationTokenSource.Dispose();
         }
+
+        if (runTask is not null) await runTask.ConfigureAwait(false);
+        DetachNodesCollection(Nodes);
+        PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
+        WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 
-    partial void OnTickIntervalSecondChanged(double? oldValue) {
-        if (oldValue is null) TickIntervalSecond = 0.1;
+    public void Dispose() {
+        DisposeAsync().AsTask().GetAwaiter().GetResult();
+    }
+
+    partial void OnTickIntervalSecondChanged(double? value) {
+        if (value is null) TickIntervalSecond = 0.1;
     }
 
 
@@ -312,14 +360,14 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
         bool onExit, CancellationTokenSource cancellation) {
         var token = cancellation.Token;
         try {
-            var initialized = ExecutePhase(Nodes[0], inputs, token);
+            var initialized = await ExecutePhaseAsync(Nodes[0], inputs, token);
             if (!onExit && ScenarioGraph.GetFlowSuccessors(Nodes[1], Connections).Any()) {
                 ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
                     $"情景'{Name}'进入Tick");
                 using var timer = new PeriodicTimer(TimeSpan.FromSeconds(Math.Max(0.1, TickIntervalSecond ?? 0.1)));
                 do {
                     token.ThrowIfCancellationRequested();
-                    ExecutePhase(Nodes[1], inputs, token, initialized);
+                    await ExecutePhaseAsync(Nodes[1], inputs, token, initialized);
                 } while (await timer.WaitForNextTickAsync(token));
             }
 
@@ -344,19 +392,41 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
     internal HashSet<ScenarioNodeBase> ExecutePhase(ScenarioNodeBase start,
         ObservableDictionary<string, CustomScenarioValue> inputs, CancellationToken token,
         IReadOnlySet<ScenarioNodeBase>? available = null) {
+        return ExecutePhaseAsync(start, inputs, token, available).GetAwaiter().GetResult();
+    }
+
+    internal async Task<HashSet<ScenarioNodeBase>> ExecutePhaseAsync(ScenarioNodeBase start,
+        ObservableDictionary<string, CustomScenarioValue> inputs, CancellationToken token,
+        IReadOnlySet<ScenarioNodeBase>? available = null) {
         if (ScenarioGraph.HasCycle(Connections))
             throw new InvalidOperationException("情景连接存在循环");
 
         var executed = new HashSet<ScenarioNodeBase>();
         var pending = new Queue<ScenarioNodeBase>();
         pending.Enqueue(start);
+        var scheduled = new HashSet<ScenarioNodeBase> { start };
+        var expanded = new HashSet<ScenarioNodeBase>();
         var deferred = 0;
+
+        void EnqueueSuccessors(ScenarioNodeBase completed)
+        {
+            if (!expanded.Add(completed)) return;
+
+            foreach (var next in ScenarioGraph.GetFlowSuccessors(completed, Connections))
+                if (!executed.Contains(next) && scheduled.Add(next)) pending.Enqueue(next);
+
+            foreach (var next in ScenarioGraph.GetDataSuccessors(completed, Connections))
+                if (!ScenarioGraph.HasFlowInput(next, Connections) &&
+                    !executed.Contains(next) && scheduled.Add(next))
+                    pending.Enqueue(next);
+        }
+
         while (pending.Count > 0) {
             token.ThrowIfCancellationRequested();
             var node = pending.Dequeue();
             if (executed.Contains(node)) continue;
 
-            var result = TryInvokeNode(node, inputs, executed, available, token);
+            var result = await TryInvokeNodeAsync(node, inputs, executed, available, true, token);
             if (result is null) {
                 pending.Enqueue(node);
                 if (++deferred >= pending.Count) {
@@ -370,33 +440,48 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
             if (result == false)
                 throw new InvalidOperationException($"节点 '{node.Title}' 缺少输入或执行失败");
 
-            foreach (var next in ScenarioGraph.GetFlowSuccessors(node, Connections))
-                if (!executed.Contains(next)) pending.Enqueue(next);
+            foreach (var completed in executed) EnqueueSuccessors(completed);
+            if (available?.Contains(node) == true) EnqueueSuccessors(node);
         }
 
         return executed;
     }
 
-    private bool? TryInvokeNode(ScenarioNodeBase node,
+    private async Task<bool?> TryInvokeNodeAsync(ScenarioNodeBase node,
         ObservableDictionary<string, CustomScenarioValue> inputs,
-        HashSet<ScenarioNodeBase> executed, IReadOnlySet<ScenarioNodeBase>? available,
-        CancellationToken token) {
-        if (executed.Contains(node)) return true;
+        HashSet<ScenarioNodeBase> executed,
+        IReadOnlySet<ScenarioNodeBase>? available, bool allowFlowNode, CancellationToken token) {
+        if (executed.Contains(node) || available?.Contains(node) == true)
+            return true;
+
+        return await ExecuteNodeCoreAsync(node, inputs, executed, available, allowFlowNode, token)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<bool?> ExecuteNodeCoreAsync(ScenarioNodeBase node,
+        ObservableDictionary<string, CustomScenarioValue> inputs,
+        HashSet<ScenarioNodeBase> executed,
+        IReadOnlySet<ScenarioNodeBase>? available, bool allowFlowNode, CancellationToken token) {
+        if (executed.Contains(node) || available?.Contains(node) == true)
+            return true;
+        if (!allowFlowNode && ScenarioGraph.HasFlowInput(node, Connections))
+            return null;
         if (!node.InputDataIsEnough(Connections)) {
             node.Status = NodeStatus.Error;
             return false;
         }
 
-        foreach (var source in ScenarioGraph.GetDataDependencies(node, Connections)) {
+        var dependencies = ScenarioGraph.GetDataDependencies(node, Connections).Distinct().ToArray();
+        foreach (var source in dependencies) {
             if (executed.Contains(source) || available?.Contains(source) == true) continue;
-            if (ScenarioGraph.HasFlowInput(source, Connections)) return null;
-            var result = TryInvokeNode(source, inputs, executed, available, token);
-            if (result != true) return result;
+            var result = await TryInvokeNodeAsync(source, inputs, executed, available, false, token)
+                .ConfigureAwait(false);
+            if (result is null || result == false) return result;
         }
 
         token.ThrowIfCancellationRequested();
         try {
-            if (!node.Invoke(token, Connections, Values, TempValue, inputs)) {
+            if (!await node.InvokeAsync(token, Connections, Values, TempValue, inputs).ConfigureAwait(false)) {
                 node.Status = NodeStatus.Error;
                 return false;
             }
@@ -425,9 +510,9 @@ public partial class CustomScenario : ObservableRecipient, IDisposable {
 
     public void OnDeserialized() //反序列化时hotkeys的默认值会被添加,需要先清空
     {
+        PropertyChanged -= CustomScenarioPropertyChangedEventHandler;
         PropertyChanged += CustomScenarioPropertyChangedEventHandler;
-        foreach (var pointItem in Nodes)
-            if (pointItem is ScenarioMethodNode methodNode)
-                methodNode.PropertyChanged += CustomScenarioPropertyChangedEventHandler;
+        DetachNodesCollection(Nodes);
+        AttachNodesCollection(Nodes);
     }
 }

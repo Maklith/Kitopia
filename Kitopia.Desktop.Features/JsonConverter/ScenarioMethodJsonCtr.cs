@@ -28,8 +28,9 @@ public class ScenarioMethodJsonCtr : JsonConverter<ScenarioMethod>
             }
 
             scenario.ServiceProvider = pluginIntegration.GetServiceProvider(pluginSign);
+            scenario.MethodId ??= ScenarioMethod.GetMethodId(scenario.Attribute);
             scenario.Method =
-                pluginIntegration.GetMethodInfo(pluginSign, scenario._methodAbsolutelyName);
+                pluginIntegration.GetMethodInfo(pluginSign, scenario._methodAbsolutelyName, scenario.MethodId);
         }
 
         return scenario;

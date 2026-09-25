@@ -22,6 +22,7 @@ public class CustomScenarioManger
 
     public static void Init()
     {
+        WeakReferenceMessenger.Default.Unregister<string, string>("null", "CustomScenarioTrigger");
         WeakReferenceMessenger.Default.Register<string, string>("null", "CustomScenarioTrigger", (_, e) =>
         {
             //设置当前线程最高优先级
@@ -70,7 +71,15 @@ public class CustomScenarioManger
 
     public static void UnloadAll()
     {
-        foreach (var customScenario in CustomScenarios) customScenario.UnRegisterHotKey();
+        UnloadAllAsync().GetAwaiter().GetResult();
+    }
+
+    public static async Task UnloadAllAsync()
+    {
+        foreach (var customScenario in CustomScenarios) {
+            customScenario.UnRegisterHotKey();
+            await customScenario.DisposeAsync();
+        }
 
         CustomScenarios.Clear();
     }
@@ -189,6 +198,16 @@ public class CustomScenarioManger
                 }
                 case CustomScenarioLoadFromJsonFailedType.方法未找到:
                 {
+                    var content =
+                        $"对应文件\n{fileInfo.FullName}\n情景所需的插件方法不存在\n插件: {e1.PluginName}\n方法: {e1.MethodName}\n请更新插件或重新编辑该节点";
+                    var dialog = new DialogContent
+                    {
+                        Title = $"自定义情景\"{Name}\"加载失败",
+                        Content = content,
+                        CloseButtonText = "我知道了"
+                    };
+                    ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                        dialog.ToToastRequest());
                     break;
                 }
                 case CustomScenarioLoadFromJsonFailedType.类未找到:
@@ -280,17 +299,21 @@ public class CustomScenarioManger
                 }
             }
         }
+        catch (JsonException e)
+        {
+            Logger.Error(e, "情景保存失败: {Scenario}", scenario.Name);
+            ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                "情景保存失败", $"情景'{scenario.Name}'保存失败，配置数据无法序列化。");
+        }
     }
 
 
     public static void Remove(CustomScenario scenario, bool deleteFile = true)
     {
-        if (scenario.RunHotKey?.UUID != null) {
-            ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(scenario.RunHotKey?.UUID);
+        if (scenario.RunHotKey?.UUID != null)
+            ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(scenario.RunHotKey.UUID);
         if (scenario.StopHotKey?.UUID != null)
-            ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(scenario.StopHotKey?.UUID);
-        }
-
+            ServiceManager.Services.GetService<IHotKetImpl>()!.Remove(scenario.StopHotKey.UUID);
 
         scenario.Dispose();
         if (CustomScenarios.Contains(scenario)) CustomScenarios.Remove(scenario);
@@ -301,13 +324,19 @@ public class CustomScenarioManger
 
     public static void UnloadWhichUseThePlugin(string plugStr)
     {
+        UnloadWhichUseThePluginAsync(plugStr).GetAwaiter().GetResult();
+    }
+
+    public static async Task UnloadWhichUseThePluginAsync(string plugStr)
+    {
         for (var i = CustomScenarios.Count - 1; i >= 0; i--)
             if (CustomScenarios[i].IsUseThePlugin(plugStr))
             {
                 var customScenario = CustomScenarios[i];
+                customScenario.UnRegisterHotKey();
+                await customScenario.DisposeAsync();
                 CustomScenarios.RemoveAt(i);
-                Remove(customScenario, false);
-                customScenario = null;
+                ConfigManger.Save();
             }
     }
 
