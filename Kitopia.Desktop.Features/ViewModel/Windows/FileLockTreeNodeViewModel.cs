@@ -1,4 +1,3 @@
-using System;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Kitopia.Desktop.Abstractions.FileSystem;

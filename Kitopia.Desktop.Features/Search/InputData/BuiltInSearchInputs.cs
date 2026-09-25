@@ -1,7 +1,4 @@
 using Kitopia.Desktop.Features.Services.Plugin;
-using PluginCore;
-using PluginCore.SearchWindow.InputData;
-using PluginCore.SearchWindow.InputDataAnalyzer;
 
 namespace Kitopia.Desktop.Features.Search.InputProcessing;
 

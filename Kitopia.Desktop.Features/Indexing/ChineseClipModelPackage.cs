@@ -1,4 +1,3 @@
-using Kitopia.Desktop.Features.Utils;
 using PluginCore.Onnx;
 
 namespace Kitopia.Desktop.Features.Indexing;

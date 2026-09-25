@@ -2,7 +2,6 @@ using System.Text;
 using System.Buffers;
 using System.Runtime.InteropServices;
 using Kitopia.Desktop.Features.Imaging;
-using Kitopia.Desktop.Features.Services.Onnx;
 using OpenCvSharp;
 using OpenCvSharp.Dnn;
 using PluginCore;

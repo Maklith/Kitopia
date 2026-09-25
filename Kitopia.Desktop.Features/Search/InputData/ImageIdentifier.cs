@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Kitopia.Desktop.Features.Services;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;

@@ -1,5 +1,4 @@
 using Kitopia.Desktop.Features.CustomScenario;
-using Kitopia.Desktop.Features.Search;
 using Microsoft.Extensions.DependencyInjection;
 using Pinyin.NET;
 using PluginCore;

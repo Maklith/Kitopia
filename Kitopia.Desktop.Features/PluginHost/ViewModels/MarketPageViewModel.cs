@@ -3,7 +3,6 @@ using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Account;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Plugin;

@@ -1,5 +1,4 @@
 using Kitopia.Desktop.Features.Search;
-using PluginCore;
 
 namespace Kitopia.Desktop.Features.Indexing;
 

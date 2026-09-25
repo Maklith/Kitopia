@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Kitopia.Desktop.Features.CustomScenario;
 using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Features.CustomScenario.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,13 +17,13 @@ public partial class CustomScenariosManagerPageViewModel : ObservableRecipient
     [RelayCommand]
     public void NewCustomScenarios()
     {
-        ((ITaskEditorOpenService)ServiceManager.Services!.GetService(typeof(ITaskEditorOpenService))!).Open();
+        ((ITaskEditorOpenService)ServiceManager.Services.GetService(typeof(ITaskEditorOpenService))!).Open();
     }
 
     [RelayCommand]
     private void ToTaskEditPage(Scenario scenario)
     {
-        ((ITaskEditorOpenService)ServiceManager.Services!.GetService(typeof(ITaskEditorOpenService))!).Open(
+        ((ITaskEditorOpenService)ServiceManager.Services.GetService(typeof(ITaskEditorOpenService))!).Open(
             scenario);
     }
 
@@ -51,7 +50,7 @@ public partial class CustomScenariosManagerPageViewModel : ObservableRecipient
             SecondaryButtonText = "取消",
             PrimaryAction = () => { Dispatcher.UIThread.InvokeAsync(() => { CustomScenarioManger.Remove(scenario); }); }
         };
-        ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+        ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
             dialog.ToToastRequest(), ServiceManager.Services.GetService<IWindowTool>()?.GetForegroundWindow());
     }
 }

@@ -8,7 +8,6 @@ using Avalonia.Threading;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Features.Utils;
-using Kitopia.Desktop.Abstractions.FileSystem;
 using Microsoft.Extensions.DependencyInjection;
 using MQTTnet;
 using MQTTnet.Protocol;

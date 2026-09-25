@@ -1,13 +1,10 @@
-using Avalonia;
 using Avalonia.Controls.Notifications;
-using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Irihi.Avalonia.Shared.Contracts;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using Ursa.Controls;
 using PluginInfoUiHelper = Kitopia.Desktop.Features.Services.Plugin.PluginInfoUiHelper;
 
 namespace Kitopia.Desktop.Features.ViewModel.Pages.plugin;

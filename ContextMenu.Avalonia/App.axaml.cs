@@ -6,7 +6,7 @@ using ContextMenu.Avalonia.Views;
 
 namespace ContextMenu.Avalonia
 {
-    public partial class App : Application
+    public class App : Application
     {
         public override void Initialize()
         {

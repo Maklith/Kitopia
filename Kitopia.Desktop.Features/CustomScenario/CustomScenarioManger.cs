@@ -4,7 +4,6 @@ using System.Text.Json;
 using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Config;
-using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -166,7 +165,7 @@ public class CustomScenarioManger
                                     $"下载插件:{e1.PluginName}时遇到错误");
                         }
                     };
-                    ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                    ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
                         dialog.ToToastRequest());
                     break;
                 }
@@ -192,7 +191,7 @@ public class CustomScenarioManger
                         CloseButtonText = "我知道了",
                         PrimaryAction = async () => { await pluginIntegration.EnablePluginAsync(e1.PluginName); }
                     };
-                    ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                    ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
                         dialog.ToToastRequest());
                     break;
                 }
@@ -206,7 +205,7 @@ public class CustomScenarioManger
                         Content = content,
                         CloseButtonText = "我知道了"
                     };
-                    ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                    ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
                         dialog.ToToastRequest());
                     break;
                 }
@@ -224,7 +223,7 @@ public class CustomScenarioManger
                         Content = content,
                         CloseButtonText = "我知道了"
                     };
-                    ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                    ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
                         dialog.ToToastRequest());
                     break;
                 }
@@ -243,7 +242,7 @@ public class CustomScenarioManger
                 CloseButtonText = "我知道了",
                 PrimaryAction = () => { }
             };
-            ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
                 dialog.ToToastRequest());
             CustomScenarios.Add(new CustomScenario
             {
@@ -293,7 +292,7 @@ public class CustomScenarioManger
                         Content = content,
                         CloseButtonText = "我知道了"
                     };
-                    ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+                    ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
                         dialog.ToToastRequest());
                     break;
                 }
@@ -302,7 +301,7 @@ public class CustomScenarioManger
         catch (JsonException e)
         {
             Logger.Error(e, "情景保存失败: {Scenario}", scenario.Name);
-            ((IToastService)ServiceManager.Services!.GetService(typeof(IToastService))!).Show(
+            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
                 "情景保存失败", $"情景'{scenario.Name}'保存失败，配置数据无法序列化。");
         }
     }

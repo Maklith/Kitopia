@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace Kitopia.Desktop.Features.Services.Account;
 
 public sealed class UserInfo

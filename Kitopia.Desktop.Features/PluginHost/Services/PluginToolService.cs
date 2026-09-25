@@ -1,4 +1,3 @@
-using System;
 using Avalonia.Threading;
 using Kitopia.Desktop.Features.Services.Interfaces;
 

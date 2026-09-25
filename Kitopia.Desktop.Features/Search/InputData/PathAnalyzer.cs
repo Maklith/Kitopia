@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using Kitopia.Desktop.Features.Search;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.SearchWindow.InputData;

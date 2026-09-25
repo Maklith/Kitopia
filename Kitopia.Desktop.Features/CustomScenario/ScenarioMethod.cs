@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 using Kitopia.Desktop.Features.JsonConverter;
 using Kitopia.Desktop.Features.Services.Plugin;
 using PluginCore;

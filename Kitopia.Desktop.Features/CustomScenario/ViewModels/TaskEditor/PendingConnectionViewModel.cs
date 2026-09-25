@@ -3,8 +3,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Kitopia.Desktop.Features.CustomScenario;
-using ConnectorItem = Kitopia.Desktop.Features.CustomScenario.ConnectorItem;
 
 #endregion
 

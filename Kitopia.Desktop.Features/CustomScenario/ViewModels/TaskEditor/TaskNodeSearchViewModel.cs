@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Kitopia.Desktop.Features.CustomScenario;
 using Pinyin.NET;
 
 namespace Kitopia.Desktop.Features.CustomScenario.ViewModels.TaskEditor;

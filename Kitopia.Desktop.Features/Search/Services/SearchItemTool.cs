@@ -4,7 +4,6 @@ using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Abstractions.Shell;
-using Kitopia.Desktop.Features.Search.ViewModels;
 using Kitopia.Desktop.Features.Indexing;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -62,7 +61,7 @@ public class SearchItemTool : ISearchItemTool
                     {
                         var thread = new Thread(() =>
                         {
-                            var remove = searchViewItem.ItemDisplayName!.Remove(0, 1);
+                            var remove = searchViewItem.ItemDisplayName.Remove(0, 1);
                             ServiceManager.Services.GetService<IClipboardService>()!.SetText(remove);
                             ServiceManager.Services.GetService<IToastService>()!.Show("Kitopia",
                                 $"计算结果{remove}已经复制到剪贴板");
@@ -264,7 +263,7 @@ public class SearchItemTool : ISearchItemTool
 
     public void OpenSearchItemByOnlyKey(string onlyKey, params object[] inputValues)
     {
-        if (ServiceManager.Services!.GetRequiredService<IIndexService>()
+        if (ServiceManager.Services.GetRequiredService<IIndexService>()
             .TryGetValue(onlyKey, out var entry))
             OpenFile(entry.ToSearchViewItem(), inputValues);
     }

@@ -1,11 +1,9 @@
 using Kitopia.Desktop.Features.Search;
 using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Config;
-using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
-using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 using Serilog;
 

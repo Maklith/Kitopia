@@ -1,6 +1,5 @@
 #region
 
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
@@ -11,15 +10,10 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Kitopia.Desktop.Features.CustomScenario;
 using Kitopia.Desktop.Features.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.CustomScenario;
-using ConnectorItem = Kitopia.Desktop.Features.CustomScenario.ConnectorItem;
-using KnotNodeViewModel = Kitopia.Desktop.Features.CustomScenario.KnotNodeViewModel;
-using ScenarioMethodNode = Kitopia.Desktop.Features.CustomScenario.ScenarioMethodNode;
-using ScenarioNodeBase = Kitopia.Desktop.Features.CustomScenario.ScenarioNodeBase;
 using Scenario = Kitopia.Desktop.Features.CustomScenario.CustomScenario;
 
 #endregion
@@ -460,7 +454,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 },
                 CloseAction = () => { e.Cancel = true; }
             };
-            ServiceManager.Services!.GetService<IToastService>()!
+            ServiceManager.Services.GetService<IToastService>()!
                 .Show(dialog.ToToastRequest(), _window);
         }
     }

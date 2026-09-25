@@ -1,15 +1,9 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Avalonia.Controls.Notifications;
 using Kitopia.Desktop.Abstractions.Shell;
 using Kitopia.Desktop.Features.Services.Config;

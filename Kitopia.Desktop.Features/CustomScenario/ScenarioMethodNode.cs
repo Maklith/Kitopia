@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Kitopia.Desktop.Features.JsonConverter;
@@ -261,7 +260,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
 
                 var target = ScenarioMethod.Method.IsStatic
                     ? null
-                    : ScenarioMethod.ServiceProvider!.GetService(ScenarioMethod.Method.DeclaringType!) ??
+                    : ScenarioMethod.ServiceProvider.GetService(ScenarioMethod.Method.DeclaringType!) ??
                       throw new InvalidOperationException(
                           $"未注册插件情景方法类型 {ScenarioMethod.Method.DeclaringType!.FullName}");
                 var invoke = ScenarioMethod.Method.Invoke(target, list.ToArray());
@@ -280,7 +279,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                     foreach (var connectorItem in Output.Where(item =>
                                  !string.IsNullOrWhiteSpace(item.AutoUnboxPropertyName)))
                     {
-                        var property = returnValueType.GetProperty(connectorItem.AutoUnboxPropertyName!,
+                        var property = returnValueType.GetProperty(connectorItem.AutoUnboxPropertyName,
                             BindingFlags.Instance | BindingFlags.IgnoreCase |
                             BindingFlags.Public | BindingFlags.NonPublic);
                         if (property is null) return false;
