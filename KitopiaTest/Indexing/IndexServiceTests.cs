@@ -96,4 +96,54 @@ public sealed class IndexServiceTests
         Assert.IsFalse(IndexService.ShouldAutomaticallyIndexFile(Path.Combine("root", "notes.txt")));
         Assert.IsTrue(IndexService.ShouldAutomaticallyIndexEverythingFile(Path.Combine("root", "notes.txt")));
     }
+
+    [TestMethod]
+    public async Task RunPausableStepAsync_ForegroundPause_CancelsAndRetriesCurrentStep()
+    {
+        using var index = new IndexService();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var attempts = 0;
+        var operation = index.RunPausableStepAsync(async token =>
+        {
+            if (Interlocked.Increment(ref attempts) > 1) return;
+            started.SetResult();
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            }
+            catch (OperationCanceledException)
+            {
+                cancelled.SetResult();
+                throw;
+            }
+        }, CancellationToken.None);
+
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        index.SetForegroundPause(true);
+        await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.IsFalse(operation.IsCompleted);
+
+        index.SetForegroundPause(false);
+        await operation.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual(2, attempts);
+    }
+
+    [TestMethod]
+    public async Task RunPausableStepAsync_PausedBeforeStart_WaitsForResume()
+    {
+        using var index = new IndexService();
+        index.SetForegroundPause(true);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var operation = index.RunPausableStepAsync(_ =>
+        {
+            started.SetResult();
+            return Task.CompletedTask;
+        }, CancellationToken.None);
+
+        Assert.IsFalse(started.Task.IsCompleted);
+        index.SetForegroundPause(false);
+        await operation.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.IsTrue(started.Task.IsCompleted);
+    }
 }

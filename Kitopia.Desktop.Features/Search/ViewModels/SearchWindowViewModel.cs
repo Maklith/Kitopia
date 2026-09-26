@@ -1,10 +1,8 @@
 #region
 
-using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Reactive.Linq;
 using System.Runtime.InteropServices;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,7 +12,6 @@ using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Features.Search.InputProcessing;
-using Kitopia.Desktop.Features.Search.Semantic;
 using Kitopia.Desktop.Features.Indexing;
 using Microsoft.Extensions.DependencyInjection;
 using ObservableCollections;
@@ -62,10 +59,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     [ObservableProperty] private bool _isPreviewMode;
     [ObservableProperty] private bool _canUsePreview;
     [ObservableProperty] private bool? _previewModeOverride;
-    [ObservableProperty] private string? _previewContent;
-    [ObservableProperty] private string? _previewLocation;
-    [ObservableProperty] private bool _isPreviewImage;
-    [ObservableProperty] private Bitmap? _previewImage;
+    public MouseQuickWindowViewModel FilePreview { get; } = new();
 
 
     [ObservableProperty] private bool _nowInSelectMode;
@@ -76,17 +70,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private int _loadLastScheduled;
     private int _searchVersion;
     private CancellationTokenSource? _searchCancellation;
-    private CancellationTokenSource? _previewCancellation;
-    private int _previewVersion;
-    private ImagePreviewCacheKey? _activePreviewImageKey;
     private readonly Dictionary<string, SearchResultContext> _resultContexts = new(StringComparer.Ordinal);
-
-    private const int PreviewImageDecodeWidth = 1600;
-    private const int PreviewImageCacheCapacity = 8;
-    private static readonly ConcurrentDictionary<ImagePreviewCacheKey, Lazy<Task<Bitmap?>>> PreviewImageCache = new();
-    private static readonly ConcurrentQueue<ImagePreviewCacheKey> PreviewImageCacheOrder = new();
-
-    private readonly record struct ImagePreviewCacheKey(string Path, long Length, DateTime LastWriteTimeUtc);
 
 
     [ObservableProperty] private string _search=string.Empty;
@@ -688,250 +672,21 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         }
         else
         {
-            PreviewContent = null;
-            PreviewLocation = null;
-            IsPreviewImage = false;
-            PreviewImage = null;
-            _activePreviewImageKey = null;
+            UpdatePreview(null);
         }
     }
 
     private void UpdatePreview(SearchViewItem? item)
     {
-        var version = Interlocked.Increment(ref _previewVersion);
-        Interlocked.Exchange(ref _previewCancellation, null)?.Cancel();
-        PreviewContent = null;
-        PreviewLocation = null;
-        IsPreviewImage = false;
-        PreviewImage = null;
-        _activePreviewImageKey = null;
         if (!IsPreviewMode || item is null || !SearchDisplayPolicy.IsPreviewCandidate(item))
         {
+            if (FilePreview.SelectedPath.Length > 0) _ = FilePreview.SetFilesAsync([]);
             return;
         }
 
-        PreviewLocation = item.OnlyKey;
-        IsPreviewImage = item.FileType == FileType.图像;
-        if (IsPreviewImage)
-        {
-            if (!TryCreatePreviewImageCacheKey(item.OnlyKey, out var cacheKey))
-            {
-                IsPreviewImage = false;
-                PreviewContent = "当前无法读取此图像。";
-                return;
-            }
-
-            _activePreviewImageKey = cacheKey;
-            var imageCancellation = new CancellationTokenSource();
-            Interlocked.Exchange(ref _previewCancellation, imageCancellation)?.Cancel();
-            _ = LoadPreviewImageAsync(cacheKey, item.OnlyKey, version, imageCancellation.Token);
-            return;
-        }
-
-        if (!DocumentTextExtractor.TryCreateSource(item.OnlyKey, out var source))
-        {
-            PreviewContent = "此文件暂不支持内嵌文本预览。";
-            return;
-        }
-
-        PreviewContent = "正在载入内容...";
-        var cancellation = new CancellationTokenSource();
-        Interlocked.Exchange(ref _previewCancellation, cancellation)?.Cancel();
-        var chunkIndex = _resultContexts.TryGetValue(item.OnlyKey, out var context)
-            ? context.SemanticContentChunkIndex
-            : null;
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var preview = await LoadPreviewContentAsync(source, chunkIndex, cancellation.Token);
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (Volatile.Read(ref _previewVersion) != version || SelectedItem?.OnlyKey != item.OnlyKey) return;
-                    PreviewContent = preview ?? "未能从此文件读取文本内容。";
-                });
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception exception)
-            {
-                Logger.Debug(exception, "Could not load search preview");
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (Volatile.Read(ref _previewVersion) != version || SelectedItem?.OnlyKey != item.OnlyKey) return;
-                    PreviewContent = "当前无法读取此文件。";
-                });
-            }
-        });
+        if (FilePreview.SelectedPath == item.OnlyKey) return;
+        _ = FilePreview.SetFilesAsync([item.OnlyKey]);
     }
-
-    private async Task LoadPreviewImageAsync(
-        ImagePreviewCacheKey cacheKey,
-        string itemKey,
-        int version,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var bitmap = await GetPreviewImageAsync(cacheKey);
-            cancellationToken.ThrowIfCancellationRequested();
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (Volatile.Read(ref _previewVersion) != version
-                    || SelectedItem?.OnlyKey != itemKey
-                    || _activePreviewImageKey != cacheKey)
-                {
-                    return;
-                }
-
-                if (bitmap is not null)
-                {
-                    PreviewImage = bitmap;
-                    return;
-                }
-
-                IsPreviewImage = false;
-                PreviewContent = "当前无法读取此图像。";
-            });
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception exception)
-        {
-            Logger.Debug(exception, "Could not load search image preview");
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (Volatile.Read(ref _previewVersion) != version
-                    || SelectedItem?.OnlyKey != itemKey
-                    || _activePreviewImageKey != cacheKey)
-                {
-                    return;
-                }
-
-                IsPreviewImage = false;
-                PreviewContent = "当前无法读取此图像。";
-            });
-        }
-    }
-
-    private static bool TryCreatePreviewImageCacheKey(string path, out ImagePreviewCacheKey cacheKey)
-    {
-        try
-        {
-            var file = new FileInfo(path);
-            if (!file.Exists)
-            {
-                cacheKey = default;
-                return false;
-            }
-
-            cacheKey = new ImagePreviewCacheKey(path, file.Length, file.LastWriteTimeUtc);
-            return true;
-        }
-        catch (IOException)
-        {
-            cacheKey = default;
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            cacheKey = default;
-            return false;
-        }
-    }
-
-    private Task<Bitmap?> GetPreviewImageAsync(ImagePreviewCacheKey cacheKey)
-    {
-        var newEntry = new Lazy<Task<Bitmap?>>(
-            () => Task.Run(() => LoadPreviewImage(cacheKey.Path)),
-            LazyThreadSafetyMode.ExecutionAndPublication);
-        var entry = PreviewImageCache.GetOrAdd(cacheKey, newEntry);
-        if (ReferenceEquals(entry, newEntry))
-        {
-            PreviewImageCacheOrder.Enqueue(cacheKey);
-            TrimPreviewImageCache();
-        }
-
-        return entry.Value;
-    }
-
-    private static Bitmap? LoadPreviewImage(string path)
-    {
-        try
-        {
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
-                FileShare.ReadWrite | FileShare.Delete);
-            return Bitmap.DecodeToWidth(stream, PreviewImageDecodeWidth, BitmapInterpolationMode.HighQuality);
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
-
-    private void TrimPreviewImageCache()
-    {
-        while (PreviewImageCache.Count > PreviewImageCacheCapacity
-               && PreviewImageCacheOrder.TryDequeue(out var oldestCacheKey))
-        {
-            if (_activePreviewImageKey == oldestCacheKey)
-            {
-                PreviewImageCacheOrder.Enqueue(oldestCacheKey);
-                continue;
-            }
-
-            if (!PreviewImageCache.TryRemove(oldestCacheKey, out var entry) || !entry.IsValueCreated)
-            {
-                continue;
-            }
-
-            _ = entry.Value.ContinueWith(static task =>
-            {
-                if (task.Status == TaskStatus.RanToCompletion)
-                {
-                    task.Result?.Dispose();
-                }
-            }, TaskScheduler.Default);
-        }
-    }
-
-    private static async Task<string?> LoadPreviewContentAsync(
-        DocumentContentSource source,
-        int? semanticChunkIndex,
-        CancellationToken cancellationToken)
-    {
-        var targetChunkIndex = semanticChunkIndex ?? 0;
-        var firstChunkIndex = Math.Max(0, targetChunkIndex - 1);
-        var lastChunkIndex = targetChunkIndex + 1;
-        var chunks = new List<string>();
-        var index = 0;
-        await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(
-                           source,
-                           BgeOnnxEmbeddingService.CountDocumentTokens,
-                           cancellationToken))
-        {
-            if (index >= firstChunkIndex && index <= lastChunkIndex)
-            {
-                chunks.Add(chunk);
-            }
-
-            if (index > lastChunkIndex)
-            {
-                break;
-            }
-
-            index++;
-        }
-
-        return chunks.Count == 0 ? null : string.Join(Environment.NewLine + Environment.NewLine, chunks);
-    }
-
     public void ActivateItem(SearchViewItem? item)
     {
         if (item is not null && IsPreviewMode && SearchDisplayPolicy.IsPreviewCandidate(item))

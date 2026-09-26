@@ -48,8 +48,10 @@ public sealed class IndexService : IIndexService, IDisposable
     private IndexStatusSnapshot _status = IndexStatusSnapshot.Empty;
     private readonly object _operationStateLock = new();
     private CancellationTokenSource? _activeOperationCancellation;
+    private CancellationTokenSource? _activeStepCancellation;
     private TaskCompletionSource<bool>? _resumeSignal;
     private bool _isPaused;
+    private bool _isForegroundPaused;
 
     public event EventHandler<IndexStatusSnapshot>? StatusChanged;
 
@@ -62,57 +64,20 @@ public sealed class IndexService : IIndexService, IDisposable
 
     public IndexStatusSnapshot GetStatus() => Volatile.Read(ref _status);
 
-    public void PauseIndexing()
-    {
-        lock (_operationStateLock)
-        {
-            if (_activeOperationCancellation is null || _isPaused)
-            {
-                return;
-            }
+    public void PauseIndexing() => SetPauseState(true, foreground: false);
 
-            _isPaused = true;
-            _resumeSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        }
+    public void ResumeIndexing() => SetPauseState(false, foreground: false);
 
-        UpdateStatus(status => status with { IsPaused = true });
-    }
-
-    public void ResumeIndexing()
-    {
-        TaskCompletionSource<bool>? resumeSignal;
-        lock (_operationStateLock)
-        {
-            if (!_isPaused)
-            {
-                return;
-            }
-
-            _isPaused = false;
-            resumeSignal = _resumeSignal;
-            _resumeSignal = null;
-        }
-
-        resumeSignal?.TrySetResult(true);
-        if (GetStatus().IsRebuilding)
-        {
-            UpdateStatus(status => status with { IsPaused = false });
-        }
-    }
+    public void SetForegroundPause(bool paused) => SetPauseState(paused, foreground: true);
 
     public void CancelIndexing()
     {
         CancellationTokenSource? cancellation;
-        TaskCompletionSource<bool>? resumeSignal;
         lock (_operationStateLock)
         {
             cancellation = _activeOperationCancellation;
-            _isPaused = false;
-            resumeSignal = _resumeSignal;
-            _resumeSignal = null;
         }
 
-        resumeSignal?.TrySetResult(true);
         try
         {
             cancellation?.Cancel();
@@ -120,6 +85,47 @@ public sealed class IndexService : IIndexService, IDisposable
         catch (ObjectDisposedException)
         {
             // The operation completed while the cancellation request was being issued.
+        }
+        SetPauseState(false, foreground: false);
+    }
+
+    private void SetPauseState(bool paused, bool foreground)
+    {
+        TaskCompletionSource<bool>? resumeSignal = null;
+        CancellationTokenSource? stepCancellation = null;
+        bool effectivePause;
+        lock (_operationStateLock)
+        {
+            if (foreground)
+            {
+                if (_isForegroundPaused == paused) return;
+                _isForegroundPaused = paused;
+            }
+            else
+            {
+                if (_isPaused == paused || (paused && _activeOperationCancellation is null)) return;
+                _isPaused = paused;
+            }
+
+            effectivePause = _isPaused || _isForegroundPaused;
+            if (effectivePause && _resumeSignal is null)
+            {
+                _resumeSignal = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                stepCancellation = _activeStepCancellation;
+            }
+            else if (!effectivePause && _resumeSignal is not null)
+            {
+                resumeSignal = _resumeSignal;
+                _resumeSignal = null;
+            }
+        }
+
+        try { stepCancellation?.Cancel(); }
+        catch (ObjectDisposedException) { }
+        resumeSignal?.TrySetResult(true);
+        if (GetStatus().IsRebuilding)
+        {
+            UpdateStatus(status => status with { IsPaused = effectivePause });
         }
     }
 
@@ -708,7 +714,7 @@ public sealed class IndexService : IIndexService, IDisposable
             UpdateStatus(status => status with
             {
                 IsRebuilding = true,
-                IsPaused = false,
+                IsPaused = IsPauseRequested,
                 FailedImages = 0,
                 ProcessingImages = 0,
                 TotalFileItems = 0,
@@ -718,7 +724,7 @@ public sealed class IndexService : IIndexService, IDisposable
                 LastError = null
             });
             await WaitIfPausedAsync(operationToken);
-            await _store.ResetAsync(operationToken);
+            await RunPausableStepAsync(_store.ResetAsync, operationToken);
         }
         catch (OperationCanceledException) when (operationCancellation.IsCancellationRequested)
         {
@@ -762,7 +768,7 @@ public sealed class IndexService : IIndexService, IDisposable
             UpdateStatus(status => status with
             {
                 IsRebuilding = true,
-                IsPaused = false,
+                IsPaused = IsPauseRequested,
                 TotalFileItems = 0,
                 CompletedFileItems = 0,
                 CurrentOperation = rebuild ? "正在准备重建索引" : "正在准备更新索引",
@@ -774,21 +780,23 @@ public sealed class IndexService : IIndexService, IDisposable
             {
                 await WaitIfPausedAsync(operationToken);
                 UpdateStatus(status => status with { CurrentOperation = "正在重建拼音索引", CurrentItem = null });
-                await RebuildPinyinSearcherAsync(operationToken);
+                await RunPausableStepAsync(RebuildPinyinSearcherAsync, operationToken);
             }
 
             if (rebuild && indexDocuments)
             {
                 await WaitIfPausedAsync(operationToken);
                 UpdateStatus(status => status with { CurrentOperation = "正在清空文本索引", CurrentItem = null });
-                await _store.ClearAsync(IndexRebuildScope.Documents, operationToken);
+                await RunPausableStepAsync(
+                    token => _store.ClearAsync(IndexRebuildScope.Documents, token), operationToken);
             }
 
             if (rebuild && indexImages)
             {
                 await WaitIfPausedAsync(operationToken);
                 UpdateStatus(status => status with { CurrentOperation = "正在清空图片索引", CurrentItem = null });
-                await _store.ClearAsync(IndexRebuildScope.Images, operationToken);
+                await RunPausableStepAsync(
+                    token => _store.ClearAsync(IndexRebuildScope.Images, token), operationToken);
             }
 
             if (indexDocuments || indexImages)
@@ -856,12 +864,21 @@ public sealed class IndexService : IIndexService, IDisposable
             }
 
             _isPaused = false;
-            resumeSignal = _resumeSignal;
-            _resumeSignal = null;
+            _activeStepCancellation = null;
+            resumeSignal = _isForegroundPaused ? null : _resumeSignal;
+            if (!_isForegroundPaused) _resumeSignal = null;
         }
 
         resumeSignal?.TrySetResult(true);
         operationCancellation.Dispose();
+    }
+
+    private bool IsPauseRequested
+    {
+        get
+        {
+            lock (_operationStateLock) return _isPaused || _isForegroundPaused;
+        }
     }
 
     private async Task WaitIfPausedAsync(CancellationToken cancellationToken)
@@ -871,7 +888,7 @@ public sealed class IndexService : IIndexService, IDisposable
             Task? resumeTask;
             lock (_operationStateLock)
             {
-                if (!_isPaused)
+                if (!_isPaused && !_isForegroundPaused)
                 {
                     break;
                 }
@@ -883,6 +900,43 @@ public sealed class IndexService : IIndexService, IDisposable
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    internal async Task RunPausableStepAsync(Func<CancellationToken, Task> step, CancellationToken operationToken)
+    {
+        while (true)
+        {
+            await WaitIfPausedAsync(operationToken);
+            using var stepCancellation = CancellationTokenSource.CreateLinkedTokenSource(operationToken);
+            bool pauseRequested;
+            lock (_operationStateLock)
+            {
+                _activeStepCancellation = stepCancellation;
+                pauseRequested = _isPaused || _isForegroundPaused;
+            }
+
+            try
+            {
+                if (pauseRequested) stepCancellation.Cancel();
+                stepCancellation.Token.ThrowIfCancellationRequested();
+                await step(stepCancellation.Token);
+                stepCancellation.Token.ThrowIfCancellationRequested();
+                return;
+            }
+            catch (OperationCanceledException) when (!operationToken.IsCancellationRequested
+                                                    && stepCancellation.IsCancellationRequested)
+            {
+                // The current step is retried after the pause; completed writes are idempotent.
+            }
+            finally
+            {
+                lock (_operationStateLock)
+                {
+                    if (ReferenceEquals(_activeStepCancellation, stepCancellation))
+                        _activeStepCancellation = null;
+                }
+            }
+        }
     }
 
     private sealed record ImageIndexWorkItem(
@@ -1150,7 +1204,9 @@ public sealed class IndexService : IIndexService, IDisposable
                 });
                 if (documentEmbeddingService is not null)
                 {
-                    await IndexDocumentVectorAsync(path, force, documentEmbeddingService, cancellationToken);
+                    await RunPausableStepAsync(
+                        token => IndexDocumentVectorAsync(path, force, documentEmbeddingService, token),
+                        cancellationToken);
                 }
 
                 MarkCompleted();
@@ -1173,7 +1229,11 @@ public sealed class IndexService : IIndexService, IDisposable
             });
             try
             {
-                var workItem = await PrepareImageIndexAsync(path, force, cancellationToken);
+                ImageIndexWorkItem workItem = null!;
+                await RunPausableStepAsync(async token =>
+                {
+                    workItem = await PrepareImageIndexAsync(path, force, token);
+                }, cancellationToken);
                 if (!workItem.NeedsImageVector
                     && !workItem.NeedsOcr
                     && FileStateMatches(workItem.Existing, workItem.Fingerprint))
@@ -1203,7 +1263,10 @@ public sealed class IndexService : IIndexService, IDisposable
             var failedVectorItems = new HashSet<string>(EntryKeyComparer);
             try
             {
-                failedVectorItems = await IndexImageVectorBatchAsync(batch, cancellationToken);
+                await RunPausableStepAsync(async token =>
+                {
+                    failedVectorItems = await IndexImageVectorBatchAsync(batch, token);
+                }, cancellationToken);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -1238,7 +1301,7 @@ public sealed class IndexService : IIndexService, IDisposable
 
                 try
                 {
-                    await IndexImageOcrAsync(item, cancellationToken);
+                    await RunPausableStepAsync(token => IndexImageOcrAsync(item, token), cancellationToken);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
@@ -1396,27 +1459,25 @@ public sealed class IndexService : IIndexService, IDisposable
         var entries = GetGenericTextEntriesSnapshot();
         foreach (var batch in entries.Chunk(32))
         {
-            await WaitIfPausedAsync(cancellationToken);
-            var pending = new List<string>(batch.Length);
-            var contents = new List<string>(batch.Length);
-            foreach (var item in batch)
+            await RunPausableStepAsync(async token =>
             {
-                if (!await _store.HasTextVectorAsync(item.OnlyKey, embeddingService.ModelId, cancellationToken))
+                var pending = new List<string>(batch.Length);
+                var contents = new List<string>(batch.Length);
+                foreach (var item in batch)
                 {
-                    pending.Add(item.OnlyKey);
-                    contents.Add(CreateTextContent(item));
+                    if (!await _store.HasTextVectorAsync(item.OnlyKey, embeddingService.ModelId, token))
+                    {
+                        pending.Add(item.OnlyKey);
+                        contents.Add(CreateTextContent(item));
+                    }
                 }
-            }
 
-            if (pending.Count == 0) continue;
-            var vectors = await embeddingService.EmbedAsync(
-                contents,
-                BgeOnnxEmbeddingService.MetadataMaximumTokens,
-                cancellationToken);
-            for (var index = 0; index < pending.Count; index++)
-            {
-                await _store.UpsertTextAsync(pending[index], embeddingService.ModelId, vectors[index], cancellationToken);
-            }
+                if (pending.Count == 0) return;
+                var vectors = await embeddingService.EmbedAsync(
+                    contents, BgeOnnxEmbeddingService.MetadataMaximumTokens, token);
+                for (var index = 0; index < pending.Count; index++)
+                    await _store.UpsertTextAsync(pending[index], embeddingService.ModelId, vectors[index], token);
+            }, cancellationToken);
         }
     }
 

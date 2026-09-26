@@ -135,7 +135,7 @@ internal sealed class BgeOnnxEmbeddingService : IDisposable
                     ("attention_mask", new Memory<int>([texts.Count, sequenceLength]), attentionMask.AsMemory(0, inputLength)),
                     ("token_type_ids", new Memory<int>([texts.Count, sequenceLength]), tokenTypeIds.AsMemory(0, inputLength))
                 ],
-                SentenceEmbeddingOutputName), cancellationToken);
+                SentenceEmbeddingOutputName, cancellationToken), cancellationToken);
 
             if (output.Length != texts.Count * EmbeddingDimensions)
             {

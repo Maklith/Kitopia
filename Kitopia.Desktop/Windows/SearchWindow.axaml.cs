@@ -30,6 +30,8 @@ public partial class SearchWindow : Window
         Topmost = false;
         #endif
         dataGrid.PropertyChanged += DataGridOnPropertyChanged;
+        FilePreviewSurface.CloseRequested += () =>
+            (DataContext as SearchWindowViewModel)?.ClosePreviewMode();
     }
 
     private void DataGridOnPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)

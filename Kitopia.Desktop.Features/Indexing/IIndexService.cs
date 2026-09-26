@@ -72,6 +72,8 @@ public interface IIndexService : ISearchEntryIndex
 
     void ResumeIndexing();
 
+    void SetForegroundPause(bool paused);
+
     void CancelIndexing();
 }
 

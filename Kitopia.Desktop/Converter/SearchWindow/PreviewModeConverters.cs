@@ -13,7 +13,7 @@ public sealed class PreviewModeToGridLengthConverter : IValueConverter
         var isPreviewMode = value is true;
         return parameter switch
         {
-            "List" => isPreviewMode ? new GridLength(360) : GridLength.Star,
+            "List" => isPreviewMode ? new GridLength(300) : GridLength.Star,
             "Divider" => isPreviewMode ? new GridLength(1) : new GridLength(0),
             "Preview" => isPreviewMode ? GridLength.Star : new GridLength(0),
             _ => throw new ArgumentOutOfRangeException(nameof(parameter), parameter, null)

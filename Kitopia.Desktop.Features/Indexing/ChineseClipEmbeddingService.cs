@@ -112,7 +112,8 @@ internal sealed class ChineseClipEmbeddingService : IDisposable
             Marshal.Copy(blob.Data, input, 0, inputLength);
 
             var output = await Task.Run(() => _imageSession!.Infer(
-                [("image", new Memory<int>([paths.Count, 3, 224, 224]), input.AsMemory(0, inputLength))]), cancellationToken);
+                [("image", new Memory<int>([paths.Count, 3, 224, 224]), input.AsMemory(0, inputLength))],
+                cancellationToken), cancellationToken);
             const int dimensions = 1024;
             if (output.Length != paths.Count * dimensions)
             {
