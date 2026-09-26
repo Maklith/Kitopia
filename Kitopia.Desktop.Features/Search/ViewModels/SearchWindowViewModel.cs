@@ -60,6 +60,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     [ObservableProperty] private bool _canUsePreview;
     [ObservableProperty] private bool? _previewModeOverride;
     public MouseQuickWindowViewModel FilePreview { get; } = new();
+    private SearchViewItem? _lastClickedPreviewItem;
 
 
     [ObservableProperty] private bool _nowInSelectMode;
@@ -107,6 +108,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
     partial void OnSelectedItemChanged(SearchViewItem? value)
     {
+        _lastClickedPreviewItem = null;
         UpdatePreview(value);
     }
 
@@ -672,6 +674,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         }
         else
         {
+            _lastClickedPreviewItem = null;
             UpdatePreview(null);
         }
     }
@@ -687,8 +690,29 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         if (FilePreview.SelectedPath == item.OnlyKey) return;
         _ = FilePreview.SetFilesAsync([item.OnlyKey]);
     }
+    public void ClickItem(SearchViewItem item)
+    {
+        if (IsPreviewMode && SearchDisplayPolicy.IsPreviewCandidate(item))
+        {
+            if (ReferenceEquals(item, _lastClickedPreviewItem) && ReferenceEquals(item, SelectedItem))
+            {
+                _lastClickedPreviewItem = null;
+                OpenFile(item);
+                return;
+            }
+
+            SelectedItem = item;
+            _lastClickedPreviewItem = item;
+            return;
+        }
+
+        _lastClickedPreviewItem = null;
+        OpenFile(item);
+    }
+
     public void ActivateItem(SearchViewItem? item)
     {
+        _lastClickedPreviewItem = null;
         if (item is not null && IsPreviewMode && SearchDisplayPolicy.IsPreviewCandidate(item))
         {
             SelectedItem = item;

@@ -197,7 +197,6 @@
                          ItemsSource="{Binding ItemsViewList,Mode=OneWay }"
                          SelectedItem="{Binding SelectedItem,Mode=TwoWay}"
                          KeyDown="DataGrid_OnKeyDown"
-                         PointerMoved="DataGrid_OnPointerMoved"
                          BorderThickness="0"
                          Background="Transparent"
                          MinHeight="0">

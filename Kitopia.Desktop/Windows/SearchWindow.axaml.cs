@@ -145,13 +145,6 @@ public partial class SearchWindow : Window
             tx.Focus();
     }
 
-    private void DataGrid_OnPointerMoved(object? sender, PointerEventArgs e)
-    {
-        var listBoxItem = dataGrid.GetVisualAt<ListBoxItem>(e.GetCurrentPoint(dataGrid)
-            .Position);
-        if (listBoxItem != null) listBoxItem.IsSelected = true;
-    }
-
     private void InputElement_OnKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Escape) return;
@@ -168,10 +161,10 @@ public partial class SearchWindow : Window
 
     private void SearchItem_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: SearchViewItem item }
+        if (ReferenceEquals(sender, e.Source) && sender is Button { DataContext: SearchViewItem item }
             && DataContext is SearchWindowViewModel viewModel)
         {
-            viewModel.ActivateItem(item);
+            viewModel.ClickItem(item);
         }
     }
 
