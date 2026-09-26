@@ -94,41 +94,13 @@ public partial class TaskNodeSearchViewModel : ObservableObject
 
         foreach (var target in targetConnectors)
         {
-             if (CheckCompatibility(_sourceConnector, target))
+             if (ScenarioGraph.CanConnect(_sourceConnector, target))
              {
                  return true;
              }
         }
 
         return false;
-    }
-
-    private bool CheckCompatibility(ConnectorItem source, ConnectorItem target)
-    {
-        if (target == null) return false;
-        
-        if (source.ConnectorType != ConnectorType.Both && source.ConnectorType == target.ConnectorType)
-        {
-            return false; 
-        }
-
-        if (source.InputObject.ShowType.FullName != target.InputObject.ShowType.FullName)
-        {
-            if (target.InputObject.ShowType.FullName == "System.Object" || 
-                source.InputObject.ShowType.FullName == "System.Object")
-            {
-                return true;
-            }
-
-            if (target.InputObject.ShowType.IsAssignableFrom(source.InputObject.ShowType))
-            {
-                return true;
-            }
-            
-            return false;
-        }
-
-        return true;
     }
 
     private void FilterNodes()
@@ -155,8 +127,8 @@ public partial class TaskNodeSearchViewModel : ObservableObject
                 foreach (var item in items)
                 {
                     var wrapper = new NodeSearchItemViewModel(item);
-                    var inputs = string.Join(", ", item.Input.Skip(1).Select(i => i.InputObject.ShowType.Name));
-                    var outputs = string.Join(", ", item.Output.Select(o => o.InputObject.ShowType.Name));
+                    var inputs = string.Join(", ", item.Input.Skip(1).Select(i => i.InputObject.SerializeType.Name));
+                    var outputs = string.Join(", ", item.Output.Select(o => o.InputObject.SerializeType.Name));
                     
                     if (string.IsNullOrEmpty(inputs)) inputs = "None";
                     if (string.IsNullOrEmpty(outputs)) outputs = "None";
@@ -199,7 +171,7 @@ public partial class TaskNodeSearchViewModel : ObservableObject
 
         foreach (var target in candidates)
         {
-            if (CheckCompatibility(_sourceConnector, target))
+            if (ScenarioGraph.CanConnect(_sourceConnector, target))
             {
                 bestTarget = target;
                 break;
@@ -210,10 +182,7 @@ public partial class TaskNodeSearchViewModel : ObservableObject
         
         if (bestTarget != null)
         {
-             if (_sourceConnector.ConnectorType == ConnectorType.Input)
-                 _editorViewModel.Connect(bestTarget, _sourceConnector);
-             else
-                 _editorViewModel.Connect(_sourceConnector, bestTarget);
+             _editorViewModel.Connect(_sourceConnector, bestTarget);
         }
         
         CloseAction?.Invoke();

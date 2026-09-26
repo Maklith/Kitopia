@@ -5,6 +5,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
+using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.JsonConverter;
@@ -70,6 +71,30 @@ public class ConfigManger : IConfigService, IConfigProvider
 
     private static readonly Dictionary<string, (ConfigBase Config, FieldInfo Field)> hotkeysMappings = new();
     private static readonly HashSet<string> UnsupportedConfigKeys = new(StringComparer.Ordinal);
+    private static readonly HashSet<string> RecoveredConfigKeys = new(StringComparer.Ordinal);
+    private static readonly HashSet<string> BackupLoadedConfigKeys = new(StringComparer.Ordinal);
+    private static readonly object SaveGate = new();
+
+    private static void NotifyConfigIssue(string key, string message, NotificationType type)
+    {
+        try
+        {
+            var toast = ServiceManager.Services?.GetService<IToastService>();
+            if (toast is null) return;
+
+            _ = toast.Show(new ToastRequest
+            {
+                Header = "配置异常",
+                Text = $"{key}：{message}",
+                NotificationType = type,
+                AutoCloseDelay = null
+            });
+        }
+        catch (Exception exception)
+        {
+            Logger.Warning(exception, "无法显示配置 {Key} 的异常提示", key);
+        }
+    }
 
     public static JsonSerializerOptions DefaultOptions = new()
     {
@@ -88,7 +113,21 @@ public class ConfigManger : IConfigService, IConfigProvider
 
     public static void Init()
     {
-        Directory.CreateDirectory(KitopiaPaths.ConfigsDirectory);
+        try
+        {
+            Directory.CreateDirectory(KitopiaPaths.ConfigsDirectory);
+        }
+        catch (Exception exception)
+        {
+            Logger.Error(exception, "无法访问配置目录");
+            NotifyConfigIssue("配置目录", "无法访问配置目录，请检查目录权限或磁盘状态。", NotificationType.Error);
+            throw;
+        }
+        if (KitopiaPaths.ConfigMigrationError is { } migrationError)
+        {
+            Logger.Warning(migrationError, "旧配置目录迁移失败");
+            NotifyConfigIssue("配置目录", "旧配置迁移失败，部分设置可能无法加载；请检查日志和配置目录。", NotificationType.Warning);
+        }
 
         RemoveConfig("KitopiaConfig");
         LoadConfig("KitopiaConfig", new KitopiaConfig(), useDefaultsOnInvalidJson: true);
@@ -171,29 +210,65 @@ public class ConfigManger : IConfigService, IConfigProvider
 
     internal static ConfigBase LoadConfig(string key, ConfigBase defaults, bool useDefaultsOnInvalidJson = false)
     {
+        RecoveredConfigKeys.Remove(key);
+        BackupLoadedConfigKeys.Remove(key);
         defaults.Name = key;
         var filePath = KitopiaPaths.GetConfigFilePath(key);
         var config = defaults;
-        if (File.Exists(filePath))
+        if (File.Exists(filePath) || File.Exists(filePath + ".bak"))
         {
             JsonDocument? document = null;
+            var mainMissing = !File.Exists(filePath);
+            var loadedBackup = false;
+            var backupAttempted = false;
+            var restoreFailed = false;
             try
             {
                 try
                 {
+                    if (mainMissing)
+                        throw new JsonException($"配置 {key} 主文件不存在。");
+
+                    document = JsonDocument.Parse(File.ReadAllText(filePath));
+                    config = (ConfigBase?)document.RootElement.Deserialize(defaults.GetType(), DefaultOptions)
+                             ?? throw new JsonException($"配置 {key} 不能为空。");
+                }
+                catch (JsonException) when (File.Exists(filePath + ".bak"))
+                {
+                    backupAttempted = true;
+                    document?.Dispose();
+                    document = null;
                     try
                     {
-                        document = JsonDocument.Parse(File.ReadAllText(filePath));
-                        config = (ConfigBase?)document.RootElement.Deserialize(defaults.GetType(), DefaultOptions)
-                                 ?? throw new JsonException($"配置 {key} 不能为空。");
-                    }
-                    catch (JsonException) when (File.Exists(filePath + ".bak"))
-                    {
-                        document?.Dispose();
                         document = JsonDocument.Parse(File.ReadAllText(filePath + ".bak"));
                         config = (ConfigBase?)document.RootElement.Deserialize(defaults.GetType(), DefaultOptions)
                                  ?? throw new JsonException($"配置 {key} 的备份不能为空。");
-                        Logger.Warning("配置 {Key} 无法解析，已加载备份，原文件保留至下次保存", key);
+                        BackupLoadedConfigKeys.Add(key);
+                        loadedBackup = true;
+                        Logger.Warning("配置 {Key} 主文件不可用，已加载备份", key);
+                        if (mainMissing)
+                        {
+                            try
+                            {
+                                File.Copy(filePath + ".bak", filePath);
+                                Logger.Information("配置 {Key} 已从备份恢复主文件", key);
+                            }
+                            catch (Exception exception)
+                            {
+                                restoreFailed = true;
+                                Logger.Warning(exception, "配置 {Key} 无法恢复主文件，继续使用备份", key);
+                            }
+                        }
+                    }
+                    catch (JsonException exception) when (useDefaultsOnInvalidJson)
+                    {
+                        document?.Dispose();
+                        document = null;
+                        config = defaults;
+                        config.ConfigVersion = config.CurrentConfigVersion;
+                        RecoveredConfigKeys.Add(key);
+                        Logger.Error(exception, "配置 {Key} 和备份无法解析，本次使用默认值，保留原文件", key);
+                        NotifyConfigIssue(key, "主文件和备份均无法读取，当前仅使用内存默认值，已暂停保存。请检查配置文件。", NotificationType.Error);
                     }
                 }
                 catch (JsonException exception) when (useDefaultsOnInvalidJson)
@@ -202,18 +277,61 @@ public class ConfigManger : IConfigService, IConfigProvider
                     document = null;
                     config = defaults;
                     config.ConfigVersion = config.CurrentConfigVersion;
+                    RecoveredConfigKeys.Add(key);
                     Logger.Error(exception, "配置 {Key} 和备份无法解析，本次使用默认值，保留原文件", key);
+                    NotifyConfigIssue(key, "主文件无法读取且没有可用备份，当前仅使用内存默认值，已暂停保存。请检查配置文件。", NotificationType.Error);
                 }
                 config.Name = key;
                 // Migration and plugin callbacks are outside JSON recovery: their failures must not replace user data.
                 if (document is not null) MigrateConfig(key, document.RootElement, config);
+                if (loadedBackup)
+                {
+                    var message = mainMissing
+                        ? restoreFailed
+                            ? "主文件缺失，已从备份加载，但恢复主文件失败；请检查磁盘权限。"
+                            : "主文件缺失，已从备份恢复。"
+                        : "主文件损坏，已从备份加载；下次保存会修复主文件，并保留有效备份。";
+                    NotifyConfigIssue(key, message, NotificationType.Warning);
+                }
+                else if (document is not null && File.Exists(filePath + ".bak"))
+                {
+                    try
+                    {
+                        using var backup = JsonDocument.Parse(File.ReadAllText(filePath + ".bak"));
+                        _ = backup.RootElement.Deserialize(defaults.GetType(), DefaultOptions)
+                            ?? throw new JsonException($"配置 {key} 的备份不能为空。");
+                    }
+                    catch (Exception exception)
+                    {
+                        Logger.Warning(exception, "配置 {Key} 的备份无法读取，主文件仍可用", key);
+                        NotifyConfigIssue(key, "备份文件损坏或无法读取，主文件仍可用；请检查备份文件。", NotificationType.Error);
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                Logger.Error(exception, "加载配置 {Key} 失败", key);
+                var message = backupAttempted && !loadedBackup
+                    ? "主文件和备份均无法读取，配置未加载；原文件未覆盖，请检查日志。"
+                    : "配置加载失败，原文件未覆盖；请检查日志和配置文件。";
+                NotifyConfigIssue(key, message, NotificationType.Error);
+                throw;
             }
             finally { document?.Dispose(); }
         }
         else
         {
             config.ConfigVersion = config.CurrentConfigVersion;
-            WriteConfigFile(key, config);
+            Logger.Information("配置 {Key} 主文件和备份均不存在，创建默认配置：{Path}", key, filePath);
+            try { WriteConfigFile(key, config); }
+            catch (Exception exception)
+            {
+                Logger.Error(exception, "创建配置 {Key} 失败", key);
+                NotifyConfigIssue(key, "创建默认配置失败，请检查磁盘空间或目录权限。", NotificationType.Error);
+                throw;
+            }
+            if (useDefaultsOnInvalidJson)
+                NotifyConfigIssue(key, "未找到主文件和备份，已创建默认配置。如非首次使用，请检查配置目录。", NotificationType.Warning);
         }
 
         Configs.Add(key, config);
@@ -239,9 +357,11 @@ public class ConfigManger : IConfigService, IConfigProvider
                     hotkeysMappings.Add(model.UUID, (config, field));
             return config;
         }
-        catch
+        catch (Exception exception)
         {
             RemoveConfig(key);
+            Logger.Error(exception, "初始化配置 {Key} 失败", key);
+            NotifyConfigIssue(key, "配置初始化失败，请检查日志；原文件未覆盖。", NotificationType.Error);
             throw;
         }
     }
@@ -263,6 +383,8 @@ public class ConfigManger : IConfigService, IConfigProvider
 
             Logger.Warning("配置版本 {ConfigVersion} 高于当前版本 {CurrentConfigVersion}，跳过迁移",
                 config.ConfigVersion, config.CurrentConfigVersion);
+            if (key is not null)
+                NotifyConfigIssue(key, "配置来自更新版本，已跳过迁移和保存，以免覆盖未知数据。", NotificationType.Warning);
             return;
         }
 
@@ -293,10 +415,13 @@ public class ConfigManger : IConfigService, IConfigProvider
             {
                 try
                 {
-                    File.Replace(temporaryPath, configFile.FullName, backupPath, true);
+                    File.Replace(temporaryPath, configFile.FullName,
+                        BackupLoadedConfigKeys.Contains(key) ? null : backupPath, true);
                 }
                 catch (PlatformNotSupportedException)
                 {
+                    if (!BackupLoadedConfigKeys.Contains(key))
+                        File.Copy(configFile.FullName, backupPath, true);
                     File.Move(temporaryPath, configFile.FullName, true);
                 }
             }
@@ -304,6 +429,7 @@ public class ConfigManger : IConfigService, IConfigProvider
             {
                 File.Move(temporaryPath, configFile.FullName);
             }
+            BackupLoadedConfigKeys.Remove(key);
         }
         finally
         {
@@ -315,7 +441,10 @@ public class ConfigManger : IConfigService, IConfigProvider
     private static void SaveConfigFile(string key, ConfigBase configBase)
     {
         if (configBase.ConfigVersion > configBase.CurrentConfigVersion)
-            UnsupportedConfigKeys.Add(key);
+        {
+            if (UnsupportedConfigKeys.Add(key))
+                NotifyConfigIssue(key, "配置来自更新版本，已跳过保存，以免覆盖未知数据。", NotificationType.Warning);
+        }
 
         if (UnsupportedConfigKeys.Contains(key))
         {
@@ -323,9 +452,24 @@ public class ConfigManger : IConfigService, IConfigProvider
             return;
         }
 
-        configBase.BeforeSave();
-        WriteConfigFile(key, configBase);
-        configBase.AfterSave();
+        if (RecoveredConfigKeys.Contains(key))
+        {
+            Logger.Warning("配置 {Key} 仅使用了内存默认值，跳过保存以保留损坏文件", key);
+            return;
+        }
+
+        try
+        {
+            configBase.BeforeSave();
+            WriteConfigFile(key, configBase);
+            configBase.AfterSave();
+        }
+        catch (Exception exception)
+        {
+            Logger.Error(exception, "保存配置 {Key} 失败", key);
+            NotifyConfigIssue(key, "保存配置时发生异常，最新更改可能未写入；请检查日志。", NotificationType.Error);
+            throw;
+        }
     }
 
     public static void RemoveConfig(string key)
@@ -339,6 +483,8 @@ public class ConfigManger : IConfigService, IConfigProvider
                 hotkeysMappings.Remove(uuid);
             Configs.Remove(name);
             UnsupportedConfigKeys.Remove(name);
+            RecoveredConfigKeys.Remove(name);
+            BackupLoadedConfigKeys.Remove(name);
         }
     }
 
@@ -358,11 +504,14 @@ public class ConfigManger : IConfigService, IConfigProvider
 
     public static void Save()
     {
-        var keyCollection = Configs.Keys.ToList();
-        foreach (var configsKey in keyCollection)
+        lock (SaveGate)
         {
-            var configBase = Configs[configsKey];
-            SaveConfigFile(configsKey, configBase);
+            var keyCollection = Configs.Keys.ToList();
+            foreach (var configsKey in keyCollection)
+            {
+                var configBase = Configs[configsKey];
+                SaveConfigFile(configsKey, configBase);
+            }
         }
 
         WeakReferenceMessenger.Default.Send<string, string>("ConfigSave", "ConfigSave");
@@ -373,16 +522,19 @@ public class ConfigManger : IConfigService, IConfigProvider
         if (string.IsNullOrWhiteSpace(key))
         {
             Logger.Warning("尝试保存配置但 key 为 null 或空，跳过保存");
+            NotifyConfigIssue("未知配置", "保存请求缺少配置标识，已跳过保存。", NotificationType.Warning);
             return;
         }
 
         if (!Configs.TryGetValue(key, out var configBase))
         {
             Logger.Warning("未找到 key 为 {Key} 的配置，跳过保存", key);
+            NotifyConfigIssue(key, "配置尚未加载，已跳过保存。", NotificationType.Warning);
             return;
         }
 
-        SaveConfigFile(key, configBase);
+        lock (SaveGate)
+            SaveConfigFile(key, configBase);
         WeakReferenceMessenger.Default.Send<string, string>("ConfigSave", "ConfigSave");
     }
 

@@ -222,7 +222,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
     private void OnRootScenarioMethodCategoryGroupOnPropertyChanged(object? o,
         PropertyChangedEventArgs propertyChangedEventArgs)
     {
-        OnPropertyChanged();
+        OnPropertyChanged(nameof(ScenarioMethodCategoryGroup));
     }
 
     [RelayCommand]
@@ -334,9 +334,11 @@ public partial class TaskEditorViewModel : ObservableRecipient
     {
         CleanUnusedNode();
 
-        IsModified = false;
-        CustomScenarioManger.Save(Scenario);
-        OnPropertyChanged(nameof(IsSaveInLocal));
+        if (CustomScenarioManger.Save(Scenario))
+        {
+            IsModified = false;
+            OnPropertyChanged(nameof(IsSaveInLocal));
+        }
     }
 
     [RelayCommand(CanExecute = nameof(IsModified))]
@@ -353,10 +355,12 @@ public partial class TaskEditorViewModel : ObservableRecipient
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    CustomScenarioManger.Save(Scenario);
-                    OnPropertyChanged(nameof(IsSaveInLocal));
-                    IsModified = false;
-                    window.Close();
+                    if (CustomScenarioManger.Save(Scenario))
+                    {
+                        OnPropertyChanged(nameof(IsSaveInLocal));
+                        IsModified = false;
+                        window.Close();
+                    }
                 });
             }
         };
@@ -405,7 +409,12 @@ public partial class TaskEditorViewModel : ObservableRecipient
     private void Load(object window)
     {
         _window = (Window)window;
+        _window.Closed -= Window_Closed;
         _window.Closed += Window_Closed;
+        ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.PropertyChanged -=
+            OnRootScenarioMethodCategoryGroupOnPropertyChanged;
+        ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.PropertyChanged +=
+            OnRootScenarioMethodCategoryGroupOnPropertyChanged;
     }
 
     private void Window_Closed(object? sender, EventArgs e)
@@ -434,11 +443,11 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 {
                     Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        CustomScenarioManger.Save(Scenario);
-                        IsModified = false;
-
-
-                        _window.Close();
+                        if (CustomScenarioManger.Save(Scenario))
+                        {
+                            IsModified = false;
+                            _window.Close();
+                        }
                     });
                 },
                 SecondaryAction = () =>
@@ -461,6 +470,9 @@ public partial class TaskEditorViewModel : ObservableRecipient
 
     public void Connect(ConnectorItem source, ConnectorItem target, bool toFirstVerify = true)
     {
+        if (!ScenarioGraph.CanConnect(source, target)) return;
+        if (source.ConnectorType == ConnectorType.Input || target.ConnectorType == ConnectorType.Output)
+            (source, target) = (target, source);
         if (ScenarioGraph.WouldCreateCycle(Scenario.Connections, source, target)) return;
         if (source.IsConnected)
             if (Scenario.Connections
@@ -532,8 +544,8 @@ public partial class TaskEditorViewModel : ObservableRecipient
             Source = knot,
             InputObject = new CustomScenarioValue
             {
-                SerializeType = typeof(object),
-                ShowType = typeof(object),
+                SerializeType = connection.Source.InputObject.SerializeType,
+                ShowType = connection.Source.InputObject.ShowType,
                 Value = null
             }
         };

@@ -1,7 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Config;
+using PluginCore.CustomScenario;
 using PluginCore.CustomScenario.Attribute.ConfigField;
+using PluginCore.CustomScenario.Attribute.Scenario;
 
 namespace PluginLifecycle;
 
@@ -22,6 +24,11 @@ public sealed class FixtureConfig : ConfigBase
 
 public sealed class LifecyclePlugin(FixtureConfig config) : IPlugin
 {
+    [ScenarioMethod("Direct fixture method")]
+    public void DirectScenarioMethod(CancellationToken cancellationToken) { }
+
+    public void UnmarkedScenarioMethod(CancellationToken cancellationToken) { }
+
     public static IServiceProvider GetServiceProvider()
     {
         var config = Kitopia.ServiceProvider.GetRequiredService<IConfigProvider>().Get<FixtureConfig>();
@@ -44,6 +51,28 @@ public sealed class LifecyclePlugin(FixtureConfig config) : IPlugin
         config.Record("stopped");
         if (config.FailureStage == "disable") throw new InvalidOperationException("disable failure");
     }
+}
+
+[ScenarioMethodCategory("LifecycleFixture", true)]
+public sealed class TopScenarioMethods
+{
+    [ScenarioMethod("Top fixture method")]
+    [ScenarioMethod("Top fixture alias", Id = "top-alias")]
+    public static void TopScenarioMethod(CancellationToken cancellationToken) { }
+
+    [ScenarioMethod("Typed fixture method")]
+    public static void TypedScenarioMethod(FixtureInput input, CancellationToken cancellationToken) { }
+}
+
+public sealed class FixtureInput;
+
+public sealed class FixtureTrigger : CustomScenarioTrigger;
+
+[ScenarioMethodCategory("Kitopia/节点控制", true)]
+public sealed class MixinScenarioMethods
+{
+    [ScenarioMethod("Condition")]
+    public static void MixinScenarioMethod(CancellationToken cancellationToken) { }
 }
 
 public sealed class AsyncResource(FixtureConfig config) : IAsyncDisposable

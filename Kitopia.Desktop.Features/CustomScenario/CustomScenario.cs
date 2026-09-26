@@ -61,7 +61,8 @@ public partial class CustomScenario : ObservableRecipient, IDisposable, IAsyncDi
     [JsonIgnore] [ObservableProperty] private HotKeyModel? _runHotKey;
 
     [JsonIgnore] [ObservableProperty] private HotKeyModel? _stopHotKey;
-    [JsonIgnore] [ObservableProperty] private ObservableDictionary<string, CustomScenarioValue> _tempValue = new();
+    [JsonIgnore] [property: JsonIgnore] [ObservableProperty]
+    private ObservableDictionary<string, CustomScenarioValue> _tempValue = new();
 
 
     [JsonIgnore] [ObservableProperty] private double? _tickIntervalSecond = 5;
@@ -100,6 +101,24 @@ public partial class CustomScenario : ObservableRecipient, IDisposable, IAsyncDi
     }
 
     public ObservableCollection<ConnectionItem> Connections { get; set; } = new();
+
+    [JsonPropertyName(nameof(TempValue))]
+    public ObservableDictionary<string, CustomScenarioValue> PersistedTempValue
+    {
+        get
+        {
+            var definitions = new ObservableDictionary<string, CustomScenarioValue>();
+            foreach (var (name, value) in TempValue)
+                definitions.Add(name, new CustomScenarioValue
+                {
+                    SerializeType = value.SerializeType,
+                    ShowType = value.ShowType,
+                    IsSelf = value.IsSelf
+                });
+            return definitions;
+        }
+        set => TempValue = value ?? new ObservableDictionary<string, CustomScenarioValue>();
+    }
     public event EventHandler Saved;
 
     internal void NotifySaved() {
@@ -296,6 +315,13 @@ public partial class CustomScenario : ObservableRecipient, IDisposable, IAsyncDi
     }
 
     internal bool VerifyGraph() {
+        var missingTrigger = AutoTriggers.FirstOrDefault(trigger => !CustomScenarioGlobe.Triggers.ContainsKey(trigger));
+        if (missingTrigger is not null) {
+            HasInit = false;
+            InitError = $"触发器未找到：{missingTrigger}";
+            return false;
+        }
+
         if (Nodes.Count < 2 || ScenarioGraph.HasCycle(Connections)) {
             HasInit = false;
             InitError = Nodes.Count < 2 ? "情景缺少开始或 Tick 节点" : "情景连接存在循环";
@@ -496,8 +522,13 @@ public partial class CustomScenario : ObservableRecipient, IDisposable, IAsyncDi
     public bool IsUseThePlugin(string plugStr) {
         var pluginManger = ServiceManager.Services.GetService<IPluginManger>()!;
 
-        return Nodes.Any(e => e.IsUseThePlugin(plugStr)) ||
+        return AutoTriggers.Any(trigger => CustomScenarioGlobe.Triggers.TryGetValue(trigger, out var info) &&
+                   info.PluginInfo == plugStr) ||
+               Nodes.Any(e => e.IsUseThePlugin(plugStr)) ||
                InputValue.Any<KeyValuePair<string, CustomScenarioValue>>(e =>
+                   pluginManger.IsTypeFromThePlugin(e.Value.SerializeType, plugStr) ||
+                   pluginManger.IsTypeFromThePlugin(e.Value.ShowType, plugStr)) ||
+               TempValue.Any<KeyValuePair<string, CustomScenarioValue>>(e =>
                    pluginManger.IsTypeFromThePlugin(e.Value.SerializeType, plugStr) ||
                    pluginManger.IsTypeFromThePlugin(e.Value.ShowType, plugStr)) ||
                Values.Any<KeyValuePair<string, CustomScenarioValue>>(e =>

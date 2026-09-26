@@ -33,8 +33,9 @@ public partial class PendingConnectionViewModel : ObservableRecipient
                     break;
                 }
 
-                var source = Source.ConnectorType == ConnectorType.Input ? con : Source;
-                var target = Source.ConnectorType == ConnectorType.Input ? Source : con;
+                var reverse = Source.ConnectorType == ConnectorType.Input || con.ConnectorType == ConnectorType.Output;
+                var source = reverse ? con : Source;
+                var target = reverse ? Source : con;
                 if (ScenarioGraph.WouldCreateCycle(_editor.Scenario.Connections, source, target))
                 {
                     PreviewText = "连接会形成循环";
@@ -47,31 +48,7 @@ public partial class PendingConnectionViewModel : ObservableRecipient
                     break;
                 }
 
-                if (Source.InputObject.ShowType.FullName != con.InputObject.ShowType.FullName)
-                {
-                    if (con.InputObject.ShowType.FullName == "System.Object")
-                    {
-                        PreviewText = "连接";
-                        break;
-                    }
-
-                    if (Source.InputObject.ShowType.FullName == "System.Object")
-                    {
-                        PreviewText = "连接";
-                        break;
-                    }
-
-                    if (con.InputObject.ShowType.IsAssignableFrom(Source.InputObject.ShowType))
-                    {
-                        PreviewText = "连接";
-                        break;
-                    }
-
-                    PreviewText = "类型错误";
-                    break;
-                }
-
-                PreviewText = "连接";
+                PreviewText = ScenarioGraph.CanConnect(source, target) ? "连接" : "类型错误";
 
                 break;
             }
@@ -96,32 +73,7 @@ public partial class PendingConnectionViewModel : ObservableRecipient
             return;
         }
 
-        if (target == Source || target.Source == Source.Source) return;
-
-        if (Source.InputObject.ShowType.FullName != target.InputObject.ShowType.FullName &&
-            !(target.InputObject.ShowType.IsAssignableFrom(Source.InputObject.ShowType) ||
-              Source.InputObject.ShowType.FullName == "System.Object" ||
-              target.InputObject.ShowType.FullName == "System.Object"))
-            return;
-
-        if (Source.ConnectorType != ConnectorType.Both && Source.ConnectorType == target.ConnectorType) return;
-
-        switch (Source.ConnectorType)
-        {
-            case ConnectorType.Input:
-                _editor.Connect(target, Source);
-                break;
-            case ConnectorType.Output:
-                _editor.Connect(Source, target);
-                break;
-            case ConnectorType.Both:
-                _editor.Connect(Source, target);
-                break;
-            case ConnectorType.Custom:
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
+        _editor.Connect(Source, target);
     }
 }
 

@@ -99,6 +99,7 @@ public class Plugin
                          ?? throw new InvalidOperationException($"插件入口 {entryType.FullName} 未注册到服务容器。");
 
         pluginMainScenarioMethodCategoryGroup.Name = PluginInfo.PluginBaseInfo.Name;
+        var hasScenarioMethods = false;
 
         foreach (var type in t)
         {
@@ -110,6 +111,7 @@ public class Plugin
                     ? new CustomScenarioTriggerInfo { Name = $"{PluginInfo.ToPlgString()}_{type.Name}" }
                     : fieldInfo.GetValue(null)!);
                 customScenarioTriggerInfo.PluginInfo = PluginInfo.ToPlgString();
+                customScenarioTriggerInfo.TriggerType = type;
                 CustomScenarioGlobe.Triggers.Add($"{PluginInfo.ToPlgString()}_{type.Name}",
                     customScenarioTriggerInfo);
             }
@@ -136,14 +138,12 @@ public class Plugin
             }
 
 
-            var scenarioMethodCategoryGroup = pluginMainScenarioMethodCategoryGroup;
-            if (type.GetCustomAttribute<ScenarioMethodCategoryAttribute>() is { } scenarioMethodCategoryAttribute)
-                scenarioMethodCategoryGroup =
-                    ScenarioMethodCategoryGroup.GetScenarioMethodCategoryGroupByAttribute(
-                        scenarioMethodCategoryAttribute, pluginMainScenarioMethodCategoryGroup);
+            var scenarioMethodCategoryAttribute = type.GetCustomAttribute<ScenarioMethodCategoryAttribute>();
+            ScenarioMethodCategoryGroup? scenarioMethodCategoryGroup = null;
             foreach (var methodInfo in type.GetMethods())
             {
-                if (methodInfo.GetCustomAttribute<ScenarioMethodAttribute>() is { } scenarioMethodAttribute) //情景的可用节点
+                var scenarioAttributes = methodInfo.GetCustomAttributes<ScenarioMethodAttribute>().ToArray();
+                foreach (var scenarioMethodAttribute in scenarioAttributes)
                 {
                     var parameterInfos = methodInfo.GetParameters();
                     if (parameterInfos.Length == 0) continue;
@@ -154,8 +154,16 @@ public class Plugin
 
                     var scenarioMethodInfo = new ScenarioMethod(methodInfo, PluginInfo, scenarioMethodAttribute,
                         ScenarioMethodType.PluginMethod, ServiceProvider);
-                    scenarioMethodCategoryGroup.Methods.Add(scenarioMethodInfo.MethodTitle,
+                    scenarioMethodCategoryGroup ??= scenarioMethodCategoryAttribute is null
+                        ? pluginMainScenarioMethodCategoryGroup
+                        : ScenarioMethodCategoryGroup.GetScenarioMethodCategoryGroupByAttribute(
+                            scenarioMethodCategoryAttribute, pluginMainScenarioMethodCategoryGroup);
+                    var key = scenarioAttributes.Length == 1
+                        ? scenarioMethodInfo.MethodAbsolutelyName
+                        : $"{scenarioMethodInfo.MethodAbsolutelyName}#{scenarioMethodInfo.MethodId}";
+                    scenarioMethodCategoryGroup.Methods.Add(key,
                         scenarioMethodInfo.GenerateNode());
+                    hasScenarioMethods = true;
                 }
 
                 if (methodInfo.GetCustomAttribute<FeatureAttribute>() is { } featureAttribute)
@@ -234,9 +242,13 @@ public class Plugin
         ServiceManager.Services.GetService<ISearchFeatureService>()?.AddPluginItems(_searchViewItems);
         
 
-        if (pluginMainScenarioMethodCategoryGroup.Childrens.Count != 0)
+        if (pluginMainScenarioMethodCategoryGroup.Methods.Count != 0 ||
+            pluginMainScenarioMethodCategoryGroup.Childrens.Count != 0)
             ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.Childrens.Add(PluginInfo.ToPlgString(),
                 pluginMainScenarioMethodCategoryGroup);
+        if (hasScenarioMethods)
+            ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.OnPropertyChanged(
+                nameof(ScenarioMethodCategoryGroup));
     }
 
     internal void Enable()
@@ -340,7 +352,8 @@ public class Plugin
         }
 
         return declaringType.GetMethods()
-            .FirstOrDefault(x => x.Name == split[0] && MatchesParameters(x));
+            .FirstOrDefault(x => x.Name == split[0] && MatchesParameters(x) &&
+                                 x.IsDefined(typeof(ScenarioMethodAttribute), true));
     }
 
 

@@ -5,6 +5,24 @@ namespace Kitopia.Desktop.Features.CustomScenario;
 
 internal static class ScenarioGraph
 {
+    public static bool CanConnect(ConnectorItem source, ConnectorItem target)
+    {
+        if (source.Source == target.Source ||
+            source.ConnectorType == ConnectorType.Custom || target.ConnectorType == ConnectorType.Custom ||
+            source.ConnectorType == target.ConnectorType && source.ConnectorType != ConnectorType.Both)
+            return false;
+
+        if (source.ConnectorType == ConnectorType.Input || target.ConnectorType == ConnectorType.Output)
+            (source, target) = (target, source);
+
+        var sourceType = source.InputObject.SerializeType;
+        var targetType = target.InputObject.SerializeType;
+        if (sourceType == typeof(NodeConnectorClass) || targetType == typeof(NodeConnectorClass))
+            return sourceType == targetType;
+
+        return sourceType == typeof(object) || targetType.IsAssignableFrom(sourceType);
+    }
+
     public static bool HasCycle(IEnumerable<ConnectionItem> connections)
     {
         var edges = connections.ToArray();

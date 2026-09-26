@@ -138,30 +138,27 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
     }
 
 
-    private void Clear()
-    {
-        for (var i = 0; i < Childrens.Count; i++) Childrens.ElementAt(i).Value.Clear();
-        Methods.Clear();
-        Methods = null;
-    }
-
     public void RemoveMethodsByPluginName(string pluginName)
     {
-        if (Childrens.ContainsKey(pluginName)) Childrens[pluginName].Clear();
-        Childrens.Remove(pluginName);
-        for (var i = 0; i < MixinInfos.Count; i++)
+        bool RemoveFromGroup(ScenarioMethodCategoryGroup group)
         {
-            var target = MixinInfos[i].Target.Split("/");
-            var nowScenarioMethodCategoryGroup = RootScenarioMethodCategoryGroup;
-            for (var i1 = 0; i1 < target.Length - 1; i1++)
-                if (nowScenarioMethodCategoryGroup.Childrens.ContainsKey(target[i1]))
-                    nowScenarioMethodCategoryGroup = nowScenarioMethodCategoryGroup.Childrens[target[i1]];
-                else throw new ScenarioException("路径不存在");
+            var removed = false;
+            foreach (var (key, node) in group.Methods.ToArray())
+                if (node.ScenarioMethod.PluginInfo?.ToPlgString() == pluginName)
+                    removed |= group.Methods.Remove(key);
 
-            nowScenarioMethodCategoryGroup.Methods.Remove(target.Last());
+            foreach (var (key, child) in group.Childrens.ToArray())
+            {
+                if (!RemoveFromGroup(child)) continue;
+                removed = true;
+                if (child.Methods.Count == 0 && child.Childrens.Count == 0)
+                    group.Childrens.Remove(key);
+            }
+
+            return removed;
         }
 
-        OnPropertyChanged(nameof(ScenarioMethodCategoryGroup));
+        if (RemoveFromGroup(this)) OnPropertyChanged(nameof(ScenarioMethodCategoryGroup));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

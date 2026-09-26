@@ -113,11 +113,19 @@
                                         <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
                                                    Text="{Binding Name}" />
                                         <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                   Text="{Binding InitError}" />
-                                        <Button Classes="Danger" Content="删除" HorizontalAlignment="Center"
-                                                CornerRadius="6"
-                                                Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).RemoveCustomScenarioCommand}"
-                                                CommandParameter="{Binding }" />
+                                                   Text="{Binding InitError}" TextWrapping="Wrap"
+                                                   MaxWidth="280" TextAlignment="Center" />
+                                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                            <Button Content="重试" CornerRadius="6"
+                                                    Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).RetryScenarioCommand}"
+                                                    CommandParameter="{Binding }" />
+                                            <Button Content="打开文件" CornerRadius="6"
+                                                    Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).OpenScenarioFileCommand}"
+                                                    CommandParameter="{Binding }" />
+                                            <Button Classes="Danger" Content="删除" CornerRadius="6"
+                                                    Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).RemoveCustomScenarioCommand}"
+                                                    CommandParameter="{Binding }" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </Panel>
                             </Panel>

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Desktop.Abstractions.Shell;
 using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Features.CustomScenario.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,6 +38,19 @@ public partial class CustomScenariosManagerPageViewModel : ObservableRecipient
     private void RunCustomScenario(Scenario scenario)
     {
         scenario.Run();
+    }
+
+    [RelayCommand]
+    private void RetryScenario(Scenario scenario)
+    {
+        CustomScenarioManger.Reload(scenario);
+    }
+
+    [RelayCommand]
+    private void OpenScenarioFile(Scenario scenario)
+    {
+        ServiceManager.Services.GetRequiredService<IDesktopShell>()
+            .Open(KitopiaPaths.GetCustomScenarioFilePath(scenario.Uuid));
     }
 
     [RelayCommand]

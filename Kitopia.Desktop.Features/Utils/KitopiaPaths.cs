@@ -5,6 +5,7 @@ public static class KitopiaPaths
     private const string AppName = "Kitopia";
 
     public static string AppRoot { get; } = BuildAppRoot();
+    internal static Exception? ConfigMigrationError { get; private set; }
 
     public static string ConfigsDirectory => EnsureDirectory("configs");
     public static string PluginsDirectory => EnsureDirectory("plugins");
@@ -57,42 +58,29 @@ public static class KitopiaPaths
     {
         try
         {
-            if (Directory.EnumerateFileSystemEntries(targetDirectory).Any())
-            {
-                return;
-            }
-
             var legacyDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, folderName);
-            if (!Directory.Exists(legacyDirectory))
-            {
-                return;
-            }
-
-            if (string.Equals(Path.GetFullPath(legacyDirectory), Path.GetFullPath(targetDirectory),
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            foreach (var sourceFile in Directory.EnumerateFiles(legacyDirectory, "*", SearchOption.AllDirectories))
-            {
-                var relativePath = Path.GetRelativePath(legacyDirectory, sourceFile);
-                var targetFile = Path.Combine(targetDirectory, relativePath);
-                var targetFolder = Path.GetDirectoryName(targetFile);
-                if (!string.IsNullOrWhiteSpace(targetFolder))
-                {
-                    Directory.CreateDirectory(targetFolder);
-                }
-
-                if (!File.Exists(targetFile))
-                {
-                    File.Copy(sourceFile, targetFile, overwrite: false);
-                }
-            }
+            MigrateLegacyDirectory(legacyDirectory, targetDirectory);
+            if (folderName == "configs") ConfigMigrationError = null;
         }
-        catch
+        catch (Exception exception)
         {
-            // Ignore migration failures and continue using AppData paths.
+            if (folderName == "configs") ConfigMigrationError = exception;
+        }
+    }
+
+    internal static void MigrateLegacyDirectory(string legacyDirectory, string targetDirectory)
+    {
+        if (!Directory.Exists(legacyDirectory)
+            || string.Equals(Path.GetFullPath(legacyDirectory), Path.GetFullPath(targetDirectory),
+                StringComparison.OrdinalIgnoreCase))
+            return;
+
+        foreach (var sourceFile in Directory.EnumerateFiles(legacyDirectory, "*", SearchOption.AllDirectories))
+        {
+            var targetFile = Path.Combine(targetDirectory, Path.GetRelativePath(legacyDirectory, sourceFile));
+            Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
+            if (!File.Exists(targetFile))
+                File.Copy(sourceFile, targetFile);
         }
     }
 }

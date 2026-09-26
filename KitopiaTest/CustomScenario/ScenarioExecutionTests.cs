@@ -1,9 +1,17 @@
 using System.Collections.ObjectModel;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Templates;
+using Avalonia.Headless;
+using Avalonia.Markup.Xaml.Styling;
 using Kitopia.Desktop.Features.CustomScenario;
+using Kitopia.Desktop.Features.CustomScenario.ViewModels.TaskEditor;
+using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Features.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.CustomScenario;
+using PluginCore.CustomScenario.Attribute.Scenario;
 
 namespace KitopiaTest.CustomScenario;
 
@@ -86,6 +94,125 @@ public sealed class ScenarioExecutionTests
             CancellationToken.None);
 
         Assert.AreEqual(5, scenario.Values["result"].Value);
+    }
+
+    [TestMethod]
+    public void SplitConnection_FlowKnot_ContinuesToTarget()
+    {
+        var scenario = new Kitopia.Desktop.Features.CustomScenario.CustomScenario();
+        var start = new ScenarioMethod(ScenarioMethodType.OneToTwo).GenerateNode();
+        var tick = new ScenarioMethod(ScenarioMethodType.OneToTwo).GenerateNode();
+        var target = new CountingNode();
+        scenario.Nodes.Add(start);
+        scenario.Nodes.Add(tick);
+        scenario.Nodes.Add(target);
+        var connection = Connect(start.Output[0], target.Input);
+        scenario.Connections.Add(connection);
+        var editor = new TaskEditorViewModel();
+        editor.Load(scenario);
+
+        editor.SplitConnection(connection, new Point(20, 20));
+
+        var knot = (KnotNodeViewModel)scenario.Nodes[^1];
+        Assert.AreEqual(typeof(NodeConnectorClass), knot.Connector.InputObject.SerializeType);
+        Assert.AreSame(target, ScenarioGraph.GetFlowSuccessors(knot, scenario.Connections).Single());
+        scenario.ExecutePhase(start, new ObservableDictionary<string, CustomScenarioValue>(), CancellationToken.None);
+        Assert.AreEqual(1, target.Count);
+    }
+
+    [TestMethod]
+    public void Copy_PluginInputConnector_HasIndependentState()
+    {
+        using var provider = new ServiceCollection()
+            .AddTransient<TestInputConnector>(_ => new TestInputConnector(42)).BuildServiceProvider();
+        var method = new ScenarioMethod(ScenarioMethodType.PluginMethod) { ServiceProvider = provider };
+        var source = new ScenarioMethodNode { Title = "plugin", ScenarioMethod = method };
+        source.Input.Add(new ConnectorItem
+        {
+            Source = source,
+            InputObject = new CustomScenarioValue
+            {
+                SerializeType = typeof(int), ShowType = typeof(TestInputConnector), IsSelf = true, Value = 5
+            },
+            IsPluginInputConnector = true,
+            PluginInputConnector = provider.GetRequiredService<TestInputConnector>()
+        });
+
+        var first = (ScenarioMethodNode)source.Copy();
+        var second = (ScenarioMethodNode)source.Copy();
+        var firstConnector = first.Input[0].PluginInputConnector!;
+        var secondConnector = second.Input[0].PluginInputConnector!;
+        firstConnector.Value.SetValue(7);
+
+        Assert.AreNotSame(firstConnector, secondConnector);
+        Assert.AreEqual(42, ((TestInputConnector)firstConnector).FactoryToken);
+        Assert.AreEqual(42, ((TestInputConnector)secondConnector).FactoryToken);
+        Assert.AreEqual(5, secondConnector.Value.Value.Value);
+
+        first.ConnectorInit(first.Input[0]);
+        Assert.AreNotSame(firstConnector, first.Input[0].PluginInputConnector);
+        Assert.AreEqual(42, ((TestInputConnector)first.Input[0].PluginInputConnector!).FactoryToken);
+        Assert.AreEqual(5, first.Input[0].PluginInputConnector!.Value.Value.Value);
+    }
+
+    [TestMethod]
+    public void GenerateNode_RequiredCustomInput_StartsEmptyAndRejectsInvalidValues()
+    {
+        using var provider = new ServiceCollection()
+            .AddTransient<TestInputConnector>(_ => new TestInputConnector(42)).BuildServiceProvider();
+        var method = typeof(ParameterMethods).GetMethod(nameof(ParameterMethods.Required))!;
+        var node = new ScenarioMethod(method, new PluginLocalInfo(), new ScenarioMethodAttribute("required"),
+            ScenarioMethodType.PluginMethod, provider).GenerateNode();
+        var input = node.Input[1].InputObject;
+        Assert.IsNull(input.Value);
+        var values = new ObservableDictionary<string, CustomScenarioValue>();
+        Assert.IsFalse(node.Invoke(CancellationToken.None, [], values, values, values));
+        input.Value = DBNull.Value;
+        Assert.IsFalse(node.Invoke(CancellationToken.None, [], values, values, values));
+        input.Value = 7;
+        Assert.IsTrue(node.Invoke(CancellationToken.None, [], values, values, values));
+        Assert.AreEqual(7, node.Output[1].InputObject.Value);
+    }
+
+    [TestMethod]
+    public void GenerateNode_OptionalInput_KeepsDefaultValue()
+    {
+        using var provider = new ServiceCollection().BuildServiceProvider();
+        var method = typeof(ParameterMethods).GetMethod(nameof(ParameterMethods.Optional))!;
+        var node = new ScenarioMethod(method, new PluginLocalInfo(), new ScenarioMethodAttribute("optional"),
+            ScenarioMethodType.PluginMethod, provider).GenerateNode();
+        Assert.AreEqual(9, node.Input[1].InputObject.Value);
+        node.Input[1].InputObject.Value = null;
+        var values = new ObservableDictionary<string, CustomScenarioValue>();
+        Assert.IsTrue(node.Invoke(CancellationToken.None, [], values, values, values));
+        Assert.AreEqual(9, node.Output[1].InputObject.Value);
+    }
+
+    [TestMethod]
+    public async Task TaskEditor_PluginCategoriesChange_NotifiesUntilWindowCloses()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(MouseHotKeyTests));
+        await session.Dispatch<bool>(() =>
+        {
+            var editor = new TaskEditorViewModel();
+            var window = new Window();
+            var notifications = 0;
+            editor.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(editor.ScenarioMethodCategoryGroup)) notifications++;
+            };
+            window.Show();
+            editor.LoadCommand.Execute(window);
+            editor.LoadCommand.Execute(window);
+            ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.OnPropertyChanged(
+                nameof(ScenarioMethodCategoryGroup));
+            Assert.AreEqual(1, notifications);
+            window.Close();
+            ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.OnPropertyChanged(
+                nameof(ScenarioMethodCategoryGroup));
+            Assert.AreEqual(1, notifications);
+            return Task.FromResult(true);
+        }, CancellationToken.None);
     }
 
     [TestMethod]
@@ -228,6 +355,25 @@ public sealed class ScenarioExecutionTests
             Count++;
             return true;
         }
+    }
+
+    private sealed class TestInputConnector(int factoryToken) : INodeInputConnector
+    {
+        public int FactoryToken { get; } = factoryToken;
+        public StyleInclude Style => null!;
+        public IDataTemplate IDataTemplate => null!;
+        public ObservableValue Value { get; set; } = new()
+        {
+            Value = new CustomScenarioValue { SerializeType = typeof(int) }
+        };
+    }
+
+    private static class ParameterMethods
+    {
+        public static int Required([SelfInput] [CustomNodeInputType(typeof(TestInputConnector))] int value,
+            CancellationToken token) => value;
+
+        public static int Optional([SelfInput] int value = 9, CancellationToken token = default) => value;
     }
 
     private sealed class RecordingSearchItemTool : ISearchItemTool

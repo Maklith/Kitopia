@@ -238,24 +238,20 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                     }
 
                     var input = Input[index++];
-                    if (input.IsPluginInputConnector)
+                    var inputObject = input.InputObject.Value;
+                    if (inputObject is not null)
                     {
-                        list.Add(input.InputObject.Value);
+                        if (!parameterInfo.ParameterType.IsInstanceOfType(inputObject)) return false;
+                        list.Add(inputObject);
                     }
+                    else if (parameterInfo.HasDefaultValue)
+                        list.Add(parameterInfo.DefaultValue);
+                    else if (input.InputObject.IsSelf &&
+                             (!parameterInfo.ParameterType.IsValueType ||
+                              Nullable.GetUnderlyingType(parameterInfo.ParameterType) is not null))
+                        list.Add(null);
                     else
-                    {
-                        var inputObject = input.InputObject.Value;
-                        if (inputObject is not null)
-                            list.Add(inputObject);
-                        else if (input.InputObject.IsSelf &&
-                                 (!parameterInfo.ParameterType.IsValueType ||
-                                  Nullable.GetUnderlyingType(parameterInfo.ParameterType) is not null))
-                            list.Add(null);
-                        else if (parameterInfo.HasDefaultValue)
-                            list.Add(parameterInfo.DefaultValue);
-                        else
-                            return false;
-                    }
+                        return false;
                 }
 
                 var target = ScenarioMethod.Method.IsStatic
@@ -470,9 +466,11 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                 AutoUnboxPropertyName = connectorItem.AutoUnboxPropertyName,
                 OnlySelfInput = connectorItem.OnlySelfInput,
                 ConnectorType = connectorItem.ConnectorType,
-                IsPluginInputConnector = connectorItem.IsPluginInputConnector,
-                PluginInputConnector = connectorItem.PluginInputConnector
+                IsPluginInputConnector = connectorItem.IsPluginInputConnector
             });
+
+        foreach (var connector in input.Where(connector => connector.IsPluginInputConnector))
+            item.ConnectorInit(connector);
 
         ObservableCollection<ConnectorItem> output = new();
         foreach (var connectorItem in Output)
@@ -576,10 +574,9 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
         if (connectorItem.InputObject is null || connectorItem.InputObject.ShowType == typeof(NodeConnectorClass)) return;
         if (connectorItem.IsPluginInputConnector)
         {
-            var instance = Activator.CreateInstance(connectorItem.InputObject.ShowType);
-            var valueProperty = instance?.GetType().GetProperty("Value");
-            if (instance is null || valueProperty is null || !valueProperty.CanWrite) return;
-            valueProperty.SetValue(instance, new ObservableValue
+            var connector = (INodeInputConnector)ScenarioMethod.ServiceProvider.GetRequiredService(
+                connectorItem.InputObject.ShowType);
+            connector.Value = new ObservableValue
             {
                 Value = new CustomScenarioValue
                 {
@@ -587,8 +584,8 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
                     ShowType = connectorItem.InputObject.ShowType,
                     Value = connectorItem.InputObject.Value
                 }
-            });
-            connectorItem.PluginInputConnector = instance as INodeInputConnector;
+            };
+            connectorItem.PluginInputConnector = connector;
         }
     }
 

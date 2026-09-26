@@ -4,6 +4,8 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Threading;
+using Kitopia.Desktop.Features.CustomScenario;
+using Kitopia.Desktop.Features.PluginHost.Services;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Plugin;
@@ -139,9 +141,11 @@ public sealed class PluginLifecycleTests
 
     // Keep strong references out of the caller's stack while it verifies GC completion.
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static async Task<WeakReference> EnableAndRetainDuringUnloadAsync(PluginLocalInfo info, bool retainContext)
+    private static async Task<WeakReference> EnableAndRetainDuringUnloadAsync(PluginLocalInfo info,
+        bool retainContext, Action? afterEnable = null)
     {
         await PluginManager.EnableOneAsync(info);
+        afterEnable?.Invoke();
         var context = PluginManager.GetEnablePlugins()[info.ToPlgString()].AssemblyLoadContext;
         var weak = new WeakReference(context, trackResurrection: true);
         if (retainContext)
@@ -168,6 +172,8 @@ public sealed class PluginLifecycleTests
         File.WriteAllText(configPath, json);
         var hotkeys = new HotKeyImpl();
         using var provider = new ServiceCollection().AddSingleton<IHotKetImpl>(hotkeys)
+            .AddSingleton<IPluginManger, PluginMangerService>()
+            .AddSingleton<ICustomScenarioPluginIntegration, CustomScenarioPluginIntegration>()
             .AddSingleton<IConfigProvider, ConfigManger>().BuildServiceProvider();
         var previousServices = ServiceManager.Services;
         var previousPluginServices = PluginCore.Kitopia.ServiceProvider;
@@ -183,6 +189,7 @@ public sealed class PluginLifecycleTests
             FullPath = Path.Combine(AppContext.BaseDirectory, "PluginFixture", "PluginLifecycle.dll")
         };
         WeakReference? context = null;
+        using var triggerScenario = new Kitopia.Desktop.Features.CustomScenario.CustomScenario();
         try
         {
             if (failureStage is "config" or "factory" or "enable")
@@ -192,7 +199,39 @@ public sealed class PluginLifecycleTests
             }
             else
             {
-                context = await EnableAndRetainDuringUnloadAsync(info, false);
+                context = await EnableAndRetainDuringUnloadAsync(info, false, () =>
+                {
+                    var root = ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup;
+                    var direct = root.Childrens[name].Methods.Single().Value;
+                    Assert.AreEqual("Direct fixture method", direct.Title);
+                    Assert.IsTrue(root.Childrens[name].Methods.ContainsKey(direct.ScenarioMethod.MethodAbsolutelyName));
+                    Assert.IsNull(PluginManager.GetEnablePlugins()[name].GetMethod(
+                        direct.ScenarioMethod.MethodAbsolutelyName.Replace("DirectScenarioMethod", "UnmarkedScenarioMethod")));
+                    var top = root.Childrens["LifecycleFixture"].Methods;
+                    Assert.IsTrue(top.Values.Any(node => node.Title == "Top fixture method"));
+                    Assert.HasCount(3, top);
+                    foreach (var node in top.Values.Where(node => node.Title.StartsWith("Top fixture")))
+                    {
+                        Assert.IsNotNull(PluginManager.GetEnablePlugins()[name].GetMethod(
+                            node.ScenarioMethod.MethodAbsolutelyName, node.ScenarioMethod.MethodId));
+                        var jsonNode = JsonSerializer.Serialize(node, ConfigManger.DefaultOptions);
+                        var restored = JsonSerializer.Deserialize<ScenarioMethodNode>(jsonNode, ConfigManger.DefaultOptions)!;
+                        Assert.AreEqual(node.Title, restored.Title);
+                        Assert.AreEqual(node.ScenarioMethod.MethodId, restored.ScenarioMethod.MethodId);
+                        Assert.AreEqual("TopScenarioMethod", restored.ScenarioMethod.Method.Name);
+                    }
+                    var typed = top.Values.Single(node => node.Title == "Typed fixture method");
+                    Assert.IsTrue(top.ContainsKey(typed.ScenarioMethod.MethodAbsolutelyName));
+                    Assert.IsNotNull(PluginManager.GetEnablePlugins()[name].GetMethod(
+                        typed.ScenarioMethod.MethodAbsolutelyName));
+                    var mixed = root.Childrens["Kitopia"].Childrens["节点控制"].Methods;
+                    Assert.IsTrue(mixed.Values.Any(node => node.Title == "Condition" &&
+                        node.ScenarioMethod.PluginInfo?.ToPlgString() == name));
+                    Assert.IsTrue(mixed.ContainsKey("Condition"));
+                    triggerScenario.AutoTriggers.Add(name + "_FixtureTrigger");
+                    Assert.IsTrue(triggerScenario.IsUseThePlugin(name));
+                    CustomScenarioManger.CustomScenarios.Add(triggerScenario);
+                });
                 Assert.IsTrue(ConfigManger.AllConfigs.ContainsKey(key));
             }
             var unloaded = await PluginManager.UnloadCoreAsync(info);
@@ -206,14 +245,23 @@ public sealed class PluginLifecycleTests
             Assert.IsFalse(System.Runtime.Loader.AssemblyLoadContext.All.Any(context => context.Name == "PluginLifecycle.dll_plugin"));
             Assert.IsFalse(ConfigManger.AllConfigs.ContainsKey(key));
             Assert.IsEmpty(hotkeys.GetAllRegistered());
+            Assert.IsFalse(CustomScenarioManger.CustomScenarios.Contains(triggerScenario));
             Assert.IsFalse(PluginOverall.Features.ContainsKey(name));
             Assert.IsFalse(PluginOverall.SearchWindowInputDataAnalyzers.ContainsKey(name));
+            Assert.IsFalse(ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.Childrens.ContainsKey(name));
+            Assert.IsFalse(ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.Childrens.ContainsKey("LifecycleFixture"));
+            var builtInMethods = ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.Childrens["Kitopia"]
+                .Childrens["节点控制"].Methods;
+            Assert.IsFalse(builtInMethods.Values.Any(node =>
+                node.ScenarioMethod.PluginInfo?.ToPlgString() == name));
+            Assert.IsTrue(builtInMethods.ContainsKey("Condition"));
             Assert.AreEqual(json, File.ReadAllText(configPath));
             if (failureStage is "" or "enable" or "disable")
                 CollectionAssert.AreEqual(new[] { "enabled", "stopped", "disposed" }, File.ReadAllLines(events));
         }
         finally
         {
+            CustomScenarioManger.CustomScenarios.Remove(triggerScenario);
             await PluginManager.UnloadCoreAsync(info);
             ServiceManager.Services = previousServices;
             PluginCore.Kitopia.ServiceProvider = previousPluginServices;

@@ -69,6 +69,17 @@ public sealed class PluginHostRuntimeTests
     }
 
     [TestMethod]
+    public void SelectDependencyVersion_SharedDependency_SatisfiesEveryRange()
+    {
+        string[] versions = ["1.1.0", "1.5.0", "2.0.0"];
+
+        Assert.AreEqual("1.5.0", PluginDependencyService.SelectDependencyVersion(
+            versions, ["[1.0.0,2.0.0)", "[1.5.0,3.0.0)"]));
+        Assert.IsNull(PluginDependencyService.SelectDependencyVersion(
+            versions, ["[1.0.0,1.5.0)", "[1.5.0,3.0.0)"]));
+    }
+
+    [TestMethod]
     [DoNotParallelize]
     [DataRow("0.3.5.1", "*", true)]
     [DataRow("0.3.5.1", "[0.3.0,0.4.0)", true)]

@@ -269,36 +269,62 @@ public static class PluginManager
         return sorted;
     }
 
-    private static async Task PrepareDependenciesAsync(PluginLocalInfo root, Dictionary<string, PluginLocalInfo> candidates,
-        List<PluginPackage> packages, HashSet<string> visited, HashSet<string> visiting, CancellationToken cancellationToken)
+    private static async Task<bool> PrepareDependenciesAsync(PluginLocalInfo root,
+        Dictionary<string, PluginLocalInfo> candidates, List<PluginPackage> packages,
+        Dictionary<string, Dictionary<string, string>> requirements, HashSet<string> visited,
+        HashSet<string> visiting, CancellationToken cancellationToken)
     {
         var name = root.ToPlgString();
         if (visiting.Contains(name)) throw new InvalidOperationException($"插件依赖存在循环：{name}");
-        if (visited.Contains(name)) return;
+        if (visited.Contains(name)) return false;
         visiting.Add(name);
         foreach (var (dependency, range) in root.PluginBaseInfo.Dependencies)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (dependency == "Kitopia") continue;
-            if (!candidates.TryGetValue(dependency, out var info))
+            if (visiting.Contains(dependency)) throw new InvalidOperationException($"插件依赖存在循环：{dependency}");
+            if (!requirements.TryGetValue(dependency, out var ranges))
+                requirements[dependency] = ranges = new Dictionary<string, string>();
+            ranges[name] = range;
+            if (!candidates.TryGetValue(dependency, out var info) ||
+                ranges.Values.Any(required => !PluginDependencyService.VersionInRange(info.PluginBaseInfo.Version, required)))
             {
+                var staged = packages.FirstOrDefault(package => package.Info.ToPlgString() == dependency);
+                var installed = AllPluginInfos.FirstOrDefault(item => item.ToPlgString() == dependency);
+                if (staged is not null && installed is not null &&
+                    ranges.Values.All(required => PluginDependencyService.VersionInRange(
+                        installed.PluginBaseInfo.Version, required)))
+                {
+                    candidates[dependency] = installed;
+                    staged.Dispose();
+                    packages.Remove(staged);
+                    return true;
+                }
                 var versions = await PluginNetworkService.GetVersionDetailsAsync(dependency, null, cancellationToken);
                 var version = PluginDependencyService.SelectDependencyVersion(
                     versions?.Where(item => item.CanDownload &&
-                        PluginNetworkService.SupportsCurrentPlatform(item.AvailablePlatforms))
-                        .Select(item => item.Version) ?? [], range);
-                if (version is null) throw new InvalidOperationException($"找不到依赖 {dependency} 满足 {range} 的可用版本。");
+                        PluginNetworkService.SupportsCurrentPlatform(item.AvailablePlatforms) &&
+                        (installed is null || PluginDependencyService.IsVersionNewer(
+                            item.Version, installed.PluginBaseInfo.Version)))
+                        .Select(item => item.Version) ?? [], ranges.Values.ToArray());
+                if (version is null)
+                    throw new InvalidOperationException($"找不到依赖 {dependency} 同时满足 {string.Join("、", ranges.Values)} 的可用更新版本。");
                 var package = await PluginNetworkService.DownloadPackageAsync(dependency, version, cancellationToken);
                 packages.Add(package);
-                info = package.Info;
-                candidates.Add(dependency, info);
+                candidates[dependency] = package.Info;
+                if (staged is not null)
+                {
+                    staged.Dispose();
+                    packages.Remove(staged);
+                }
+                return true;
             }
-            if (!PluginDependencyService.VersionInRange(info.PluginBaseInfo.Version, range))
-                throw new InvalidOperationException($"依赖 {dependency} 的版本 {info.PluginBaseInfo.Version} 不满足 {range}。");
-            await PrepareDependenciesAsync(info, candidates, packages, visited, visiting, cancellationToken);
+            if (await PrepareDependenciesAsync(info, candidates, packages, requirements, visited, visiting,
+                    cancellationToken)) return true;
         }
         visiting.Remove(name);
         visited.Add(name);
+        return false;
     }
 
     private static async Task<bool> ApplyAsync(string name, PluginPackage? replacement, bool enable,
@@ -320,8 +346,29 @@ public static class PluginManager
             var candidates = AllPluginInfos.ToDictionary(info => info.ToPlgString());
             if (replacement is not null) candidates[name] = replacement.Info;
             if (!candidates.TryGetValue(name, out var root)) throw new InvalidOperationException($"插件 {name} 未安装。");
-            var closure = new HashSet<string>();
-            await PrepareDependenciesAsync(root, candidates, packages, closure, new HashSet<string>(), cancellationToken);
+            HashSet<string> closure;
+            var seenSelections = new HashSet<string>();
+            while (true)
+            {
+                var selection = string.Join("|", candidates.OrderBy(item => item.Key)
+                    .Select(item => $"{item.Key}={item.Value.PluginBaseInfo.Version}"));
+                if (!seenSelections.Add(selection))
+                    throw new InvalidOperationException("插件依赖版本选择无法收敛。");
+                closure = new HashSet<string>();
+                var changed = await PrepareDependenciesAsync(root, candidates, packages,
+                    new Dictionary<string, Dictionary<string, string>>(), closure, new HashSet<string>(),
+                    cancellationToken);
+                if (!changed) break;
+            }
+            foreach (var package in packages.Where(package => !closure.Contains(package.Info.ToPlgString())).ToArray())
+            {
+                if (AllPluginInfos.FirstOrDefault(info => info.ToPlgString() == package.Info.ToPlgString()) is { } installed)
+                    candidates[package.Info.ToPlgString()] = installed;
+                else
+                    candidates.Remove(package.Info.ToPlgString());
+                package.Dispose();
+                packages.Remove(package);
+            }
             var toEnable = new HashSet<string>(runningBefore);
             if (enable) toEnable.UnionWith(closure);
             foreach (var target in toEnable.Concat(closure).Distinct())
@@ -330,17 +377,27 @@ public static class PluginManager
                 toEnable.Contains(info.ToPlgString())).ToList());
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (replacement is not null && GetPluginLocalInfoByPlgStr(name) is { } old)
+            var replaced = packages.Select(package => GetPluginLocalInfoByPlgStr(package.Info.ToPlgString()))
+                .Where(info => info is not null).Cast<PluginLocalInfo>().ToArray();
+            var affected = new HashSet<PluginLocalInfo>();
+            foreach (var old in replaced)
+                foreach (var dependent in GetAffectedPlugins(old))
+                    if (runningBefore.Contains(dependent.ToPlgString())) affected.Add(dependent);
+            var stopOrder = PluginDependencyService.TopologicalSort(affected.ToList());
+            stopOrder.Reverse();
+            foreach (var dependent in stopOrder)
             {
-                foreach (var affected in GetAffectedPlugins(old).Where(info => runningBefore.Contains(info.ToPlgString())))
+                stopped.Add(dependent);
+                if (!await UnloadCoreAsync(dependent))
                 {
-                    stopped.Add(affected);
-                    if (!await UnloadCoreAsync(affected))
-                    {
-                        updatePending = true;
-                        throw new InvalidOperationException($"插件 {affected.PluginBaseInfo.Name} 仍被引用，已保留启用设置并安排重启更新。");
-                    }
+                    updatePending = true;
+                    throw new InvalidOperationException(replacement is null
+                        ? $"插件 {dependent.PluginBaseInfo.Name} 仍被引用，请重启后重试。"
+                        : $"插件 {dependent.PluginBaseInfo.Name} 仍被引用，已保留启用设置并安排重启更新。");
                 }
+            }
+            foreach (var old in replaced.Where(info => !affected.Contains(info)))
+            {
                 if (!await UnloadCoreAsync(old))
                 {
                     updatePending = true;

@@ -37,7 +37,15 @@ public class NodeInputDataTemplateSelector : IDataTemplate
             {
                 var control = pointItem.PluginInputConnector.IDataTemplate.Build(item);
                 control.DataContext = pointItem.PluginInputConnector;
-                pointItem.PluginInputConnector.Value.Subscribe(x => { pointItem.InputObject.Value = x.Value; });
+                IDisposable? subscription = null;
+                control.AttachedToVisualTree += (_, _) =>
+                    subscription = pointItem.PluginInputConnector.Value.Subscribe(
+                        x => { pointItem.InputObject.Value = x.Value; });
+                control.DetachedFromVisualTree += (_, _) =>
+                {
+                    subscription?.Dispose();
+                    subscription = null;
+                };
                 pointItem.InputObject.Value = pointItem.PluginInputConnector.Value.Value.Value;
                 control!.Styles.Add(pointItem.PluginInputConnector.Style);
                 return control;

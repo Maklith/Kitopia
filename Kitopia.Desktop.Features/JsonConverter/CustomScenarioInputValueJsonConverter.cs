@@ -7,128 +7,48 @@ namespace Kitopia.Desktop.Features.JsonConverter;
 
 public class CustomScenarioInputValueJsonConverter : JsonConverter<CustomScenarioValue>
 {
+    private static readonly JsonSerializerOptions TypeOptions = new()
+    {
+        Converters = { new TypeJsonConverter() }
+    };
+
     public override CustomScenarioValue? Read(ref Utf8JsonReader reader, Type typeToConvert,
         JsonSerializerOptions options)
     {
-        var isSelf = false;
-        Type serializeType = null;
-        Type showType = null;
-        while (reader.Read())
-            if (reader.TokenType == JsonTokenType.PropertyName)
-            {
-                var s = reader.GetString();
-                switch (s)
-                {
-                    case "SerializeType":
-                    {
-                        reader.Read();
-                        serializeType = new TypeJsonConverter().Read(ref reader, typeToConvert, options);
-                        break;
-                    }
-                    case "ShowType":
-                    {
-                        reader.Read();
+        using var document = JsonDocument.ParseValue(ref reader);
+        var json = document.RootElement;
+        if (!json.TryGetProperty("SerializeType", out var serializedType))
+            throw new JsonException("情景值缺少 SerializeType。");
 
-                        showType = new TypeJsonConverter().Read(ref reader, typeToConvert, options);
-                        break;
-                    }
-                    case "IsSelf":
-                    {
-                        reader.Read();
+        var serializeType = serializedType.Deserialize<Type>(TypeOptions)!;
+        var showType = json.TryGetProperty("ShowType", out var shownType)
+            ? shownType.Deserialize<Type>(TypeOptions)!
+            : serializeType;
+        var isSelf = json.TryGetProperty("IsSelf", out var self) && self.GetBoolean();
+        object? value = null;
+        if (json.TryGetProperty("Value", out var storedValue) && storedValue.ValueKind != JsonValueKind.Null)
+        {
+            if (serializeType == typeof(string))
+                value = storedValue.GetString();
+            else if (serializeType == typeof(object))
+                value = null;
+            else if (CustomScenarioGlobe.JsonConverters.TryGetValue(serializeType, out var converter))
+                value = converter.Deserialize(storedValue.GetString());
+            else if (serializeType.IsEnum)
+                value = Enum.ToObject(serializeType, storedValue.GetInt32());
+            else if (isSelf)
+                throw new CustomScenarioLoadFromJsonException(
+                    CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到,
+                    serializeType.FullName!, null);
+        }
 
-                        isSelf = reader.GetBoolean();
-                        break;
-                    }
-                    case "Value":
-                    {
-                        reader.Read();
-                        if (reader.TokenType == JsonTokenType.Null)
-                        {
-                            reader.Read();
-                            return new CustomScenarioValue
-                            {
-                                ShowType = showType,
-                                SerializeType = serializeType,
-                                IsSelf = isSelf
-                            };
-                        }
-
-                        // if (reader.TokenType==JsonTokenType.StartObject|| reader.TokenType==JsonTokenType.StartArray)
-                        // {
-                        //     JsonSerializer.
-                        // }
-                        if (serializeType== typeof(object))
-                        {
-                            reader.Read();
-                            return new CustomScenarioValue
-                            {
-                                SerializeType = serializeType,
-                                ShowType = showType,
-                                IsSelf = isSelf,
-                                Value = null
-                            };
-                        }
-
-                        if (serializeType==typeof(string))
-                        {
-                            var o = reader.GetString();
-                            reader.Read();
-                            return new CustomScenarioValue
-                            {
-                                SerializeType = serializeType,
-                                ShowType = showType,
-                                IsSelf = isSelf,
-                                Value = o
-                            };
-                        }
-                        if (CustomScenarioGlobe.JsonConverters.TryGetValue(serializeType, out var jsonConverter))
-                        {
-                            
-                            // 获取 Read 方法
-                            var readerValueSpan = reader.GetString();
-                            reader.Read();
-                            var deserialize = jsonConverter.Deserialize(readerValueSpan);
-                            return new CustomScenarioValue
-                            {
-                                SerializeType = serializeType,
-                                ShowType = showType,
-                                Value = deserialize,
-                                IsSelf = isSelf
-                            };
-                        }
-                        if (serializeType.IsEnum)
-                        {
-                            var o = Enum.ToObject(serializeType, reader.GetInt32());
-                            reader.Read();
-                            return new CustomScenarioValue
-                            {
-                                SerializeType = serializeType,
-                                ShowType = showType,
-                                Value = o,
-                                IsSelf = isSelf
-                            };
-                        }
-                        if (isSelf)
-                        {
-                            throw new CustomScenarioLoadFromJsonException(
-                                CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到, serializeType.FullName, null);
-                        }
-
-                        reader.Read();
-
-                        return new CustomScenarioValue
-                        {
-                            SerializeType = serializeType,
-                            ShowType = showType,
-                            Value = null,
-                            IsSelf = isSelf
-                        };
-                    }
-                }
-            }
-
-
-        return null;
+        return new CustomScenarioValue
+        {
+            SerializeType = serializeType,
+            ShowType = showType,
+            IsSelf = isSelf,
+            Value = value
+        };
     }
 
     public override void Write(Utf8JsonWriter writer, CustomScenarioValue value, JsonSerializerOptions options)

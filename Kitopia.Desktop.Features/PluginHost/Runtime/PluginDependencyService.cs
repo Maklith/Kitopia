@@ -32,15 +32,25 @@ public class PluginDependencyService
                VersionComparer.VersionRelease.Compare(candidateVersion, currentVersion) > 0;
     }
 
-    internal static string? SelectDependencyVersion(IEnumerable<string> versions, string range)
+    internal static string? SelectDependencyVersion(IEnumerable<string> versions, string range) =>
+        SelectDependencyVersion(versions, [range]);
+
+    internal static string? SelectDependencyVersion(IEnumerable<string> versions, IReadOnlyCollection<string> ranges)
     {
-        if (!VersionRange.TryParse(range, out var parsedRange)) return null;
+        if (ranges.Count == 0) return null;
+        var parsedRanges = new List<VersionRange>(ranges.Count);
+        foreach (var range in ranges)
+        {
+            if (!VersionRange.TryParse(range, out var parsedRange)) return null;
+            parsedRanges.Add(parsedRange);
+        }
         NuGetVersion? best = null;
         string? selected = null;
         foreach (var version in versions)
         {
             if (!NuGetVersion.TryParse(version, out var candidate) ||
-                !SatisfiesDependency(candidate, parsedRange) || !parsedRange.IsBetter(best, candidate)) continue;
+                !parsedRanges.All(range => SatisfiesDependency(candidate, range)) ||
+                !parsedRanges[0].IsBetter(best, candidate)) continue;
             best = candidate;
             selected = version;
         }

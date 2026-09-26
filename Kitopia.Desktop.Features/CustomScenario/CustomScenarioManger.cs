@@ -22,39 +22,57 @@ public class CustomScenarioManger
     public static void Init()
     {
         WeakReferenceMessenger.Default.Unregister<string, string>("null", "CustomScenarioTrigger");
-        WeakReferenceMessenger.Default.Register<string, string>("null", "CustomScenarioTrigger", (_, e) =>
-        {
-            //设置当前线程最高优先级
-            Thread.CurrentThread.Priority = ThreadPriority.Highest;
-            StringBuilder sb = new();
-
-            foreach (var customScenario in CustomScenarios)
-                if (customScenario.AutoTriggers.Contains(e))
-                {
-                    sb.AppendLine(customScenario.Name);
-                    if (e == "Kitopia_SoftwareShutdown")
-                        ThreadPool.QueueUserWorkItem(o => { customScenario.Run(onExit: true); });
-                    else
-                        customScenario.Run();
-                }
-
-            if (sb.Length != 0)
-            {
-                sb.Insert(0, $"情景触发器\"{e}\"触发了以下情景:\n");
-                Logger.Information(sb.ToString());
-                ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
-                    sb.ToString());
-            }
-            else
-            {
-                Logger.Information($"情景触发器\"{e}\"没有触发情景");
-            }
-        });
-
+        WeakReferenceMessenger.Default.Register<string, string>("null", "CustomScenarioTrigger",
+            (_, name) => RunTrigger(ResolveTriggerKey(name)));
+        WeakReferenceMessenger.Default.Unregister<Type, string>("null", "CustomScenarioTrigger");
+        WeakReferenceMessenger.Default.Register<Type, string>("null", "CustomScenarioTrigger",
+            (_, type) => RunTrigger(ResolveTriggerKey(type)));
 
         LoadAll();
         WeakReferenceMessenger.Default.Send("Kitopia_SoftwareStarted", "CustomScenarioTrigger");
     }
+
+    private static void RunTrigger(string? trigger)
+    {
+        if (trigger is null) return;
+        //设置当前线程最高优先级
+        Thread.CurrentThread.Priority = ThreadPriority.Highest;
+        StringBuilder sb = new();
+
+        foreach (var customScenario in CustomScenarios)
+            if (customScenario.AutoTriggers.Contains(trigger))
+            {
+                sb.AppendLine(customScenario.Name);
+                if (trigger == "Kitopia_SoftwareShutdown")
+                    ThreadPool.QueueUserWorkItem(o => { customScenario.Run(onExit: true); });
+                else
+                    customScenario.Run();
+            }
+
+        if (sb.Length != 0)
+        {
+            sb.Insert(0, $"情景触发器\"{trigger}\"触发了以下情景:\n");
+            Logger.Information(sb.ToString());
+            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
+                sb.ToString());
+        }
+        else
+        {
+            Logger.Information($"情景触发器\"{trigger}\"没有触发情景");
+        }
+    }
+
+    internal static string? ResolveTriggerKey(string name)
+    {
+        if (CustomScenarioGlobe.Triggers.ContainsKey(name)) return name;
+        var matches = CustomScenarioGlobe.Triggers.Keys
+            .Where(key => key.EndsWith("_" + name, StringComparison.Ordinal))
+            .Take(2).ToArray();
+        return matches.Length == 1 ? matches[0] : null;
+    }
+
+    internal static string? ResolveTriggerKey(Type type) =>
+        CustomScenarioGlobe.Triggers.FirstOrDefault(pair => pair.Value.TriggerType == type).Key;
 
     private static void LoadAll()
     {
@@ -94,9 +112,10 @@ public class CustomScenarioManger
         var fileInfoName = fileInfo.Name.Replace(".json", "");
         if (CustomScenarios.Any(e => e.Uuid == fileInfoName)) return;
 
-        var json = File.ReadAllText(fileInfo.FullName);
+        string? json = null;
         try
         {
+            json = File.ReadAllText(fileInfo.FullName);
             var deserializeObject = JsonSerializer.Deserialize<CustomScenario>(json, ConfigManger.DefaultOptions);
 
             deserializeObject.OnDeserialized();
@@ -106,28 +125,16 @@ public class CustomScenarioManger
 
 
             foreach (var deserializeObjectNode in deserializeObject.Nodes) deserializeObjectNode.ConnectorInit();
-            deserializeObject.VerifyGraph();
-            deserializeObject.InitHotKey();
+            if (deserializeObject.VerifyGraph()) deserializeObject.InitHotKey();
             CustomScenarios.Add(deserializeObject);
         }
         catch (CustomScenarioLoadFromJsonException e1)
         {
-            var Name = string.Empty;
-            Logger.Error($"情景文件\"{fileInfo.FullName}\"加载失败,内部异常");
-            var utf8JsonReader = new Utf8JsonReader(File.ReadAllBytes(fileInfo.FullName));
-            utf8JsonReader.Read();
-            while (utf8JsonReader.Read())
-            {
-                if (utf8JsonReader.TokenType == JsonTokenType.StartObject) utf8JsonReader.Skip();
-
-                if (utf8JsonReader.TokenType == JsonTokenType.PropertyName)
-                    if (utf8JsonReader.GetString() == nameof(CustomScenario.Name))
-                    {
-                        utf8JsonReader.Read();
-                        Name = utf8JsonReader.GetString();
-                        break;
-                    }
-            }
+            var name = fileInfoName;
+            Logger.Error(e1, "情景文件 {Path} 加载失败", fileInfo.FullName);
+            using (var document = JsonDocument.Parse(json!))
+                if (document.RootElement.TryGetProperty(nameof(CustomScenario.Name), out var property))
+                    name = property.GetString() ?? fileInfoName;
 
             switch (e1.FailedType)
             {
@@ -136,7 +143,7 @@ public class CustomScenarioManger
                     var content = $"对应文件\n{fileInfo.FullName}\n情景所需的插件不存在\n需要插件\"{e1.PluginName}\"";
                     var dialog = new DialogContent
                     {
-                        Title = $"自定义情景\"{Name}\"加载失败",
+                        Title = $"自定义情景\"{name}\"加载失败",
                         Content = content,
                         PrimaryButtonText = "尝试在市场中自动安装",
                         CloseButtonText = "我知道了",
@@ -185,7 +192,7 @@ public class CustomScenarioManger
 
                     var dialog = new DialogContent
                     {
-                        Title = $"自定义情景\"{Name}\"加载失败",
+                        Title = $"自定义情景\"{name}\"加载失败",
                         Content = content,
                         PrimaryButtonText = "启用该插件",
                         CloseButtonText = "我知道了",
@@ -201,7 +208,7 @@ public class CustomScenarioManger
                         $"对应文件\n{fileInfo.FullName}\n情景所需的插件方法不存在\n插件: {e1.PluginName}\n方法: {e1.MethodName}\n请更新插件或重新编辑该节点";
                     var dialog = new DialogContent
                     {
-                        Title = $"自定义情景\"{Name}\"加载失败",
+                        Title = $"自定义情景\"{name}\"加载失败",
                         Content = content,
                         CloseButtonText = "我知道了"
                     };
@@ -219,7 +226,7 @@ public class CustomScenarioManger
 
                     var dialog = new DialogContent
                     {
-                        Title = $"自定义情景\"{Name}\"加载失败",
+                        Title = $"自定义情景\"{name}\"加载失败",
                         Content = content,
                         CloseButtonText = "我知道了"
                     };
@@ -228,8 +235,25 @@ public class CustomScenarioManger
                     break;
                 }
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    break;
             }
+            CustomScenarios.Add(new CustomScenario
+            {
+                Name = name,
+                Uuid = fileInfoName,
+                HasInit = false,
+                InitError = e1.FailedType switch
+                {
+                    CustomScenarioLoadFromJsonFailedType.插件未找到 => $"缺少插件：{e1.PluginName}",
+                    CustomScenarioLoadFromJsonFailedType.插件未启用 => $"插件未启用：{e1.PluginName}",
+                    CustomScenarioLoadFromJsonFailedType.方法未找到 => $"方法未找到：{e1.MethodName}",
+                    CustomScenarioLoadFromJsonFailedType.类未找到 => $"类型未找到：{e1.MethodName}",
+                    CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到 =>
+                        $"缺少序列化转换器：{e1.PluginName}",
+                    _ => e1.FailedType.ToString()
+                },
+                IsActive = false
+            });
         }
         catch (Exception e)
         {
@@ -257,29 +281,34 @@ public class CustomScenarioManger
     }
 
 
-    public static void Save(CustomScenario scenario)
+    public static bool Save(CustomScenario scenario)
     {
-        if (!CustomScenarios.Contains(scenario))
-        {
-            CustomScenarios.Add(scenario);
-
-            scenario.InitHotKey();
-        }
-
-        foreach (var tempValueKey in scenario.TempValue.Keys) scenario.TempValue[tempValueKey].Value = null;
-
-        var configF = new FileInfo(KitopiaPaths.GetCustomScenarioFilePath(scenario.Uuid));
+        var path = KitopiaPaths.GetCustomScenarioFilePath(scenario.Uuid);
+        var temporaryPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
 
         try
         {
             var j = JsonSerializer.Serialize(scenario, ConfigManger.DefaultOptions);
-            File.WriteAllText(configF.FullName, j);
+            File.WriteAllText(temporaryPath, j);
+            File.Move(temporaryPath, path, true);
+            if (!CustomScenarios.Contains(scenario))
+            {
+                CustomScenarios.Add(scenario);
+                try { scenario.InitHotKey(); }
+                catch (Exception e)
+                {
+                    Logger.Error(e, "情景已保存，但快捷键注册失败: {Scenario}", scenario.Name);
+                    ServiceManager.Services.GetService<IToastService>()?.Show(
+                        "快捷键注册失败", $"情景'{scenario.Name}'已保存，请检查快捷键设置。");
+                }
+            }
             scenario.NotifySaved();
+            return true;
         }
 
         catch (CustomScenarioLoadFromJsonException e)
         {
-            Logger.Error("情景保存失败", e);
+            Logger.Error(e, "情景保存失败: {Scenario}", scenario.Name);
             switch (e.FailedType)
             {
                 case CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到:
@@ -292,17 +321,31 @@ public class CustomScenarioManger
                         Content = content,
                         CloseButtonText = "我知道了"
                     };
-                    ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
-                        dialog.ToToastRequest());
+                    ServiceManager.Services.GetService<IToastService>()?.Show(dialog.ToToastRequest());
                     break;
                 }
+                default:
+                    ServiceManager.Services.GetService<IToastService>()?.Show(
+                        "情景保存失败", $"情景'{scenario.Name}'保存失败：{e.FailedType}");
+                    break;
             }
+            return false;
         }
-        catch (JsonException e)
+        catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
         {
             Logger.Error(e, "情景保存失败: {Scenario}", scenario.Name);
-            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
-                "情景保存失败", $"情景'{scenario.Name}'保存失败，配置数据无法序列化。");
+            ServiceManager.Services.GetService<IToastService>()?.Show(
+                "情景保存失败", $"情景'{scenario.Name}'保存失败：{e.Message}");
+            return false;
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                try { File.Delete(temporaryPath); }
+                catch (IOException e) { Logger.Warning(e, "清理情景临时文件失败: {Path}", temporaryPath); }
+                catch (UnauthorizedAccessException e) { Logger.Warning(e, "清理情景临时文件失败: {Path}", temporaryPath); }
+            }
         }
     }
 
@@ -335,7 +378,6 @@ public class CustomScenarioManger
                 customScenario.UnRegisterHotKey();
                 await customScenario.DisposeAsync();
                 CustomScenarios.RemoveAt(i);
-                ConfigManger.Save();
             }
     }
 

@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Kitopia.Desktop.Features.JsonConverter;
 using Kitopia.Desktop.Features.Services.Plugin;
+using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.CustomScenario;
 using PluginCore.CustomScenario.Attribute.Scenario;
@@ -63,7 +64,10 @@ public class ScenarioMethod
 
                 foreach (var genericArgument in Method.GetParameters())
                 {
-                    sb.Append(typeJsonConverter.GetTypeName(genericArgument.ParameterType));
+                    sb.Append(typeJsonConverter.GetTypeName(genericArgument.ParameterType,
+                        type => type.Assembly == Method.DeclaringType!.Assembly
+                            ? PluginInfo!.PluginBaseInfo
+                            : null));
                     sb.Append("|");
                 }
 
@@ -140,7 +144,7 @@ public class ScenarioMethod
                     Nullable.GetUnderlyingType(parameterInfo.ParameterType) == typeof(CancellationToken)) continue;
                 var IsSelf = parameterInfo.GetCustomAttributes(typeof(SelfInput))
                     .Any();
-                var defaultValue = parameterInfo.DefaultValue;
+                var defaultValue = parameterInfo.HasDefaultValue ? parameterInfo.DefaultValue : null;
 
                 if (parameterInfo.ParameterType.GetCustomAttribute(typeof(AutoUnbox)) is not null)
                 {
@@ -186,16 +190,8 @@ public class ScenarioMethod
                         connectorItem.IsPluginInputConnector = true;
                         connectorItem.InputObject.IsSelf = parameterInfo.GetCustomAttribute<SelfInput>() is not null;
                         connectorItem.InputObject.ShowType =customNodeInputType.Type ;
-                        try
-                        {
-                            var service = ServiceProvider.GetService(customNodeInputType.Type);
-                            connectorItem.PluginInputConnector = service as INodeInputConnector;
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine(e);
-                            throw;
-                        }
+                        connectorItem.PluginInputConnector =
+                            (INodeInputConnector)ServiceProvider.GetRequiredService(customNodeInputType.Type);
                     }
 
                     inpItems.Add(connectorItem);
