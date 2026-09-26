@@ -38,6 +38,26 @@ public sealed class IndexServiceTests
     }
 
     [TestMethod]
+    public void ShouldAutomaticallyIndexFile_IgnoresConfiguredPathAndDescendants()
+    {
+        var ignoredRoot = Path.Combine(Environment.CurrentDirectory, "KitopiaIgnoredDirectory");
+        ConfigManger.Config.ignoreItems.Add(ignoredRoot + Path.DirectorySeparatorChar);
+
+        Assert.IsFalse(IndexService.ShouldAutomaticallyIndexFile(
+            Path.Combine(ignoredRoot, "child", "report.pdf")));
+        Assert.IsFalse(IndexService.ShouldAutomaticallyIndexEverythingFile(
+            Path.Combine(ignoredRoot, "child", "report.txt")));
+        Assert.IsTrue(IndexService.ShouldAutomaticallyIndexFile(
+            ignoredRoot + "2" + Path.DirectorySeparatorChar + "report.pdf"));
+
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.IsFalse(IndexService.ShouldAutomaticallyIndexFile(
+                Path.Combine(ignoredRoot.ToUpperInvariant(), "child", "report.pdf")));
+        }
+    }
+
+    [TestMethod]
     public void ShouldAutomaticallyIndexFile_DefaultExtensionsExcludeUnwantedFiles()
     {
         Assert.IsFalse(IndexService.ShouldAutomaticallyIndexFile(Path.Combine("root", "program.exe")));

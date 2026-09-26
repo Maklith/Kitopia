@@ -114,6 +114,33 @@ public sealed class IndexVectorStoreTests
     }
 
     [TestMethod]
+    public async Task RemoveMatchingPathsAsync_DeletesIgnoredFilesAcrossSourcesAndKeepsSibling()
+    {
+        var ignoredRoot = Path.Combine(_directory, "nt_qq");
+        var ignoredDocument = Path.Combine(ignoredRoot, "report.txt");
+        var ignoredImage = Path.Combine(ignoredRoot, "image.png");
+        var sibling = Path.Combine(_directory, "nt_qq2", "report.txt");
+        await _store.SynchronizeFileSourceAsync(
+            IndexSource.Manual, [ignoredDocument, sibling], NoProtectedKeys, CancellationToken.None);
+        await _store.SynchronizeFileSourceAsync(
+            IndexSource.EverythingManaged, [ignoredDocument, ignoredImage], NoProtectedKeys, CancellationToken.None);
+        await _store.UpsertDocumentTextAsync(ignoredDocument, "text-model", new float[512], CancellationToken.None);
+        await _store.UpsertImageAsync(ignoredImage, "1:1", "image-model", new float[1024], CancellationToken.None);
+        await _store.UpsertDocumentTextAsync(sibling, "text-model", new float[512], CancellationToken.None);
+        await _store.UpsertFileStateAsync(
+            new FileIndexState(ignoredDocument, IndexFileKind.Document, 1, 1, "ignored", false, null),
+            CancellationToken.None);
+
+        await _store.RemoveMatchingPathsAsync(
+            path => IndexService.IsIgnoredPath(path, [ignoredRoot]), CancellationToken.None);
+
+        CollectionAssert.AreEquivalent(new[] { sibling }, await ReadPathsAsync());
+        Assert.AreEqual((1, 0), await _store.GetCountsAsync(CancellationToken.None));
+        Assert.IsNull(await _store.GetFileStateAsync(
+            ignoredDocument, IndexFileKind.Document, CancellationToken.None));
+    }
+
+    [TestMethod]
     public async Task ResetAsync_DeletesPersistentFileIndexData()
     {
         var document = Path.Combine(_directory, "document.txt");

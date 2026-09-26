@@ -28,6 +28,8 @@ public sealed class IndexService : IIndexService, IDisposable
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IndexService>();
     private static readonly StringComparer EntryKeyComparer =
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    private static readonly StringComparison PathComparison =
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
     // Windows file systems are case-insensitive. Keeping file keys case-sensitive causes
     // Everything to produce a second entry when it changes the casing of a returned path.
     private readonly Dictionary<string, IndexedEntry> _entries = new(EntryKeyComparer);
@@ -125,6 +127,11 @@ public sealed class IndexService : IIndexService, IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(entry.OnlyKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(entry.DisplayName);
+        if (IsIgnoredPath(entry.OnlyKey))
+        {
+            return false;
+        }
+
         var changed = false;
         lock (_entriesLock)
         {
@@ -165,9 +172,37 @@ public sealed class IndexService : IIndexService, IDisposable
         return true;
     }
 
+    public async Task RemoveIgnoredEntriesAsync(CancellationToken cancellationToken = default)
+    {
+        var ignoredPaths = GetIgnoredPathSnapshot();
+        RemoveWhere((path, _) => IsIgnoredPath(path, ignoredPaths));
+        if (ignoredPaths.Count == 0)
+        {
+            return;
+        }
+
+        await _rebuildGate.WaitAsync(cancellationToken);
+        try
+        {
+            await _store.RemoveMatchingPathsAsync(
+                path => IsIgnoredPath(path, ignoredPaths), cancellationToken);
+        }
+        finally
+        {
+            _rebuildGate.Release();
+        }
+
+        PublishStatus();
+    }
+
     public bool TryGetValue(string onlyKey, out SearchEntry entry)
     {
         entry = default;
+        if (IsIgnoredPath(onlyKey))
+        {
+            return false;
+        }
+
         lock (_entriesLock)
         {
             if (_entries.TryGetValue(onlyKey, out var indexed))
@@ -189,6 +224,11 @@ public sealed class IndexService : IIndexService, IDisposable
 
     public bool ContainsKey(string onlyKey)
     {
+        if (IsIgnoredPath(onlyKey))
+        {
+            return false;
+        }
+
         lock (_entriesLock)
         {
             return _entries.ContainsKey(onlyKey);
@@ -226,9 +266,15 @@ public sealed class IndexService : IIndexService, IDisposable
     public void Synchronize(IEnumerable<SearchEntry> entries, IndexSource source = IndexSource.Application)
     {
         ArgumentNullException.ThrowIfNull(entries);
+        var ignoredPaths = GetIgnoredPathSnapshot();
         var incomingByKey = new Dictionary<string, SearchEntry>(StringComparer.Ordinal);
         foreach (var entry in entries)
         {
+            if (IsIgnoredPath(entry.OnlyKey, ignoredPaths))
+            {
+                continue;
+            }
+
             incomingByKey[entry.OnlyKey] = entry;
         }
 
@@ -277,15 +323,18 @@ public sealed class IndexService : IIndexService, IDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(paths);
+        var ignoredPaths = GetIgnoredPathSnapshot();
         HashSet<string> protectedKeys;
         lock (_entriesLock)
         {
-            protectedKeys = _entries.Keys.ToHashSet(EntryKeyComparer);
+            protectedKeys = _entries.Keys
+                .Where(path => !IsIgnoredPath(path, ignoredPaths))
+                .ToHashSet(EntryKeyComparer);
         }
 
         var changed = await _store.SynchronizeFileSourceAsync(
             source,
-            paths,
+            paths.Where(path => !IsIgnoredPath(path, ignoredPaths)),
             protectedKeys,
             cancellationToken);
         if (changed)
@@ -384,9 +433,13 @@ public sealed class IndexService : IIndexService, IDisposable
 
     public IReadOnlyList<KeyValuePair<string, SearchEntry>> GetEntriesSnapshot()
     {
+        var ignoredPaths = GetIgnoredPathSnapshot();
         lock (_entriesLock)
         {
-            return _entries.Select(pair => new KeyValuePair<string, SearchEntry>(pair.Key, pair.Value.Entry)).ToList();
+            return _entries
+                .Where(pair => !IsIgnoredPath(pair.Key, ignoredPaths))
+                .Select(pair => new KeyValuePair<string, SearchEntry>(pair.Key, pair.Value.Entry))
+                .ToList();
         }
     }
 
@@ -407,6 +460,7 @@ public sealed class IndexService : IIndexService, IDisposable
     {
         if (string.IsNullOrWhiteSpace(query) || maximumResults <= 0) return [];
         cancellationToken.ThrowIfCancellationRequested();
+        var ignoredPaths = GetIgnoredPathSnapshot();
         var pinyinResults = SearchPinyinResults(query, PinyinResultLimit, cancellationToken);
         var merged = new Dictionary<string, SearchIndexResult>(EntryKeyComparer);
         for (var index = 0; index < pinyinResults.Count; index++)
@@ -430,6 +484,11 @@ public sealed class IndexService : IIndexService, IDisposable
         var semanticResults = await Task.WhenAll(semanticTasks);
         foreach (var match in semanticResults.SelectMany(matches => matches))
         {
+            if (IsIgnoredPath(match.Key, ignoredPaths))
+            {
+                continue;
+            }
+
             if (!TryGetValue(match.Key, out var entry)) continue;
             var score = Math.Max(0d, match.Score) / (60 + match.Rank + 1);
             if (merged.TryGetValue(match.Key, out var existing))
@@ -450,6 +509,7 @@ public sealed class IndexService : IIndexService, IDisposable
         int maximumResults,
         CancellationToken cancellationToken)
     {
+        var ignoredPaths = GetIgnoredPathSnapshot();
         var candidateLimit = maximumResults > int.MaxValue / 4
             ? int.MaxValue
             : maximumResults * 4;
@@ -475,7 +535,9 @@ public sealed class IndexService : IIndexService, IDisposable
             foreach (var path in _store.EnumerateManagedFilePaths(cancellationToken))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (explicitKeys.Contains(path) || !TryGetManagedFileDisplayName(path, out var displayName))
+                if (IsIgnoredPath(path, ignoredPaths)
+                    || explicitKeys.Contains(path)
+                    || !TryGetManagedFileDisplayName(path, out var displayName))
                 {
                     continue;
                 }
@@ -1673,6 +1735,7 @@ public sealed class IndexService : IIndexService, IDisposable
             managedPaths.Add(path);
         }
 
+        var ignoredPaths = GetIgnoredPathSnapshot();
         lock (_entriesLock)
         {
             var applications = 0;
@@ -1680,6 +1743,11 @@ public sealed class IndexService : IIndexService, IDisposable
             var explicitImages = 0;
             foreach (var indexed in _entries.Values)
             {
+                if (IsIgnoredPath(indexed.Entry.OnlyKey, ignoredPaths))
+                {
+                    continue;
+                }
+
                 if (indexed.Source is IndexSource.Application or IndexSource.Plugin)
                 {
                     applications++;
@@ -1713,9 +1781,15 @@ public sealed class IndexService : IIndexService, IDisposable
         bool includeImages,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        var ignoredPaths = GetIgnoredPathSnapshot();
         await foreach (var path in _store.EnumerateManagedFilePathsAsync(cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (IsIgnoredPath(path, ignoredPaths))
+            {
+                continue;
+            }
+
             if (includeDocuments && IsSupportedDocument(Path.GetExtension(path)))
             {
                 yield return (path, IndexFileKind.Document);
@@ -1738,6 +1812,11 @@ public sealed class IndexService : IIndexService, IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             var path = indexed.Entry.OnlyKey;
+            if (IsIgnoredPath(path, ignoredPaths))
+            {
+                continue;
+            }
+
             var isManagedFile = await _store.ContainsManagedFilePathAsync(path, cancellationToken);
             if (includeImages
                 && indexed.Source == IndexSource.Image
@@ -1759,10 +1838,12 @@ public sealed class IndexService : IIndexService, IDisposable
 
     private IReadOnlyList<SearchEntry> GetGenericTextEntriesSnapshot()
     {
+        var ignoredPaths = GetIgnoredPathSnapshot();
         lock (_entriesLock)
         {
             return _entries.Values
-                .Where(indexed => indexed.Source != IndexSource.Image
+                .Where(indexed => !IsIgnoredPath(indexed.Entry.OnlyKey, ignoredPaths)
+                                  && indexed.Source != IndexSource.Image
                                   && (indexed.Source is not (IndexSource.Document or IndexSource.Manual or IndexSource.EverythingManaged)
                                       || TryGetFileFingerprint(indexed.Entry.OnlyKey) is null))
                 .Select(indexed => indexed.Entry)
@@ -1818,15 +1899,29 @@ public sealed class IndexService : IIndexService, IDisposable
         && state.LastWriteUtcTicks == fingerprint.LastWriteUtcTicks;
 
     internal static bool ShouldAutomaticallyIndexFile(string path) =>
-        ShouldAutomaticallyIndexFile(path, enforceAllowedFileExtensions: true);
+        ShouldAutomaticallyIndexFile(
+            path,
+            enforceAllowedFileExtensions: true,
+            ignoredPaths: GetIgnoredPathSnapshot());
 
     internal static bool ShouldAutomaticallyIndexEverythingFile(string path) =>
-        ShouldAutomaticallyIndexFile(path, enforceAllowedFileExtensions: false);
+        ShouldAutomaticallyIndexFile(
+            path,
+            enforceAllowedFileExtensions: false,
+            ignoredPaths: GetIgnoredPathSnapshot());
 
-    private static bool ShouldAutomaticallyIndexFile(string path, bool enforceAllowedFileExtensions)
+    internal static bool ShouldAutomaticallyIndexFile(
+        string path,
+        bool enforceAllowedFileExtensions,
+        IReadOnlyList<string> ignoredPaths)
     {
         try
         {
+            if (IsIgnoredPath(path, ignoredPaths))
+            {
+                return false;
+            }
+
             if (IsAppleDoublePath(path))
             {
                 return false;
@@ -1919,6 +2014,89 @@ public sealed class IndexService : IIndexService, IDisposable
         return configuredNames.Any(configuredName =>
             !string.IsNullOrWhiteSpace(configuredName)
             && string.Equals(configuredName.Trim(), name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    internal static IReadOnlyList<string> GetIgnoredPathSnapshot()
+    {
+        if (!ConfigManger.Configs.TryGetValue("KitopiaConfig", out var config)
+            || config is not KitopiaConfig kitopiaConfig)
+        {
+            return [];
+        }
+
+        var ignoredPaths = new List<string>();
+        if (kitopiaConfig.ignoreItems is null)
+        {
+            return ignoredPaths;
+        }
+
+        foreach (var item in kitopiaConfig.ignoreItems)
+        {
+            if (string.IsNullOrWhiteSpace(item)
+                || !TryNormalizePath(item, out var normalizedPath)
+                || ignoredPaths.Contains(normalizedPath, EntryKeyComparer))
+            {
+                continue;
+            }
+
+            ignoredPaths.Add(normalizedPath);
+        }
+
+        return ignoredPaths;
+    }
+
+    internal static bool IsIgnoredPath(string path) =>
+        IsIgnoredPath(path, GetIgnoredPathSnapshot());
+
+    internal static bool IsIgnoredPath(string path, IReadOnlyList<string> ignoredPaths)
+    {
+        if (!TryNormalizePath(path, out var normalizedPath))
+        {
+            return false;
+        }
+
+        return ignoredPaths.Any(ignoredPath => IsSameOrDescendantPath(normalizedPath, ignoredPath));
+    }
+
+    internal static bool TryNormalizePath(string path, out string normalizedPath)
+    {
+        normalizedPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            normalizedPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+            return !string.IsNullOrWhiteSpace(normalizedPath);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsSameOrDescendantPath(string path, string root)
+    {
+        if (EntryKeyComparer.Equals(path, root))
+        {
+            return true;
+        }
+
+        if (root.Length == 0)
+        {
+            return false;
+        }
+
+        if (root[^1] == Path.DirectorySeparatorChar
+            || root[^1] == Path.AltDirectorySeparatorChar)
+        {
+            return path.StartsWith(root, PathComparison);
+        }
+
+        return path.StartsWith(root + Path.DirectorySeparatorChar, PathComparison)
+               || path.StartsWith(root + Path.AltDirectorySeparatorChar, PathComparison);
     }
 
     private static bool TryCreateFileEntry(string path, out SearchEntry entry)

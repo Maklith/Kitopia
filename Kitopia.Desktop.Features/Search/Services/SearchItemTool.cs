@@ -104,11 +104,35 @@ public class SearchItemTool : ISearchItemTool
         {
             return;
         }
-        Task.Run(() =>
+
+        if (!ConfigManger.Config.ignoreItems.Contains(item.OnlyKey, StringComparer.OrdinalIgnoreCase))
         {
             ConfigManger.Config.ignoreItems.Add(item.OnlyKey);
-            ConfigManger.Save();
-            ServiceManager.Services.GetRequiredService<IIndexService>().TryRemove(item.OnlyKey);
+        }
+
+        ConfigManger.Save();
+        Task.Run(async () =>
+        {
+            try
+            {
+                var maintenance = ServiceManager.Services.GetService<IIndexMaintenanceService>();
+                if (maintenance is not null)
+                {
+                    await maintenance.StopBackgroundIndexingAsync();
+                }
+
+                var index = ServiceManager.Services.GetRequiredService<IIndexService>();
+                await index.RemoveIgnoredEntriesAsync();
+                if (maintenance is not null)
+                {
+                    await maintenance.RefreshManagedFilesAsync();
+                    await maintenance.RefreshEverythingFilesAsync();
+                }
+            }
+            catch (Exception exception)
+            {
+                Logger.Warning(exception, "Failed to refresh index after ignoring {Path}.", item.OnlyKey);
+            }
         });
     }
 

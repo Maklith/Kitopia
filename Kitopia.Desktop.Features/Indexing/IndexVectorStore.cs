@@ -850,6 +850,82 @@ internal sealed class IndexVectorStore
         }
     }
 
+    public async Task RemoveMatchingPathsAsync(Func<string, bool> matches, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(matches);
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await using var connection = await OpenAsync(cancellationToken);
+            var matchingPaths = new List<string>();
+            await using (var paths = connection.CreateCommand())
+            {
+                paths.CommandText = $"""
+                    SELECT path FROM {FileSourceTable}
+                    UNION SELECT path FROM {FileSourceStagingTable}
+                    UNION SELECT key FROM {TextMetadataTable}
+                    UNION SELECT path FROM {ImageMetadataTable}
+                    UNION SELECT path FROM {FileStateTable};
+                    """;
+                await using var reader = await paths.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var path = reader.GetString(0);
+                    if (matches(path))
+                    {
+                        matchingPaths.Add(path);
+                    }
+                }
+            }
+
+            if (matchingPaths.Count == 0)
+            {
+                return;
+            }
+
+            using var transaction = connection.BeginTransaction();
+            await ExecuteInTransactionAsync(connection, transaction,
+                $"CREATE TEMP TABLE index_ignored_paths(path TEXT{FilePathCollation} PRIMARY KEY); DELETE FROM index_ignored_paths;",
+                cancellationToken);
+            await using (var insert = connection.CreateCommand())
+            {
+                insert.Transaction = transaction;
+                insert.CommandText = "INSERT OR IGNORE INTO index_ignored_paths(path) VALUES($path);";
+                var pathParameter = insert.Parameters.Add("$path", SqliteType.Text);
+                foreach (var path in matchingPaths)
+                {
+                    pathParameter.Value = path;
+                    await insert.ExecuteNonQueryAsync(cancellationToken);
+                }
+            }
+
+            await ExecuteInTransactionAsync(connection, transaction, $"""
+                DELETE FROM {TextVectorTable}
+                WHERE rowid IN (SELECT vector_rowid FROM {TextMetadataTable}
+                                WHERE key{FilePathCollation} IN (SELECT path FROM index_ignored_paths));
+                DELETE FROM {TextMetadataTable}
+                WHERE key{FilePathCollation} IN (SELECT path FROM index_ignored_paths);
+                DELETE FROM {ImageVectorTable}
+                WHERE rowid IN (SELECT vector_rowid FROM {ImageMetadataTable}
+                                WHERE path{FilePathCollation} IN (SELECT path FROM index_ignored_paths));
+                DELETE FROM {ImageMetadataTable}
+                WHERE path{FilePathCollation} IN (SELECT path FROM index_ignored_paths);
+                DELETE FROM {FileStateTable}
+                WHERE path{FilePathCollation} IN (SELECT path FROM index_ignored_paths);
+                DELETE FROM {FileSourceTable}
+                WHERE path{FilePathCollation} IN (SELECT path FROM index_ignored_paths);
+                DELETE FROM {FileSourceStagingTable}
+                WHERE path{FilePathCollation} IN (SELECT path FROM index_ignored_paths);
+                """, cancellationToken);
+            transaction.Commit();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task ResetAsync(CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);

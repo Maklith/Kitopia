@@ -140,6 +140,7 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
 
     private IEnumerable<string> EnumerateFilteredEverythingFiles(CancellationToken cancellationToken)
     {
+        var ignoredPaths = IndexService.GetIgnoredPathSnapshot();
         foreach (var path in _appTools.EnumerateEverythingIndexedFiles())
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -158,7 +159,10 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
                 continue;
             }
 
-            if (IndexService.ShouldAutomaticallyIndexEverythingFile(fullPath))
+            if (IndexService.ShouldAutomaticallyIndexFile(
+                    fullPath,
+                    enforceAllowedFileExtensions: false,
+                    ignoredPaths: ignoredPaths))
             {
                 yield return fullPath;
             }
@@ -167,6 +171,7 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
 
     private IEnumerable<string> EnumerateManagedFiles(KitopiaConfig config, CancellationToken cancellationToken)
     {
+        var ignoredPaths = IndexService.GetIgnoredPathSnapshot();
         var transientDirectoryNames = config.transientDirectoryNames
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Select(name => name.Trim())
@@ -177,7 +182,8 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
         foreach (var root in roots)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryNormalizePath(root, out var normalizedRoot)
+            if (!IndexService.TryNormalizePath(root, out var normalizedRoot)
+                || IndexService.IsIgnoredPath(normalizedRoot, ignoredPaths)
                 || IsTransientDirectory(normalizedRoot, transientDirectoryNames))
             {
                 continue;
@@ -208,7 +214,8 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
                 foreach (var childDirectory in childDirectories)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (!IsTransientDirectory(childDirectory, transientDirectoryNames))
+                    if (!IsTransientDirectory(childDirectory, transientDirectoryNames)
+                        && !IndexService.IsIgnoredPath(childDirectory, ignoredPaths))
                     {
                         pendingDirectories.Push(childDirectory);
                     }
@@ -217,8 +224,11 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
                 foreach (var path in files)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (IndexService.ShouldAutomaticallyIndexFile(path)
-                        && TryNormalizePath(path, out var normalizedPath))
+                    if (IndexService.ShouldAutomaticallyIndexFile(
+                            path,
+                            enforceAllowedFileExtensions: true,
+                            ignoredPaths: ignoredPaths)
+                        && IndexService.TryNormalizePath(path, out var normalizedPath))
                     {
                         yield return normalizedPath;
                     }
@@ -229,24 +239,12 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
         foreach (var file in config.managedIndexFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (File.Exists(file) && TryNormalizePath(file, out var normalizedPath))
+            if (File.Exists(file)
+                && IndexService.TryNormalizePath(file, out var normalizedPath)
+                && !IndexService.IsIgnoredPath(normalizedPath, ignoredPaths))
             {
                 yield return normalizedPath;
             }
-        }
-    }
-
-    private static bool TryNormalizePath(string path, out string normalizedPath)
-    {
-        try
-        {
-            normalizedPath = Path.GetFullPath(path);
-            return true;
-        }
-        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
-        {
-            normalizedPath = string.Empty;
-            return false;
         }
     }
 

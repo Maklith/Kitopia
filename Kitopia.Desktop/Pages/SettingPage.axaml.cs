@@ -631,6 +631,10 @@ public partial class SettingPage : UserControl
         {
             _ = RefreshAllFileSourcesAsync(maintenanceService);
         }
+        else if (fieldName == nameof(KitopiaConfig.ignoreItems))
+        {
+            _ = RefreshAllFileSourcesAsync(maintenanceService);
+        }
         else if (fieldName == nameof(KitopiaConfig.allowedFileExtensions))
         {
             _ = RefreshManagedIndexAsync(maintenanceService);
@@ -683,15 +687,25 @@ public partial class SettingPage : UserControl
 
     private static async Task RefreshAllFileSourcesAsync(IIndexMaintenanceService? maintenanceService)
     {
+        var index = ServiceManager.Services.GetService<IIndexService>();
         if (maintenanceService is null)
         {
+            if (index is not null)
+            {
+                await index.RemoveIgnoredEntriesAsync();
+            }
+
             return;
         }
 
         await maintenanceService.StopBackgroundIndexingAsync();
+        if (index is not null)
+        {
+            await index.RemoveIgnoredEntriesAsync();
+        }
+
         await maintenanceService.RefreshManagedFilesAsync();
         await maintenanceService.RefreshEverythingFilesAsync();
-        var index = ServiceManager.Services.GetService<IIndexService>();
         if (index is not null)
         {
             await index.IndexIncrementalAsync(IndexRebuildScope.Files);

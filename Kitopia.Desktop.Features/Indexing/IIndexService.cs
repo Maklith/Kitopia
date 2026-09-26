@@ -24,6 +24,8 @@ public interface IIndexService : ISearchEntryIndex
 
     bool TryRemove(string onlyKey);
 
+    Task RemoveIgnoredEntriesAsync(CancellationToken cancellationToken = default);
+
     bool TryGetValue(string onlyKey, out SearchEntry entry);
 
     int RemoveWhere(Func<string, SearchEntry, bool> predicate);
