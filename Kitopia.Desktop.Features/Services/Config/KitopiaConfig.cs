@@ -277,6 +277,9 @@ public class KitopiaConfig : ConfigBase
     };
 
     [ConfigFieldCategory("更多")]
+    [ConfigField("更新时创建图标", "更新安装时创建桌面和开始菜单快捷方式", 0xE61C, ConfigFieldType.布尔)]
+    public bool createShortcutsOnUpdate = false;
+
     [ConfigField("检查更新", "立即检查更新", 0xE974, ConfigFieldType.按钮,actionName: "检查更新")]
     public async Task CheckUpdate()
     {

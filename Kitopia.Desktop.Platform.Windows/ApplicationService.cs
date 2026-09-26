@@ -184,7 +184,10 @@ public class ApplicationService : IApplicationService {
                         progressToast.Complete("下载完成，正在启动安装程序...");
                         await Task.Delay(1000);
                         // Close application and start installer
-                        ServiceManager.Services.GetService<IDesktopShell>()!.Open(tempPath, "--silent");
+                        var installerArguments = ConfigManger.Config.createShortcutsOnUpdate
+                            ? "--silent"
+                            : "--silent --no-shortcuts";
+                        ServiceManager.Services.GetService<IDesktopShell>()!.Open(tempPath, installerArguments);
                         await Task.Delay(2000);
                         await ExitAsync().ConfigureAwait(false);
                     }

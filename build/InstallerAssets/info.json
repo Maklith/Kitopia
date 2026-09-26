@@ -35,5 +35,10 @@
       "Package": "Ocr.zip",
       "Target": "{localUserData}\\Kitopia\\Ocr"
     }
+  ],
+  "UninstallDirectories": [
+    {
+      "Target": "{localUserData}\\Kitopia"
+    }
   ]
 }

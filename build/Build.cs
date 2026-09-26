@@ -42,6 +42,14 @@ partial class Build : FalloutBuild
         .DependsOn(PackWindows, PackAndroid, PackInstaller)
         .Executes(() => { });
 
+    Target LocalTest => _ => _
+        .DependsOn(RestoreWindows)
+        .Executes(() =>
+        {
+            PublishWindows("win-x64");
+            BuildInstaller("win-x64", "x86_64-pc-windows-msvc");
+        });
+
     internal IEnumerable<AbsolutePath> PluginProjects()
     {
         yield return RootDirectory / "KitopiaEx" / "KitopiaEx.csproj";
@@ -71,5 +79,5 @@ partial class Build : FalloutBuild
         }).Wait();
     }
 
-    public static int Main() => Execute<Build>(x => x.Clean);
+    public static int Main() => Execute<Build>(x => x.IsRelease ? x.Clean : x.LocalTest);
 }
