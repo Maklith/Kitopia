@@ -218,6 +218,22 @@
                                             CommandParameter="{Binding .}">
                                         <Button.ContextFlyout>
                                             <MenuFlyout>
+                                                <MenuItem Header="以管理员身份运行"
+                                                          Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
+                                                          IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='RunAsAdmin'}"
+                                                          CommandParameter="{Binding .}" />
+                                                <MenuItem Header="打开文件所在位置"
+                                                          Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}"
+                                                          IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Folder'}"
+                                                          CommandParameter="{Binding .}" />
+                                                <MenuItem Header="在终端中打开"
+                                                          Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
+                                                          IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Console'}"
+                                                          CommandParameter="{Binding .}" />
+                                                <MenuItem Header="{Binding IsStared,Converter={StaticResource StarBoolToText},ConverterParameter='Star'}"
+                                                          Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).StarCommand}"
+                                                          IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Star'}"
+                                                          CommandParameter="{Binding .}" />
                                                 <MenuItem Header="忽略"
                                                           Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IgnoreItemCommand}"
                                                           IsVisible="{Binding Path=FileType,Converter={StaticResource CanIgnoreCtr}}"
@@ -278,7 +294,8 @@
                                                            Text="{Binding Path=FileType}" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="3" Orientation="Horizontal" Focusable="False"
-                                                        HorizontalAlignment="Right" Spacing="4">
+                                                        HorizontalAlignment="Right" Spacing="4"
+                                                        IsVisible="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IsPreviewMode, Converter={x:Static BoolConverters.Not}}">
                                                 <Button KeyboardNavigation.TabNavigation="None"
                                                         Theme="{DynamicResource BorderlessButton}"
                                                         ToolTip.Tip="以管理员身份运行"
