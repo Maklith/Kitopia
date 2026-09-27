@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
@@ -14,7 +15,15 @@ namespace Kitopia.Desktop.Features.Services.Plugin;
 public class PluginNetworkService
 {
     private const string PluginApiPath = "api/v1/plugin";
+    private static readonly TimeSpan PluginInfoCacheDuration = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan AvatarCacheDuration = TimeSpan.FromDays(1);
     private static readonly ILogger Logger = LogManager.Logger.ForContext<PluginNetworkService>();
+    private static readonly ConcurrentDictionary<string, CacheEntry<OnlinePluginInfo>> OnlinePluginInfoCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, CacheEntry<byte[]>> PluginAvatarCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, CacheEntry<byte[]>> AuthorAvatarCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, Task<OnlinePluginInfo?>> PendingOnlinePluginInfo = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, Task<byte[]?>> PendingPluginAvatars = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, Task<byte[]?>> PendingAuthorAvatars = new(StringComparer.OrdinalIgnoreCase);
 
     internal static HttpRequestMessage CreateAuthorizedGetRequest(string path)
     {
@@ -47,14 +56,37 @@ public class PluginNetworkService
         }
     };
 
-    public static Task<OnlinePluginInfo?> GetOnlinePluginInfo(
+    public static async Task<OnlinePluginInfo?> GetOnlinePluginInfo(
         string pluginSignName,
-        CancellationToken cancellationToken = default) =>
-        GetPluginDataAsync<OnlinePluginInfo>(
-            Uri.EscapeDataString(pluginSignName),
-            cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var cacheKey = NormalizeCacheKey(pluginSignName);
+        if (OnlinePluginInfoCache.TryGetValue(cacheKey, out var cached))
+        {
+            if (cached.ExpiresAt > DateTimeOffset.UtcNow) return cached.Value;
+            OnlinePluginInfoCache.TryRemove(cacheKey, out _);
+        }
 
-    public static Task<PluginPage?> GetPluginsAsync(
+        var pending = PendingOnlinePluginInfo.GetOrAdd(
+            cacheKey,
+            _ => GetPluginDataAsync<OnlinePluginInfo>(Uri.EscapeDataString(pluginSignName), CancellationToken.None));
+        var result = await pending.WaitAsync(cancellationToken);
+        if (result is not null)
+        {
+            OnlinePluginInfoCache[cacheKey] = new CacheEntry<OnlinePluginInfo>(
+                result,
+                DateTimeOffset.UtcNow.Add(PluginInfoCacheDuration));
+            PendingOnlinePluginInfo.TryRemove(new KeyValuePair<string, Task<OnlinePluginInfo?>>(cacheKey, pending));
+        }
+        else
+        {
+            PendingOnlinePluginInfo.TryRemove(new KeyValuePair<string, Task<OnlinePluginInfo?>>(cacheKey, pending));
+        }
+
+        return result;
+    }
+
+    public static async Task<PluginPage?> GetPluginsAsync(
         int page = 1,
         int pageSize = 12,
         string? query = null,
@@ -78,7 +110,18 @@ public class PluginNetworkService
         }
 
         var queryString = string.Join("&", queryParams);
-        return GetPluginDataAsync<PluginPage>($"all?{queryString}", cancellationToken);
+        var pageResult = await GetPluginDataAsync<PluginPage>($"all?{queryString}", cancellationToken);
+        if (pageResult?.Items is { Count: > 0 } items)
+        {
+            foreach (var plugin in items)
+            {
+                OnlinePluginInfoCache[NormalizeCacheKey(plugin.NameSign)] = new CacheEntry<OnlinePluginInfo>(
+                    plugin,
+                    DateTimeOffset.UtcNow.Add(PluginInfoCacheDuration));
+            }
+        }
+
+        return pageResult;
     }
 
     internal static async Task<PluginPackage> DownloadPackageAsync(
@@ -119,17 +162,24 @@ public class PluginNetworkService
         string pluginSignName,
         CancellationToken cancellationToken = default)
     {
-        try
+        var cacheKey = NormalizeCacheKey(pluginSignName);
+        if (PluginAvatarCache.TryGetValue(cacheKey, out var cached))
         {
-            return await GetPluginDataAsync<byte[]>(
-                $"avatar?namesign={Uri.EscapeDataString(pluginSignName)}",
-                cancellationToken);
+            if (cached.ExpiresAt > DateTimeOffset.UtcNow) return cached.Value;
+            PluginAvatarCache.TryRemove(cacheKey, out _);
         }
-        catch (Exception exception)
+
+        var pending = PendingPluginAvatars.GetOrAdd(
+            cacheKey,
+            _ => FetchPluginAvatarAsync(pluginSignName));
+        var result = await pending.WaitAsync(cancellationToken);
+        if (result is { Length: > 0 })
         {
-            Logger.Error(exception, "获取插件图标错误");
-            return null;
+            PluginAvatarCache[cacheKey] = new CacheEntry<byte[]>(result, DateTimeOffset.UtcNow.Add(AvatarCacheDuration));
         }
+        PendingPluginAvatars.TryRemove(new KeyValuePair<string, Task<byte[]?>>(cacheKey, pending));
+
+        return result;
     }
 
     public static async Task<string?> GetAuthorNameAsync(int authorId, CancellationToken cancellationToken = default)
@@ -158,16 +208,52 @@ public class PluginNetworkService
         string userName,
         CancellationToken cancellationToken = default)
     {
+        var normalizedUserName = userName.Trim();
+        var cacheKey = NormalizeCacheKey(normalizedUserName);
+        if (string.IsNullOrWhiteSpace(cacheKey)) return null;
+        if (AuthorAvatarCache.TryGetValue(cacheKey, out var cached))
+        {
+            if (cached.ExpiresAt > DateTimeOffset.UtcNow) return cached.Value;
+            AuthorAvatarCache.TryRemove(cacheKey, out _);
+        }
+
+        var pending = PendingAuthorAvatars.GetOrAdd(
+            cacheKey,
+            _ => FetchAuthorAvatarAsync(normalizedUserName));
+        var result = await pending.WaitAsync(cancellationToken);
+        if (result is { Length: > 0 })
+        {
+            AuthorAvatarCache[cacheKey] = new CacheEntry<byte[]>(result, DateTimeOffset.UtcNow.Add(AvatarCacheDuration));
+        }
+        PendingAuthorAvatars.TryRemove(new KeyValuePair<string, Task<byte[]?>>(cacheKey, pending));
+
+        return result;
+    }
+
+    private static async Task<byte[]?> FetchPluginAvatarAsync(string pluginSignName)
+    {
+        try
+        {
+            return await GetPluginDataAsync<byte[]>(
+                $"avatar?namesign={Uri.EscapeDataString(pluginSignName)}",
+                CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            Logger.Error(exception, "获取插件图标错误");
+            return null;
+        }
+    }
+
+    private static async Task<byte[]?> FetchAuthorAvatarAsync(string userName)
+    {
         try
         {
             var url = $"{ConfigManger.ApiUrl}/api/v1/user/avatar/{Uri.EscapeDataString(userName)}";
-            using var response = await HttpClient.GetAsync(url, cancellationToken);
-            if (!response.IsSuccessStatusCode)
-            {
-                return null;
-            }
+            using var response = await HttpClient.GetAsync(url, CancellationToken.None);
+            if (!response.IsSuccessStatusCode) return null;
 
-            return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            return await response.Content.ReadAsByteArrayAsync(CancellationToken.None);
         }
         catch (Exception exception)
         {
@@ -263,6 +349,10 @@ public class PluginNetworkService
     }
 
     private static string GetPluginApiUrl(string path) => $"{ConfigManger.ApiUrl}/{PluginApiPath}/{path}";
+
+    private static string NormalizeCacheKey(string value) => value.Trim();
+
+    private readonly record struct CacheEntry<T>(T Value, DateTimeOffset ExpiresAt);
 
     public static bool SupportsCurrentPlatform(IReadOnlyCollection<string> availablePlatforms)
     {
