@@ -208,17 +208,24 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
 
         var multicastIpV4 = IPAddress.Parse(MulticastAddressV4);
         var multicastIpV6 = IPAddress.Parse(MulticastAddressV6);
+        var joinedIpv4Interfaces = new HashSet<string>(StringComparer.Ordinal);
+        var joinedIpv6Interfaces = new HashSet<int>();
 
         try
         {
             _udpClientV4.MulticastLoopback = true;
             _udpClientV6?.MulticastLoopback = true;
-            _udpClientV4.JoinMulticastGroup(multicastIpV4);
-            _udpClientV6?.JoinMulticastGroup(multicastIpV6);
+            RefreshDiscoveryMulticastMembership(
+                _udpClientV4,
+                _udpClientV6,
+                multicastIpV4,
+                multicastIpV6,
+                joinedIpv4Interfaces,
+                joinedIpv6Interfaces,
+                true);
             DeviceCommunicationDiagnostics.Info(
                 LogCategory,
                 $"Joined discovery multicast groups {MulticastAddressV4} and {MulticastAddressV6}.");
-            RefreshDiscoveryMulticastMembership(_udpClientV4, _udpClientV6, multicastIpV4, multicastIpV6, true);
         }
         catch (Exception exception)
         {
@@ -236,6 +243,8 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             _udpClientV6,
             multicastIpV4,
             multicastIpV6,
+            joinedIpv4Interfaces,
+            joinedIpv6Interfaces,
             token));
 
         await Task.WhenAll(receiveTasks);
@@ -246,6 +255,8 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         UdpClient? udpClientV6,
         IPAddress multicastIpV4,
         IPAddress multicastIpV6,
+        HashSet<string> joinedIpv4Interfaces,
+        HashSet<int> joinedIpv6Interfaces,
         CancellationToken token)
     {
         while (!token.IsCancellationRequested)
@@ -259,7 +270,14 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                 break;
             }
 
-            RefreshDiscoveryMulticastMembership(udpClientV4, udpClientV6, multicastIpV4, multicastIpV6, false);
+            RefreshDiscoveryMulticastMembership(
+                udpClientV4,
+                udpClientV6,
+                multicastIpV4,
+                multicastIpV6,
+                joinedIpv4Interfaces,
+                joinedIpv6Interfaces,
+                false);
         }
     }
 
@@ -268,6 +286,8 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         UdpClient? udpClientV6,
         IPAddress multicastIpV4,
         IPAddress multicastIpV6,
+        HashSet<string> joinedIpv4Interfaces,
+        HashSet<int> joinedIpv6Interfaces,
         bool logInterfaces)
     {
         foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
@@ -287,23 +307,25 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                     $"Interface {networkInterface.Name} ({networkInterface.NetworkInterfaceType}) Addresses={string.Join(", ", properties.UnicastAddresses.Select(address => address.Address.ToString()))}.");
             }
 
-            foreach (var unicast in properties.UnicastAddresses)
+            var ipv4Address = properties.UnicastAddresses
+                .Select(unicast => unicast.Address)
+                .FirstOrDefault(address => address.AddressFamily == AddressFamily.InterNetwork);
+            if (ipv4Address is not null && joinedIpv4Interfaces.Add(networkInterface.Id))
             {
-                if (unicast.Address.AddressFamily == AddressFamily.InterNetwork)
+                try
                 {
-                    try
+                    udpClientV4.JoinMulticastGroup(multicastIpV4, ipv4Address);
+                }
+                catch (Exception exception)
+                {
+                    if (logInterfaces)
                     {
-                        udpClientV4.JoinMulticastGroup(multicastIpV4, unicast.Address);
+                        DeviceCommunicationDiagnostics.Warning(
+                            LogCategory,
+                            $"Failed to join IPv4 multicast on {networkInterface.Name} {ipv4Address}: {exception.Message}");
                     }
-                    catch (Exception exception)
-                    {
-                        if (logInterfaces)
-                        {
-                            DeviceCommunicationDiagnostics.Warning(
-                                LogCategory,
-                                $"Failed to join IPv4 multicast on {networkInterface.Name} {unicast.Address}: {exception.Message}");
-                        }
-                    }
+
+                    joinedIpv4Interfaces.Remove(networkInterface.Id);
                 }
             }
 
@@ -312,15 +334,27 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                 continue;
             }
 
+            var ipv6InterfaceIndex = 0;
             try
             {
+                if (!properties.UnicastAddresses.Any(address => address.Address.AddressFamily == AddressFamily.InterNetworkV6))
+                {
+                    continue;
+                }
+
                 var ipv6Properties = properties.GetIPv6Properties();
                 if (ipv6Properties is null || ipv6Properties.Index <= 0)
                 {
                     continue;
                 }
 
-                udpClientV6.JoinMulticastGroup(ipv6Properties.Index, multicastIpV6);
+                ipv6InterfaceIndex = ipv6Properties.Index;
+                if (!joinedIpv6Interfaces.Add(ipv6InterfaceIndex))
+                {
+                    continue;
+                }
+
+                udpClientV6.JoinMulticastGroup(ipv6InterfaceIndex, multicastIpV6);
             }
             catch (Exception exception)
             {
@@ -329,6 +363,11 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                     DeviceCommunicationDiagnostics.Warning(
                         LogCategory,
                         $"Failed to join IPv6 multicast on {networkInterface.Name}: {exception.Message}");
+                }
+
+                if (ipv6InterfaceIndex > 0)
+                {
+                    joinedIpv6Interfaces.Remove(ipv6InterfaceIndex);
                 }
             }
         }

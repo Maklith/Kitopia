@@ -26,7 +26,9 @@ public sealed class NativeFilePreviewHost : NativeControlHost
     private CoreWebView2Controller? _controller;
     private IPreviewHandler? _handler;
     private IStream? _stream;
-    private bool _closed;
+    private Task? _loadTask;
+    private bool _cleanupScheduled;
+    private volatile bool _closed;
 
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
     {
@@ -35,7 +37,7 @@ public sealed class NativeFilePreviewHost : NativeControlHost
             User32.WindowStyles.WS_CHILD | User32.WindowStyles.WS_VISIBLE | User32.WindowStyles.WS_CLIPCHILDREN,
             0, 0, 1, 1, parent.Handle, default, default, default);
         var handle = new PlatformHandle(_window.DangerousGetHandle(), "HWND");
-        _ = LoadAsync();
+        _loadTask = LoadAsync();
         return handle;
     }
 
@@ -48,8 +50,12 @@ public sealed class NativeFilePreviewHost : NativeControlHost
                 or ".mp3" or ".m4a" or ".aac" or ".wav" or ".ogg" or ".flac" or ".opus"
                 or ".gif" or ".webp" or ".svg" or ".avif"))
             {
-                LoadShellPreview();
-                PreviewReady?.Invoke();
+                var hasPreviewHandler = await Task.Run(() => !_closed && LoadShellPreview()).ConfigureAwait(false);
+                if (!_closed)
+                {
+                    if (hasPreviewHandler) RaisePreviewReady();
+                    else RaisePreviewFailed("此文件没有可用的系统预览处理器，可以使用“打开文件”查看。");
+                }
                 return;
             }
 
@@ -82,12 +88,12 @@ public sealed class NativeFilePreviewHost : NativeControlHost
                 if (!e.IsSuccess)
                 {
                     LogManager.Logger.Warning("文件预览导航失败: {Path}, {Status}, {Source}", FilePath, e.WebErrorStatus, browser.Source);
-                    PreviewFailed?.Invoke("无法加载此文件的预览。");
+                    RaisePreviewFailed("无法加载此文件的预览。");
                     return;
                 }
                 if (!isMedia)
                 {
-                    PreviewReady?.Invoke();
+                    RaisePreviewReady();
                     return;
                 }
                 try
@@ -103,14 +109,14 @@ public sealed class NativeFilePreviewHost : NativeControlHost
                 }
                 catch (Exception exception) when (exception is InvalidOperationException or COMException)
                 {
-                    if (!_closed) PreviewFailed?.Invoke("播放器加载失败，可以使用“打开文件”查看。");
+                    if (!_closed) RaisePreviewFailed("播放器加载失败，可以使用“打开文件”查看。");
                 }
             };
             browser.WebMessageReceived += (_, e) =>
             {
                 if (_closed) return;
-                if (e.TryGetWebMessageAsString() == "ready") PreviewReady?.Invoke();
-                else PreviewFailed?.Invoke("此音视频的编码暂不支持，或文件已损坏，可以使用“打开文件”播放。");
+                if (e.TryGetWebMessageAsString() == "ready") RaisePreviewReady();
+                else RaisePreviewFailed("此音视频的编码暂不支持，或文件已损坏，可以使用“打开文件”播放。");
             };
             browser.Settings.AreDevToolsEnabled = false;
             browser.Settings.AreDefaultContextMenusEnabled = false;
@@ -169,38 +175,69 @@ public sealed class NativeFilePreviewHost : NativeControlHost
         {
             if (_closed) return;
             LogManager.Logger.Warning(exception, "文件预览失败: {Path}", FilePath);
-            PreviewFailed?.Invoke(exception is WebView2RuntimeNotFoundException
+            RaisePreviewFailed(exception is WebView2RuntimeNotFoundException
                 ? "需要安装 Microsoft Edge WebView2 Runtime 才能预览此类文件。"
                 : "此文件暂时无法预览，可以使用“打开文件”查看。");
         }
     }
 
-    private void LoadShellPreview()
+    private void RaisePreviewReady() => Dispatcher.UIThread.Post(() =>
+    {
+        if (!_closed) PreviewReady?.Invoke();
+    });
+
+    private void RaisePreviewFailed(string message) => Dispatcher.UIThread.Post(() =>
+    {
+        if (!_closed) PreviewFailed?.Invoke(message);
+    });
+
+    private bool LoadShellPreview()
     {
         var identifier = new StringBuilder(128);
         var length = (uint)identifier.Capacity;
-        ShlwApi.AssocQueryString(ShlwApi.ASSOCF.ASSOCF_INIT_DEFAULTTOSTAR, ShlwApi.ASSOCSTR.ASSOCSTR_SHELLEXTENSION,
-            Path.GetExtension(FilePath), "{8895b1c6-b41f-4c1c-a562-0d564250836f}", identifier, ref length).ThrowIfFailed();
+        var result = ShlwApi.AssocQueryString(ShlwApi.ASSOCF.ASSOCF_INIT_DEFAULTTOSTAR,
+            ShlwApi.ASSOCSTR.ASSOCSTR_SHELLEXTENSION, Path.GetExtension(FilePath),
+            "{8895b1c6-b41f-4c1c-a562-0d564250836f}", identifier, ref length);
+        if ((uint)result == 0x80070483) return false; // HRESULT_FROM_WIN32(ERROR_NO_ASSOCIATION)
+        result.ThrowIfFailed();
         var type = Type.GetTypeFromCLSID(Guid.Parse(identifier.ToString()), throwOnError: true)!;
-        _handler = (IPreviewHandler)Activator.CreateInstance(type)!;
-        if (_handler is IInitializeWithStream withStream)
+        var handler = (IPreviewHandler)Activator.CreateInstance(type)!;
+        IStream? stream = null;
+        try
         {
-            ShlwApi.SHCreateStreamOnFileEx(FilePath, STGM.STGM_READ | STGM.STGM_SHARE_DENY_NONE,
-                0, false, null, out _stream).ThrowIfFailed();
-            withStream.Initialize(_stream, STGM.STGM_READ).ThrowIfFailed();
+            if (handler is IInitializeWithStream withStream)
+            {
+                ShlwApi.SHCreateStreamOnFileEx(FilePath, STGM.STGM_READ | STGM.STGM_SHARE_DENY_NONE,
+                    0, false, null, out stream).ThrowIfFailed();
+                withStream.Initialize(stream, STGM.STGM_READ).ThrowIfFailed();
+            }
+            else if (handler is IInitializeWithFile withFile)
+                withFile.Initialize(FilePath, STGM.STGM_READ).ThrowIfFailed();
+            else if (handler is IInitializeWithItem withItem)
+            {
+                var item = SHCreateItemFromParsingName<IShellItem>(FilePath);
+                try { withItem.Initialize(item, STGM.STGM_READ).ThrowIfFailed(); }
+                finally { Marshal.ReleaseComObject(item); }
+            }
+            else throw new NotSupportedException("预览处理器不支持文件初始化。");
+            User32.GetClientRect(_window!, out var bounds);
+            handler.SetWindow(_window!, bounds).ThrowIfFailed();
+            handler.DoPreview().ThrowIfFailed();
+            _handler = handler;
+            _stream = stream;
+            handler = null!;
+            stream = null;
+            return true;
         }
-        else if (_handler is IInitializeWithFile withFile)
-            withFile.Initialize(FilePath, STGM.STGM_READ).ThrowIfFailed();
-        else if (_handler is IInitializeWithItem withItem)
+        finally
         {
-            var item = SHCreateItemFromParsingName<IShellItem>(FilePath);
-            try { withItem.Initialize(item, STGM.STGM_READ).ThrowIfFailed(); }
-            finally { Marshal.ReleaseComObject(item); }
+            if (stream is not null) Marshal.ReleaseComObject(stream);
+            if (handler is not null)
+            {
+                try { handler.Unload(); }
+                finally { Marshal.ReleaseComObject(handler); }
+            }
         }
-        else throw new NotSupportedException("预览处理器不支持文件初始化。");
-        User32.GetClientRect(_window!, out var bounds);
-        _handler.SetWindow(_window!, bounds).ThrowIfFailed();
-        _handler.DoPreview().ThrowIfFailed();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -220,6 +257,23 @@ public sealed class NativeFilePreviewHost : NativeControlHost
     protected override void DestroyNativeControlCore(IPlatformHandle control)
     {
         _closed = true;
+        if (_window is not null)
+            User32.ShowWindow(_window.DangerousGetHandle(), ShowWindowCommand.SW_HIDE);
+        if (_loadTask is { IsCompleted: false } loadTask)
+        {
+            if (!_cleanupScheduled)
+            {
+                _cleanupScheduled = true;
+                _ = loadTask.ContinueWith(_ => Dispatcher.UIThread.Post(CleanupNativeResources),
+                    CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+            }
+            return;
+        }
+        CleanupNativeResources();
+    }
+
+    private void CleanupNativeResources()
+    {
         _controller?.Close();
         _controller = null;
         if (_handler is not null)
@@ -235,5 +289,7 @@ public sealed class NativeFilePreviewHost : NativeControlHost
         }
         _window?.Dispose();
         _window = null;
+        _loadTask = null;
+        _cleanupScheduled = false;
     }
 }
