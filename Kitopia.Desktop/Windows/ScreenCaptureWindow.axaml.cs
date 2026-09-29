@@ -611,8 +611,14 @@ public partial class ScreenCaptureWindow : Window
         WeakReferenceMessenger.Default.Send<string, string>("Selected", "ScreenCapture");
         UpdateSelectBox();
 
-        if (ConfigManger.Config.截图直接复制到剪贴板 || _selectBytesMode || _selectMode)
+        if (ConfigManger.Config.截图直接复制到剪贴板) {
             FinnishCapture();
+            var toastService = ServiceManager.Services.GetService<IToastService>()!;
+            toastService.Show("截图", "已复制到剪贴板", NotificationType.Success);
+        }
+        else if (_selectBytesMode || _selectMode) {
+            FinnishCapture();
+        }
         else
             UpdateToolBar();
     }
