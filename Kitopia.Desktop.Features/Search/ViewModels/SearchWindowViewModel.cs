@@ -747,6 +747,10 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         {
             return;
         }
+        var search = Search;
+        if (!NowInSelectMode)
+            WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
+
         Task.Run(() =>
         {
             if (NowInSelectMode)
@@ -757,8 +761,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 return;
             }
 
-            ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item,Search);
-            WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
+            ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFile(item, search);
         });
         
         Search = "";
@@ -775,16 +778,16 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private void OpenFolder(object searchViewItem)
     {
         Search = "";
-        ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFolder((SearchViewItem?)searchViewItem);
         WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
+        ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFolder((SearchViewItem?)searchViewItem);
     }
 
     [RelayCommand]
     private void RunAsAdmin(object searchViewItem)
     {
         Search = "";
-        ServiceManager.Services.GetService<ISearchItemTool>()!.RunAsAdmin((SearchViewItem?)searchViewItem);
         WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
+        ServiceManager.Services.GetService<ISearchItemTool>()!.RunAsAdmin((SearchViewItem?)searchViewItem);
     }
 
     [RelayCommand]
@@ -817,8 +820,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private void OpenFolderInTerminal(object searchViewItem)
     {
         Search = "";
-        ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFolderInTerminal((SearchViewItem?)searchViewItem);
         WeakReferenceMessenger.Default.Send("a", "SearchWindowClose");
+        ServiceManager.Services.GetService<ISearchItemTool>()!.OpenFolderInTerminal((SearchViewItem?)searchViewItem);
     }
 
 
