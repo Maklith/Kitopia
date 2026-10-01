@@ -5,30 +5,32 @@
              xmlns:u="https://irihi.tech/ursa"
              xmlns:pages="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages;assembly=Kitopia.Desktop.Features"
              xmlns:plugin="clr-namespace:Kitopia.Desktop.Features.Services.Plugin;assembly=Kitopia.Desktop.Features"
+             xmlns:scenario="clr-namespace:Kitopia.Desktop.Features.CustomScenario.Services;assembly=Kitopia.Desktop.Features"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="pages:MarketPageViewModel"
              x:Class="Kitopia.Desktop.Pages.MarketPage">
     <Panel>
         <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
 
-        <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
+        <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
             <!-- 1. Header: Community directory + Title + Subtitle + Plugin Count -->
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="社区目录" Theme="{DynamicResource KitopiaPageKickerText}" />
-                    <TextBlock Text="插件市场" Theme="{DynamicResource KitopiaPageTitleText}" />
-                    <TextBlock Text="探索社区已发布的扩展，按你的工作环境选择合适的工具。"
-                               Theme="{DynamicResource KitopiaPageSubtitleText}" />
+                    <TextBlock Text="市场" Theme="{DynamicResource KitopiaPageTitleText}" />
                 </StackPanel>
                 <TextBlock Grid.Column="1"
-                           Text="{Binding TotalCount, StringFormat='共 {0} 个插件'}"
+                           Text="{Binding ItemCountText}"
                            FontSize="13"
                            Foreground="{DynamicResource SemiColorText2}"
                            VerticalAlignment="Bottom" />
             </Grid>
 
+            <TabStrip Grid.Row="1" ItemsSource="{Binding MarketTabs}"
+                      SelectedIndex="{Binding SelectedMarketTab, Mode=TwoWay}" />
+
             <!-- 2. Search & Filter Bar -->
-            <Border Grid.Row="1"
+            <Border Grid.Row="2"
                     Background="{DynamicResource KitopiaCardBackgroundBrush}"
                     BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
                     BorderThickness="1"
@@ -54,6 +56,7 @@
                     </TextBox>
 
                     <ComboBox Grid.Column="1"
+                              IsVisible="{Binding IsPluginMarket}"
                               Width="140"
                               CornerRadius="6"
                               ItemsSource="{Binding PlatformOptions}"
@@ -68,7 +71,7 @@
             </Border>
 
             <!-- 3. Plugin Cards List / Empty State / Loading -->
-            <Panel Grid.Row="2">
+            <Panel Grid.Row="3" IsVisible="{Binding IsPluginMarket}">
                 <!-- Loading State -->
                 <ProgressBar IsIndeterminate="True"
                              HorizontalAlignment="Center"
@@ -329,8 +332,53 @@
                 </ScrollViewer>
             </Panel>
 
+            <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="12" IsVisible="{Binding IsScenarioMarket}">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Button Content="管理我的情景" Command="{Binding ManageScenariosCommand}" CornerRadius="6" />
+                    <TextBlock Text="{Binding LoadError}" Foreground="{DynamicResource SemiColorDanger}"
+                               TextWrapping="Wrap" MaxWidth="400" VerticalAlignment="Center" />
+                </StackPanel>
+                <Panel Grid.Row="1">
+                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <TextBlock Text="暂无情景" IsVisible="{Binding HasNoScenarios}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <ScrollViewer IsVisible="{Binding !IsLoading}">
+                        <ItemsControl ItemsSource="{Binding Scenarios}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="scenario:ScenarioMarketItem">
+                                    <Border Width="360" MinHeight="208" Theme="{DynamicResource KitopiaPluginCard}" Margin="6">
+                                        <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="8">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Visibility}" FontSize="12"
+                                                           Foreground="{DynamicResource KitopiaPrimaryBrush}" />
+                                            </Grid>
+                                            <TextBlock Grid.Row="1" Text="{Binding Author}" FontSize="12"
+                                                       Foreground="{DynamicResource SemiColorText2}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Row="2" Text="{Binding Description}" TextWrapping="Wrap" MaxLines="3"
+                                                       FontSize="13" Foreground="{DynamicResource SemiColorText1}" />
+                                            <TextBlock Grid.Row="3" Text="{Binding ReviewText}" TextWrapping="Wrap" FontSize="12" />
+                                            <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8">
+                                                <Button Content="详情" CornerRadius="6"
+                                                        Command="{Binding $parent[ItemsControl].((pages:MarketPageViewModel)DataContext).ShowScenarioDetailCommand}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="导入" Classes="Primary" CornerRadius="6"
+                                                        Command="{Binding $parent[ItemsControl].((pages:MarketPageViewModel)DataContext).ImportScenarioCommand}"
+                                                        CommandParameter="{Binding}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Panel>
+            </Grid>
+
             <!-- 4. Web-Styled Pagination Footer -->
-            <StackPanel Grid.Row="3"
+            <StackPanel Grid.Row="4"
                         Orientation="Horizontal"
                         HorizontalAlignment="Center"
                         Spacing="12"

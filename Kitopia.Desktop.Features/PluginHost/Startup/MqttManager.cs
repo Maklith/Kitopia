@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Kitopia.Desktop.Features.Services.Interfaces;
+using Kitopia.Desktop.Features.CustomScenario.Services;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Features.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -218,6 +219,27 @@ public class MqttManager
                 }
                 break;
             }
+            case StartupAction.DownloadScenario:
+            {
+                if (!long.TryParse(value, out var scenarioId) || scenarioId <= 0) break;
+                try
+                {
+                    var scenario = await ScenarioMarketService.GetScenarioAsync(scenarioId);
+                    await ShowPluginInstallDialogAsync(new ToastRequest
+                    {
+                        Header = $"导入情景 · {scenario.Name}", Text = $"{scenario.Description}\n作者：{scenario.Author}",
+                        AutoCloseDelay = null, ShowCloseButton = true,
+                        Actions = [new ToastAction { Text = "导入", IsPrimary = true, Callback = () => _ = ImportScenarioFromUrlAsync(scenario.Id) },
+                            new ToastAction { Text = "取消" }]
+                    }, toast!);
+                }
+                catch (Exception exception)
+                {
+                    Logger.Error(exception, "无法获取市场情景 {ScenarioId}", scenarioId);
+                    await toast!.Show("情景导入失败", exception.Message);
+                }
+                break;
+            }
             case StartupAction.IndexAdd:
                 if (!string.IsNullOrEmpty(value))
                 {
@@ -425,6 +447,21 @@ public class MqttManager
 
             await toast.Show(request, mainWindow);
         });
+    }
+
+    private static async Task ImportScenarioFromUrlAsync(long id)
+    {
+        var toast = ServiceManager.Services.GetRequiredService<IToastService>();
+        try
+        {
+            var imported = await ScenarioMarketService.ImportAsync(id);
+            await toast.Show("情景已导入", imported.HasInit ? imported.Name : $"{imported.Name}：{imported.InitError}");
+        }
+        catch (Exception exception)
+        {
+            Logger.Error(exception, "从 URL 导入情景失败 {ScenarioId}", id);
+            await toast.Show("情景导入失败", exception.Message);
+        }
     }
 
     private static async Task InstallPluginFromUrlAsync(OnlinePluginInfo plugin, string version)

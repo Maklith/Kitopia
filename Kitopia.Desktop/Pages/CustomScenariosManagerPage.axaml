@@ -20,10 +20,13 @@
                 <TextBlock Text="编排与执行自动化脚本与连续任务动作。"
                            Theme="{DynamicResource KitopiaPageSubtitleText}" />
             </StackPanel>
-            <Button Grid.Column="1" Classes="Primary"
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+            <Button Content="我的上传" Command="{Binding OpenMyScenariosCommand}" Height="32" CornerRadius="6" />
+            <Button Classes="Primary"
                     Command="{Binding NewCustomScenariosCommand}"
                     Content="新建情景" Height="32" Padding="14,0" CornerRadius="6"
                     VerticalAlignment="Bottom" />
+            </StackPanel>
         </Grid>
 
         <ScrollViewer Grid.Row="1">
@@ -94,6 +97,10 @@
                                                     Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
                                                     IsVisible="{Binding IsRunning,Converter={StaticResource reverseBoolToVisibilityConverter}}"
                                                     Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).RunCustomScenarioCommand}"
+                                                    CommandParameter="{Binding }" />
+                                            <Button Content="上传" ToolTip.Tip="上传到情景市场"
+                                                    Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
+                                                    Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).UploadScenarioCommand}"
                                                     CommandParameter="{Binding }" />
                                         </StackPanel>
 

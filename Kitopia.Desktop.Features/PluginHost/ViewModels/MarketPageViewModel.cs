@@ -1,9 +1,13 @@
 using System.Collections.ObjectModel;
+using System.Text.Json;
 using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Desktop.Abstractions.Shell;
+using Kitopia.Desktop.Features.CustomScenario.Services;
 using Kitopia.Desktop.Features.Services.Account;
+using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Features.UI.UiControls.Plugin;
@@ -30,6 +34,11 @@ public partial class MarketPageViewModel : ObservableObject
     [ObservableProperty] private string _keyword = string.Empty;
     [ObservableProperty] private PlatformOption _selectedPlatform;
     [ObservableProperty] private string _targetPageText = string.Empty;
+    [ObservableProperty] private ObservableCollection<ScenarioMarketItem> _scenarios = new();
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsPluginMarket), nameof(IsScenarioMarket), nameof(ItemCountText))]
+    private int _selectedMarketTab;
+    [ObservableProperty] private string? _loadError;
 
     private int _loadGeneration;
     private CancellationTokenSource? _searchCts;
@@ -48,6 +57,19 @@ public partial class MarketPageViewModel : ObservableObject
     public bool HasMultiplePages => TotalPages > 1;
     public string PageDisplayText => $"{CurrentPage} / {TotalPages}";
     public bool HasNoPlugins => !IsLoading && Plugins.Count == 0;
+    public bool HasNoScenarios => !IsLoading && Scenarios.Count == 0;
+    public bool IsPluginMarket => SelectedMarketTab == 0;
+    public bool IsScenarioMarket => SelectedMarketTab != 0;
+    public IReadOnlyList<string> MarketTabs { get; } = ["插件", "情景", "我的情景"];
+    public string ItemCountText => $"共 {TotalCount} 个{(IsPluginMarket ? "插件" : "情景")}";
+
+    partial void OnSelectedMarketTabChanged(int value)
+    {
+        if (CurrentPage == 1) _ = LoadPluginsAsync();
+        else CurrentPage = 1;
+    }
+
+    partial void OnTotalCountChanged(int value) => OnPropertyChanged(nameof(ItemCountText));
 
     public MarketPageViewModel() : this(null)
     {
@@ -179,9 +201,22 @@ public partial class MarketPageViewModel : ObservableObject
     {
         var generation = ++_loadGeneration;
         IsLoading = true;
+        LoadError = null;
         OnPropertyChanged(nameof(HasNoPlugins));
+        OnPropertyChanged(nameof(HasNoScenarios));
         try
         {
+            if (IsScenarioMarket)
+            {
+                var scenarios = await ScenarioMarketService.GetScenariosAsync(
+                    CurrentPage, PageSize, Keyword, SelectedMarketTab == 2);
+                if (generation != _loadGeneration) return;
+                Scenarios.Clear();
+                foreach (var item in scenarios.Items) Scenarios.Add(item);
+                TotalCount = scenarios.TotalCount;
+                TotalPages = Math.Max(scenarios.TotalPages, 1);
+                return;
+            }
             var page = await PluginNetworkService.GetPluginsAsync(
                 CurrentPage,
                 PageSize,
@@ -217,14 +252,63 @@ public partial class MarketPageViewModel : ObservableObject
             TotalCount = page.TotalCount;
             TotalPages = Math.Max(page.TotalPages, 1);
         }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JsonException)
+        {
+            if (generation == _loadGeneration)
+            {
+                LoadError = exception.Message;
+                Scenarios.Clear();
+                TotalCount = 0;
+                TotalPages = 1;
+            }
+        }
         finally
         {
             if (generation == _loadGeneration)
             {
                 IsLoading = false;
                 OnPropertyChanged(nameof(HasNoPlugins));
+                OnPropertyChanged(nameof(HasNoScenarios));
             }
         }
+    }
+
+    [RelayCommand]
+    private async Task ImportScenario(ScenarioMarketItem scenario)
+    {
+        try
+        {
+            var imported = await ScenarioMarketService.ImportAsync(scenario.Id);
+            await ShowToastAsync("情景已导入", imported.HasInit ? imported.Name : $"{imported.Name}：{imported.InitError}",
+                imported.HasInit ? NotificationType.Success : NotificationType.Warning);
+        }
+        catch (Exception exception)
+        {
+            await ShowToastAsync("情景导入失败", exception.Message, NotificationType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ShowScenarioDetail(ScenarioMarketItem scenario)
+    {
+        await ServiceManager.Services.GetRequiredService<IToastService>().Show(new ToastRequest
+        {
+            Header = scenario.Name,
+            Text = $"{scenario.Description}\n\n作者：{scenario.Author}\n{scenario.Visibility}\n{scenario.ReviewText}",
+            AutoCloseDelay = null, ShowCloseButton = true,
+            Actions =
+            [
+                new ToastAction { Text = "导入", IsPrimary = true, Callback = () => _ = ImportScenario(scenario) },
+                new ToastAction { Text = "网页详情", Callback = () => ServiceManager.Services.GetRequiredService<IDesktopShell>()
+                    .Open($"{ConfigManger.WebUrl}/scenarios/{scenario.Id}") }
+            ]
+        }, ServiceManager.Services.GetService<IWindowTool>()?.GetForegroundWindow());
+    }
+
+    [RelayCommand]
+    private void ManageScenarios()
+    {
+        ServiceManager.Services.GetRequiredService<IDesktopShell>().Open($"{ConfigManger.WebUrl}/developer/scenarios");
     }
 
     [RelayCommand]

@@ -5,6 +5,8 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
+using Kitopia.Desktop.Abstractions.Shell;
 using Kitopia.Desktop.Features.Services.Account;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
@@ -20,6 +22,42 @@ namespace KitopiaTest.Services;
 [DoNotParallelize]
 public sealed class AccountServiceTests
 {
+    [TestMethod]
+    public void OpenBrowserLogin_RequestsScenarioWriteWithPkce()
+    {
+        var previousServices = ServiceManager.Services;
+        var shell = new RecordingShell();
+        using var provider = new ServiceCollection().AddSingleton<IDesktopShell>(shell).BuildServiceProvider();
+        ServiceManager.Services = provider;
+        try
+        {
+            new AccountService().OpenBrowserLogin();
+
+            Assert.IsNotNull(shell.OpenedPath);
+            var query = HttpUtility.ParseQueryString(new Uri(shell.OpenedPath).Query);
+            CollectionAssert.Contains(query["scope"]!.Split(' '), "scenario:write");
+            Assert.AreEqual("kitopia-desktop", query["client_id"]);
+            Assert.AreEqual("S256", query["code_challenge_method"]);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(query["code_challenge"]));
+            Assert.IsFalse(string.IsNullOrWhiteSpace(query["state"]));
+        }
+        finally
+        {
+            ServiceManager.Services = previousServices;
+        }
+    }
+
+    private sealed class RecordingShell : IDesktopShell
+    {
+        public string? OpenedPath { get; private set; }
+
+        public void Open(string path, string? arguments = "", string? workingDirectory = "") => OpenedPath = path;
+
+        public void RunAsAdmin(string path, string arguments = "") => throw new NotSupportedException();
+
+        public void OpenFolderAndSelect(string path) => throw new NotSupportedException();
+    }
+
     private sealed class FakeAccountService : IAccountService
     {
         public bool IsLoggedIn => CurrentUser != null && !string.IsNullOrWhiteSpace(CurrentToken);

@@ -294,7 +294,7 @@ public sealed class AccountService : IAccountService
         _pendingStates[state] = new PendingOAuthState(codeVerifier, now);
 
         var redirectUri = "kitopiaurl://action=Login";
-        var authUrl = $"{ConfigManger.WebUrl}/oauth/authorize?response_type=code&client_id=kitopia-desktop&redirect_uri={Uri.EscapeDataString(redirectUri)}&code_challenge={Uri.EscapeDataString(codeChallenge)}&code_challenge_method=S256&state={Uri.EscapeDataString(state)}&scope=profile%20plugin:download_self";
+        var authUrl = $"{ConfigManger.WebUrl}/oauth/authorize?response_type=code&client_id=kitopia-desktop&redirect_uri={Uri.EscapeDataString(redirectUri)}&code_challenge={Uri.EscapeDataString(codeChallenge)}&code_challenge_method=S256&state={Uri.EscapeDataString(state)}&scope=profile%20plugin:download_self%20scenario:write";
 
         try
         {
