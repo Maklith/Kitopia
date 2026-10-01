@@ -106,55 +106,60 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="plugin:PluginInfoUiHelper">
-                                <Border Width="340" Height="228"
+                                <Border Width="390" MinHeight="198"
                                         Theme="{DynamicResource KitopiaPluginCard}" Margin="6">
                                     <Grid RowDefinitions="Auto,*,Auto,Auto">
                                         <!-- 1. Header: Icon/Initial + Name/NameSign + Status Badge + Details Link -->
-                                        <Grid Grid.Row="0" ColumnDefinitions="44,*,Auto" VerticalAlignment="Top">
-                                            <!-- Plugin Icon / Circular Avatar -->
-                                            <Border Grid.Column="0" Width="44" Height="44"
-                                                    CornerRadius="22" ClipToBounds="True"
+                                        <Grid Grid.Row="0" ColumnDefinitions="40,*,Auto" VerticalAlignment="Top">
+                                            <!-- Plugin Icon / Stamp (Web-aligned 40x40 rounded rectangle) -->
+                                            <Border Grid.Column="0" Width="40" Height="40"
+                                                    CornerRadius="8" ClipToBounds="True"
                                                     Background="{DynamicResource KitopiaAvatarBackground}"
                                                     VerticalAlignment="Center">
                                                 <Panel>
                                                     <TextBlock Text="{Binding PluginInitial}"
                                                                Foreground="{DynamicResource KitopiaAvatarForeground}"
                                                                FontWeight="Bold"
-                                                               FontSize="18"
+                                                               FontSize="16"
                                                                HorizontalAlignment="Center"
                                                                VerticalAlignment="Center" />
                                                     <Image Source="{Binding Icon}"
-                                                           Width="44" Height="44"
+                                                           Width="40" Height="40"
                                                            Stretch="UniformToFill"
                                                            IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}" />
                                                 </Panel>
                                             </Border>
 
                                             <!-- Name & NameSign -->
-                                            <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
+                                            <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
                                                 <Button Padding="0" MinHeight="0"
                                                         Theme="{DynamicResource BorderlessButton}"
                                                         HorizontalAlignment="Left"
                                                         Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).ShowPluginDetailCommand}"
                                                         CommandParameter="{Binding }">
+                                                    <Button.Styles>
+                                                        <Style Selector="Button:pointerover TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource KitopiaPrimaryBrush}" />
+                                                        </Style>
+                                                    </Button.Styles>
                                                     <TextBlock Text="{Binding PluginBaseInfo.Name}"
-                                                               FontWeight="SemiBold" FontSize="15"
+                                                               FontWeight="SemiBold" FontSize="14"
                                                                Foreground="{DynamicResource SemiColorText0}"
                                                                TextTrimming="CharacterEllipsis"
-                                                               MaxWidth="210" />
+                                                               MaxWidth="240" />
                                                 </Button>
 
                                                 <TextBlock Text="{Binding PluginBaseInfo.NameSign}"
-                                                           FontSize="12"
+                                                           FontSize="11"
                                                            Foreground="{DynamicResource SemiColorText2}"
-                                                           Margin="0,3,0,0"
+                                                           Margin="0,2,0,0"
                                                            TextTrimming="CharacterEllipsis"
-                                                           MaxWidth="210" />
+                                                           MaxWidth="240" />
                                             </StackPanel>
 
                                             <!-- Top-Right: Status Badge ("公开") -->
                                             <Border Grid.Column="2"
-                                                    CornerRadius="4" Padding="7,2"
+                                                    CornerRadius="4" Padding="6,2"
                                                     Background="{DynamicResource KitopiaBadgeSuccessBackground}"
                                                     VerticalAlignment="Top">
                                                 <TextBlock Text="{Binding PublicationStatusText}"
@@ -163,38 +168,87 @@
                                             </Border>
                                         </Grid>
 
-                                        <!-- 2. Middle: Description & Platform Tags -->
-                                        <StackPanel Grid.Row="1" Margin="0,10,0,0" VerticalAlignment="Top">
+                                        <!-- 2. Middle: Description & Badges & Rating -->
+                                        <StackPanel Grid.Row="1" Margin="0,8,0,0" VerticalAlignment="Top">
                                             <TextBlock Text="{Binding DescriptionShort}"
                                                        TextWrapping="Wrap" MaxLines="2"
                                                        TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource SemiColorText1}"
-                                                       FontSize="13"
-                                                       LineHeight="18"
-                                                       Height="36" />
-                                            <ItemsControl ItemsSource="{Binding DisplayPlatforms}" Margin="0,8,0,0">
+                                                       FontSize="12"
+                                                       LineHeight="17" />
+                                            <ItemsControl ItemsSource="{Binding Badges}" Margin="0,6,0,0">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
-                                                        <StackPanel Orientation="Horizontal" Spacing="6" />
+                                                        <WrapPanel Orientation="Horizontal" />
                                                     </ItemsPanelTemplate>
                                                 </ItemsControl.ItemsPanel>
                                                 <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="x:String">
-                                                        <Border Background="{DynamicResource KitopiaBadgeNeutralBackground}"
-                                                                CornerRadius="4" Padding="7,2">
-                                                            <TextBlock Text="{Binding .}"
-                                                                       FontSize="11"
-                                                                       Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
-                                                        </Border>
+                                                    <DataTemplate x:DataType="plugin:PluginBadgeItem">
+                                                        <Panel Margin="0,0,5,3">
+                                                            <!-- Platform Badge (Neutral) -->
+                                                            <Border Background="{DynamicResource KitopiaBadgeNeutralBackground}"
+                                                                    CornerRadius="4" Padding="6,1.5" Height="19"
+                                                                    IsVisible="{Binding !IsTag}">
+                                                                <TextBlock Text="{Binding Text}"
+                                                                           FontSize="11"
+                                                                           Foreground="{DynamicResource KitopiaBadgeNeutralForeground}"
+                                                                           VerticalAlignment="Center" />
+                                                            </Border>
+
+                                                            <!-- Category / Tag Badge (Clickable in Market) -->
+                                                            <Button Theme="{DynamicResource KitopiaBadgeTagButton}"
+                                                                    Command="{Binding Path=$parent[UserControl].((pages:MarketPageViewModel)DataContext).SearchTagCommand}"
+                                                                    CommandParameter="{Binding TagName}"
+                                                                    ToolTip.Tip="{Binding TagName, StringFormat='在市场中筛选 #{0}'}"
+                                                                    IsVisible="{Binding IsTag}">
+                                                                <TextBlock Text="{Binding Text}"
+                                                                           FontSize="11" FontWeight="Medium"
+                                                                           Foreground="{DynamicResource KitopiaBadgeTagForeground}"
+                                                                           VerticalAlignment="Center" />
+                                                            </Button>
+                                                        </Panel>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
+
+                                            <!-- Rating Row -->
+                                            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,6,0,0" VerticalAlignment="Center">
+                                                <TextBlock Text="★"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource SemiColorWarning}"
+                                                           VerticalAlignment="Center"
+                                                           IsVisible="{Binding HasRatings}" />
+                                                <TextBlock Text="☆"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource SemiColorText3}"
+                                                           VerticalAlignment="Center"
+                                                           IsVisible="{Binding !HasRatings}" />
+
+                                                <StackPanel Orientation="Horizontal" Spacing="4"
+                                                            VerticalAlignment="Center"
+                                                            IsVisible="{Binding HasRatings}">
+                                                    <TextBlock Text="{Binding RatingScoreText}"
+                                                               FontSize="11" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource SemiColorText0}"
+                                                               VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding RatingCount, StringFormat='· {0} 条评价'}"
+                                                               FontSize="11"
+                                                               Foreground="{DynamicResource SemiColorText2}"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+
+                                                <TextBlock Text="暂无评分"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource SemiColorText2}"
+                                                           VerticalAlignment="Center"
+                                                           IsVisible="{Binding !HasRatings}" />
+                                            </StackPanel>
                                         </StackPanel>
 
                                         <!-- 3. Divider -->
                                         <Border Grid.Row="2" Height="1"
                                                 Background="{DynamicResource SemiColorBorder}"
-                                                Margin="0,10,0,8" />
+                                                Margin="0,8,0,8" />
 
                                         <!-- 4. Footer: Author on left, Version + Downloads + Button on right -->
                                         <Grid Grid.Row="3" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
@@ -212,18 +266,18 @@
                                                         <Setter Property="Foreground" Value="{DynamicResource KitopiaPrimaryBrush}" />
                                                     </Style>
                                                 </Button.Styles>
-                                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                                    <Border Width="24" Height="24"
-                                                            CornerRadius="12" ClipToBounds="True"
+                                                <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                                    <Border Width="22" Height="22"
+                                                            CornerRadius="11" ClipToBounds="True"
                                                             Background="{DynamicResource KitopiaAvatarBackground}">
                                                         <Panel>
                                                             <TextBlock Text="{Binding AuthorInitial}"
                                                                        Foreground="{DynamicResource KitopiaAvatarForeground}"
-                                                                       FontSize="11" FontWeight="SemiBold"
+                                                                       FontSize="10" FontWeight="SemiBold"
                                                                        HorizontalAlignment="Center"
                                                                        VerticalAlignment="Center" />
                                                             <Image Source="{Binding AuthorAvatar}"
-                                                                   Width="24" Height="24"
+                                                                   Width="22" Height="22"
                                                                    Stretch="UniformToFill"
                                                                    IsVisible="{Binding AuthorAvatar, Converter={x:Static ObjectConverters.IsNotNull}}" />
                                                         </Panel>
@@ -234,7 +288,7 @@
                                                                Foreground="{DynamicResource SemiColorText1}"
                                                                VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis"
-                                                               MaxWidth="100" />
+                                                               MaxWidth="130" />
                                                 </StackPanel>
                                             </Button>
 
@@ -244,7 +298,7 @@
                                                            FontSize="11"
                                                            Foreground="{DynamicResource SemiColorText2}"
                                                            HorizontalAlignment="Right" />
-                                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" Margin="0,3,0,0">
+                                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" Margin="0,2,0,0">
                                                     <TextBlock Text="{Binding DownloadCountText}"
                                                                FontSize="11"
                                                                Foreground="{DynamicResource SemiColorText2}"
@@ -253,7 +307,7 @@
                                                             IsEnabled="{Binding !InLocal}"
                                                             Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).DownloadPluginCommand}"
                                                             CommandParameter="{Binding OnlinePluginInfo}"
-                                                            Padding="10,2" MinHeight="24" Height="24"
+                                                            Padding="8,1" MinHeight="22" Height="22"
                                                             FontSize="11" CornerRadius="6">
                                                         <Button.Styles>
                                                             <Style Selector="Button[IsEnabled=True]">

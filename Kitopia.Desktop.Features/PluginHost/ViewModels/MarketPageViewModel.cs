@@ -323,4 +323,13 @@ public partial class MarketPageViewModel : ObservableObject
         CurrentPage = 1;
         _ = LoadPluginsAsync();
     }
+
+    [RelayCommand]
+    public void SearchTag(string? tag)
+    {
+        if (string.IsNullOrWhiteSpace(tag)) return;
+        Keyword = tag.Trim();
+        CurrentPage = 1;
+        _ = LoadPluginsAsync();
+    }
 }

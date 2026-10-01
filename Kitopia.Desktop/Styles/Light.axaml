@@ -26,6 +26,9 @@
     <SolidColorBrush x:Key="KitopiaBadgeDangerBackground" Color="#FDF3F2" />
     <SolidColorBrush x:Key="KitopiaBadgeDangerForeground" Color="#C42B1C" />
     <SolidColorBrush x:Key="KitopiaBadgeDangerBorder" Color="#59C42B1C" />
+    <SolidColorBrush x:Key="KitopiaBadgeTagBackground" Color="#E8F3FF" />
+    <SolidColorBrush x:Key="KitopiaBadgeTagHoverBackground" Color="#CBE4FE" />
+    <SolidColorBrush x:Key="KitopiaBadgeTagForeground" Color="#0064FA" />
 
     <SolidColorBrush x:Key="KitopiaAvatarBackground" Color="#D8E9FE" />
     <SolidColorBrush x:Key="KitopiaAvatarForeground" Color="#0064FA" />

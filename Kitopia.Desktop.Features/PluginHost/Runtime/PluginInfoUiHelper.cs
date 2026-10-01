@@ -14,6 +14,8 @@ public class PluginsReloaded
 {
 }
 
+public sealed record PluginBadgeItem(string Text, bool IsTag, string? TagName = null);
+
 public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 {
     private static ILogger Logger = LogManager.Logger.ForContext<PluginInfoUiHelper>();
@@ -276,9 +278,64 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     public string? AuthorUserName => OnlinePluginInfo?.AuthorUserName;
 
-    public IReadOnlyList<PluginTag> Tags => OnlinePluginInfo?.Tags ?? [];
+    public IReadOnlyList<PluginTag> Tags
+    {
+        get
+        {
+            if (IsLocal && _onlinePluginInfo == null)
+            {
+                lock (_cancellationTokenSource)
+                {
+                    if (!_cancellationTokenSource.IsCancellationRequested)
+                    {
+                        ResiliencePipeline.ExecuteAsync(EnsureOnlineInfoAsync, _cancellationTokenSource.Token);
+                    }
+                }
+            }
+            return OnlinePluginInfo?.Tags ?? [];
+        }
+    }
 
     public bool HasTags => Tags.Count > 0;
+
+    public IReadOnlyList<PluginBadgeItem> Badges
+    {
+        get
+        {
+            if (IsLocal && _onlinePluginInfo == null)
+            {
+                lock (_cancellationTokenSource)
+                {
+                    if (!_cancellationTokenSource.IsCancellationRequested)
+                    {
+                        ResiliencePipeline.ExecuteAsync(EnsureOnlineInfoAsync, _cancellationTokenSource.Token);
+                    }
+                }
+            }
+
+            var list = new List<PluginBadgeItem>();
+            foreach (var platform in DisplayPlatforms)
+            {
+                list.Add(new PluginBadgeItem(platform, false));
+            }
+            foreach (var tag in Tags)
+            {
+                if (!string.IsNullOrWhiteSpace(tag.Name))
+                {
+                    list.Add(new PluginBadgeItem($"#{tag.Name}", true, tag.Name));
+                }
+            }
+            return list;
+        }
+    }
+
+    private async ValueTask EnsureOnlineInfoAsync(CancellationToken cts)
+    {
+        if (_onlinePluginInfo is null)
+        {
+            OnlinePluginInfo = await PluginNetworkService.GetOnlinePluginInfo(PluginBaseInfo.NameSign, cts);
+        }
+    }
 
     public long DownloadCounts => OnlinePluginInfo?.DownloadCounts ?? 0;
 
@@ -297,9 +354,41 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     public string DownloadCountText => $"{DownloadCounts} 下载";
 
+    public double AverageRating => OnlinePluginInfo?.AverageRating ?? 0;
+    public int RatingCount => OnlinePluginInfo?.RatingCount ?? 0;
+    public bool HasRatings => RatingCount > 0;
+    public string RatingScoreText => HasRatings ? AverageRating.ToString("F1") : string.Empty;
+    public string RatingDisplayText => HasRatings ? $"{AverageRating:F1} · {RatingCount} 条评价" : "暂无评分";
+    public string RatingStar => HasRatings ? "★" : "☆";
+
     public bool InLocal => PluginManager.GetPluginLocalInfoByPlgStr(PluginBaseInfo.NameSign) is not null;
     public PluginLocalInfo? PluginLocalInfo { get; set; }
-    public OnlinePluginInfo? OnlinePluginInfo { get; set; }
+
+    private OnlinePluginInfo? _onlinePluginInfo;
+    public OnlinePluginInfo? OnlinePluginInfo
+    {
+        get => _onlinePluginInfo;
+        set
+        {
+            if (SetProperty(ref _onlinePluginInfo, value))
+            {
+                OnPropertyChanged(nameof(Tags));
+                OnPropertyChanged(nameof(HasTags));
+                OnPropertyChanged(nameof(DisplayPlatforms));
+                OnPropertyChanged(nameof(Badges));
+                OnPropertyChanged(nameof(PublicationStatusText));
+                OnPropertyChanged(nameof(DownloadCounts));
+                OnPropertyChanged(nameof(DownloadCountText));
+                OnPropertyChanged(nameof(VersionAndDateText));
+                OnPropertyChanged(nameof(AverageRating));
+                OnPropertyChanged(nameof(RatingCount));
+                OnPropertyChanged(nameof(HasRatings));
+                OnPropertyChanged(nameof(RatingScoreText));
+                OnPropertyChanged(nameof(RatingDisplayText));
+                OnPropertyChanged(nameof(RatingStar));
+            }
+        }
+    }
     [Required] public bool IsLocal { get; init; }
 
     private bool? _canUpdate;
@@ -357,8 +446,16 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
         _authorAvatar?.Dispose();
     }
 
-    public string DescriptionShort =>
-        IsLocal ? (PluginLocalInfo != null ? PluginLocalInfo.PluginBaseInfo.Description : string.Empty) : (OnlinePluginInfo?.DescriptionShort ?? OnlinePluginInfo?.Description ?? string.Empty);
+    public string DescriptionShort
+    {
+        get
+        {
+            var desc = IsLocal
+                ? (PluginLocalInfo != null ? PluginLocalInfo.PluginBaseInfo.Description : string.Empty)
+                : (OnlinePluginInfo?.DescriptionShort ?? OnlinePluginInfo?.Description ?? string.Empty);
+            return string.IsNullOrWhiteSpace(desc) ? "暂无简介" : desc.Trim();
+        }
+    }
 
     public string Version =>
         IsLocal ? (PluginLocalInfo != null ? PluginLocalInfo.PluginBaseInfo.Version : string.Empty) : (OnlinePluginInfo?.LastVersion ?? string.Empty);

@@ -78,6 +78,8 @@ public sealed class OnlinePluginInfo
     public List<string> AvailablePlatforms { get; set; } = [];
     public List<PluginTag> Tags { get; set; } = [];
     public long DownloadCounts { get; set; }
+    public double AverageRating { get; set; }
+    public int RatingCount { get; set; }
     public DateTime CreateTime { get; set; }
     public DateTime Updatetime { get; set; }
     public int Rank { get; set; }
