@@ -98,6 +98,7 @@ public class ToastService : IToastService
         {
             TopLevelHashCode = dialogWindow.GetHashCode(),
             CanLightDismiss = request.ShowCloseButton,
+            CanDragMove = false,
             HorizontalAnchor = HorizontalPosition.Center,
             IsCloseButtonVisible = false,
         };

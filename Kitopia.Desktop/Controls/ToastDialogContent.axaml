@@ -43,26 +43,38 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
-        <Style Selector="Button.toast-dialog-action:pointerover /template/ ContentPresenter">
+        <Style Selector="Button.toast-dialog-action:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
         </Style>
-        <Style Selector="Button.toast-dialog-action:pressed /template/ ContentPresenter">
+        <Style Selector="Button.toast-dialog-action:pressed /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SemiColorFill2}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
         </Style>
 
-        <Style Selector="Button.toast-dialog-action.primary">
+        <Style Selector="Button.toast-dialog-action.primary, Button.toast-dialog-action.Primary">
             <Setter Property="Foreground" Value="White" />
             <Setter Property="Background" Value="{DynamicResource SemiColorPrimary}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
-            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
-        <Style Selector="Button.toast-dialog-action.primary:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryHover}" />
+        <Style Selector="Button.toast-dialog-action.primary /template/ ContentPresenter#PART_ContentPresenter, Button.toast-dialog-action.Primary /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource SemiColorPrimary}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
         </Style>
-        <Style Selector="Button.toast-dialog-action.primary:pressed /template/ ContentPresenter">
+        <Style Selector="Button.toast-dialog-action.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.toast-dialog-action.Primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryPointerover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimaryPointerover}" />
+        </Style>
+        <Style Selector="Button.toast-dialog-action.primary:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.toast-dialog-action.Primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="White" />
             <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryActive}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimaryActive}" />
         </Style>
     </UserControl.Styles>
 
@@ -115,10 +127,10 @@
                         Click="CloseButton_OnClick"
                         ToolTip.Tip="关闭">
                     <Button.Styles>
-                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                        <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                             <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
                         </Style>
-                        <Style Selector="Button:pressed /template/ ContentPresenter">
+                        <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
                             <Setter Property="Background" Value="{DynamicResource SemiColorFill2}" />
                         </Style>
                     </Button.Styles>

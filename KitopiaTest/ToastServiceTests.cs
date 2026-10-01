@@ -70,4 +70,48 @@ public sealed class ToastServiceTests
         Assert.IsNotNull(value);
         return value.Count;
     }
+
+    [TestMethod]
+    public void ToastDialogContent_ButtonHitTest()
+    {
+        var request = new ToastRequest
+        {
+            Header = "测试",
+            Text = "描述",
+            SelectionOptions = ["私有", "公开"],
+            SelectedOption = "私有",
+            SelectionConfirmText = "上传",
+            SelectionConfirmed = _ => { }
+        };
+        var vm = new Kitopia.Desktop.Controls.ToastDialogContentViewModel(request);
+        var control = new Kitopia.Desktop.Controls.ToastDialogContent { DataContext = vm };
+        var window = new Avalonia.Controls.Window { Content = control, Width = 600, Height = 400 };
+        window.Show();
+
+        var buttons = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(control)
+            .OfType<Avalonia.Controls.Button>()
+            .ToList();
+        foreach (var b in buttons)
+        {
+            Console.WriteLine($"Found button: Content='{b.Content}', Classes='{string.Join(" ", b.Classes)}', Bounds={b.Bounds}, Background={b.Background}");
+            var bCp = Avalonia.VisualTree.VisualExtensions.FindDescendantOfType<Avalonia.Controls.Presenters.ContentPresenter>(b);
+            Console.WriteLine($"  CP Background={bCp?.Background}, CP Bounds={bCp?.Bounds}");
+
+            var pointOnPadding = b.TranslatePoint(new Point(5, 5), window);
+            var pointOnCenter = b.TranslatePoint(new Point(b.Bounds.Width / 2, b.Bounds.Height / 2), window);
+            Console.WriteLine($"  Point on padding in window: {pointOnPadding}");
+            Console.WriteLine($"  Point on center in window: {pointOnCenter}");
+
+            if (pointOnPadding.HasValue)
+            {
+                var visuals = Avalonia.VisualTree.VisualExtensions.GetVisualsAt(window, pointOnPadding.Value).ToList();
+                Console.WriteLine($"  Visuals at padding: {string.Join(", ", visuals.Select(v => v.GetType().Name))}");
+            }
+            if (pointOnCenter.HasValue)
+            {
+                var visuals = Avalonia.VisualTree.VisualExtensions.GetVisualsAt(window, pointOnCenter.Value).ToList();
+                Console.WriteLine($"  Visuals at center: {string.Join(", ", visuals.Select(v => v.GetType().Name))}");
+            }
+        }
+    }
 }
