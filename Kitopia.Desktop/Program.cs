@@ -138,6 +138,7 @@ internal class Program {
             DesktopChatNotificationSink>();
         services.AddTransient<IHotKeyEditor, HotKeyEditorService>();
         services.AddSingleton<ITaskEditorOpenService, TaskEditorOpenService>();
+        services.AddTransient<Kitopia.Desktop.Features.CustomScenario.Services.IScenarioUploadService, ScenarioUploadService>();
         services.AddTransient<IThemeChange, ThemeChange>();
 
         services.AddSingleton<ISearchItemChooseService, SearchItemChooseService>();

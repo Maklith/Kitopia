@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:services="clr-namespace:Kitopia.Desktop.Services"
+             x:Class="Kitopia.Desktop.Controls.ScenarioUploadContent"
+             x:DataType="services:ScenarioUploadService" MinWidth="420" MaxWidth="520">
+    <StackPanel Spacing="12" Margin="24">
+        <TextBlock Text="发布情景版本" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+        <TextBlock Text="版本号" />
+        <TextBox Text="{Binding Version}" Watermark="如 1.0.0 或 1.1.0-beta.1" MaxLength="32" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
+        <TextBlock Text="版本更新内容" />
+        <TextBox Text="{Binding Detail}" Watermark="说明本版本主要更新与修复内容" MaxLength="2000"
+                 AcceptsReturn="True" TextWrapping="Wrap" MinHeight="96" MaxHeight="180"
+                 IsEnabled="{Binding CanEdit}" CornerRadius="6" />
+        <CheckBox Content="公开" IsChecked="{Binding IsPublic}" IsEnabled="{Binding CanEdit}" />
+        <TextBlock Text="已发布的文件不能覆盖，请使用新的版本号。公开情景的新版本需要审核。"
+                   TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SemiColorText2}" />
+        <TextBlock Text="{Binding Error}" TextWrapping="Wrap" Foreground="{DynamicResource SemiColorDanger}" />
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button Content="重新授权" Command="{Binding AuthorizeCommand}" IsVisible="{Binding NeedsAuthorization}" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
+            <Button Content="取消" Command="{Binding CloseCommand}" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
+            <Button Content="上传" Command="{Binding UploadCommand}" IsEnabled="{Binding CanEdit}" Classes="Primary" CornerRadius="6" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

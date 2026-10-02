@@ -15,10 +15,10 @@ public static class ScenarioMarketService
     private static readonly JsonSerializerOptions ApiOptions = new(JsonSerializerDefaults.Web);
 
     public static async Task<ScenarioMarketPage> GetScenariosAsync(int page, int pageSize, string keyword,
-        bool own = false, CancellationToken cancellationToken = default)
+        bool own = false, CancellationToken cancellationToken = default, string? sourceUuid = null)
     {
         using var request = CreateRequest(HttpMethod.Get,
-            $"{(own ? "allself" : "all")}?page={page}&pageSize={pageSize}&query={Uri.EscapeDataString(keyword.Trim())}");
+            $"{(own ? "allself" : "all")}?page={page}&pageSize={pageSize}&query={Uri.EscapeDataString(keyword.Trim())}{(sourceUuid is null ? "" : $"&sourceUuid={Uri.EscapeDataString(sourceUuid)}")}");
         return await SendAsync<ScenarioMarketPage>(request, cancellationToken);
     }
 
@@ -29,7 +29,7 @@ public static class ScenarioMarketService
     }
 
     public static async Task<ScenarioMarketItem> UploadAsync(CustomScenario scenario, bool isPublic,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? version = null, string? detail = null)
     {
         var json = JsonSerializer.SerializeToUtf8Bytes(scenario, ConfigManger.DefaultOptions);
         if (json.Length > 2 * 1024 * 1024) throw new InvalidOperationException("情景 JSON 不能超过 2 MiB。");
@@ -39,6 +39,8 @@ public static class ScenarioMarketService
         file.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         body.Add(file, "file", $"{scenario.Uuid}.json");
         body.Add(new StringContent(isPublic.ToString()), "isPublic");
+        if (version is not null) body.Add(new StringContent(version), "version");
+        if (detail is not null) body.Add(new StringContent(detail), "detail");
         request.Content = body;
         return await SendAsync<ScenarioMarketItem>(request, cancellationToken);
     }
@@ -91,9 +93,9 @@ public static class ScenarioMarketService
         return uuid;
     }
 
-    public static async Task<CustomScenario> ImportAsync(long id, CancellationToken cancellationToken = default)
+    public static async Task<CustomScenario> ImportAsync(long id, CancellationToken cancellationToken = default, string? version = null)
     {
-        using var request = CreateRequest(HttpMethod.Get, $"{id}/download");
+        using var request = CreateRequest(HttpMethod.Get, $"{id}/download{(version is null ? "" : $"?version={Uri.EscapeDataString(version)}")}");
         using var response = await PluginNetworkService.HttpClient.SendAsync(request, cancellationToken);
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
             throw new InvalidOperationException("情景不存在或无权访问，请检查公开状态和登录授权。");
@@ -145,6 +147,9 @@ public sealed class ScenarioMarketItem
     public string? AuthorNickname { get; init; }
     public string? AuthorUserName { get; init; }
     public int PublicationStatus { get; init; }
+    public string? LastVersion { get; init; }
+    public string? LatestReleaseVersion { get; init; }
+    public int? LatestReleaseStatus { get; init; }
     public ScenarioMarketReview? Review { get; init; }
     public string Author => AuthorNickname ?? AuthorUserName ?? "未知作者";
     public string Visibility => PublicationStatus switch { 1 => "待公开审核", 2 => "公开", _ => "私有" };

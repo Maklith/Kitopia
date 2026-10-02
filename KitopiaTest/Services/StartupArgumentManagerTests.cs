@@ -7,6 +7,15 @@ namespace KitopiaTest.Services;
 public sealed class StartupArgumentManagerTests
 {
     [TestMethod]
+    public void Parse_ScenarioVersionUrl_PreservesSelectedVersion()
+    {
+        var result = StartupArgumentManager.Parse(["kitopiaurl://action=DownloadScenario;value=42;version=2.0.0-beta.1"]);
+        Assert.AreEqual(StartupAction.DownloadScenario, result.Action);
+        Assert.AreEqual("42", result.Value);
+        Assert.AreEqual("2.0.0-beta.1", result.Extras["version"]);
+    }
+
+    [TestMethod]
     public void Parse_SemicolonLoginUrl_ReturnsLoginActionAndToken()
     {
         var result = StartupArgumentManager.Parse(["kitopiaurl://action=Login;token=test_token_123"]);

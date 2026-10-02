@@ -222,14 +222,15 @@ public class MqttManager
             case StartupAction.DownloadScenario:
             {
                 if (!long.TryParse(value, out var scenarioId) || scenarioId <= 0) break;
+                var version = jObject["version"]?.ToString();
                 try
                 {
                     var scenario = await ScenarioMarketService.GetScenarioAsync(scenarioId);
                     await ShowPluginInstallDialogAsync(new ToastRequest
                     {
-                        Header = $"导入情景 · {scenario.Name}", Text = $"{scenario.Description}\n作者：{scenario.Author}",
+                        Header = $"导入情景 · {scenario.Name}", Text = $"{scenario.Description}\n作者：{scenario.Author}\n版本：{version ?? scenario.LastVersion ?? "最新版本"}",
                         AutoCloseDelay = null, ShowCloseButton = true,
-                        Actions = [new ToastAction { Text = "导入", IsPrimary = true, Callback = () => _ = ImportScenarioFromUrlAsync(scenario.Id) },
+                        Actions = [new ToastAction { Text = "导入", IsPrimary = true, Callback = () => _ = ImportScenarioFromUrlAsync(scenario.Id, version) },
                             new ToastAction { Text = "取消" }]
                     }, toast!);
                 }
@@ -449,12 +450,12 @@ public class MqttManager
         });
     }
 
-    private static async Task ImportScenarioFromUrlAsync(long id)
+    private static async Task ImportScenarioFromUrlAsync(long id, string? version)
     {
         var toast = ServiceManager.Services.GetRequiredService<IToastService>();
         try
         {
-            var imported = await ScenarioMarketService.ImportAsync(id);
+            var imported = await ScenarioMarketService.ImportAsync(id, version: version);
             await toast.Show("情景已导入", imported.HasInit ? imported.Name : $"{imported.Name}：{imported.InitError}");
         }
         catch (Exception exception)

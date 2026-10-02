@@ -1,7 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Net;
-using Avalonia.Controls;
-using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -74,44 +71,7 @@ public partial class CustomScenariosManagerPageViewModel : ObservableRecipient
             }, dialogWindow);
             return;
         }
-        await toast.Show(new ToastRequest
-        {
-            Header = $"上传情景 · {scenario.Name}", Text = scenario.Description,
-            AutoCloseDelay = null, ShowCloseButton = true,
-            SelectionOptions = ["私有", "公开"], SelectedOption = "私有",
-            SelectionConfirmText = "上传",
-            SelectionConfirmed = visibility => _ = UploadSelectedAsync(scenario, visibility == "公开", dialogWindow)
-        }, dialogWindow);
-    }
-
-    private static async Task UploadSelectedAsync(Scenario scenario, bool isPublic, Window? dialogWindow)
-    {
-        var toast = ServiceManager.Services.GetRequiredService<IToastService>();
-        try
-        {
-            await ScenarioMarketService.UploadAsync(scenario, isPublic);
-            await toast.Show("情景上传成功", isPublic ? $"{scenario.Name} 已提交审核。" : $"{scenario.Name} 已保存为私有情景。");
-        }
-        catch (HttpRequestException exception) when (exception.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-        {
-            LogManager.Logger.Warning("上传情景需要重新授权: {Scenario}, HTTP {StatusCode}", scenario.Name, (int)exception.StatusCode.Value);
-            var account = ServiceManager.Services.GetRequiredService<IAccountService>();
-            await toast.Show(new ToastRequest
-            {
-                Header = "情景上传需要授权", Text = exception.Message,
-                NotificationType = NotificationType.Warning, AutoCloseDelay = null,
-                Actions = [new ToastAction
-                {
-                    Text = exception.StatusCode == HttpStatusCode.Unauthorized ? "重新登录" : "重新授权",
-                    IsPrimary = true, Callback = account.OpenBrowserLogin
-                }]
-            }, dialogWindow);
-        }
-        catch (Exception exception)
-        {
-            LogManager.Logger.Error(exception, "上传情景失败: {Scenario}", scenario.Name);
-            await toast.Show("情景上传失败", exception.Message);
-        }
+        await ServiceManager.Services.GetRequiredService<IScenarioUploadService>().ShowAsync(scenario, dialogWindow);
     }
 
     [RelayCommand]
