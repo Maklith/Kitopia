@@ -5,4 +5,5 @@ namespace Kitopia.Desktop.Features.CustomScenario.Services;
 public interface IScenarioUploadService
 {
     Task ShowAsync(CustomScenario scenario, Window? owner);
+    Task ShowInformationAsync(ScenarioMarketItem item, Window? owner);
 }

@@ -5,11 +5,15 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Kitopia.Desktop.Abstractions.Shell;
+using Kitopia.Desktop.Features.CustomScenario;
 using Kitopia.Desktop.Features.CustomScenario.Services;
+using Kitopia.Desktop.Features.CustomScenario.ViewModels;
+using Kitopia.Desktop.Features.CustomScenario.Views;
 using Kitopia.Desktop.Features.Services.Account;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Plugin;
+using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Features.UI.UiControls.Plugin;
 using Kitopia.Desktop.Features.ViewModel.Pages.plugin;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,7 +40,8 @@ public partial class MarketPageViewModel : ObservableObject
     [ObservableProperty] private string _targetPageText = string.Empty;
     [ObservableProperty] private ObservableCollection<ScenarioMarketItem> _scenarios = new();
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsPluginMarket), nameof(IsScenarioMarket), nameof(ItemCountText))]
+    [NotifyPropertyChangedFor(nameof(IsPluginMarket), nameof(IsScenarioMarket), nameof(IsMyScenarioMarket),
+        nameof(ItemCountText))]
     private int _selectedMarketTab;
     [ObservableProperty] private string? _loadError;
 
@@ -60,6 +65,7 @@ public partial class MarketPageViewModel : ObservableObject
     public bool HasNoScenarios => !IsLoading && Scenarios.Count == 0;
     public bool IsPluginMarket => SelectedMarketTab == 0;
     public bool IsScenarioMarket => SelectedMarketTab != 0;
+    public bool IsMyScenarioMarket => SelectedMarketTab == 2;
     public IReadOnlyList<string> MarketTabs { get; } = ["插件", "情景", "我的情景"];
     public string ItemCountText => $"共 {TotalCount} 个{(IsPluginMarket ? "插件" : "情景")}";
 
@@ -274,35 +280,123 @@ public partial class MarketPageViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task ImportScenario(ScenarioMarketItem scenario)
+    private async Task ShowScenarioDetail(ScenarioMarketItem scenario)
     {
+        var viewModel = new ScenarioDetailViewModel(scenario);
+        _ = viewModel.InitializeAsync();
+        await OverlayDialog.ShowCustomModal<ScenarioDetail, ScenarioDetailViewModel, object>(viewModel, "LocalHost",
+            new OverlayDialogOptions
+            {
+                CanLightDismiss = true,
+                CanDragMove = false,
+                IsCloseButtonVisible = false
+            });
+    }
+
+    [RelayCommand]
+    private async Task UploadScenarioVersion(ScenarioMarketItem scenario)
+    {
+        var local = CustomScenarioManger.CustomScenarios.FirstOrDefault(item =>
+            string.Equals(item.Uuid, scenario.SourceUuid, StringComparison.OrdinalIgnoreCase));
+        if (local is null)
+        {
+            await ShowToastAsync("无法发布版本", "本地找不到对应的情景文件，请先在客户端打开该情景。", NotificationType.Warning);
+            return;
+        }
+
+        await ServiceManager.Services.GetRequiredService<IScenarioUploadService>().ShowAsync(
+            local, ServiceManager.Services.GetService<IWindowTool>()?.GetForegroundWindow());
+        _ = LoadPluginsAsync();
+    }
+
+    [RelayCommand]
+    private async Task EditScenarioInformation(ScenarioMarketItem scenario)
+    {
+        await ServiceManager.Services.GetRequiredService<IScenarioUploadService>().ShowInformationAsync(
+            scenario, ServiceManager.Services.GetService<IWindowTool>()?.GetForegroundWindow());
+        _ = LoadPluginsAsync();
+    }
+
+    [RelayCommand]
+    private async Task CancelScenarioReview(ScenarioMarketItem scenario)
+    {
+        if (scenario.Review is not { Status: 0 } review) return;
         try
         {
-            var imported = await ScenarioMarketService.ImportAsync(scenario.Id);
-            await ShowToastAsync("情景已导入", imported.HasInit ? imported.Name : $"{imported.Name}：{imported.InitError}",
-                imported.HasInit ? NotificationType.Success : NotificationType.Warning);
+            await ScenarioMarketService.CancelReviewAsync(scenario.Id, review.Id);
+            await LoadPluginsAsync();
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JsonException)
         {
-            await ShowToastAsync("情景导入失败", exception.Message, NotificationType.Error);
+            await ShowToastAsync("取消审核失败", exception.Message, NotificationType.Error);
         }
     }
 
     [RelayCommand]
-    private async Task ShowScenarioDetail(ScenarioMarketItem scenario)
+    private void WithdrawScenarioRelease(ScenarioMarketItem scenario)
     {
-        await ServiceManager.Services.GetRequiredService<IToastService>().Show(new ToastRequest
+        if (string.IsNullOrWhiteSpace(scenario.LastVersion)) return;
+        ServiceManager.Services.GetRequiredService<IToastService>().Show(new ToastRequest
         {
-            Header = scenario.Name,
-            Text = $"{scenario.Description}\n\n作者：{scenario.Author}\n{scenario.Visibility}\n{scenario.ReviewText}",
-            AutoCloseDelay = null, ShowCloseButton = true,
+            Header = "撤回情景版本",
+            Text = $"确定撤回 v{scenario.LastVersion} 吗？撤回后该版本将不能再次发布。",
+            AutoCloseDelay = null,
             Actions =
             [
-                new ToastAction { Text = "导入", IsPrimary = true, Callback = () => _ = ImportScenario(scenario) },
-                new ToastAction { Text = "网页详情", Callback = () => ServiceManager.Services.GetRequiredService<IDesktopShell>()
-                    .Open($"{ConfigManger.WebUrl}/scenarios/{scenario.Id}") }
+                new ToastAction
+                {
+                    Text = "撤回", IsPrimary = true,
+                    Callback = () => _ = WithdrawScenarioReleaseAsync(scenario)
+                },
+                new ToastAction { Text = "取消" }
             ]
         }, ServiceManager.Services.GetService<IWindowTool>()?.GetForegroundWindow());
+    }
+
+    private async Task WithdrawScenarioReleaseAsync(ScenarioMarketItem scenario)
+    {
+        try
+        {
+            await ScenarioMarketService.WithdrawReleaseAsync(scenario.Id, scenario.LastVersion!);
+            await LoadPluginsAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JsonException)
+        {
+            await ShowToastAsync("撤回失败", exception.Message, NotificationType.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void DeleteScenario(ScenarioMarketItem scenario)
+    {
+        ServiceManager.Services.GetRequiredService<IToastService>().Show(new ToastRequest
+        {
+            Header = "删除情景",
+            Text = $"确定删除“{scenario.Name}”吗？删除后不能恢复。",
+            AutoCloseDelay = null,
+            Actions =
+            [
+                new ToastAction
+                {
+                    Text = "删除", IsPrimary = true,
+                    Callback = () => _ = DeleteScenarioAsync(scenario)
+                },
+                new ToastAction { Text = "取消" }
+            ]
+        }, ServiceManager.Services.GetService<IWindowTool>()?.GetForegroundWindow());
+    }
+
+    private async Task DeleteScenarioAsync(ScenarioMarketItem scenario)
+    {
+        try
+        {
+            await ScenarioMarketService.DeleteAsync(scenario.Id);
+            await LoadPluginsAsync();
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JsonException)
+        {
+            await ShowToastAsync("删除失败", exception.Message, NotificationType.Error);
+        }
     }
 
     [RelayCommand]

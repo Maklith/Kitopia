@@ -27,7 +27,7 @@ public partial class CustomScenario : ObservableRecipient, IDisposable, IAsyncDi
     [JsonIgnore] [ObservableProperty] private ObservableCollection<string> _autoTriggers = new();
     private CancellationTokenSource _cancellationTokenSource = new();
 
-    [JsonIgnore] [ObservableProperty] private string _description = "";
+    [ObservableProperty] private string _description = "";
 
     [property: JsonIgnore] [JsonIgnore] [ObservableProperty]
     private Bitmap? _icon;

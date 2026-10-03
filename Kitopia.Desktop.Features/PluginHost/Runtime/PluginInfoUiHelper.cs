@@ -3,6 +3,7 @@ using System.Threading.RateLimiting;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using NuGet.Versioning;
 using PluginCore;
 using Polly;
 using Polly.Retry;
@@ -386,6 +387,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(RatingScoreText));
                 OnPropertyChanged(nameof(RatingDisplayText));
                 OnPropertyChanged(nameof(RatingStar));
+                OnPropertyChanged(nameof(TimelineVersionDetails));
             }
         }
     }
@@ -507,7 +509,63 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
             return _versionDetails;
         }
-        set => SetProperty(ref _versionDetails, value);
+        set
+        {
+            if (SetProperty(ref _versionDetails, value))
+            {
+                OnPropertyChanged(nameof(TimelineVersionDetails));
+            }
+        }
+    }
+
+    public IReadOnlyList<VersionDetail>? TimelineVersionDetails
+    {
+        get
+        {
+            if (VersionDetails is not { } details) return null;
+
+            return details
+                .GroupBy(detail => detail.Id)
+                .Select(group =>
+                {
+                    var events = group
+                        .OrderByDescending(detail => detail.Updatetime)
+                        .ThenByDescending(detail => detail.AuditEntryId ?? 0)
+                        .ToList();
+                    var current = events.FirstOrDefault(detail => detail.IsCurrent) ?? events[0];
+                    current.CreateTime = events.Min(detail => detail.CreateTime);
+                    current.Events = events.Where(detail => detail.AuditEntryId.HasValue).ToList();
+                    if (!string.IsNullOrWhiteSpace(OnlinePluginInfo?.LastVersion))
+                    {
+                        current.IsCurrent = string.Equals(
+                            current.Version,
+                            OnlinePluginInfo.LastVersion,
+                            StringComparison.OrdinalIgnoreCase);
+                    }
+                    return current;
+                })
+                .OrderByDescending(detail => detail, VersionDetailComparer.Instance)
+                .ToList();
+        }
+    }
+
+    private sealed class VersionDetailComparer : IComparer<VersionDetail>
+    {
+        public static VersionDetailComparer Instance { get; } = new();
+
+        public int Compare(VersionDetail? left, VersionDetail? right)
+        {
+            if (ReferenceEquals(left, right)) return 0;
+            if (left is null) return -1;
+            if (right is null) return 1;
+            if (NuGetVersion.TryParse(left.Version, out var leftVersion) &&
+                NuGetVersion.TryParse(right.Version, out var rightVersion))
+            {
+                return VersionComparer.VersionRelease.Compare(leftVersion, rightVersion);
+            }
+
+            return StringComparer.OrdinalIgnoreCase.Compare(left.Version, right.Version);
+        }
     }
 
     private async ValueTask GetVersionDetails(CancellationToken cts)

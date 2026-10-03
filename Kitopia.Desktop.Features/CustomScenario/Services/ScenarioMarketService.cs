@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -28,8 +29,15 @@ public static class ScenarioMarketService
         return await SendAsync<ScenarioMarketItem>(request, cancellationToken);
     }
 
+    public static async Task<List<ScenarioRelease>> GetReleasesAsync(long id, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"{id}/releases");
+        return await SendAsync<List<ScenarioRelease>>(request, cancellationToken);
+    }
+
     public static async Task<ScenarioMarketItem> UploadAsync(CustomScenario scenario, bool isPublic,
-        CancellationToken cancellationToken = default, string? version = null, string? detail = null)
+        CancellationToken cancellationToken = default, string? version = null, string? detail = null,
+        IEnumerable<string>? tags = null, long? scenarioId = null)
     {
         var json = JsonSerializer.SerializeToUtf8Bytes(scenario, ConfigManger.DefaultOptions);
         if (json.Length > 2 * 1024 * 1024) throw new InvalidOperationException("情景 JSON 不能超过 2 MiB。");
@@ -41,8 +49,45 @@ public static class ScenarioMarketService
         body.Add(new StringContent(isPublic.ToString()), "isPublic");
         if (version is not null) body.Add(new StringContent(version), "version");
         if (detail is not null) body.Add(new StringContent(detail), "detail");
+        if (tags is not null) body.Add(new StringContent(JsonSerializer.Serialize(tags)), "tags");
+        if (scenarioId is not null) body.Add(new StringContent(scenarioId.Value.ToString()), "scenarioId");
         request.Content = body;
         return await SendAsync<ScenarioMarketItem>(request, cancellationToken);
+    }
+
+    public static async Task<ScenarioMarketItem> UpdateInformationAsync(long id, string name, string description,
+        IEnumerable<string> tags, bool isPublic, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put, id.ToString());
+        request.Content = JsonContent.Create(new { name, description, tags = tags.ToArray(), isPublic });
+        return await SendAsync<ScenarioMarketItem>(request, cancellationToken);
+    }
+
+    public static async Task UpdateReleaseDetailAsync(long id, string version, string detail,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Put,
+            $"{id}/releases/{Uri.EscapeDataString(version)}/detail");
+        request.Content = JsonContent.Create(new { detail });
+        await SendFlagAsync(request, cancellationToken);
+    }
+
+    public static async Task WithdrawReleaseAsync(long id, string version, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"{id}/releases/{Uri.EscapeDataString(version)}");
+        await SendFlagAsync(request, cancellationToken);
+    }
+
+    public static async Task CancelReviewAsync(long id, Guid reviewId, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, $"{id}/reviews/{reviewId}");
+        await SendFlagAsync(request, cancellationToken);
+    }
+
+    public static async Task DeleteAsync(long id, CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, id.ToString());
+        await SendFlagAsync(request, cancellationToken);
     }
 
     private static HttpRequestMessage CreateRequest(HttpMethod method, string path)
@@ -72,6 +117,24 @@ public static class ScenarioMarketService
         }
         return root.GetProperty("data").Deserialize<T>(ApiOptions)
             ?? throw new JsonException("情景市场返回了空数据。");
+    }
+
+    private static async Task SendFlagAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        using var response = await PluginNetworkService.HttpClient.SendAsync(request, cancellationToken);
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            throw new HttpRequestException(response.StatusCode == HttpStatusCode.Unauthorized
+                ? "登录凭据已失效，请重新登录。"
+                : "当前登录未获得情景管理权限，请重新授权。", null, response.StatusCode);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        var root = document.RootElement;
+        if (!response.IsSuccessStatusCode || !root.TryGetProperty("flag", out var flag) || flag.ValueKind != JsonValueKind.True)
+        {
+            var message = root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.String
+                ? data.GetString() : "请求失败，请刷新后重试。";
+            throw new InvalidOperationException(message);
+        }
     }
 
     internal static string PrepareImport(JsonObject root)
@@ -146,15 +209,118 @@ public sealed class ScenarioMarketItem
     public string Description { get; init; } = "";
     public string? AuthorNickname { get; init; }
     public string? AuthorUserName { get; init; }
+    public string[] Tags { get; init; } = [];
+    public decimal AverageRating { get; init; }
+    public int RatingCount { get; init; }
     public int PublicationStatus { get; init; }
+    public DateTime CreateTime { get; init; }
+    public DateTime Updatetime { get; init; }
     public string? LastVersion { get; init; }
     public string? LatestReleaseVersion { get; init; }
     public int? LatestReleaseStatus { get; init; }
     public ScenarioMarketReview? Review { get; init; }
-    public string Author => AuthorNickname ?? AuthorUserName ?? "未知作者";
+    public long DownloadCounts { get; init; }
+    public bool CanManage { get; init; }
+    public string Author => !string.IsNullOrWhiteSpace(AuthorNickname) ? AuthorNickname :
+        !string.IsNullOrWhiteSpace(AuthorUserName) ? AuthorUserName : "未知作者";
+    public string DescriptionDisplay => string.IsNullOrWhiteSpace(Description) ? "暂无简介" : Description;
+    public string AuthorInitial => string.IsNullOrWhiteSpace(Author) ? "?" : Author[..1].ToUpperInvariant();
+    public bool HasRatings => RatingCount > 0;
+    public string RatingScoreText => HasRatings ? AverageRating.ToString("F1") : "";
+    public string RatingDisplayText => HasRatings ? $"{AverageRating:F1} · {RatingCount} 条评价" : "暂无评分";
+    public string VersionAndDateText => $"v{LastVersion ?? "—"} · {(Updatetime == default ? "—" : Updatetime.ToString("M月d日"))}";
+    public string DownloadCountText => $"{DownloadCounts} 下载";
+    public string LatestReleaseStatusText => LatestReleaseStatus switch
+    {
+        0 => "草稿",
+        1 => "已发布",
+        2 => "已撤回",
+        3 => "待审核",
+        4 => "已驳回",
+        _ => ""
+    };
+    public string LatestReleaseText => string.IsNullOrWhiteSpace(LatestReleaseVersion) || string.IsNullOrWhiteSpace(LatestReleaseStatusText)
+        ? ""
+        : $"提交：{LatestReleaseStatusText} · v{LatestReleaseVersion}";
+    public bool HasPendingReview => Review?.Status == 0;
+    public bool CanWithdraw => CanManage && !string.IsNullOrWhiteSpace(LastVersion) && LatestReleaseStatus is not 2 and not 3;
+    public bool CanCancelReview => CanManage && Review?.Status == 0;
+    public string ReviewActionText => Review?.Kind == 2 ? "取消版本审核" : "取消信息审核";
+    public bool IsPublic => PublicationStatus == 2;
+    public bool IsPendingPublication => PublicationStatus == 1;
+    public bool IsPrivate => PublicationStatus == 0;
     public string Visibility => PublicationStatus switch { 1 => "待公开审核", 2 => "公开", _ => "私有" };
     public string ReviewText => Review is null ? "" :
         $"{Review.Status switch { 0 => "待审核", 1 => "审核通过", 2 => "审核拒绝", _ => "已撤回" }} {Review.ReviewComment}";
 }
 
-public sealed record ScenarioMarketReview(int Status, string? ReviewComment);
+public sealed record ScenarioMarketReview(int Status, string? ReviewComment)
+{
+    public Guid Id { get; init; }
+    public int Kind { get; init; }
+    public string? Version { get; init; }
+    public string? Detail { get; init; }
+    public string? Name { get; init; }
+    public string? Description { get; init; }
+    public string[] Tags { get; init; } = [];
+};
+
+public sealed class ScenarioRelease
+{
+    public long Id { get; init; }
+    public string Version { get; init; } = "";
+    public string Detail { get; init; } = "";
+    public int Status { get; init; }
+    public Guid? SubmissionId { get; init; }
+    public DateTime CreateTime { get; init; }
+    public DateTime Updatetime { get; init; }
+    public bool IsCurrent { get; init; }
+    public bool CanDownload { get; init; }
+    public bool CanEdit { get; init; }
+    public bool CanWithdraw { get; init; }
+    public bool CanCancelReview { get; init; }
+    public string? CandidateDetail { get; init; }
+    public string? ReviewComment { get; init; }
+    public DateTime? ReviewedAt { get; init; }
+    public List<ScenarioReleaseReview> Reviews { get; init; } = [];
+
+    public string DisplayVersion => $"v{Version}";
+    public string CreateTimeText => CreateTime == default ? "" : $"提交于 {CreateTime:yyyy年M月d日 HH:mm}";
+    public string StatusText => Status switch
+    {
+        1 => "已发布",
+        2 => "已撤回",
+        3 => "待审核",
+        4 => "已拒绝",
+        _ => "草稿"
+    };
+    public bool IsPublished => Status == 1;
+    public bool IsPendingReview => Status == 3;
+    public bool IsWithdrawn => Status == 2;
+    public bool IsRejected => Status == 4;
+    public bool IsDraft => Status == 0;
+    public bool HasCandidateDetail => CanCancelReview && CandidateDetail is not null;
+    public bool HasReviewHistory => Reviews.Count > 0 || !string.IsNullOrWhiteSpace(ReviewComment) || ReviewedAt.HasValue;
+    public string ReviewHistoryText => Reviews.Count == 0 ? "审核记录" : $"审核记录（{Reviews.Count}）";
+}
+
+public sealed class ScenarioReleaseReview
+{
+    public Guid Id { get; init; }
+    public int Status { get; init; }
+    public string? Detail { get; init; }
+    public string? ReviewComment { get; init; }
+    public DateTime CreateTime { get; init; }
+    public DateTime? ReviewedAt { get; init; }
+    public string StatusText => Status switch
+    {
+        0 => "待审核",
+        1 => "已通过",
+        2 => "已拒绝",
+        _ => "已取消"
+    };
+    public bool IsPending => Status == 0;
+    public bool IsApproved => Status == 1;
+    public bool IsRejected => Status == 2;
+    public string CreateTimeText => CreateTime == default ? "" : $"记录于 {CreateTime:yyyy年M月d日 HH:mm}";
+};
