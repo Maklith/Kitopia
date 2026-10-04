@@ -444,13 +444,24 @@
 
                                                 <!-- Action Buttons: 一键安装到 Kitopia -->
                                                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
-                                                    <Button Classes="Primary"
-                                                            Content="一键安装到 Kitopia"
-                                                            FontSize="12" Padding="12,4" Height="28" MinHeight="28"
-                                                            CornerRadius="6"
-                                                            IsVisible="{Binding CanDownload}"
-                                                            Command="{Binding Path=$parent[ItemsControl].((plugin:PluginDetailViewModel)DataContext).InstallVersionCommand}"
-                                                            CommandParameter="{Binding .}" />
+                                                    <Panel IsVisible="{Binding CanDownload}">
+                                                        <Button Classes="Primary"
+                                                                Content="一键安装到 Kitopia"
+                                                                FontSize="12" Padding="12,4" Height="28" MinHeight="28"
+                                                                CornerRadius="6"
+                                                                IsVisible="{Binding Path=!$parent[ItemsControl].((plugin:PluginDetailViewModel)DataContext).PluginInfo.IsDownloading}"
+                                                                Command="{Binding Path=$parent[ItemsControl].((plugin:PluginDetailViewModel)DataContext).InstallVersionCommand}"
+                                                                CommandParameter="{Binding .}" />
+                                                        <StackPanel Width="180" Height="28" Spacing="4"
+                                                                    IsVisible="{Binding Path=$parent[ItemsControl].((plugin:PluginDetailViewModel)DataContext).PluginInfo.IsDownloading}">
+                                                            <TextBlock FontSize="12" Foreground="{DynamicResource SemiColorText1}"
+                                                                       Text="{Binding Path=$parent[ItemsControl].((plugin:PluginDetailViewModel)DataContext).PluginInfo.Download.StatusText}" />
+                                                            <ProgressBar Minimum="0" Maximum="100"
+                                                                         Theme="{DynamicResource KitopiaPluginDownloadProgress}"
+                                                                         Value="{Binding Path=$parent[ItemsControl].((plugin:PluginDetailViewModel)DataContext).PluginInfo.Download.Percentage}"
+                                                                         IsIndeterminate="{Binding Path=$parent[ItemsControl].((plugin:PluginDetailViewModel)DataContext).PluginInfo.Download.IsIndeterminate}" />
+                                                        </StackPanel>
+                                                    </Panel>
                                                     <TextBlock Text="审核中，通过后公开" FontSize="12"
                                                                Foreground="{DynamicResource SemiColorWarning}"
                                                                VerticalAlignment="Center" IsVisible="{Binding IsPendingReview}" />

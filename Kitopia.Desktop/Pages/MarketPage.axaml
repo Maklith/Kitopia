@@ -102,7 +102,7 @@
 
                 <!-- Cards ScrollViewer -->
                 <ScrollViewer IsVisible="{Binding !HasNoPlugins}">
-                    <ItemsControl ItemsSource="{Binding Plugins}" Margin="4,0,0,16">
+                    <ItemsControl x:Name="PluginCards" ItemsSource="{Binding Plugins}" Margin="4,0,0,16">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel />
@@ -255,24 +255,34 @@
                                                 Background="{DynamicResource SemiColorBorder}"
                                                 Margin="0,8,0,8" />
 
-                                        <!-- 4. Footer: Author on left, Version + Downloads + Button on right -->
-                                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                                        <!-- 4. Footer: Metadata above, author and action below -->
+                                        <Grid Grid.Row="3" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto"
+                                              RowSpacing="8" ColumnSpacing="12" VerticalAlignment="Center">
+                                            <Grid Grid.Row="0" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                <TextBlock Grid.Column="0" Text="{Binding VersionAndDateText}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource SemiColorText2}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="1" Text="{Binding DownloadCountText}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource SemiColorText2}" />
+                                            </Grid>
                                             <!-- Author (Clickable to search author) -->
-                                            <Button Grid.Column="0"
+                                            <Button Grid.Row="1" Grid.Column="0"
                                                     Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).SearchAuthorCommand}"
                                                     CommandParameter="{Binding }"
                                                     Padding="0" MinHeight="0"
                                                     Theme="{DynamicResource BorderlessButton}"
                                                     Cursor="Hand"
-                                                    HorizontalAlignment="Left"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                                     VerticalAlignment="Center">
                                                 <Button.Styles>
                                                     <Style Selector="Button:pointerover TextBlock.AuthorText">
                                                         <Setter Property="Foreground" Value="{DynamicResource KitopiaPrimaryBrush}" />
                                                     </Style>
                                                 </Button.Styles>
-                                                <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                                                    <Border Width="22" Height="22"
+                                                <Grid ColumnDefinitions="22,*" ColumnSpacing="7" VerticalAlignment="Center">
+                                                    <Border Grid.Column="0" Width="22" Height="22"
                                                             CornerRadius="11" ClipToBounds="True"
                                                             Background="{DynamicResource KitopiaAvatarBackground}">
                                                         <Panel>
@@ -287,44 +297,47 @@
                                                                    IsVisible="{Binding AuthorAvatar, Converter={x:Static ObjectConverters.IsNotNull}}" />
                                                         </Panel>
                                                     </Border>
-                                                    <TextBlock Classes="AuthorText"
+                                                    <TextBlock Grid.Column="1" Classes="AuthorText"
                                                                Text="{Binding AuthorName}"
                                                                FontSize="12"
                                                                Foreground="{DynamicResource SemiColorText1}"
+                                                               HorizontalAlignment="Left"
                                                                VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis"
                                                                MaxWidth="130" />
-                                                </StackPanel>
+                                                </Grid>
                                             </Button>
 
-                                            <!-- Version + Downloads + Action -->
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                                <TextBlock Text="{Binding VersionAndDateText}"
-                                                           FontSize="11"
-                                                           Foreground="{DynamicResource SemiColorText2}"
-                                                           HorizontalAlignment="Right" />
-                                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" Margin="0,2,0,0">
-                                                    <TextBlock Text="{Binding DownloadCountText}"
-                                                               FontSize="11"
-                                                               Foreground="{DynamicResource SemiColorText2}"
-                                                               VerticalAlignment="Center" />
-                                                    <Button Classes="Primary"
-                                                            IsEnabled="{Binding !InLocal}"
-                                                            Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).DownloadPluginCommand}"
-                                                            CommandParameter="{Binding OnlinePluginInfo}"
-                                                            Padding="8,1" MinHeight="22" Height="22"
-                                                            FontSize="11" CornerRadius="6">
-                                                        <Button.Styles>
-                                                            <Style Selector="Button[IsEnabled=True]">
-                                                                <Setter Property="Content" Value="下载" />
-                                                            </Style>
-                                                            <Style Selector="Button[IsEnabled=False]">
-                                                                <Setter Property="Content" Value="已安装" />
-                                                            </Style>
-                                                        </Button.Styles>
-                                                    </Button>
-                                                </StackPanel>
-                                            </StackPanel>
+                                            <Grid Grid.Row="1" Grid.Column="1" Width="128" Height="28">
+                                                <Button Classes="Primary"
+                                                        HorizontalAlignment="Right"
+                                                        IsVisible="{Binding !IsDownloading}"
+                                                        IsEnabled="{Binding !InLocal}"
+                                                        Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).DownloadPluginCommand}"
+                                                        CommandParameter="{Binding OnlinePluginInfo}"
+                                                        Padding="12,0" MinHeight="28" Height="28"
+                                                        FontSize="12" CornerRadius="6">
+                                                    <Button.Styles>
+                                                        <Style Selector="Button[IsEnabled=True]">
+                                                            <Setter Property="Content" Value="下载" />
+                                                        </Style>
+                                                        <Style Selector="Button[IsEnabled=False]">
+                                                            <Setter Property="Content" Value="已安装" />
+                                                        </Style>
+                                                    </Button.Styles>
+                                                </Button>
+                                                <Grid RowDefinitions="*,4" RowSpacing="4" IsVisible="{Binding IsDownloading}">
+                                                    <TextBlock Grid.Row="0" Text="{Binding Download.StatusText}" FontSize="12"
+                                                               Foreground="{DynamicResource SemiColorText1}"
+                                                               TextAlignment="Right" TextTrimming="CharacterEllipsis"
+                                                               VerticalAlignment="Center"
+                                                               ToolTip.Tip="{Binding Download.StatusText}" />
+                                                    <ProgressBar Grid.Row="1" Minimum="0" Maximum="100"
+                                                                 Theme="{DynamicResource KitopiaPluginDownloadProgress}"
+                                                                 Value="{Binding Download.Percentage}"
+                                                                 IsIndeterminate="{Binding Download.IsIndeterminate}" />
+                                                </Grid>
+                                            </Grid>
                                         </Grid>
                                     </Grid>
                                 </Border>

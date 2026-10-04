@@ -48,17 +48,47 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
             var item = (PluginInfoUiHelper)recipient;
             item.PluginLocalInfo = PluginManager.GetPluginLocalInfoByPlgStr(item.PluginBaseInfo.NameSign);
             if (item.PluginLocalInfo is { } local) item.PluginBaseInfo = local.PluginBaseInfo;
+            item._canUpdate = null;
             item.OnPropertyChanged(nameof(PluginLocalInfo));
             item.OnPropertyChanged(nameof(Version));
             item.OnPropertyChanged(nameof(DescriptionShort));
             item.OnPropertyChanged(nameof(InLocal));
+            item.OnPropertyChanged(nameof(CanUpdate));
+            item.OnPropertyChanged(nameof(CanRemove));
+            item.OnPropertyChanged(nameof(CanSwitch));
+        });
+        WeakReferenceMessenger.Default.Register<PluginDownloadProgress>(this, static (recipient, progress) =>
+        {
+            var item = (PluginInfoUiHelper)recipient;
+            if (!string.Equals(item.PluginBaseInfo.NameSign, progress.PluginInfo.NameSign, StringComparison.OrdinalIgnoreCase)) return;
+            if (item.PluginLocalInfo is null) item.PluginBaseInfo = progress.PluginInfo;
+            item.OnPropertyChanged(nameof(Download));
+            item.OnPropertyChanged(nameof(IsDownloading));
+            item.OnPropertyChanged(nameof(Version));
+            item.OnPropertyChanged(nameof(DescriptionShort));
+            item.OnPropertyChanged(nameof(CanUpdate));
+            item.OnPropertyChanged(nameof(CanRemove));
+            item.OnPropertyChanged(nameof(CanSwitch));
         });
     }
 
     private bool _disposed;
 
     private CancellationTokenSource _cancellationTokenSource = new();
-    public PluginBaseInfo PluginBaseInfo { get; set; }
+    private PluginBaseInfo _pluginBaseInfo;
+    public PluginBaseInfo PluginBaseInfo
+    {
+        get => _pluginBaseInfo;
+        set
+        {
+            // PluginBaseInfo equality compares only NameSign, not updated metadata.
+            _pluginBaseInfo = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public PluginDownloadProgress? Download => PluginManager.Downloads.GetValueOrDefault(PluginBaseInfo.NameSign);
+    public bool IsDownloading => Download is not null;
 
     private Bitmap? _icon;
 
@@ -80,7 +110,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     private async ValueTask GetIcon(CancellationToken cts)
     {
-        if (OnlinePluginInfo is not null)
+        if (OnlinePluginInfo is not null || IsDownloading)
         {
             var bytes = await PluginNetworkService.GetAvatarBytesAsync(PluginBaseInfo.NameSign, cts);
             if (bytes != null)
@@ -364,8 +394,8 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     public bool InLocal => PluginManager.GetPluginLocalInfoByPlgStr(PluginBaseInfo.NameSign) is not null;
     public bool IsHostBundled => PluginReleaseRules.IsHostBundled(PluginBaseInfo.NameSign);
-    public bool CanRemove => !IsHostBundled;
-    public bool CanSwitch => !IsHostBundled;
+    public bool CanRemove => !IsHostBundled && InLocal && !IsDownloading;
+    public bool CanSwitch => !IsHostBundled && InLocal && !IsDownloading;
     public PluginLocalInfo? PluginLocalInfo { get; set; }
 
     private OnlinePluginInfo? _onlinePluginInfo;
@@ -402,7 +432,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
     {
         get
         {
-            if (IsHostBundled) return false;
+            if (IsHostBundled || IsDownloading) return false;
             if (_canUpdate is null)
 
                 lock (_cancellationTokenSource)
@@ -457,14 +487,14 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
         get
         {
             var desc = IsLocal
-                ? (PluginLocalInfo != null ? PluginLocalInfo.PluginBaseInfo.Description : string.Empty)
+                ? (PluginLocalInfo != null ? PluginLocalInfo.PluginBaseInfo.Description : PluginBaseInfo.Description)
                 : (OnlinePluginInfo?.DescriptionShort ?? OnlinePluginInfo?.Description ?? string.Empty);
             return string.IsNullOrWhiteSpace(desc) ? "暂无简介" : desc.Trim();
         }
     }
 
     public string Version =>
-        IsLocal ? (PluginLocalInfo != null ? PluginLocalInfo.PluginBaseInfo.Version : string.Empty) : (OnlinePluginInfo?.LastVersion ?? string.Empty);
+        IsLocal ? (PluginLocalInfo?.PluginBaseInfo.Version ?? Download?.Version ?? PluginBaseInfo.Version) : (OnlinePluginInfo?.LastVersion ?? string.Empty);
 
     private string? _description;
 

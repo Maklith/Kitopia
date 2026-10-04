@@ -54,6 +54,20 @@
         </Style>
     </ControlTheme>
 
+    <ControlTheme x:Key="KitopiaPluginDownloadProgress" TargetType="ProgressBar"
+                  BasedOn="{StaticResource {x:Type ProgressBar}}">
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Height" Value="4" />
+        <Setter Property="CornerRadius" Value="2" />
+        <Setter Property="Foreground" Value="{DynamicResource KitopiaPrimaryBrush}" />
+        <Setter Property="Background" Value="{DynamicResource KitopiaBadgeNeutralBackground}" />
+        <Setter Property="ClipToBounds" Value="True" />
+        <Style Selector="^:horizontal">
+            <Setter Property="MinWidth" Value="0" />
+        </Style>
+    </ControlTheme>
+
     <ControlTheme x:Key="KitopiaStatCard" TargetType="Border">
         <Setter Property="CornerRadius" Value="12" />
         <Setter Property="Background" Value="{DynamicResource KitopiaCardBackgroundBrush}" />

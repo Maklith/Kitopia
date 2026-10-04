@@ -34,12 +34,23 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
             if (Dispatcher.UIThread.CheckAccess()) viewModel.RefreshItems();
             else Dispatcher.UIThread.Post(viewModel.RefreshItems);
         });
+        WeakReferenceMessenger.Default.Register<PluginDownloadProgress>(this, static (recipient, progress) =>
+        {
+            var viewModel = (PluginManagerPageViewModel)recipient;
+            if (progress.IsDownloading)
+            {
+                if (viewModel.Items.Any(item => item.PluginBaseInfo.NameSign == progress.PluginInfo.NameSign)) return;
+                viewModel.Items.Add(new PluginInfoUiHelper { PluginBaseInfo = progress.PluginInfo, IsLocal = true });
+            }
+            else viewModel.RefreshItems();
+        });
     }
 
     private void RefreshItems()
     {
         var installed = PluginManager.GetPluginLocalInfos().OrderBy(info => info.ToPlgString()).ToArray();
-        foreach (var obsolete in Items.Where(item => !installed.Any(info => info.ToPlgString() == item.PluginBaseInfo.NameSign)).ToArray())
+        foreach (var obsolete in Items.Where(item => !installed.Any(info => info.ToPlgString() == item.PluginBaseInfo.NameSign) &&
+                                                    !item.IsDownloading).ToArray())
         {
             Items.Remove(obsolete);
             obsolete.Dispose();
@@ -47,8 +58,18 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
         foreach (var info in installed)
         {
             var item = Items.FirstOrDefault(item => item.PluginBaseInfo.NameSign == info.ToPlgString());
-            if (item is not null) continue;
+            if (item is not null)
+            {
+                item.PluginLocalInfo = info;
+                item.PluginBaseInfo = info.PluginBaseInfo;
+                continue;
+            }
             Items.Add(new PluginInfoUiHelper { PluginBaseInfo = info.PluginBaseInfo, PluginLocalInfo = info, IsLocal = true });
+        }
+        foreach (var progress in PluginManager.Downloads.Values)
+        {
+            if (Items.Any(item => item.PluginBaseInfo.NameSign == progress.PluginInfo.NameSign)) continue;
+            Items.Add(new PluginInfoUiHelper { PluginBaseInfo = progress.PluginInfo, IsLocal = true });
         }
     }
 
@@ -90,7 +111,7 @@ public partial class PluginManagerPageViewModel : ObservableRecipient
     [RelayCommand]
     public void ToPluginSettingPage(PluginInfoUiHelper pluginInfoEx)
     {
-        if (!pluginInfoEx.PluginLocalInfo.IsEnabled) return;
+        if (pluginInfoEx.PluginLocalInfo?.IsEnabled != true) return;
 
         ServiceManager.Services?.GetService<INavigationService>()?.Navigate(
             "plugin/settings/select",

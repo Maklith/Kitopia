@@ -236,7 +236,7 @@ public partial class MarketPageViewModel : ObservableObject
 
             foreach (var plugin in Plugins)
             {
-                plugin.Icon?.Dispose();
+                plugin.Dispose();
             }
 
             Plugins.Clear();

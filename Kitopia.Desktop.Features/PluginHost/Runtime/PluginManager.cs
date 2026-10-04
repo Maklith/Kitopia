@@ -21,6 +21,8 @@ public static class PluginManager
     private static IReadOnlyList<PluginLocalInfo> AllPluginInfos = Array.Empty<PluginLocalInfo>();
     private static readonly ConcurrentDictionary<string, Plugin> EnablePlugins = new();
     private static readonly ReadOnlyDictionary<string, Plugin> EnabledView = new(EnablePlugins);
+    private static readonly ConcurrentDictionary<string, PluginDownloadProgress> ActiveDownloads = new(StringComparer.OrdinalIgnoreCase);
+    public static IReadOnlyDictionary<string, PluginDownloadProgress> Downloads => ActiveDownloads;
     private static readonly Dictionary<string, (WeakReference Context, bool Succeeded)> PendingUnloads = new();
     // All mutations run on the UI dispatcher. This flag rejects overlapping async operations.
     private static bool _operationInProgress;
@@ -51,7 +53,7 @@ public static class PluginManager
                 try
                 {
                     var version = (await File.ReadAllTextAsync(marker, cancellationToken)).Trim();
-                    var package = await PluginNetworkService.DownloadPackageAsync(name, version, cancellationToken);
+                    var package = await DownloadPackageAsync(name, version, cancellationToken);
                     if (await ApplyAsync(name, package,
                             ConfigManger.Config.EnabledPluginInfos.Any(item => item.NameSign == name), cancellationToken))
                         File.Delete(marker);
@@ -159,6 +161,8 @@ public static class PluginManager
         {
             try
             {
+                foreach (var progress in ActiveDownloads.Values)
+                    ReportDownloadProgress(progress with { IsDownloading = false });
                 foreach (var info in AllPluginInfos) info.NotifyStatusChanged();
                 WeakReferenceMessenger.Default.Send(new PluginsReloaded());
                 if (refreshScenarios) CustomScenarioManger.ReCheck(true);
@@ -309,7 +313,7 @@ public static class PluginManager
                         .Select(item => item.Version) ?? [], ranges.Values.ToArray());
                 if (version is null)
                     throw new InvalidOperationException($"找不到依赖 {dependency} 同时满足 {string.Join("、", ranges.Values)} 的可用更新版本。");
-                var package = await PluginNetworkService.DownloadPackageAsync(dependency, version, cancellationToken);
+                var package = await DownloadPackageAsync(dependency, version, cancellationToken);
                 packages.Add(package);
                 candidates[dependency] = package.Info;
                 if (staged is not null)
@@ -471,14 +475,8 @@ public static class PluginManager
     }
 
     public static Task<bool> DownloadPluginAndEnable(string pluginSign, string? targetVersion = null,
-        CancellationToken cancellationToken = default) => RunOperationAsync(async () =>
-    {
-        if (PluginReleaseRules.IsHostBundled(pluginSign)) return false;
-        targetVersion ??= await PluginNetworkService.GetLatestVersionAsync(pluginSign, cancellationToken);
-        if (string.IsNullOrWhiteSpace(targetVersion)) return false;
-        var package = await PluginNetworkService.DownloadPackageAsync(pluginSign, targetVersion, cancellationToken);
-        return await ApplyAsync(pluginSign, package, true, cancellationToken);
-    });
+        CancellationToken cancellationToken = default) =>
+        RunOperationAsync(() => DownloadAndApplyAsync(pluginSign, targetVersion, true, cancellationToken));
 
     public static Task<bool> Update(string pluginSign, string? targetVersion = null,
         CancellationToken cancellationToken = default) => RunOperationAsync(async () =>
@@ -486,13 +484,59 @@ public static class PluginManager
         if (PluginReleaseRules.IsHostBundled(pluginSign))
             return false;
         if (GetPluginLocalInfoByPlgStr(pluginSign) is null) return false;
-        targetVersion ??= await PluginNetworkService.GetLatestVersionAsync(pluginSign, cancellationToken);
-        if (string.IsNullOrWhiteSpace(targetVersion)) return false;
-        var package = await PluginNetworkService.DownloadPackageAsync(pluginSign, targetVersion, cancellationToken);
         var enable = EnablePlugins.ContainsKey(pluginSign) ||
                      ConfigManger.Config.EnabledPluginInfos.Any(info => info.NameSign == pluginSign);
-        return await ApplyAsync(pluginSign, package, enable, cancellationToken);
+        return await DownloadAndApplyAsync(pluginSign, targetVersion, enable, cancellationToken);
     });
+
+    private static async Task<bool> DownloadAndApplyAsync(string pluginSign, string? targetVersion, bool enable,
+        CancellationToken cancellationToken)
+    {
+        if (PluginReleaseRules.IsHostBundled(pluginSign)) return false;
+        var info = GetPluginLocalInfoByPlgStr(pluginSign)?.PluginBaseInfo ?? new PluginBaseInfo
+        {
+            NameSign = pluginSign, Name = pluginSign, Version = targetVersion ?? string.Empty
+        };
+        ReportDownloadProgress(new PluginDownloadProgress(info, targetVersion));
+        var online = await PluginNetworkService.GetOnlinePluginInfo(pluginSign, cancellationToken);
+        targetVersion ??= online?.LastVersion;
+        if (string.IsNullOrWhiteSpace(targetVersion)) return false;
+        if (online is not null) info = online.ToPluginBaseInfo();
+        ReportDownloadProgress(new PluginDownloadProgress(info, targetVersion));
+        var package = await DownloadPackageAsync(pluginSign, targetVersion, cancellationToken);
+        return await ApplyAsync(pluginSign, package, enable, cancellationToken);
+    }
+
+    private static async Task<PluginPackage> DownloadPackageAsync(string pluginSign, string version,
+        CancellationToken cancellationToken)
+    {
+        var info = Downloads.GetValueOrDefault(pluginSign)?.PluginInfo ??
+                   GetPluginLocalInfoByPlgStr(pluginSign)?.PluginBaseInfo ?? new PluginBaseInfo
+                   {
+                       NameSign = pluginSign, Name = pluginSign, Version = version
+                   };
+        var progress = new PluginDownloadProgress(info, version);
+        ReportDownloadProgress(progress);
+        var package = await PluginNetworkService.DownloadPackageAsync(pluginSign, version, cancellationToken,
+            (downloaded, total) =>
+            {
+                progress = progress with
+                {
+                    DownloadedBytes = downloaded, TotalBytes = total,
+                    IsInstalling = total is > 0 && downloaded >= total
+                };
+                ReportDownloadProgress(progress);
+            });
+        ReportDownloadProgress(progress with { PluginInfo = package.Info.PluginBaseInfo, IsInstalling = true });
+        return package;
+    }
+
+    internal static void ReportDownloadProgress(PluginDownloadProgress progress)
+    {
+        if (progress.IsDownloading) ActiveDownloads[progress.PluginInfo.NameSign] = progress;
+        else ActiveDownloads.TryRemove(progress.PluginInfo.NameSign, out _);
+        WeakReferenceMessenger.Default.Send(progress);
+    }
 
     public static void DisablePlugin(PluginLocalInfo info)
     {

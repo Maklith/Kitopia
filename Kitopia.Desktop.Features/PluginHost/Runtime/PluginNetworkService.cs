@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
@@ -125,21 +126,15 @@ public class PluginNetworkService
     }
 
     internal static async Task<PluginPackage> DownloadPackageAsync(
-        string pluginSignName, string version, CancellationToken cancellationToken = default)
+        string pluginSignName, string version, CancellationToken cancellationToken = default,
+        Action<long, long?>? reportProgress = null)
     {
         PluginDiscoveryService.ValidatePluginSign(pluginSignName);
         var staging = Path.Combine(KitopiaPaths.PluginsDirectory, $".staging-{Guid.NewGuid():N}");
         var archive = Path.Combine(KitopiaPaths.TempDirectory, $"{Guid.NewGuid():N}.zip");
         try
         {
-            using var request = CreateAuthorizedGetRequest(
-                $"download/{GetCurrentPlatformType()}/{Uri.EscapeDataString(pluginSignName)}/{Uri.EscapeDataString(version)}");
-            using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-            HandlePossibleUnauthorized(response.StatusCode);
-            response.EnsureSuccessStatusCode();
-            await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
-            await using (var output = new FileStream(archive, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                await input.CopyToAsync(output, cancellationToken);
+            await DownloadArchiveAsync(pluginSignName, version, archive, HttpClient, reportProgress, cancellationToken);
             await Task.Run(() => ZipFile.ExtractToDirectory(archive, staging), cancellationToken);
             var package = new PluginPackage(staging, pluginSignName, version);
             var avatar = await GetAvatarBytesAsync(pluginSignName, cancellationToken);
@@ -156,6 +151,34 @@ public class PluginNetworkService
         {
             if (File.Exists(archive)) File.Delete(archive);
         }
+    }
+
+    internal static async Task DownloadArchiveAsync(string pluginSignName, string version, string archive,
+        HttpClient client, Action<long, long?>? reportProgress, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedGetRequest(
+            $"download/{GetCurrentPlatformType()}/{Uri.EscapeDataString(pluginSignName)}/{Uri.EscapeDataString(version)}");
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        HandlePossibleUnauthorized(response.StatusCode);
+        response.EnsureSuccessStatusCode();
+        var totalBytes = response.Content.Headers.ContentLength;
+        reportProgress?.Invoke(0, totalBytes);
+        await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
+        await using var output = new FileStream(archive, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+            bufferSize: 81920, useAsync: true);
+        var buffer = new byte[81920];
+        long downloadedBytes = 0;
+        var lastReport = Stopwatch.GetTimestamp();
+        int read;
+        while ((read = await input.ReadAsync(buffer, cancellationToken)) != 0)
+        {
+            await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+            downloadedBytes += read;
+            if (Stopwatch.GetElapsedTime(lastReport).TotalMilliseconds < 100) continue;
+            reportProgress?.Invoke(downloadedBytes, totalBytes);
+            lastReport = Stopwatch.GetTimestamp();
+        }
+        reportProgress?.Invoke(downloadedBytes, totalBytes ?? downloadedBytes);
     }
 
     public static async Task<byte[]?> GetAvatarBytesAsync(

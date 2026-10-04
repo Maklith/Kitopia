@@ -38,8 +38,8 @@
                             <Border Width="390" MinHeight="214"
                                     Theme="{DynamicResource KitopiaPluginCard}" Margin="6">
                                 <Panel>
-                                    <Grid RowDefinitions="Auto,*,Auto,Auto,Auto"
-                                          IsEnabled="{Binding !PluginLocalInfo.UnloadFailed}">
+                                    <Grid RowDefinitions="Auto,*,Auto,Auto,Auto,Auto"
+                                          IsEnabled="{Binding !PluginLocalInfo.UnloadFailed, FallbackValue=True}">
                                         <!-- 1. Header: Icon/Initial + Name/NameSign + Status Tag + Details Link -->
                                         <Grid Grid.Row="0" ColumnDefinitions="40,*,Auto" VerticalAlignment="Top">
                                             <!-- Plugin Icon / Stamp (Web-aligned 40x40 rounded rectangle) -->
@@ -91,17 +91,25 @@
                                             <!-- Top-Right: Status Badge (Enabled / Disabled) -->
                                             <Panel Grid.Column="2" VerticalAlignment="Top">
                                                 <Border CornerRadius="4" Padding="6,2"
-                                                        Background="{DynamicResource KitopiaBadgeSuccessBackground}"
-                                                        IsVisible="{Binding PluginLocalInfo.IsEnabled}">
-                                                    <TextBlock Text="已启用" FontSize="11" FontWeight="Medium"
-                                                               Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" />
+                                                        Background="{DynamicResource KitopiaBadgeTagBackground}"
+                                                        IsVisible="{Binding IsDownloading}">
+                                                    <TextBlock Text="{Binding Download.StatusText}" FontSize="11" FontWeight="Medium"
+                                                               Foreground="{DynamicResource KitopiaBadgeTagForeground}" />
                                                 </Border>
-                                                <Border CornerRadius="4" Padding="6,2"
-                                                        Background="{DynamicResource KitopiaBadgeNeutralBackground}"
-                                                        IsVisible="{Binding !PluginLocalInfo.IsEnabled}">
-                                                    <TextBlock Text="已禁用" FontSize="11" FontWeight="Medium"
-                                                               Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
-                                                </Border>
+                                                <Panel IsVisible="{Binding !IsDownloading}">
+                                                    <Border CornerRadius="4" Padding="6,2"
+                                                            Background="{DynamicResource KitopiaBadgeSuccessBackground}"
+                                                            IsVisible="{Binding PluginLocalInfo.IsEnabled}">
+                                                        <TextBlock Text="已启用" FontSize="11" FontWeight="Medium"
+                                                                   Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" />
+                                                    </Border>
+                                                    <Border CornerRadius="4" Padding="6,2"
+                                                            Background="{DynamicResource KitopiaBadgeNeutralBackground}"
+                                                            IsVisible="{Binding !PluginLocalInfo.IsEnabled}">
+                                                        <TextBlock Text="已禁用" FontSize="11" FontWeight="Medium"
+                                                                   Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
+                                                    </Border>
+                                                </Panel>
                                             </Panel>
                                         </Grid>
 
@@ -234,7 +242,8 @@
                                         </Grid>
 
                                         <!-- 5. Actions row: Config, Update, Toggle on left | Delete on right -->
-                                        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,8,0,0" VerticalAlignment="Center">
+                                        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,8,0,0" VerticalAlignment="Center"
+                                              IsVisible="{Binding !IsDownloading}">
                                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                                 <Button Content="配置"
                                                         Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
@@ -274,10 +283,19 @@
                                                     Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).DeleteCommand}"
                                                     CommandParameter="{Binding }" />
                                         </Grid>
+                                        <StackPanel Grid.Row="5" Spacing="4" Margin="0,8,0,0"
+                                                    IsVisible="{Binding IsDownloading}">
+                                            <TextBlock Text="{Binding Download.StatusText}" FontSize="12"
+                                                       Foreground="{DynamicResource SemiColorText1}" />
+                                            <ProgressBar Minimum="0" Maximum="100"
+                                                         Theme="{DynamicResource KitopiaPluginDownloadProgress}"
+                                                         Value="{Binding Download.Percentage}"
+                                                         IsIndeterminate="{Binding Download.IsIndeterminate}" />
+                                        </StackPanel>
                                     </Grid>
 
                                     <Border VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ZIndex="2"
-                                            IsVisible="{Binding PluginLocalInfo.UnloadFailed}"
+                                            IsVisible="{Binding PluginLocalInfo.UnloadFailed, FallbackValue=False, TargetNullValue=False}"
                                             CornerRadius="12">
                                         <Border.Background>
                                             <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.85" />
@@ -289,7 +307,7 @@
                                         </StackPanel>
                                     </Border>
                                     <Border VerticalAlignment="Stretch" HorizontalAlignment="Stretch" ZIndex="1"
-                                            IsVisible="{Binding PluginLocalInfo.LoadFailed}"
+                                            IsVisible="{Binding PluginLocalInfo.LoadFailed, FallbackValue=False, TargetNullValue=False}"
                                             CornerRadius="12">
                                         <Border.Background>
                                             <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.85" />
