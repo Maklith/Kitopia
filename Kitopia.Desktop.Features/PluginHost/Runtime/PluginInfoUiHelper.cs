@@ -363,6 +363,9 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
     public string RatingStar => HasRatings ? "★" : "☆";
 
     public bool InLocal => PluginManager.GetPluginLocalInfoByPlgStr(PluginBaseInfo.NameSign) is not null;
+    public bool IsHostBundled => PluginReleaseRules.IsHostBundled(PluginBaseInfo.NameSign);
+    public bool CanRemove => !IsHostBundled;
+    public bool CanSwitch => !IsHostBundled;
     public PluginLocalInfo? PluginLocalInfo { get; set; }
 
     private OnlinePluginInfo? _onlinePluginInfo;
@@ -399,6 +402,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
     {
         get
         {
+            if (IsHostBundled) return false;
             if (_canUpdate is null)
 
                 lock (_cancellationTokenSource)

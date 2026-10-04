@@ -1,42 +1,69 @@
+using System;
 using System.IO.Compression;
+using System.Linq;
 using Fallout.Common;
 using Fallout.Common.IO;
 using Fallout.Solutions;
-using Serilog;
 
 partial class Build
 {
+    Target PackOnnxRuntimeCpu => _ => _
+        .DependsOn(RestoreWindows)
+        .Executes(() => PublishOnnxRuntimeCpu());
+
     Target PackOnnxRuntimeGpuWin => _ => _
-        .DependsOn(CreateRelease, RestoreWindows)
-        .OnlyWhenDynamic(() => Release is not null)
-        .Executes(() => PublishStandaloneOnnxPlugin(
-            RootDirectory / "OnnxRuntime.Gpu.Win" / "OnnxRuntime.Gpu.Win.csproj",
-            "OnnxRuntime.Gpu.Win"));
+        .DependsOn(RestoreWindows)
+        .Executes(() => PublishOnnxRuntimeGpu());
 
     Target PackOnnxRuntimeOpenVino => _ => _
-        .DependsOn(CreateRelease, RestoreWindows)
-        .OnlyWhenDynamic(() => Release is not null)
-        .Executes(() => PublishStandaloneOnnxPlugin(
-            RootDirectory / "OnnxRuntime.OpenVino" / "OnnxRuntime.OpenVino.csproj",
-            "OnnxRuntime.OpenVino"));
+        .DependsOn(RestoreWindows)
+        .Executes(() => PublishOnnxRuntimeOpenVino());
 
     Target PackOnnxPlugins => _ => _
-        .DependsOn(PackOnnxRuntimeGpuWin, PackOnnxRuntimeOpenVino)
-        .OnlyWhenDynamic(() => Release is not null);
+        .DependsOn(PackOnnxRuntimeCpu, PackOnnxRuntimeGpuWin, PackOnnxRuntimeOpenVino);
 
-    void PublishStandaloneOnnxPlugin(AbsolutePath project, string artifactName)
+    void PublishOnnxPlugins()
+    {
+        PublishOnnxRuntimeCpu();
+        PublishOnnxRuntimeGpu();
+        PublishOnnxRuntimeOpenVino();
+    }
+
+    void PublishOnnxRuntimeCpu() => PublishStandaloneOnnxPlugin(
+        Solution.AllProjects.Single(project => project.Name == "OnnxRuntime.CPU"),
+        "kitopiaonnxruntimecpu",
+        GetPluginApiKey("kitopiaonnxruntimecpu"));
+
+    void PublishOnnxRuntimeGpu() => PublishStandaloneOnnxPlugin(
+        Solution.AllProjects.Single(project => project.Name == "OnnxRuntime.Gpu.Win"),
+        "kitopiaonnxruntimecuda",
+        GetPluginApiKey("kitopiaonnxruntimecuda"));
+
+    void PublishOnnxRuntimeOpenVino() => PublishStandaloneOnnxPlugin(
+        Solution.AllProjects.Single(project => project.Name == "OnnxRuntime.OpenVino"),
+        "kitopiaonnxruntimeopenvino",
+        GetPluginApiKey("kitopiaonnxruntimeopenvino"));
+
+    void PublishStandaloneOnnxPlugin(Project project, string nameSign, string apiKey)
     {
         const string runtime = "win-x64";
-        var output = ArtifactsDirectory / "plugins" / artifactName / runtime;
+        var version = project.GetProperty("Version");
+        if (string.IsNullOrWhiteSpace(version))
+            throw new InvalidOperationException($"{project} must define its own Version.");
+        ValidatePluginManifestVersion(project.Path, nameSign, version);
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException($"No API key configured for {nameSign}.");
+        if (!ShouldUploadPlugin(nameSign, version, apiKey)) return;
+
+        var output = ArtifactsDirectory / "plugins" / nameSign / runtime;
         output.DeleteDirectory();
-        PublishPlugin(project, runtime, output);
+        PublishPlugin(project.Path, runtime, output);
         RemoveSymbolsAndDocs(output);
 
         var archive = RootDirectory /
-                      $"Kitopia{AvaloniaProject.GetProperty("Version")}_{artifactName}_{runtime}.zip";
+                      $"{nameSign}_{version}_{runtime}.zip";
         archive.DeleteFile();
         output.ZipTo(archive, compressionLevel: CompressionLevel.SmallestSize);
-        Log.Information("Created standalone ONNX plugin artifact {Artifact}", archive);
-        UploadReleaseAsset(archive);
+        UploadPluginArchive(archive, nameSign, version, apiKey);
     }
 }

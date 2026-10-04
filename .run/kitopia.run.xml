@@ -1,0 +1,28 @@
+﻿<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="kitopia" type="DotNetProject" factoryName=".NET Project">
+    <option name="EXE_PATH" value="$PROJECT_DIR$/build/bin/Debug/kitopia.exe" />
+    <option name="PROGRAM_PARAMETERS" value="" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/build/bin/Debug" />
+    <option name="PASS_PARENT_ENVS" value="1" />
+    <envs>
+      <env name="PluginApiKeyCpu" value="ktp_d6e81c102a1f242ec08833d64ca81a29d3b66a13c2e4a03905824039e0cc7f77" />
+      <env name="PluginApiKeyGpu" value="ktp_fca5c2449194aff40b5c55aef19966c44797b61603a1ff3cc07d73a3aa30b4f0" />
+      <env name="PluginApiKeyOpenVino" value="ktp_5c9aa066fcf0ce2490407f7e1c9c4846e4765d8c532b9ce3e494ff32040e253d" />
+    </envs>
+    <option name="ENV_FILE_PATHS" value="" />
+    <option name="REDIRECT_INPUT_PATH" value="" />
+    <option name="MIXED_MODE_DEBUG" value="0" />
+    <option name="USE_MONO" value="0" />
+    <option name="RUNTIME_ARGUMENTS" value="" />
+    <option name="AUTO_ATTACH_CHILDREN" value="0" />
+    <option name="PROJECT_PATH" value="$PROJECT_DIR$/build/kitopia.csproj" />
+    <option name="PROJECT_EXE_PATH_TRACKING" value="1" />
+    <option name="PROJECT_ARGUMENTS_TRACKING" value="1" />
+    <option name="PROJECT_WORKING_DIRECTORY_TRACKING" value="1" />
+    <option name="PROJECT_KIND" value="DotNetCore" />
+    <option name="PROJECT_TFM" value="net10.0" />
+    <method v="2">
+      <option name="Build" />
+    </method>
+  </configuration>
+</component>

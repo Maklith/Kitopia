@@ -473,6 +473,7 @@ public static class PluginManager
     public static Task<bool> DownloadPluginAndEnable(string pluginSign, string? targetVersion = null,
         CancellationToken cancellationToken = default) => RunOperationAsync(async () =>
     {
+        if (PluginReleaseRules.IsHostBundled(pluginSign)) return false;
         targetVersion ??= await PluginNetworkService.GetLatestVersionAsync(pluginSign, cancellationToken);
         if (string.IsNullOrWhiteSpace(targetVersion)) return false;
         var package = await PluginNetworkService.DownloadPackageAsync(pluginSign, targetVersion, cancellationToken);
@@ -482,6 +483,8 @@ public static class PluginManager
     public static Task<bool> Update(string pluginSign, string? targetVersion = null,
         CancellationToken cancellationToken = default) => RunOperationAsync(async () =>
     {
+        if (PluginReleaseRules.IsHostBundled(pluginSign))
+            return false;
         if (GetPluginLocalInfoByPlgStr(pluginSign) is null) return false;
         targetVersion ??= await PluginNetworkService.GetLatestVersionAsync(pluginSign, cancellationToken);
         if (string.IsNullOrWhiteSpace(targetVersion)) return false;
@@ -491,8 +494,17 @@ public static class PluginManager
         return await ApplyAsync(pluginSign, package, enable, cancellationToken);
     });
 
-    public static void DisablePlugin(PluginLocalInfo info) => RequestRemoval(info, delete: false);
-    public static void DeletePlugin(PluginLocalInfo info) => RequestRemoval(info, delete: true);
+    public static void DisablePlugin(PluginLocalInfo info)
+    {
+        if (PluginReleaseRules.IsHostBundled(info.ToPlgString())) return;
+        RequestRemoval(info, delete: false);
+    }
+
+    public static void DeletePlugin(PluginLocalInfo info)
+    {
+        if (PluginReleaseRules.IsHostBundled(info.ToPlgString())) return;
+        RequestRemoval(info, delete: true);
+    }
     public static void DeletePlugin(string name)
     {
         if (GetPluginLocalInfoByPlgStr(name) is { } info) DeletePlugin(info);

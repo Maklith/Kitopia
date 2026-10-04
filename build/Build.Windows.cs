@@ -35,7 +35,7 @@ partial class Build
         .Executes(() => PublishWindows("win-arm64"));
 
     Target PackWindows => _ => _
-        .DependsOn(PackWindowsX64, PackWindowsX86, PackWindowsArm64, PackOnnxPlugins)
+        .DependsOn(PackWindowsX64, PackWindowsX86, PackWindowsArm64)
         .OnlyWhenDynamic(() => Release is not null);
 
     // Kept as a compatibility alias for local scripts that used the old target name.
@@ -61,8 +61,6 @@ partial class Build
 
         PublishPlugin(RootDirectory / "KitopiaEx" / "KitopiaEx.csproj", runtime,
             output / "plugins" / "kitopiaex");
-        PublishPlugin(RootDirectory / "OnnxRuntime.CPU" / "OnnxRuntime.CPU.csproj", runtime,
-            output / "plugins" / "kitopiaonnxruntimecpu");
 
         RemoveSymbolsAndDocs(output);
         var archive = RootDirectory / $"Kitopia{AvaloniaProject.GetProperty("Version")}_{runtime}.zip";

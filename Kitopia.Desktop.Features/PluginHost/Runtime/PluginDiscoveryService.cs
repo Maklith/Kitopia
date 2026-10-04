@@ -55,7 +55,8 @@ public class PluginDiscoveryService
         foreach (var directoryInfo in pluginsDirectoryInfo.EnumerateDirectories())
         {
             if (directoryInfo.Name.StartsWith('.')) continue;
-            if (handleRemovals && File.Exists(Path.Combine(directoryInfo.FullName, ".remove")) &&
+            if (handleRemovals && !PluginReleaseRules.IsHostBundled(directoryInfo.Name) &&
+                File.Exists(Path.Combine(directoryInfo.FullName, ".remove")) &&
                 !File.Exists(Path.Combine(directoryInfo.FullName, ".update")))
             {
                 try

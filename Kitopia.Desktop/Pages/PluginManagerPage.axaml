@@ -249,6 +249,7 @@
                                                 <ToggleButton Classes.Success="{Binding !PluginLocalInfo.IsEnabled}"
                                                               Classes.Danger="{Binding PluginLocalInfo.IsEnabled}"
                                                               Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
+                                                              IsVisible="{Binding CanSwitch}"
                                                               IsChecked="{Binding PluginLocalInfo.IsEnabled, Mode=OneWay}"
                                                               Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).SwitchCommand}"
                                                               CommandParameter="{Binding}">
@@ -269,6 +270,7 @@
                                             <!-- Subtle Danger Button on Right (like Image 1) -->
                                             <Button Grid.Column="1" Content="删除"
                                                     Theme="{DynamicResource KitopiaDangerSubtleButton}"
+                                                    IsVisible="{Binding CanRemove}"
                                                     Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).DeleteCommand}"
                                                     CommandParameter="{Binding }" />
                                         </Grid>
@@ -298,6 +300,7 @@
                                                        TextWrapping="Wrap" MaxWidth="280"
                                                        FontSize="{DynamicResource SemiFontSizeSmall}" />
                                             <Button Classes="Danger" Content="删除" HorizontalAlignment="Center"
+                                                    IsVisible="{Binding CanRemove}"
                                                     Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).DeleteCommand}"
                                                     CommandParameter="{Binding }" />
                                         </StackPanel>

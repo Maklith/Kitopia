@@ -171,7 +171,7 @@ public class PluginNetworkService
 
         var pending = PendingPluginAvatars.GetOrAdd(
             cacheKey,
-            _ => FetchPluginAvatarAsync(pluginSignName));
+            _ => FetchPluginAvatarAsync(pluginSignName, HttpClient));
         var result = await pending.WaitAsync(cancellationToken);
         if (result is { Length: > 0 })
         {
@@ -230,13 +230,21 @@ public class PluginNetworkService
         return result;
     }
 
-    private static async Task<byte[]?> FetchPluginAvatarAsync(string pluginSignName)
+    internal static async Task<byte[]?> FetchPluginAvatarAsync(string pluginSignName, HttpClient client)
     {
         try
         {
-            return await GetPluginDataAsync<byte[]>(
-                $"avatar?namesign={Uri.EscapeDataString(pluginSignName)}",
-                CancellationToken.None);
+            using var request = CreateAuthorizedGetRequest($"avatar?namesign={Uri.EscapeDataString(pluginSignName)}");
+            using var response = await client.SendAsync(request, CancellationToken.None);
+            if (response.StatusCode == HttpStatusCode.NotFound) return null;
+            if (!response.IsSuccessStatusCode)
+            {
+                HandlePossibleUnauthorized(response.StatusCode);
+                Logger.Warning("插件图标请求失败: {StatusCode} {Plugin}", response.StatusCode, pluginSignName);
+                return null;
+            }
+
+            return await response.Content.ReadAsByteArrayAsync(CancellationToken.None);
         }
         catch (Exception exception)
         {
