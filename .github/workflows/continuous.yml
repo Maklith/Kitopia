@@ -42,3 +42,7 @@ jobs:
         run: ./build.cmd Clean
         env:
           GitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          PluginApiUrl: ${{ vars.PLUGIN_API_URL || 'https://api.kitopia.top:5111' }}
+          PluginApiKeyCpu: ${{ secrets.PLUGIN_API_KEY_CPU }}
+          PluginApiKeyGpu: ${{ secrets.PLUGIN_API_KEY_GPU }}
+          PluginApiKeyOpenVino: ${{ secrets.PLUGIN_API_KEY_OPENVINO }}
