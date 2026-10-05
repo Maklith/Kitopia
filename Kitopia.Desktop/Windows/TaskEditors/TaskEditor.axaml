@@ -18,14 +18,10 @@
               x:Class="Kitopia.Desktop.Windows.TaskEditors.TaskEditor"
               Title="情景编排"
               WindowStartupLocation="CenterScreen"
-              TransparencyLevelHint="AcrylicBlur"
+              Classes="acrylic"
               Name="TaskEditorWindow"
               WindowState="Maximized"
               x:DataType="taskEditor1:TaskEditorViewModel" Height="720" Width="1280">
-    <u:UrsaWindow.Background>
-        <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.55" />
-
-    </u:UrsaWindow.Background>
     <u:UrsaWindow.Resources>
         <converter:IfNullVisibilityHidden x:Key="IfNullVisibilityHidden" />
 

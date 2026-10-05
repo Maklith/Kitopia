@@ -19,7 +19,7 @@
         Name="myWindow"
         SizeToContent="WidthAndHeight"
 
-        TransparencyLevelHint="AcrylicBlur"
+        Classes="acrylic"
         Title="Dialog">
 
 

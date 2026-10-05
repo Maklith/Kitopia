@@ -14,7 +14,7 @@
         x:Class="Kitopia.Desktop.Windows.SearchWindow"
         x:DataType="windows:SearchWindowViewModel"
         Deactivated="w_Deactivated"
-        TransparencyLevelHint="AcrylicBlur"
+        Classes="acrylic"
         Background="Transparent"
         Activated="w_Activated"
         ShowInTaskbar="False"
@@ -46,7 +46,7 @@
     </Window.Resources>
     <Panel VerticalAlignment="Stretch">
         <Panel.Background>
-            <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.55" />
+            <DynamicResource ResourceKey="KitopiaWindowBackground" />
         </Panel.Background>
         <Grid RowDefinitions="Auto,*,Auto" VerticalAlignment="Stretch">
             <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="0,0,0,1" Padding="12,8">

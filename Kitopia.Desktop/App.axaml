@@ -28,6 +28,9 @@
             </ResourceDictionary.MergedDictionaries>
             <converter:DoubleQuarterConverter x:Key="doubleQuarterConverter" />
             <converter:ClassesContainTheClass x:Key="ClassesContainTheClass" />
+            <SolidColorBrush x:Key="KitopiaWindowBackground" Color="{DynamicResource SemiBackground0Color}"
+                             Opacity="{DynamicResource KitopiaWindowBackgroundOpacity}" />
+            <SolidColorBrush x:Key="KitopiaWindowOpaqueBackground" Color="{DynamicResource SemiBackground0Color}" />
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>

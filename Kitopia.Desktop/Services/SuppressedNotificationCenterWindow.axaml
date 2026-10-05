@@ -14,7 +14,7 @@
         Height="433"
         CanResize="False"
         WindowDecorations="None"
-        TransparencyLevelHint="AcrylicBlur"
+        Classes="acrylic"
         WindowStartupLocation="Manual"
         IsFullScreenButtonVisible="False"
         IsMinimizeButtonVisible="False"
@@ -27,9 +27,6 @@
         CanMinimize="False"
         Topmost="True"
         Title="NotificationCenter">
-    <u:UrsaWindow.Background>
-        <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.55" />
-    </u:UrsaWindow.Background>
     <Border Padding="12">
         <Grid RowDefinitions="Auto,*" RowSpacing="8">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">

@@ -13,7 +13,7 @@
         ShowInTaskbar="False"
         Topmost="True"
         WindowStartupLocation="Manual"
-        TransparencyLevelHint="AcrylicBlur"
+        Classes="acrylic"
         Background="Transparent">
 
     <Border CornerRadius="8"

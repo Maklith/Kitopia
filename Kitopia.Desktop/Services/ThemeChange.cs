@@ -44,12 +44,18 @@ public class ThemeChange : IThemeChange
     public void followSys(bool follow)
     {
         Logger.Debug(nameof(ThemeChange) + "的接口" + nameof(follow) + "被调用");
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            var application = Application.Current!;
+            application.RequestedThemeVariant = follow ? ThemeVariant.Default : application.ActualThemeVariant;
+        });
     }
 
     public bool isDark()
     {
         Logger.Debug(nameof(ThemeChange) + "的接口" + nameof(isDark) + "被调用");
 
-        return Application.Current.RequestedThemeVariant == ThemeVariant.Dark;
+        return Application.Current!.ActualThemeVariant == ThemeVariant.Dark;
     }
 }

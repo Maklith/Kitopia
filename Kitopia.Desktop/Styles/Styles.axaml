@@ -6,6 +6,11 @@
             <!-- Add Controls for Previewer Here -->
         </Border>
     </Design.PreviewWith>
+    <Style Selector=":is(Window).acrylic">
+        <Setter Property="TransparencyLevelHint" Value="{DynamicResource KitopiaWindowTransparencyLevels}" />
+        <Setter Property="TransparencyBackgroundFallback" Value="{DynamicResource KitopiaWindowOpaqueBackground}" />
+        <Setter Property="Background" Value="{DynamicResource KitopiaWindowBackground}" />
+    </Style>
     <Style Selector=":is(ListBox)">
         <Setter Property="ItemsPanel">
             <Setter.Value>

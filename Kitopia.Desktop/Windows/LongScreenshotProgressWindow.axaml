@@ -10,7 +10,7 @@
         Topmost="True"
         WindowDecorations="None"
         Background="Transparent"
-        TransparencyLevelHint="AcrylicBlur">
+        Classes="acrylic">
     
     <Border CornerRadius="8"
             Background="{DynamicResource KitopiaCardBackgroundBrush}"
