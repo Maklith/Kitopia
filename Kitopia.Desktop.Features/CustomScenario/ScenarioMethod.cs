@@ -40,6 +40,10 @@ public class ScenarioMethod
     [JsonIgnore] public IServiceProvider ServiceProvider { get; set; }
     public bool IsFromPlugin => PluginInfo is not null;
 
+    [JsonIgnore]
+    public bool HasLocalItemInputs => Type == ScenarioMethodType.OpenRunLocalProject ||
+                                     Attribute?.SupportsLocalItemInputs == true;
+
     public ScenarioMethodType Type { get; set; }
 
     //某些特殊的类型需要存储一定的数据，例如（变量读取/设置 需要对应的变量名）
@@ -123,6 +127,13 @@ public class ScenarioMethod
         };
         if (IsFromPlugin)
         {
+            if (Attribute.SupportsLocalItemInputs)
+            {
+                var parameters = Method.GetParameters();
+                if (parameters.Length != 3 || parameters[0].ParameterType != typeof(string) ||
+                    parameters[1].ParameterType != typeof(object[]) || parameters[2].ParameterType != typeof(CancellationToken))
+                    throw new InvalidOperationException($"Local item node {Method.Name} must accept string, object[], and CancellationToken.");
+            }
             ObservableCollection<ConnectorItem> inpItems = new();
             inpItems.Add(new ConnectorItem
             {
@@ -143,6 +154,7 @@ public class ScenarioMethod
                 var parameterInfo = Method.GetParameters()[index];
                 if (parameterInfo.ParameterType == typeof(CancellationToken) ||
                     Nullable.GetUnderlyingType(parameterInfo.ParameterType) == typeof(CancellationToken)) continue;
+                if (HasLocalItemInputs && parameterInfo.ParameterType == typeof(object[])) continue;
                 var IsSelf = parameterInfo.GetCustomAttributes(typeof(SelfInput))
                     .Any();
                 var defaultValue = parameterInfo.HasDefaultValue ? parameterInfo.DefaultValue : null;
@@ -178,6 +190,7 @@ public class ScenarioMethod
                         InputObject = new CustomScenarioValue
                         {
                             SerializeType = parameterInfo.ParameterType,
+                            ShowType = HasLocalItemInputs && index == 0 ? typeof(SearchViewItem) : parameterInfo.ParameterType,
                             IsSelf = IsSelf,
                             Value = defaultValue
                         },

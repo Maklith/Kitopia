@@ -256,6 +256,49 @@ public sealed class ScreenCaptureSelectionInteractionTests
         });
     }
 
+    [TestMethod]
+    public async Task RequestUserSelectScreenBytesAsync_Cancelled_ClosesPickerWindow()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(ScreenCaptureSelectionInteractionTests));
+        await session.Dispatch(async () =>
+        {
+            var previousServices = ServiceManager.Services;
+            ConfigManger.Configs.TryGetValue("KitopiaConfig", out var previousConfig);
+            using var services = new ServiceCollection().AddSingleton<IScreenCaptureManager, TestCaptureManager>()
+                .BuildServiceProvider();
+            using var cancellation = new CancellationTokenSource();
+            ScreenCaptureWindow? window = null;
+            using var subscription = Visual.IsVisibleProperty.Changed.Subscribe(change =>
+            {
+                if (change.Sender is ScreenCaptureWindow picker) window = picker;
+            });
+            try
+            {
+                ServiceManager.Services = services;
+                ConfigManger.Configs["KitopiaConfig"] = new KitopiaConfig();
+                var capture = new Kitopia.Desktop.Services.ScreenCaptureWindow()
+                    .RequestUserSelectScreenBytesAsync(cancellation.Token);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsNotNull(window);
+                Assert.IsTrue(window.IsVisible);
+
+                cancellation.Cancel();
+                Dispatcher.UIThread.RunJobs();
+
+                await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => capture.WaitAsync(TimeSpan.FromSeconds(5)));
+                Assert.IsFalse(window.IsVisible);
+            }
+            finally
+            {
+                window?.Close();
+                ServiceManager.Services = previousServices;
+                if (previousConfig is null) ConfigManger.Configs.Remove("KitopiaConfig");
+                else ConfigManger.Configs["KitopiaConfig"] = previousConfig;
+            }
+            return true;
+        }, CancellationToken.None);
+    }
+
     private static async Task RunSelectionTestAsync(Func<ScreenCaptureWindow, Task> test)
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(ScreenCaptureSelectionInteractionTests));
@@ -314,7 +357,13 @@ public sealed class ScreenCaptureSelectionInteractionTests
         public List<string> GetCaptureMethodName() => throw new NotSupportedException();
         public List<ScreenCaptureInfo> GetAllScreenInfo() => throw new NotSupportedException();
         public ScreenCaptureInfo GetScreenCaptureInfoByIndex(int index) => throw new NotSupportedException();
-        public Stack<ScreenCaptureResult> CaptureAllScreenBytes() => throw new NotSupportedException();
+        public Stack<ScreenCaptureResult> CaptureAllScreenBytes() => new([
+            new ScreenCaptureResult
+            {
+                Source = new Mat(600, 800, MatType.CV_8UC4, Scalar.All(255)),
+                Info = new ScreenCaptureInfo { ScreenInfo = new PluginCore.Rect(0, 0, 800, 600) }
+            }
+        ]);
         public ScreenCaptureResult CaptureScreenBytes(ScreenCaptureInfo info) => throw new NotSupportedException();
     }
 }

@@ -4,5 +4,7 @@
   "lang.pluginlifecycle.typed_method": "类型方法",
   "lang.pluginlifecycle.input": "输入数据",
   "lang.pluginlifecycle.count": "数量",
+  "lang.pluginlifecycle.offset": "偏移量",
+  "lang.pluginlifecycle.local_item": "本地项目",
   "lang.pluginlifecycle.result": "结果"
 }

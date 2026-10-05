@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Threading.Tasks;
+using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PluginCore;
+using PluginCore.Localization;
 
 namespace KitopiaEx.Translate;
 
@@ -20,12 +23,22 @@ public partial class TranslateWindowViewModel : ObservableObject
     
     public TranslateWindowViewModel()
     {
-       
+        TargetTranslateLang = Config.INSTANCE?.DefaultLanguage ?? TargetTranslateLang.简体中文;
     }
     [RelayCommand]
-    private async Task TryTranslate()
+    private async Task TryTranslate(CancellationToken cancellationToken)
     {
-        TargetText=await TranslateApi.GetTranslation(SourceText, SourceTranslateLang, TargetTranslateLang);
+        try
+        {
+            TargetText = await TranslateApi.GetTranslation(SourceText, SourceTranslateLang, TargetTranslateLang,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception exception)
+        {
+            TargetText = string.Empty;
+            await Kitopia.IToastService.Show(Lang.Get("lang.kitopiaex.translate"), exception.Message);
+        }
     }
     [RelayCommand]
     private async Task SwapLanguages()

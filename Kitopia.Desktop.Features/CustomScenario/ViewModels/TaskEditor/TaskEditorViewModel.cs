@@ -129,14 +129,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                     connectionItem.Source == connectorItem)
                                 .ToList();
                             foreach (var connectionItem in connectionItems)
-                            {
-                                Scenario.Connections.Remove(connectionItem);
-                                if (Scenario.Connections.All(item => item.Source != connectionItem.Source))
-                                    connectionItem.Source.IsConnected = false;
-
-                                if (Scenario.Connections.All(item => item.Target != connectionItem.Target))
-                                    connectionItem.Target.IsConnected = false;
-                            }
+                                RemoveConnection(connectionItem);
 
                             e.ScenarioMethodNode.Output.Remove(connectorItem);
                         }
@@ -155,62 +148,57 @@ public partial class TaskEditorViewModel : ObservableRecipient
                         }
                 }
 
-                if (e.ScenarioMethodNode.ScenarioMethod.Type == ScenarioMethodType.OpenRunLocalProject)
-                {
-                    var o = e.ScenarioMethodNode.Input[1].InputObject.Value;
-                    if (o is string inputObject)
-                    {
-                        if (inputObject.StartsWith("CustomScenario:"))
-                        {
-                            var replace = inputObject.Replace("CustomScenario:", "");
-                            var customScenario = CustomScenarioManger.CustomScenarios.First(e => e.Uuid == replace);
-                            if (customScenario.IsHaveInputValue)
-                            {
-                                for (var index = 0; index < customScenario.InputValue.Count; index++)
-                                {
-                                    var (key, value) = customScenario.InputValue[index];
-                                    if (e.ScenarioMethodNode.Input.Count <= index + 2)
-                                        e.ScenarioMethodNode.Input.Add(new ConnectorItem
-                                        {
-                                            Source = e.ScenarioMethodNode,
-                                            InputObject = new CustomScenarioValue
-                                            {
-                                                SerializeType = value.SerializeType
-                                            },
-                                            Title = key
-                                        });
-
-                                    var parameter = e.ScenarioMethodNode.Input[index + 2];
-                                    parameter.Title = key;
-                                    parameter.InputObject.SerializeType = value.SerializeType;
-                                    parameter.InputObject.ShowType = value.ShowType;
-                                    if (parameter.InputObject.Value is CustomScenarioValue oldValue)
-                                        parameter.InputObject.Value = oldValue.Value;
-                                    else if (parameter.InputObject.Value is not null &&
-                                             !value.SerializeType.IsInstanceOfType(parameter.InputObject.Value))
-                                        parameter.InputObject.Value = null;
-                                }
-
-                                for (var i = e.ScenarioMethodNode.Input.Count - 1;
-                                     i >= customScenario.InputValue.Count + 2;
-                                     i--)
-                                    e.ScenarioMethodNode.Input.RemoveAt(i);
-                            }
-                            else
-                            {
-                                for (var i = e.ScenarioMethodNode.Input.Count - 1; i >= 2; i--)
-                                    e.ScenarioMethodNode.Input.RemoveAt(i);
-                            }
-                        }
-                        else
-                        {
-                            for (var i = e.ScenarioMethodNode.Input.Count - 1; i >= 2; i--)
-                                e.ScenarioMethodNode.Input.RemoveAt(i);
-                        }
-                    }
-                }
+                if (e.ScenarioMethodNode is { ScenarioMethod.HasLocalItemInputs: true } node &&
+                    e.ConnectorItem == node.Input[1] && node.Input[1].InputObject.IsSelf && !node.Input[1].IsConnected)
+                    SynchronizeLocalItemInputs(node);
             });
         
+    }
+
+    private void SynchronizeLocalItemInputs(ScenarioMethodNode node)
+    {
+        var onlyKey = node.Input[1].InputObject.Value as string;
+        var child = onlyKey?.StartsWith("CustomScenario:", StringComparison.Ordinal) == true
+            ? CustomScenarioManger.CustomScenarios.FirstOrDefault(scenario =>
+                scenario.Uuid == onlyKey["CustomScenario:".Length..])
+            : null;
+        var definitions = child?.IsHaveInputValue == true ? child.InputValue : null;
+        var parameterCount = definitions?.Count ?? 0;
+        for (var index = 0; index < parameterCount; index++)
+        {
+            var (key, value) = definitions![index];
+            if (node.Input.Count <= index + 2)
+                node.Input.Add(new ConnectorItem
+                {
+                    Source = node,
+                    InputObject = new CustomScenarioValue { SerializeType = value.SerializeType },
+                    Title = key
+                });
+
+            var parameter = node.Input[index + 2];
+            parameter.Title = key;
+            parameter.InputObject.SerializeType = value.SerializeType;
+            parameter.InputObject.ShowType = value.ShowType;
+            if (parameter.InputObject.Value is CustomScenarioValue oldValue)
+                parameter.InputObject.Value = oldValue.Value;
+            if (parameter.InputObject.Value is not null &&
+                !value.SerializeType.IsInstanceOfType(parameter.InputObject.Value))
+                parameter.InputObject.Value = null;
+
+            foreach (var connection in Scenario.Connections.Where(connection =>
+                         connection.Target == parameter &&
+                         !ScenarioGraph.CanConnect(connection.Source, parameter)).ToArray())
+                RemoveConnection(connection);
+        }
+
+        while (node.Input.Count > parameterCount + 2)
+        {
+            var parameter = node.Input[^1];
+            foreach (var connection in Scenario.Connections.Where(connection =>
+                         connection.Source == parameter || connection.Target == parameter).ToArray())
+                RemoveConnection(connection);
+            node.Input.RemoveAt(node.Input.Count - 1);
+        }
     }
 
     public ScenarioMethodCategoryGroup ScenarioMethodCategoryGroup =>
@@ -259,14 +247,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 .Where(e => e.Source == connector || e.Target == connector)
                 .ToList();
             foreach (var connectionItem in connectionItems)
-            {
-                Scenario.Connections.Remove(connectionItem);
-                if (Scenario.Connections.All(e => e.Source != connectionItem.Source))
-                    connectionItem.Source.IsConnected = false;
-
-                if (Scenario.Connections.All(e => e.Target != connectionItem.Target))
-                    connectionItem.Target.IsConnected = false;
-            }
+                RemoveConnection(connectionItem);
         }
 
         c.DataContext = null;
@@ -304,14 +285,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
             .Where(e => e.Source.Source == scenarioMethodNode || e.Target.Source == scenarioMethodNode)
             .ToList();
         foreach (var connectionItem in connectionItems)
-        {
-            Scenario.Connections.Remove(connectionItem);
-            if (Scenario.Connections.All(e => e.Source != connectionItem.Source))
-                connectionItem.Source.IsConnected = false;
-
-            if (Scenario.Connections.All(e => e.Target != connectionItem.Target))
-                connectionItem.Target.IsConnected = false;
-        }
+            RemoveConnection(connectionItem);
 
         Scenario.Nodes.Remove(scenarioMethodNode);
     }
@@ -319,14 +293,18 @@ public partial class TaskEditorViewModel : ObservableRecipient
     [RelayCommand]
     private void DelConnection(ConnectionItem connection)
     {
-        IsModified = true;
-        Scenario.Connections.Remove(connection);
-        if (Scenario.Connections.All(e => e.Source != connection.Source)) connection.Source.IsConnected = false;
-
-        if (Scenario.Connections.All(e => e.Target != connection.Target)) connection.Target.IsConnected = false;
-
+        RemoveConnection(connection);
         IsModified = true;
         ToFirstVerify();
+    }
+
+    private void RemoveConnection(ConnectionItem connection)
+    {
+        Scenario.Connections.Remove(connection);
+        connection.Source.IsConnected = Scenario.Connections.Any(edge =>
+            edge.Source == connection.Source || edge.Target == connection.Source);
+        connection.Target.IsConnected = Scenario.Connections.Any(edge =>
+            edge.Source == connection.Target || edge.Target == connection.Target);
     }
 
 
@@ -388,11 +366,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         for (var i = connections.Count - 1; i >= 0; i--)
         {
             var connection = connections[i];
-            Scenario.Connections.Remove(connection);
-            if (Scenario.Connections.All(e => e.Source != connection.Source)) connection.Source.IsConnected = false;
-
-            if (Scenario.Connections.All(e => e.Target != connection.Target)) connection.Target.IsConnected = false;
-
+            RemoveConnection(connection);
             IsModified = true;
         }
 
@@ -404,6 +378,9 @@ public partial class TaskEditorViewModel : ObservableRecipient
     {
         Scenario = customScenario;
         foreach (var scenarioConnection in Scenario.Connections) scenarioConnection.Init(SplitConnection);
+        foreach (var node in Scenario.Nodes.OfType<ScenarioMethodNode>().Where(node =>
+                     node.ScenarioMethod.HasLocalItemInputs && node.Input[1].InputObject.IsSelf && !node.Input[1].IsConnected))
+            SynchronizeLocalItemInputs(node);
     }
 
     [RelayCommand]
@@ -480,23 +457,10 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 .Any(e => e.Source == source && e.Target == target))
                 return;
 
-        if (source.InputObject.SerializeType==typeof(NodeConnectorClass))
-            if (source.IsConnected)
-            {
-                var connectionsToRemove = Scenario.Connections
-                    .Where(e => e.Source == source)
-                    .ToList();
-
-                foreach (var connection in connectionsToRemove)
-                {
-                    connection.Source.IsConnected = false;
-
-
-                    Scenario.Connections.Remove(connection);
-                    if (Scenario.Connections.All(e => e.Target != connection.Target))
-                        connection.Target.IsConnected = false;
-                }
-            }
+        var isFlow = source.InputObject.SerializeType == typeof(NodeConnectorClass);
+        foreach (var connection in Scenario.Connections.Where(connection =>
+                     isFlow ? connection.Source == source : connection.Target == target).ToArray())
+            RemoveConnection(connection);
 
         IsModified = true;
         var connectionItem = new ConnectionItem()

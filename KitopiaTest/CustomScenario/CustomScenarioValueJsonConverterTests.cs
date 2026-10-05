@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 using Kitopia.Desktop.Features.JsonConverter;
 using PluginCore.CustomScenario;
 
@@ -7,6 +9,26 @@ namespace KitopiaTest.CustomScenario;
 [TestClass]
 public sealed class CustomScenarioValueJsonConverterTests
 {
+    [TestMethod]
+    [DataRow(typeof(object[]))]
+    [DataRow(typeof(string[][]))]
+    [DataRow(typeof(int[,]))]
+    public void TypeJsonConverter_ArrayType_PreservesArraySuffix(Type type)
+    {
+        var previousServices = ServiceManager.Services;
+        using var services = new ServiceCollection().BuildServiceProvider();
+        try
+        {
+            ServiceManager.Services = services;
+            var options = new JsonSerializerOptions { Converters = { new TypeJsonConverter() } };
+            var json = JsonSerializer.Serialize(type, options);
+            Assert.AreEqual(type, JsonSerializer.Deserialize<Type>(json, options));
+        }
+        finally
+        {
+            ServiceManager.Services = previousServices;
+        }
+    }
     private static readonly JsonSerializerOptions Options = new()
     {
         Converters = { new CustomScenarioInputValueJsonConverter() }

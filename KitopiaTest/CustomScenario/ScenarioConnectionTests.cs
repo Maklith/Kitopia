@@ -103,6 +103,69 @@ public sealed class ScenarioConnectionTests
         }
     }
 
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Connect_DataInputAlreadyConnected_ReplacesSourceAndPreservesFanOut(bool fromInput)
+    {
+        var editor = new TaskEditorViewModel();
+        var first = CreateConnector(typeof(string), ConnectorType.Output);
+        var second = CreateConnector(typeof(string), ConnectorType.Output);
+        var input = CreateConnector(typeof(string), ConnectorType.Input);
+        var otherInput = CreateConnector(typeof(string), ConnectorType.Input);
+        editor.Connect(first, input);
+        editor.Connect(first, otherInput);
+
+        editor.Connect(fromInput ? input : second, fromInput ? second : input);
+
+        Assert.HasCount(2, editor.Scenario.Connections);
+        Assert.AreSame(second, editor.Scenario.Connections.Single(edge => edge.Target == input).Source);
+        Assert.AreSame(first, editor.Scenario.Connections.Single(edge => edge.Target == otherInput).Source);
+        Assert.IsTrue(first.IsConnected);
+        Assert.IsTrue(second.IsConnected);
+        Assert.IsTrue(input.IsConnected);
+    }
+
+    [TestMethod]
+    public void Connect_FlowInput_AllowsBranchesToMerge()
+    {
+        var editor = new TaskEditorViewModel();
+        var first = CreateConnector(typeof(NodeConnectorClass), ConnectorType.Output);
+        var second = CreateConnector(typeof(NodeConnectorClass), ConnectorType.Output);
+        var input = CreateConnector(typeof(NodeConnectorClass), ConnectorType.Input);
+        editor.Connect(first, input);
+        editor.Connect(second, input);
+
+        Assert.HasCount(2, editor.Scenario.Connections);
+        Assert.IsTrue(first.IsConnected);
+        Assert.IsTrue(second.IsConnected);
+    }
+
+    [TestMethod]
+    public void Connect_DataKnot_ReplacesIncomingSourceAndPreservesOutgoingConnection()
+    {
+        var editor = new TaskEditorViewModel();
+        var first = CreateConnector(typeof(string), ConnectorType.Output);
+        var second = CreateConnector(typeof(string), ConnectorType.Output);
+        var knot = new KnotNodeViewModel();
+        knot.Connector = new ConnectorItem
+        {
+            Source = knot, ConnectorType = ConnectorType.Both,
+            InputObject = new CustomScenarioValue(typeof(string), null!)
+        };
+        var input = CreateConnector(typeof(string), ConnectorType.Input);
+        editor.Connect(first, knot.Connector);
+        editor.Connect(knot.Connector, input);
+
+        editor.Connect(second, knot.Connector);
+
+        Assert.HasCount(2, editor.Scenario.Connections);
+        Assert.IsFalse(first.IsConnected);
+        Assert.IsTrue(knot.Connector.IsConnected);
+        Assert.AreSame(second, editor.Scenario.Connections.Single(edge => edge.Target == knot.Connector).Source);
+        Assert.AreSame(knot.Connector, editor.Scenario.Connections.Single(edge => edge.Target == input).Source);
+    }
+
     private static ConnectorItem CreateConnector(Type type, ConnectorType direction, Type? showType = null)
     {
         var node = new ScenarioMethodNode

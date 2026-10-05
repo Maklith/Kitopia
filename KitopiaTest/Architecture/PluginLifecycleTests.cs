@@ -213,7 +213,7 @@ public sealed class PluginLifecycleTests
                         direct.ScenarioMethod.MethodAbsolutelyName.Replace("DirectScenarioMethod", "UnmarkedScenarioMethod")));
                     var top = root.Childrens["LifecycleFixture"].Methods;
                     Assert.IsTrue(top.Values.Any(node => node.Title == "Top fixture method"));
-                    Assert.HasCount(3, top);
+                    Assert.HasCount(4, top);
                     foreach (var node in top.Values.Where(node => node.Title.StartsWith("Top fixture")))
                     {
                         Assert.IsNotNull(PluginManager.GetEnablePlugins()[name].GetMethod(
@@ -231,6 +231,11 @@ public sealed class PluginLifecycleTests
                     typed.Input[2].InputObject.Value = 23;
                     var legacyNode = JsonNode.Parse(JsonSerializer.Serialize(typed, ConfigManger.DefaultOptions))!;
                     var legacyMethod = legacyNode["ScenarioMethod"]!;
+                    var legacySignature = string.Join('|', typed.ScenarioMethod.MethodAbsolutelyName.Split('|')
+                        .Where((_, index) => index != 3));
+                    legacyMethod["MethodAbsolutelyName"] = legacySignature;
+                    Assert.AreEqual(typed.ScenarioMethod.Method, PluginManager.GetEnablePlugins()[name]
+                        .GetMethod(legacySignature, typed.ScenarioMethod.MethodId));
                     legacyMethod.AsObject().Remove("MethodId");
                     legacyMethod["Attribute"]!["Name"] = "Typed fixture method";
                     legacyMethod["Attribute"]!.AsObject().Remove("Id");
@@ -238,6 +243,7 @@ public sealed class PluginLifecycleTests
                     legacyMethod["Attribute"]!["ParameterName"]!["count"] = "Old count";
                     legacyMethod["Attribute"]!["ParameterName"]!["return"] = "Old result";
                     var legacyInputs = legacyNode["Input"]!["$values"]!;
+                    legacyInputs.AsArray().RemoveAt(3);
                     var legacyOutputs = legacyNode["Output"]!["$values"]!;
                     legacyInputs[0]!["Title"] = "流输入";
                     legacyInputs[1]!["Title"] = "Fixture input";
@@ -260,6 +266,30 @@ public sealed class PluginLifecycleTests
                         Assert.AreEqual(23, restored.Input[2].InputObject.Value);
                         Assert.AreSame(restored, restored.Input[2].Source);
                         Assert.AreSame(restored, restored.Output[1].Source);
+                        Assert.HasCount(4, restored.Input);
+                        Assert.AreEqual(0, restored.Input[3].InputObject.Value);
+                        Assert.IsTrue(restored.Input[3].InputObject.IsSelf);
+                        Assert.AreSame(restored, restored.Input[3].Source);
+                    }
+                    var localItem = top.Values.Single(node => node.ScenarioMethod.HasLocalItemInputs);
+                    localItem.Input[1].InputObject.Value = "CustomScenario:child";
+                    Assert.AreEqual(localItem.ScenarioMethod.Method, PluginManager.GetEnablePlugins()[name]
+                        .GetMethod(localItem.ScenarioMethod.MethodAbsolutelyName, localItem.ScenarioMethod.MethodId));
+                    var localItemJson = JsonNode.Parse(JsonSerializer.Serialize(localItem, ConfigManger.DefaultOptions))!;
+                    foreach (var legacy in new[] { false, true })
+                    {
+                        if (legacy)
+                        {
+                            localItemJson["ScenarioMethod"]!["Attribute"]!.AsObject().Remove("SupportsLocalItemInputs");
+                            localItemJson["ScenarioMethod"]!["MethodAbsolutelyName"] = string.Join('|',
+                                localItem.ScenarioMethod.MethodAbsolutelyName.Split('|').Where((_, index) => index != 2));
+                        }
+                        var restored = localItemJson.Deserialize<ScenarioMethodNode>(ConfigManger.DefaultOptions)!;
+                        Assert.IsTrue(restored.ScenarioMethod.HasLocalItemInputs);
+                        Assert.AreEqual(localItem.ScenarioMethod.Method, restored.ScenarioMethod.Method);
+                        Assert.HasCount(2, restored.Input);
+                        Assert.AreEqual("CustomScenario:child", restored.Input[1].InputObject.Value);
+                        Assert.AreEqual(typeof(SearchViewItem), restored.Input[1].InputObject.ShowType);
                     }
                     var mixed = root.Childrens["Kitopia"].Childrens["节点控制"].Methods;
                     Assert.IsTrue(mixed.Values.Any(node => node.Title == "Condition" &&

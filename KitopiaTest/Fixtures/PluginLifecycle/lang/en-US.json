@@ -3,5 +3,7 @@
   "lang.pluginlifecycle.typed_method": "Typed method",
   "lang.pluginlifecycle.input": "Input data",
   "lang.pluginlifecycle.count": "Count",
+  "lang.pluginlifecycle.offset": "Offset",
+  "lang.pluginlifecycle.local_item": "Local item",
   "lang.pluginlifecycle.result": "Result"
 }

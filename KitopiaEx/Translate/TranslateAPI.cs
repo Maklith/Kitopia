@@ -1,30 +1,29 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
-using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace KitopiaEx.Translate;
 
 public static class TranslateApi
 {
-    static HttpClient httpClient = new HttpClient()
+    private static HttpClient httpClient = new()
     {
+        Timeout = TimeSpan.FromSeconds(30),
         DefaultRequestHeaders =
         {
-            { "User-Agent", "KitopiaEx/1.1.0" }
+            { "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0" }
         }
     };
 
-    private static string token;
+    private sealed record TranslationSession(Uri BaseUri, string Key, string Token, string ImpressionId,
+        string InstanceId, DateTimeOffset ExpiresAt);
 
-    private static async Task AuthAsync()
-    {
-        httpClient.DefaultRequestHeaders.Remove("Authorization");
-        httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
-        token = await httpClient.GetStringAsync("https://edge.microsoft.com/translate/auth");
-    }
+    private static TranslationSession? session;
 
     public static string TargetTranslateLangToName(TargetTranslateLang lang)
     {
@@ -42,7 +41,7 @@ public static class TranslateApi
     {
         return lang switch
         {
-            SourceTranslateLang.自动检测 => "",
+            SourceTranslateLang.自动检测 => "auto-detect",
             SourceTranslateLang.简体中文 => "zh-Hans",
             SourceTranslateLang.繁體中文 => "zh-Hant",
             SourceTranslateLang.English => "en",
@@ -51,45 +50,93 @@ public static class TranslateApi
         };
     }
 
-    private static bool CheckIsSuccess(string text)
+    public static async Task<string> GetTranslation(string text, SourceTranslateLang from, TargetTranslateLang to,
+        CancellationToken cancellationToken = default)
     {
-        return text.Contains("translations");
-    }
+        ArgumentNullException.ThrowIfNull(text);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(text)) return text;
+        var sourceLanguage = SourceTranslateLangToName(from);
+        var targetLanguage = TargetTranslateLangToName(to);
 
-    public static async Task<string> GetTranslation(string text, SourceTranslateLang from, TargetTranslateLang to)
-    {
-        try
+        for (var attempt = 0; attempt < 2; attempt++)
         {
-            var jsonArray = new JsonArray();
-            jsonArray.Add(new JsonObject
+            var authentication = session;
+            if (attempt > 0 || authentication is null || authentication.ExpiresAt <= DateTimeOffset.UtcNow)
             {
-                ["Text"] = text
-            });
-            var content = new StringContent(jsonArray.ToJsonString(), Encoding.UTF8, "application/json");
+                using var page = await httpClient.GetAsync("https://www.bing.com/translator", cancellationToken)
+                    .ConfigureAwait(false);
+                page.EnsureSuccessStatusCode();
+                var html = await page.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                // Bing embeds its authentication data as a JSON array in the translator page.
+                var config = Regex.Match(html, @"\bparams_AbusePreventionHelper\s*=\s*(\[[^\r\n;]+\])",
+                    RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+                var impression = Regex.Match(html, "\\bIG:\\s*\"([^\"]+)\"",
+                    RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+                var instance = Regex.Match(html, "id=\"rich_tta\"\\s+data-iid=\"([^\"]+)\"",
+                    RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+                if (!config.Success || !impression.Success || !instance.Success)
+                    throw new JsonException("Microsoft Translator authentication data is missing from the response.");
 
-            var response = await httpClient.PostAsync(
-                new Uri(
-                    $"https://api-edge.cognitive.microsofttranslator.com/translate?from={SourceTranslateLangToName(from)}&to={TargetTranslateLangToName(to)}&api-version=3.0&includeSentenceLength=true"),
-                content);
-            var r = await response.Content.ReadAsStringAsync();
-            if (CheckIsSuccess(r))
-            {
-                using var doc = JsonDocument.Parse(r);
-                var text2 = doc.RootElement[0]
-                    .GetProperty("translations")[0]
-                    .GetProperty("text")
-                    .GetString();
-                return text2;
+                using var document = JsonDocument.Parse(config.Groups[1].Value);
+                var values = document.RootElement;
+                if (values.ValueKind != JsonValueKind.Array || values.GetArrayLength() < 3 ||
+                    values[0].ValueKind != JsonValueKind.Number || !values[0].TryGetInt64(out var key) ||
+                    values[1].ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(values[1].GetString()) ||
+                    values[2].ValueKind != JsonValueKind.Number || !values[2].TryGetInt64(out var lifetime) ||
+                    lifetime <= 0)
+                    throw new JsonException("Microsoft Translator returned invalid authentication data.");
+
+                var baseUri = new Uri(page.RequestMessage!.RequestUri!.GetLeftPart(UriPartial.Authority));
+                authentication = new TranslationSession(baseUri, key.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    values[1].GetString()!, impression.Groups[1].Value, instance.Groups[1].Value,
+                    DateTimeOffset.UtcNow.AddMilliseconds(Math.Min(lifetime, 3_600_000)));
+                session = authentication;
             }
-            else
+
+            var current = authentication;
+            var uri = new Uri(current.BaseUri,
+                $"/ttranslatev3?isVertical=1&IG={Uri.EscapeDataString(current.ImpressionId)}&IID={Uri.EscapeDataString(current.InstanceId)}.1");
+            using var request = new HttpRequestMessage(HttpMethod.Post, uri)
             {
-                await AuthAsync();
-                return await GetTranslation(text, from, to);
+                Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["fromLang"] = sourceLanguage,
+                    ["to"] = targetLanguage,
+                    ["text"] = text,
+                    ["key"] = current.Key,
+                    ["token"] = current.Token
+                })
+            };
+            request.Headers.Referrer = new Uri(current.BaseUri, "/translator");
+            using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (attempt == 0 && response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+                continue;
+
+            response.EnsureSuccessStatusCode();
+            using var result = JsonDocument.Parse(
+                await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+            var root = result.RootElement;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("statusCode", out var status) &&
+                status.ValueKind == JsonValueKind.Number && status.TryGetInt32(out var statusCode) && statusCode >= 400)
+            {
+                if (attempt == 0 && statusCode is 401 or 403) continue;
+                var message = root.TryGetProperty("errorMessage", out var error) && error.ValueKind == JsonValueKind.String
+                    ? error.GetString() : "Microsoft Translator request failed.";
+                throw new HttpRequestException(message, null, (HttpStatusCode)statusCode);
             }
+            if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0 &&
+                root[0].ValueKind == JsonValueKind.Object &&
+                root[0].TryGetProperty("translations", out var translations) &&
+                translations.ValueKind == JsonValueKind.Array && translations.GetArrayLength() > 0 &&
+                translations[0].ValueKind == JsonValueKind.Object &&
+                translations[0].TryGetProperty("text", out var translation) &&
+                translation.ValueKind == JsonValueKind.String)
+                return translation.GetString()!;
+
+            throw new JsonException("The translation response contains no translated text.");
         }
-        catch (Exception e)
-        {
-            return e.Message;
-        }
+
+        throw new HttpRequestException("Microsoft Translator authentication failed.");
     }
 }

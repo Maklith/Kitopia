@@ -314,7 +314,9 @@ public class Plugin
         List<Type> stringsList;
         try
         {
-            var typeNames = split.Select(e => e.Replace("[", ",").Replace("]", "").Split(","))
+            var typeNames = split.Select(name => name.Contains('`')
+                    ? name.Replace("[", ",").Replace("]", "").Split(',')
+                    : new[] { name })
                 .ToList();
             stringsList = typeNames[1..].Select(e =>
             {
@@ -331,15 +333,16 @@ public class Plugin
         bool MatchesParameters(MethodInfo method)
         {
             var parameterInfos = method.GetParameters();
-            if (parameterInfos.Length != stringsList.Count) return false;
+            if (parameterInfos.Length < stringsList.Count || stringsList.Count == 0) return false;
 
-            for (var index = 0; index < parameterInfos.Length; index++)
+            // New optional data inputs may be inserted before the existing cancellation parameter.
+            for (var index = 0; index < stringsList.Count - 1; index++)
             {
                 var parameterInfo = parameterInfos[index];
-                if (parameterInfo.ParameterType != stringsList.ElementAt(index)) return false;
+                if (parameterInfo.ParameterType != stringsList[index]) return false;
             }
-
-            return true;
+            return parameterInfos[^1].ParameterType == stringsList[^1] &&
+                   parameterInfos.Skip(stringsList.Count - 1).SkipLast(1).All(parameter => parameter.HasDefaultValue);
         }
 
         if (!string.IsNullOrWhiteSpace(methodId))

@@ -8,7 +8,7 @@
         <RootNamespace>KitopiaEx</RootNamespace>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
-    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' and '$(KitopiaExTestBuild)' != 'true' ">
         <AppendTargetFrameworkToOutputPath>output</AppendTargetFrameworkToOutputPath>
         <OutputPath>$(LocalAppData)\Kitopia\plugins\kitopiaex\</OutputPath>
 
@@ -21,7 +21,7 @@
 
     <ItemGroup>
         <EmbeddedResource Include="lang\*.json" />
-        <ProjectReference Include="..\Kitopia.Desktop.PluginSdk\Kitopia.Desktop.PluginSdk.csproj">
+        <ProjectReference Include="..\Kitopia.Desktop.PluginSdk\Kitopia.Desktop.PluginSdk.csproj" GlobalPropertiesToRemove="KitopiaExTestBuild">
             <Private>false</Private>
             <ExcludeAssets>runtime;native</ExcludeAssets>
         </ProjectReference>

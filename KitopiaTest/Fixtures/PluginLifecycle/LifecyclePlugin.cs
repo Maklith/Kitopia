@@ -61,9 +61,13 @@ public sealed class TopScenarioMethods
     public static void TopScenarioMethod(CancellationToken cancellationToken) { }
 
     [ScenarioMethod("lang.pluginlifecycle.typed_method", "input=lang.pluginlifecycle.input",
-        "count=lang.pluginlifecycle.count", "return=lang.pluginlifecycle.result", Id = "Typed fixture method")]
+        "count=lang.pluginlifecycle.count", "offset=lang.pluginlifecycle.offset", "return=lang.pluginlifecycle.result", Id = "Typed fixture method")]
     public static int TypedScenarioMethod(FixtureInput input, [SelfInput] int count,
-        CancellationToken cancellationToken) => count;
+        [SelfInput] int offset = 0, CancellationToken cancellationToken = default) => count + offset;
+
+    [ScenarioMethod("lang.pluginlifecycle.local_item", Id = "Local item fixture", SupportsLocalItemInputs = true)]
+    public static void LocalItemMethod([SelfInput] string item, object[]? inputValues = null,
+        CancellationToken cancellationToken = default) { }
 }
 
 public sealed class FixtureInput;

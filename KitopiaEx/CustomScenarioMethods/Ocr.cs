@@ -48,6 +48,29 @@ public class Ocr
             .ToArray();
     }
 
+    [ScenarioMethod("lang.kitopiaex.join_ocr_text", "ocrResults=lang.kitopiaex.ocr_result_data",
+        "separator=lang.kitopiaex.text_separator", "return=lang.kitopiaex.text", Id = "合并文字提取结果")]
+    public string JoinOcrText(IEnumerable<OcrResult> ocrResults, [SelfInput] string separator = "\n",
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ocrResults);
+        ct.ThrowIfCancellationRequested();
+        return string.Join(separator, ocrResults.Select(result =>
+        {
+            ct.ThrowIfCancellationRequested();
+            return result.Text;
+        }));
+    }
+
+    [ScenarioMethod("lang.kitopiaex.copy_text_to_clipboard", "text=lang.kitopiaex.text", Id = "复制文字到剪贴板")]
+    public void CopyTextToClipboard(string text, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ct.ThrowIfCancellationRequested();
+        if (!Kitopia.ServiceProvider.GetRequiredService<IClipboardService>().SetText(text))
+            throw new InvalidOperationException(Lang.Get("lang.kitopiaex.unable_to_copy_text_to_clipboard"));
+    }
+
     [ScenarioMethod("lang.kitopiaex.show_ocr_results", $"{nameof(dResult)}=lang.kitopiaex.capture_data", $"{nameof(ocrResults)}=lang.kitopiaex.ocr_result_data", Id = "文字提取结果显示")]
     public void OcrResultShow(ScreenCaptureResult dResult, IEnumerable<OcrResult> ocrResults, CancellationToken ct)
     {

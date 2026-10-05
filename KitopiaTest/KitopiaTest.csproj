@@ -39,6 +39,7 @@
       <ProjectReference Include="..\Kitopia.Desktop.Platform.Linux\Kitopia.Desktop.Platform.Linux.csproj" />
       <ProjectReference Include="..\Kitopia.Desktop.Features\Kitopia.Desktop.Features.csproj" />
       <ProjectReference Include="..\Kitopia.Desktop\Kitopia.Desktop.csproj" />
+      <ProjectReference Include="..\KitopiaEx\KitopiaEx.csproj" AdditionalProperties="KitopiaExTestBuild=true" />
       <ProjectReference Include="..\Kitopia.Feature\Kitopia.Feature.csproj" />
       <ProjectReference Include="..\Kitopia.Feature.Avalonia\Kitopia.Feature.Avalonia.csproj" />
       <ProjectReference Include="..\Mobile\Kitopia.Mobile\Kitopia.Mobile.csproj" />

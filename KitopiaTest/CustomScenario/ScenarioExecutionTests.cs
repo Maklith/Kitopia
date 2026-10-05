@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
+using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Headless;
 using Avalonia.Markup.Xaml.Styling;
+using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.CustomScenario;
 using Kitopia.Desktop.Features.CustomScenario.ViewModels.TaskEditor;
 using Kitopia.Desktop.Features.Services.Plugin;
@@ -324,6 +326,204 @@ public sealed class ScenarioExecutionTests
         Assert.AreEqual(NodeStatus.Error, first.Status);
         Assert.ThrowsExactly<InvalidOperationException>(() => scenario.ExecutePhase(start,
             new ObservableDictionary<string, CustomScenarioValue>(), CancellationToken.None));
+    }
+
+    [TestMethod]
+    [DataRow(null, null, true)]
+    [DataRow(null, "value", false)]
+    [DataRow("value", null, false)]
+    [DataRow(42, 42, true)]
+    [DataRow(42, "42", false)]
+    public async Task Equal_NullAndNonNullInputs_UsesObjectEquality(object? left, object? right, bool expected)
+    {
+        var node = new ScenarioMethod(ScenarioMethodType.Equal).GenerateNode();
+        node.Input[1].InputObject.Value = left;
+        node.Input[2].InputObject.Value = right;
+        var values = new ObservableDictionary<string, CustomScenarioValue>();
+
+        Assert.IsTrue(await node.InvokeAsync(CancellationToken.None, [], values, values, values));
+        Assert.AreEqual(expected, node.Output[0].InputObject.Value);
+    }
+
+    [TestMethod]
+    public async Task IntegerConstant_DefaultValue_OutputsInt32()
+    {
+        var group = ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup.Childrens["Kitopia"]
+            .Childrens.Values.Single(child => child.Methods.Values.Any(node =>
+                node.ScenarioMethod.Type == ScenarioMethodType.Default));
+        var node = (ScenarioMethodNode)group.Methods.Values.Single(node =>
+            node.Output[0].InputObject.SerializeType == typeof(int)).Copy();
+        var values = new ObservableDictionary<string, CustomScenarioValue>();
+
+        Assert.IsTrue(await node.InvokeAsync(CancellationToken.None, [], values, values, values));
+        Assert.IsInstanceOfType<int>(node.Output[0].InputObject.Value);
+        Assert.AreEqual(0, node.Output[0].InputObject.Value);
+    }
+
+    [TestMethod]
+    public void VariableTypes_StringIsAvailableAndFlowIsExcluded()
+    {
+        var types = CustomScenarioGlobe.GetAllCouldUseTypeInValue.Select(value => value.Type).ToArray();
+
+        CollectionAssert.Contains(types, typeof(string));
+        CollectionAssert.Contains(types, typeof(int));
+        CollectionAssert.DoesNotContain(types, typeof(NodeConnectorClass));
+    }
+
+    [TestMethod]
+    [DataRow("fewer", false)]
+    [DataRow("changed", false)]
+    [DataRow("missing", false)]
+    [DataRow("local", false)]
+    [DataRow("fewer", true)]
+    [DataRow("changed", true)]
+    [DataRow("missing", true)]
+    [DataRow("local", true)]
+    public async Task OpenRunLocalProject_TargetChanges_RemovesObsoleteConnections(string change, bool plugin)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(MouseHotKeyTests));
+        await session.Dispatch(() =>
+        {
+            using var child = new Kitopia.Desktop.Features.CustomScenario.CustomScenario { IsHaveInputValue = true };
+            using var next = new Kitopia.Desktop.Features.CustomScenario.CustomScenario { IsHaveInputValue = true };
+            child.InputValue.Add("count", new CustomScenarioValue(typeof(int), null!));
+            child.InputValue.Add("label", new CustomScenarioValue(typeof(string), null!));
+            next.InputValue.Add("value", new CustomScenarioValue(change == "changed" ? typeof(string) : typeof(int), null!));
+            CustomScenarioManger.CustomScenarios.Add(child);
+            CustomScenarioManger.CustomScenarios.Add(next);
+            var editor = new TaskEditorViewModel();
+            var method = typeof(KitopiaEx.CustomScenarioMethods.SearchItemScenarioMethod)
+                .GetMethod(nameof(KitopiaEx.CustomScenarioMethods.SearchItemScenarioMethod.OpenSearchViewItem))!;
+            using var services = new ServiceCollection().BuildServiceProvider();
+            var node = plugin
+                ? new ScenarioMethod(method, new PluginLocalInfo(), method.GetCustomAttribute<ScenarioMethodAttribute>()!,
+                    ScenarioMethodType.PluginMethod, services).GenerateNode()
+                : new ScenarioMethod(ScenarioMethodType.OpenRunLocalProject).GenerateNode();
+            try
+            {
+                editor.Scenario.Nodes.Add(node);
+                node.Input[1].InputObject.Value = $"CustomScenario:{child.Uuid}";
+                Assert.HasCount(4, node.Input);
+                var number = new ScenarioMethod(ScenarioMethodType.VariableGet)
+                    { ValueName = "number", ValueDataType = typeof(int) }.GenerateNode();
+                var text = new ScenarioMethod(ScenarioMethodType.VariableGet)
+                    { ValueName = "text", ValueDataType = typeof(string) }.GenerateNode();
+                editor.Connect(number.Output[1], node.Input[2]);
+                editor.Connect(text.Output[1], node.Input[3]);
+
+                node.Input[1].InputObject.Value = change switch
+                {
+                    "missing" => "CustomScenario:missing",
+                    "local" => "local-file",
+                    _ => $"CustomScenario:{next.Uuid}"
+                };
+
+                Assert.HasCount(change is "missing" or "local" ? 2 : 3, node.Input);
+                Assert.HasCount(change == "fewer" ? 1 : 0, editor.Scenario.Connections);
+                Assert.IsFalse(text.Output[1].IsConnected);
+                Assert.AreEqual(change == "fewer", number.Output[1].IsConnected);
+                Assert.IsTrue(editor.Scenario.Connections.All(edge => node.Input.Contains(edge.Target)));
+                if (change == "changed") Assert.AreEqual(typeof(string), node.Input[2].InputObject.SerializeType);
+            }
+            finally
+            {
+                WeakReferenceMessenger.Default.UnregisterAll(editor);
+                editor.Scenario.Dispose();
+                CustomScenarioManger.CustomScenarios.Remove(child);
+                CustomScenarioManger.CustomScenarios.Remove(next);
+            }
+            return Task.FromResult(true);
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task LocalItem_EditorLoadsPreviouslySelectedPluginTarget_InitializesScenarioInputs()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(MouseHotKeyTests));
+        await session.Dispatch(() =>
+        {
+            using var child = new Kitopia.Desktop.Features.CustomScenario.CustomScenario { IsHaveInputValue = true };
+            using var scenario = new Kitopia.Desktop.Features.CustomScenario.CustomScenario();
+            using var services = new ServiceCollection().BuildServiceProvider();
+            child.InputValue.Add("text", new CustomScenarioValue(typeof(string), null!));
+            CustomScenarioManger.CustomScenarios.Add(child);
+            var method = typeof(KitopiaEx.CustomScenarioMethods.SearchItemScenarioMethod)
+                .GetMethod(nameof(KitopiaEx.CustomScenarioMethods.SearchItemScenarioMethod.OpenSearchViewItem))!;
+            var node = new ScenarioMethod(method, new PluginLocalInfo(), method.GetCustomAttribute<ScenarioMethodAttribute>()!,
+                ScenarioMethodType.PluginMethod, services).GenerateNode();
+            node.Input[1].InputObject.Value = $"CustomScenario:{child.Uuid}";
+            scenario.Nodes.Add(node);
+            var editor = new TaskEditorViewModel();
+            var emptyScenario = editor.Scenario;
+            try
+            {
+                Assert.HasCount(2, node.Input);
+                editor.Load(scenario);
+                Assert.HasCount(3, node.Input);
+                Assert.AreEqual("text", node.Input[2].Title);
+                Assert.AreEqual(typeof(string), node.Input[2].InputObject.SerializeType);
+                Assert.AreSame(node, node.Input[2].Source);
+            }
+            finally
+            {
+                WeakReferenceMessenger.Default.UnregisterAll(editor);
+                emptyScenario.Dispose();
+                CustomScenarioManger.CustomScenarios.Remove(child);
+            }
+            return Task.FromResult(true);
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task LocalItem_ConnectedTargetReset_PreservesParameterConnectorsAndConnections(bool plugin)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(MouseHotKeyTests));
+        await session.Dispatch(() =>
+        {
+            using var child = new Kitopia.Desktop.Features.CustomScenario.CustomScenario { IsHaveInputValue = true };
+            child.InputValue.Add("count", new CustomScenarioValue(typeof(int), null!));
+            CustomScenarioManger.CustomScenarios.Add(child);
+            using var services = new ServiceCollection().BuildServiceProvider();
+            var editor = new TaskEditorViewModel();
+            var method = typeof(KitopiaEx.CustomScenarioMethods.SearchItemScenarioMethod)
+                .GetMethod(nameof(KitopiaEx.CustomScenarioMethods.SearchItemScenarioMethod.OpenSearchViewItem))!;
+            var node = plugin
+                ? new ScenarioMethod(method, new PluginLocalInfo(), method.GetCustomAttribute<ScenarioMethodAttribute>()!,
+                    ScenarioMethodType.PluginMethod, services).GenerateNode()
+                : new ScenarioMethod(ScenarioMethodType.OpenRunLocalProject).GenerateNode();
+            try
+            {
+                editor.Scenario.Nodes.Add(node);
+                node.Input[1].InputObject.Value = $"CustomScenario:{child.Uuid}";
+                var parameter = node.Input[2];
+                var itemSource = new ScenarioMethod(ScenarioMethodType.VariableGet)
+                    { ValueName = "item", ValueDataType = typeof(string) }.GenerateNode();
+                var numberSource = new ScenarioMethod(ScenarioMethodType.VariableGet)
+                    { ValueName = "count", ValueDataType = typeof(int) }.GenerateNode();
+                node.Input[1].InputObject.IsSelf = false;
+                editor.Connect(itemSource.Output[1], node.Input[1]);
+                editor.Connect(numberSource.Output[1], parameter);
+
+                node.ResetData();
+                editor.Load(editor.Scenario);
+
+                Assert.IsNull(node.Input[1].InputObject.Value);
+                Assert.HasCount(3, node.Input);
+                Assert.HasCount(2, editor.Scenario.Connections);
+                Assert.AreSame(parameter, node.Input[2]);
+                Assert.IsTrue(parameter.IsConnected);
+                Assert.IsTrue(numberSource.Output[1].IsConnected);
+            }
+            finally
+            {
+                WeakReferenceMessenger.Default.UnregisterAll(editor);
+                editor.Scenario.Dispose();
+                CustomScenarioManger.CustomScenarios.Remove(child);
+            }
+            return Task.FromResult(true);
+        }, CancellationToken.None);
     }
 
     private static ConnectionItem Connect(ConnectorItem source, ConnectorItem target) =>

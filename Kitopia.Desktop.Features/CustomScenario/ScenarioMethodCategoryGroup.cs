@@ -58,8 +58,6 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                     Title = CustomScenarioGlobe.GetTypeNameKey(value.FullName)
                 }
             };
-            if (value.FullName == "System.Int32") StringinItems[0].InputObject.Value = (double)0;
-
             String.Input = StringinItems;
             valueScenarioMethodCategoryGroup.Methods.Add(key, String);
         }

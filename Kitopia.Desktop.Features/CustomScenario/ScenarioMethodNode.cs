@@ -181,7 +181,8 @@ public partial class ScenarioMethodNode : ScenarioNodeBase, IJsonOnDeserialized
         var previous = ScenarioMethod.Attribute;
         var current = ScenarioMethod.Method.GetCustomAttributes<ScenarioMethodAttribute>()
             .FirstOrDefault(attribute => ScenarioMethod.GetMethodId(attribute) == ScenarioMethod.MethodId);
-        if (current is null || !current.Name.StartsWith("lang.", StringComparison.Ordinal)) return;
+        if (current is null) return;
+        ScenarioMethod.Attribute = current;
 
         // Upgrade default display metadata without replacing connectors or user-defined labels.
         if (Title == previous.Name) Title = current.Name;
@@ -192,7 +193,23 @@ public partial class ScenarioMethodNode : ScenarioNodeBase, IJsonOnDeserialized
         {
             if (parameter.ParameterType == typeof(CancellationToken) ||
                 Nullable.GetUnderlyingType(parameter.ParameterType) == typeof(CancellationToken)) continue;
-            if (index >= Input.Count) break;
+            if (ScenarioMethod.HasLocalItemInputs && parameter.ParameterType == typeof(object[])) continue;
+            if (index >= Input.Count)
+            {
+                if (!parameter.HasDefaultValue || parameter.ParameterType.GetCustomAttribute<AutoUnbox>() is not null)
+                    break;
+                Input.Add(new ConnectorItem
+                {
+                    Source = this,
+                    Title = current.GetParameterName(parameter.Name),
+                    InputObject = new CustomScenarioValue
+                    {
+                        SerializeType = parameter.ParameterType,
+                        IsSelf = parameter.IsDefined(typeof(SelfInput)),
+                        Value = parameter.DefaultValue
+                    }
+                });
+            }
             if (parameter.ParameterType.GetCustomAttribute<AutoUnbox>() is not null)
             {
                 var group = Input[index].AutoUnboxIndex;
@@ -204,13 +221,29 @@ public partial class ScenarioMethodNode : ScenarioNodeBase, IJsonOnDeserialized
                 }
             }
             else
-                UpgradeParameter(Input[index++], parameter.Name);
+            {
+                var connector = Input[index++];
+                UpgradeParameter(connector, parameter.Name);
+                if (ScenarioMethod.HasLocalItemInputs && index == 2)
+                {
+                    connector.InputObject.ShowType = typeof(SearchViewItem);
+                    if (!connector.IsConnected && connector.InputObject.Value is null)
+                        connector.InputObject.IsSelf = true;
+                }
+            }
         }
+        if (Output.Count == 1 && ScenarioMethod.TryGetReturnValueType(ScenarioMethod.Method.ReturnType, out var returnType) &&
+            returnType.GetCustomAttribute<AutoUnbox>() is null)
+            Output.Add(new ConnectorItem
+            {
+                Source = this,
+                ConnectorType = ConnectorType.Output,
+                Title = current.GetParameterName("return"),
+                InputObject = new CustomScenarioValue { SerializeType = returnType }
+            });
         foreach (var connector in Output.Skip(1))
             UpgradeParameter(connector, string.IsNullOrEmpty(connector.AutoUnboxPropertyName)
                 ? "return" : connector.AutoUnboxPropertyName);
-        ScenarioMethod.Attribute = current;
-
         void UpgradeParameter(ConnectorItem connector, string? name)
         {
             if (name is not null && current.ParameterName?.TryGetValue(name, out var key) == true &&
@@ -249,6 +282,13 @@ public partial class ScenarioMethodNode : ScenarioNodeBase, IJsonOnDeserialized
                         Nullable.GetUnderlyingType(parameterInfo.ParameterType) == typeof(CancellationToken))
                     {
                         list.Add(cancellationToken);
+                        continue;
+                    }
+
+                    if (ScenarioMethod.HasLocalItemInputs && parameterInfo.ParameterType == typeof(object[]))
+                    {
+                        list.Add(Input.Skip(index).Select(connector => connector.InputObject.Value).ToArray());
+                        index = Input.Count;
                         continue;
                     }
 
@@ -347,12 +387,7 @@ public partial class ScenarioMethodNode : ScenarioNodeBase, IJsonOnDeserialized
             }
             case ScenarioMethodType.Equal:
             {
-                if (Input[1].InputObject is null)
-                    Output[0].InputObject.Value = false;
-                else if (Input[2].InputObject is null)
-                    Output[0].InputObject.Value = false;
-                else
-                    Output[0].InputObject.Value = Input[1].InputObject.Value!.Equals(Input[2].InputObject.Value);
+                Output[0].InputObject.Value = Equals(Input[1].InputObject.Value, Input[2].InputObject.Value);
 
                 break;
             }

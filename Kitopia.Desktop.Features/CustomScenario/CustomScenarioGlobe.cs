@@ -1,4 +1,3 @@
-using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.CustomScenario.CustomScenarioValueSerializer;
 using Kitopia.Desktop.Features.Utils;
 using PluginCore.CustomScenario;
@@ -41,15 +40,15 @@ public static class CustomScenarioGlobe
     {
         get
         {
-            var valueTuples = new List<CustomScenarioValueTuple>();
-            foreach (var keyValuePair in JsonConverters)
-                valueTuples.Add(new CustomScenarioValueTuple
+            foreach (var type in JsonConverters.Keys.Prepend(typeof(string)).Distinct())
+            {
+                if (type == typeof(NodeConnectorClass)) continue;
+                yield return new CustomScenarioValueTuple
                 {
-                    Type = keyValuePair.Key,
-                    Value = GetTypeNameKey(keyValuePair.Key.FullName!)
-                });
-
-            return valueTuples;
+                    Type = type,
+                    Value = GetTypeNameKey(type.FullName!)
+                };
+            }
         }
     }
 

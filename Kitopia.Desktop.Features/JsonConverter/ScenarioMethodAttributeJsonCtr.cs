@@ -34,6 +34,9 @@ public class ScenarioMethodAttributeJsonCtr : JsonConverter<ScenarioMethodAttrib
                 case "Id":
                     attribute.Id = reader.GetString();
                     break;
+                case "SupportsLocalItemInputs":
+                    attribute.SupportsLocalItemInputs = reader.GetBoolean();
+                    break;
                 case "ParameterName":
                     attribute.ParameterName =
                         JsonSerializer.Deserialize<Dictionary<string, string>>(ref reader, options);
@@ -54,6 +57,8 @@ public class ScenarioMethodAttributeJsonCtr : JsonConverter<ScenarioMethodAttrib
         writer.WriteString("Name", value.Name);
         if (!string.IsNullOrWhiteSpace(value.Id))
             writer.WriteString("Id", value.Id);
+        if (value.SupportsLocalItemInputs)
+            writer.WriteBoolean("SupportsLocalItemInputs", true);
         writer.WritePropertyName("ParameterName");
         JsonSerializer.Serialize(writer, value.ParameterName, options);
         writer.WriteEndObject();
