@@ -17,7 +17,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
     private const int DiscoveryPort = 53535;
     private const string MulticastAddressV4 = "239.255.255.250";
     private const string MulticastAddressV6 = "ff02::1";
-    private const int DiscoveryIpv4Ttl = 1;
+    private const int DiscoveryMulticastHopLimit = 1;
     private const long DiscoverySignatureToleranceSeconds = 60;
     private const string DiscoveryMessageTypeAnnounce = "announce";
     private const string DiscoveryMessageTypeAuthRequest = "auth.request";
@@ -308,6 +308,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             }
 
             var ipv4Address = properties.UnicastAddresses
+                .Where(IsUsableDiscoveryAddress)
                 .Select(unicast => unicast.Address)
                 .FirstOrDefault(address => address.AddressFamily == AddressFamily.InterNetwork);
             if (ipv4Address is not null && joinedIpv4Interfaces.Add(networkInterface.Id))
@@ -337,7 +338,8 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             var ipv6InterfaceIndex = 0;
             try
             {
-                if (!properties.UnicastAddresses.Any(address => address.Address.AddressFamily == AddressFamily.InterNetworkV6))
+                if (!properties.UnicastAddresses.Any(address =>
+                        address.Address.AddressFamily == AddressFamily.InterNetworkV6 && IsUsableDiscoveryAddress(address)))
                 {
                     continue;
                 }
@@ -371,6 +373,17 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                 }
             }
         }
+    }
+
+    private static bool IsUsableDiscoveryAddress(UnicastIPAddressInformation unicast)
+    {
+        var address = unicast.Address;
+        if (IPAddress.IsLoopback(address) || address.Equals(IPAddress.Any) || address.Equals(IPAddress.None) ||
+            address.Equals(IPAddress.IPv6Any) || address.Equals(IPAddress.IPv6None)) return false;
+
+        // Address readiness is exposed only on Windows; other platforms select the source at send time.
+        return !OperatingSystem.IsWindows() ||
+               unicast.DuplicateAddressDetectionState == DuplicateAddressDetectionState.Preferred;
     }
 
     private async Task ReceiveLoopAsync(UdpClient client, CancellationToken token)
@@ -462,46 +475,88 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                             continue;
                         }
 
-                        var properties = networkInterface.GetIPProperties();
-                        foreach (var unicast in properties.UnicastAddresses)
+                        IPInterfaceProperties properties;
+                        try
                         {
-                            if (unicast.Address.AddressFamily == AddressFamily.InterNetwork)
+                            properties = networkInterface.GetIPProperties();
+                        }
+                        catch (NetworkInformationException exception)
+                        {
+                            DeviceCommunicationDiagnostics.Debug(
+                                LogCategory,
+                                $"Interface {networkInterface.Name} unavailable during announce: {exception.Message}");
+                            continue;
+                        }
+
+                        var ipv4Address = properties.UnicastAddresses
+                            .Where(IsUsableDiscoveryAddress)
+                            .Select(unicast => unicast.Address)
+                            .FirstOrDefault(address => address.AddressFamily == AddressFamily.InterNetwork);
+                        if (ipv4Address is not null)
+                        {
+                            try
                             {
-                                try
-                                {
-                                    using var client = new UdpClient();
-                                    client.Client.Bind(new IPEndPoint(unicast.Address, 0));
-                                    client.Ttl = DiscoveryIpv4Ttl;
-                                    await client.SendAsync(bytes, bytes.Length, multicastEndpointV4);
-                                    sentCount++;
-                                }
-                                catch (Exception exception)
-                                {
-                                    DeviceCommunicationDiagnostics.Warning(
-                                        LogCategory,
-                                        $"IPv4 announce send failed on {networkInterface.Name} {unicast.Address}: {exception.Message}");
-                                }
+                                using var client = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
+                                client.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface,
+                                    ipv4Address.GetAddressBytes());
+                                client.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive,
+                                    DiscoveryMulticastHopLimit);
+                                await client.SendAsync(bytes, multicastEndpointV4, token);
+                                sentCount++;
                             }
-                            else if (unicast.Address.AddressFamily == AddressFamily.InterNetworkV6)
+                            catch (SocketException exception) when (exception.SocketErrorCode is
+                                       SocketError.AddressNotAvailable or SocketError.NetworkDown or SocketError.NetworkUnreachable)
                             {
-                                try
-                                {
-                                    using var client = new UdpClient(AddressFamily.InterNetworkV6);
-                                    client.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, true);
-                                    client.Client.Bind(new IPEndPoint(unicast.Address, 0));
-                                    var multicastAddressV6WithScope =
-                                        new IPAddress(multicastIpV6.GetAddressBytes(), unicast.Address.ScopeId);
-                                    var multicastEndpointV6 = new IPEndPoint(multicastAddressV6WithScope, DiscoveryPort);
-                                    await client.SendAsync(bytes, bytes.Length, multicastEndpointV6);
-                                    sentCount++;
-                                }
-                                catch (Exception exception)
-                                {
-                                    DeviceCommunicationDiagnostics.Warning(
-                                        LogCategory,
-                                        $"IPv6 announce send failed on {networkInterface.Name} {unicast.Address}: {exception.Message}");
-                                }
+                                DeviceCommunicationDiagnostics.Debug(
+                                    LogCategory,
+                                    $"IPv4 announce skipped on unavailable interface {networkInterface.Name} {ipv4Address}: {exception.SocketErrorCode}.");
                             }
+                            catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+                            catch (Exception exception)
+                            {
+                                DeviceCommunicationDiagnostics.Warning(
+                                    LogCategory,
+                                    $"IPv4 announce send failed on {networkInterface.Name} {ipv4Address}: {exception.Message}");
+                            }
+                        }
+
+                        if (!properties.UnicastAddresses.Any(unicast =>
+                                unicast.Address.AddressFamily == AddressFamily.InterNetworkV6 && IsUsableDiscoveryAddress(unicast)))
+                            continue;
+
+                        try
+                        {
+                            var interfaceIndex = properties.GetIPv6Properties()?.Index ?? 0;
+                            if (interfaceIndex <= 0) continue;
+                            using var client = new UdpClient(AddressFamily.InterNetworkV6);
+                            client.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, true);
+                            client.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, 0));
+                            client.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastInterface, interfaceIndex);
+                            client.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastTimeToLive,
+                                DiscoveryMulticastHopLimit);
+                            var multicastAddressV6WithScope = new IPAddress(multicastIpV6.GetAddressBytes(), interfaceIndex);
+                            await client.SendAsync(bytes, new IPEndPoint(multicastAddressV6WithScope, DiscoveryPort), token);
+                            sentCount++;
+                        }
+                        catch (NetworkInformationException exception)
+                        {
+                            DeviceCommunicationDiagnostics.Debug(
+                                LogCategory,
+                                $"IPv6 announce skipped on unavailable interface {networkInterface.Name}: {exception.Message}");
+                        }
+                        catch (SocketException exception) when (exception.SocketErrorCode is
+                                   SocketError.AddressNotAvailable or SocketError.NetworkDown or SocketError.NetworkUnreachable)
+                        {
+                            DeviceCommunicationDiagnostics.Debug(
+                                LogCategory,
+                                $"IPv6 announce skipped on unavailable interface {networkInterface.Name}: {exception.SocketErrorCode}.");
+                        }
+                        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+                        catch (Exception exception)
+                        {
+                            DeviceCommunicationDiagnostics.Warning(
+                                LogCategory,
+                                $"IPv6 announce send failed on {networkInterface.Name}: {exception.Message}");
                         }
                     }
 

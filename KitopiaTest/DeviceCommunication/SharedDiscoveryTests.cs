@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Reflection;
 using Kitopia.Feature.DeviceCommunication.Discovery;
 
 namespace KitopiaTest.DeviceCommunication;
@@ -5,6 +8,57 @@ namespace KitopiaTest.DeviceCommunication;
 [TestClass]
 public sealed class SharedDiscoveryTests
 {
+    [TestMethod]
+    [DataRow("192.0.2.10", true)]
+    [DataRow("169.254.10.20", true)]
+    [DataRow("2001:db8::10", true)]
+    [DataRow("fe80::10%21", true)]
+    [DataRow("0.0.0.0", false)]
+    [DataRow("255.255.255.255", false)]
+    [DataRow("127.0.0.1", false)]
+    [DataRow("::", false)]
+    [DataRow("::1", false)]
+    public void DiscoveryAddress_UnicastOrWildcard_OnlyUsableSourcesAreSelected(string address, bool expected)
+    {
+        var method = typeof(DeviceDiscoveryService).GetMethod("IsUsableDiscoveryAddress",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var unicast = new TestUnicastAddress(IPAddress.Parse(address), DuplicateAddressDetectionState.Preferred);
+
+        Assert.AreEqual(expected, method.Invoke(null, [unicast]));
+    }
+
+    [TestMethod]
+    [DataRow(DuplicateAddressDetectionState.Preferred, true)]
+    [DataRow(DuplicateAddressDetectionState.Tentative, false)]
+    [DataRow(DuplicateAddressDetectionState.Duplicate, false)]
+    [DataRow(DuplicateAddressDetectionState.Invalid, false)]
+    [DataRow(DuplicateAddressDetectionState.Deprecated, false)]
+    public void DiscoveryAddress_WindowsAddressReadiness_SkipsUnreadyAddresses(DuplicateAddressDetectionState state,
+        bool expectedOnWindows)
+    {
+        var method = typeof(DeviceDiscoveryService).GetMethod("IsUsableDiscoveryAddress",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        var unicast = new TestUnicastAddress(IPAddress.Parse("192.0.2.10"), state);
+
+        Assert.AreEqual(!OperatingSystem.IsWindows() || expectedOnWindows, method.Invoke(null, [unicast]));
+    }
+
+    private sealed class TestUnicastAddress(IPAddress address, DuplicateAddressDetectionState state)
+        : UnicastIPAddressInformation
+    {
+        public override IPAddress Address => address;
+        public override DuplicateAddressDetectionState DuplicateAddressDetectionState => OperatingSystem.IsWindows()
+            ? state : throw new PlatformNotSupportedException();
+        public override bool IsDnsEligible => false;
+        public override bool IsTransient => false;
+        public override long AddressPreferredLifetime => throw new NotSupportedException();
+        public override long AddressValidLifetime => throw new NotSupportedException();
+        public override long DhcpLeaseLifetime => throw new NotSupportedException();
+        public override IPAddress IPv4Mask => throw new NotSupportedException();
+        public override PrefixOrigin PrefixOrigin => throw new NotSupportedException();
+        public override SuffixOrigin SuffixOrigin => throw new NotSupportedException();
+    }
+
     [TestMethod]
     public void CreateKeyPair_ThenDerivePublicKey_RoundTrips()
     {
