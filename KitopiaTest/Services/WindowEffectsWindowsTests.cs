@@ -3,7 +3,9 @@ using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
+using Kitopia.Desktop.Services;
 using Vanara.Extensions;
 using Vanara.InteropServices;
 using Vanara.PInvoke;
@@ -87,6 +89,15 @@ public sealed class WindowEffectsWindowsTests
                 var fallback = (ISolidColorBrush)window.TransparencyBackgroundFallback!;
                 Assert.AreEqual(1.0, fallback.Opacity);
             }
+
+            using var themeService = new ThemeChange();
+            themeService.SetAccentColor(true, "#0064FA");
+            Dispatcher.UIThread.RunJobs();
+            var accent = new UISettings().GetColorValue(UIColorType.Accent);
+            Assert.IsTrue(application.TryGetResource("KitopiaPrimaryBrush", ThemeVariant.Light, out var primary));
+            Assert.AreEqual(Color.FromRgb(accent.R, accent.G, accent.B), ((ISolidColorBrush)primary!).Color,
+                "The Avalonia system accent must match the actual Windows personalization accent.");
+            TestContext.WriteLine($"Initial Windows accent color: #{accent.R:X2}{accent.G:X2}{accent.B:X2}");
         }
         finally
         {

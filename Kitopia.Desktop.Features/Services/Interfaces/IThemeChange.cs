@@ -6,4 +6,5 @@ public interface IThemeChange
     public void changeAnother();
     public void followSys(bool follow);
     public bool isDark();
+    public void SetAccentColor(bool followSystem, string color);
 }

@@ -139,7 +139,7 @@ internal class Program {
         services.AddTransient<IHotKeyEditor, HotKeyEditorService>();
         services.AddSingleton<ITaskEditorOpenService, TaskEditorOpenService>();
         services.AddTransient<Kitopia.Desktop.Features.CustomScenario.Services.IScenarioUploadService, ScenarioUploadService>();
-        services.AddTransient<IThemeChange, ThemeChange>();
+        services.AddSingleton<IThemeChange, ThemeChange>();
 
         services.AddSingleton<ISearchItemChooseService, SearchItemChooseService>();
         services.AddSingleton<IFeatureFilePicker, DesktopFeatureFilePicker>();
@@ -390,6 +390,8 @@ internal class Program {
             }
         }
 
+        ServiceManager.Services.GetRequiredService<IThemeChange>()
+            .SetAccentColor(ConfigManger.Config.followSystemAccentColor, ConfigManger.Config.accentColor);
         Logger.Information("主题初始化完成");
 
         await PluginManager.InitAsync();

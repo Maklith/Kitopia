@@ -23,6 +23,16 @@
         Topmost="True"
         Title="ToastShowWindow">
     <Window.Styles>
+        <Style Selector="Button.toast-action">
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+        </Style>
+        <Style Selector="Button.toast-action.primary">
+            <Setter Property="Background" Value="{DynamicResource SemiColorPrimary}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
         <Style Selector="LayoutTransformControl.toast-card">
             <Style.Animations>
                 <Animation Easing="CubicEaseOut" FillMode="Forward" Duration="0:0:0.25">
@@ -196,15 +206,14 @@
                                             <DataTemplate x:DataType="services:ToastActionViewModel">
                                                 <Button Content="{Binding Text}"
                                                         Command="{Binding Command}"
+                                                        Classes="toast-action"
+                                                        Classes.primary="{Binding IsPrimary}"
                                                         Height="28"
                                                         Padding="12,0"
                                                         CornerRadius="6"
                                                         FontSize="12"
                                                         FontWeight="Medium"
                                                         BorderThickness="1"
-                                                        Background="{Binding Background}"
-                                                        BorderBrush="{Binding BorderBrush}"
-                                                        Foreground="{Binding Foreground}"
                                                         MinWidth="64" />
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>

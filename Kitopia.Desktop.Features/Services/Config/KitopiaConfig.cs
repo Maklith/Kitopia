@@ -131,6 +131,13 @@ public class KitopiaConfig : ConfigBase
     [ConfigFieldCategory("基本")] [ConfigField<ThemeEnum>("主题选择", "跟随系统,深色还是浅色?", 0xf33c)]
     public ThemeEnum themeChoice = ThemeEnum.跟随系统;
 
+    [ConfigField("主题色跟随系统", "使用 Windows 个性化设置中的主题色", 0xf33c, ConfigFieldType.布尔)]
+    public bool followSystemAccentColor = false;
+
+    [ConfigField("主题色", "", 0xf33c, ConfigFieldType.颜色,
+        VisibleWhen = nameof(followSystemAccentColor), VisibleWhenValue = false)]
+    public string accentColor = "#0064FA";
+
     [ConfigField("自动启动", "可能被杀毒软件阻止", 0xE61C, ConfigFieldType.布尔)]
     public bool autoStart = true;
 

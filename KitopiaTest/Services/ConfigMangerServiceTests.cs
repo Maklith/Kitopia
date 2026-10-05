@@ -15,6 +15,21 @@ namespace KitopiaTest.Services;
 public sealed class ConfigMangerServiceTests
 {
     [TestMethod]
+    public void ThemeColorConfig_LegacyAndCustomizedJson_PreservesDefaultsAndSelection()
+    {
+        var legacy = JsonSerializer.Deserialize<KitopiaConfig>("{}", ConfigManger.DefaultOptions)!;
+        Assert.IsFalse(legacy.followSystemAccentColor);
+        Assert.AreEqual("#0064FA", legacy.accentColor);
+
+        legacy.followSystemAccentColor = true;
+        legacy.accentColor = "#107C41";
+        var json = JsonSerializer.Serialize(legacy, ConfigManger.DefaultOptions);
+        var restored = JsonSerializer.Deserialize<KitopiaConfig>(json, ConfigManger.DefaultOptions)!;
+        Assert.IsTrue(restored.followSystemAccentColor);
+        Assert.AreEqual("#107C41", restored.accentColor);
+    }
+
+    [TestMethod]
     public void ConfigManger_ExposesManagerStateThroughConfigService()
     {
         var originalConfigs = ConfigManger.Configs;

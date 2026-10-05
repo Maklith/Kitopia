@@ -4,10 +4,16 @@
     <SolidColorBrush x:Key="KSemiColorBackground4" Opacity="0.35" Color="{StaticResource SemiBackground4Color}" />
 
     <!-- Kitopia Fluent Design System Tokens (Light Mode) -->
-    <SolidColorBrush x:Key="KitopiaPrimaryBrush" Color="#0064FA" />
-    <SolidColorBrush x:Key="KitopiaPrimaryHoverBrush" Color="#0052D9" />
-    <SolidColorBrush x:Key="KitopiaPrimaryActiveBrush" Color="#0041B2" />
-    <SolidColorBrush x:Key="KitopiaPrimaryLightBrush" Color="#E8F3FF" />
+    <Color x:Key="KitopiaAccentColor">#0064FA</Color>
+    <Color x:Key="KitopiaAccentHoverColor">#0052D9</Color>
+    <Color x:Key="KitopiaAccentActiveColor">#0041B2</Color>
+    <Color x:Key="KitopiaAccentLightColor">#E8F3FF</Color>
+    <Color x:Key="KitopiaAccentLightHoverColor">#CBE4FE</Color>
+
+    <SolidColorBrush x:Key="KitopiaPrimaryBrush" Color="{DynamicResource KitopiaAccentColor}" />
+    <SolidColorBrush x:Key="KitopiaPrimaryHoverBrush" Color="{DynamicResource KitopiaAccentHoverColor}" />
+    <SolidColorBrush x:Key="KitopiaPrimaryActiveBrush" Color="{DynamicResource KitopiaAccentActiveColor}" />
+    <SolidColorBrush x:Key="KitopiaPrimaryLightBrush" Color="{DynamicResource KitopiaAccentLightColor}" />
 
     <SolidColorBrush x:Key="KitopiaCardBackgroundBrush" Color="#FFFFFF" />
     <SolidColorBrush x:Key="KitopiaCardHoverBackgroundBrush" Color="#F9FAFB" />
@@ -19,29 +25,29 @@
     <!-- Badges & Tags -->
     <SolidColorBrush x:Key="KitopiaBadgeSuccessBackground" Color="#E6F7EC" />
     <SolidColorBrush x:Key="KitopiaBadgeSuccessForeground" Color="#107C41" />
-    <SolidColorBrush x:Key="KitopiaBadgeCurrentBackground" Color="#E0EEFB" />
-    <SolidColorBrush x:Key="KitopiaBadgeCurrentForeground" Color="#0064FA" />
+    <SolidColorBrush x:Key="KitopiaBadgeCurrentBackground" Color="{DynamicResource KitopiaAccentLightColor}" />
+    <SolidColorBrush x:Key="KitopiaBadgeCurrentForeground" Color="{DynamicResource KitopiaAccentColor}" />
     <SolidColorBrush x:Key="KitopiaBadgeNeutralBackground" Color="#F0F2F5" />
     <SolidColorBrush x:Key="KitopiaBadgeNeutralForeground" Color="#4B5563" />
     <SolidColorBrush x:Key="KitopiaBadgeDangerBackground" Color="#FDF3F2" />
     <SolidColorBrush x:Key="KitopiaBadgeDangerForeground" Color="#C42B1C" />
     <SolidColorBrush x:Key="KitopiaBadgeDangerBorder" Color="#59C42B1C" />
-    <SolidColorBrush x:Key="KitopiaBadgeTagBackground" Color="#E8F3FF" />
-    <SolidColorBrush x:Key="KitopiaBadgeTagHoverBackground" Color="#CBE4FE" />
-    <SolidColorBrush x:Key="KitopiaBadgeTagForeground" Color="#0064FA" />
+    <SolidColorBrush x:Key="KitopiaBadgeTagBackground" Color="{DynamicResource KitopiaAccentLightColor}" />
+    <SolidColorBrush x:Key="KitopiaBadgeTagHoverBackground" Color="{DynamicResource KitopiaAccentLightHoverColor}" />
+    <SolidColorBrush x:Key="KitopiaBadgeTagForeground" Color="{DynamicResource KitopiaAccentColor}" />
 
-    <SolidColorBrush x:Key="KitopiaAvatarBackground" Color="#D8E9FE" />
-    <SolidColorBrush x:Key="KitopiaAvatarForeground" Color="#0064FA" />
+    <SolidColorBrush x:Key="KitopiaAvatarBackground" Color="{DynamicResource KitopiaAccentLightColor}" />
+    <SolidColorBrush x:Key="KitopiaAvatarForeground" Color="{DynamicResource KitopiaAccentColor}" />
 
     <!-- Fluent ToggleSwitch Accent Color -->
-    <SolidColorBrush x:Key="ToggleSwitchContainerCheckedBackground" Color="#0064FA" />
-    <SolidColorBrush x:Key="ToggleSwitchContainerCheckedPointeroverBackground" Color="#0052D9" />
-    <SolidColorBrush x:Key="ToggleSwitchContainerCheckedPressedBackground" Color="#0041B2" />
+    <SolidColorBrush x:Key="ToggleSwitchContainerCheckedBackground" Color="{DynamicResource KitopiaAccentColor}" />
+    <SolidColorBrush x:Key="ToggleSwitchContainerCheckedPointeroverBackground" Color="{DynamicResource KitopiaAccentHoverColor}" />
+    <SolidColorBrush x:Key="ToggleSwitchContainerCheckedPressedBackground" Color="{DynamicResource KitopiaAccentActiveColor}" />
 
     <!-- Navigation / ListBox Item Hover & Select Tokens -->
     <SolidColorBrush x:Key="ListBoxItemPointeroverBackground" Color="#0F000000" />
-    <SolidColorBrush x:Key="ListBoxItemSelectedBackground" Color="#E8F3FF" />
-    <SolidColorBrush x:Key="ListBoxItemSelectedPointeroverBackground" Color="#D5EAFF" />
+    <SolidColorBrush x:Key="ListBoxItemSelectedBackground" Color="{DynamicResource KitopiaAccentLightColor}" />
+    <SolidColorBrush x:Key="ListBoxItemSelectedPointeroverBackground" Color="{DynamicResource KitopiaAccentLightHoverColor}" />
 
     <!-- Fluent Keycap (Keyboard KBD) Tokens -->
     <SolidColorBrush x:Key="KitopiaKeycapBackground" Color="#F8FAFC" />

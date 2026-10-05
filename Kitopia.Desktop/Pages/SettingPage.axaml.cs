@@ -140,13 +140,14 @@ public partial class SettingPage : UserControl
             configBase.Name = ConfigManger.AllConfigs.FirstOrDefault(x => x.Value == configBase).Key
                               ?? (configBase is KitopiaConfig ? "KitopiaConfig" : string.Empty);
         }
+        TextBlock? categoryHeader = null;
         foreach (var fieldInfo in configBase.GetType()
                      .GetFields(BindingFlags.Instance | BindingFlags.Public))
         {
             var configFieldCategory = fieldInfo.GetCustomAttribute<ConfigFieldCategory>();
             if (configFieldCategory is not null)
             {
-                var categoryHeader = new TextBlock
+                categoryHeader = new TextBlock
                 {
                     Text = configFieldCategory.Category,
                     FontSize = 13,
@@ -187,6 +188,33 @@ public partial class SettingPage : UserControl
                 var selectedValue = fieldInfo.GetValue(configBase);
                 switch (configField.FieldType)
                 {
+                    case ConfigFieldType.颜色:
+                    {
+                        if (fieldInfo.FieldType != typeof(string))
+                            throw new InvalidOperationException($"颜色配置 {fieldInfo.Name} 必须是保存 RGB 十六进制颜色的字符串字段。");
+                        var colorPicker = new ColorPicker
+                        {
+                            Color = Color.TryParse(selectedValue as string, out var color) ? color : Color.FromRgb(0, 100, 250),
+                            IsAlphaEnabled = false,
+                            IsAlphaVisible = false,
+                            Width = 64,
+                            Height = 32,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            HorizontalAlignment = HorizontalAlignment.Right
+                        };
+                        ToolTip.SetTip(colorPicker, configField.Tittle);
+                        EventHandler<ColorChangedEventArgs> handler = (_, args) =>
+                        {
+                            var value = $"#{args.NewColor.R:X2}{args.NewColor.G:X2}{args.NewColor.B:X2}";
+                            fieldInfo.SetValue(configBase, value);
+                            configBase.OnConfigChanged(this, fieldInfo.Name, value);
+                            ConfigManger.Save(configBase.Name);
+                        };
+                        colorPicker.ColorChanged += handler;
+                        disposables.Add(Disposable.Create(() => colorPicker.ColorChanged -= handler));
+                        SettingsExpander.Footer = colorPicker;
+                        break;
+                    }
                     case ConfigFieldType.字符串:
                     {
                         var textBox = new TextBox
@@ -520,6 +548,7 @@ public partial class SettingPage : UserControl
 
 
                 nowControl.Children.Add(SettingsExpander);
+                BindConfigVisibility(SettingsExpander, configBase, configField, categoryHeader);
             }
         }
 
@@ -528,7 +557,7 @@ public partial class SettingPage : UserControl
              var configFieldCategory = methodInfo.GetCustomAttribute<ConfigFieldCategory>();
             if (configFieldCategory is not null)
             {
-                var categoryHeader = new TextBlock
+                categoryHeader = new TextBlock
                 {
                     Text = configFieldCategory.Category,
                     FontSize = 13,
@@ -608,8 +637,51 @@ public partial class SettingPage : UserControl
 
 
                 nowControl.Children.Add(SettingsExpander);
+                BindConfigVisibility(SettingsExpander, configBase, configField, categoryHeader);
             }
         }
+    }
+
+    private void BindConfigVisibility(Control control, ConfigBase configBase, ConfigField configField, TextBlock? categoryHeader)
+    {
+        var category = (Panel)control.Parent!;
+        void UpdateVisibility(bool visible)
+        {
+            control.IsVisible = visible;
+            if (categoryHeader is not null)
+            {
+                categoryHeader.IsVisible = category.Children.Any(item => item.IsVisible);
+                category.IsVisible = categoryHeader.IsVisible;
+            }
+        }
+
+        if (string.IsNullOrEmpty(configField.VisibleWhen))
+        {
+            UpdateVisibility(true);
+            return;
+        }
+
+        var type = configBase.GetType();
+        var field = type.GetField(configField.VisibleWhen, BindingFlags.Instance | BindingFlags.Public);
+        var property = type.GetProperty(configField.VisibleWhen, BindingFlags.Instance | BindingFlags.Public);
+        var value = field is not null ? field.GetValue(configBase)
+            : property is { CanRead: true } && property.GetIndexParameters().Length == 0 ? property.GetValue(configBase) : null;
+        if (value is not bool condition)
+            throw new InvalidOperationException($"配置 {type.Name} 的显示条件 {configField.VisibleWhen} 必须是可读取的公共布尔字段或属性。");
+
+        UpdateVisibility(condition == configField.VisibleWhenValue);
+        EventHandler<ConfigChangedArgs> handler = (_, args) =>
+        {
+            if (args.Name != configField.VisibleWhen || args.Value is not bool changedValue)
+                return;
+
+            if (Dispatcher.UIThread.CheckAccess())
+                UpdateVisibility(changedValue == configField.VisibleWhenValue);
+            else
+                Dispatcher.UIThread.Post(() => UpdateVisibility(changedValue == configField.VisibleWhenValue));
+        };
+        configBase.ConfigChanged += handler;
+        disposables.Add(Disposable.Create(() => configBase.ConfigChanged -= handler));
     }
 
     private void ObservableCollectionChange(object? sender,

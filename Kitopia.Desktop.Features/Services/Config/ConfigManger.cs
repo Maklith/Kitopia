@@ -155,6 +155,18 @@ public class ConfigManger : IConfigService, IConfigProvider
         {
             switch (args.Name)
             {
+                case nameof(KitopiaConfig.followSystemAccentColor):
+                {
+                    ServiceManager.Services.GetRequiredService<IThemeChange>()
+                        .SetAccentColor(args.Value is true, Config.accentColor);
+                    break;
+                }
+                case nameof(KitopiaConfig.accentColor):
+                {
+                    ServiceManager.Services.GetRequiredService<IThemeChange>()
+                        .SetAccentColor(Config.followSystemAccentColor, (string)args.Value!);
+                    break;
+                }
                 case "mouseCapture":
                 {
                     Dispatcher.UIThread.Invoke(() =>

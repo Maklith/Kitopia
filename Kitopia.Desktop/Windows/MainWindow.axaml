@@ -168,7 +168,7 @@
                             <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}" />
                         </Style>
                         <Style Selector="u|NavMenuItem:selected:pointerover controls|FontIcon">
-                            <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimaryHover}" />
+                            <Setter Property="Foreground" Value="{DynamicResource KitopiaPrimaryHoverBrush}" />
                         </Style>
                     </u:NavMenu.Styles>
                     <u:NavMenu.HeaderTemplate>
