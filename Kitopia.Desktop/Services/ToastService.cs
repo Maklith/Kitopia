@@ -30,11 +30,16 @@ public class ToastService : IToastService
     private readonly Dictionary<Guid, CancellationTokenSource> _autoCloseCtsMap = [];
     private readonly Dictionary<Guid, TaskCompletionSource<bool>> _dismissedTcsMap = [];
     private readonly List<SuppressedNotificationEntry> _suppressedEntries = [];
-    private readonly SuppressedNotificationCenterViewModel _notificationCenterViewModel = new();
-    private readonly DispatcherTimer _fullScreenMonitorTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
-    private readonly DispatcherTimer _trayBlinkTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private readonly SuppressedNotificationCenterViewModel _notificationCenterViewModel;
+    private readonly DispatcherTimer _fullScreenMonitorTimer = new(DispatcherPriority.Background, Dispatcher.UIThread)
+        { Interval = TimeSpan.FromMilliseconds(600) };
+    private readonly DispatcherTimer _trayBlinkTimer = new(DispatcherPriority.Background, Dispatcher.UIThread)
+        { Interval = TimeSpan.FromMilliseconds(500) };
     private ToastShowWindow? _toastShowWindow;
     private SuppressedNotificationCenterWindow? _notificationCenterWindow;
+    private WindowIcon? _trayNormalIcon;
+    private WindowIcon? _trayNotifyIcon;
+    private WindowIcon? _trayEmptyIcon;
     private bool _isUnregistered;
     private bool _isFlushingSuppressedRequests;
     private bool _trayBlinkPhaseVisible = true;
@@ -43,8 +48,16 @@ public class ToastService : IToastService
 
     private const int MaxSuppressedQueueSize = 20;
     private const string TrayDefaultToolTip = "Kitopia.Desktop";
-    private static readonly Uri TrayNormalIconUri = new("avares://Kitopia.Desktop/Assets/icon.png");
-    private static readonly Uri TrayNotifyIconUri = new("avares://Kitopia.Desktop/Assets/icon_notify.png");
+    private static readonly Uri TrayNormalIconUri = new("avares://Kitopia.Desktop/Assets/icon.ico");
+    private static readonly Uri TrayNotifyIconUri = new("avares://Kitopia.Desktop/Assets/icon_notify.ico");
+    private static readonly Uri TrayEmptyIconUri = new("avares://Kitopia.Desktop/Assets/icon_empty.ico");
+
+    public ToastService()
+    {
+        _notificationCenterViewModel = new SuppressedNotificationCenterViewModel(ClearUnreadSuppressedNotifications);
+        _fullScreenMonitorTimer.Tick += (_, _) => CheckSuppressedQueueOnUiThread();
+        _trayBlinkTimer.Tick += (_, _) => BlinkTrayIconOnUiThread();
+    }
 
     public void Init()
     {
@@ -61,9 +74,6 @@ public class ToastService : IToastService
             };
             _toastShowWindow.Show();
             _toastShowWindow.Hide();
-
-            _fullScreenMonitorTimer.Tick += (_, _) => CheckSuppressedQueueOnUiThread();
-            _trayBlinkTimer.Tick += (_, _) => BlinkTrayIconOnUiThread();
         }).Wait();
     }
 
@@ -339,8 +349,13 @@ public class ToastService : IToastService
             removed.DismissedTcs.TrySetResult(true);
             _suppressedEntries.RemoveAt(0);
         }
-        _suppressedUnreadCount++;
+        _suppressedUnreadCount = _suppressedEntries.Count;
         _latestSuppressedPreview = BuildPreviewText(request);
+        if (_notificationCenterWindow?.IsVisible == true)
+        {
+            RefreshNotificationCenterItemsOnUiThread();
+        }
+
         EnsureSuppressionIndicatorsOnUiThread();
         return dismissedTcs.Task;
     }
@@ -385,24 +400,22 @@ public class ToastService : IToastService
         _notificationCenterViewModel.Items.Clear();
         for (var i = _suppressedEntries.Count - 1; i >= 0; i--)
         {
-            var index = i;
-            var entry = _suppressedEntries[index];
+            var entry = _suppressedEntries[i];
             _notificationCenterViewModel.Items.Add(new SuppressedNotificationItemViewModel(
                 entry.Header,
                 entry.Text,
                 entry.CreatedAt,
-                () => OpenSuppressedEntryOnUiThread(index)));
+                () => OpenSuppressedEntryOnUiThread(entry)));
         }
     }
 
-    private void OpenSuppressedEntryOnUiThread(int originalIndex)
+    private void OpenSuppressedEntryOnUiThread(SuppressedNotificationEntry entry)
     {
-        if (originalIndex < 0 || originalIndex >= _suppressedEntries.Count)
+        if (!_suppressedEntries.Remove(entry))
         {
             return;
         }
         _notificationCenterWindow?.Hide();
-        var entry = _suppressedEntries[originalIndex];
         try
         {
             entry.ClickCallback?.Invoke();
@@ -412,9 +425,8 @@ public class ToastService : IToastService
             Logger.Error(ex, "打开被抑制通知失败");
         }
 
-        _suppressedEntries.RemoveAt(originalIndex);
         entry.DismissedTcs.TrySetResult(true);
-        _suppressedUnreadCount = Math.Max(0, _suppressedUnreadCount - 1);
+        _suppressedUnreadCount = _suppressedEntries.Count;
         _latestSuppressedPreview = _suppressedEntries.Count > 0
             ? BuildPreviewText(new ToastRequest
             {
@@ -467,6 +479,12 @@ public class ToastService : IToastService
         if (!_trayBlinkTimer.IsEnabled)
         {
             _trayBlinkPhaseVisible = true;
+            var trayIcon = GetPrimaryTrayIconOnUiThread();
+            if (trayIcon is not null)
+            {
+                trayIcon.Icon = _trayNotifyIcon ??= CreateTrayIcon(TrayNotifyIconUri);
+            }
+
             _trayBlinkTimer.Start();
         }
 
@@ -496,7 +514,10 @@ public class ToastService : IToastService
         }
 
         _trayBlinkPhaseVisible = !_trayBlinkPhaseVisible;
-        trayIcon.Icon = CreateTrayIcon(_trayBlinkPhaseVisible ? TrayNotifyIconUri : TrayNormalIconUri);
+        // Keep the native tray slot registered while displaying a transparent ICO.
+        trayIcon.Icon = _trayBlinkPhaseVisible
+            ? _trayNotifyIcon ??= CreateTrayIcon(TrayNotifyIconUri)
+            : _trayEmptyIcon ??= CreateTrayIcon(TrayEmptyIconUri);
         UpdateTrayToolTipOnUiThread();
     }
 
@@ -512,6 +533,7 @@ public class ToastService : IToastService
             _trayBlinkTimer.Stop();
         }
 
+        _trayBlinkPhaseVisible = true;
         var trayIcon = GetPrimaryTrayIconOnUiThread();
         if (trayIcon is null)
         {
@@ -519,7 +541,7 @@ public class ToastService : IToastService
         }
 
         trayIcon.IsVisible = true;
-        trayIcon.Icon = CreateTrayIcon(TrayNormalIconUri);
+        trayIcon.Icon = _trayNormalIcon ??= CreateTrayIcon(TrayNormalIconUri);
         trayIcon.ToolTipText = TrayDefaultToolTip;
     }
 
@@ -537,6 +559,7 @@ public class ToastService : IToastService
         }
 
         _suppressedEntries.Clear();
+        _notificationCenterViewModel.Items.Clear();
         ClearSuppressionUnreadStateOnUiThread();
         StopSuppressionIndicatorsOnUiThread();
     }
@@ -936,23 +959,7 @@ public class ToastService : IToastService
         }
 
         _isUnregistered = true;
-        _fullScreenMonitorTimer.Stop();
-        _trayBlinkTimer.Stop();
-        foreach (var entry in _suppressedEntries)
-        {
-            entry.DismissedTcs.TrySetResult(true);
-        }
-
-        _suppressedEntries.Clear();
-        ClearSuppressionUnreadStateOnUiThread();
-
-        var trayIcon = GetPrimaryTrayIconOnUiThread();
-        if (trayIcon is not null)
-        {
-            trayIcon.IsVisible = true;
-            trayIcon.Icon = CreateTrayIcon(TrayNormalIconUri);
-            trayIcon.ToolTipText = TrayDefaultToolTip;
-        }
+        ClearUnreadSuppressedNotificationsOnUiThread();
 
         var keys = _autoCloseCtsMap.Keys.ToArray();
         foreach (var key in keys)
@@ -968,18 +975,16 @@ public class ToastService : IToastService
         }
 
         _dismissedTcsMap.Clear();
-        if (_toastShowWindow is null)
+        if (_toastShowWindow is not null)
         {
-            return;
-        }
+            if (_toastShowWindow.IsVisible)
+            {
+                _toastShowWindow.Hide();
+            }
 
-        if (_toastShowWindow.IsVisible)
-        {
-            _toastShowWindow.Hide();
+            _toastShowWindow.Close();
+            _toastShowWindow = null;
         }
-
-        _toastShowWindow.Close();
-        _toastShowWindow = null;
 
         _notificationCenterWindow?.ClosePermanently();
         _notificationCenterWindow = null;

@@ -5,7 +5,7 @@
         xmlns:services="clr-namespace:Kitopia.Desktop.Services"
         xmlns:u="https://irihi.tech/ursa"
         mc:Ignorable="d"
-        x:CompileBindings="False"
+        x:DataType="services:SuppressedNotificationCenterViewModel"
         x:Class="Kitopia.Desktop.Services.SuppressedNotificationCenterWindow"
         d:DesignWidth="350"
         d:DesignHeight="433"
@@ -13,9 +13,12 @@
         Width="350"
         Height="433"
         CanResize="False"
+        WindowDecorations="None"
         TransparencyLevelHint="AcrylicBlur"
         WindowStartupLocation="Manual"
         IsFullScreenButtonVisible="False"
+        IsMinimizeButtonVisible="False"
+        IsRestoreButtonVisible="False"
         IsCloseButtonVisible="False"
         IsTitleBarVisible="False"
         ShowInTaskbar="False"
@@ -27,10 +30,23 @@
     <u:UrsaWindow.Background>
         <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.55" />
     </u:UrsaWindow.Background>
-    <Border Padding="10">
+    <Border Padding="12">
         <Grid RowDefinitions="Auto,*" RowSpacing="8">
-            <TextBlock Text="未读通知" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource SemiColorText0}" />
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock Text="未读通知" FontSize="16" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Foreground="{DynamicResource SemiColorText0}" />
+                <Button Grid.Column="1" x:Name="ClearAllButton" Content="清除全部"
+                        Command="{Binding ClearAllCommand}"
+                        Height="28" Padding="10,0" CornerRadius="6" FontSize="12"
+                        Theme="{DynamicResource BorderlessButton}"
+                        ToolTip.Tip="清除所有未读通知" />
+            </Grid>
+            <TextBlock Grid.Row="1" Text="暂无未读通知"
+                       IsVisible="{Binding !HasNotifications}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       FontSize="14" Foreground="{DynamicResource SemiColorText2}" />
+            <ScrollViewer Grid.Row="1" IsVisible="{Binding HasNotifications}"
+                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch">
                 <ItemsControl ItemsSource="{Binding Items}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="services:SuppressedNotificationItemViewModel">
@@ -45,7 +61,7 @@
                                          Background="{DynamicResource KitopiaCardBackgroundBrush}"
                                          BorderBrush="{DynamicResource SemiColorBorder}"
                                          BorderThickness="1"
-                                         CornerRadius="8"
+                                         CornerRadius="12"
                                          BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
                                          Padding="14,12">
                                      <Grid RowDefinitions="Auto,Auto"

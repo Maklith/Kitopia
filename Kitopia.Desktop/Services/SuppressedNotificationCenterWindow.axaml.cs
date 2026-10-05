@@ -1,7 +1,6 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Ursa.Controls;
 using Vanara.PInvoke;
 
@@ -9,12 +8,16 @@ namespace Kitopia.Desktop.Services;
 
 public partial class SuppressedNotificationCenterWindow : UrsaWindow
 {
+    private readonly Size _preferredSize;
+    private PixelPoint _anchorPoint;
     private bool _allowClose;
 
     public SuppressedNotificationCenterWindow()
     {
         InitializeComponent();
+        _preferredSize = new Size(Width, Height);
         Closing += OnClosing;
+        Opened += (_, _) => Reposition();
     }
 
     public void ClosePermanently()
@@ -26,29 +29,43 @@ public partial class SuppressedNotificationCenterWindow : UrsaWindow
     public void RepositionNearCursor()
     {
         User32.GetCursorPos(out var pos);
-        var screen = Screens.ScreenFromPoint(new PixelPoint(pos.X, pos.Y)) ?? Screens.Primary;
+        _anchorPoint = new PixelPoint(pos.X, pos.Y);
+        Reposition();
+    }
+
+    private void Reposition()
+    {
+        var screen = Screens.ScreenFromPoint(_anchorPoint) ?? Screens.Primary;
         if (screen is null)
         {
             return;
         }
 
-        var margin = 10;
-        var workingArea = screen.WorkingArea;
-        var width = Math.Max(1, (int)Math.Ceiling((Bounds.Width > 0 ? Bounds.Width : Width) * RenderScaling));
-        var height = Math.Max(1, (int)Math.Ceiling((Bounds.Height > 0 ? Bounds.Height : Height) * RenderScaling));
+        var placement = GetPopupBounds(_anchorPoint, screen.WorkingArea, screen.Scaling, _preferredSize);
+        Width = placement.Width / screen.Scaling;
+        Height = placement.Height / screen.Scaling;
+        Position = placement.Position;
+    }
 
-        var targetX = workingArea.Right - width - margin;
-        var targetY = workingArea.Bottom - height - margin;
+    internal static PixelRect GetPopupBounds(PixelPoint anchor, PixelRect workingArea, double scaling, Size preferredSize)
+    {
+        var margin = (int)Math.Ceiling(10 * scaling);
+        var width = Math.Max(1, Math.Min((int)Math.Ceiling(preferredSize.Width * scaling), workingArea.Width - 2 * margin));
+        var height = Math.Max(1, Math.Min((int)Math.Ceiling(preferredSize.Height * scaling), workingArea.Height - 2 * margin));
 
         var minX = workingArea.X + margin;
         var minY = workingArea.Y + margin;
         var maxX = Math.Max(minX, workingArea.Right - width - margin);
         var maxY = Math.Max(minY, workingArea.Bottom - height - margin);
 
-        targetX = Math.Clamp(targetX, minX, maxX);
-        targetY = Math.Clamp(targetY, minY, maxY);
+        var targetX = Math.Clamp(anchor.X - width / 2, minX, maxX);
+        var targetY = anchor.Y - height - margin;
+        if (targetY < minY)
+        {
+            targetY = anchor.Y + margin;
+        }
 
-        Position = new PixelPoint(targetX, targetY);
+        return new PixelRect(targetX, Math.Clamp(targetY, minY, maxY), width, height);
     }
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)

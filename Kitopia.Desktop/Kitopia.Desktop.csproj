@@ -43,6 +43,8 @@
     <ItemGroup>
         <AvaloniaResource Include="Assets\HarmonyOS_Sans_SC_Regular.ttf"/>
         <AvaloniaResource Include="Assets\icon.png" />
+        <AvaloniaResource Include="Assets\icon_notify.ico" />
+        <AvaloniaResource Include="Assets\icon_empty.ico" />
         <AvaloniaResource Include="Assets\icon.ico" />
         <Content Include="..\KitopiaVersion.props">
           <Link>KitopiaVersion.props</Link>

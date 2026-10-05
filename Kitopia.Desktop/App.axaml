@@ -58,7 +58,7 @@
 
     <TrayIcon.Icons>
         <TrayIcons>
-            <TrayIcon ToolTipText="Kitopia" Icon="/Assets/icon.png" Command="{Binding OpenMainWindowCommand}">
+            <TrayIcon ToolTipText="Kitopia" Icon="/Assets/icon.ico" Command="{Binding OpenMainWindowCommand}">
                 <TrayIcon.Menu>
                     <NativeMenu>
                         <NativeMenuItem Header="退出" Command="{Binding ExitCommand}" />
