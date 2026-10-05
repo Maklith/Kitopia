@@ -16,7 +16,7 @@
         <Grid RowDefinitions="Auto,*" RowSpacing="10">
             <!-- 1. Kicker Title -->
             <TextBlock Grid.Row="0"
-                       Text="KITOPIA 账户"
+                       Text="{DynamicResource 'lang.kitopia.kitopia_account'}"
                        FontSize="11"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource SemiColorText2}"
@@ -62,12 +62,13 @@
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
                     <!-- Not Logged In State -->
                     <StackPanel Spacing="2" IsVisible="{Binding !IsLoggedIn}">
-                        <TextBlock Text="未登录 Kitopia 账户"
+                        <TextBlock Text="{DynamicResource 'lang.kitopia.not_signed_in_to_kitopia'}"
                                    FontSize="15"
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource SemiColorText0}" />
-                        <TextBlock Text="通过浏览器安全授权登录，同步个人资料并管理扩展插件。"
+                        <TextBlock Text="{DynamicResource 'lang.kitopia.sign_in_through_your_browser_to_sync_your_profile_and_manage_plugins'}"
                                    FontSize="12"
+                                   TextWrapping="Wrap"
                                    Foreground="{DynamicResource SemiColorText2}" />
                     </StackPanel>
 
@@ -114,24 +115,25 @@
                                 Cursor="Hand">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <controls:FontIcon Glyph="&#xf45a;" FontSize="15" />
-                                <TextBlock Text="浏览器登录" FontSize="13" FontWeight="SemiBold" />
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.sign_in_with_browser'}" FontSize="13" FontWeight="SemiBold" />
                             </StackPanel>
                         </Button>
 
                         <!-- Waiting in Browser State -->
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="{Binding IsLoggingIn}">
-                            <TextBlock Text="等待浏览器授权..."
+                            <TextBlock Text="{DynamicResource 'lang.kitopia.waiting_for_browser_authorization'}"
                                        FontSize="12"
+                                       MaxWidth="180" TextWrapping="Wrap"
                                        Foreground="{DynamicResource SemiColorText2}"
                                        VerticalAlignment="Center" />
-                            <Button Content="重新打开"
+                            <Button Content="{DynamicResource 'lang.kitopia.reopen'}"
                                     Command="{Binding LoginCommand}"
                                     Height="30"
                                     CornerRadius="6"
                                     Padding="10,0"
                                     FontSize="12"
                                     Cursor="Hand" />
-                            <Button Content="取消"
+                            <Button Content="{DynamicResource 'lang.kitopia.cancel'}"
                                     Command="{Binding CancelLoginCommand}"
                                     Height="30"
                                     CornerRadius="6"
@@ -143,7 +145,7 @@
 
                     <!-- Logged In Actions -->
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="{Binding IsLoggedIn}">
-                        <Button Content="管理网页账户"
+                        <Button Content="{DynamicResource 'lang.kitopia.manage_web_account'}"
                                 Command="{Binding OpenWebAccountCommand}"
                                 Height="32"
                                 CornerRadius="6"
@@ -151,7 +153,7 @@
                                 FontSize="12"
                                 FontWeight="Medium"
                                 Cursor="Hand" />
-                        <Button Content="刷新"
+                        <Button Content="{DynamicResource 'lang.kitopia.refresh'}"
                                 Command="{Binding RefreshCommand}"
                                 Height="32"
                                 CornerRadius="6"
@@ -159,7 +161,7 @@
                                 FontSize="12"
                                 FontWeight="Medium"
                                 Cursor="Hand" />
-                        <Button Content="退出登录"
+                        <Button Content="{DynamicResource 'lang.kitopia.sign_out'}"
                                 Command="{Binding LogoutCommand}"
                                 Height="32"
                                 CornerRadius="6"

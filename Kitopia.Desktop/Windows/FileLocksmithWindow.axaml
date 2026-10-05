@@ -8,7 +8,7 @@
         x:Class="Kitopia.Desktop.Windows.FileLocksmithWindow"
         x:DataType="vm:FileLocksmithWindowViewModel"
         Icon="/Assets/icon.ico"
-        Title="文件占用监控 - Kitopia"
+        Title="{DynamicResource 'lang.kitopia.file_locks_kitopia'}"
         Width="1080" Height="640"
         MinWidth="820" MinHeight="480"
         WindowStartupLocation="CenterScreen"
@@ -78,7 +78,7 @@
                 <!-- Header / Scope info -->
                 <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2">
-                        <TextBlock Text="系统诊断 · 文件占用监控"
+                        <TextBlock Text="{DynamicResource 'lang.kitopia.diagnostics_file_locks'}"
                                    FontSize="12"
                                    FontWeight="Medium"
                                    Foreground="{DynamicResource SemiColorText2}"/>
@@ -100,12 +100,12 @@
                 <!-- Action Controls Row 1: Refresh, Auto, Intervals, Toggles, Directory -->
                 <WrapPanel Orientation="Horizontal">
                     <Button Classes="Primary"
-                            Content="刷新"
+                            Content="{DynamicResource 'lang.kitopia.refresh'}"
                             Command="{Binding ScanCommand}"
                             IsEnabled="{Binding !IsScanning}"
                             Margin="0,0,10,0"/>
 
-                    <CheckBox Content="自动刷新"
+                    <CheckBox Content="{DynamicResource 'lang.kitopia.auto_refresh'}"
                               IsChecked="{Binding AutoRefresh}"
                               VerticalAlignment="Center"
                               Margin="0,0,6,0"/>
@@ -113,26 +113,26 @@
                     <ComboBox SelectedIndex="{Binding SelectedIntervalIndex}"
                               Width="82"
                               Margin="0,0,14,0">
-                        <ComboBoxItem Content="2 秒"/>
-                        <ComboBoxItem Content="5 秒"/>
-                        <ComboBoxItem Content="10 秒"/>
+                        <ComboBoxItem Content="{DynamicResource 'lang.kitopia.2_seconds'}"/>
+                        <ComboBoxItem Content="{DynamicResource 'lang.kitopia.5_seconds'}"/>
+                        <ComboBoxItem Content="{DynamicResource 'lang.kitopia.10_seconds'}"/>
                     </ComboBox>
 
-                    <CheckBox Content="只看被锁定"
+                    <CheckBox Content="{DynamicResource 'lang.kitopia.locked_only'}"
                               IsChecked="{Binding OnlyLocked}"
                               VerticalAlignment="Center"
                               Margin="0,0,12,0"/>
 
-                    <CheckBox Content="包含子目录"
+                    <CheckBox Content="{DynamicResource 'lang.kitopia.include_subdirectories'}"
                               IsChecked="{Binding IncludeSubDirs}"
                               VerticalAlignment="Center"
                               Margin="0,0,14,0"/>
 
-                    <Button Content="选择目录"
+                    <Button Content="{DynamicResource 'lang.kitopia.select_folder'}"
                             Click="PickFolder_Click"
                             Margin="0,0,10,0"/>
 
-                    <Button Content="全系统监控"
+                    <Button Content="{DynamicResource 'lang.kitopia.system_wide_monitoring'}"
                             Click="ClearScope_Click"
                             IsVisible="{Binding RootDir, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                             Margin="0,0,0,0"/>
@@ -142,27 +142,27 @@
                 <DockPanel LastChildFill="False">
                     <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="8">
                         <TextBox Width="240"
-                                 PlaceholderText="搜索文件名、进程名或路径..."
+                                 PlaceholderText="{DynamicResource 'lang.kitopia.search_file_process_or_path'}"
                                  Text="{Binding FilterText}"/>
 
                         <!-- View Toggle: Tree View vs Table View -->
                         <Border Theme="{DynamicResource RadioButtonGroupBorder}">
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton Theme="{DynamicResource ButtonRadioButton}"
-                                             Content="树形结构"
+                                             Content="{DynamicResource 'lang.kitopia.tree_view'}"
                                              IsChecked="{Binding IsTreeView}"/>
                                 <RadioButton Theme="{DynamicResource ButtonRadioButton}"
-                                             Content="表格视图"
+                                             Content="{DynamicResource 'lang.kitopia.table_view'}"
                                              IsChecked="{Binding !IsTreeView}"/>
                             </StackPanel>
                         </Border>
 
-                        <Button Content="展开全部"
+                        <Button Content="{DynamicResource 'lang.kitopia.expand_all'}"
                                 Height="32"
                                 Padding="10,0"
                                 Command="{Binding ExpandAllCommand}"
                                 IsVisible="{Binding IsTreeView}"/>
-                        <Button Content="折叠全部"
+                        <Button Content="{DynamicResource 'lang.kitopia.collapse_all'}"
                                 Height="32"
                                 Padding="10,0"
                                 Command="{Binding CollapseAllCommand}"
@@ -170,14 +170,14 @@
                     </StackPanel>
 
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
-                        <Button Content="解除选中占用"
+                        <Button Content="{DynamicResource 'lang.kitopia.release_selected_locks'}"
                                 Command="{Binding KillSelectedCommand}"
                                 IsEnabled="{Binding HasSelection}"/>
-                        <Button Content="解除同文件全部占用"
+                        <Button Content="{DynamicResource 'lang.kitopia.release_all_locks_on_this_file'}"
                                 Command="{Binding KillAllForFileCommand}"
                                 IsEnabled="{Binding HasSelection}"/>
                         <Button Classes="Danger"
-                                Content="解除占用并删除"
+                                Content="{DynamicResource 'lang.kitopia.release_lock_and_delete'}"
                                 Command="{Binding UnlockAndDeleteCommand}"
                                 IsEnabled="{Binding HasSelection}"/>
                     </StackPanel>
@@ -207,18 +207,18 @@
                     </TreeView.Styles>
                     <TreeView.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Header="打开所在位置"
+                            <MenuItem Header="{DynamicResource 'lang.kitopia.open_containing_location'}"
                                       Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).OpenFileLocationCommand}"
                                       CommandParameter="{Binding SelectedNode.FilePath}"/>
                             <Separator/>
-                            <MenuItem Header="结束此进程 / 解除占用"
+                            <MenuItem Header="{DynamicResource 'lang.kitopia.end_process_and_release_lock'}"
                                       Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).KillNodeCommand}"
                                       CommandParameter="{Binding SelectedNode}"/>
-                            <MenuItem Header="解除同文件全部占用"
+                            <MenuItem Header="{DynamicResource 'lang.kitopia.release_all_locks_on_this_file'}"
                                       Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).KillAllForFileCommand}"
                                       CommandParameter="{Binding SelectedNode.FilePath}"/>
                             <Separator/>
-                            <MenuItem Header="解除占用并删除"
+                            <MenuItem Header="{DynamicResource 'lang.kitopia.release_lock_and_delete'}"
                                       Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).UnlockAndDeleteCommand}"
                                       CommandParameter="{Binding SelectedNode.FilePath}"/>
                         </ContextMenu>
@@ -309,7 +309,7 @@
                                     <!-- Right: Node Action Buttons -->
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                         <!-- Process: Kill Process -->
-                                        <Button Content="结束进程"
+                                        <Button Content="{DynamicResource 'lang.kitopia.end_process'}"
                                                 Classes="Danger"
                                                 Height="26"
                                                 Padding="8,0"
@@ -319,7 +319,7 @@
                                                 CommandParameter="{Binding}"/>
 
                                         <!-- File or Directory: Unlock -->
-                                        <Button Content="解除占用"
+                                        <Button Content="{DynamicResource 'lang.kitopia.release_lock'}"
                                                 Height="26"
                                                 Padding="8,0"
                                                 FontSize="12"
@@ -328,7 +328,7 @@
                                                 CommandParameter="{Binding}"/>
 
                                         <!-- File: Unlock & Delete -->
-                                        <Button Content="删除"
+                                        <Button Content="{DynamicResource 'lang.kitopia.delete'}"
                                                 Classes="Danger"
                                                 Height="26"
                                                 Padding="8,0"
@@ -338,7 +338,7 @@
                                                 CommandParameter="{Binding FilePath}"/>
 
                                         <!-- Open Location -->
-                                        <Button Content="打开位置"
+                                        <Button Content="{DynamicResource 'lang.kitopia.open_location'}"
                                                 Height="26"
                                                 Padding="8,0"
                                                 FontSize="12"
@@ -366,7 +366,7 @@
                           BorderThickness="0">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="PID" Binding="{Binding PidText}" Width="75"/>
-                        <DataGridTemplateColumn Header="文件名" Width="220">
+                        <DataGridTemplateColumn Header="{DynamicResource 'lang.kitopia.file_name'}" Width="220">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate x:DataType="fs:FileLockInfo">
                                     <TextBlock Text="{Binding FileName}"
@@ -377,8 +377,8 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTextColumn Header="进程名" Binding="{Binding ProcessName}" Width="180"/>
-                        <DataGridTemplateColumn Header="状态" Width="95">
+                        <DataGridTextColumn Header="{DynamicResource 'lang.kitopia.process_name'}" Binding="{Binding ProcessName}" Width="180"/>
+                        <DataGridTemplateColumn Header="{DynamicResource 'lang.kitopia.status'}" Width="95">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate x:DataType="fs:FileLockInfo">
                                     <Border Classes="badge"
@@ -391,7 +391,7 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="文件路径" Width="*">
+                        <DataGridTemplateColumn Header="{DynamicResource 'lang.kitopia.file_path'}" Width="*">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate x:DataType="fs:FileLockInfo">
                                     <TextBlock Text="{Binding FilePath}"
@@ -406,18 +406,18 @@
 
                     <DataGrid.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Header="打开所在位置"
+                            <MenuItem Header="{DynamicResource 'lang.kitopia.open_containing_location'}"
                                       Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).OpenFileLocationCommand}"
                                       CommandParameter="{Binding SelectedRecord}"/>
                             <Separator/>
-                            <MenuItem Header="结束此进程 (解除占用)"
+                            <MenuItem Header="{DynamicResource 'lang.kitopia.end_process_release_lock'}"
                                       Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).KillSelectedCommand}"
                                       CommandParameter="{Binding SelectedRecord}"/>
-                            <MenuItem Header="结束占用此文件的全部进程"
+                            <MenuItem Header="{DynamicResource 'lang.kitopia.end_all_processes_locking_this_file'}"
                                       Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).KillAllForFileCommand}"
                                       CommandParameter="{Binding SelectedRecord}"/>
                             <Separator/>
-                            <MenuItem Header="解除占用并删除"
+                            <MenuItem Header="{DynamicResource 'lang.kitopia.release_lock_and_delete'}"
                                       Command="{Binding $parent[Window].((vm:FileLocksmithWindowViewModel)DataContext).UnlockAndDeleteCommand}"
                                       CommandParameter="{Binding SelectedRecord}"/>
                         </ContextMenu>
@@ -436,7 +436,7 @@
                        TextTrimming="CharacterEllipsis"/>
 
             <Button Grid.Column="1"
-                    Content="关闭"
+                    Content="{DynamicResource 'lang.kitopia.close'}"
                     Height="30"
                     Padding="16,0"
                     Click="CloseButton_Click"/>

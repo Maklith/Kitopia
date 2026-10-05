@@ -2,6 +2,7 @@ using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Irihi.Avalonia.Shared.Contracts;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -69,8 +70,8 @@ public partial class PluginDetailViewModel : ObservableObject, IDialogContext
                 {
                     await toastService.Show(new ToastRequest
                     {
-                        Header = "插件已安装",
-                        Text = $"{PluginInfo.PluginBaseInfo.Name} {version} 已成功安装并启用。",
+                        Header = Lang.Get("lang.kitopia.plugin_installed"),
+                        Text = Lang.Format("lang.kitopia.value_value_installed_and_enabled", PluginInfo.PluginBaseInfo.Name, version),
                         NotificationType = NotificationType.Success
                     }, windowTool?.GetForegroundWindow());
                 }
@@ -81,8 +82,8 @@ public partial class PluginDetailViewModel : ObservableObject, IDialogContext
                 {
                     await toastService.Show(new ToastRequest
                     {
-                        Header = "插件安装失败",
-                        Text = $"无法下载安装 {PluginInfo.PluginBaseInfo.Name} {version}。",
+                        Header = Lang.Get("lang.kitopia.plugin_installation_failed"),
+                        Text = Lang.Format("lang.kitopia.cannot_download_or_install_value_value", PluginInfo.PluginBaseInfo.Name, version),
                         NotificationType = NotificationType.Warning
                     }, windowTool?.GetForegroundWindow());
                 }

@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.Buffers;
 using System.Net;
 using System.Text;
@@ -169,49 +170,46 @@ public class MqttManager
                     var onlinePluginInfo = await PluginNetworkService.GetOnlinePluginInfo(pluginSign);
                     if (onlinePluginInfo == null)
                     {
-                        toast.Show("来自URL的操作失败",
-                            $"下载安装插件{pluginSign}不存在");
+                        toast.Show(Lang.Get("lang.kitopia.url_operation_failed"),
+                            Lang.Format("lang.kitopia.plugins.not_found", pluginSign));
                         break;
                     }
 
                     version ??= onlinePluginInfo.LastVersion;
                     if (string.IsNullOrWhiteSpace(version))
                     {
-                        toast.Show("来自URL的操作失败", $"插件 {onlinePluginInfo.Name} 没有可安装的版本");
+                        toast.Show(Lang.Get("lang.kitopia.url_operation_failed"), Lang.Format("lang.kitopia.plugins.no_installable_version", onlinePluginInfo.Name));
                         break;
                     }
 
                     var authorNameTask = PluginNetworkService.GetAuthorNameAsync(onlinePluginInfo.AuthorId);
                     var supportSystems = onlinePluginInfo.SupportSystems.Count > 0
-                        ? string.Join("、", onlinePluginInfo.SupportSystems.Select(system => system.ToLowerInvariant() switch
+                        ? string.Join(", ", onlinePluginInfo.SupportSystems.Select(system => system.ToLowerInvariant() switch
                         {
                             "windows" => "Windows",
                             "macos" => "macOS",
                             "linux" => "Linux",
                             _ => system
                         }))
-                        : "未知";
-                    var authorName = await authorNameTask ?? $"用户 {onlinePluginInfo.AuthorId}";
+                        : Lang.Get("lang.kitopia.unknown");
+                    var authorName = await authorNameTask ?? Lang.Format("lang.kitopia.users.default_name", onlinePluginInfo.AuthorId);
                     var request = new ToastRequest
                     {
-                        Header = $"安装插件 · {onlinePluginInfo.Name}",
-                        Text = $"{onlinePluginInfo.NameSign}\n\n" +
-                               $"{onlinePluginInfo.DescriptionShort ?? onlinePluginInfo.Description ?? "暂无简介"}\n\n" +
-                               $"版本：v{version}\n" +
-                               $"支持系统：{supportSystems}\n" +
-                               $"作者：{authorName}\n" +
-                               $"{onlinePluginInfo.DownloadCounts} 下载" ,
+                        Header = Lang.Format("lang.kitopia.plugins.install_title", onlinePluginInfo.Name),
+                        Text = Lang.Format("lang.kitopia.plugins.install_details", onlinePluginInfo.NameSign,
+                            onlinePluginInfo.DescriptionShort ?? onlinePluginInfo.Description ?? Lang.Get("lang.kitopia.no_summary"),
+                            version, supportSystems, authorName, onlinePluginInfo.DownloadCounts),
                         NotificationType = Avalonia.Controls.Notifications.NotificationType.Information,
                         AutoCloseDelay = null,
                         Actions =
                         [
                             new ToastAction
                             {
-                                Text = "安装",
+                                Text = Lang.Get("lang.kitopia.install"),
                                 IsPrimary = true,
                                 Callback = () => _ = InstallPluginFromUrlAsync(onlinePluginInfo, version)
                             },
-                            new ToastAction { Text = "取消" }
+                            new ToastAction { Text = Lang.Get("lang.kitopia.cancel") }
                         ]
                     };
 
@@ -228,16 +226,16 @@ public class MqttManager
                     var scenario = await ScenarioMarketService.GetScenarioAsync(scenarioId);
                     await ShowPluginInstallDialogAsync(new ToastRequest
                     {
-                        Header = $"导入情景 · {scenario.Name}", Text = $"{scenario.Description}\n作者：{scenario.Author}\n版本：{version ?? scenario.LastVersion ?? "最新版本"}",
+                        Header = Lang.Format("lang.kitopia.scenarios.import_title", scenario.Name), Text = Lang.Format("lang.kitopia.messages.value_author_value_version_value", scenario.Description, scenario.Author, version ?? scenario.LastVersion ?? Lang.Get("lang.kitopia.latest_version")),
                         AutoCloseDelay = null, ShowCloseButton = true,
-                        Actions = [new ToastAction { Text = "导入", IsPrimary = true, Callback = () => _ = ImportScenarioFromUrlAsync(scenario.Id, version) },
-                            new ToastAction { Text = "取消" }]
+                        Actions = [new ToastAction { Text = Lang.Get("lang.kitopia.import"), IsPrimary = true, Callback = () => _ = ImportScenarioFromUrlAsync(scenario.Id, version) },
+                            new ToastAction { Text = Lang.Get("lang.kitopia.cancel") }]
                     }, toast!);
                 }
                 catch (Exception exception)
                 {
                     Logger.Error(exception, "无法获取市场情景 {ScenarioId}", scenarioId);
-                    await toast!.Show("情景导入失败", exception.Message);
+                    await toast!.Show(Lang.Get("lang.kitopia.scenario_import_failed"), exception.Message);
                 }
                 break;
             }
@@ -245,42 +243,42 @@ public class MqttManager
                 if (!string.IsNullOrEmpty(value))
                 {
                     searchFeature.AddToIndex(value);
-                    toast.Show("索引操作", $"已添加到索引: {value}");
+                    toast.Show(Lang.Get("lang.kitopia.index_operation"), Lang.Format("lang.kitopia.indexing.added", value));
                 }
                 break;
             case StartupAction.IndexRemove:
                 if (!string.IsNullOrEmpty(value))
                 {
                     searchFeature.RemoveFromIndex(value);
-                    toast.Show("索引操作", $"已从索引移除: {value}");
+                    toast.Show(Lang.Get("lang.kitopia.index_operation"), Lang.Format("lang.kitopia.indexing.removed", value));
                 }
                 break;
             case StartupAction.IndexCheck:
                 if (!string.IsNullOrEmpty(value))
                 {
                     var exists = searchFeature.IsIndexed(value);
-                    toast.Show("索引状态", exists ? $"已索引: {value}" : $"未索引: {value}");
+                    toast.Show(Lang.Get("lang.kitopia.index_status"), Lang.Format(exists ? "lang.kitopia.indexing.present" : "lang.kitopia.indexing.missing", value));
                 }
                 break;
             case StartupAction.PinAdd:
                 if (!string.IsNullOrEmpty(value))
                 {
                     searchFeature.SetPinned(value, true);
-                    toast.Show("收藏操作", $"已收藏: {value}");
+                    toast.Show(Lang.Get("lang.kitopia.favorite_operation"), Lang.Format("lang.kitopia.favorites.added", value));
                 }
                 break;
             case StartupAction.PinRemove:
                 if (!string.IsNullOrEmpty(value))
                 {
                     searchFeature.SetPinned(value, false);
-                    toast.Show("收藏操作", $"已取消收藏: {value}");
+                    toast.Show(Lang.Get("lang.kitopia.favorite_operation"), Lang.Format("lang.kitopia.favorites.removed", value));
                 }
                 break;
             case StartupAction.PinCheck:
                 if (!string.IsNullOrEmpty(value))
                 {
                     var pinned = searchFeature.IsPinned(value);
-                    toast.Show("收藏状态", pinned ? $"已收藏: {value}" : $"未收藏: {value}");
+                    toast.Show(Lang.Get("lang.kitopia.favorite_status"), Lang.Format(pinned ? "lang.kitopia.favorites.added" : "lang.kitopia.favorites.missing", value));
                 }
                 break;
             case StartupAction.PluginCheck:
@@ -288,7 +286,7 @@ public class MqttManager
                 {
                     var info = PluginManager.GetPluginLocalInfoByPlgStr(value);
                     var installed = info != null;
-                    toast.Show("插件状态", installed ? $"已安装插件: {value}" : $"未安装插件: {value}");
+                    toast.Show(Lang.Get("lang.kitopia.plugin_status"), Lang.Format(installed ? "lang.kitopia.plugins.installed" : "lang.kitopia.plugins.not_installed", value));
                 }
                 break;
             case StartupAction.PluginAdd:
@@ -298,11 +296,11 @@ public class MqttManager
                     if (onlineInfo != null)
                     {
                         await PluginManager.DownloadPluginAndEnable(onlineInfo.NameSign);
-                        toast.Show("插件操作", $"插件安装/启用成功: {value}");
+                        toast.Show(Lang.Get("lang.kitopia.plugin_operation"), Lang.Format("lang.kitopia.plugins.install_succeeded", value));
                     }
                     else
                     {
-                        toast.Show("插件操作", $"找不到插件: {value}");
+                        toast.Show(Lang.Get("lang.kitopia.plugin_operation"), Lang.Format("lang.kitopia.plugins.not_found", value));
                     }
                 }
                 break;
@@ -313,23 +311,23 @@ public class MqttManager
                     var pluginDisplayName = pluginInfo != null ? pluginInfo.PluginBaseInfo.Name : value;
                     var request = new ToastRequest
                     {
-                        Header = "卸载插件确认",
-                        Text = $"收到来自外部的卸载请求，是否确认删除插件【{pluginDisplayName}】（{value}）？",
+                        Header = Lang.Get("lang.kitopia.plugins.uninstall_title"),
+                        Text = Lang.Format("lang.kitopia.plugins.uninstall_request", pluginDisplayName, value),
                         NotificationType = Avalonia.Controls.Notifications.NotificationType.Warning,
                         AutoCloseDelay = null,
                         Actions =
                         [
                             new ToastAction
                             {
-                                Text = "确认卸载",
+                                Text = Lang.Get("lang.kitopia.confirm_uninstall"),
                                 IsPrimary = true,
                                 Callback = () =>
                                 {
                                     PluginManager.DeletePlugin(value);
-                                    toast?.Show("插件操作", $"插件【{pluginDisplayName}】已成功卸载");
+                                    toast?.Show(Lang.Get("lang.kitopia.plugin_operation"), Lang.Format("lang.kitopia.plugins.uninstalled", pluginDisplayName));
                                 }
                             },
-                            new ToastAction { Text = "取消" }
+                            new ToastAction { Text = Lang.Get("lang.kitopia.cancel") }
                         ]
                     };
                     await ShowPluginInstallDialogAsync(request, toast);
@@ -347,7 +345,7 @@ public class MqttManager
                 var lanFileShareWindow = ServiceManager.Services.GetService<ILanFileShareWindow>();
                 if (lanFileShareWindow == null)
                 {
-                    toast.Show("局域网分享", "分享窗口不可用。");
+                    toast.Show(Lang.Get("lang.kitopia.lan_sharing"), Lang.Get("lang.kitopia.the_sharing_window_is_unavailable"));
                     break;
                 }
 
@@ -355,7 +353,7 @@ public class MqttManager
 
                 if (filePaths.Count == 0)
                 {
-                    toast.Show("局域网分享", "未识别到可发送文件。");
+                    toast.Show(Lang.Get("lang.kitopia.lan_sharing"), Lang.Get("lang.kitopia.no_files_available_to_send_were_found"));
                 }
             }
                 break;
@@ -456,12 +454,12 @@ public class MqttManager
         try
         {
             var imported = await ScenarioMarketService.ImportAsync(id, version: version);
-            await toast.Show("情景已导入", imported.HasInit ? imported.Name : $"{imported.Name}：{imported.InitError}");
+            await toast.Show(Lang.Get("lang.kitopia.scenario_imported"), imported.HasInit ? imported.Name : $"{imported.Name}：{imported.InitError}");
         }
         catch (Exception exception)
         {
             Logger.Error(exception, "从 URL 导入情景失败 {ScenarioId}", id);
-            await toast.Show("情景导入失败", exception.Message);
+            await toast.Show(Lang.Get("lang.kitopia.scenario_import_failed"), exception.Message);
         }
     }
 
@@ -469,9 +467,9 @@ public class MqttManager
     {
         var toast = ServiceManager.Services.GetRequiredService<IToastService>();
         var installed = await PluginManager.DownloadPluginAndEnable(plugin.NameSign, version);
-        await toast.Show("来自URL的操作", installed
-            ? $"下载安装插件{plugin.Name}成功"
-            : $"下载安装插件{plugin.Name}失败");
+        await toast.Show(Lang.Get("lang.kitopia.url_operation"), Lang.Format(installed
+            ? "lang.kitopia.plugins.install_succeeded"
+            : "lang.kitopia.plugins.install_failed", plugin.Name));
     }
 
     private static JObject BuildActionPayload(StartupResult result)

@@ -77,6 +77,7 @@
         <ProjectReference Include="..\PinyinM.NET\Pinyin.NET\Pinyin.NET.csproj"/>
         <ProjectReference Include="..\Kitopia.Desktop.PluginSdk\Kitopia.Desktop.PluginSdk.csproj"/>
         <ProjectReference Include="..\Kitopia.Feature\Kitopia.Feature.csproj"/>
+        <ProjectReference Include="..\Kitopia.Feature.Avalonia\Kitopia.Feature.Avalonia.csproj" />
     </ItemGroup>
 
 

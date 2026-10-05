@@ -5,6 +5,7 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Kitopia.Desktop.Features.Services.Interfaces;
+using Kitopia.Feature.Localization;
 using Kitopia.Feature.DeviceCommunication.Application;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -28,7 +29,7 @@ public partial class MainWindowViewModel : ObservableRecipient
     [ObservableProperty] private bool _settingPage;
 
     [ObservableProperty] private bool _isUserLoggedIn;
-    [ObservableProperty] private string _userAvatarTooltip = "登录账户";
+    [ObservableProperty] private string _userAvatarTooltip = Lang.Get("lang.kitopia.sign_in_account");
     [ObservableProperty] private string _userAvatarInitial = "U";
     [ObservableProperty] private Bitmap? _userAvatarBitmap;
 
@@ -43,6 +44,16 @@ public partial class MainWindowViewModel : ObservableRecipient
         }
 
         _navigationService.PageNavigated += OnPageNavigated;
+        Lang.Current.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName != nameof(Lang.Language)) return;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                foreach (var item in MenuItems) item.RefreshLanguage();
+                UserAvatarTooltip = _accountService?.CurrentUser is { } user
+                    ? Lang.Format("lang.kitopia.signed_in_value", user.DisplayName) : Lang.Get("lang.kitopia.sign_in_account");
+            });
+        };
         OnPageNavigated(_navigationService.CurrentPageRoute ?? "home");
     }
 
@@ -57,7 +68,7 @@ public partial class MainWindowViewModel : ObservableRecipient
     private void UpdateAccountState(UserInfo? user)
     {
         IsUserLoggedIn = user != null;
-        UserAvatarTooltip = user != null ? $"已登录: {user.DisplayName}" : "登录账户";
+        UserAvatarTooltip = user != null ? Lang.Format("lang.kitopia.signed_in_value", user.DisplayName) : Lang.Get("lang.kitopia.sign_in_account");
         var name = user?.DisplayName ?? user?.UserName ?? "U";
         UserAvatarInitial = !string.IsNullOrWhiteSpace(name) ? name.Substring(0, 1).ToUpperInvariant() : "U";
 
@@ -95,56 +106,56 @@ public partial class MainWindowViewModel : ObservableRecipient
     {
         new MenuItemViewModel
         {
-            MenuHeader = "主页",
+            MenuHeader = "lang.kitopia.home",
             Key = "home",
             MenuIconGlyph = "\uf481",
             MenuIconFilledGlyph = "\uf488"
         },
         new MenuItemViewModel
         {
-            MenuHeader = "市场",
+            MenuHeader = "lang.kitopia.marketplace",
             Key = "market",
             MenuIconGlyph = "\uf151",
             MenuIconFilledGlyph = "\uf151"
         },
         new MenuItemViewModel
         {
-            MenuHeader = "插件",
+            MenuHeader = "lang.kitopia.plugins",
             Key = "plugin",
             MenuIconGlyph = "\uf60a",
             MenuIconFilledGlyph = "\uf614"
         },
         new MenuItemViewModel
         {
-            MenuHeader = "情景",
+            MenuHeader = "lang.kitopia.scenarios",
             Key = "scenario",
             MenuIconGlyph = "\ue065",
             MenuIconFilledGlyph = "\ue065"
         },
         new MenuItemViewModel
         {
-            MenuHeader = "快捷键",
+            MenuHeader = "lang.kitopia.hotkeys",
             Key = "hotkey",
             MenuIconGlyph = "\uf4b9",
             MenuIconFilledGlyph = "\uf4c3"
         },
         new MenuItemViewModel
         {
-            MenuHeader = "模型列表",
+            MenuHeader = "lang.kitopia.models",
             Key = "onnx/model-manager",
             MenuIconGlyph = "\uf83b",
             MenuIconFilledGlyph = "\uf853"
         },
         new MenuItemViewModel
         {
-            MenuHeader = "设备聊天",
+            MenuHeader = "lang.kitopia.device_chat",
             Key = "device/chat",
             MenuIconGlyph = "\ue975",
             MenuIconFilledGlyph = "\ue975"
         },
         new MenuItemViewModel
         {
-            MenuHeader = "\u7d22\u5f15\u72b6\u6001",
+            MenuHeader = "lang.kitopia.index_status",
             Key = "index/status",
             MenuIconGlyph = "\uf105",
             MenuIconFilledGlyph = "\uf105"
@@ -219,7 +230,13 @@ public partial class MenuItemViewModel : ObservableObject
         ActivateCommand = new RelayCommand(OnActivate);
     }
 
-    public string MenuHeader { get; set; }
+    private string _menuHeader = string.Empty;
+    public string MenuHeader
+    {
+        get => Lang.Get(_menuHeader);
+        set { _menuHeader = value; OnPropertyChanged(); }
+    }
+    internal void RefreshLanguage() => OnPropertyChanged(nameof(MenuHeader));
     public string MenuIconGlyph { get; set; }
     public string MenuIconFilledGlyph { get; set; }
 

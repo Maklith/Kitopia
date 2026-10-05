@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:Kitopia.Desktop.Features.ViewModel.Windows;assembly=Kitopia.Desktop.Features"
@@ -14,15 +15,15 @@
         x:Class="Kitopia.Desktop.Windows.LanFileShareWindow"
         x:DataType="vm:LanFileShareWindowViewModel"
         Background="{DynamicResource SemiColorBackground0}"
-        Title="局域网文件分享">
+        Title="{DynamicResource 'lang.kitopia.lan_file_sharing'}">
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,*">
         <Border Grid.ColumnSpan="2" Margin="10" Padding="12" CornerRadius="8"
                 Background="{DynamicResource KitopiaCardBackgroundBrush}"
                 BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1">
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <TextBlock Text="选择右侧设备后发送左侧文件" FontWeight="SemiBold"
+                <TextBlock Text="{DynamicResource 'lang.kitopia.select_a_device_to_send_the_selected_files'}" FontWeight="SemiBold"
                            Foreground="{DynamicResource SemiColorText0}" VerticalAlignment="Center" />
-                <TextBlock Text="正在发送，请稍后.." Foreground="{DynamicResource KitopiaBadgeWarningForeground}"
+                <TextBlock Text="{DynamicResource 'lang.kitopia.sending_please_wait'}" Foreground="{DynamicResource KitopiaBadgeWarningForeground}"
                            IsVisible="{Binding IsSending}" VerticalAlignment="Center" />
             </StackPanel>
         </Border>
@@ -33,7 +34,7 @@
             <Grid RowDefinitions="Auto,*">
                 <DockPanel Margin="0,0,0,8">
                     <Button DockPanel.Dock="Right"
-                            Content="清空"
+                            Content="{DynamicResource 'lang.kitopia.clear'}"
                             Height="28" Padding="12,0" CornerRadius="6" FontSize="12"
                             Command="{Binding ClearFilesCommand}"
                             IsEnabled="{Binding HasFiles}" />
@@ -57,7 +58,7 @@
                                     <Button Grid.Column="1"
                                             Margin="8,0,0,0"
                                             VerticalAlignment="Center"
-                                            Content="移除"
+                                            Content="{DynamicResource 'lang.kitopia.remove'}"
                                             Classes="Danger"
                                             Height="26" Padding="8,0" CornerRadius="4" FontSize="11"
                                             Command="{Binding $parent[Window].((vm:LanFileShareWindowViewModel)DataContext).RemoveFileCommand}"
@@ -67,7 +68,7 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
 
-                    <TextBlock Text="没有可发送的文件"
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.no_files_to_send'}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
                                Foreground="{DynamicResource SemiColorText2}"
@@ -105,13 +106,13 @@
                                                    FontSize="12"
                                                    Foreground="{DynamicResource SemiColorText2}"
                                                    IsVisible="{Binding HasIpv6}" />
-                                        <TextBlock Text="{Binding TcpPort, StringFormat='端口: {0}'}"
+                                        <TextBlock Text="{lang:Lang &apos;lang.kitopia.port_value&apos;, Value={Binding TcpPort}}"
                                                    FontSize="11" Foreground="{DynamicResource SemiColorText2}" />
                                     </StackPanel>
                                     <Button Grid.Column="1"
                                             Margin="8,0,0,0"
                                             VerticalAlignment="Center"
-                                            Content="发送"
+                                            Content="{DynamicResource 'lang.kitopia.send'}"
                                             Classes="Primary"
                                             Height="28" Padding="14,0" CornerRadius="6" FontSize="12"
                                             IsEnabled="{Binding $parent[Window].((vm:LanFileShareWindowViewModel)DataContext).CanSend}"
@@ -122,7 +123,7 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
 
-                    <TextBlock Text="尚未发现在线设备"
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.no_online_devices_found'}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
                                Foreground="{DynamicResource SemiColorText2}"

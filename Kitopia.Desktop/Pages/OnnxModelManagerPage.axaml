@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 
@@ -26,9 +27,9 @@
             <!-- 1. Header: AI computing engine + Title + Subtitle -->
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="AI 计算引擎" Theme="{DynamicResource KitopiaPageKickerText}" />
-                    <TextBlock Text="ONNX 推理与模型" Theme="{DynamicResource KitopiaPageTitleText}" />
-                    <TextBlock Text="配置 ONNX Runtime 硬件加速推理环境与本地模型资产。"
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.ai_engine'}" Theme="{DynamicResource KitopiaPageKickerText}" />
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.onnx_inference_and_models'}" Theme="{DynamicResource KitopiaPageTitleText}" />
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.configure_onnx_runtime_acceleration_and_local_models'}"
                                Theme="{DynamicResource KitopiaPageSubtitleText}" />
                 </StackPanel>
             </Grid>
@@ -51,7 +52,7 @@
                 </ItemsControl>
             </ScrollViewer>
             <StackPanel Grid.Row="2">
-                <TextBlock Text="模型列表" Theme="{DynamicResource SectionHeaderText}" />
+                <TextBlock Text="{DynamicResource 'lang.kitopia.models'}" Theme="{DynamicResource SectionHeaderText}" />
             </StackPanel>
             <DataGrid Grid.Row="3" ItemsSource="{Binding Source={x:Static plugin11:PluginOverall.AllOnnxModelInfos}}"
                       CanUserReorderColumns="True"
@@ -64,14 +65,14 @@
                     <onnxModelManagerPage:PluginStrToPluginName x:Key="PluginStrToPluginName" />
                 </DataGrid.Resources>
                 <DataGrid.Columns>
-                    <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper" Binding="{Binding Model.Name}"
-                                        Header="模型名称" />
-                    <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper" Binding="{Binding Model.Description}"
-                                        Header="模型描述" />
+                    <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper" Binding="{lang:Lang Value={Binding Model.Name}}"
+                                        Header="{DynamicResource 'lang.kitopia.model_name'}" />
+                    <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper" Binding="{lang:Lang Value={Binding Model.Description}}"
+                                        Header="{DynamicResource 'lang.kitopia.model_description'}" />
                     <DataGridTextColumn x:DataType="onnx:OnnxModelInfoWrapper"
                                         Binding="{Binding PluginStr,Converter={StaticResource PluginStrToPluginName},Mode=OneWay}"
-                                        Header="模型来源" />
-                    <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="推理环境">
+                                        Header="{DynamicResource 'lang.kitopia.model_source'}" />
+                    <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="{DynamicResource 'lang.kitopia.inference_backend'}">
                         <DataTemplate x:DataType="onnx:OnnxModelInfoWrapper">
 
                             <Border Theme="{DynamicResource RadioButtonGroupBorder}"
@@ -109,7 +110,7 @@
 
                         </DataTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="模型大小"
+                    <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="{DynamicResource 'lang.kitopia.model_size'}"
                                             CanUserReorder="True" CanUserSort="True"
                                             CustomSortComparer="{x:Static onnxModelManagerPage:DataGridModelSizeComparer.Default }">
                         <DataTemplate x:DataType="onnx:OnnxModelInfoWrapper">
@@ -117,10 +118,10 @@
                                    Content="{Binding ., Converter={StaticResource OnnxModelInfoWrapperToModelSizeCtr} }" />
                         </DataTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="下载模型">
+                    <DataGridTemplateColumn x:DataType="onnx:OnnxModelInfoWrapper" Header="{DynamicResource 'lang.kitopia.download_model'}">
                         <DataTemplate x:DataType="onnx:OnnxModelInfoWrapper">
                             <Panel>
-                                <TextBlock Text="随应用提供" IsVisible="{Binding Model.IsBundled}" />
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.bundled'}" IsVisible="{Binding Model.IsBundled}" />
                                 <controls:DownloadButton DataContext="{Binding Model}"
                                                          IsVisible="{Binding !IsBundled}"
                                                          NeedDownload="{Binding NeedDownload}"

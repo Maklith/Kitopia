@@ -19,10 +19,10 @@
                            Cursor="Hand">
                         <Image.ContextFlyout>
                             <MenuFlyout>
-                                <MenuItem Header="放大查看"
+                                <MenuItem Header="{DynamicResource 'lang.kitopia.enlarge'}"
                                           Command="{Binding PreviewImageCommand}"
                                           CommandParameter="{Binding .}" />
-                                <MenuItem Header="复制图片"
+                                <MenuItem Header="{DynamicResource 'lang.kitopia.copy_image'}"
                                           Command="{Binding CopyImageCommand}"
                                           CommandParameter="{Binding .}" />
                             </MenuFlyout>
@@ -32,10 +32,10 @@
                                          IsVisible="{Binding HasText}" />
                     <StackPanel Orientation="Horizontal" Spacing="8"
                                 IsVisible="{Binding CanHandleIncomingOffer}">
-                        <Button Classes="Primary" Content="接受"
+                        <Button Classes="Primary" Content="{DynamicResource 'lang.kitopia.accept'}"
                                 Command="{Binding AcceptCommand}"
                                 CommandParameter="{Binding .}" />
-                        <Button Classes="Secondary" Content="拒绝"
+                        <Button Classes="Secondary" Content="{DynamicResource 'lang.kitopia.reject'}"
                                 Command="{Binding RejectCommand}"
                                 CommandParameter="{Binding .}" />
                     </StackPanel>
@@ -68,10 +68,10 @@
                            Cursor="Hand">
                         <Image.ContextFlyout>
                             <MenuFlyout>
-                                <MenuItem Header="放大查看"
+                                <MenuItem Header="{DynamicResource 'lang.kitopia.enlarge'}"
                                           Command="{Binding PreviewImageCommand}"
                                           CommandParameter="{Binding .}" />
-                                <MenuItem Header="复制图片"
+                                <MenuItem Header="{DynamicResource 'lang.kitopia.copy_image'}"
                                           Command="{Binding CopyImageCommand}"
                                           CommandParameter="{Binding .}" />
                             </MenuFlyout>
@@ -130,10 +130,10 @@
                             <StackPanel Spacing="6" Margin="0,8,0,0"
                                         IsVisible="{Binding CanHandleIncomingOffer}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Button Classes="Primary" Content="接受"
+                                    <Button Classes="Primary" Content="{DynamicResource 'lang.kitopia.accept'}"
                                             Command="{Binding AcceptCommand}"
                                             CommandParameter="{Binding .}" />
-                                    <Button Classes="Secondary" Content="拒绝"
+                                    <Button Classes="Secondary" Content="{DynamicResource 'lang.kitopia.reject'}"
                                             Command="{Binding RejectCommand}"
                                             CommandParameter="{Binding .}" />
                                 </StackPanel>
@@ -151,21 +151,21 @@
                 </StackPanel>
                 <Border.ContextFlyout>
                     <MenuFlyout>
-                        <MenuItem Header="打开"
+                        <MenuItem Header="{DynamicResource 'lang.kitopia.open'}"
                                   Command="{Binding OpenCommand}"
                                   CommandParameter="{Binding .}" />
-                        <MenuItem Header="另存为..."
+                        <MenuItem Header="{DynamicResource 'lang.kitopia.save_as'}"
                                   Command="{Binding SaveAsCommand}"
                                   CommandParameter="{Binding .}" />
-                        <MenuItem Header="复制文件"
+                        <MenuItem Header="{DynamicResource 'lang.kitopia.copy_file'}"
                                   Command="{Binding CopyFileCommand}"
                                   CommandParameter="{Binding .}" />
                         <Separator />
-                        <MenuItem Header="取消传输"
+                        <MenuItem Header="{DynamicResource 'lang.kitopia.cancel_transfer'}"
                                   IsVisible="{Binding IsTransferActive}"
                                   Command="{Binding CancelCommand}"
                                   CommandParameter="{Binding .}" />
-                        <MenuItem Header="查看详情"
+                        <MenuItem Header="{DynamicResource 'lang.kitopia.view_details'}"
                                   Command="{Binding ViewDetailsCommand}"
                                   CommandParameter="{Binding .}" />
                     </MenuFlyout>
@@ -210,10 +210,10 @@
                 </StackPanel>
                 <Border.ContextFlyout>
                     <MenuFlyout>
-                        <MenuItem Header="取消传输"
+                        <MenuItem Header="{DynamicResource 'lang.kitopia.cancel_transfer'}"
                                   IsVisible="{Binding IsTransferActive}"
                                   Command="{Binding CancelCommand}" />
-                        <MenuItem Header="查看详情"
+                        <MenuItem Header="{DynamicResource 'lang.kitopia.view_details'}"
                                   Command="{Binding ViewDetailsCommand}" />
                     </MenuFlyout>
                 </Border.ContextFlyout>

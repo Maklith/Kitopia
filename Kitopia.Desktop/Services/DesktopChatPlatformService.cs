@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.ViewModel.Main;
 using Kitopia.Feature.DeviceCommunication.Application;
 
@@ -27,10 +28,10 @@ public sealed class DesktopChatPlatformService : IChatPlatformService
         var owner = MainWindow;
         if (owner is null) return null;
 
-        var textBox = new TextBox { Watermark = "备注名", Text = initialValue ?? string.Empty };
+        var textBox = new TextBox { Watermark = Lang.Get("lang.kitopia.custom_name"), Text = initialValue ?? string.Empty };
         string? result = null;
-        var okButton = new Button { Content = "确定" };
-        var cancelButton = new Button { Content = "取消" };
+        var okButton = new Button { Content = Lang.Get("lang.kitopia.ok") };
+        var cancelButton = new Button { Content = Lang.Get("lang.kitopia.cancel") };
 
         var dialog = new Window
         {

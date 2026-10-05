@@ -154,6 +154,7 @@ public sealed class ProjectDependencyBoundaryTests
             {
                 "Kitopia.Desktop.Abstractions/Kitopia.Desktop.Abstractions.csproj",
                 "Kitopia.Desktop.PluginSdk/Kitopia.Desktop.PluginSdk.csproj",
+                "Kitopia.Feature.Avalonia/Kitopia.Feature.Avalonia.csproj",
                 "Kitopia.Feature/Kitopia.Feature.csproj",
                 "NodifyM.Avalonia/NodifyM.Avalonia/NodifyM.Avalonia.csproj",
                 "PinyinM.NET/Pinyin.NET/Pinyin.NET.csproj"

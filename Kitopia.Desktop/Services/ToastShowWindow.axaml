@@ -157,7 +157,7 @@
                                             Background="Transparent"
                                             HorizontalAlignment="Right"
                                             VerticalAlignment="Center"
-                                            ToolTip.Tip="关闭">
+                                            ToolTip.Tip="{DynamicResource 'lang.kitopia.close'}">
                                         <Button.Styles>
                                             <Style Selector="Button:pointerover /template/ ContentPresenter">
                                                 <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />

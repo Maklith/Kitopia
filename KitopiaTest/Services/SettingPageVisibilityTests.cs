@@ -76,6 +76,7 @@ public sealed class SettingPageVisibilityTests
                 Assert.IsTrue(rows["Action"].IsVisible);
                 picker.Color = Color.Parse("#33AA77");
                 Assert.AreEqual("#33AA77", config.Accent);
+                page.ChangeConfig(config);
                 var restored = JsonSerializer.Deserialize<VisibilityConfig>(File.ReadAllText(path), ConfigManger.DefaultOptions)!;
                 Assert.IsTrue(restored.Enabled);
                 Assert.AreEqual("#33AA77", restored.Accent);

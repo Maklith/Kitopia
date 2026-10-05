@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
+using Kitopia.Feature.Localization;
 using Kitopia.Mobile.Services;
 using Kitopia.Mobile.Views;
 
@@ -13,6 +15,8 @@ public partial class App : Avalonia.Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        foreach (var theme in Styles.OfType<Semi.Avalonia.SemiTheme>()) theme.Locale = Lang.Current.Culture;
+        foreach (var theme in Styles.OfType<Ursa.Themes.Semi.UrsaSemiTheme>()) theme.Locale = Lang.Current.Culture;
     }
 
     public override void OnFrameworkInitializationCompleted()

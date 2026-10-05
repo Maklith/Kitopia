@@ -1,4 +1,5 @@
-﻿#region
+using Kitopia.Feature.Localization;
+#region
 
 using System;
 using System.Globalization;
@@ -18,7 +19,7 @@ public class StarBoolToText : IValueConverter
         {
             if ((bool)value) return "取消收藏";
 
-            return "收藏";
+            return Lang.Get("lang.kitopia.favorite");
         }
 
         if (parameter.Equals("Pin"))

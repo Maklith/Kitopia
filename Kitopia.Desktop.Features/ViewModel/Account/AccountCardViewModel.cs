@@ -1,7 +1,9 @@
+using System.ComponentModel;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services.Account;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
@@ -23,7 +25,7 @@ public partial class AccountCardViewModel : ObservableObject, IDisposable
     private bool _isLoggingIn;
 
     [ObservableProperty]
-    private string _displayName = "未登录";
+    private string _displayName = Lang.Get("lang.kitopia.not_signed_in");
 
     [ObservableProperty]
     private string _userName = string.Empty;
@@ -45,6 +47,7 @@ public partial class AccountCardViewModel : ObservableObject, IDisposable
         _accountService = accountService;
         _dispatcher = dispatcher ?? DefaultDispatch;
         _accountService.UserStateChanged += OnUserStateChanged;
+        Lang.Current.PropertyChanged += OnLanguageChanged;
         UpdateFromUser(_accountService.CurrentUser);
     }
 
@@ -64,6 +67,16 @@ public partial class AccountCardViewModel : ObservableObject, IDisposable
         _dispatcher(() => UpdateFromUser(user));
     }
 
+    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(Lang.Language))
+            _dispatcher(() =>
+            {
+                if (!IsLoggedIn) DisplayName = Lang.Get("lang.kitopia.not_signed_in");
+                PrimaryRole = _accountService.CurrentUser?.PrimaryRole ?? string.Empty;
+            });
+    }
+
     private void UpdateFromUser(UserInfo? user)
     {
         IsLoggedIn = user != null;
@@ -72,7 +85,7 @@ public partial class AccountCardViewModel : ObservableObject, IDisposable
             IsLoggingIn = false;
         }
 
-        DisplayName = user?.DisplayName ?? "未登录";
+        DisplayName = user?.DisplayName ?? Lang.Get("lang.kitopia.not_signed_in");
         UserName = user?.UserName ?? string.Empty;
         Email = user?.UserEmail ?? string.Empty;
         PrimaryRole = user?.PrimaryRole ?? string.Empty;
@@ -154,6 +167,7 @@ public partial class AccountCardViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _accountService.UserStateChanged -= OnUserStateChanged;
+        Lang.Current.PropertyChanged -= OnLanguageChanged;
         var old = AvatarBitmap;
         AvatarBitmap = null;
         old?.Dispose();

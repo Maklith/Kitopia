@@ -9,6 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <EmbeddedResource Include="lang\*.json" />
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
         <PackageReference Include="ObservableCollections" Version="3.3.4" />
     </ItemGroup>

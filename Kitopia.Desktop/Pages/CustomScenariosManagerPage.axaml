@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 
@@ -15,16 +16,16 @@
         <!-- 1. Header: Automation & Workflows + Title + Subtitle + New Button -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
             <StackPanel Grid.Column="0">
-                <TextBlock Text="自动化与工作流" Theme="{DynamicResource KitopiaPageKickerText}" />
-                <TextBlock Text="自定义情景" Theme="{DynamicResource KitopiaPageTitleText}" />
-                <TextBlock Text="编排与执行自动化脚本与连续任务动作。"
+                <TextBlock Text="{DynamicResource 'lang.kitopia.automation_and_workflows'}" Theme="{DynamicResource KitopiaPageKickerText}" />
+                <TextBlock Text="{DynamicResource 'lang.kitopia.custom_scenarios'}" Theme="{DynamicResource KitopiaPageTitleText}" />
+                <TextBlock Text="{DynamicResource 'lang.kitopia.create_and_run_automated_workflows'}"
                            Theme="{DynamicResource KitopiaPageSubtitleText}" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
-            <Button Content="我的上传" Command="{Binding OpenMyScenariosCommand}" Height="32" CornerRadius="6" />
+            <Button Content="{DynamicResource 'lang.kitopia.my_uploads'}" Command="{Binding OpenMyScenariosCommand}" Height="32" CornerRadius="6" />
             <Button Classes="Primary"
                     Command="{Binding NewCustomScenariosCommand}"
-                    Content="新建情景" Height="32" Padding="14,0" CornerRadius="6"
+                    Content="{DynamicResource 'lang.kitopia.new_scenario'}" Height="32" Padding="14,0" CornerRadius="6"
                     VerticalAlignment="Bottom" />
             </StackPanel>
         </Grid>
@@ -70,7 +71,7 @@
                                                        Foreground="{DynamicResource SemiColorText1}"
                                                        FontSize="13" LineHeight="18"
                                                        Height="36" />
-                                            <TextBlock Text="{Binding LastRun, StringFormat='上次执行: yyyy/MM/dd HH:mm:ss'}"
+                                            <TextBlock Text="{lang:Lang &apos;lang.kitopia.last_run_value&apos;, Value={Binding LastRun}}"
                                                        FontSize="11"
                                                        Foreground="{DynamicResource SemiColorText2}" />
                                         </StackPanel>
@@ -84,27 +85,27 @@
                                     <!-- Bottom Actions -->
                                     <Grid Grid.Row="2" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                            <Button Content="编辑"
+                                            <Button Content="{DynamicResource 'lang.kitopia.edit'}"
                                                     Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
                                                     Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).ToTaskEditPageCommand}"
                                                     CommandParameter="{Binding }" />
-                                            <Button Classes="Danger" Content="停止"
+                                            <Button Classes="Danger" Content="{DynamicResource 'lang.kitopia.stop'}"
                                                     Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
                                                     IsVisible="{Binding IsRunning}"
                                                     Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).StopCustomScenarioCommand}"
                                                     CommandParameter="{Binding }" />
-                                            <Button Classes="Primary" Content="运行"
+                                            <Button Classes="Primary" Content="{DynamicResource 'lang.kitopia.run'}"
                                                     Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
                                                     IsVisible="{Binding IsRunning,Converter={StaticResource reverseBoolToVisibilityConverter}}"
                                                     Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).RunCustomScenarioCommand}"
                                                     CommandParameter="{Binding }" />
-                                            <Button Content="上传" ToolTip.Tip="上传到情景市场"
+                                            <Button Content="{DynamicResource 'lang.kitopia.upload'}" ToolTip.Tip="{DynamicResource 'lang.kitopia.upload_to_marketplace'}"
                                                     Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
                                                     Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).UploadScenarioCommand}"
                                                     CommandParameter="{Binding }" />
                                         </StackPanel>
 
-                                        <Button Grid.Column="1" Content="删除"
+                                        <Button Grid.Column="1" Content="{DynamicResource 'lang.kitopia.delete'}"
                                                 Theme="{DynamicResource KitopiaDangerSubtleButton}"
                                                 Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).RemoveCustomScenarioCommand}"
                                                 CommandParameter="{Binding }" />
@@ -123,13 +124,13 @@
                                                    Text="{Binding InitError}" TextWrapping="Wrap"
                                                    MaxWidth="280" TextAlignment="Center" />
                                         <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                                            <Button Content="重试" CornerRadius="6"
+                                            <Button Content="{DynamicResource 'lang.kitopia.retry'}" CornerRadius="6"
                                                     Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).RetryScenarioCommand}"
                                                     CommandParameter="{Binding }" />
-                                            <Button Content="打开文件" CornerRadius="6"
+                                            <Button Content="{DynamicResource 'lang.kitopia.open_file'}" CornerRadius="6"
                                                     Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).OpenScenarioFileCommand}"
                                                     CommandParameter="{Binding }" />
-                                            <Button Classes="Danger" Content="删除" CornerRadius="6"
+                                            <Button Classes="Danger" Content="{DynamicResource 'lang.kitopia.delete'}" CornerRadius="6"
                                                     Command="{Binding Path=$parent[ItemsControl].((customScenario:CustomScenariosManagerPageViewModel)DataContext).RemoveCustomScenarioCommand}"
                                                     CommandParameter="{Binding }" />
                                         </StackPanel>

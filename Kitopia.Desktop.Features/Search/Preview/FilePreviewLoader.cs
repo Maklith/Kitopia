@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.IO.Compression;
 using System.Text;
 using Avalonia.Media.Imaging;
@@ -25,14 +26,14 @@ public static class FilePreviewLoader
                     cancellationToken.ThrowIfCancellationRequested();
                     if (entries.Count == EntryLimit) break;
                     entries.Add(new FilePreviewEntry(item.Name,
-                        item is FileInfo file ? FormatSize(file.Length) : "文件夹", item is DirectoryInfo));
+                        item is FileInfo file ? FormatSize(file.Length) : Lang.Get("lang.kitopia.messages.folder"), item is DirectoryInfo));
                 }
-                return new FilePreviewContent(directory.Name, $"文件夹 · 修改于 {directory.LastWriteTime:g}",
-                    Entries: entries, Notice: entries.Count == EntryLimit ? "显示前 500 项" : $"{entries.Count} 个项目");
+                return new FilePreviewContent(directory.Name, Lang.Format("lang.kitopia.messages.folder_modified_value", directory.LastWriteTime),
+                    Entries: entries, Notice: entries.Count == EntryLimit ? Lang.Get("lang.kitopia.messages.showing_the_first_500_items") : Lang.Format("lang.kitopia.messages.value_items", entries.Count));
             }
 
             var info = new FileInfo(path);
-            var details = $"{info.Extension.TrimStart('.').ToUpperInvariant()} · {FormatSize(info.Length)} · 修改于 {info.LastWriteTime:g}";
+            var details = Lang.Format("lang.kitopia.messages.value_value_modified_value", info.Extension.TrimStart('.').ToUpperInvariant(), FormatSize(info.Length), info.LastWriteTime);
             var extension = info.Extension.ToLowerInvariant();
             if (extension is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".tif" or ".tiff" or ".ico")
             {
@@ -40,7 +41,7 @@ public static class FilePreviewLoader
                 int width, height;
                 using (var codec = SKCodec.Create(new SKManagedStream(stream, disposeManagedStream: false)))
                 {
-                    if (codec is null) throw new InvalidDataException("图片已损坏或编码不受支持。");
+                    if (codec is null) throw new InvalidDataException(Lang.Get("lang.kitopia.messages.the_image_is_damaged_or_its_encoding_is_unsupported"));
                     width = codec.Info.Width;
                     height = codec.Info.Height;
                 }
@@ -66,10 +67,10 @@ public static class FilePreviewLoader
                     if (entries.Count == EntryLimit) break;
                     var isDirectory = entry.FullName.EndsWith('/');
                     entries.Add(new FilePreviewEntry(entry.FullName,
-                        isDirectory ? "文件夹" : FormatSize(entry.Length), isDirectory));
+                        isDirectory ? Lang.Get("lang.kitopia.messages.folder") : FormatSize(entry.Length), isDirectory));
                 }
                 return new FilePreviewContent(info.Name, details, Entries: entries,
-                    Notice: archive.Entries.Count > EntryLimit ? $"共 {archive.Entries.Count:N0} 项，显示前 500 项" : $"{entries.Count} 个项目");
+                    Notice: archive.Entries.Count > EntryLimit ? Lang.Format("lang.kitopia.messages.value_items_showing_the_first_500", archive.Entries.Count) : Lang.Format("lang.kitopia.messages.value_items", entries.Count));
             }
 
             if (extension is ".txt" or ".md" or ".markdown" or ".log" or ".json" or ".xml" or ".yaml" or ".yml"
@@ -85,7 +86,7 @@ public static class FilePreviewLoader
                 var count = await reader.ReadBlockAsync(buffer.AsMemory(), cancellationToken);
                 if (!buffer.AsSpan(0, count).Contains('\0'))
                     return new FilePreviewContent(info.Name, details, Text: new string(buffer, 0, Math.Min(count, TextLimit)),
-                        Notice: count > TextLimit ? "文件较大，仅显示前 256K 个字符" : null);
+                        Notice: count > TextLimit ? Lang.Get("lang.kitopia.messages.large_file_showing_the_first_256k_characters") : null);
             }
 
             return new FilePreviewContent(info.Name, details, NativePath: path);

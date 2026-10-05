@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 namespace Kitopia.Desktop.Features.Services.Account;
 
 public sealed class UserInfo
@@ -18,10 +19,10 @@ public sealed class UserInfo
     {
         get
         {
-            if (Roles.Contains("superadmin", StringComparer.OrdinalIgnoreCase)) return "管理员";
-            if (Roles.Contains("admin", StringComparer.OrdinalIgnoreCase)) return "管理员";
-            if (Roles.Contains("developer", StringComparer.OrdinalIgnoreCase)) return "开发者";
-            return "用户";
+            if (Roles.Contains("superadmin", StringComparer.OrdinalIgnoreCase)) return Lang.Get("lang.kitopia.messages.administrator");
+            if (Roles.Contains("admin", StringComparer.OrdinalIgnoreCase)) return Lang.Get("lang.kitopia.messages.administrator");
+            if (Roles.Contains("developer", StringComparer.OrdinalIgnoreCase)) return Lang.Get("lang.kitopia.messages.developer");
+            return Lang.Get("lang.kitopia.messages.user");
         }
     }
 }

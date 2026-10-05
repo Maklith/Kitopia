@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Search.ViewModels;
 #if WINDOWS
 using Kitopia.Desktop.Platform.Windows;
@@ -100,7 +101,7 @@ public partial class FilePreviewControl : UserControl
             _viewModel.Message = "无法加载文件预览组件，可以使用“打开文件”查看。";
         }
 #else
-        _viewModel.Message = "当前系统暂不支持此类文件预览，可以使用“打开文件”查看。";
+        _viewModel.Message = Lang.Get("lang.kitopia.preview_is_unavailable_for_this_file_type_use_open_file_to_view_it");
 #endif
     }
 

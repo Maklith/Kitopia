@@ -1,5 +1,6 @@
 #region
 
+using Kitopia.Feature.Localization;
 using System.Text;
 using System.Text.RegularExpressions;
 using Kitopia.Desktop.Features.Services;
@@ -55,11 +56,11 @@ public class AppSolver
                     {
                         var dialog = new DialogContent
                         {
-                            Title = "Kitopia提示",
+                            Title = Lang.Get("lang.kitopia.kitopia_notice"),
                             Content =
                                 $"Kitopia即将使用任务计划来创建绕过UAC启动Everything的快捷方式\n需要确认UAC权限\n按下取消则关闭自动启动功能\n路径:{AppDomain.CurrentDomain.BaseDirectory}noUAC{Path.DirectorySeparatorChar}{程序名称}.lnk",
-                            PrimaryButtonText = "确定",
-                            CloseButtonText = "取消",
+                            PrimaryButtonText = Lang.Get("lang.kitopia.ok"),
+                            CloseButtonText = Lang.Get("lang.kitopia.cancel"),
                             PrimaryAction = () =>
                             {
                                 Directory.CreateDirectory(AppDomain.CurrentDomain.BaseDirectory + "noUAC");
@@ -174,10 +175,10 @@ public class AppSolver
             Logger.Debug(c.ToString());
             var dialog = new DialogContent
             {
-                Title = "Kitopia建议",
+                Title = Lang.Get("lang.kitopia.kitopia_suggestion"),
                 Content = c.ToString(),
-                PrimaryButtonText = "确定",
-                SecondaryButtonText = "取消",
+                PrimaryButtonText = Lang.Get("lang.kitopia.ok"),
+                SecondaryButtonText = Lang.Get("lang.kitopia.cancel"),
                 PrimaryAction = () =>
                 {
                     foreach (var s in ErrorLnkList)

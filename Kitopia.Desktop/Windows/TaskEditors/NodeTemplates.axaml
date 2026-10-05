@@ -1,51 +1,26 @@
-<ResourceDictionary xmlns="https://github.com/avaloniaui"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:controls2="clr-namespace:NodifyM.Avalonia.Controls;assembly=NodifyM.Avalonia"
-                    xmlns:customScenario1="clr-namespace:Kitopia.Desktop.Features.CustomScenario;assembly=Kitopia.Desktop.Features"
-                    xmlns:taskEditor1="clr-namespace:Kitopia.Desktop.Features.CustomScenario.ViewModels.TaskEditor;assembly=Kitopia.Desktop.Features"
-                    xmlns:taskEditor="clr-namespace:Kitopia.Desktop.Converter.TaskEditor"
-                    xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
-                    xmlns:pages="clr-namespace:Kitopia.Desktop.Pages"
-                    xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
-                    xmlns:u="https://irihi.tech/ursa"
-                    xmlns:converter="clr-namespace:Kitopia.Desktop.Converter"
-                    xmlns:customScenario="clr-namespace:PluginCore.CustomScenario;assembly=PluginCore"
-                    xmlns:taskEditors="clr-namespace:Kitopia.Desktop.Windows.TaskEditors">
+<ResourceDictionary xmlns="https://github.com/avaloniaui" xmlns:localization="clr-namespace:Kitopia.Feature.Localization;assembly=Kitopia.Feature" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia" xmlns:controls2="clr-namespace:NodifyM.Avalonia.Controls;assembly=NodifyM.Avalonia" xmlns:customScenario1="clr-namespace:Kitopia.Desktop.Features.CustomScenario;assembly=Kitopia.Desktop.Features" xmlns:taskEditor1="clr-namespace:Kitopia.Desktop.Features.CustomScenario.ViewModels.TaskEditor;assembly=Kitopia.Desktop.Features" xmlns:taskEditor="clr-namespace:Kitopia.Desktop.Converter.TaskEditor" xmlns:controls="clr-namespace:Kitopia.Desktop.Controls" xmlns:pages="clr-namespace:Kitopia.Desktop.Pages" xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore" xmlns:u="https://irihi.tech/ursa" xmlns:converter="clr-namespace:Kitopia.Desktop.Converter" xmlns:customScenario="clr-namespace:PluginCore.CustomScenario;assembly=PluginCore" xmlns:taskEditors="clr-namespace:Kitopia.Desktop.Windows.TaskEditors">
     <!-- Add Resources Here -->
     <converter:EnumEqualCtr x:Key="NodeStatusBorderCtr" />
     <customScenario:ToolTipConverter x:Key="ToolTipConverter" />
-    <taskEditor:NodeTypeNameI18NCtr x:Key="NodeTypeNameI18NCtr" />
+    <taskEditor:NodeTypeNameConverter x:Key="NodeTypeNameConverter" />
     <converter:IfNullVisibilityHidden x:Key="IfNullVisibilityHidden" />
     <DataTemplates x:Key="NodifyEditorNodeTemplates">
         <DataTemplate DataType="customScenario1:KnotNodeViewModel">
-            <controls2:KnotNode
-                Location="{Binding Location,Mode=TwoWay}"
-                Content="{Binding Connector}">
+            <controls2:KnotNode Location="{Binding Location,Mode=TwoWay}" Content="{Binding Connector}">
                 <controls2:KnotNode.ContextFlyout>
                     <MenuFlyout>
                         <!-- ReSharper disable once Xaml.RedundantResource -->
-                        <MenuItem Header="复制节点"
-                                  Foreground="{DynamicResource SemiColorText0}"
-                                  Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).CopyNodeCommand}"
-                                  CommandParameter="{Binding }" />
+                        <MenuItem Header="{DynamicResource 'lang.kitopia.copy_node'}" Foreground="{DynamicResource SemiColorText0}" Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).CopyNodeCommand}" CommandParameter="{Binding }" />
                         <!-- ReSharper disable once Xaml.RedundantResource -->
-                        <MenuItem Header="删除此节点"
-                                  Foreground="{DynamicResource SemiColorText0}"
-                                  Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).DelNodeCommand}"
-                                  CommandParameter="{Binding }" />
+                        <MenuItem Header="{DynamicResource 'lang.kitopia.delete_node'}" Foreground="{DynamicResource SemiColorText0}" Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).DelNodeCommand}" CommandParameter="{Binding }" />
 
                     </MenuFlyout>
                 </controls2:KnotNode.ContextFlyout>
                 <controls2:KnotNode.ContentTemplate>
                     <DataTemplate DataType="customScenario1:ConnectorItem">
-                        <controls2:Connector
-                            VerticalAlignment="Center"
-                            IsConnected="{Binding IsConnected}"
-                            Anchor="{Binding Anchor, Mode=OneWayToSource}">
+                        <controls2:Connector VerticalAlignment="Center" IsConnected="{Binding IsConnected}" Anchor="{Binding Anchor, Mode=OneWayToSource}">
                             <controls2:Connector.BorderBrush>
-                                <SolidColorBrush
-                                    Color="{DynamicResource SemiBlue5Color}"
-                                    Opacity="0.5" />
+                                <SolidColorBrush Color="{DynamicResource SemiBlue5Color}" Opacity="0.5" />
                             </controls2:Connector.BorderBrush>
                         </controls2:Connector>
                     </DataTemplate>
@@ -53,17 +28,7 @@
             </controls2:KnotNode>
         </DataTemplate>
         <DataTemplate DataType="{x:Type customScenario1:ScenarioMethodNode}">
-            <controls2:Node
-
-                Classes.Status0="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=0}"
-                Classes.Status1="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=1}"
-                Classes.Status2="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=2}"
-                Classes.Status3="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=3}"
-                x:Name="Node"
-                Input="{Binding Input}"
-                Location="{Binding Location,Mode=TwoWay}"
-                VerticalAlignment="Center"
-                Output="{Binding Output}">
+            <controls2:Node Classes.Status0="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=0}" Classes.Status1="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=1}" Classes.Status2="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=2}" Classes.Status3="{Binding  Status, Converter={StaticResource NodeStatusBorderCtr},ConverterParameter=3}" x:Name="Node" Input="{Binding Input}" Location="{Binding Location,Mode=TwoWay}" VerticalAlignment="Center" Output="{Binding Output}">
                 <controls2:Node.Styles>
                     <Style Selector="controls2|Node.View">
                         <Setter Property="HorizontalAlignment" Value="Stretch"></Setter>
@@ -73,10 +38,7 @@
                                 <BehaviorCollection>
 
                                     <EventTrigger EventName="PointerPressed">
-                                        <InvokeCommandAction
-                                            PassEventArgsToCommand="True"
-                                            Command="{Binding 
-                                       $parent[u:UrsaWindow].((taskEditor1:TaskEditorViewModel)DataContext).StartDraggingCommand}">
+                                        <InvokeCommandAction PassEventArgsToCommand="True" Command="{Binding                                         $parent[u:UrsaWindow].((taskEditor1:TaskEditorViewModel)DataContext).StartDraggingCommand}">
                                         </InvokeCommandAction>
                                     </EventTrigger>
                                 </BehaviorCollection>
@@ -88,15 +50,9 @@
                         <Setter Property="ContextFlyout">
                             <MenuFlyout>
                                 <!-- ReSharper disable once Xaml.RedundantResource -->
-                                <MenuItem Header="复制节点"
-                                          Foreground="{DynamicResource SemiColorText0}"
-                                          Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).CopyNodeCommand}"
-                                          CommandParameter="{Binding }" />
+                                <MenuItem Header="{DynamicResource 'lang.kitopia.copy_node'}" Foreground="{DynamicResource SemiColorText0}" Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).CopyNodeCommand}" CommandParameter="{Binding }" />
                                 <!-- ReSharper disable once Xaml.RedundantResource -->
-                                <MenuItem Header="删除此节点"
-                                          Foreground="{DynamicResource SemiColorText0}"
-                                          Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).DelNodeCommand}"
-                                          CommandParameter="{Binding }" />
+                                <MenuItem Header="{DynamicResource 'lang.kitopia.delete_node'}" Foreground="{DynamicResource SemiColorText0}" Command="{Binding $parent[Grid].((taskEditor1:TaskEditorViewModel)DataContext).DelNodeCommand}" CommandParameter="{Binding }" />
 
                             </MenuFlyout>
                         </Setter>
@@ -122,19 +78,13 @@
                     <taskEditor:InterfacesToString x:Key="InterfacesToString" />
                 </controls2:Node.Resources>
                 <controls2:Node.HeaderBrush>
-                    <SolidColorBrush Color="{DynamicResource SemiBlue5Color}"
-                                     Opacity="0.5" />
+                    <SolidColorBrush Color="{DynamicResource SemiBlue5Color}" Opacity="0.5" />
                 </controls2:Node.HeaderBrush>
                 <controls2:Node.Header>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding Title}" Foreground="White"
-                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="{lang:Lang Value={Binding Title}}" Foreground="White" HorizontalAlignment="Center" />
 
-                        <controls:FontIcon FontFamily="{StaticResource FluentFont}"
-                                           Classes.Editor="{Binding $parent[controls2:Node],Converter={StaticResource ClassesContainTheClass},ConverterParameter='Editor'}"
-                                           Glyph="&#xf4a3;" Foreground="White" Name="ExecTimeIcon"
-                                           ToolTip.Tip="{Binding  InvokeTime,StringFormat='执行耗时:{0}'}"
-                                           ToolTip.ShowDelay="0">
+                        <controls:FontIcon FontFamily="{StaticResource FluentFont}" Classes.Editor="{Binding $parent[controls2:Node],Converter={StaticResource ClassesContainTheClass},ConverterParameter='Editor'}" Glyph="" Foreground="White" Name="ExecTimeIcon" ToolTip.Tip="{lang:Lang 'lang.kitopia.duration_value', Value={Binding InvokeTime}}" ToolTip.ShowDelay="0">
                             <controls:FontIcon.Styles>
                                 <Style Selector="controls|FontIcon:not(.Editor)">
                                     <Setter Property="IsVisible" Value="False" />
@@ -150,12 +100,9 @@
                             <ContentPresenter.ContextFlyout>
                                 <MenuFlyout>
                                     <!-- ReSharper disable once Xaml.RedundantResource -->
-                                    <MenuItem
-                                        Foreground="{DynamicResource SemiColorText0}"
-                                        Command="{Binding $parent[controls2:NodifyEditor].((taskEditor1:TaskEditorViewModel)DataContext).SwitchConnectorCommand}"
-                                        CommandParameter="{Binding #ContentPresenter1  }">
+                                    <MenuItem Foreground="{DynamicResource SemiColorText0}" Command="{Binding $parent[controls2:NodifyEditor].((taskEditor1:TaskEditorViewModel)DataContext).SwitchConnectorCommand}" CommandParameter="{Binding #ContentPresenter1  }">
                                         <MenuItem.Header>
-                                            <TextBlock Text="切换自输入/连接器" />
+                                            <TextBlock Text="{DynamicResource 'lang.kitopia.toggle_input_connector'}" />
                                         </MenuItem.Header>
                                     </MenuItem>
                                 </MenuFlyout>
@@ -175,35 +122,18 @@
 
                 <controls2:Node.OutputConnectorTemplate>
                     <DataTemplate DataType="{x:Type customScenario1:ConnectorItem}">
-                        <controls2:NodeOutput
-                            x:Name="NodeOutput"
-                            ToolTip.Tip="{Binding InputObject.Value,Converter={StaticResource ToolTipConverter},ConverterParameter='未设置'}"
-                            ToolTip.ShowDelay="0"
-                            VerticalAlignment="Center"
-                            IsConnected="{Binding IsConnected}"
-                            Anchor="{Binding Anchor, Mode=TwoWay}">
+                        <controls2:NodeOutput x:Name="NodeOutput" ToolTip.ShowDelay="0" VerticalAlignment="Center" IsConnected="{Binding IsConnected}" Anchor="{Binding Anchor, Mode=TwoWay}"><ToolTip.Tip><MultiBinding Converter="{StaticResource ToolTipConverter}" ConverterParameter="lang.kitopia.not_set"><Binding Path="InputObject.Value" /><ReflectionBinding Source="{x:Static localization:Lang.Current}" Path="Keys" /></MultiBinding></ToolTip.Tip>
                             <controls2:NodeOutput.Header>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                                            HorizontalAlignment="Right">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
 
-                                    <TextBlock VerticalAlignment="Center"
-                                               Text="{Binding Title}" />
-                                    <TextBlock VerticalAlignment="Center" FontSize="12"
-                                               Background="{DynamicResource SemiColorText0}"
-                                               Foreground="{DynamicResource SemiColorBackground0}"
-                                               Text="{Binding  InputObject.SerializeType,Converter={StaticResource NodeTypeNameI18NCtr}}" />
+                                    <TextBlock VerticalAlignment="Center" Text="{lang:Lang Value={Binding Title}}" />
+                                    <TextBlock VerticalAlignment="Center" FontSize="12" Background="{DynamicResource SemiColorText0}" Foreground="{DynamicResource SemiColorBackground0}" Text="{lang:Lang Value={Binding  InputObject.SerializeType,Converter={StaticResource NodeTypeNameConverter}}}" />
 
-                                    <controls:FontIcon FontFamily="{StaticResource FluentFont}"
-                                                       Glyph="&#xf10c;"
-                                                       ToolTip.Tip="{Binding Interfaces, Converter={StaticResource InterfacesToString}}"
-                                                       ToolTip.ShowDelay="0"
-                                                       IsVisible="{Binding Interfaces, Converter={StaticResource IfNullVisibilityHidden}}" />
+                                    <controls:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="" ToolTip.Tip="{Binding Interfaces, Converter={StaticResource InterfacesToString}}" ToolTip.ShowDelay="0" IsVisible="{Binding Interfaces, Converter={StaticResource IfNullVisibilityHidden}}" />
                                 </StackPanel>
                             </controls2:NodeOutput.Header>
                             <controls2:NodeOutput.BorderBrush>
-                                <SolidColorBrush
-                                    Color="{DynamicResource SemiBlue5Color}"
-                                    Opacity="0.5" />
+                                <SolidColorBrush Color="{DynamicResource SemiBlue5Color}" Opacity="0.5" />
                             </controls2:NodeOutput.BorderBrush>
                         </controls2:NodeOutput>
                     </DataTemplate>

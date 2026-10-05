@@ -1,4 +1,5 @@
-﻿using System;
+using PluginCore.Localization;
+using System;
 using Avalonia;
 using Avalonia.Threading;
 using OpenCvSharp;
@@ -12,18 +13,18 @@ public class ImagePin
 {
     [Feature(
         "image-pin",
-        "置顶图片",
-        "选择屏幕区域，将截图作为可移动窗口置顶显示。",
-        "截图与图像",
+        "lang.kitopiaex.pin_captured_image",
+        "lang.kitopiaex.select_a_screen_region_and_pin_it_in_a_movable_window",
+        "lang.kitopia.screenshots_and_images",
         0xf602,
         140,
         Activation = FeatureActivationMode.ScreenCapture)]
-    [Capture("置顶图片", 0xf602)]
+    [Capture("lang.kitopiaex.pin_captured_image", 0xf602)]
     public void Pin(ScreenCaptureResult dResult)
     {
         if (dResult.Source is null)
         {
-            throw new Exception("无图像数据");
+            throw new Exception(Lang.Get("lang.kitopiaex.no_image_data"));
         }
         PinBase(dResult.Source,dResult.Info);
     }

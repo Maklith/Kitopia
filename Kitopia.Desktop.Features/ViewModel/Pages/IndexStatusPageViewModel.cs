@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -5,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using Kitopia.Desktop.Features.Indexing;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
+using Kitopia.Feature.Localization;
 using PluginCore;
 
 namespace Kitopia.Desktop.Features.ViewModel.Pages;
@@ -33,9 +35,24 @@ public partial class IndexStatusPageViewModel : ObservableObject, IDisposable
         _toastService = toastService;
         Status = indexService.GetStatus();
         indexService.StatusChanged += OnIndexStatusChanged;
+        Lang.Current.PropertyChanged += OnLanguageChanged;
     }
 
     public bool IsIndexingActive => _operationCancellation is not null || Status.IsRebuilding;
+
+    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName != nameof(Lang.Language)) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_disposed) return;
+            OnPropertyChanged(nameof(FileProgressText));
+            OnPropertyChanged(nameof(ActiveOperationText));
+            OnPropertyChanged(nameof(CurrentItemText));
+            OnPropertyChanged(nameof(LatestErrorText));
+            OnPropertyChanged(nameof(IndexControlToolTip));
+        });
+    }
 
     public bool IsProgressIndeterminate => IsIndexingActive && Status.TotalFileItems == 0;
 
@@ -44,29 +61,29 @@ public partial class IndexStatusPageViewModel : ObservableObject, IDisposable
     public int ProgressValue => Math.Clamp(Status.CompletedFileItems, 0, ProgressMaximum);
 
     public string FileProgressText => Status.TotalFileItems > 0
-        ? $"已完成 {Status.CompletedFileItems:N0} / {Status.TotalFileItems:N0} 个文件"
-        : IsIndexingActive ? "正在准备文件清单" : "尚未开始文件索引";
+        ? Lang.Format("lang.kitopia.value_value_files_completed", Status.CompletedFileItems, Status.TotalFileItems)
+        : IsIndexingActive ? Lang.Get("lang.kitopia.preparing_file_list") : Lang.Get("lang.kitopia.file_indexing_has_not_started");
 
     public string ActiveOperationText
     {
         get
         {
-            var operation = _preparingOperation ?? Status.CurrentOperation ?? "索引空闲";
-            return Status.IsPaused ? $"已暂停：{operation}" : operation;
+            var operation = _preparingOperation ?? Status.CurrentOperation ?? Lang.Get("lang.kitopia.indexing_idle");
+            return Status.IsPaused ? Lang.Format("lang.kitopia.paused_value", Lang.Get(operation)) : Lang.Get(operation);
         }
     }
 
     public string CurrentItemText => string.IsNullOrWhiteSpace(Status.CurrentItem)
-        ? IsIndexingActive ? "正在等待下一项" : "暂无"
+        ? IsIndexingActive ? Lang.Get("lang.kitopia.waiting_for_next_item") : Lang.Get("lang.kitopia.none")
         : Status.CurrentItem;
 
-    public string LatestErrorText => _operationError ?? Status.LastError ?? "暂无";
+    public string LatestErrorText => Lang.Get(_operationError ?? Status.LastError ?? "lang.kitopia.none");
 
     public string IndexControlGlyph => Status.IsRebuilding && !Status.IsPaused ?  "\uf5a1": "\uedb5";
 
     public string IndexControlToolTip => Status.IsRebuilding
-        ? Status.IsPaused ? "继续索引" : "暂停索引"
-        : "开始索引";
+        ? Status.IsPaused ? Lang.Get("lang.kitopia.resume_indexing") : Lang.Get("lang.kitopia.pause_indexing")
+        : Lang.Get("lang.kitopia.start_indexing");
 
     [RelayCommand]
     private void OpenEverythingSettings() => _navigationService.Navigate("settings/field/useEverything");
@@ -106,10 +123,10 @@ public partial class IndexStatusPageViewModel : ObservableObject, IDisposable
     {
         var dialog = new DialogContent
         {
-            Title = "清空全部文件索引？",
-            Content = "将删除现有文件清单、向量和文件指纹，然后重新扫描并建立索引。不会删除你的文件或索引设置。",
-            PrimaryButtonText = "清空并重建",
-            SecondaryButtonText = "取消",
+            Title = Lang.Get("lang.kitopia.reset_the_file_index"),
+            Content = Lang.Get("lang.kitopia.remove_the_index_embeddings_and_fingerprints_then_rescan_your_files_and_indexing_settings_will_be_kept"),
+            PrimaryButtonText = Lang.Get("lang.kitopia.reset_and_rebuild"),
+            SecondaryButtonText = Lang.Get("lang.kitopia.cancel"),
             PrimaryAction = async () => await ResetAndRebuildAsync()
         };
         _ = _toastService.Show(dialog.ToToastRequest(NotificationType.Warning));
@@ -122,34 +139,34 @@ public partial class IndexStatusPageViewModel : ObservableObject, IDisposable
     private bool CanResetAndRebuild() => _operationCancellation is null;
 
     private Task StartIndexingAsync() => RunOperationAsync(
-        "正在停止后台索引",
+        "lang.kitopia.stopping_background_indexing",
         async cancellationToken =>
         {
             _indexService.CancelIndexing();
             await _maintenanceService.StopBackgroundIndexingAsync();
             cancellationToken.ThrowIfCancellationRequested();
-            SetPreparingOperation("正在刷新文件来源");
+            SetPreparingOperation("lang.kitopia.refreshing_file_sources");
             await RefreshAllFileSourcesAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            SetPreparingOperation("正在等待文件索引任务");
+            SetPreparingOperation("lang.kitopia.waiting_for_indexing_tasks");
             await _indexService.IndexIncrementalAsync(IndexRebuildScope.Files, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
         });
 
     private Task ResetAndRebuildAsync() => RunOperationAsync(
-        "正在停止后台索引",
+        "lang.kitopia.stopping_background_indexing",
         async cancellationToken =>
         {
             _indexService.CancelIndexing();
             await _maintenanceService.StopBackgroundIndexingAsync();
             cancellationToken.ThrowIfCancellationRequested();
-            SetPreparingOperation("正在清空全部文件索引");
+            SetPreparingOperation("lang.kitopia.clearing_all_file_index");
             await _indexService.ResetAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            SetPreparingOperation("正在重新扫描文件来源");
+            SetPreparingOperation("lang.kitopia.rescanning_file_sources");
             await RefreshAllFileSourcesAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            SetPreparingOperation("正在重建全部文件索引");
+            SetPreparingOperation("lang.kitopia.rebuilding_file_index");
             await _indexService.RebuildAsync(IndexRebuildScope.All, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
         });
@@ -177,7 +194,7 @@ public partial class IndexStatusPageViewModel : ObservableObject, IDisposable
         catch (Exception exception)
         {
             _operationError = exception.Message;
-            _ = _toastService.Show("索引失败", exception.Message, NotificationType.Error);
+            _ = _toastService.Show(Lang.Get("lang.kitopia.indexing_failed"), exception.Message, NotificationType.Error);
         }
         finally
         {
@@ -274,6 +291,7 @@ public partial class IndexStatusPageViewModel : ObservableObject, IDisposable
         }
 
         _indexService.StatusChanged -= OnIndexStatusChanged;
+        Lang.Current.PropertyChanged -= OnLanguageChanged;
         _disposed = true;
     }
 }

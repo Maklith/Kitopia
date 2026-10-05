@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Text;
@@ -131,7 +132,7 @@ public class ScenarioMethod
                     SerializeType = typeof(NodeConnectorClass)
                 },
 
-                Title = "流输入"
+                Title = "lang.kitopia.stream_input"
             });
             var autoUnboxIndex = 0;
             for (var index = 0;
@@ -182,7 +183,7 @@ public class ScenarioMethod
                         },
 
 
-                        Title = Attribute.GetParameterName(parameterInfo.Name ?? $"参数{index + 1}")
+                        Title = Attribute.GetParameterName(parameterInfo.Name ?? Lang.Format("lang.kitopia.messages.parameter_value", index + 1))
                     };
                     if (parameterInfo.GetCustomAttribute<CustomNodeInputType>() is not null
                         and var customNodeInputType)
@@ -210,7 +211,7 @@ public class ScenarioMethod
                     SerializeType = typeof(NodeConnectorClass)
                 },
 
-                Title = "流输出"
+                Title = "lang.kitopia.stream_output"
             });
             var returnType = Method.ReturnParameter.ParameterType;
             if (TryGetReturnValueType(returnType, out var returnValueType))
@@ -266,7 +267,7 @@ public class ScenarioMethod
                     break;
                 case ScenarioMethodType.Condition:
                 {
-                    pointItem.Title = "条件";
+                    pointItem.Title = "lang.kitopia.condition";
                     ObservableCollection<ConnectorItem> StringoutItems = new()
                     {
                         new ConnectorItem
@@ -277,7 +278,7 @@ public class ScenarioMethod
                                 SerializeType = typeof(NodeConnectorClass)
                             },
 
-                            Title = "真",
+                            Title = "lang.kitopia.true",
                             ConnectorType = ConnectorType.Output
                         },
                         new ConnectorItem
@@ -287,7 +288,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(NodeConnectorClass)
                             },
-                            Title = "假",
+                            Title = "lang.kitopia.false",
                             ConnectorType = ConnectorType.Output
                         }
                     };
@@ -301,7 +302,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(NodeConnectorClass)
                             },
-                            Title = "流输入"
+                            Title = "lang.kitopia.stream_input"
                         },
                         new ConnectorItem
                         {
@@ -310,7 +311,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(bool)
                             },
-                            Title = CustomScenarioGlobe.GetI18N(typeof(bool).FullName)
+                            Title = CustomScenarioGlobe.GetTypeNameKey(typeof(bool).FullName)
                         }
                     };
                     pointItem.Input = StringinItems;
@@ -318,7 +319,7 @@ public class ScenarioMethod
                 }
                 case ScenarioMethodType.OneToTwo:
                 {
-                    pointItem.Title = "一变二";
+                    pointItem.Title = "lang.kitopia.split_into_two_outputs";
                     ObservableCollection<ConnectorItem> StringoutItems = new()
                     {
                         new ConnectorItem
@@ -329,7 +330,7 @@ public class ScenarioMethod
                                 SerializeType = typeof(NodeConnectorClass)
                             },
 
-                            Title = "流输出",
+                            Title = "lang.kitopia.stream_output",
                             ConnectorType = ConnectorType.Output
                         },
                         new ConnectorItem
@@ -340,7 +341,7 @@ public class ScenarioMethod
                                 SerializeType = typeof(NodeConnectorClass)
                             },
                             ConnectorType = ConnectorType.Output,
-                            Title = "流输出"
+                            Title = "lang.kitopia.stream_output"
                         }
                     };
                     pointItem.Output = StringoutItems;
@@ -353,7 +354,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(NodeConnectorClass)
                             },
-                            Title = "流输入"
+                            Title = "lang.kitopia.stream_input"
                         }
                     };
                     pointItem.Input = StringinItems;
@@ -361,7 +362,7 @@ public class ScenarioMethod
                 }
                 case ScenarioMethodType.OneToMany:
                 {
-                    pointItem.Title = "一变多";
+                    pointItem.Title = "lang.kitopia.split_into_multiple_outputs";
                     ObservableCollection<ConnectorItem> StringoutItems = new()
                     {
                         new ConnectorItem
@@ -371,7 +372,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(NodeConnectorClass)
                             },
-                            Title = "流输出",
+                            Title = "lang.kitopia.stream_output",
                             ConnectorType = ConnectorType.Output
                         },
                         new ConnectorItem
@@ -382,7 +383,7 @@ public class ScenarioMethod
                                 SerializeType = typeof(NodeConnectorClass)
                             },
                             ConnectorType = ConnectorType.Output,
-                            Title = "流输出"
+                            Title = "lang.kitopia.stream_output"
                         }
                     };
                     pointItem.Output = StringoutItems;
@@ -395,7 +396,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(NodeConnectorClass)
                             },
-                            Title = "流输入"
+                            Title = "lang.kitopia.stream_input"
                         },
                         new ConnectorItem
                         {
@@ -407,7 +408,7 @@ public class ScenarioMethod
                                 IsSelf = true
                             },
                             OnlySelfInput = true,
-                            Title = "输出数量"
+                            Title = "lang.kitopia.output_count"
                         }
                     };
                     pointItem.Input = StringinItems;
@@ -415,7 +416,7 @@ public class ScenarioMethod
                 }
                 case ScenarioMethodType.Equal:
                 {
-                    pointItem.Title = "相等";
+                    pointItem.Title = "lang.kitopia.equal";
                     ObservableCollection<ConnectorItem> StringoutItems = new()
                     {
                         new ConnectorItem
@@ -425,7 +426,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(bool)
                             },
-                            Title = CustomScenarioGlobe.GetI18N(typeof(bool).FullName),
+                            Title = CustomScenarioGlobe.GetTypeNameKey(typeof(bool).FullName),
                             ConnectorType = ConnectorType.Output
                         }
                     };
@@ -439,7 +440,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(NodeConnectorClass)
                             },
-                            Title = "流输入"
+                            Title = "lang.kitopia.stream_input"
                         },
                         new ConnectorItem
                         {
@@ -448,7 +449,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(object)
                             },
-                            Title = CustomScenarioGlobe.GetI18N(typeof(object).FullName)
+                            Title = CustomScenarioGlobe.GetTypeNameKey(typeof(object).FullName)
                         },
                         new ConnectorItem
                         {
@@ -457,7 +458,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(object)
                             },
-                            Title = CustomScenarioGlobe.GetI18N(typeof(object).FullName)
+                            Title = CustomScenarioGlobe.GetTypeNameKey(typeof(object).FullName)
                         }
                     };
                     pointItem.Input = StringinItems;
@@ -475,7 +476,7 @@ public class ScenarioMethod
                             SerializeType = typeof(NodeConnectorClass)
                         },
 
-                        Title = "流输入"
+                        Title = "lang.kitopia.stream_input"
                     });
                     inpItems.Add(new ConnectorItem
                     {
@@ -485,7 +486,7 @@ public class ScenarioMethod
                             SerializeType = ValueDataType
                         },
 
-                        Title = "设置"
+                        Title = "lang.kitopia.settings"
                     });
                     pointItem.Input = inpItems;
                     ObservableCollection<ConnectorItem> outItems = new();
@@ -497,7 +498,7 @@ public class ScenarioMethod
                         {
                             SerializeType = typeof(NodeConnectorClass)
                         },
-                        Title = "流输出"
+                        Title = "lang.kitopia.stream_output"
                     });
                     pointItem.Output = outItems;
                     break;
@@ -513,7 +514,7 @@ public class ScenarioMethod
                         {
                             SerializeType = typeof(NodeConnectorClass)
                         },
-                        Title = "流输入"
+                        Title = "lang.kitopia.stream_input"
                     });
                     pointItem.Input = inpItems;
                     ObservableCollection<ConnectorItem> outItems = new();
@@ -525,7 +526,7 @@ public class ScenarioMethod
                             SerializeType = typeof(NodeConnectorClass)
                         },
                         ConnectorType = ConnectorType.Output,
-                        Title = "流输出"
+                        Title = "lang.kitopia.stream_output"
                     });
                     outItems.Add(new ConnectorItem
                     {
@@ -535,7 +536,7 @@ public class ScenarioMethod
                             SerializeType = ValueDataType
                         },
 
-                        Title = "获取",
+                        Title = "lang.kitopia.get",
                         ConnectorType = ConnectorType.Output
                     });
                     pointItem.Output = outItems;
@@ -553,7 +554,7 @@ public class ScenarioMethod
                             SerializeType = typeof(NodeConnectorClass)
                         },
 
-                        Title = "流输入"
+                        Title = "lang.kitopia.stream_input"
                     });
                     inpItems.Add(new ConnectorItem
                     {
@@ -563,7 +564,7 @@ public class ScenarioMethod
                             SerializeType = typeof(object)
                         },
 
-                        Title = "设置"
+                        Title = "lang.kitopia.settings"
                     });
                     pointItem.Input = inpItems;
                     ObservableCollection<ConnectorItem> outItems = new();
@@ -575,7 +576,7 @@ public class ScenarioMethod
                         {
                             SerializeType = typeof(NodeConnectorClass)
                         },
-                        Title = "流输出"
+                        Title = "lang.kitopia.stream_output"
                     });
                     pointItem.Output = outItems;
                     break;
@@ -591,7 +592,7 @@ public class ScenarioMethod
                         {
                             SerializeType = typeof(NodeConnectorClass)
                         },
-                        Title = "流输入"
+                        Title = "lang.kitopia.stream_input"
                     });
                     pointItem.Input = inpItems;
                     ObservableCollection<ConnectorItem> outItems = new();
@@ -603,7 +604,7 @@ public class ScenarioMethod
                             SerializeType = typeof(NodeConnectorClass)
                         },
                         ConnectorType = ConnectorType.Output,
-                        Title = "流输出"
+                        Title = "lang.kitopia.stream_output"
                     });
                     outItems.Add(new ConnectorItem
                     {
@@ -613,7 +614,7 @@ public class ScenarioMethod
                             SerializeType = typeof(object)
                         },
 
-                        Title = "获取",
+                        Title = "lang.kitopia.get",
                         ConnectorType = ConnectorType.Output
                     });
                     pointItem.Output = outItems;
@@ -630,7 +631,7 @@ public class ScenarioMethod
                         {
                             SerializeType = typeof(NodeConnectorClass)
                         },
-                        Title = "流输入"
+                        Title = "lang.kitopia.stream_input"
                     });
                     pointItem.Input = inpItems;
                     ObservableCollection<ConnectorItem> outItems = new();
@@ -642,7 +643,7 @@ public class ScenarioMethod
                             SerializeType = typeof(NodeConnectorClass)
                         },
                         ConnectorType = ConnectorType.Output,
-                        Title = "流输出"
+                        Title = "lang.kitopia.stream_output"
                     });
                     outItems.Add(new ConnectorItem
                     {
@@ -652,7 +653,7 @@ public class ScenarioMethod
                             SerializeType = ValueDataType
                         },
 
-                        Title = "获取",
+                        Title = "lang.kitopia.get",
                         ConnectorType = ConnectorType.Output
                     });
                     pointItem.Output = outItems;
@@ -660,7 +661,7 @@ public class ScenarioMethod
                 }
                 case ScenarioMethodType.OpenRunLocalProject:
                 {
-                    pointItem.Title = "打开/运行本地项目";
+                    pointItem.Title = "lang.kitopia.open_or_run_local_item";
                     ObservableCollection<ConnectorItem> outItems = new();
                     outItems.Add(new ConnectorItem
                     {
@@ -670,7 +671,7 @@ public class ScenarioMethod
                         {
                             SerializeType = typeof(NodeConnectorClass)
                         },
-                        Title = "流输出"
+                        Title = "lang.kitopia.stream_output"
                     });
                     pointItem.Output = outItems;
                     ObservableCollection<ConnectorItem> pointInItems = new()
@@ -682,7 +683,7 @@ public class ScenarioMethod
                             {
                                 SerializeType = typeof(NodeConnectorClass)
                             },
-                            Title = "流输入"
+                            Title = "lang.kitopia.stream_input"
                         },
                         new ConnectorItem
                         {
@@ -696,7 +697,7 @@ public class ScenarioMethod
                             },
 
 
-                            Title = "本地项目"
+                            Title = "lang.kitopia.local_item"
                         }
                     };
                     pointItem.Input = pointInItems;

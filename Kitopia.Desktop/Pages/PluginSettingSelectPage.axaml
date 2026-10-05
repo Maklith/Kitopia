@@ -15,9 +15,9 @@
         <!-- 1. Header: Plugin options + Title + Subtitle -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
             <StackPanel Grid.Column="0">
-                <TextBlock Text="插件选项" Theme="{DynamicResource KitopiaPageKickerText}" />
+                <TextBlock Text="{DynamicResource 'lang.kitopia.plugin_options'}" Theme="{DynamicResource KitopiaPageKickerText}" />
                 <TextBlock Text="{Binding PluginName}" Theme="{DynamicResource KitopiaPageTitleText}" />
-                <TextBlock Text="选择需要配置的插件模块或扩展设置页面。"
+                <TextBlock Text="{DynamicResource 'lang.kitopia.choose_a_plugin_or_extension_to_configure'}"
                            Theme="{DynamicResource KitopiaPageSubtitleText}" />
             </StackPanel>
         </Grid>

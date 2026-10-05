@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -89,7 +90,7 @@ internal class Program {
         [
             new ScreenCaptureExMethod
             {
-                Description = "文字提取",
+                Description = Lang.Get("lang.kitopia.extract_text"),
                 Symbol = 0xea72,
                 Action = OcrResultShowWindow.ShowForCapture
             }

@@ -3,6 +3,7 @@
 #endif
 
 using System;
+using System.ComponentModel;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -13,6 +14,7 @@ using Kitopia.Desktop.Features.Indexing;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.ViewModel.Main;
 using Kitopia.Desktop.Windows;
+using Kitopia.Feature.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 #if WINDOWS
@@ -39,6 +41,7 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        ApplyLanguage();
 #if WINDOWS
         SetWindowEffectsEnabled(false);
 #else
@@ -51,6 +54,8 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            Lang.Current.PropertyChanged += OnLanguageChanged;
+            desktop.Exit += (_, _) => Lang.Current.PropertyChanged -= OnLanguageChanged;
             desktop.MainWindow = ServiceManager.Services.GetService<MainWindow>();
 #if WINDOWS
             InitializeWindowEffects(desktop.MainWindow!);
@@ -98,6 +103,17 @@ public partial class App : Application
         {
             enabled ? WindowTransparencyLevel.AcrylicBlur : WindowTransparencyLevel.None
         };
+    }
+
+    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(Lang.Language)) Dispatcher.UIThread.Post(ApplyLanguage);
+    }
+
+    private void ApplyLanguage()
+    {
+        foreach (var theme in Styles.OfType<Semi.Avalonia.SemiTheme>()) theme.Locale = Lang.Current.Culture;
+        foreach (var theme in Styles.OfType<Ursa.Themes.Semi.Legacy.SemiTheme>()) theme.Locale = Lang.Current.Culture;
     }
 
 #if WINDOWS

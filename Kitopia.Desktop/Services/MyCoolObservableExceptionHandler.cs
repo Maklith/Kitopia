@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Reactive.Concurrency;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services;
 using Avalonia.Controls.Notifications;
 using PluginCore;
@@ -19,7 +20,7 @@ public class MyCoolObservableExceptionHandler : IObserver<Exception>
         Logger.Error(value, "");
         if (ServiceManager.Services.GetService(typeof(IToastService)) is IToastService toastService)
         {
-            _ = toastService.Show("错误", value.ToString(), NotificationType.Error);
+            _ = toastService.Show(Lang.Get("lang.kitopia.error"), value.ToString(), NotificationType.Error);
         }
         RxSchedulers.MainThreadScheduler.Schedule(() => { throw value; });
     }
@@ -30,7 +31,7 @@ public class MyCoolObservableExceptionHandler : IObserver<Exception>
         Logger.Error(error, "");
         if (ServiceManager.Services.GetService(typeof(IToastService)) is IToastService toastService)
         {
-            _ = toastService.Show("错误", error.ToString(), NotificationType.Error);
+            _ = toastService.Show(Lang.Get("lang.kitopia.error"), error.ToString(), NotificationType.Error);
         }
         RxSchedulers.MainThreadScheduler.Schedule(() => { throw error; });
     }

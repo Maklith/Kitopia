@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using PluginCore;
 
 namespace Kitopia.Desktop.Features.Services.Plugin;
@@ -17,7 +18,7 @@ public sealed record PluginDownloadProgress(
     public bool IsIndeterminate => !IsInstalling && TotalBytes is not > 0;
 
     public string StatusText => IsInstalling ? "正在安装"
-        : TotalBytes is > 0 ? $"下载中 {Percentage:F0}%"
-        : DownloadedBytes > 0 ? $"下载中 {DownloadedBytes / 1048576d:F1} MB"
+        : TotalBytes is > 0 ? Lang.Format("lang.kitopia.messages.downloading_value", Percentage)
+        : DownloadedBytes > 0 ? Lang.Format("lang.kitopia.messages.downloading_value_mb", DownloadedBytes / 1048576d)
         : "下载中";
 }

@@ -1,63 +1,21 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:vm="clr-namespace:Kitopia.Desktop.Features.CustomScenario.ViewModels.TaskEditor;assembly=Kitopia.Desktop.Features"
-        xmlns:cv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
-        mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="400"
-        x:Class="Kitopia.Desktop.Windows.TaskEditors.TaskNodeSearchWindow"
-        x:DataType="vm:TaskNodeSearchViewModel"
-        Title="Search Node"
-        Width="300" Height="400"
-        SystemDecorations="None"
-        ShowInTaskbar="False"
-        Topmost="True"
-        WindowStartupLocation="Manual"
-        Classes="acrylic"
-        Background="Transparent">
+<Window xmlns="https://github.com/avaloniaui" xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia" xmlns:localization="clr-namespace:Kitopia.Feature.Localization;assembly=Kitopia.Feature" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:vm="clr-namespace:Kitopia.Desktop.Features.CustomScenario.ViewModels.TaskEditor;assembly=Kitopia.Desktop.Features" xmlns:cv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base" mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="400" x:Class="Kitopia.Desktop.Windows.TaskEditors.TaskNodeSearchWindow" x:DataType="vm:TaskNodeSearchViewModel" Title="Search Node" Width="300" Height="400" SystemDecorations="None" ShowInTaskbar="False" Topmost="True" WindowStartupLocation="Manual" Classes="acrylic" Background="Transparent">
 
-    <Border CornerRadius="8"
-            Background="{DynamicResource KitopiaCardBackgroundBrush}"
-            BorderBrush="{DynamicResource SemiColorBorder}"
-            BorderThickness="1"
-            BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
-            Padding="10">
+    <Border CornerRadius="8" Background="{DynamicResource KitopiaCardBackgroundBrush}" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" BoxShadow="{DynamicResource KitopiaCardBoxShadow}" Padding="10">
         <Grid RowDefinitions="Auto, *">
-            <TextBox Name="SearchBox"
-                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                     PlaceholderText="搜索节点..."
-                     Height="32"
-                     CornerRadius="6"
-                     VerticalContentAlignment="Center"
-                     Classes="ClearButton"
-                     Margin="0,0,0,10">
+            <TextBox Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="{DynamicResource 'lang.kitopia.search_nodes'}" Height="32" CornerRadius="6" VerticalContentAlignment="Center" Classes="ClearButton" Margin="0,0,0,10">
                 <TextBox.KeyBindings>
                     <KeyBinding Gesture="Enter" Command="{Binding ConfirmSelectCommand}" />
                     <KeyBinding Gesture="Escape" Command="{Binding $parent[Window].Close}" />
                 </TextBox.KeyBindings>
             </TextBox>
             <ScrollViewer Grid.Row="1">
-                <ItemsControl ScrollViewer.VerticalScrollBarVisibility="Auto"
-                              ItemsSource="{Binding FilteredNodes}"
-                              Background="Transparent">
+                <ItemsControl ScrollViewer.VerticalScrollBarVisibility="Auto" ItemsSource="{Binding FilteredNodes}" Background="Transparent">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Button
-                                Command="{Binding $parent[Window].((vm:TaskNodeSearchViewModel)DataContext).ConfirmSelectCommand}"
-                                CommandParameter="{Binding}"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                CornerRadius="6"
-                                Padding="8,6">
+                            <Button Command="{Binding $parent[Window].((vm:TaskNodeSearchViewModel)DataContext).ConfirmSelectCommand}" CommandParameter="{Binding}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" CornerRadius="6" Padding="8,6">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource SemiColorText0}" />
-                                    <TextBlock Text="{Binding Detail}"
-                                               FontSize="11"
-                                               Foreground="{DynamicResource SemiColorText2}"
-                                               IsVisible="{Binding Detail, Converter={x:Static cv:StringConverters.IsNotNullOrEmpty}}" />
+                                    <TextBlock Text="{lang:Lang Value={Binding Title}}" FontWeight="SemiBold" Foreground="{DynamicResource SemiColorText0}" />
+                                    <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource SemiColorText2}" IsVisible="{Binding Detail, Converter={x:Static cv:StringConverters.IsNotNullOrEmpty}}" />
                                 </StackPanel>
                             </Button>
                         </DataTemplate>

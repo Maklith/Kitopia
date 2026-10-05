@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
@@ -528,7 +529,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                     {
                         new SearchViewItem
                         {
-                            ItemDisplayName = "将内容添加至便签" + originalValue,
+                            ItemDisplayName = Lang.Get("lang.kitopia.add_to_note") + originalValue,
                             FileType = FileType.便签,
                             OnlyKey = originalValue,
                             Icon = null,
@@ -537,7 +538,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                         },
                         new SearchViewItem
                         {
-                            ItemDisplayName = "在网页中搜索" + originalValue,
+                            ItemDisplayName = Lang.Get("lang.kitopia.search_the_web") + originalValue,
                             FileType = FileType.URL,
                             OnlyKey = "https://www.bing.com/search?q=" + originalValue,
                             Icon = null,
@@ -584,7 +585,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 {
                     new SearchViewItem
                     {
-                        ItemDisplayName = "将内容添加至便签" + originalValue,
+                        ItemDisplayName = Lang.Get("lang.kitopia.add_to_note") + originalValue,
                         FileType = FileType.便签,
                         OnlyKey = originalValue,
                         Icon = null,
@@ -593,7 +594,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                     },
                     new SearchViewItem
                     {
-                        ItemDisplayName = "在网页中搜索" + originalValue,
+                        ItemDisplayName = Lang.Get("lang.kitopia.search_the_web") + originalValue,
                         FileType = FileType.URL,
                         OnlyKey = "https://www.bing.com/search?q=" + originalValue,
                         Icon = null,

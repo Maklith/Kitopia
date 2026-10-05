@@ -1,4 +1,5 @@
-﻿using PluginCore.CustomScenario;
+using PluginCore.Localization;
+using PluginCore.CustomScenario;
 
 namespace KitopiaEx.CustomScenarioTriggers;
 
@@ -8,7 +9,7 @@ public class Trigger1 : CustomScenarioTrigger
     public static CustomScenarioTriggerInfo Info = new()
     {
         Name = "Trigger1",
-        Description = "触发器1"
+        Description = Lang.Get("lang.kitopiaex.trigger_1")
     };
 
     public static void Excite1()

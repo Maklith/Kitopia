@@ -1,4 +1,5 @@
-﻿using System;
+using PluginCore.Localization;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -225,7 +226,7 @@ public partial class OcrResultShowWindow : UrsaWindow
 
         this.Clipboard.SetTextAsync(sb.ToString());
         ClearAllSelected();
-        Kitopia.IToastService.Show("已复制", sb.ToString());
+        Kitopia.IToastService.Show(Lang.Get("lang.kitopiaex.copied"), sb.ToString());
     }
 
     private void InputElement_OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Threading;
@@ -202,6 +203,9 @@ public sealed class PluginLifecycleTests
                 context = await EnableAndRetainDuringUnloadAsync(info, false, () =>
                 {
                     var root = ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup;
+                    Assert.IsTrue(Kitopia.Feature.Localization.Lang.Current.Keys.Contains("lang.pluginlifecycle.title"));
+                    Assert.AreEqual(Kitopia.Feature.Localization.Lang.Get("lang.pluginlifecycle.title"),
+                        PluginCore.Localization.Lang.Get("lang.pluginlifecycle.title"));
                     var direct = root.Childrens[name].Methods.Single().Value;
                     Assert.AreEqual("Direct fixture method", direct.Title);
                     Assert.IsTrue(root.Childrens[name].Methods.ContainsKey(direct.ScenarioMethod.MethodAbsolutelyName));
@@ -220,10 +224,43 @@ public sealed class PluginLifecycleTests
                         Assert.AreEqual(node.ScenarioMethod.MethodId, restored.ScenarioMethod.MethodId);
                         Assert.AreEqual("TopScenarioMethod", restored.ScenarioMethod.Method.Name);
                     }
-                    var typed = top.Values.Single(node => node.Title == "Typed fixture method");
+                    var typed = top.Values.Single(node => node.Title == "lang.pluginlifecycle.typed_method");
                     Assert.IsTrue(top.ContainsKey(typed.ScenarioMethod.MethodAbsolutelyName));
                     Assert.IsNotNull(PluginManager.GetEnablePlugins()[name].GetMethod(
                         typed.ScenarioMethod.MethodAbsolutelyName));
+                    typed.Input[2].InputObject.Value = 23;
+                    var legacyNode = JsonNode.Parse(JsonSerializer.Serialize(typed, ConfigManger.DefaultOptions))!;
+                    var legacyMethod = legacyNode["ScenarioMethod"]!;
+                    legacyMethod.AsObject().Remove("MethodId");
+                    legacyMethod["Attribute"]!["Name"] = "Typed fixture method";
+                    legacyMethod["Attribute"]!.AsObject().Remove("Id");
+                    legacyMethod["Attribute"]!["ParameterName"]!["input"] = "Fixture input";
+                    legacyMethod["Attribute"]!["ParameterName"]!["count"] = "Old count";
+                    legacyMethod["Attribute"]!["ParameterName"]!["return"] = "Old result";
+                    var legacyInputs = legacyNode["Input"]!["$values"]!;
+                    var legacyOutputs = legacyNode["Output"]!["$values"]!;
+                    legacyInputs[0]!["Title"] = "流输入";
+                    legacyInputs[1]!["Title"] = "Fixture input";
+                    legacyInputs[2]!["Title"] = "Old count";
+                    legacyOutputs[0]!["Title"] = "流输出";
+                    legacyOutputs[1]!["Title"] = "Old result";
+                    foreach (var customLabel in new[] { false, true })
+                    {
+                        legacyNode["Title"] = customLabel ? "My node" : "Typed fixture method";
+                        legacyInputs[2]!["Title"] = customLabel ? "My count" : "Old count";
+                        var restored = legacyNode.Deserialize<ScenarioMethodNode>(ConfigManger.DefaultOptions)!;
+                        Assert.AreEqual(customLabel ? "My node" : "lang.pluginlifecycle.typed_method", restored.Title);
+                        Assert.AreEqual(customLabel ? "My count" : "lang.pluginlifecycle.count", restored.Input[2].Title);
+                        Assert.AreEqual("lang.pluginlifecycle.input", restored.Input[1].Title);
+                        Assert.AreEqual("lang.pluginlifecycle.result", restored.Output[1].Title);
+                        Assert.AreEqual("lang.kitopia.stream_input", restored.Input[0].Title);
+                        Assert.AreEqual("lang.kitopia.stream_output", restored.Output[0].Title);
+                        Assert.AreEqual("Typed fixture method", restored.ScenarioMethod.MethodId);
+                        Assert.AreEqual("lang.pluginlifecycle.typed_method", restored.ScenarioMethod.Attribute.Name);
+                        Assert.AreEqual(23, restored.Input[2].InputObject.Value);
+                        Assert.AreSame(restored, restored.Input[2].Source);
+                        Assert.AreSame(restored, restored.Output[1].Source);
+                    }
                     var mixed = root.Childrens["Kitopia"].Childrens["节点控制"].Methods;
                     Assert.IsTrue(mixed.Values.Any(node => node.Title == "Condition" &&
                         node.ScenarioMethod.PluginInfo?.ToPlgString() == name));
@@ -244,6 +281,7 @@ public sealed class PluginLifecycleTests
             }
             Assert.IsFalse(System.Runtime.Loader.AssemblyLoadContext.All.Any(context => context.Name == "PluginLifecycle.dll_plugin"));
             Assert.IsFalse(ConfigManger.AllConfigs.ContainsKey(key));
+            Assert.IsFalse(Kitopia.Feature.Localization.Lang.Current.Keys.Contains("lang.pluginlifecycle.title"));
             Assert.IsEmpty(hotkeys.GetAllRegistered());
             Assert.IsFalse(CustomScenarioManger.CustomScenarios.Contains(triggerScenario));
             Assert.IsFalse(PluginOverall.Features.ContainsKey(name));

@@ -31,8 +31,8 @@ internal static class BgeModelPackage
     {
         return new OnnxModelInfo
         {
-            Name = "中文语义搜索模型（BGE）",
-            Description = "用于理解搜索词与内容的语义关联",
+            Name = "lang.kitopia.models.bge_semantic_search",
+            Description = "lang.kitopia.understands_semantic_relationships_between_search_terms_and_content",
             SignName = ModelSignName,
             ModelPath = ModelPath,
             RequiredFiles = [ModelDataPath, TokenizerPath],

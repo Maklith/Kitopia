@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -22,11 +23,14 @@ public class HistoryItem
 }
 public enum ThemeEnum
 {
+    [System.ComponentModel.Description("lang.kitopia.system_default")]
     跟随系统,
+    [System.ComponentModel.Description("lang.kitopia.dark")]
     深色,
+    [System.ComponentModel.Description("lang.kitopia.light")]
     浅色
 }
-[ConfigName("Kitopia主配置文件")]
+[ConfigName("lang.kitopia.kitopia_settings")]
 public class KitopiaConfig : ConfigBase
 {
     internal const int CurrentSchemaVersion = 2;
@@ -98,8 +102,8 @@ public class KitopiaConfig : ConfigBase
     public Dictionary<string, string> OnnxTargetDevices = new();
     public Dictionary<string, string> deviceCustomNames = new();
 
-    [ConfigFieldCategory("设备互传")]
-    [ConfigField("对外显示名称", "为空时使用当前计算机名称", 0xf45f, ConfigFieldType.字符串)]
+    [ConfigFieldCategory("lang.kitopia.device_sharing")]
+    [ConfigField("lang.kitopia.device_display_name", "lang.kitopia.leave_empty_to_use_the_computer_name", 0xf45f, ConfigFieldType.字符串)]
     public string deviceBroadcastName = string.Empty;
     public string devicePersistentId = string.Empty;
     public string devicePrivateKey = string.Empty;
@@ -128,24 +132,27 @@ public class KitopiaConfig : ConfigBase
         return changed;
     }
 
-    [ConfigFieldCategory("基本")] [ConfigField<ThemeEnum>("主题选择", "跟随系统,深色还是浅色?", 0xf33c)]
+    [ConfigFieldCategory("lang.kitopia.general")] [ConfigField<ThemeEnum>("lang.kitopia.theme", "lang.kitopia.system_default_dark_or_light", 0xf33c)]
     public ThemeEnum themeChoice = ThemeEnum.跟随系统;
 
-    [ConfigField("主题色跟随系统", "使用 Windows 个性化设置中的主题色", 0xf33c, ConfigFieldType.布尔)]
+    // Empty means follow the operating system's UI language.
+    public string language = string.Empty;
+
+    [ConfigField("lang.kitopia.use_system_accent_color", "lang.kitopia.use_the_accent_color_from_windows_personalization", 0xf33c, ConfigFieldType.布尔)]
     public bool followSystemAccentColor = false;
 
-    [ConfigField("主题色", "", 0xf33c, ConfigFieldType.颜色,
+    [ConfigField("lang.kitopia.accent_color", "", 0xf33c, ConfigFieldType.颜色,
         VisibleWhen = nameof(followSystemAccentColor), VisibleWhenValue = false)]
     public string accentColor = "#0064FA";
 
-    [ConfigField("自动启动", "可能被杀毒软件阻止", 0xE61C, ConfigFieldType.布尔)]
+    [ConfigField("lang.kitopia.start_automatically", "lang.kitopia.may_be_blocked_by_antivirus_software", 0xE61C, ConfigFieldType.布尔)]
     public bool autoStart = true;
 
 
-    [ConfigField("允许程序读取剪贴板", "自动读取剪贴板路径和剪贴板图像保存依赖于此权限", 0xF2D7, ConfigFieldType.布尔)]
+    [ConfigField("lang.kitopia.allow_clipboard_access", "lang.kitopia.required_for_reading_clipboard_paths_and_saving_clipboard_images", 0xF2D7, ConfigFieldType.布尔)]
     public bool canReadClipboard = true;
-    [ConfigFieldCategory("Windows增强")]
-    [ConfigField("置顶窗口快捷键", "置顶窗口快捷键", 0xf602, ConfigFieldType.快捷键, actionName: "topMostWindowHotKeyAction")]
+    [ConfigFieldCategory("lang.kitopia.windows_enhancements")]
+    [ConfigField("lang.kitopia.always_on_top_hotkey", "lang.kitopia.always_on_top_hotkey", 0xf602, ConfigFieldType.快捷键, actionName: "topMostWindowHotKeyAction")]
     public HotKeyModel topMostWindowHotKey = new()
     {
         IsEnabled = true,
@@ -153,10 +160,10 @@ public class KitopiaConfig : ConfigBase
         IsSelectWin = false,
         IsSelectShift = false, SelectKey = EKey.T
     };
-    [ConfigField("检查Kitopia伴侣程序是否安装", "Kitopia伴侣程序用于拓展Windows资源管理器右键菜单拓展", 0xE61C, ConfigFieldType.布尔)]
+    [ConfigField("lang.kitopia.check_companion_installation", "lang.kitopia.the_companion_provides_windows_explorer_context_menu_integration", 0xE61C, ConfigFieldType.布尔)]
     public bool checkKitopiaCompanion = true;
-    [ConfigFieldCategory("搜索框")]
-    [ConfigField("搜索框快捷键", "显示搜索框快捷键", 0xF4B8, ConfigFieldType.快捷键, actionName: "searchHotKeyAction")]
+    [ConfigFieldCategory("lang.kitopia.search_window")]
+    [ConfigField("lang.kitopia.search_window_hotkey", "lang.kitopia.hotkey_to_show_the_search_window", 0xF4B8, ConfigFieldType.快捷键, actionName: "searchHotKeyAction")]
     public HotKeyModel searchHotKey = new()
     {
         IsEnabled = true,
@@ -167,38 +174,38 @@ public class KitopiaConfig : ConfigBase
 
     public Dictionary<string, HistoryItem> lastOpens = new();
 
-    [ConfigField("最大历史记录", "最大历史记录数", 0xF2D7, ConfigFieldType.整数列表, null, 10, 1, 1)]
+    [ConfigField("lang.kitopia.history_limit", "lang.kitopia.maximum_history_entries", 0xF2D7, ConfigFieldType.整数列表, null, 10, 1, 1)]
     public int maxHistory = 6;
-    [ConfigField("允许程序调用Everything索引文档", "索引文档依赖于此功能", 0xF3AE, ConfigFieldType.布尔)]
+    [ConfigField("lang.kitopia.use_everything_to_index_documents", "lang.kitopia.required_for_document_indexing", 0xF3AE, ConfigFieldType.布尔)]
     public bool useEverything = true;
 
-    [ConfigField("自动启动Everything", "在Everything未启动时自动启动", 0xE61C, ConfigFieldType.布尔)]
+    [ConfigField("lang.kitopia.start_everything_automatically", "lang.kitopia.start_everything_if_it_is_not_running", 0xE61C, ConfigFieldType.布尔)]
     public bool autoStartEverything = true;
 
-    [ConfigField("Everything 自动纳入索引的文件类型", "Everything 发现匹配扩展名的全盘文件后，将其加入普通预索引；不限制 @ 实时搜索", 0xf8cb, ConfigFieldType.字符串列表支持添加)]
+    [ConfigField("lang.kitopia.everything_indexed_file_types", "lang.kitopia.add_matching_files_found_by_everything_to_the_local_index_does_not_limit_live_searches", 0xf8cb, ConfigFieldType.字符串列表支持添加)]
     public ObservableCollection<string> everythingSearchExtensions =
         ["*.docx", "*.doc", "*.xls", "*.xlsx", "*.pdf", "*.ppt", "*.pptx"];
 
-    [ConfigField("调用Everything直接搜索文件前缀", "如果搜索内容直接以该前缀开始,直接调用Everything而不是程序内置索引", 0xf8cb, ConfigFieldType.字符串)]
+    [ConfigField("lang.kitopia.everything_search_prefix", "lang.kitopia.search_everything_when_the_query_starts_with_this_prefix", 0xf8cb, ConfigFieldType.字符串)]
     public string everythingSearchPreString = "@";
 
-    [ConfigField("调用Everything直接搜索文件最大数量", "设置调用Everything直接搜索文件最大数量", 0xf8cb, ConfigFieldType.整数, null, 1000, 5, 5)]
+    [ConfigField("lang.kitopia.everything_result_limit", "lang.kitopia.maximum_files_returned_by_everything", 0xf8cb, ConfigFieldType.整数, null, 1000, 5, 5)]
     public int everythingSearchMaxCount = 50;
 
-    [ConfigFieldCategory("语义搜索")]
-    [ConfigField("启用本地语义搜索", "使用内置中文语义模型理解搜索意图，并结合拼音搜索提升结果相关性。", 0xf3ae,
+    [ConfigFieldCategory("lang.kitopia.semantic_search")]
+    [ConfigField("lang.kitopia.enable_local_semantic_search", "lang.kitopia.use_the_built_in_chinese_semantic_model_and_pinyin_search_to_improve_relevance", 0xf3ae,
         (ConfigFieldType)5)]
     public bool enableSemanticSearch = true;
 
-    [ConfigField("语义搜索响应延迟", "停止输入后，等待多久再开始语义匹配。数值越小，响应越快。", 0xf8cb,
+    [ConfigField("lang.kitopia.semantic_search_delay", "lang.kitopia.delay_after_typing_before_semantic_matching_starts_lower_values_respond_faster", 0xf8cb,
         (ConfigFieldType)1, null, 1000, 100, 10)]
     public int semanticSearchDebounceMilliseconds = 300;
 
-    [ConfigField("语义搜索候选数量", "本地语义索引最多返回的候选结果数量。", 0xf8cb,
+    [ConfigField("lang.kitopia.semantic_result_limit", "lang.kitopia.maximum_candidates_returned_by_the_local_semantic_index", 0xf8cb,
         (ConfigFieldType)1, null, 100, 5, 5)]
     public int semanticSearchMaxResults = 50;
 
-    [ConfigField("语义文本扩展名", "仅提取并索引这些纯文本文件扩展名，例如 .md。", 0xf8cb, ConfigFieldType.字符串列表支持添加)]
+    [ConfigField("lang.kitopia.semantic_text_extensions", "lang.kitopia.extract_and_index_only_these_plain_text_extensions_e_g_md", 0xf8cb, ConfigFieldType.字符串列表支持添加)]
     public ObservableCollection<string> plainTextExtensions = [".md"];
 
 
@@ -222,32 +229,32 @@ public class KitopiaConfig : ConfigBase
     public List<string> errorLnk = new();
     public string everythingOnlyKey = "";
 
-    [ConfigFieldCategory("索引")]
-    [ConfigField("索引最大 CPU 使用率", "限制索引过程可使用的逻辑处理器比例。100 表示不限制，仅 Windows 生效。", 0xf8cb, ConfigFieldType.整数, null, 100, 5, 5)]
+    [ConfigFieldCategory("lang.kitopia.indexing")]
+    [ConfigField("lang.kitopia.indexing_cpu_limit", "lang.kitopia.limit_logical_processors_used_for_indexing_100_means_unlimited_windows_only", 0xf8cb, ConfigFieldType.整数, null, 100, 5, 5)]
     public int indexingMaximumCpuUsagePercent = 50;
 
-    [ConfigField("自动索引忽略的目录名称", "路径中包含这些目录名称时不会自动索引，例如缓存目录", 0xF2D7, ConfigFieldType.字符串列表支持添加)]
+    [ConfigField("lang.kitopia.excluded_folder_names", "lang.kitopia.skip_paths_containing_these_folder_names_such_as_cache_folders", 0xF2D7, ConfigFieldType.字符串列表支持添加)]
     public ObservableCollection<string> transientDirectoryNames =
         new(DefaultTransientDirectoryNames);
 
-    [ConfigField("自动索引允许的文件扩展名", "自动扫描默认目录和自定义目录时，仅纳入这些扩展名；不限制 Everything 自动发现和手动指定的索引文件。可填写 .pdf、*.pdf 或 *（允许全部扩展名）。", 0xF2D7, ConfigFieldType.字符串列表支持添加)]
+    [ConfigField("lang.kitopia.allowed_file_extensions", "lang.kitopia.include_these_extensions_when_scanning_folders_does_not_limit_everything_or_manually_added_files_use_pdf_pdf_or_for_all_extensions", 0xF2D7, ConfigFieldType.字符串列表支持添加)]
     public ObservableCollection<string> allowedFileExtensions =
         new(DefaultAllowedFileExtensions);
 
-    [ConfigField("自定义索引目录", "普通搜索会预先索引这些目录中的文件", 0xF2D7, ConfigFieldType.目录列表)]
+    [ConfigField("lang.kitopia.indexed_folders", "lang.kitopia.pre_index_files_in_these_folders_for_local_search", 0xF2D7, ConfigFieldType.目录列表)]
     public ObservableCollection<string> managedIndexDirectories = new();
 
-    [ConfigField("自定义索引文件", "普通搜索会预先索引这些文件", 0xF2D7, ConfigFieldType.文件列表)]
+    [ConfigField("lang.kitopia.indexed_files", "lang.kitopia.pre_index_these_files_for_local_search", 0xF2D7, ConfigFieldType.文件列表)]
     public ObservableCollection<string> managedIndexFiles = new();
 
-    [ConfigField("忽略项", "忽略指定的文件或文件夹", 0xF2D7, ConfigFieldType.文件和目录列表)]
+    [ConfigField("lang.kitopia.excluded_items", "lang.kitopia.exclude_selected_files_or_folders", 0xF2D7, ConfigFieldType.文件和目录列表)]
     public ObservableCollection<string> ignoreItems = new();
 
 
-    [ConfigFieldCategory("文件速览")] [ConfigField("允许对鼠标进行捕获", "允许对鼠标进行捕获(禁用后鼠标快捷键无效)", 0xE61C, ConfigFieldType.布尔)]
+    [ConfigFieldCategory("lang.kitopia.file_preview")] [ConfigField("lang.kitopia.capture_mouse_input", "lang.kitopia.required_for_mouse_hotkeys", 0xE61C, ConfigFieldType.布尔)]
     public bool mouseCapture = false;
 
-    [ConfigField("速览快捷键", "预览资源管理器中选中的文件，支持键盘或鼠标快捷键", 0xF4B8, ConfigFieldType.快捷键, actionName: "mouseHotkeyAction")]
+    [ConfigField("lang.kitopia.file_preview_hotkey", "lang.kitopia.preview_files_selected_in_explorer_using_a_keyboard_or_mouse_hotkey", 0xF4B8, ConfigFieldType.快捷键, actionName: "mouseHotkeyAction")]
     public HotKeyModel mouseHotkey = new()
     {
         IsEnabled = true,
@@ -266,15 +273,15 @@ public class KitopiaConfig : ConfigBase
     public List<string> mouseQuickItems = new();
 
 
-    [ConfigFieldCategory("截图")] 
-    [ConfigField("截图直接复制到剪贴板", "截图直接复制到剪贴板,不显示工具栏", 0xE61C, ConfigFieldType.布尔)]
+    [ConfigFieldCategory("lang.kitopia.screenshot")]
+    [ConfigField("lang.kitopia.copy_screenshots_directly_to_clipboard", "lang.kitopia.copy_screenshots_without_displaying_the_toolbar", 0xE61C, ConfigFieldType.布尔)]
     public bool 截图直接复制到剪贴板 = false;
-    [ConfigField("截图马赛克模糊度", "数值越大生成的模糊效果越明显", 0xE61C, ConfigFieldType.整数, null, 15, 1, 1)]
+    [ConfigField("lang.kitopia.screenshot_mosaic_blur", "lang.kitopia.higher_values_produce_stronger_blur", 0xE61C, ConfigFieldType.整数, null, 15, 1, 1)]
     public int GaussianBlurRadius = 6;
-    [ConfigField("截图方法", "使用特定的截图方法,某些情况下截图失败请尝试切换", 0xE61C, ConfigFieldType.自定义选项, actionName: "截图方法列表")]
+    [ConfigField("lang.kitopia.capture_method", "lang.kitopia.try_another_capture_method_if_screenshots_fail", 0xE61C, ConfigFieldType.自定义选项, actionName: "截图方法列表")]
     public string 截图方法 = "WGC";
 
-    [ConfigField("截图快捷键", "修改截图快捷键", 0xF4B8, ConfigFieldType.快捷键, actionName: "screenShotHotKeyAction")]
+    [ConfigField("lang.kitopia.screenshot_hotkey", "lang.kitopia.edit_screenshot_hotkey", 0xF4B8, ConfigFieldType.快捷键, actionName: "screenShotHotKeyAction")]
     public HotKeyModel screenShotHotKey = new()
     {
         IsEnabled = true,
@@ -283,19 +290,19 @@ public class KitopiaConfig : ConfigBase
         IsSelectShift = false, SelectKey = EKey.Q
     };
 
-    [ConfigFieldCategory("更多")]
-    [ConfigField("更新时创建图标", "更新安装时创建桌面和开始菜单快捷方式", 0xE61C, ConfigFieldType.布尔)]
+    [ConfigFieldCategory("lang.kitopia.more")]
+    [ConfigField("lang.kitopia.create_shortcuts_on_update", "lang.kitopia.create_desktop_and_start_menu_shortcuts_when_updating", 0xE61C, ConfigFieldType.布尔)]
     public bool createShortcutsOnUpdate = false;
 
-    [ConfigField("检查更新", "立即检查更新", 0xE974, ConfigFieldType.按钮,actionName: "检查更新")]
+    [ConfigField("lang.kitopia.check_for_updates", "lang.kitopia.check_for_updates_now", 0xE974, ConfigFieldType.按钮,actionName: "检查更新")]
     public async Task CheckUpdate()
     {
         await ServiceManager.Services.GetService<IApplicationService>()!.CheckUpdate(true);
     }
 
 #if DEBUG
-    [ConfigFieldCategory("开发者调试")]
-    [ConfigField("使用本地调试服务器", "开启后将所有远程 kitopia.top 改为 localhost 用于调试 (API: https://localhost:5111, Web: http://localhost:3000)", 0xf226, ConfigFieldType.布尔)]
+    [ConfigFieldCategory("lang.kitopia.settings.developer")]
+    [ConfigField("lang.kitopia.settings.local_server", "lang.kitopia.settings.local_server_description", 0xf226, ConfigFieldType.布尔)]
     public bool useLocalhostDebug = false;
 #endif
     
@@ -318,7 +325,7 @@ public class KitopiaConfig : ConfigBase
                         var toastService = ServiceManager.Services.GetService<IToastService>();
                         if (toastService is not null)
                         {
-                            _ = toastService.Show("截图失败", e.Exception.Message + e.Exception.StackTrace,
+                            _ = toastService.Show(Lang.Get("lang.kitopia.screenshot_failed"), e.Exception.Message + e.Exception.StackTrace,
                                 NotificationType.Error);
                         }
                     }

@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -71,19 +72,18 @@ public partial class FileChatMessageItem : ObservableObject
     {
         get
         {
-            if (IsFailed && !IsReceiving) return "失败";
-            if (IsIncomingFileOffer && !IsHandled) return "等待接收";
+            if (IsFailed && !IsReceiving) return Lang.Get("lang.kitopia.failed");
+            if (IsIncomingFileOffer && !IsHandled) return Lang.Get("lang.kitopia.waiting_to_receive");
             if (IsReceiving)
             {
                 var speed = BuildSpeedText();
                 var pct = ProgressPercentText;
-                var direction = IsOutgoing ? "发送" : "接收";
-                return $"{direction}中 {speed} ({pct}%)";
+                return Lang.Format(IsOutgoing ? "lang.kitopia.sending_value_value" : "lang.kitopia.receiving_value_value", speed, pct);
             }
-            if (IsOutgoing && IsPending && !IsOfferDelivered) return "正在发送请求...";
-            if (IsOutgoing && IsPending && IsWaitingForAccept) return "请求已送达，等待对方接受...";
-            if (IsHandled && IsIncomingFileOffer) return "已保存";
-            if (!IsPending && !IsFailed && !IsReceiving) return "已完成";
+            if (IsOutgoing && IsPending && !IsOfferDelivered) return Lang.Get("lang.kitopia.sending_request");
+            if (IsOutgoing && IsPending && IsWaitingForAccept) return Lang.Get("lang.kitopia.request_delivered_waiting_for_acceptance");
+            if (IsHandled && IsIncomingFileOffer) return Lang.Get("lang.kitopia.saved");
+            if (!IsPending && !IsFailed && !IsReceiving) return Lang.Get("lang.kitopia.completed");
             return string.Empty;
         }
     }
@@ -91,6 +91,13 @@ public partial class FileChatMessageItem : ObservableObject
     public bool HasState => !string.IsNullOrWhiteSpace(StateText);
 
     public string FileSizeText => FormatFileSizeLabel(FileSizeBytes);
+
+    internal void RefreshLanguage()
+    {
+        OnPropertyChanged(nameof(StateText));
+        OnPropertyChanged(nameof(HasState));
+        OnPropertyChanged(nameof(FileSizeText));
+    }
 
     public void UpdateTransferSpeed(long transferredBytes, DateTimeOffset timestampUtc)
     {
@@ -137,7 +144,7 @@ public partial class FileChatMessageItem : ObservableObject
         if (bytes >= oneGb) return $"{bytes / (double)oneGb:0.00} GB";
         if (bytes >= oneMb) return $"{bytes / (double)oneMb:0.00} MB";
         if (bytes >= oneKb) return $"{bytes / (double)oneKb:0.00} KB";
-        return $"{bytes} 字节";
+        return Lang.Format("lang.kitopia.value_bytes", bytes);
     }
 
     partial void OnIsOutgoingChanged(bool value) => OnPropertyChanged(nameof(StateText));

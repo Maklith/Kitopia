@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.SearchWindow.InputData;
@@ -23,7 +24,7 @@ public class PathAnalyzer : IInputDataAnalyzer
                 foreach (var (key, entry) in a.GetEntriesSnapshot())
                 {
                     var item = entry.ToSearchViewItem();
-                    item.ItemDisplayName = $"打开文件夹: {directoryInfo.Name} ?";
+                    item.ItemDisplayName = Lang.Format("lang.kitopia.messages.open_folder_value", directoryInfo.Name);
                     yield return item;
                 }
             }
@@ -35,7 +36,7 @@ public class PathAnalyzer : IInputDataAnalyzer
                 foreach (var (key, entry) in a.GetEntriesSnapshot())
                 {
                     var item = entry.ToSearchViewItem();
-                    item.ItemDisplayName = $"打开文件: {fileInfo.Name} ?";
+                    item.ItemDisplayName = Lang.Format("lang.kitopia.messages.open_file_value", fileInfo.Name);
                     yield return item;
                 }
             }

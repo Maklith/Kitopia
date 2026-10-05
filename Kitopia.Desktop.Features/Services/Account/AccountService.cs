@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.Http.Headers;
@@ -136,7 +137,7 @@ public sealed class AccountService : IAccountService
                 if (!isSilent)
                 {
                     var toastService = ServiceManager.Services?.GetService<IToastService>();
-                    toastService?.Show("登录成功", $"欢迎回来，{result.User.DisplayName}！", NotificationType.Success);
+                    toastService?.Show(Lang.Get("lang.kitopia.signed_in_successfully"), Lang.Format("lang.kitopia.messages.welcome_back_value", result.User.DisplayName), NotificationType.Success);
                 }
 
                 Logger.Information("用户登录成功: {UserName} ({DisplayName})", result.User.UserName, result.User.DisplayName);
@@ -171,7 +172,7 @@ public sealed class AccountService : IAccountService
                 if (!isSilent)
                 {
                     var toastService = ServiceManager.Services?.GetService<IToastService>();
-                    toastService?.Show("网络未连接", "无法连接到认证服务器，已保留离线登录状态。", NotificationType.Warning);
+                    toastService?.Show(Lang.Get("lang.kitopia.no_network_connection"), Lang.Get("lang.kitopia.cannot_reach_the_authentication_server_offline_sign_in_has_been_preserved"), NotificationType.Warning);
                 }
 
                 Logger.Warning("用户网络未连接，已保留本地登录凭证与离线状态");
@@ -189,7 +190,7 @@ public sealed class AccountService : IAccountService
             if (!isSilent)
             {
                 var toastService = ServiceManager.Services?.GetService<IToastService>();
-                toastService?.Show("登录错误", $"登录过程中发生错误: {ex.Message}", NotificationType.Error);
+                toastService?.Show(Lang.Get("lang.kitopia.sign_in_failed"), Lang.Format("lang.kitopia.messages.sign_in_error_value", ex.Message), NotificationType.Error);
             }
             return false;
         }
@@ -313,7 +314,7 @@ public sealed class AccountService : IAccountService
         {
             Logger.Error(ex, "打开默认浏览器失败: {Url}", authUrl);
             var toastService = ServiceManager.Services?.GetService<IToastService>();
-            toastService?.Show("无法打开浏览器", $"请手动访问: {authUrl}", NotificationType.Warning);
+            toastService?.Show(Lang.Get("lang.kitopia.unable_to_open_browser"), Lang.Format("lang.kitopia.messages.open_this_url_value", authUrl), NotificationType.Warning);
         }
     }
 

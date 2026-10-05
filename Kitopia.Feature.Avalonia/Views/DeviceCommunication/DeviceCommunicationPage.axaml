@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:Kitopia.Feature.Avalonia.DeviceCommunication.Views"
@@ -26,8 +27,8 @@
         <Border Grid.Column="0" Theme="{DynamicResource KitopiaCard}" IsVisible="{Binding IsListVisible}">
             <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
                 <StackPanel Spacing="4">
-                    <TextBlock Text="设备聊天" Classes="H5" Theme="{DynamicResource TitleTextBlock}" />
-                    <TextBlock Text="局域网在线会话"
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.device_chat'}" Classes="H5" Theme="{DynamicResource TitleTextBlock}" />
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.lan_conversations'}"
                                Foreground="{DynamicResource SemiColorText1}"
                                FontSize="{DynamicResource SemiFontSizeSmall}" />
                 </StackPanel>
@@ -46,10 +47,10 @@
                                     Theme="{DynamicResource KitopiaCardBorderless}">
                                 <Border.ContextFlyout>
                                     <MenuFlyout>
-                                        <MenuItem Header="修改备注名"
+                                        <MenuItem Header="{DynamicResource 'lang.kitopia.edit_custom_name'}"
                                                   Command="{Binding $parent[ListBox].((vm:DeviceCommunicationPageViewModel)DataContext).EditCustomNameCommand}"
                                                   CommandParameter="{Binding}" />
-                                        <MenuItem Header="清除备注"
+                                        <MenuItem Header="{DynamicResource 'lang.kitopia.clear_custom_name'}"
                                                   Command="{Binding $parent[ListBox].((vm:DeviceCommunicationPageViewModel)DataContext).ClearCustomNameCommand}"
                                                   CommandParameter="{Binding}" />
                                     </MenuFlyout>
@@ -85,7 +86,7 @@
                                                    FontSize="{DynamicResource SemiFontSizeSmall}"
                                                    TextTrimming="CharacterEllipsis"
                                                    MaxWidth="220" />
-                                        <TextBlock Text="{Binding ComputerName, StringFormat='计算机名: {0}'}"
+                                        <TextBlock Text="{lang:Lang &apos;lang.kitopia.computer_value&apos;, Value={Binding ComputerName}}"
                                                    Foreground="{DynamicResource SemiColorText2}"
                                                    FontSize="11" />
                                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -99,7 +100,7 @@
                                                        IsVisible="{Binding HasIpv6}" />
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{Binding TcpPort, StringFormat='TCP 端口: {0}'}"
+                                            <TextBlock Text="{lang:Lang &apos;lang.kitopia.tcp_port_value&apos;, Value={Binding TcpPort}}"
                                                        Foreground="{DynamicResource SemiColorText2}"
                                                        FontSize="11" />
                                             <TextBlock Text="{Binding StatusText}"
@@ -119,7 +120,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <TextBlock Text="暂无在线设备"
+                <TextBlock Text="{DynamicResource 'lang.kitopia.no_online_devices'}"
                            IsVisible="{Binding HasNoConversations}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
@@ -176,7 +177,7 @@
                                 </ItemsControl>
                             </ScrollViewer>
 
-                            <TextBlock Text="请选择在线设备开始聊天"
+                            <TextBlock Text="{DynamicResource 'lang.kitopia.select_an_online_device_to_start_chatting'}"
                                        IsVisible="{Binding ShowConversationPlaceholder}"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"
@@ -189,7 +190,7 @@
                         CornerRadius="8" Padding="10" Margin="0,8,0,0">
                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                         <TextBox Text="{Binding MessageText}"
-                                 PlaceholderText="输入消息..."
+                                 PlaceholderText="{DynamicResource 'lang.kitopia.type_a_message'}"
                                  AcceptsReturn="False"
                                  TextWrapping="Wrap"
                                  MinHeight="36"
@@ -201,13 +202,13 @@
                             </TextBox.KeyBindings>
                             <TextBox.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Header="剪切" Command="{Binding $parent[TextBox].Cut}" InputGesture="Ctrl+X" />
-                                    <MenuItem Header="复制" Command="{Binding $parent[TextBox].Copy}" InputGesture="Ctrl+C" />
-                                    <MenuItem Header="粘贴发送"
+                                    <MenuItem Header="{DynamicResource 'lang.kitopia.cut'}" Command="{Binding $parent[TextBox].Cut}" InputGesture="Ctrl+X" />
+                                    <MenuItem Header="{DynamicResource 'lang.kitopia.copy'}" Command="{Binding $parent[TextBox].Copy}" InputGesture="Ctrl+C" />
+                                    <MenuItem Header="{DynamicResource 'lang.kitopia.paste_and_send'}"
                                               Command="{Binding $parent[UserControl].((vm:DeviceCommunicationPageViewModel)DataContext).PasteSendCommand}"
                                               InputGesture="Ctrl+V" />
                                     <Separator />
-                                    <MenuItem Header="全选" Command="{Binding $parent[TextBox].SelectAll}" InputGesture="Ctrl+A" />
+                                    <MenuItem Header="{DynamicResource 'lang.kitopia.select_all'}" Command="{Binding $parent[TextBox].SelectAll}" InputGesture="Ctrl+A" />
                                 </ContextMenu>
                             </TextBox.ContextMenu>
                         </TextBox>
@@ -240,7 +241,7 @@
             <StackPanel HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         Spacing="6">
-                <TextBlock Text="发送文件"
+                <TextBlock Text="{DynamicResource 'lang.kitopia.send_file'}"
                            HorizontalAlignment="Center"
                            FontSize="18"
                            FontWeight="SemiBold" />
@@ -262,7 +263,7 @@
             <Grid RowDefinitions="Auto,*" RowSpacing="12">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                     <TextBlock x:Name="ImagePreviewTitle"
-                               Text="图片预览 100%"
+                               Text="{DynamicResource 'lang.kitopia.image_preview_100'}"
                                Foreground="White"
                                FontSize="16"
                                FontWeight="SemiBold"
@@ -274,7 +275,7 @@
                                 Foreground="White"
                                 Background="#33000000"
                                 Click="OnImagePreviewZoomOutClicked"
-                                ToolTip.Tip="缩小">
+                                ToolTip.Tip="{DynamicResource 'lang.kitopia.zoom_out'}">
                             <TextBlock Text="−" FontSize="18" />
                         </Button>
                         <Button MinHeight="36"
@@ -282,8 +283,8 @@
                                 Foreground="White"
                                 Background="#33000000"
                                 Click="OnImagePreviewResetZoomClicked"
-                                ToolTip.Tip="适应窗口">
-                            <TextBlock Text="适应" />
+                                ToolTip.Tip="{DynamicResource 'lang.kitopia.fit_to_window'}">
+                            <TextBlock Text="{DynamicResource 'lang.kitopia.fit'}" />
                         </Button>
                         <Button MinWidth="36"
                                 MinHeight="36"
@@ -291,7 +292,7 @@
                                 Foreground="White"
                                 Background="#33000000"
                                 Click="OnImagePreviewZoomInClicked"
-                                ToolTip.Tip="放大">
+                                ToolTip.Tip="{DynamicResource 'lang.kitopia.zoom_in'}">
                             <TextBlock Text="＋" FontSize="18" />
                         </Button>
                         <Button MinWidth="36"
@@ -300,7 +301,7 @@
                                 Foreground="White"
                                 Background="#33000000"
                                 Click="OnImagePreviewCloseClicked"
-                                ToolTip.Tip="关闭图片预览">
+                                ToolTip.Tip="{DynamicResource 'lang.kitopia.close_image_preview'}">
                             <TextBlock Text="✕" FontSize="18" />
                         </Button>
                     </StackPanel>

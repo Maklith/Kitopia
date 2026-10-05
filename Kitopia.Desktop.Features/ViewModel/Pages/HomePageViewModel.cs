@@ -4,6 +4,7 @@ using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services.Plugin;
 using PluginCore;
 
@@ -13,10 +14,10 @@ public partial class HomePageViewModel : ObservableRecipient
 {
     private static readonly IReadOnlyDictionary<string, int> CategoryOrders = new Dictionary<string, int>
     {
-        ["搜索与窗口"] = 0,
-        ["截图与图像"] = 1,
-        ["文件与设备"] = 2,
-        ["自动化与管理"] = 3
+        ["lang.kitopia.search_and_windows"] = 0,
+        ["lang.kitopia.screenshots_and_images"] = 1,
+        ["lang.kitopia.files_and_devices"] = 2,
+        ["lang.kitopia.automation_and_management"] = 3
     };
 
     public ObservableCollection<FeatureCategory> FeatureCategories { get; } = [];
@@ -45,7 +46,7 @@ public partial class HomePageViewModel : ObservableRecipient
         catch (Exception exception)
         {
             _ = GetToastService()?.Show(
-                "功能执行失败",
+                Lang.Get("lang.kitopia.action_failed"),
                 exception.InnerException?.Message ?? exception.Message,
                 NotificationType.Error);
         }

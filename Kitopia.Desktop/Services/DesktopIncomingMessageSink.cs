@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Feature.DeviceCommunication.Application;
@@ -93,7 +94,7 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
                     break;
                 }
                 case ChatMessageReceivedEvent { Message: ImageChatMessage }:
-                    ShowDeviceChatToast(conversationId, displayName, "[图片]");
+                    ShowDeviceChatToast(conversationId, displayName, Lang.Get("lang.kitopia.image_message"));
                     break;
                 case FileTransferUpdatedEvent { Status: FileTransferStatus.WaitingForAccept } fileOffer:
                     ShowIncomingFileOfferToast(
@@ -139,7 +140,7 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
     {
         _ = _toastService.Show(new ToastRequest
         {
-            Header = $"设备聊天:{displayName}",
+            Header = Lang.Format("lang.kitopia.messages.device_chat_value", displayName),
             Text = text,
             ClickCallback = () => OpenConversationFromToast(conversationId),
             AutoCloseDelay = autoCloseDelay ?? TimeSpan.FromSeconds(5)
@@ -156,8 +157,8 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
         var resolvedFileName = string.IsNullOrWhiteSpace(fileName) ? transferId.ToString("D") : fileName;
         _ = _toastService.Show(new ToastRequest
         {
-            Header = $"设备聊天:{displayName}",
-            Text = $"文件: {resolvedFileName} ({FormatFileSize(totalBytes ?? 0)})",
+            Header = Lang.Format("lang.kitopia.messages.device_chat_value", displayName),
+            Text = Lang.Format("lang.kitopia.messages.file_value_value", resolvedFileName, FormatFileSize(totalBytes ?? 0)),
             AutoCloseDelay = null,
             NotificationType = NotificationType.Information,
             CloseOnClick = true,
@@ -166,7 +167,7 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
             [
                 new ToastAction
                 {
-                    Text = "同意",
+                    Text = Lang.Get("lang.kitopia.agree"),
                     IsPrimary = true,
                     CloseOnClick = true,
                     Callback = () => _ = AcceptIncomingOfferFromToastAsync(
@@ -177,13 +178,13 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
                 },
                 new ToastAction
                 {
-                    Text = "拒绝",
+                    Text = Lang.Get("lang.kitopia.reject"),
                     CloseOnClick = true,
                     Callback = () => _ = RejectIncomingOfferFromToastAsync(conversationId, transferId)
                 },
                 new ToastAction
                 {
-                    Text = "打开聊天",
+                    Text = Lang.Get("lang.kitopia.open_chat"),
                     CloseOnClick = true,
                     Callback = () => OpenConversationFromToast(conversationId)
                 }
@@ -219,7 +220,7 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
                 "Accept incoming offer from desktop toast failed. ConversationId={ConversationId} TransferId={TransferId}",
                 conversationId,
                 transferId);
-            _ = _toastService.Show("设备聊天", $"同意接收失败: {exception.Message}", NotificationType.Error);
+            _ = _toastService.Show(Lang.Get("lang.kitopia.device_chat"), Lang.Format("lang.kitopia.messages.unable_to_accept_transfer_value", exception.Message), NotificationType.Error);
         }
     }
 
@@ -239,7 +240,7 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
                 "Reject incoming offer from desktop toast failed. ConversationId={ConversationId} TransferId={TransferId}",
                 conversationId,
                 transferId);
-            _ = _toastService.Show("设备聊天", $"拒绝接收失败: {exception.Message}", NotificationType.Error);
+            _ = _toastService.Show(Lang.Get("lang.kitopia.device_chat"), Lang.Format("lang.kitopia.messages.unable_to_reject_transfer_value", exception.Message), NotificationType.Error);
         }
     }
 
@@ -251,15 +252,15 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
             {
                 existingHandle.Update(
                     progress: 0,
-                    text: $"接收中: {fileName}",
-                    header: $"设备聊天:{displayName}",
+                    text: Lang.Format("lang.kitopia.messages.receiving_value", fileName),
+                    header: Lang.Format("lang.kitopia.messages.device_chat_value", displayName),
                     isIndeterminate: false);
                 return;
             }
 
             _incomingTransferToasts[transferId] = _toastService.ShowProgress(
-                $"设备聊天:{displayName}",
-                $"接收中: {fileName}",
+                Lang.Format("lang.kitopia.messages.device_chat_value", displayName),
+                Lang.Format("lang.kitopia.messages.receiving_value", fileName),
                 NotificationType.Information,
                 initialProgress: 0,
                 isIndeterminate: false);
@@ -297,16 +298,16 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
                         transferEvent.TotalBytes);
                     handle.Update(
                         progress: progress,
-                        text: $"接收中: {fileName}",
-                        header: $"设备聊天:{displayName}",
+                        text: Lang.Format("lang.kitopia.messages.receiving_value", fileName),
+                        header: Lang.Format("lang.kitopia.messages.device_chat_value", displayName),
                         isIndeterminate: progress < 0);
                 }
 
                 break;
             case FileTransferStatus.Completed:
                 handle?.Complete(
-                    $"接收完成: {fileName}",
-                    $"设备聊天:{displayName}",
+                    Lang.Format("lang.kitopia.messages.received_value", fileName),
+                    Lang.Format("lang.kitopia.messages.device_chat_value", displayName),
                     TimeSpan.FromSeconds(4));
                 RemoveIncomingTransferToast(transferEvent.TransferId);
                 break;
@@ -315,8 +316,8 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
                 if (handle is not null)
                 {
                     handle.Fail(
-                        $"接收失败: {fileName}",
-                        $"设备聊天:{displayName}",
+                        Lang.Format("lang.kitopia.messages.receive_failed_value", fileName),
+                        Lang.Format("lang.kitopia.messages.device_chat_value", displayName),
                         TimeSpan.FromSeconds(5));
                 }
                 else
@@ -324,7 +325,7 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
                     ShowDeviceChatToast(
                         transferEvent.ConversationId,
                         displayName,
-                        $"接收失败: {fileName}");
+                        Lang.Format("lang.kitopia.messages.receive_failed_value", fileName));
                 }
 
                 RemoveIncomingTransferToast(transferEvent.TransferId);
@@ -373,9 +374,9 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
     {
         return reason switch
         {
-            "rejected_by_peer" or "rejected_by_user" => "对方已拒绝接收文件",
-            "timeout" => "文件发送超时，请稍后重试",
-            _ => "文件发送失败"
+            "rejected_by_peer" or "rejected_by_user" => Lang.Get("lang.kitopia.recipient_declined_the_file"),
+            "timeout" => Lang.Get("lang.kitopia.file_send_timed_out_try_again_later"),
+            _ => Lang.Get("lang.kitopia.failed_to_send_file")
         };
     }
 

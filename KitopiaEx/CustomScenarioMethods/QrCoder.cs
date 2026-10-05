@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using OpenCvSharp;
 using PluginCore;
 using PluginCore.CustomScenario.Attribute.Scenario;
@@ -7,7 +7,7 @@ namespace KitopiaEx.CustomScenarioMethods;
 
 public class QrCoder
 {
-    [ScenarioMethod("识别QRCode", $"{nameof(captureResult)}=图像数据","return=QRCode识别结果")]
+    [ScenarioMethod("lang.kitopiaex.decode_qr_code", $"{nameof(captureResult)}=lang.kitopiaex.image_data","return=lang.kitopiaex.qr_code_result", Id = "识别QRCode")]
     public string QRCodeDecode(ScreenCaptureResult captureResult, CancellationToken ct)
     {
         var qrCodeDetector = new QRCodeDetector();

@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -221,7 +222,7 @@ public partial class ScreenCaptureWindow : Window
                 // 1. Get current selection info
                 var captureInfo = GetSelectedScreenCaptureInfo();
                 if (!captureInfo.RequestRect.HasValue||captureInfo.RequestRect.Value.Width <= 0 || captureInfo.RequestRect.Value.Height <= 0) {
-                    ServiceManager.Services.GetService<IToastService>()?.Show("提示", "请先选择区域", NotificationType.Warning);
+                    ServiceManager.Services.GetService<IToastService>()?.Show(Lang.Get("lang.kitopia.notice"), Lang.Get("lang.kitopia.select_a_region_first"), NotificationType.Warning);
                     _isLongCapturing = false;
                     return;
                 }
@@ -261,7 +262,7 @@ public partial class ScreenCaptureWindow : Window
             
                 if (accumulator == null || accumulator.Empty())
                 {
-                    ServiceManager.Services.GetService<IToastService>()?.Show("错误", "初始截图失败", NotificationType.Error);
+                    ServiceManager.Services.GetService<IToastService>()?.Show(Lang.Get("lang.kitopia.error"), Lang.Get("lang.kitopia.initial_capture_failed"), NotificationType.Error);
                     progressWindow.Close();
                     this.Show();
                     _isLongCapturing = false;
@@ -348,7 +349,7 @@ public partial class ScreenCaptureWindow : Window
 
                 if (!copied)
                 {
-                    _ = ServiceManager.Services.GetService<IToastService>()!.Show("截图失败", "无法复制到剪贴板",
+                    _ = ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.screenshot_failed"), Lang.Get("lang.kitopia.unable_to_copy_to_clipboard"),
                         NotificationType.Error);
                     this.Show();
                     return;
@@ -357,12 +358,12 @@ public partial class ScreenCaptureWindow : Window
                 this.Close();
                 WeakReferenceMessenger.Default.Send<string, string>("Close", "ScreenCapture");
             
-                ServiceManager.Services.GetService<IToastService>()!.Show("成功", "长截图已复制到剪贴板", NotificationType.Success);
+                ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.success"), Lang.Get("lang.kitopia.scrolling_screenshot_copied_to_clipboard"), NotificationType.Success);
 
             }
             catch (Exception ex)
             {
-                ServiceManager.Services.GetService<IToastService>()?.Show("错误", $"长截图失败: {ex.Message}", NotificationType.Error);
+                ServiceManager.Services.GetService<IToastService>()?.Show(Lang.Get("lang.kitopia.error"), Lang.Format("lang.kitopia.messages.scrolling_screenshot_failed_value", ex.Message), NotificationType.Error);
                 this.Show();
             }
             finally
@@ -372,7 +373,7 @@ public partial class ScreenCaptureWindow : Window
         }
         catch (Exception exception)
         {
-            ServiceManager.Services.GetService<IToastService>()?.Show("错误", $"发生异常: {exception.Message}", NotificationType.Error);
+            ServiceManager.Services.GetService<IToastService>()?.Show(Lang.Get("lang.kitopia.error"), Lang.Format("lang.kitopia.messages.an_error_occurred_value", exception.Message), NotificationType.Error);
             Logger.Error(exception, "长截图发生异常");
             
         }
@@ -542,7 +543,7 @@ public partial class ScreenCaptureWindow : Window
                  if (!string.IsNullOrEmpty(hex))
                  {
                      ServiceManager.Services.GetService<IClipboardService>()?.SetText(hex);
-                     ServiceManager.Services.GetService<IToastService>()?.Show("复制成功", $"已复制 HEX: {hex}", NotificationType.Success);
+                     ServiceManager.Services.GetService<IToastService>()?.Show(Lang.Get("lang.kitopia.copied_successfully"), Lang.Format("lang.kitopia.messages.copied_hex_value", hex), NotificationType.Success);
                      e.Handled = true;
                      return;
                  }
@@ -561,7 +562,7 @@ public partial class ScreenCaptureWindow : Window
                 if (!string.IsNullOrEmpty(rgb))
                 {
                     ServiceManager.Services.GetService<IClipboardService>()?.SetText(rgb);
-                    ServiceManager.Services.GetService<IToastService>()?.Show("复制成功", $"已复制 RGB: {rgb}", NotificationType.Success);
+                    ServiceManager.Services.GetService<IToastService>()?.Show(Lang.Get("lang.kitopia.copied_successfully"), Lang.Format("lang.kitopia.messages.copied_rgb_value", rgb), NotificationType.Success);
                     e.Handled = true;
                 }
             }
@@ -571,7 +572,7 @@ public partial class ScreenCaptureWindow : Window
                 if (!string.IsNullOrEmpty(hsv))
                 {
                     ServiceManager.Services.GetService<IClipboardService>()?.SetText(hsv);
-                    ServiceManager.Services.GetService<IToastService>()?.Show("复制成功", $"已复制 HSV: {hsv}", NotificationType.Success);
+                    ServiceManager.Services.GetService<IToastService>()?.Show(Lang.Get("lang.kitopia.copied_successfully"), Lang.Format("lang.kitopia.messages.copied_hsv_value", hsv), NotificationType.Success);
                      e.Handled = true;
                 }
             }
@@ -614,7 +615,7 @@ public partial class ScreenCaptureWindow : Window
         if (ConfigManger.Config.截图直接复制到剪贴板) {
             FinnishCapture();
             var toastService = ServiceManager.Services.GetService<IToastService>()!;
-            toastService.Show("截图", "已复制到剪贴板", NotificationType.Success);
+            toastService.Show(Lang.Get("lang.kitopia.screenshot"), Lang.Get("lang.kitopia.copied_to_clipboard_notice"), NotificationType.Success);
         }
         else if (_selectBytesMode || _selectMode) {
             FinnishCapture();
@@ -911,7 +912,7 @@ public partial class ScreenCaptureWindow : Window
                         },
                         IsSelected = true,
                         Foreground = new SolidColorBrush(ColorPicker.Color),
-                        Text = "文本1",
+                        Text = Lang.Get("lang.kitopia.text_1"),
                         FontSize = 13 + StrokeWidth.Value
                     };
 
@@ -1563,7 +1564,7 @@ public partial class ScreenCaptureWindow : Window
                                 mat.Dispose();
                                 if (!e.Result)
                                 {
-                                    ServiceManager.Services.GetService<IToastService>()!.Show("截图失败", "无法复制到剪贴板",
+                                    ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.screenshot_failed"), Lang.Get("lang.kitopia.unable_to_copy_to_clipboard"),
                                         NotificationType.Error
                                     );
                                 }

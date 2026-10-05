@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.RateLimiting;
 using Avalonia.Media.Imaging;
@@ -383,13 +384,13 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
         }
     }
 
-    public string DownloadCountText => $"{DownloadCounts} 下载";
+    public string DownloadCountText => Lang.Format("lang.kitopia.messages.value_downloads", DownloadCounts);
 
     public double AverageRating => OnlinePluginInfo?.AverageRating ?? 0;
     public int RatingCount => OnlinePluginInfo?.RatingCount ?? 0;
     public bool HasRatings => RatingCount > 0;
     public string RatingScoreText => HasRatings ? AverageRating.ToString("F1") : string.Empty;
-    public string RatingDisplayText => HasRatings ? $"{AverageRating:F1} · {RatingCount} 条评价" : "暂无评分";
+    public string RatingDisplayText => HasRatings ? Lang.Format("lang.kitopia.messages.value_value_ratings", AverageRating, RatingCount) : "暂无评分";
     public string RatingStar => HasRatings ? "★" : "☆";
 
     public bool InLocal => PluginManager.GetPluginLocalInfoByPlgStr(PluginBaseInfo.NameSign) is not null;
@@ -521,7 +522,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
         if (OnlinePluginInfo is null)
         {
-            Description = "该插件远端未找到";
+            Description = Lang.Get("lang.kitopia.plugin_not_found_on_the_server");
             return;
         }
 

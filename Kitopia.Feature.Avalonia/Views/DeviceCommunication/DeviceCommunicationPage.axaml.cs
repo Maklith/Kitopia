@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System;
 using System.Collections.Specialized;
 using System.IO;
@@ -619,7 +620,7 @@ public partial class DeviceCommunicationPage : UserControl
         }
 
         var zoomPercent = _imagePreviewScale / _imagePreviewMinScale * 100d;
-        _imagePreviewTitle.Text = $"图片预览 {zoomPercent:0}%";
+        _imagePreviewTitle.Text = Lang.Format("lang.kitopia.messages.image_preview_value", zoomPercent);
     }
 
     private void EndImagePreviewPan()

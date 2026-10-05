@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -10,7 +10,7 @@ namespace KitopiaEx.CustomScenarioMethods;
 
 public class ImagePinScenarioMethod
 {
-    [ScenarioMethod("创建图片置顶窗口",$"return=图片置顶窗口实例")]
+    [ScenarioMethod("lang.kitopiaex.create_pinned_image_window","return=lang.kitopiaex.pinned_image_window", Id = "创建图片置顶窗口")]
     public ImagePin.ImagePin? OcrResultShow(CancellationToken ct)
     {
         
@@ -31,7 +31,7 @@ public class ImagePinScenarioMethod
         }));
         return ocrResultShowWindow; 
     }
-    [ScenarioMethod("设置置顶窗口图片",$"{nameof(imagePin)}=图片置顶窗口实例",$"{nameof(screenCapture)}=图像")]
+    [ScenarioMethod("lang.kitopiaex.set_pinned_window_image",$"{nameof(imagePin)}=lang.kitopiaex.pinned_image_window",$"{nameof(screenCapture)}=lang.kitopiaex.image", Id = "设置置顶窗口图片")]
     public void SetImagePin(ImagePin.ImagePin? imagePin, ScreenCaptureResult screenCapture, CancellationToken ct)
     {
         if (imagePin == null) return;

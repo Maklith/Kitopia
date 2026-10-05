@@ -20,6 +20,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <EmbeddedResource Include="lang\*.json" />
         <ProjectReference Include="..\Kitopia.Desktop.PluginSdk\Kitopia.Desktop.PluginSdk.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime;native</ExcludeAssets>

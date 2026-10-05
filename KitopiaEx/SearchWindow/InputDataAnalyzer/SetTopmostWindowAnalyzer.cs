@@ -5,6 +5,7 @@
 // Date: 2026/01/12 16:01
 // FileEffect:
 
+using PluginCore.Localization;
 using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -21,7 +22,7 @@ public class SetTopmostWindowAnalyzer : IInputDataAnalyzer
     {
         yield return new SearchViewItem
         {
-            ItemDisplayName = "置顶任意窗口",
+            ItemDisplayName = Lang.Get("lang.kitopiaex.pin_any_window"),
             OnlyKey = "KitopiaEx_SetTopmostWindowAnalyzer_Action",
             FileType = FileType.自定义,
             IconSymbol = 0xf602,

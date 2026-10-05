@@ -719,7 +719,7 @@ public sealed class IndexService : IIndexService, IDisposable
                 ProcessingImages = 0,
                 TotalFileItems = 0,
                 CompletedFileItems = 0,
-                CurrentOperation = "正在清空文件索引",
+                CurrentOperation = "lang.kitopia.clearing_file_index",
                 CurrentItem = null,
                 LastError = null
             });
@@ -771,7 +771,7 @@ public sealed class IndexService : IIndexService, IDisposable
                 IsPaused = IsPauseRequested,
                 TotalFileItems = 0,
                 CompletedFileItems = 0,
-                CurrentOperation = rebuild ? "正在准备重建索引" : "正在准备更新索引",
+                CurrentOperation = rebuild ? "lang.kitopia.preparing_to_rebuild_indexes" : "lang.kitopia.preparing_to_update_indexes",
                 CurrentItem = null,
                 LastError = null
             });
@@ -779,14 +779,14 @@ public sealed class IndexService : IIndexService, IDisposable
             if (scope is IndexRebuildScope.All or IndexRebuildScope.Pinyin)
             {
                 await WaitIfPausedAsync(operationToken);
-                UpdateStatus(status => status with { CurrentOperation = "正在重建拼音索引", CurrentItem = null });
+                UpdateStatus(status => status with { CurrentOperation = "lang.kitopia.rebuilding_pinyin_index", CurrentItem = null });
                 await RunPausableStepAsync(RebuildPinyinSearcherAsync, operationToken);
             }
 
             if (rebuild && indexDocuments)
             {
                 await WaitIfPausedAsync(operationToken);
-                UpdateStatus(status => status with { CurrentOperation = "正在清空文本索引", CurrentItem = null });
+                UpdateStatus(status => status with { CurrentOperation = "lang.kitopia.clearing_text_index", CurrentItem = null });
                 await RunPausableStepAsync(
                     token => _store.ClearAsync(IndexRebuildScope.Documents, token), operationToken);
             }
@@ -794,7 +794,7 @@ public sealed class IndexService : IIndexService, IDisposable
             if (rebuild && indexImages)
             {
                 await WaitIfPausedAsync(operationToken);
-                UpdateStatus(status => status with { CurrentOperation = "正在清空图片索引", CurrentItem = null });
+                UpdateStatus(status => status with { CurrentOperation = "lang.kitopia.clearing_image_index", CurrentItem = null });
                 await RunPausableStepAsync(
                     token => _store.ClearAsync(IndexRebuildScope.Images, token), operationToken);
             }
@@ -807,7 +807,7 @@ public sealed class IndexService : IIndexService, IDisposable
             if (indexDocuments)
             {
                 await WaitIfPausedAsync(operationToken);
-                UpdateStatus(status => status with { CurrentOperation = "正在更新应用和插件文本索引", CurrentItem = null });
+                UpdateStatus(status => status with { CurrentOperation = "lang.kitopia.updating_app_and_plugin_text_index", CurrentItem = null });
                 await IndexGenericTextEntriesAsync(operationToken);
             }
         }
@@ -1160,7 +1160,7 @@ public sealed class IndexService : IIndexService, IDisposable
     {
         UpdateStatus(status => status with
         {
-            CurrentOperation = "正在统计待索引文件",
+            CurrentOperation = "lang.kitopia.counting_files_to_index",
             CurrentItem = null,
             TotalFileItems = 0,
             CompletedFileItems = 0
@@ -1174,7 +1174,7 @@ public sealed class IndexService : IIndexService, IDisposable
 
         UpdateStatus(status => status with
         {
-            CurrentOperation = "正在索引文件",
+            CurrentOperation = "lang.kitopia.indexing_files",
             CurrentItem = null,
             TotalFileItems = fileItems.Count,
             CompletedFileItems = 0
@@ -1199,7 +1199,7 @@ public sealed class IndexService : IIndexService, IDisposable
                 await WaitIfPausedAsync(cancellationToken);
                 UpdateStatus(status => status with
                 {
-                    CurrentOperation = "正在索引文档",
+                    CurrentOperation = "lang.kitopia.indexing_documents",
                     CurrentItem = path
                 });
                 if (documentEmbeddingService is not null)
@@ -1224,7 +1224,7 @@ public sealed class IndexService : IIndexService, IDisposable
             await WaitIfPausedAsync(cancellationToken);
             UpdateStatus(status => status with
             {
-                CurrentOperation = "正在准备图片索引",
+                CurrentOperation = "lang.kitopia.preparing_image_index",
                 CurrentItem = path
             });
             try
@@ -1254,7 +1254,7 @@ public sealed class IndexService : IIndexService, IDisposable
         UpdateStatus(status => status with
         {
             ProcessingImages = imageWorkItems.Count,
-            CurrentOperation = "正在索引图片向量",
+            CurrentOperation = "lang.kitopia.indexing_image_embeddings",
             CurrentItem = null
         });
         foreach (var batch in imageWorkItems.Chunk(ImageInferenceBatchSize))
@@ -1285,7 +1285,7 @@ public sealed class IndexService : IIndexService, IDisposable
                 await WaitIfPausedAsync(cancellationToken);
                 UpdateStatus(status => status with
                 {
-                    CurrentOperation = item.NeedsOcr ? "正在识别图片文字" : "正在更新图片索引",
+                    CurrentOperation = item.NeedsOcr ? "lang.kitopia.recognizing_image_text" : "lang.kitopia.updating_image_index",
                     CurrentItem = item.Path
                 });
                 if (failedVectorItems.Contains(item.Path))

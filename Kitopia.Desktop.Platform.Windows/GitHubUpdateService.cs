@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.Runtime.InteropServices;
 using Avalonia.Controls.Notifications;
 using Kitopia.Desktop.Features.Services;
@@ -30,7 +31,7 @@ namespace Kitopia.Desktop.Platform.Windows
                 if (!response.IsSuccessStatusCode)
                 {
                     Logger.Warning($"Failed to check for updates. Status code: {response.StatusCode}");
-                    _ =ServiceManager.Services.GetService<IToastService>()!.Show("更新", $"无法检查更新，请检查网络连接。\nCode: {response.StatusCode}", NotificationType.Error);
+                    _ =ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.update"), Lang.Format("lang.kitopia.messages.cannot_check_for_updates_check_your_network_connection_code_value", response.StatusCode), NotificationType.Error);
                     return (false, null, null, null);
                 }
 
@@ -40,14 +41,14 @@ namespace Kitopia.Desktop.Platform.Windows
 
                 if (release == null)
                 {
-                    _ =ServiceManager.Services .GetService<IToastService>()!.Show("更新", "无法检查更新，未找到版本信息。", NotificationType.Error);
+                    _ =ServiceManager.Services .GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.update"), Lang.Get("lang.kitopia.cannot_check_for_updates_no_release_version_found"), NotificationType.Error);
                     return (false, null, null, null);
                 }
 
                 var tagName = release["tag_name"]?.ToString();
                 if (string.IsNullOrEmpty(tagName))
                 {
-                    _ =ServiceManager.Services.GetService<IToastService>()!.Show("更新", "无法检查更新，未找到版本信息。", NotificationType.Error);
+                    _ =ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.update"), Lang.Get("lang.kitopia.cannot_check_for_updates_no_release_version_found"), NotificationType.Error);
                     return (false, null, null, null);
                 }
 
@@ -57,7 +58,7 @@ namespace Kitopia.Desktop.Platform.Windows
                 if (!Version.TryParse(ServiceManager.Version , out var currentVersion))
                 {
                     Logger.Warning($"Failed to parse current version: {ServiceManager.Version }");
-                    _ =ServiceManager.Services.GetService<IToastService>()!.Show("更新", "无法检查更新，当前版本信息格式错误。", NotificationType.Error);
+                    _ =ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.update"), Lang.Get("lang.kitopia.cannot_check_for_updates_invalid_current_version"), NotificationType.Error);
                     return (false, null, null, null);
                 }
 
@@ -93,13 +94,13 @@ namespace Kitopia.Desktop.Platform.Windows
                 else
                 {
                     Logger.Warning($"Failed to parse latest version: {cleanTagName}");
-                    _ =ServiceManager.Services.GetService<IToastService>()!.Show("更新", "无法检查更新，版本信息格式错误。", NotificationType.Error);
+                    _ =ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.update"), Lang.Get("lang.kitopia.cannot_check_for_updates_invalid_release_version"), NotificationType.Error);
                 }
                 return (false, null, null, null);
             }
             catch (Exception ex)
             {
-                _ =ServiceManager.Services.GetService<IToastService>()!.Show("更新", $"检查更新时出错: {ex.Message}", NotificationType.Error);
+                _ =ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.update"), Lang.Format("lang.kitopia.messages.update_check_failed_value", ex.Message), NotificationType.Error);
                 Logger.Error(ex, "Error checking for updates");
                 return (false, null, null, null);
             }

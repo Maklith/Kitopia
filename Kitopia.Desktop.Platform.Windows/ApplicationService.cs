@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using Avalonia.Controls.Notifications;
 using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Config;
@@ -21,17 +22,18 @@ public class ApplicationService : IApplicationService {
     }
 
     public async Task RestartAsync() {
+        ConfigManger.Save();
         ServiceManager.Services.GetService<IDesktopShell>()!.Open(
             ResolveExecutablePath(), "", AppDomain.CurrentDomain.BaseDirectory);
         await ExitAsync().ConfigureAwait(false);
     }
 
     public async Task StopAsync() {
-        ConfigManger.Save();
         await ExitAsync().ConfigureAwait(false);
     }
 
     public async Task ExitAsync(int exitCode = 0) {
+        ConfigManger.Save();
         var startupMessageBroker = ServiceManager.Services.GetService<IStartupMessageBroker>();
         if (startupMessageBroker is not null) {
             await startupMessageBroker.StopAsync().ConfigureAwait(false);
@@ -101,13 +103,13 @@ public class ApplicationService : IApplicationService {
                 try {
                     registry.SetValue("Kitopia", $"\"{strName}\""); //设置该子项的新的“键值对”
 
-                    ServiceManager.Services.GetService<IToastService>()!.Show("开机自启",
-                        "开机自启设置成功");
+                    ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.start_at_login"),
+                        Lang.Get("lang.kitopia.startup_setting_updated"));
                 }
                 catch (Exception exception) {
                     Logger.Error(exception, "开机自启设置失败");
-                    ServiceManager.Services.GetService<IToastService>()!.Show("开机自启",
-                        "开机自启设置失败");
+                    ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.start_at_login"),
+                        Lang.Get("lang.kitopia.startup_setting_failed"));
                     return false;
                 }
             }
@@ -125,7 +127,7 @@ public class ApplicationService : IApplicationService {
         }
         catch (Exception e) {
             Logger.Error(e, "开机自启设置失败");
-            ServiceManager.Services.GetService<IToastService>()!.Show("开机自启", "开机自启设置失败");
+            ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.start_at_login"), Lang.Get("lang.kitopia.startup_setting_failed"));
             return false;
         }
 
@@ -139,10 +141,10 @@ public class ApplicationService : IApplicationService {
         if (hasUpdate && !string.IsNullOrEmpty(downloadUrl)) {
             Logger.Information($"发现新版本:{latestVersion}");
             var dialog = new DialogContent {
-                Title = $"Kitopia更新 - 发现新版本 {latestVersion}",
-                Content = $"发现新版本 {latestVersion}，是否前往下载？\n\n更新内容:\n{releaseNotes ?? "无更新说明"}",
-                PrimaryButtonText = "下载并更新",
-                SecondaryButtonText = "取消",
+                Title = Lang.Format("lang.kitopia.messages.kitopia_update_new_version_value", latestVersion),
+                Content = Lang.Format("lang.kitopia.messages.new_version_value_is_available_download_now_release_notes_value", latestVersion, releaseNotes ?? "无更新说明"),
+                PrimaryButtonText = Lang.Get("lang.kitopia.download_and_update"),
+                SecondaryButtonText = Lang.Get("lang.kitopia.cancel"),
                 PrimaryAction = async void () => {
                     IToastProgressHandle? progressToast = null;
                     try {
@@ -175,7 +177,7 @@ public class ApplicationService : IApplicationService {
                                 var progress = (int)((double)totalRead / totalBytes * 100);
                                 if (progress > lastProgress) {
                                     lastProgress = progress;
-                                    progressToast.Update(progress, $"下载进度: {progress}%");
+                                    progressToast.Update(progress, Lang.Format("lang.kitopia.messages.download_progress_value", progress));
                                 }
                             }
                         }
@@ -194,11 +196,11 @@ public class ApplicationService : IApplicationService {
                     catch (Exception ex) {
                         Logger.Error(ex, "更新失败");
                         if (progressToast is not null) {
-                            progressToast.Fail($"下载出错: {ex.Message}", "更新失败");
+                            progressToast.Fail(Lang.Format("lang.kitopia.messages.download_failed_value", ex.Message), "更新失败");
                         }
                         else {
                             _ =ServiceManager.Services.GetService<IToastService>()!
-                                .Show("更新失败", $"下载出错: {ex.Message}", NotificationType.Error);
+                                .Show(Lang.Get("lang.kitopia.update_failed"), Lang.Format("lang.kitopia.messages.download_failed_value", ex.Message), NotificationType.Error);
                         }
                     }
                 },
@@ -210,7 +212,7 @@ public class ApplicationService : IApplicationService {
         else {
             if (toastIfNoUpdate) {
                 var toastService = ServiceManager.Services.GetService<IToastService>()!;
-                await toastService.Show("更新", "无更新");
+                await toastService.Show(Lang.Get("lang.kitopia.update"), Lang.Get("lang.kitopia.no_updates"));
             }
         }
 

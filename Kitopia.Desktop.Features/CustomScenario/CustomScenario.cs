@@ -1,5 +1,6 @@
 #region
 
+using Kitopia.Feature.Localization;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -150,10 +151,10 @@ public partial class CustomScenario : ObservableRecipient, IDisposable, IAsyncDi
             if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(RunHotKey, _ => Run())) {
                 
                 ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent {
-                    Title = $"快捷键{RunHotKey.Name}设置失败",
-                    Content = "请重新设置快捷键，按键与系统其他程序冲突",
-                    CloseButtonText = "关闭",
-                    PrimaryButtonText = "重新设置",
+                    Title = Lang.Format("lang.kitopia.messages.unable_to_set_hotkey_value", RunHotKey.Name),
+                    Content = Lang.Get("lang.kitopia.choose_another_hotkey_this_key_combination_is_already_in_use"),
+                    CloseButtonText = Lang.Get("lang.kitopia.close"),
+                    PrimaryButtonText = Lang.Get("lang.kitopia.set_again"),
                     PrimaryAction = (() => {
                         ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(RunHotKey.UUID);
                     })
@@ -164,10 +165,10 @@ public partial class CustomScenario : ObservableRecipient, IDisposable, IAsyncDi
             if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(StopHotKey, _ => Stop())) {
                 
                 ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent {
-                    Title = $"快捷键{StopHotKey.Name}设置失败",
-                    Content = "请重新设置快捷键，按键与系统其他程序冲突",
-                    CloseButtonText = "关闭",
-                    PrimaryButtonText = "重新设置",
+                    Title = Lang.Format("lang.kitopia.messages.unable_to_set_hotkey_value", StopHotKey.Name),
+                    Content = Lang.Get("lang.kitopia.choose_another_hotkey_this_key_combination_is_already_in_use"),
+                    CloseButtonText = Lang.Get("lang.kitopia.close"),
+                    PrimaryButtonText = Lang.Get("lang.kitopia.set_again"),
                     PrimaryAction = (() => {
                         ServiceManager.Services.GetService<IHotKetImpl>()!.RequestUserModify(StopHotKey.UUID);
                     })
@@ -369,12 +370,12 @@ public partial class CustomScenario : ObservableRecipient, IDisposable, IAsyncDi
 
         if (inTickError) {
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!)
-                .Show("情景", $"情景'{Name}'由于出现错误被停止");
+                .Show(Lang.Get("lang.kitopia.scenarios"), Lang.Format("lang.kitopia.messages.scenario_value_stopped_due_to_an_error", Name));
             Logger.Debug("情景 {Name} 由于错误被停止", Name);
         }
         else {
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!)
-                .Show("情景", $"情景'{Name}'被用户停止");
+                .Show(Lang.Get("lang.kitopia.scenarios"), Lang.Format("lang.kitopia.messages.scenario_value_stopped_by_the_user", Name));
             Logger.Debug("情景 {Name} 被用户停止", Name);
         }
     }
@@ -385,7 +386,7 @@ public partial class CustomScenario : ObservableRecipient, IDisposable, IAsyncDi
         try {
             var initialized = await ExecutePhaseAsync(Nodes[0], inputs, token);
             if (!onExit && ScenarioGraph.GetFlowSuccessors(Nodes[1], Connections).Any()) {
-                ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
+                ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(Lang.Get("lang.kitopia.scenarios"),
                     $"情景'{Name}'进入Tick");
                 using var timer = new PeriodicTimer(TimeSpan.FromSeconds(Math.Max(0.1, TickIntervalSecond ?? 0.1)));
                 do {
@@ -395,16 +396,16 @@ public partial class CustomScenario : ObservableRecipient, IDisposable, IAsyncDi
             }
 
             if (!token.IsCancellationRequested) {
-                ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
-                    $"情景'{Name}'运行完成");
+                ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(Lang.Get("lang.kitopia.scenarios"),
+                    Lang.Format("lang.kitopia.messages.scenario_value_completed", Name));
                 Logger.Debug("情景运行完成:{Name}", Name);
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception e) {
             Logger.Error(e, "情景运行失败:{Name}", Name);
-            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
-                $"情景{Name}出现错误\n{e.InnerException?.Message ?? e.Message}");
+            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(Lang.Get("lang.kitopia.scenarios"),
+                Lang.Format("lang.kitopia.messages.scenario_value_failed_value", Name, e.InnerException?.Message ?? e.Message));
         }
         finally {
             lock (_runGate) IsRunning = false;

@@ -164,7 +164,7 @@ public partial class KnotNodeViewModel : ScenarioNodeBase
     }
 }
 
-public partial class ScenarioMethodNode : ScenarioNodeBase
+public partial class ScenarioMethodNode : ScenarioNodeBase, IJsonOnDeserialized
 {
     [JsonIgnore] [property: JsonIgnore] [ObservableProperty]
     private TimeSpan _invokeTime = TimeSpan.Zero;
@@ -174,6 +174,50 @@ public partial class ScenarioMethodNode : ScenarioNodeBase
 
     [JsonConverter(typeof(ScenarioMethodJsonCtr))]
     public ScenarioMethod ScenarioMethod { get; set; }
+
+    void IJsonOnDeserialized.OnDeserialized()
+    {
+        if (ScenarioMethod is not { IsFromPlugin: true, Method: not null, Attribute: not null }) return;
+        var previous = ScenarioMethod.Attribute;
+        var current = ScenarioMethod.Method.GetCustomAttributes<ScenarioMethodAttribute>()
+            .FirstOrDefault(attribute => ScenarioMethod.GetMethodId(attribute) == ScenarioMethod.MethodId);
+        if (current is null || !current.Name.StartsWith("lang.", StringComparison.Ordinal)) return;
+
+        // Upgrade default display metadata without replacing connectors or user-defined labels.
+        if (Title == previous.Name) Title = current.Name;
+        if (Input.Count > 0 && Input[0].Title == "流输入") Input[0].Title = "lang.kitopia.stream_input";
+        if (Output.Count > 0 && Output[0].Title == "流输出") Output[0].Title = "lang.kitopia.stream_output";
+        var index = 1;
+        foreach (var parameter in ScenarioMethod.Method.GetParameters())
+        {
+            if (parameter.ParameterType == typeof(CancellationToken) ||
+                Nullable.GetUnderlyingType(parameter.ParameterType) == typeof(CancellationToken)) continue;
+            if (index >= Input.Count) break;
+            if (parameter.ParameterType.GetCustomAttribute<AutoUnbox>() is not null)
+            {
+                var group = Input[index].AutoUnboxIndex;
+                if (group == 0) break;
+                while (index < Input.Count && Input[index].AutoUnboxIndex == group)
+                {
+                    var connector = Input[index++];
+                    UpgradeParameter(connector, connector.AutoUnboxPropertyName);
+                }
+            }
+            else
+                UpgradeParameter(Input[index++], parameter.Name);
+        }
+        foreach (var connector in Output.Skip(1))
+            UpgradeParameter(connector, string.IsNullOrEmpty(connector.AutoUnboxPropertyName)
+                ? "return" : connector.AutoUnboxPropertyName);
+        ScenarioMethod.Attribute = current;
+
+        void UpgradeParameter(ConnectorItem connector, string? name)
+        {
+            if (name is not null && current.ParameterName?.TryGetValue(name, out var key) == true &&
+                key.StartsWith("lang.", StringComparison.Ordinal) && connector.Title == previous.GetParameterName(name))
+                connector.Title = key;
+        }
+    }
 
     public override bool Invoke(CancellationToken cancellationToken, ObservableCollection<ConnectionItem> connections,
         ObservableDictionary<string, CustomScenarioValue> values,

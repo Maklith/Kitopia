@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using PluginCore;
 using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
@@ -35,7 +36,7 @@ public class MathAnalyzer : IInputDataAnalyzer
                 {
                     item = new SearchViewItem
                     {
-                        ItemDisplayName = "错误的表达式",
+                        ItemDisplayName = Lang.Get("lang.kitopia.invalid_expression"),
                         FileType = FileType.数学运算,
                         OnlyKey = value,
                         Icon = null,

@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Irihi.Avalonia.Shared.Contracts;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Controls;
 using Kitopia.Desktop.Features.CustomScenario;
 using Kitopia.Desktop.Features.CustomScenario.Services;
@@ -40,7 +41,7 @@ public sealed partial class ScenarioUploadService : ObservableObject, IScenarioU
     public bool CanEdit => !IsBusy;
     public bool CanChangeVisibility => CanEdit && (IsInformationEdit || _marketItem?.PublicationStatus != 2);
     public bool HasTags => Tags.Count > 0;
-    public string DialogTitle => IsInformationEdit ? "编辑情景信息" : "发布情景版本";
+    public string DialogTitle => IsInformationEdit ? Lang.Get("lang.kitopia.edit_scenario_information") : Lang.Get("lang.kitopia.publish_scenario_version");
     public bool IsRelease => !IsInformationEdit;
     public event EventHandler<object?>? RequestClose;
 
@@ -135,17 +136,17 @@ public sealed partial class ScenarioUploadService : ObservableObject, IScenarioU
         if (tag.Length == 0) return;
         if (tag.Length > 20)
         {
-            Error = "标签名称不能超过 20 个字符。";
+            Error = Lang.Get("lang.kitopia.tags_must_not_exceed_20_characters");
             return;
         }
         if (!tag.All(char.IsLetterOrDigit))
         {
-            Error = "标签名称只能使用字母、数字或汉字。";
+            Error = Lang.Get("lang.kitopia.tags_may_contain_only_letters_digits_or_chinese_characters");
             return;
         }
         if (Tags.Count >= 10)
         {
-            Error = "最多添加 10 个标签。";
+            Error = Lang.Get("lang.kitopia.up_to_10_tags_allowed");
             return;
         }
         if (Tags.Any(item => string.Equals(item, tag, StringComparison.OrdinalIgnoreCase)))
@@ -173,13 +174,13 @@ public sealed partial class ScenarioUploadService : ObservableObject, IScenarioU
         {
             if (_marketItem is null || string.IsNullOrWhiteSpace(Name))
             {
-                Error = "请填写情景名称。";
+                Error = Lang.Get("lang.kitopia.enter_a_scenario_name");
                 return;
             }
         }
         else if (_scenario is null || string.IsNullOrWhiteSpace(Version) || string.IsNullOrWhiteSpace(Detail))
         {
-            Error = "请填写版本号和版本更新内容。";
+            Error = Lang.Get("lang.kitopia.enter_a_version_number_and_release_notes");
             return;
         }
         IsBusy = true;
@@ -201,9 +202,9 @@ public sealed partial class ScenarioUploadService : ObservableObject, IScenarioU
             IsBusy = false;
             Close();
             await ServiceManager.Services.GetRequiredService<IToastService>().Show(
-                IsInformationEdit ? "情景信息已保存" : "情景版本已上传",
-                IsInformationEdit ? (IsPublic ? "公开信息已提交审核。" : "情景信息已保存为私有。") :
-                    $"{result.Name} · v{result.LatestReleaseVersion}\n{(result.LatestReleaseStatus == 3 ? "已提交审核。" : "已保存为私有版本。")}");
+                IsInformationEdit ? Lang.Get("lang.kitopia.scenario_information_saved") : Lang.Get("lang.kitopia.scenario_version_uploaded"),
+                IsInformationEdit ? (IsPublic ? Lang.Get("lang.kitopia.public_information_submitted_for_review") : Lang.Get("lang.kitopia.scenario_information_saved_privately")) :
+                    $"{result.Name} · v{result.LatestReleaseVersion}\n{(result.LatestReleaseStatus == 3 ? Lang.Get("lang.kitopia.submitted_for_review") : Lang.Get("lang.kitopia.saved_as_a_private_version"))}");
         }
         catch (HttpRequestException exception) when (exception.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {

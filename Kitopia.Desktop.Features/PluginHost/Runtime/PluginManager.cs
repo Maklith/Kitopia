@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Reflection;
@@ -33,7 +34,8 @@ public static class PluginManager
         PluginKitopia.ISearchItemTool = ServiceManager.Services.GetRequiredService<ISearchItemTool>();
         PluginKitopia.IClipboardService = ServiceManager.Services.GetRequiredService<IClipboardService>();
         PluginKitopia.IToastService = ServiceManager.Services.GetRequiredService<IToastService>();
-        PluginKitopia._i18n = CustomScenarioGlobe.I18N;
+        PluginKitopia.TypeNames = CustomScenarioGlobe.TypeNames;
+        PluginKitopia._i18n = CustomScenarioGlobe.TypeNames;
         PluginKitopia.ToolTipConverters = CustomScenarioGlobe.ToolTipConverters;
         PluginKitopia.JsonConverters = CustomScenarioGlobe.JsonConverters;
         PluginKitopia.InferenceSessionManager = ServiceManager.Services.GetRequiredService<IInferenceSessionManager>();
@@ -145,7 +147,7 @@ public static class PluginManager
             return await Dispatcher.UIThread.InvokeAsync(() => RunOperationAsync(operation, refreshScenarios));
         if (_operationInProgress)
         {
-            ServiceManager.Services.GetService<IToastService>()?.Show("插件操作进行中", "请等待当前插件操作完成。");
+            ServiceManager.Services.GetService<IToastService>()?.Show(Lang.Get("lang.kitopia.plugin_operation_in_progress"), Lang.Get("lang.kitopia.wait_for_the_current_plugin_operation_to_finish"));
             return false;
         }
         _operationInProgress = true;
@@ -154,7 +156,7 @@ public static class PluginManager
         catch (Exception exception)
         {
             Logger.Error(exception, "插件操作失败");
-            ServiceManager.Services.GetService<IToastService>()?.Show("插件操作失败", exception.Message);
+            ServiceManager.Services.GetService<IToastService>()?.Show(Lang.Get("lang.kitopia.plugin_operation_failed"), exception.Message);
             return false;
         }
         finally
@@ -196,7 +198,7 @@ public static class PluginManager
         if (PendingUnloads.TryGetValue(name, out var previous))
         {
             if (!previous.Succeeded || previous.Context.IsAlive)
-                throw new InvalidOperationException($"插件 {info.PluginBaseInfo.Name} 动态卸载失败，需要重启后再启用。");
+                throw new InvalidOperationException(Lang.Format("lang.kitopia.messages.plugin_value_could_not_be_unloaded_restart_before_enabling_it", info.PluginBaseInfo.Name));
             PendingUnloads.Remove(name);
             info.UnloadFailed = false;
         }
@@ -397,7 +399,7 @@ public static class PluginManager
                     updatePending = true;
                     throw new InvalidOperationException(replacement is null
                         ? $"插件 {dependent.PluginBaseInfo.Name} 仍被引用，请重启后重试。"
-                        : $"插件 {dependent.PluginBaseInfo.Name} 仍被引用，已保留启用设置并安排重启更新。");
+                        : Lang.Format("lang.kitopia.messages.plugin_value_is_still_in_use_its_enabled_state_is_preserved_and_the_update_will_finish_after_restart", dependent.PluginBaseInfo.Name));
                 }
             }
             foreach (var old in replaced.Where(info => !affected.Contains(info)))
@@ -405,7 +407,7 @@ public static class PluginManager
                 if (!await UnloadCoreAsync(old))
                 {
                     updatePending = true;
-                    throw new InvalidOperationException($"插件 {old.PluginBaseInfo.Name} 尚未完全卸载，需要重启更新。");
+                    throw new InvalidOperationException(Lang.Format("lang.kitopia.messages.plugin_value_is_still_loaded_restart_to_update_it", old.PluginBaseInfo.Name));
                 }
             }
             try
@@ -417,7 +419,7 @@ public static class PluginManager
             catch (Exception exception) when (replacement is not null && exception is IOException or UnauthorizedAccessException)
             {
                 updatePending = true;
-                throw new IOException($"插件 {replacement.Info.PluginBaseInfo.Name} 的目录暂时无法替换，已安排下次启动重试安装。", exception);
+                throw new IOException(Lang.Format("lang.kitopia.messages.plugin_value_directory_is_in_use_installation_will_be_retried_at_next_startup", replacement.Info.PluginBaseInfo.Name), exception);
             }
             RefreshInstalled();
             foreach (var candidate in order)
@@ -569,9 +571,9 @@ public static class PluginManager
         }
         ServiceManager.Services.GetRequiredService<IToastService>().Show(new DialogContent
         {
-            Title = $"{(delete ? "删除" : "停用")}插件 {info.PluginBaseInfo.Name}",
-            Content = "将处理以下插件及其依赖者：\n" + string.Join("、", affected.Select(item => item.PluginBaseInfo.Name)),
-            PrimaryButtonText = "确定", CloseButtonText = "取消",
+            Title = Lang.Format(delete ? "lang.kitopia.plugins.delete_title" : "lang.kitopia.plugins.disable_title", info.PluginBaseInfo.Name),
+            Content = Lang.Format("lang.kitopia.plugins.affected", string.Join("\n", affected.Select(item => item.PluginBaseInfo.Name))),
+            PrimaryButtonText = Lang.Get("lang.kitopia.ok"), CloseButtonText = Lang.Get("lang.kitopia.cancel"),
             PrimaryAction = async () => { await RemovePluginsAsync(info.ToPlgString(), delete); }
         }.ToToastRequest());
     }
@@ -585,8 +587,8 @@ public static class PluginManager
             var unloaded = await UnloadCoreAsync(info);
             ConfigManger.Config.EnabledPluginInfos.RemoveAll(item => item.NameSign == info.ToPlgString());
             if (!unloaded)
-                ServiceManager.Services.GetService<IToastService>()?.Show("插件动态卸载失败",
-                    $"插件 {info.PluginBaseInfo.Name} 尚未完全释放，请重启后完成{(delete ? "删除" : "停用")}。");
+                ServiceManager.Services.GetService<IToastService>()?.Show(Lang.Get("lang.kitopia.plugin_unload_failed"),
+                    Lang.Format("lang.kitopia.messages.plugin_value_is_still_in_use_restart_to_finish_value", info.PluginBaseInfo.Name, (delete ? Lang.Get("lang.kitopia.delete") : Lang.Get("lang.kitopia.deactivate"))));
             if (!delete) continue;
             File.Delete(Path.Combine(info.Path, ".update"));
             try

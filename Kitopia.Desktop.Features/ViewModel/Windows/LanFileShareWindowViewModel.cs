@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Feature.Localization;
 using Kitopia.Feature.DeviceCommunication.Application;
 using Kitopia.Feature.DeviceCommunication.Discovery;
 using Kitopia.Feature.DeviceCommunication.Messages.Chat;
@@ -26,8 +27,8 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
     public bool HasFiles => SelectedFiles.Count > 0;
     public bool HasDevices => DiscoveredDevices.Count > 0;
     public bool CanSend => HasFiles && !IsSending;
-    public string FilesHeader => HasFiles ? $"待发送文件 ({SelectedFiles.Count})" : "待发送文件";
-    public string DevicesHeader => HasDevices ? $"在线设备 ({DiscoveredDevices.Count})" : "在线设备";
+    public string FilesHeader => HasFiles ? Lang.Format("lang.kitopia.files_to_send_value", SelectedFiles.Count) : Lang.Get("lang.kitopia.files_to_send");
+    public string DevicesHeader => HasDevices ? Lang.Format("lang.kitopia.online_devices_value", DiscoveredDevices.Count) : Lang.Get("lang.kitopia.online_devices");
 
     public LanFileShareWindowViewModel(
         IDeviceDiscoveryService deviceDiscoveryService,
@@ -102,7 +103,7 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
         var filesToSend = SelectedFiles.Select(f => f.FilePath).ToList();
         if (filesToSend.Count == 0)
         {
-            _toastService.Show("局域网分享", "没有可发送的文件。", NotificationType.Warning);
+            _toastService.Show(Lang.Get("lang.kitopia.lan_sharing"), Lang.Get("lang.kitopia.no_files_available_to_send"), NotificationType.Warning);
             return;
         }
 
@@ -121,15 +122,15 @@ public partial class LanFileShareWindowViewModel : ObservableObject, IDisposable
             }
 
             _toastService.Show(
-                "局域网分享",
-                $"已向 {targetName} 发起 {filesToSend.Count} 个文件传输请求。",
+                Lang.Get("lang.kitopia.lan_sharing"),
+                Lang.Format("lang.kitopia.requested_value_file_transfers_to_value", targetName, filesToSend.Count),
                 NotificationType.Success);
         }
         catch (Exception ex)
         {
             _toastService.Show(
-                "局域网分享失败",
-                $"发送到 {targetName} 时出错: {ex.Message}",
+                Lang.Get("lang.kitopia.lan_sharing_failed"),
+                Lang.Format("lang.kitopia.failed_to_send_to_value_value", targetName, ex.Message),
                 NotificationType.Error);
         }
         finally

@@ -11,6 +11,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services;
 using PluginCore;
 using Serilog;
@@ -584,7 +585,7 @@ public class ToastService : IToastService
             preview = preview[..32] + "...";
         }
 
-        var blinkMark = _trayBlinkPhaseVisible ? "[新消息] " : "";
+        var blinkMark = _trayBlinkPhaseVisible ? Lang.Get("lang.kitopia.new_message") : "";
         trayIcon.ToolTipText = string.IsNullOrWhiteSpace(preview)
             ? $"{blinkMark}Kitopia.Desktop ({_suppressedUnreadCount})"
             : $"{blinkMark}Kitopia.Desktop ({_suppressedUnreadCount}) {preview}";

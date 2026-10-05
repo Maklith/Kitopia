@@ -1,5 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
+             xmlns:localization="clr-namespace:Kitopia.Feature.Localization;assembly=Kitopia.Feature"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages;assembly=Kitopia.Desktop.Features"
@@ -18,13 +20,13 @@
         <!-- 1. Header: Global interactions + Title + Subtitle + Count -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
             <StackPanel Grid.Column="0">
-                <TextBlock Text="全局交互" Theme="{DynamicResource KitopiaPageKickerText}" />
-                <TextBlock Text="快捷键管理" Theme="{DynamicResource KitopiaPageTitleText}" />
-                <TextBlock Text="查看与管理全局注册的快捷键热键配置。"
+                <TextBlock Text="{DynamicResource 'lang.kitopia.global_controls'}" Theme="{DynamicResource KitopiaPageKickerText}" />
+                <TextBlock Text="{DynamicResource 'lang.kitopia.hotkey_manager'}" Theme="{DynamicResource KitopiaPageTitleText}" />
+                <TextBlock Text="{DynamicResource 'lang.kitopia.manage_registered_global_hotkeys'}"
                            Theme="{DynamicResource KitopiaPageSubtitleText}" />
             </StackPanel>
             <TextBlock Grid.Column="1"
-                       Text="{Binding KeyModels.Count, StringFormat='共 {0} 个快捷键'}"
+                       Text="{lang:Lang &apos;lang.kitopia.value_hotkeys&apos;, Value={Binding KeyModels.Count}}"
                        FontSize="13"
                        Foreground="{DynamicResource SemiColorText2}"
                        VerticalAlignment="Bottom" />
@@ -59,15 +61,27 @@
 
                                     <!-- Middle: Title + Feature Description -->
                                     <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding SignName, Converter={StaticResource HotKeySignNameToStringCtr}}"
-                                                   FontWeight="SemiBold" FontSize="14.5"
+                                        <TextBlock FontWeight="SemiBold" FontSize="14.5"
                                                    Foreground="{DynamicResource SemiColorText0}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding SignName, Converter={StaticResource HotKeySignNameToDescriptionCtr}}"
-                                                   FontSize="12"
+                                                   TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Text>
+                                                <MultiBinding Converter="{StaticResource HotKeySignNameToStringCtr}">
+                                                    <Binding Path="SignName" />
+                                                    <ReflectionBinding Source="{x:Static localization:Lang.Current}" Path="Keys" />
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
+                                        <TextBlock FontSize="12"
                                                    Foreground="{DynamicResource SemiColorText2}"
                                                    Margin="0,2,0,0"
-                                                   TextTrimming="CharacterEllipsis" />
+                                                   TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Text>
+                                                <MultiBinding Converter="{StaticResource HotKeySignNameToDescriptionCtr}">
+                                                    <Binding Path="SignName" />
+                                                    <ReflectionBinding Source="{x:Static localization:Lang.Current}" Path="Keys" />
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
                                     </StackPanel>
 
                                     <!-- Right: Dynamic Status Badge (Enabled vs Disabled) -->
@@ -75,13 +89,13 @@
                                         <Border CornerRadius="4" Padding="8,3"
                                                 Background="{DynamicResource KitopiaBadgeSuccessBackground}"
                                                 IsVisible="{Binding IsEnabled}">
-                                            <TextBlock Text="已启用" FontSize="11.5" FontWeight="Medium"
+                                            <TextBlock Text="{DynamicResource 'lang.kitopia.enabled'}" FontSize="11.5" FontWeight="Medium"
                                                        Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" />
                                         </Border>
                                         <Border CornerRadius="4" Padding="8,3"
                                                 Background="{DynamicResource KitopiaBadgeNeutralBackground}"
                                                 IsVisible="{Binding !IsEnabled}">
-                                            <TextBlock Text="已停用" FontSize="11.5" FontWeight="Medium"
+                                            <TextBlock Text="{DynamicResource 'lang.kitopia.deactivated'}" FontSize="11.5" FontWeight="Medium"
                                                        Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
                                         </Border>
                                     </Panel>

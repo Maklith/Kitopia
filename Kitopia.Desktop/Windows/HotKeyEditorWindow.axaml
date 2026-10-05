@@ -5,7 +5,7 @@
               x:Class="Kitopia.Desktop.Windows.HotKeyEditorWindow"
               KeyDown="HotKeyEditorWindow_OnKeyDown"
               Width="720" Height="550" MinWidth="560" MinHeight="500"
-              Title="修改快捷键" WindowStartupLocation="CenterOwner"
+              Title="{DynamicResource 'lang.kitopia.edit_hotkey'}" WindowStartupLocation="CenterOwner"
               Background="{DynamicResource HotKeyCanvasBrush}">
     <u:UrsaWindow.Resources>
         <ResourceDictionary>
@@ -27,7 +27,7 @@
     </u:UrsaWindow.Styles>
     <Grid Margin="24,12,24,20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
         <StackPanel Spacing="4">
-            <TextBlock Text="快捷键设置" FontSize="12" Foreground="{DynamicResource SemiColorText2}" />
+            <TextBlock Text="{DynamicResource 'lang.kitopia.hotkey_settings'}" FontSize="12" Foreground="{DynamicResource SemiColorText2}" />
             <TextBlock Name="Name" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
         </StackPanel>
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
@@ -36,8 +36,8 @@
                         BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1">
                     <StackPanel Spacing="12">
                         <StackPanel Orientation="Horizontal" Spacing="24">
-                            <RadioButton Name="KeyBoard" GroupName="InputType" Content="键盘快捷键" Click="KeyBoard_OnClick" />
-                            <RadioButton Name="Mouse" GroupName="InputType" Content="鼠标快捷键" Click="Mouse_OnClick" />
+                            <RadioButton Name="KeyBoard" GroupName="InputType" Content="{DynamicResource 'lang.kitopia.keyboard_hotkey'}" Click="KeyBoard_OnClick" />
+                            <RadioButton Name="Mouse" GroupName="InputType" Content="{DynamicResource 'lang.kitopia.mouse_hotkey'}" Click="Mouse_OnClick" />
                         </StackPanel>
                         <Border Name="MouseCaptureArea" Padding="16" MinHeight="96" CornerRadius="8" Focusable="True"
                                 Background="{DynamicResource SemiColorFill0}" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
@@ -56,12 +56,12 @@
                                     <controls:HotKeyShowItme Name="Alt" IsVisible="False" Content="Alt" Height="38" FontSize="15" />
                                     <controls:HotKeyShowItme Name="KeyName" Height="38" FontSize="15" />
                                 </StackPanel>
-                                <TextBlock Text="点击此处后按下快捷键；鼠标按键也在此录入" FontSize="12" TextAlignment="Center"
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.click_here_and_press_a_key_or_mouse_button'}" FontSize="12" TextAlignment="Center"
                                            Foreground="{DynamicResource SemiColorText2}" />
                             </StackPanel>
                         </Border>
                         <Grid IsVisible="{Binding #Mouse.IsChecked}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                            <TextBlock Text="长按时间" VerticalAlignment="Center" FontSize="12" />
+                            <TextBlock Text="{DynamicResource 'lang.kitopia.hold_duration'}" VerticalAlignment="Center" FontSize="12" />
                             <Slider Grid.Column="1" Name="Slider" Minimum="100" Maximum="5000" Value="1000"
                                     TickFrequency="100" IsSnapToTickEnabled="True" />
                             <TextBlock Grid.Column="2" Text="{Binding #Slider.Value, StringFormat='{}{0:0} ms'}"
@@ -74,13 +74,13 @@
                     <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                             <StackPanel Spacing="4">
-                                <TextBlock Text="生效范围" FontSize="14" FontWeight="SemiBold" />
-                                <TextBlock Text="按当前前台窗口所属进程判断" FontSize="12" Foreground="{DynamicResource SemiColorText2}" />
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.scope'}" FontSize="14" FontWeight="SemiBold" />
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.based_on_the_foreground_window_s_process'}" FontSize="12" Foreground="{DynamicResource SemiColorText2}" />
                             </StackPanel>
                             <ComboBox Grid.Column="1" Name="ProcessScope" Width="180" SelectionChanged="ProcessScope_OnSelectionChanged">
-                                <ComboBoxItem Content="所有进程" />
-                                <ComboBoxItem Content="仅指定进程" />
-                                <ComboBoxItem Content="排除指定进程" />
+                                <ComboBoxItem Content="{DynamicResource 'lang.kitopia.all_processes'}" />
+                                <ComboBoxItem Content="{DynamicResource 'lang.kitopia.only_selected_processes'}" />
+                                <ComboBoxItem Content="{DynamicResource 'lang.kitopia.exclude_selected_processes'}" />
                             </ComboBox>
                         </Grid>
                         <StackPanel Name="ProcessListSection" Spacing="10">
@@ -89,7 +89,7 @@
                                     Background="{DynamicResource SemiColorFill0}"
                                     BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1">
                                 <Panel>
-                                    <TextBlock Name="EmptyTagsHint" Text="暂无配置的进程，请在下方输入并添加"
+                                    <TextBlock Name="EmptyTagsHint" Text="{DynamicResource 'lang.kitopia.no_processes_configured'}"
                                                FontSize="12" Foreground="{DynamicResource SemiColorText3}"
                                                VerticalAlignment="Center" Margin="6,0,0,6" IsVisible="False" />
                                     <ItemsControl Name="ProcessTagsControl">
@@ -109,7 +109,7 @@
                                                                    VerticalAlignment="Center" />
                                                         <Button Classes="Tertiary" Theme="{DynamicResource BorderlessButton}"
                                                                 Width="18" Height="18" Padding="0" CornerRadius="9"
-                                                                Click="RemoveProcessTag_OnClick" ToolTip.Tip="移除此进程">
+                                                                Click="RemoveProcessTag_OnClick" ToolTip.Tip="{DynamicResource 'lang.kitopia.remove_process'}">
                                                             <PathIcon Width="8" Height="8"
                                                                       Data="M 1,0 L 6,5 11,0 12,1 7,6 12,11 11,12 6,7 1,12 0,11 5,6 0,1 Z"
                                                                       Foreground="{DynamicResource SemiColorText2}" />
@@ -127,7 +127,7 @@
                                 <Panel>
                                     <TextBox Name="ProcessNames" Height="34" CornerRadius="6"
                                              VerticalContentAlignment="Center"
-                                             PlaceholderText="输入进程名（例如 explorer 或 code），按回车添加"
+                                             PlaceholderText="{DynamicResource 'lang.kitopia.enter_a_process_e_g_explorer_or_code_and_press_enter'}"
                                              KeyDown="ProcessNames_OnKeyDown" />
                                     <Popup Name="ProcessSuggestionsPopup"
                                            PlacementTarget="{Binding #ProcessNames}"
@@ -158,14 +158,14 @@
                                         </Border>
                                     </Popup>
                                 </Panel>
-                                <Button Grid.Column="1" Name="AddProcessButton" Content="添加"
+                                <Button Grid.Column="1" Name="AddProcessButton" Content="{DynamicResource 'lang.kitopia.add'}"
                                         Height="34" CornerRadius="6" Padding="16,0"
                                         Click="AddProcessButton_OnClick" />
                             </Grid>
-                            <TextBlock Text="不区分大小写，可省略 .exe；范围外保留按键原本的行为。" FontSize="11"
+                            <TextBlock Text="{DynamicResource 'lang.kitopia.case_insensitive_exe_is_optional_keys_retain_their_usual_behavior_outside_this_scope'}" FontSize="11"
                                        Foreground="{DynamicResource SemiColorText2}" TextWrapping="Wrap" />
                         </StackPanel>
-                        <CheckBox Name="IgnoreTextInput" Content="在文本输入框中暂停此快捷键" FontSize="12" />
+                        <CheckBox Name="IgnoreTextInput" Content="{DynamicResource 'lang.kitopia.pause_this_hotkey_in_text_inputs'}" FontSize="12" />
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -173,8 +173,8 @@
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
             <TextBlock Name="ValidationMessage" VerticalAlignment="Center" Foreground="{DynamicResource KitopiaBadgeDangerForeground}"
                        FontSize="12" TextWrapping="Wrap" Margin="0,0,12,0" />
-            <Button Grid.Column="1" Content="取消" Click="ButtonCancle_OnClick" IsCancel="True" Height="34" CornerRadius="6" Padding="20,0" />
-            <Button Grid.Column="2" Name="SaveButton" Content="保存" Click="ButtonBase_OnClick"
+            <Button Grid.Column="1" Content="{DynamicResource 'lang.kitopia.cancel'}" Click="ButtonCancle_OnClick" IsCancel="True" Height="34" CornerRadius="6" Padding="20,0" />
+            <Button Grid.Column="2" Name="SaveButton" Content="{DynamicResource 'lang.kitopia.save'}" Click="ButtonBase_OnClick"
                     Classes="Primary" Theme="{DynamicResource SolidButton}" Height="34" CornerRadius="6" Padding="20,0" />
         </Grid>
     </Grid>

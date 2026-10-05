@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Windows;
@@ -17,7 +18,7 @@ public class HotKeyEditorService : IHotKeyEditor
 
         var hotKeyEditor = new HotKeyEditorWindow(hotKeyModel) {
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Title = "修改快捷键"
+            Title = Lang.Get("lang.kitopia.edit_hotkey")
         };
 
         if (owner is null)

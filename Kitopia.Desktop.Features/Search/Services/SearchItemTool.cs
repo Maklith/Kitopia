@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.Diagnostics;
 using Kitopia.Desktop.Features.CustomScenario;
 using Kitopia.Desktop.Features.Services;
@@ -64,7 +65,7 @@ public class SearchItemTool : ISearchItemTool
                             var remove = searchViewItem.ItemDisplayName.Remove(0, 1);
                             ServiceManager.Services.GetService<IClipboardService>()!.SetText(remove);
                             ServiceManager.Services.GetService<IToastService>()!.Show("Kitopia",
-                                $"计算结果{remove}已经复制到剪贴板");
+                                Lang.Format("lang.kitopia.messages.calculation_result_value_copied_to_clipboard", remove));
                         });
                         thread.SetApartmentState(ApartmentState.STA);
                         thread.Start();

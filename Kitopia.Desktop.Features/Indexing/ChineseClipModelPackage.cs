@@ -24,8 +24,8 @@ internal static class ChineseClipModelPackage
             PluginStr = "Kitopia",
             Model = new OnnxModelInfo
             {
-                Name = "Chinese-CLIP RN50 图像编码器 INT8",
-                Description = "用于图片向量索引；ONNX Runtime CPU，1024 维图像向量。",
+                Name = "lang.kitopia.models.chinese_clip_image",
+                Description = "lang.kitopia.image_indexing_with_onnx_runtime_cpu_and_1024_dimensional_image_embeddings",
                 SignName = ImageModelSignName,
                 ModelPath = ImageModelPath,
                 RequiredFiles = [TextModelPath, VocabularyPath],
@@ -37,8 +37,8 @@ internal static class ChineseClipModelPackage
             PluginStr = "Kitopia",
             Model = new OnnxModelInfo
             {
-                Name = "Chinese-CLIP RN50 文本编码器 INT8",
-                Description = "用于文本检索图片；动态 INT64 token 输入，1024 维文本向量。",
+                Name = "lang.kitopia.models.chinese_clip_text",
+                Description = "lang.kitopia.text_to_image_search_with_dynamic_int64_tokens_and_1024_dimensional_text_embeddings",
                 SignName = TextModelSignName,
                 ModelPath = TextModelPath,
                 RequiredFiles = [ImageModelPath, VocabularyPath],

@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Plugin;
 using PluginCore.Onnx;
@@ -18,10 +19,10 @@ public class InferenceSessionManager : IInferenceSessionManager
             ? ConfigManger.Config.OnnxTargetDevices[onnxModelInfoWrapper.Model.SignName]
             : "CPU";
         var runtime = PluginOverall.GetOnnxRuntime(target);
-        if (runtime is null) throw new Exception($"目标推理环境'{target}'不存在");
+        if (runtime is null) throw new Exception(Lang.Format("lang.kitopia.messages.inference_environment_value_is_unavailable", target));
         var onnxRuntime = runtime.Invoke();
         if (!File.Exists(onnxModelInfoWrapper.Model.ModelPath))
-            throw new Exception($"模型'{onnxModelInfoWrapper.Model.Name}'不存在,请先下载");
+            throw new Exception(Lang.Format("lang.kitopia.messages.model_value_is_missing_download_it_first", onnxModelInfoWrapper.Model.Name));
         onnxRuntime.InitSession(onnxModelInfoWrapper.Model.ModelPath, useCpuMemoryArena);
         return onnxRuntime;
     }

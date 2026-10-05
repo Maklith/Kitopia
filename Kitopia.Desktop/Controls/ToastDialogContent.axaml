@@ -125,7 +125,7 @@
                         VerticalAlignment="Center"
                         Cursor="Hand"
                         Click="CloseButton_OnClick"
-                        ToolTip.Tip="关闭">
+                        ToolTip.Tip="{DynamicResource 'lang.kitopia.close'}">
                     <Button.Styles>
                         <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                             <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
@@ -165,7 +165,7 @@
                         Spacing="6"
                         Margin="0,16,0,0"
                         IsVisible="{Binding HasSelectionOptions}">
-                <TextBlock Text="版本"
+                <TextBlock Text="{DynamicResource 'lang.kitopia.version'}"
                            FontSize="13"
                            Foreground="{DynamicResource SemiColorText1}" />
                 <ComboBox ItemsSource="{Binding SelectionOptions}"

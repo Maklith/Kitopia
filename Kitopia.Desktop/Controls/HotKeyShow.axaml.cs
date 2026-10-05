@@ -6,6 +6,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
@@ -51,7 +52,7 @@ public class HotKeyShow : TemplatedControl
         AvaloniaProperty.Register<HotKeyShow, ICommand>(nameof(ToggleHotKey));
 
     public static readonly StyledProperty<string> ScopeDescriptionProperty =
-        AvaloniaProperty.Register<HotKeyShow, string>(nameof(ScopeDescription), "所有进程");
+        AvaloniaProperty.Register<HotKeyShow, string>(nameof(ScopeDescription), Lang.Get("lang.kitopia.all_processes"));
 
     public string ScopeDescription
     {
@@ -112,6 +113,7 @@ public class HotKeyShow : TemplatedControl
 
     protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
     {
+        Lang.Current.PropertyChanged -= OnLanguageChanged;
         if (HotKeyModel is not null)
         {
             HotKeyModel.PropertyChanged -= OnHotKeyModelPropertyChanged;
@@ -123,10 +125,18 @@ public class HotKeyShow : TemplatedControl
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
     {
         base.OnAttachedToLogicalTree(e);
+        Lang.Current.PropertyChanged += OnLanguageChanged;
         if (HotKeyModel is null) return;
         HotKeyModel.PropertyChanged -= OnHotKeyModelPropertyChanged;
         HotKeyModel.PropertyChanged += OnHotKeyModelPropertyChanged;
         HotKeyModelChanged(HotKeyModel, this);
+    }
+
+    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(Lang.Keys)) return;
+        if (Dispatcher.UIThread.CheckAccess()) HotKeyModelChanged(HotKeyModel, this);
+        else Dispatcher.UIThread.Post(() => HotKeyModelChanged(HotKeyModel, this));
     }
 
 
@@ -185,27 +195,17 @@ public class HotKeyShow : TemplatedControl
         {
             hotKeyShow.KeyType = (KeyTypeE)type;
             hotKeyShow.IsActivated = false;
-            hotKeyShow.ScopeDescription = "未设置";
+            hotKeyShow.ScopeDescription = Lang.Get("lang.kitopia.not_set");
             return;
         }
 
         var hotKeyModel = hotKeyModelN;
-        hotKeyShow.ScopeDescription = hotKeyModel.ProcessScopeDescription +
-            (hotKeyModel.Type == HotKeyType.Mouse ? $" · 长按 {hotKeyModel.PressTimeMillis} ms" : "") +
-            (hotKeyModel.IsEnabled ? "" : " · 已停用");
+        hotKeyShow.ScopeDescription = HotKeyDisplay.ScopeDescription(hotKeyModel);
         if (hotKeyModel.Type == HotKeyType.Mouse)
         {
             hotKeyShow.IsActivated = hotKeyModel.IsEnabled;
             hotKeyShow.KeyType = (KeyTypeE)10000;
-            hotKeyShow.KeyName = hotKeyModel.MouseButton switch
-            {
-                (int)MouseHookType.LeftButton => "鼠标左键",
-                (int)MouseHookType.RightButton => "鼠标右键", 
-                (int)MouseHookType.MiddleButton => "鼠标中键",
-                (int)MouseHookType.XButton1 => "鼠标侧键1",
-                (int)MouseHookType.XButton2 => "鼠标侧键2",
-                _ => $"鼠标按键{hotKeyModel.MouseButton}"
-            };
+            hotKeyShow.KeyName = HotKeyDisplay.MouseButtonName(hotKeyModel.MouseButton);
             return;
         }
 
@@ -222,7 +222,7 @@ public class HotKeyShow : TemplatedControl
 
         hotKeyShow.IsActivated = hotKeyModel.IsEnabled;
         hotKeyShow.KeyType = (KeyTypeE)type;
-        hotKeyShow.KeyName = hotKeyModel.SelectKey.ToString();
+        hotKeyShow.KeyName = Lang.Get(hotKeyModel.SelectKey);
     }
 
     private void Remove()
@@ -260,9 +260,9 @@ public class HotKeyShow : TemplatedControl
         {
             ServiceManager.Services.GetService<IToastService>()!.Show(new DialogContent
             {
-                Title = $"快捷键{HotKeyModel.SignName}设置失败",
-                Content = "请重新设置快捷键，按键与系统其他程序冲突",
-                CloseButtonText = "关闭"
+                Title = Lang.Format("lang.kitopia.messages.unable_to_set_hotkey_value", HotKeyModel.SignName),
+                Content = Lang.Get("lang.kitopia.choose_another_hotkey_this_key_combination_is_already_in_use"),
+                CloseButtonText = Lang.Get("lang.kitopia.close")
             }.ToToastRequest());
             hotkeys.RequestUserModify(HotKeyModel.UUID);
         }

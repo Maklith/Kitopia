@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 #region
 
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -29,7 +30,7 @@ public partial class PendingConnectionViewModel : ObservableRecipient
             {
                 if (con == Source || con.Source == Source.Source)
                 {
-                    PreviewText = "不能自己连接自己";
+                    PreviewText = Lang.Get("lang.kitopia.cannot_connect_a_node_to_itself");
                     break;
                 }
 
@@ -38,22 +39,22 @@ public partial class PendingConnectionViewModel : ObservableRecipient
                 var target = reverse ? Source : con;
                 if (ScenarioGraph.WouldCreateCycle(_editor.Scenario.Connections, source, target))
                 {
-                    PreviewText = "连接会形成循环";
+                    PreviewText = Lang.Get("lang.kitopia.connection_would_create_a_cycle");
                     break;
                 }
 
                 if (Source.ConnectorType != ConnectorType.Both && Source.ConnectorType == con.ConnectorType)
                 {
-                    PreviewText = "错误的连接";
+                    PreviewText = Lang.Get("lang.kitopia.invalid_connection");
                     break;
                 }
 
-                PreviewText = ScenarioGraph.CanConnect(source, target) ? "连接" : "类型错误";
+                PreviewText = ScenarioGraph.CanConnect(source, target) ? Lang.Get("lang.kitopia.connect") : Lang.Get("lang.kitopia.type_mismatch");
 
                 break;
             }
             default:
-                PreviewText = "选择节点";
+                PreviewText = Lang.Get("lang.kitopia.select_a_node");
                 break;
         }
     }

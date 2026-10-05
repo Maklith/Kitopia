@@ -2,11 +2,13 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:u-semi="clr-namespace:Ursa.Themes.Semi;assembly=Ursa.Themes.Semi"
              xmlns:semi="https://irihi.tech/semi"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
              x:Class="Kitopia.Mobile.App"
              RequestedThemeVariant="Default">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <lang:LanguageResources />
                 <ResourceInclude Source="avares://Kitopia.Feature.Avalonia/Views/DeviceCommunication/DeviceCommunicationStyles.axaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

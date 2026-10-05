@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -227,9 +228,9 @@ public sealed class ScenarioMarketItem
     public string AuthorInitial => string.IsNullOrWhiteSpace(Author) ? "?" : Author[..1].ToUpperInvariant();
     public bool HasRatings => RatingCount > 0;
     public string RatingScoreText => HasRatings ? AverageRating.ToString("F1") : "";
-    public string RatingDisplayText => HasRatings ? $"{AverageRating:F1} · {RatingCount} 条评价" : "暂无评分";
+    public string RatingDisplayText => HasRatings ? Lang.Format("lang.kitopia.messages.value_value_ratings", AverageRating, RatingCount) : "暂无评分";
     public string VersionAndDateText => $"v{LastVersion ?? "—"} · {(Updatetime == default ? "—" : Updatetime.ToString("M月d日"))}";
-    public string DownloadCountText => $"{DownloadCounts} 下载";
+    public string DownloadCountText => Lang.Format("lang.kitopia.messages.value_downloads", DownloadCounts);
     public string LatestReleaseStatusText => LatestReleaseStatus switch
     {
         0 => "草稿",

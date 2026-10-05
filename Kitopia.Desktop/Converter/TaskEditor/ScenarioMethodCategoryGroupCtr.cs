@@ -5,6 +5,8 @@ using Avalonia.Controls.Templates;
 using Avalonia.Data.Converters;
 using Kitopia.Desktop.Features.CustomScenario;
 using Kitopia.Desktop.Windows.TaskEditors;
+using Kitopia.Feature.Avalonia.Localization;
+using Avalonia.Data;
 
 namespace Kitopia.Desktop.Converter.TaskEditor;
 
@@ -36,7 +38,7 @@ public class ScenarioMethodCategoryGroupCtr : IValueConverter
         var itemsControl = new StackPanel();
         itemsControl.Spacing = 5;
 
-        expander.Header = "节点";
+        expander.Bind(Expander.HeaderProperty, (BindingBase)new LangExtension("lang.kitopia.node_type").ProvideValue(null!));
         expander.Content = itemsControl;
         Prase(group, itemsControl);
 
@@ -55,7 +57,8 @@ public class ScenarioMethodCategoryGroupCtr : IValueConverter
             var expander = new Expander();
             itemsControl.Children.Add(expander);
 
-            expander.Header = scenarioMethodCategoryGroup.Name;
+            expander.Bind(Expander.HeaderProperty, (BindingBase)new LangExtension(
+                scenarioMethodCategoryGroup.DisplayName ?? scenarioMethodCategoryGroup.Name).ProvideValue(null!));
             var control = new StackPanel();
             control.Spacing = 5;
             expander.Content = control;

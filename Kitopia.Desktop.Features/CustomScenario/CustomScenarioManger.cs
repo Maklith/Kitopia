@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.Collections.ObjectModel;
 using System.Text;
 using System.Text.Json;
@@ -51,9 +52,10 @@ public class CustomScenarioManger
 
         if (sb.Length != 0)
         {
-            sb.Insert(0, $"情景触发器\"{trigger}\"触发了以下情景:\n");
+            var triggerName = CustomScenarioGlobe.Triggers.TryGetValue(trigger, out var info) ? Lang.Get(info.Name ?? trigger) : trigger;
+            sb.Insert(0, Lang.Format("lang.kitopia.scenarios.triggered", triggerName));
             Logger.Information(sb.ToString());
-            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show("情景",
+            ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(Lang.Get("lang.kitopia.scenarios"),
                 sb.ToString());
         }
         else
@@ -140,13 +142,13 @@ public class CustomScenarioManger
             {
                 case CustomScenarioLoadFromJsonFailedType.插件未找到:
                 {
-                    var content = $"对应文件\n{fileInfo.FullName}\n情景所需的插件不存在\n需要插件\"{e1.PluginName}\"";
+                    var content = Lang.Format("lang.kitopia.messages.file_value_required_plugin_value_is_missing", fileInfo.FullName, e1.PluginName);
                     var dialog = new DialogContent
                     {
-                        Title = $"自定义情景\"{name}\"加载失败",
+                        Title = Lang.Format("lang.kitopia.messages.unable_to_load_custom_scenario_value", name),
                         Content = content,
-                        PrimaryButtonText = "尝试在市场中自动安装",
-                        CloseButtonText = "我知道了",
+                        PrimaryButtonText = Lang.Get("lang.kitopia.install_automatically_from_the_market"),
+                        CloseButtonText = Lang.Get("lang.kitopia.got_it"),
                         PrimaryAction = async () =>
                         {
                             var pluginIntegration = ServiceManager.Services
@@ -155,7 +157,7 @@ public class CustomScenarioManger
                                 .GetOnlinePluginAsync(e1.PluginName);
                             if (onlinePluginInfo is null)
                             {
-                                ServiceManager.Services.GetService<IToastService>().Show("自动下载插件失败",
+                                ServiceManager.Services.GetService<IToastService>().Show(Lang.Get("lang.kitopia.automatic_plugin_download_failed"),
                                     $"未找到插件:{e1.PluginName}");
                                 return;
                             }
@@ -166,10 +168,10 @@ public class CustomScenarioManger
 
                             if (downloadPluginOnline)
                                 ServiceManager.Services.GetService<IToastService>()
-                                    .Show("自动下载插件成功", $"已自动下载并启用{onlinePluginInfo.Name}");
+                                    .Show(Lang.Get("lang.kitopia.plugin_downloaded_automatically"), Lang.Format("lang.kitopia.messages.downloaded_and_enabled_value", onlinePluginInfo.Name));
                             else
-                                ServiceManager.Services.GetService<IToastService>().Show("自动下载插件失败",
-                                    $"下载插件:{e1.PluginName}时遇到错误");
+                                ServiceManager.Services.GetService<IToastService>().Show(Lang.Get("lang.kitopia.automatic_plugin_download_failed"),
+                                    Lang.Format("lang.kitopia.messages.unable_to_download_plugin_value", e1.PluginName));
                         }
                     };
                     ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
@@ -188,14 +190,14 @@ public class CustomScenarioManger
                     }
 
                     var content =
-                        $"对应文件\n{fileInfo.FullName}\n情景所需的插件未启用\n需要插件{pluginByPlgStr.Name}";
+                        Lang.Format("lang.kitopia.messages.file_value_required_plugin_value_is_disabled", fileInfo.FullName, pluginByPlgStr.Name);
 
                     var dialog = new DialogContent
                     {
-                        Title = $"自定义情景\"{name}\"加载失败",
+                        Title = Lang.Format("lang.kitopia.messages.unable_to_load_custom_scenario_value", name),
                         Content = content,
-                        PrimaryButtonText = "启用该插件",
-                        CloseButtonText = "我知道了",
+                        PrimaryButtonText = Lang.Get("lang.kitopia.enable_this_plugin"),
+                        CloseButtonText = Lang.Get("lang.kitopia.got_it"),
                         PrimaryAction = async () => { await pluginIntegration.EnablePluginAsync(e1.PluginName); }
                     };
                     ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
@@ -205,12 +207,12 @@ public class CustomScenarioManger
                 case CustomScenarioLoadFromJsonFailedType.方法未找到:
                 {
                     var content =
-                        $"对应文件\n{fileInfo.FullName}\n情景所需的插件方法不存在\n插件: {e1.PluginName}\n方法: {e1.MethodName}\n请更新插件或重新编辑该节点";
+                        Lang.Format("lang.kitopia.messages.file_value_required_plugin_method_is_missing_plugin_value_method_value_update_the_plugin_or_edit_this_node", fileInfo.FullName, e1.PluginName, e1.MethodName);
                     var dialog = new DialogContent
                     {
-                        Title = $"自定义情景\"{name}\"加载失败",
+                        Title = Lang.Format("lang.kitopia.messages.unable_to_load_custom_scenario_value", name),
                         Content = content,
-                        CloseButtonText = "我知道了"
+                        CloseButtonText = Lang.Get("lang.kitopia.got_it")
                     };
                     ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
                         dialog.ToToastRequest());
@@ -222,13 +224,13 @@ public class CustomScenarioManger
                 }
                 case CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到:
                 {
-                    var content = $"对应文件\n{fileInfo.FullName}\n情景所需{e1.PluginName}类的序列化转换器未找到\n它可能来自某个插件";
+                    var content = Lang.Format("lang.kitopia.messages.file_value_missing_serializer_for_value_it_may_belong_to_a_plugin", fileInfo.FullName, e1.PluginName);
 
                     var dialog = new DialogContent
                     {
-                        Title = $"自定义情景\"{name}\"加载失败",
+                        Title = Lang.Format("lang.kitopia.messages.unable_to_load_custom_scenario_value", name),
                         Content = content,
-                        CloseButtonText = "我知道了"
+                        CloseButtonText = Lang.Get("lang.kitopia.got_it")
                     };
                     ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
                         dialog.ToToastRequest());
@@ -258,12 +260,12 @@ public class CustomScenarioManger
         catch (Exception e)
         {
             Logger.Error(e,"错误");
-            var content = $"情景文件\n{fileInfo.FullName}\n加载失败疑似文件已损坏";
+            var content = Lang.Format("lang.kitopia.messages.unable_to_load_scenario_file_value_the_file_may_be_corrupted", fileInfo.FullName);
             var dialog = new DialogContent
             {
-                Title = $"自定义情景\"{fileInfo.Name}\"加载失败",
+                Title = Lang.Format("lang.kitopia.messages.unable_to_load_custom_scenario_value", fileInfo.Name),
                 Content = content,
-                CloseButtonText = "我知道了",
+                CloseButtonText = Lang.Get("lang.kitopia.got_it"),
                 PrimaryAction = () => { }
             };
             ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(
@@ -299,7 +301,7 @@ public class CustomScenarioManger
                 {
                     Logger.Error(e, "情景已保存，但快捷键注册失败: {Scenario}", scenario.Name);
                     ServiceManager.Services.GetService<IToastService>()?.Show(
-                        "快捷键注册失败", $"情景'{scenario.Name}'已保存，请检查快捷键设置。");
+                        Lang.Get("lang.kitopia.hotkey_registration_failed"), Lang.Format("lang.kitopia.messages.scenario_value_saved_check_its_hotkey_settings", scenario.Name));
                 }
             }
             scenario.NotifySaved();
@@ -313,20 +315,20 @@ public class CustomScenarioManger
             {
                 case CustomScenarioLoadFromJsonFailedType.类的序列化转换器未找到:
                 {
-                    var content = $"情景'{scenario.Name}'保存失败所需{e.PluginName}类的序列化转换器未找到\n它可能来自某个插件";
+                    var content = Lang.Format("lang.kitopia.messages.unable_to_save_scenario_value_missing_serializer_for_value_it_may_belong_to_a_plugin", scenario.Name, e.PluginName);
 
                     var dialog = new DialogContent
                     {
-                        Title = $"自定义情景\"{scenario.Name}\"保存失败",
+                        Title = Lang.Format("lang.kitopia.messages.unable_to_save_custom_scenario_value", scenario.Name),
                         Content = content,
-                        CloseButtonText = "我知道了"
+                        CloseButtonText = Lang.Get("lang.kitopia.got_it")
                     };
                     ServiceManager.Services.GetService<IToastService>()?.Show(dialog.ToToastRequest());
                     break;
                 }
                 default:
                     ServiceManager.Services.GetService<IToastService>()?.Show(
-                        "情景保存失败", $"情景'{scenario.Name}'保存失败：{e.FailedType}");
+                        Lang.Get("lang.kitopia.scenario_save_failed"), Lang.Format("lang.kitopia.messages.unable_to_save_scenario_value_value", scenario.Name, e.FailedType));
                     break;
             }
             return false;
@@ -335,7 +337,7 @@ public class CustomScenarioManger
         {
             Logger.Error(e, "情景保存失败: {Scenario}", scenario.Name);
             ServiceManager.Services.GetService<IToastService>()?.Show(
-                "情景保存失败", $"情景'{scenario.Name}'保存失败：{e.Message}");
+                Lang.Get("lang.kitopia.scenario_save_failed"), Lang.Format("lang.kitopia.messages.unable_to_save_scenario_value_value", scenario.Name, e.Message));
             return false;
         }
         finally

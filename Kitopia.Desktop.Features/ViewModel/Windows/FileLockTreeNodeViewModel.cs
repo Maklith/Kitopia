@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Abstractions.FileSystem;
 
 namespace Kitopia.Desktop.Features.ViewModel.Windows;
@@ -62,12 +63,12 @@ public partial class FileLockTreeNodeViewModel : ObservableObject
 
     // Badges text
     public string SelfLockBadgeText => IsDirectory
-        ? (IsSelfLocked ? (SelfLockCount > 1 ? $"自身被锁定 ({SelfLockCount}个进程)" : "自身被锁定") : "自身未锁定")
+        ? (IsSelfLocked ? (SelfLockCount > 1 ? Lang.Format("lang.kitopia.messages.locked_by_value_processes", SelfLockCount) : Lang.Get("lang.kitopia.self_locked")) : Lang.Get("lang.kitopia.unlocked"))
         : State;
 
     public string ChildLockBadgeText => HasChildLocks
-        ? $"子项 {ChildLockCount} 处锁定"
-        : "子项无锁定";
+        ? Lang.Format("lang.kitopia.messages.value_locked_child_items", ChildLockCount)
+        : Lang.Get("lang.kitopia.no_child_locks");
 
     public bool CanUnlock => (IsDirectory && HasAnyLock) || (IsFile && IsLocked) || IsProcess;
     public bool CanOpenLocation => !string.IsNullOrEmpty(FilePath);

@@ -60,8 +60,10 @@ public sealed class TopScenarioMethods
     [ScenarioMethod("Top fixture alias", Id = "top-alias")]
     public static void TopScenarioMethod(CancellationToken cancellationToken) { }
 
-    [ScenarioMethod("Typed fixture method")]
-    public static void TypedScenarioMethod(FixtureInput input, CancellationToken cancellationToken) { }
+    [ScenarioMethod("lang.pluginlifecycle.typed_method", "input=lang.pluginlifecycle.input",
+        "count=lang.pluginlifecycle.count", "return=lang.pluginlifecycle.result", Id = "Typed fixture method")]
+    public static int TypedScenarioMethod(FixtureInput input, [SelfInput] int count,
+        CancellationToken cancellationToken) => count;
 }
 
 public sealed class FixtureInput;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.CustomScenario.Attribute;
@@ -9,13 +9,13 @@ public class SaveImageToFile
 {
     [Feature(
         "save-captured-image",
-        "保存图像到本地",
-        "选择屏幕区域，将截图保存到下载目录并打开所在位置。",
-        "截图与图像",
+        "lang.kitopiaex.save_image_locally",
+        "lang.kitopiaex.select_a_screen_region_save_it_to_downloads_and_open_its_location",
+        "lang.kitopia.screenshots_and_images",
         0xE357,
         150,
         Activation = FeatureActivationMode.ScreenCapture)]
-    [Capture("保存图像到本地",0xE357)]
+    [Capture("lang.kitopiaex.save_image_locally",0xE357)]
     public void SaveImageToFileM(ScreenCaptureResult dResult)
     {
         var ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0);

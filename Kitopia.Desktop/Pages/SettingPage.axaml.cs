@@ -3,12 +3,15 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -18,6 +21,8 @@ using CommunityToolkit.Mvvm.Input;
 using Kitopia.Desktop.Features.Indexing;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
+using Kitopia.Feature.Localization;
+using Kitopia.Feature.Avalonia.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using Kitopia.Desktop.Controls;
 using PluginCore;
@@ -34,6 +39,9 @@ public partial class SettingPage : UserControl
     private ConfigBase? _configBase;
     private CompositeDisposable disposables = new();
     private readonly Dictionary<string, Control> _fieldControls = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _pendingConfigSaves = new(StringComparer.Ordinal);
+    private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(300) };
+    private int _saveVersion;
     private string? _requestedFieldName;
     private Control? _requestedFieldContainer;
 
@@ -42,31 +50,33 @@ public partial class SettingPage : UserControl
     public SettingPage()
     {
         InitializeComponent();
+        _saveTimer.Tick += OnSaveTimerTick;
         AttachedToVisualTree += (_, _) => ScheduleRequestedFieldScroll();
     }
 
     public void ChangeConfig(ConfigBase configBase)
     {
+        FlushPendingConfigSaves();
         disposables.Clear();
         _fieldControls.Clear();
         _requestedFieldName = null;
         _requestedFieldContainer = null;
         _configBase = configBase;
-        TextBlock.Text = configBase.GetType()
-            .GetCustomAttribute<ConfigName>()
-            ?.Name ?? configBase.Name;
+        var title = configBase.GetType().GetCustomAttribute<ConfigName>()?.Name ?? configBase.Name;
+        disposables.Add(TextBlock.Bind(TextBlock.TextProperty, (BindingBase)new LangExtension(title).ProvideValue(null!)));
         StackPanel.Children.Clear();
         LoadConfig(StackPanel, configBase);
     }
 
     public void LoadAllConfigs(string? requestedFieldName = null)
     {
+        FlushPendingConfigSaves();
         disposables.Clear();
         _fieldControls.Clear();
         _requestedFieldName = requestedFieldName;
         _requestedFieldContainer = null;
         StackPanel.Children.Clear();
-        TextBlock.Text = "设置";
+        disposables.Add(TextBlock.Bind(TextBlock.TextProperty, new Binding("[lang.kitopia.settings]") { Source = Lang.Current }));
         
         // Main Config
         var mainStackPanel = new StackPanel { Spacing = 4 };
@@ -80,13 +90,14 @@ public partial class SettingPage : UserControl
         {
             var pluginHeader = new TextBlock
             {
-                Text = "扩展与插件设置",
+                Text = Lang.Get("lang.kitopia.extensions_and_plugins"),
                 FontSize = 13,
                 FontWeight = FontWeight.SemiBold,
                 Foreground = Application.Current?.FindResource("SemiColorText2") as IBrush ?? Brushes.Gray,
                 Margin = new Thickness(4, 24, 0, 8)
             };
             StackPanel.Children.Add(pluginHeader);
+            disposables.Add(pluginHeader.Bind(TextBlock.TextProperty, new Binding("[lang.kitopia.extensions_and_plugins]") { Source = Lang.Current }));
 
             foreach (var config in pluginConfigs)
             {
@@ -116,6 +127,7 @@ public partial class SettingPage : UserControl
     protected override void OnUnloaded(RoutedEventArgs e)
     {
         base.OnUnloaded(e);
+        FlushPendingConfigSaves();
         disposables.Clear();
         _configBase = null;
         _fieldControls.Clear();
@@ -123,6 +135,52 @@ public partial class SettingPage : UserControl
         _requestedFieldContainer = null;
         nowControl = null;
         StackPanel.Children.Clear();
+    }
+
+    private void ScheduleConfigSave(ConfigBase config)
+    {
+        if (!ConfigManger.AllConfigs.TryGetValue(config.Name, out var current) || !ReferenceEquals(current, config))
+            return;
+
+        _pendingConfigSaves[config.Name] = ++_saveVersion;
+        _saveTimer.Stop();
+        _saveTimer.Start();
+    }
+
+    private async void OnSaveTimerTick(object? sender, EventArgs args)
+    {
+        _saveTimer.Stop();
+        foreach (var (key, version) in _pendingConfigSaves.ToArray())
+        {
+            if (!_pendingConfigSaves.ContainsKey(key)) continue;
+            try
+            {
+                await ConfigManger.SaveAsync(key);
+                if (_pendingConfigSaves.TryGetValue(key, out var currentVersion) && currentVersion == version)
+                    _pendingConfigSaves.Remove(key);
+            }
+            catch (Exception)
+            {
+                // The manager reports the failure. Keep the request for a later edit or final flush.
+            }
+        }
+    }
+
+    private void FlushPendingConfigSaves()
+    {
+        _saveTimer.Stop();
+        foreach (var key in _pendingConfigSaves.Keys.ToArray())
+        {
+            try
+            {
+                if (ConfigManger.AllConfigs.ContainsKey(key)) ConfigManger.Save(key);
+                _pendingConfigSaves.Remove(key);
+            }
+            catch (Exception)
+            {
+                // Keep navigation usable; the manager has already reported the failed save.
+            }
+        }
     }
 
 
@@ -141,6 +199,43 @@ public partial class SettingPage : UserControl
                               ?? (configBase is KitopiaConfig ? "KitopiaConfig" : string.Empty);
         }
         TextBlock? categoryHeader = null;
+        if (configBase is KitopiaConfig config)
+        {
+            var languagePicker = new ComboBox
+            {
+                ItemsSource = Lang.Current.Languages.Prepend(string.Empty),
+                SelectedItem = Lang.Current.Languages.Contains(config.language) ? config.language : string.Empty,
+                MinWidth = 180,
+                Height = 32,
+                ItemTemplate = new FuncDataTemplate<string>((code, _) =>
+                {
+                    var label = new TextBlock();
+                    if (string.IsNullOrEmpty(code))
+                        disposables.Add(label.Bind(TextBlock.TextProperty, new Binding("[lang.kitopia.system_default]") { Source = Lang.Current }));
+                    else
+                        label.Text = CultureInfo.GetCultureInfo(code).NativeName;
+                    return label;
+                })
+            };
+            var languageRow = new SettingsExpander
+            {
+                Footer = languagePicker,
+                IconSource = new FontIcon { Glyph = char.ConvertFromUtf32(0xf33c) },
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            disposables.Add(languageRow.Bind(SettingsExpander.HeaderProperty, new Binding("[lang.kitopia.display_language]") { Source = Lang.Current }));
+            disposables.Add(languageRow.Bind(SettingsExpander.DescriptionProperty, new Binding("[lang.kitopia.changes_apply_immediately]") { Source = Lang.Current }));
+            container.Children.Add(languageRow);
+            _fieldControls[nameof(KitopiaConfig.language)] = languageRow;
+            disposables.Add(languagePicker.GetObservable(ComboBox.SelectedItemProperty).Skip(1).Subscribe(value =>
+            {
+                if (value is not string code || config.language == code) return;
+                config.language = code;
+                Lang.Current.UseLanguage(code);
+                config.OnConfigChanged(this, nameof(KitopiaConfig.language), code);
+                ScheduleConfigSave(config);
+            }));
+        }
         foreach (var fieldInfo in configBase.GetType()
                      .GetFields(BindingFlags.Instance | BindingFlags.Public))
         {
@@ -155,6 +250,7 @@ public partial class SettingPage : UserControl
                     Foreground = Application.Current?.FindResource("SemiColorText2") as IBrush ?? Brushes.Gray,
                     Margin = new Thickness(4, 18, 0, 6)
                 };
+                disposables.Add(categoryHeader.Bind(TextBlock.TextProperty, (BindingBase)new LangExtension(configFieldCategory.Category).ProvideValue(null!)));
                 var stackPanel = new StackPanel
                 {
                     HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -179,6 +275,9 @@ public partial class SettingPage : UserControl
                             .ToString()
                     }
                 };
+                disposables.Add(SettingsExpander.Bind(SettingsExpander.HeaderProperty, (BindingBase)new LangExtension(configField.Tittle).ProvideValue(null!)));
+                if (!string.IsNullOrEmpty(configField.Description))
+                    disposables.Add(SettingsExpander.Bind(SettingsExpander.DescriptionProperty, (BindingBase)new LangExtension(configField.Description).ProvideValue(null!)));
                 _fieldControls[fieldInfo.Name] = SettingsExpander;
                 if (fieldInfo.Name == _requestedFieldName)
                 {
@@ -202,13 +301,14 @@ public partial class SettingPage : UserControl
                             VerticalAlignment = VerticalAlignment.Center,
                             HorizontalAlignment = HorizontalAlignment.Right
                         };
-                        ToolTip.SetTip(colorPicker, configField.Tittle);
+                        disposables.Add(colorPicker.Bind(ToolTip.TipProperty, (BindingBase)new LangExtension(configField.Tittle).ProvideValue(null!)));
                         EventHandler<ColorChangedEventArgs> handler = (_, args) =>
                         {
                             var value = $"#{args.NewColor.R:X2}{args.NewColor.G:X2}{args.NewColor.B:X2}";
+                            if (Equals(fieldInfo.GetValue(configBase), value)) return;
                             fieldInfo.SetValue(configBase, value);
                             configBase.OnConfigChanged(this, fieldInfo.Name, value);
-                            ConfigManger.Save(configBase.Name);
+                            ScheduleConfigSave(configBase);
                         };
                         colorPicker.ColorChanged += handler;
                         disposables.Add(Disposable.Create(() => colorPicker.ColorChanged -= handler));
@@ -225,21 +325,14 @@ public partial class SettingPage : UserControl
                             CornerRadius = new CornerRadius(6),
                             VerticalContentAlignment = VerticalAlignment.Center
                         };
-                        var isInitial = true;
                         disposables.Add(textBox.GetObservable(TextBox.TextProperty)
+                            .Skip(1)
                             .Subscribe((d) =>
                             {
-                                if (isInitial)
-                                {
-                                    isInitial = false;
-                                    return;
-                                }
-                                configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                if (Equals(fieldInfo.GetValue(configBase), d)) return;
                                 fieldInfo.SetValue(configBase, d);
-                                if (!string.IsNullOrWhiteSpace(configBase.Name))
-                                {
-                                    ConfigManger.Save(configBase.Name);
-                                }
+                                configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                ScheduleConfigSave(configBase);
                             }));
                         SettingsExpander.Footer = textBox;
                         break;
@@ -261,11 +354,13 @@ public partial class SettingPage : UserControl
                         };
                         disposables.Add(
                             textBox.GetObservable(NumericIntUpDown.ValueProperty)
+                                .Skip(1)
                                 .Subscribe((d) =>
                                 {
-                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    if (d is null || Equals(fieldInfo.GetValue(configBase), d)) return;
                                     fieldInfo.SetValue(configBase, d);
-                                    ConfigManger.Save(configBase.Name);
+                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    ScheduleConfigSave(configBase);
                                 }));
 
                         SettingsExpander.Footer = textBox;
@@ -288,11 +383,13 @@ public partial class SettingPage : UserControl
                         };
                         disposables.Add(
                             comboBox.GetObservable(ComboBox.SelectedValueProperty)
+                                .Skip(1)
                                 .Subscribe((d) =>
                                 {
-                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    if (d is null || Equals(fieldInfo.GetValue(configBase), d)) return;
                                     fieldInfo.SetValue(configBase, d);
-                                    ConfigManger.Save(configBase.Name);
+                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    ScheduleConfigSave(configBase);
                                 }));
                         SettingsExpander.Footer = comboBox;
                         break;
@@ -337,11 +434,14 @@ public partial class SettingPage : UserControl
                         disposables.Add(textBox.Bind(TextBlock.TextProperty, binding));
                         disposables.Add(
                             slider.GetObservable(Slider.ValueProperty)
+                                .Skip(1)
                                 .Subscribe((d) =>
                                 {
-                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
-                                    fieldInfo.SetValue(configBase, (int)d);
-                                    ConfigManger.Save(configBase.Name);
+                                    var value = (int)d;
+                                    if (Equals(fieldInfo.GetValue(configBase), value)) return;
+                                    fieldInfo.SetValue(configBase, value);
+                                    configBase.OnConfigChanged(this, fieldInfo.Name, value);
+                                    ScheduleConfigSave(configBase);
                                 }));
                         stackPanel.Children.Add(slider);
                         stackPanel.Children.Add(textBox);
@@ -365,11 +465,13 @@ public partial class SettingPage : UserControl
 
                         disposables.Add(
                             textBox1.GetObservable(NumericDoubleUpDown.ValueProperty)
+                                .Skip(1)
                                 .Subscribe((d) =>
                                 {
-                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    if (d is null || Equals(fieldInfo.GetValue(configBase), d)) return;
                                     fieldInfo.SetValue(configBase, d);
-                                    ConfigManger.Save(configBase.Name);
+                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    ScheduleConfigSave(configBase);
                                 }));
 
                         SettingsExpander.Footer = textBox1;
@@ -385,11 +487,13 @@ public partial class SettingPage : UserControl
                         };
                         disposables.Add(
                             toggleSwitch.GetObservable(ToggleSwitch.IsCheckedProperty)
+                                .Skip(1)
                                 .Subscribe((d) =>
                                 {
-                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    if (d is null || Equals(fieldInfo.GetValue(configBase), d)) return;
                                     fieldInfo.SetValue(configBase, d);
-                                    ConfigManger.Save(configBase.Name);
+                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    ScheduleConfigSave(configBase);
                                 }));
                         SettingsExpander.Footer = toggleSwitch;
                         break;
@@ -401,11 +505,13 @@ public partial class SettingPage : UserControl
                         hotKeyControl.HotKeyModel = hotKeyModel;
                         disposables.Add(
                             hotKeyControl.GetObservable(HotKeyShow.HotKeyModelProperty)
+                                .Skip(1)
                                 .Subscribe((d) =>
                                 {
-                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    if (d is null || Equals(fieldInfo.GetValue(configBase), d)) return;
                                     fieldInfo.SetValue(configBase, d);
-                                    ConfigManger.Save(configBase.Name);
+                                    configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                    ScheduleConfigSave(configBase);
                                 }));
                         SettingsExpander.Footer = hotKeyControl;
                         break;
@@ -423,6 +529,15 @@ public partial class SettingPage : UserControl
                                 {
                                     ItemsSource = typeArguments[0]
                                         .GetEnumValues(),
+                                    ItemTemplate = new FuncDataTemplate<object>((value, _) =>
+                                    {
+                                        var label = new TextBlock();
+                                        disposables.Add(label.Bind(TextBlock.TextProperty, (BindingBase)new LangExtension
+                                        {
+                                            Value = new Binding { Source = value }
+                                        }.ProvideValue(null!)));
+                                        return label;
+                                    }),
                                     SelectedValue = selectedValue,
                                     MinWidth = 140,
                                     Height = 32,
@@ -430,14 +545,17 @@ public partial class SettingPage : UserControl
                                 };
                                 disposables.Add(
                                     comboBox.GetObservable(ComboBox.SelectedValueProperty)
+                                        .Skip(1)
                                         .Subscribe((d) =>
                                         {
-                                            configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                            if (d is null || Equals(fieldInfo.GetValue(configBase), d)) return;
                                             fieldInfo.SetValue(configBase, d);
-                                            ConfigManger.Save(configBase.Name);
+                                            configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                            ScheduleConfigSave(configBase);
                                         }));
                                 disposables.Add(Disposable.Create(() =>
                                 {
+                                    comboBox.ItemTemplate = null;
                                     comboBox.ItemsSource = null;
                                     comboBox.SelectedValue = null;
                                 }));
@@ -464,11 +582,13 @@ public partial class SettingPage : UserControl
 
                                 disposables.Add(
                                     comboBox.GetObservable(ComboBox.SelectedValueProperty)
+                                        .Skip(1)
                                         .Subscribe((d) =>
                                         {
-                                            configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                            if (d is null || Equals(fieldInfo.GetValue(configBase), d)) return;
                                             fieldInfo.SetValue(configBase, d);
-                                            ConfigManger.Save(configBase.Name);
+                                            configBase.OnConfigChanged(this, fieldInfo.Name, d);
+                                            ScheduleConfigSave(configBase);
                                         }));
                                 disposables.Add(Disposable.Create(() =>
                                 {
@@ -515,7 +635,7 @@ public partial class SettingPage : UserControl
                                 {
                                     var picker = ServiceManager.Services.GetService<IFeatureFilePicker>();
                                     if (picker is null) return;
-                                    AddPaths(observableCollection, await picker.PickFoldersAsync("选择目录", true), handler);
+                                    AddPaths(observableCollection, await picker.PickFoldersAsync(Lang.Get("lang.kitopia.select_folder"), true), handler);
                                 });
                             }
 
@@ -526,7 +646,7 @@ public partial class SettingPage : UserControl
                                 {
                                     var picker = ServiceManager.Services.GetService<IFeatureFilePicker>();
                                     if (picker is null) return;
-                                    AddPaths(observableCollection, await picker.PickFilesAsync("选择文件", true), handler);
+                                    AddPaths(observableCollection, await picker.PickFilesAsync(Lang.Get("lang.kitopia.select_file"), true), handler);
                                 });
                             }
                         }
@@ -565,6 +685,7 @@ public partial class SettingPage : UserControl
                     Foreground = Application.Current?.FindResource("SemiColorText2") as IBrush ?? Brushes.Gray,
                     Margin = new Thickness(4, 16, 0, 8)
                 };
+                disposables.Add(categoryHeader.Bind(TextBlock.TextProperty, (BindingBase)new LangExtension(configFieldCategory.Category).ProvideValue(null!)));
                 var stackPanel = new StackPanel
                 {
                     HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -589,6 +710,10 @@ public partial class SettingPage : UserControl
                             .ToString()
                     }
                 };
+
+                disposables.Add(SettingsExpander.Bind(SettingsExpander.HeaderProperty, (BindingBase)new LangExtension(configField.Tittle).ProvideValue(null!)));
+                if (!string.IsNullOrEmpty(configField.Description))
+                    disposables.Add(SettingsExpander.Bind(SettingsExpander.DescriptionProperty, (BindingBase)new LangExtension(configField.Description).ProvideValue(null!)));
                 
                 switch (configField.FieldType)
                 {
@@ -626,6 +751,7 @@ public partial class SettingPage : UserControl
                             VerticalAlignment = VerticalAlignment.Center,
                             HorizontalAlignment = HorizontalAlignment.Right
                         };
+                        disposables.Add(actionButton.Bind(ContentControl.ContentProperty, (BindingBase)new LangExtension(configField.Tittle).ProvideValue(null!)));
                         disposables.Add(Disposable.Create(() => actionButton.Command = null));
                         SettingsExpander.Footer = actionButton;
                         break;
@@ -688,7 +814,7 @@ public partial class SettingPage : UserControl
         NotifyCollectionChangedEventArgs notifyCollectionChangedEventArgs, ConfigBase configBase, string fieldName)
     {
         configBase.OnConfigChanged(this, fieldName, notifyCollectionChangedEventArgs.NewItems);
-        ConfigManger.Save(configBase.Name);
+        ScheduleConfigSave(configBase);
         if (configBase is not KitopiaConfig)
         {
             return;

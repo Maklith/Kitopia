@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,7 +28,7 @@ public partial class PluginSettingViewModel : ObservableRecipient
 
     public void LoadByPluginInfo(string pluginInfo)
     {
-        PluginName = $"选择{pluginInfo}配置文件";
+        PluginName = Lang.Format("lang.kitopia.select_settings_for_value", pluginInfo);
         SettingItems.Clear();
         foreach (var (key, value) in ConfigManger.Configs)
             if (key.StartsWith(pluginInfo + "#", StringComparison.Ordinal))

@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -39,7 +40,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         PendingConnection = new PendingConnectionViewModel(this);
         var nodify2 = new ScenarioMethodNode
         {
-            Title = "任务1",
+            Title = Lang.Get("lang.kitopia.task_1"),
             ScenarioMethod = new ScenarioMethod(ScenarioMethodType.Default)
         };
         nodify2.Output = [
@@ -49,7 +50,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 InputObject = new CustomScenarioValue {
                     SerializeType = typeof(NodeConnectorClass)
                 },
-                Title = "开始"
+                Title = "lang.kitopia.start"
             }
         ];
         Scenario.Nodes.Add(nodify2);
@@ -66,7 +67,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 InputObject = new CustomScenarioValue {
                     SerializeType = typeof(NodeConnectorClass)
                 },
-                Title = "开始"
+                Title = "lang.kitopia.start"
             }
         ];
         Scenario.Nodes.Add(nodify3);
@@ -90,7 +91,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                 if (e.ConnectorItem is not { InputObject: not null }) return;
 
                 if (e.ScenarioMethodNode?.ScenarioMethod.Type == ScenarioMethodType.OneToMany &&
-                    e.ConnectorItem.Title == "输出数量")
+                    e.ConnectorItem.Title is "输出数量" or "lang.kitopia.output_count")
                 {
                     int? value = null;
                     if (e.ConnectorItem.InputObject.Value is int inputObject)
@@ -148,7 +149,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
                                 {
                                     SerializeType = typeof(NodeConnectorClass)
                                 },
-                                Title = "流输出",
+                                Title = "lang.kitopia.stream_output",
                                 ConnectorType = ConnectorType.Output
                             });
                         }
@@ -347,10 +348,10 @@ public partial class TaskEditorViewModel : ObservableRecipient
         CleanUnusedNode();
         var dialog = new DialogContent
         {
-            Content = "是否确定保存并退出",
-            Title = "保存并退出?",
-            PrimaryButtonText = "确定",
-            CloseButtonText = "取消",
+            Content = Lang.Get("lang.kitopia.save_changes_and_exit"),
+            Title = Lang.Get("lang.kitopia.confirm_save_and_exit"),
+            PrimaryButtonText = Lang.Get("lang.kitopia.ok"),
+            CloseButtonText = Lang.Get("lang.kitopia.cancel"),
             PrimaryAction = () =>
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
@@ -434,11 +435,11 @@ public partial class TaskEditorViewModel : ObservableRecipient
             Scenario.Stop();
             var dialog = new DialogContent
             {
-                Content = "是否确定不保存退出",
-                Title = "不保存退出?",
-                PrimaryButtonText = "保存并退出",
-                SecondaryButtonText = "不保存",
-                CloseButtonText = "取消",
+                Content = Lang.Get("lang.kitopia.exit_without_saving_changes"),
+                Title = Lang.Get("lang.kitopia.exit_without_saving"),
+                PrimaryButtonText = Lang.Get("lang.kitopia.save_and_exit"),
+                SecondaryButtonText = Lang.Get("lang.kitopia.discard_changes"),
+                CloseButtonText = Lang.Get("lang.kitopia.cancel"),
                 PrimaryAction = () =>
                 {
                     Dispatcher.UIThread.InvokeAsync(() =>
@@ -516,7 +517,7 @@ public partial class TaskEditorViewModel : ObservableRecipient
         var openFilePickerAsync = await TopLevel.GetTopLevel(control).StorageProvider.OpenFilePickerAsync(
             new FilePickerOpenOptions
             {
-                FileTypeFilter = [new FilePickerFileType("图像") { Patterns = ["*.png", "*.jpg", "*.ico"] }]
+                FileTypeFilter = [new FilePickerFileType(Lang.Get("lang.kitopia.image")) { Patterns = ["*.png", "*.jpg", "*.ico"] }]
             });
 
         if (openFilePickerAsync.Count > 0)

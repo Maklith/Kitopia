@@ -1,9 +1,10 @@
-﻿<u:UrsaWindow xmlns="https://github.com/avaloniaui"
+<u:UrsaWindow xmlns="https://github.com/avaloniaui"
             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
             xmlns:u="https://irihi.tech/ursa"
             xmlns:translate="clr-namespace:KitopiaEx.Translate"
+            xmlns:lang="clr-namespace:PluginCore.Localization;assembly=PluginCore"
             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
             x:Class="KitopiaEx.Translate.TranslateWindow"
             IsManagedResizerVisible="False"
@@ -15,7 +16,7 @@
             
             Width="600" Height="370"
             WindowStartupLocation="CenterScreen"
-            Title="TranslateWindow">
+            Title="{DynamicResource lang.kitopiaex.translate}">
     <u:UrsaWindow.TitleBarContent>
         
     </u:UrsaWindow.TitleBarContent>
@@ -24,17 +25,25 @@
                   TextWrapping="Wrap" Text="{Binding SourceText}" />
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
            
-            <u:EnumSelector
+            <ComboBox
                 Width="150"
-                EnumType="translate:SourceTranslateLang"
-                Value="{Binding SourceTranslateLang}" />
+                ItemsSource="{Binding SourceLanguages}"
+                SelectedItem="{Binding SourceTranslateLang}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate><TextBlock Text="{lang:Lang Value={Binding}}" /></DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
             <Button Content="->" VerticalAlignment="Center" Width="32" Height="32" Theme="{StaticResource BorderlessButton}" 
-                    Margin="0" Padding="0" ToolTip.Tip="交换" Command="{Binding SwapLanguagesCommand}" />
-            <u:EnumSelector
+                    Margin="0" Padding="0" ToolTip.Tip="{DynamicResource lang.kitopiaex.swap_languages}" Command="{Binding SwapLanguagesCommand}" />
+            <ComboBox
                 Width="150"
-                EnumType="translate:TargetTranslateLang"
-                Value="{Binding TargetTranslateLang}" />
-            <Button Content="翻译" Command="{Binding TryTranslateCommand}" />
+                ItemsSource="{Binding TargetLanguages}"
+                SelectedItem="{Binding TargetTranslateLang}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate><TextBlock Text="{lang:Lang Value={Binding}}" /></DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Content="{DynamicResource lang.kitopiaex.translate}" Command="{Binding TryTranslateCommand}" />
         </StackPanel>
         <TextBox Grid.Row="2"  Classes="ClearButton TextArea" VerticalAlignment="Stretch" VerticalContentAlignment="Top" 
                  TextWrapping="Wrap" Text="{Binding TargetText}" />

@@ -20,13 +20,14 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
         //基本数值类型
         var valueScenarioMethodCategoryGroup = new ScenarioMethodCategoryGroup();
         valueScenarioMethodCategoryGroup.Name = "基本数据类型";
+        valueScenarioMethodCategoryGroup.DisplayName = "lang.kitopia.scenarios.base_types";
         scenarioMethodCategoryGroup.Childrens.Add("基本数据类型", valueScenarioMethodCategoryGroup);
         foreach (var (key, value) in CustomScenarioGlobe._baseType)
         {
             var String = new ScenarioMethodNode
             {
                 ScenarioMethod = new ScenarioMethod(ScenarioMethodType.Default),
-                Title = key
+                Title = CustomScenarioGlobe.GetTypeNameKey(value.FullName!)
             };
             ObservableCollection<ConnectorItem> StringoutItems = new()
             {
@@ -37,7 +38,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                     {
                         SerializeType = value
                     },
-                    Title = CustomScenarioGlobe.GetI18N(value.FullName),
+                    Title = CustomScenarioGlobe.GetTypeNameKey(value.FullName),
 
                     ConnectorType = ConnectorType.Output
                 }
@@ -54,7 +55,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                         Value = value.IsValueType ? Activator.CreateInstance(value) : null,
                         IsSelf = true
                     },
-                    Title = CustomScenarioGlobe.GetI18N(value.FullName)
+                    Title = CustomScenarioGlobe.GetTypeNameKey(value.FullName)
                 }
             };
             if (value.FullName == "System.Int32") StringinItems[0].InputObject.Value = (double)0;
@@ -67,6 +68,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
         var controlScenarioMethodCategoryGroup = new ScenarioMethodCategoryGroup();
         scenarioMethodCategoryGroup.Childrens.Add("节点控制", controlScenarioMethodCategoryGroup);
         controlScenarioMethodCategoryGroup.Name = "节点控制";
+        controlScenarioMethodCategoryGroup.DisplayName = "lang.kitopia.scenarios.node_controls";
 
         var scenarioMethodNode1 = new ScenarioMethod(ScenarioMethodType.Condition).GenerateNode();
         controlScenarioMethodCategoryGroup.Methods.Add("Condition", scenarioMethodNode1);
@@ -110,7 +112,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
                 };
                 nowScenarioMethodCategoryGroup.Childrens.Add(se, newScenarioMethodCategoryGroup);
                 nowScenarioMethodCategoryGroup = newScenarioMethodCategoryGroup;
-                if (index == strings.Length - 1) nowScenarioMethodCategoryGroup.DisplayName = attribute.Name;
+                if (index == strings.Length - 1) nowScenarioMethodCategoryGroup.DisplayName = attribute.DisplayName ?? attribute.Name;
             }
         }
 
@@ -121,7 +123,7 @@ public class ScenarioMethodCategoryGroup : INotifyPropertyChanged
     public ScenarioMethodCategoryGroup? Parent { get; set; }
     public string Name { get; set; }
 
-    public string DisplayName { get; set; }
+    public string? DisplayName { get; set; }
 
     //
     public Dictionary<string, ScenarioMethodCategoryGroup> Childrens { get; set; } = new();

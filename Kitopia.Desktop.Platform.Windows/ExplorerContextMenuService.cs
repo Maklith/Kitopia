@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.Diagnostics;
 using Windows.Management.Deployment;
 using Kitopia.Desktop.Features.Services;
@@ -25,9 +26,9 @@ public class ExplorerContextMenuService : IExplorerContextMenuService
         Logger.Warning("Kitopia伴侣程序未安装，无法注册右键菜单");
         var dialog = new DialogContent
         {
-            Title = "提示",
-            Content = "未检测到Kitopia伴侣程序，请安装以使用右键菜单功能。",
-            PrimaryButtonText = "前往安装",
+            Title = Lang.Get("lang.kitopia.notice"),
+            Content = Lang.Get("lang.kitopia.install_kitopia_companion_to_use_explorer_context_menus"),
+            PrimaryButtonText = Lang.Get("lang.kitopia.install_companion"),
             PrimaryAction = () =>
             {
                 Process.Start(new ProcessStartInfo("ms-windows-store://pdp/?productid=9MV77XCQ37FP") { UseShellExecute = true });

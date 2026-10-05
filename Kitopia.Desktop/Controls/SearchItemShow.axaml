@@ -54,7 +54,7 @@
                             <TextBlock
                                 IsVisible="{TemplateBinding IsSelected,Converter={StaticResource ReverseBool}}"
                                 Foreground="{DynamicResource SemiColorText2}"
-                                VerticalAlignment="Center" HorizontalAlignment="Center" Text="未设置" FontSize="12" />
+                                VerticalAlignment="Center" HorizontalAlignment="Center" Text="{DynamicResource 'lang.kitopia.not_set'}" FontSize="12" />
                         </Grid>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                             <TextBlock VerticalAlignment="Center" Margin="0" Focusable="False"

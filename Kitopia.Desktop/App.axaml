@@ -5,6 +5,7 @@
              xmlns:semi="https://irihi.tech/semi"
              xmlns:main="clr-namespace:Kitopia.Desktop.Features.ViewModel.Main;assembly=Kitopia.Desktop.Features"
              xmlns:converter="clr-namespace:Kitopia.Desktop.Converter"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
              x:Class="Kitopia.Desktop.App"
              x:DataType="main:AppViewModel"
 
@@ -17,6 +18,7 @@
                 <ResourceInclude x:Key="Dark" Source="Styles/Dark.axaml" />
             </ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary.MergedDictionaries>
+                <lang:LanguageResources />
                 <ResourceInclude Source="avares://Kitopia.Desktop.Features/UI/DeviceCommunication/DeviceCommunicationIcons.axaml" />
                 <ResourceInclude Source="avares://Kitopia.Feature.Avalonia/Views/DeviceCommunication/DeviceCommunicationStyles.axaml" />
                 <ResourceInclude Source="Styles/Icons.axaml" />
@@ -64,7 +66,7 @@
             <TrayIcon ToolTipText="Kitopia" Icon="/Assets/icon.ico" Command="{Binding OpenMainWindowCommand}">
                 <TrayIcon.Menu>
                     <NativeMenu>
-                        <NativeMenuItem Header="退出" Command="{Binding ExitCommand}" />
+                        <NativeMenuItem Header="{DynamicResource 'lang.kitopia.exit'}" Command="{Binding ExitCommand}" />
                     </NativeMenu>
 
                 </TrayIcon.Menu>

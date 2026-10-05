@@ -7,6 +7,8 @@ namespace KitopiaEx.Translate;
 
 public partial class TranslateWindowViewModel : ObservableObject
 {
+    public SourceTranslateLang[] SourceLanguages { get; } = Enum.GetValues<SourceTranslateLang>();
+    public TargetTranslateLang[] TargetLanguages { get; } = Enum.GetValues<TargetTranslateLang>();
     [ObservableProperty]
     private string _sourceText = string.Empty;
     [ObservableProperty]

@@ -1,4 +1,5 @@
-﻿using System;
+using PluginCore.Localization;
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,17 +11,17 @@ using PluginCore.CustomScenario.Attribute.Scenario;
 
 namespace KitopiaEx.CustomScenarioMethods;
 
-[ScenarioMethodCategory("截图")]
+[ScenarioMethodCategory("lang.kitopiaex.screenshot")]
 public class ScreenCaptureNode
 {
-    [ScenarioMethod("选定截图区域", "screenCaptureInfoSelf=截图信息", "return=截图区域信息")]
+    [ScenarioMethod("lang.kitopiaex.select_capture_region", "screenCaptureInfoSelf=lang.kitopiaex.capture_information", "return=lang.kitopiaex.capture_region_information", Id = "选定截图区域")]
     public ScreenCaptureInfo SelectTheScreenshotArea(
         [SelfInput] [CustomNodeInputType(typeof(ScreenCaptureInfoSelfConnector))]
         ScreenCaptureInfo screenCaptureInfoSelf, CancellationToken ct)
     {
         return screenCaptureInfoSelf;
     }
-    [ScenarioMethod("获取指定区域截图信息", "screenCaptureInfoSelf=截图信息", "return=截图")]
+    [ScenarioMethod("lang.kitopiaex.get_selected_region_capture_information", "screenCaptureInfoSelf=lang.kitopiaex.capture_information", "return=lang.kitopiaex.screenshot", Id = "获取指定区域截图信息")]
     public ScreenCaptureResult ScreenshotTheSelectArea(
         [CustomNodeInputType(typeof(ScreenCaptureInfoSelfConnector))]
         ScreenCaptureInfo screenCaptureInfoSelf, CancellationToken ct)
@@ -28,7 +29,7 @@ public class ScreenCaptureNode
         return ServiceManager.Services.GetService<IScreenCaptureManager>().CaptureScreenBytes(screenCaptureInfoSelf);
 
     }
-    [ScenarioMethod("获取指定区域截图数据", "return=截图")]
+    [ScenarioMethod("lang.kitopiaex.get_selected_region_image", "return=lang.kitopiaex.screenshot", Id = "获取指定区域截图数据")]
     public ScreenCaptureResult ScreenshotTheSelectArea(CancellationToken ct)
     {
         ScreenCaptureResult? screenCaptureResult = null;
@@ -48,12 +49,12 @@ public class ScreenCaptureNode
 
         if (IsCancel)
         {
-            throw new Exception("用户取消截图");
+            throw new Exception(Lang.Get("lang.kitopiaex.screen_capture_was_canceled"));
         }
         return screenCaptureResult.Value;
 
     }
-    [ScenarioMethod("保存图片到文件", "captureResult=截图", "return=截图")]
+    [ScenarioMethod("lang.kitopiaex.save_image_to_file", "captureResult=lang.kitopiaex.screenshot", "return=lang.kitopiaex.screenshot", Id = "保存图片到文件")]
     public void SaveImage(
         ScreenCaptureResult captureResult, CancellationToken ct)
     {
@@ -65,12 +66,12 @@ public class ScreenCaptureNode
                     timeStamp + ".png";
             if (!Cv2.ImWrite(f, captureResult.Source))
             {
-                throw new IOException($"无法保存截图到 '{f}'。");
+                throw new IOException(Lang.Format("lang.kitopiaex.messages.unable_to_save_the_capture_to_value", f));
             }
         }
         else
         {
-            throw new Exception("无图像数据");
+            throw new Exception(Lang.Get("lang.kitopiaex.no_image_data"));
         }
 
     }

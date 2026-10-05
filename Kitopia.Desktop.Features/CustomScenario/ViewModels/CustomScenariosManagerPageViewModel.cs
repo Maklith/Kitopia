@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Abstractions.Shell;
 using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Features.CustomScenario.Services;
@@ -66,8 +67,8 @@ public partial class CustomScenariosManagerPageViewModel : ObservableRecipient
         {
             await toast.Show(new ToastRequest
             {
-                Header = "上传情景", Text = "请登录 Kitopia 账户。", AutoCloseDelay = null,
-                Actions = [new ToastAction { Text = "登录", IsPrimary = true, Callback = account.OpenBrowserLogin }]
+                Header = Lang.Get("lang.kitopia.upload_scenario"), Text = Lang.Get("lang.kitopia.sign_in_to_your_kitopia_account"), AutoCloseDelay = null,
+                Actions = [new ToastAction { Text = Lang.Get("lang.kitopia.sign_in"), IsPrimary = true, Callback = account.OpenBrowserLogin }]
             }, dialogWindow);
             return;
         }
@@ -85,10 +86,10 @@ public partial class CustomScenariosManagerPageViewModel : ObservableRecipient
     {
         var dialog = new DialogContent
         {
-            Title = $"删除{scenario.Name}?",
-            Content = "是否确定删除?\n他真的会丢失很久很久(不可恢复)",
-            PrimaryButtonText = "确定",
-            SecondaryButtonText = "取消",
+            Title = Lang.Format("lang.kitopia.delete_value", scenario.Name),
+            Content = Lang.Get("lang.kitopia.delete_this_scenario_this_cannot_be_undone"),
+            PrimaryButtonText = Lang.Get("lang.kitopia.ok"),
+            SecondaryButtonText = Lang.Get("lang.kitopia.cancel"),
             PrimaryAction = () => { Dispatcher.UIThread.InvokeAsync(() => { CustomScenarioManger.Remove(scenario); }); }
         };
         ((IToastService)ServiceManager.Services.GetService(typeof(IToastService))!).Show(

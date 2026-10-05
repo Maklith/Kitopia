@@ -4,6 +4,7 @@ using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Abstractions.Shell;
 using Kitopia.Desktop.Features.CustomScenario;
 using Kitopia.Desktop.Features.CustomScenario.Services;
@@ -51,7 +52,7 @@ public partial class MarketPageViewModel : ObservableObject
 
     public IReadOnlyList<PlatformOption> PlatformOptions { get; } =
     [
-        new("全部平台", ""),
+        new(Lang.Get("lang.kitopia.all_platforms"), ""),
         new("Windows", "windows"),
         new("macOS", "macos"),
         new("Linux", "linux")
@@ -66,8 +67,8 @@ public partial class MarketPageViewModel : ObservableObject
     public bool IsPluginMarket => SelectedMarketTab == 0;
     public bool IsScenarioMarket => SelectedMarketTab != 0;
     public bool IsMyScenarioMarket => SelectedMarketTab == 2;
-    public IReadOnlyList<string> MarketTabs { get; } = ["插件", "情景", "我的情景"];
-    public string ItemCountText => $"共 {TotalCount} 个{(IsPluginMarket ? "插件" : "情景")}";
+    public IReadOnlyList<string> MarketTabs { get; } = [Lang.Get("lang.kitopia.plugins"), Lang.Get("lang.kitopia.scenarios"), Lang.Get("lang.kitopia.my_scenarios")];
+    public string ItemCountText => Lang.Format(IsPluginMarket ? "lang.kitopia.value_plugins" : "lang.kitopia.value_scenarios", TotalCount);
 
     partial void OnSelectedMarketTabChanged(int value)
     {
@@ -300,7 +301,7 @@ public partial class MarketPageViewModel : ObservableObject
             string.Equals(item.Uuid, scenario.SourceUuid, StringComparison.OrdinalIgnoreCase));
         if (local is null)
         {
-            await ShowToastAsync("无法发布版本", "本地找不到对应的情景文件，请先在客户端打开该情景。", NotificationType.Warning);
+            await ShowToastAsync(Lang.Get("lang.kitopia.cannot_publish_version"), Lang.Get("lang.kitopia.scenario_file_not_found_open_the_scenario_in_the_client_first"), NotificationType.Warning);
             return;
         }
 
@@ -328,7 +329,7 @@ public partial class MarketPageViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JsonException)
         {
-            await ShowToastAsync("取消审核失败", exception.Message, NotificationType.Error);
+            await ShowToastAsync(Lang.Get("lang.kitopia.failed_to_cancel_review"), exception.Message, NotificationType.Error);
         }
     }
 
@@ -338,17 +339,17 @@ public partial class MarketPageViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(scenario.LastVersion)) return;
         ServiceManager.Services.GetRequiredService<IToastService>().Show(new ToastRequest
         {
-            Header = "撤回情景版本",
-            Text = $"确定撤回 v{scenario.LastVersion} 吗？撤回后该版本将不能再次发布。",
+            Header = Lang.Get("lang.kitopia.withdraw_scenario_version"),
+            Text = Lang.Format("lang.kitopia.withdraw_v_value_this_version_cannot_be_published_again", scenario.LastVersion),
             AutoCloseDelay = null,
             Actions =
             [
                 new ToastAction
                 {
-                    Text = "撤回", IsPrimary = true,
+                    Text = Lang.Get("lang.kitopia.withdraw"), IsPrimary = true,
                     Callback = () => _ = WithdrawScenarioReleaseAsync(scenario)
                 },
-                new ToastAction { Text = "取消" }
+                new ToastAction { Text = Lang.Get("lang.kitopia.cancel") }
             ]
         }, ServiceManager.Services.GetService<IWindowTool>()?.GetForegroundWindow());
     }
@@ -362,7 +363,7 @@ public partial class MarketPageViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JsonException)
         {
-            await ShowToastAsync("撤回失败", exception.Message, NotificationType.Error);
+            await ShowToastAsync(Lang.Get("lang.kitopia.withdrawal_failed"), exception.Message, NotificationType.Error);
         }
     }
 
@@ -371,17 +372,17 @@ public partial class MarketPageViewModel : ObservableObject
     {
         ServiceManager.Services.GetRequiredService<IToastService>().Show(new ToastRequest
         {
-            Header = "删除情景",
-            Text = $"确定删除“{scenario.Name}”吗？删除后不能恢复。",
+            Header = Lang.Get("lang.kitopia.delete_scenario"),
+            Text = Lang.Format("lang.kitopia.delete_value_this_cannot_be_undone", scenario.Name),
             AutoCloseDelay = null,
             Actions =
             [
                 new ToastAction
                 {
-                    Text = "删除", IsPrimary = true,
+                    Text = Lang.Get("lang.kitopia.delete"), IsPrimary = true,
                     Callback = () => _ = DeleteScenarioAsync(scenario)
                 },
-                new ToastAction { Text = "取消" }
+                new ToastAction { Text = Lang.Get("lang.kitopia.cancel") }
             ]
         }, ServiceManager.Services.GetService<IWindowTool>()?.GetForegroundWindow());
     }
@@ -395,7 +396,7 @@ public partial class MarketPageViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JsonException)
         {
-            await ShowToastAsync("删除失败", exception.Message, NotificationType.Error);
+            await ShowToastAsync(Lang.Get("lang.kitopia.deletion_failed"), exception.Message, NotificationType.Error);
         }
     }
 
@@ -411,7 +412,7 @@ public partial class MarketPageViewModel : ObservableObject
         var versions = await PluginNetworkService.GetAvailableVersionsAsync(plugin.NameSign);
         if (versions is null)
         {
-            await ShowToastAsync("无法获取可下载版本", $"未能获取插件 {plugin.Name} 的版本信息。", NotificationType.Warning);
+            await ShowToastAsync(Lang.Get("lang.kitopia.cannot_retrieve_available_versions"), Lang.Format("lang.kitopia.unable_to_retrieve_versions_for_plugin_value", plugin.Name), NotificationType.Warning);
             return;
         }
 
@@ -424,20 +425,20 @@ public partial class MarketPageViewModel : ObservableObject
 
         if (versionOptions.Count == 0)
         {
-            await ShowToastAsync("无法获取可下载版本", $"未能获取插件 {plugin.Name} 的版本信息。", NotificationType.Warning);
+            await ShowToastAsync(Lang.Get("lang.kitopia.cannot_retrieve_available_versions"), Lang.Format("lang.kitopia.unable_to_retrieve_versions_for_plugin_value", plugin.Name), NotificationType.Warning);
             return;
         }
 
         var request = new ToastRequest
         {
-            Header = $"下载 {plugin.Name}",
-            Text = "请选择要下载的版本。下载时会校验当前系统是否支持所选版本。",
+            Header = Lang.Format("lang.kitopia.download_value", plugin.Name),
+            Text = Lang.Get("lang.kitopia.select_a_version_system_compatibility_will_be_checked_before_downloading"),
             NotificationType = NotificationType.Information,
             AutoCloseDelay = null,
             ShowCloseButton = true,
             SelectionOptions = versionOptions,
             SelectedOption = versionOptions[0],
-            SelectionConfirmText = "确定",
+            SelectionConfirmText = Lang.Get("lang.kitopia.ok"),
             SelectionConfirmed = version => _ = DownloadSelectedVersionAsync(plugin, version)
         };
 
@@ -451,13 +452,13 @@ public partial class MarketPageViewModel : ObservableObject
         var downloaded = await PluginManager.DownloadPluginAndEnable(plugin.NameSign, version);
         if (downloaded)
         {
-            await ShowToastAsync("插件已安装", $"{plugin.Name} {version} 已下载并启用。", NotificationType.Success);
+            await ShowToastAsync(Lang.Get("lang.kitopia.plugin_installed"), Lang.Format("lang.kitopia.value_value_downloaded_and_enabled", plugin.Name, version), NotificationType.Success);
             return;
         }
 
         await ShowToastAsync(
-            "插件下载失败",
-            $"无法下载 {plugin.Name} {version}。该版本可能不支持当前系统，请选择其他版本。",
+            Lang.Get("lang.kitopia.plugin_download_failed"),
+            Lang.Format("lang.kitopia.cannot_download_value_value_try_a_version_compatible_with_this_system", plugin.Name, version),
             NotificationType.Warning);
     }
 

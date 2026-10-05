@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages;assembly=Kitopia.Desktop.Features"
@@ -47,9 +48,9 @@
         <!-- 1. Header: Quick launch + Title + Subtitle -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
             <StackPanel Grid.Column="0">
-                <TextBlock Text="快速启动" Theme="{DynamicResource KitopiaPageKickerText}" />
-                <TextBlock Text="功能概览" Theme="{DynamicResource KitopiaPageTitleText}" />
-                <TextBlock Text="快速访问与执行已安装插件提供的各项核心能力。"
+                <TextBlock Text="{DynamicResource 'lang.kitopia.quick_launch'}" Theme="{DynamicResource KitopiaPageKickerText}" />
+                <TextBlock Text="{DynamicResource 'lang.kitopia.features'}" Theme="{DynamicResource KitopiaPageTitleText}" />
+                <TextBlock Text="{DynamicResource 'lang.kitopia.quick_access_to_installed_plugin_actions'}"
                            Theme="{DynamicResource KitopiaPageSubtitleText}" />
             </StackPanel>
         </Grid>
@@ -59,7 +60,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="plugin:FeatureCategory">
                         <StackPanel Margin="0,0,0,24" Spacing="12">
-                            <TextBlock Theme="{DynamicResource SectionHeaderText}" Text="{Binding Name}" />
+                            <TextBlock Theme="{DynamicResource SectionHeaderText}" Text="{lang:Lang Value={Binding Name}}" />
                             <ItemsControl ItemsSource="{Binding Features}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -108,7 +109,7 @@
                                                                FontSize="15"
                                                                FontWeight="SemiBold"
                                                                Foreground="{DynamicResource SemiColorText0}"
-                                                               Text="{Binding Name}"
+                                                               Text="{lang:Lang Value={Binding Name}}"
                                                                TextTrimming="CharacterEllipsis" />
 
                                                     <!-- Description -->
@@ -117,7 +118,7 @@
                                                                FontSize="12"
                                                                LineHeight="18"
                                                                MaxHeight="54"
-                                                               Text="{Binding Description}"
+                                                               Text="{lang:Lang Value={Binding Description}}"
                                                                TextWrapping="Wrap"
                                                                TextTrimming="CharacterEllipsis" />
 
@@ -125,7 +126,7 @@
                                                     <TextBlock Grid.Row="3"
                                                                Foreground="{DynamicResource SemiColorText2}"
                                                                FontSize="11"
-                                                               Text="{Binding Category}"
+                                                               Text="{lang:Lang Value={Binding Category}}"
                                                                TextTrimming="CharacterEllipsis" />
                                                 </Grid>
                                             </Border>

@@ -14,9 +14,9 @@
         <!-- 1. Header: Preferences & Configuration + Title + Subtitle -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
             <StackPanel Grid.Column="0">
-                <TextBlock Text="偏好与配置" Theme="{DynamicResource KitopiaPageKickerText}" />
-                <TextBlock Name="TextBlock" Text="设置" Theme="{DynamicResource KitopiaPageTitleText}" />
-                <TextBlock Text="自定义全局行为、外观界面、快捷键与插件功能设置。"
+                <TextBlock Text="{DynamicResource 'lang.kitopia.preferences'}" Theme="{DynamicResource KitopiaPageKickerText}" />
+                <TextBlock Name="TextBlock" Text="{DynamicResource 'lang.kitopia.settings'}" Theme="{DynamicResource KitopiaPageTitleText}" />
+                <TextBlock Text="{DynamicResource 'lang.kitopia.configure_behavior_appearance_hotkeys_and_plugins'}"
                            Theme="{DynamicResource KitopiaPageSubtitleText}" />
             </StackPanel>
         </Grid>

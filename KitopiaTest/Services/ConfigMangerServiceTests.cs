@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
+using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
@@ -165,7 +166,9 @@ public sealed class ConfigMangerServiceTests
     }
 
     [TestMethod]
-    public void LoadConfig_InvalidJson_UsesBackupWithoutOverwritingEvidence()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task LoadConfig_InvalidJson_UsesBackupWithoutOverwritingEvidence(bool saveAsync)
     {
         var key = "test-config-" + Guid.NewGuid().ToString("N");
         var path = Kitopia.Desktop.Features.Utils.KitopiaPaths.GetConfigFilePath(key);
@@ -178,7 +181,8 @@ public sealed class ConfigMangerServiceTests
             Assert.IsTrue(config.Loaded);
             Assert.AreEqual("broken", File.ReadAllText(path));
             Assert.AreSame(config, new ConfigManger().Get<SampleConfig>());
-            ConfigManger.Save(key);
+            if (saveAsync) await ConfigManger.SaveAsync(key);
+            else ConfigManger.Save(key);
             Assert.AreEqual(42, JsonSerializer.Deserialize<SampleConfig>(File.ReadAllText(path), ConfigManger.DefaultOptions)!.Value);
             Assert.AreEqual("{\"Value\":42}", File.ReadAllText(path + ".bak"));
         }
@@ -380,17 +384,207 @@ public sealed class ConfigMangerServiceTests
         using var services = new ServiceCollection().AddSingleton<IToastService>(toast).BuildServiceProvider();
         ServiceManager.Services = services;
         ConfigManger.Configs.Add(key, new FailingSaveConfig());
+        var recipient = new object();
+        var notifications = 0;
+        WeakReferenceMessenger.Default.Register<string, string>(recipient, "ConfigSave", (_, _) => notifications++);
 
         try
         {
             Assert.ThrowsExactly<InvalidOperationException>(() => ConfigManger.Save(key));
+            Assert.AreEqual(0, notifications);
             Assert.IsTrue(toast.Requests.Any(request => request.NotificationType == NotificationType.Error
                 && request.Text.Contains("保存")));
         }
         finally
         {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
             ServiceManager.Services = previousServices;
             ConfigManger.RemoveConfig(key);
+        }
+    }
+
+    [TestMethod]
+    public void Save_UnchangedConfig_PreservesBackupAndDoesNotNotify()
+    {
+        var key = "test-config-" + Guid.NewGuid().ToString("N");
+        var path = KitopiaPaths.GetConfigFilePath(key);
+        var config = new SampleConfig { Name = key, Value = 7 };
+        ConfigManger.Configs.Add(key, config);
+        var recipient = new object();
+        var notifications = 0;
+        WeakReferenceMessenger.Default.Register<string, string>(recipient, "ConfigSave", (_, _) => notifications++);
+        try
+        {
+            ConfigManger.Save(key);
+            var first = File.ReadAllText(path);
+            config.Value = 8;
+            ConfigManger.Save(key);
+            Assert.AreEqual(first, File.ReadAllText(path + ".bak"));
+            ConfigManger.Save(key);
+            Assert.AreEqual(first, File.ReadAllText(path + ".bak"));
+            Assert.AreEqual(2, notifications);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+            ConfigManger.RemoveConfig(key);
+            File.Delete(path);
+            File.Delete(path + ".bak");
+        }
+    }
+
+    [TestMethod]
+    public async Task Save_ProtectedConfigurations_PreserveFilesAndDoNotNotify()
+    {
+        var originalConfigs = ConfigManger.Configs;
+        ConfigManger.Configs = new Dictionary<string, ConfigBase>();
+        var key = "test-config-" + Guid.NewGuid().ToString("N");
+        var path = KitopiaPaths.GetConfigFilePath(key);
+        var recipient = new object();
+        var notifications = 0;
+        WeakReferenceMessenger.Default.Register<string, string>(recipient, "ConfigSave", (_, _) => notifications++);
+        try
+        {
+            const string future = "{\"ConfigVersion\":1,\"Value\":42}";
+            File.WriteAllText(path, future);
+            ConfigManger.LoadConfig(key, new SampleConfig());
+            ConfigManger.Save(key);
+            await ConfigManger.SaveAsync(key);
+            ConfigManger.Save();
+            Assert.AreEqual(future, File.ReadAllText(path));
+            Assert.AreEqual(0, notifications);
+
+            ConfigManger.RemoveConfig(key);
+            File.WriteAllText(path, "broken");
+            ConfigManger.LoadConfig(key, new SampleConfig(), useDefaultsOnInvalidJson: true);
+            ConfigManger.Save(key);
+            await ConfigManger.SaveAsync(key);
+            ConfigManger.Save();
+            Assert.AreEqual("broken", File.ReadAllText(path));
+            Assert.IsFalse(File.Exists(path + ".bak"));
+            Assert.AreEqual(0, notifications);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+            ConfigManger.RemoveConfig(key);
+            ConfigManger.Configs = originalConfigs;
+            File.Delete(path);
+            File.Delete(path + ".bak");
+        }
+    }
+
+    [TestMethod]
+    public async Task SaveAsync_MutationAfterRequest_PersistsCapturedValue()
+    {
+        var key = "test-config-" + Guid.NewGuid().ToString("N");
+        var path = KitopiaPaths.GetConfigFilePath(key);
+        var config = new CapturingSaveConfig { Name = key, Value = 42 };
+        ConfigManger.Configs.Add(key, config);
+        try
+        {
+            var callerThread = Environment.CurrentManagedThreadId;
+            var save = ConfigManger.SaveAsync(key);
+            Assert.AreEqual(callerThread, config.BeforeSaveThread);
+            config.Value = 99;
+            await save;
+            Assert.AreEqual(42, JsonSerializer.Deserialize<SampleConfig>(File.ReadAllText(path), ConfigManger.DefaultOptions)!.Value);
+            Assert.AreEqual(99, config.Value);
+        }
+        finally
+        {
+            ConfigManger.RemoveConfig(key);
+            File.Delete(path);
+            File.Delete(path + ".bak");
+        }
+    }
+
+    [TestMethod]
+    public async Task SaveAsync_MultipleRequestsThenSynchronousFlush_NeverOverwritesLatestValue()
+    {
+        var key = "test-config-" + Guid.NewGuid().ToString("N");
+        var path = KitopiaPaths.GetConfigFilePath(key);
+        var config = new SampleConfig { Name = key };
+        ConfigManger.Configs.Add(key, config);
+        var requests = new List<Task>();
+        try
+        {
+            for (var value = 0; value < 40; value++)
+            {
+                config.Value = value;
+                requests.Add(ConfigManger.SaveAsync(key));
+            }
+            config.Value = 100;
+            ConfigManger.Save(key);
+            await Task.WhenAll(requests);
+            Assert.AreEqual(100, JsonSerializer.Deserialize<SampleConfig>(File.ReadAllText(path), ConfigManger.DefaultOptions)!.Value);
+            Assert.IsEmpty(Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + ".*.tmp"));
+        }
+        finally
+        {
+            await Task.WhenAll(requests);
+            ConfigManger.RemoveConfig(key);
+            File.Delete(path);
+            File.Delete(path + ".bak");
+        }
+    }
+
+    [TestMethod]
+    public void Save_AllConfigsWithOneFailure_SavesOthersAndReportsFailure()
+    {
+        var originalConfigs = ConfigManger.Configs;
+        var prefix = "test-config-" + Guid.NewGuid().ToString("N");
+        var failedKey = prefix + "-failed";
+        var savedKey = prefix + "-saved";
+        var path = KitopiaPaths.GetConfigFilePath(savedKey);
+        ConfigManger.Configs = new Dictionary<string, ConfigBase>
+        {
+            [failedKey] = new FailingSaveConfig { Name = failedKey },
+            [savedKey] = new SampleConfig { Name = savedKey, Value = 42 }
+        };
+        var recipient = new object();
+        var notifications = 0;
+        WeakReferenceMessenger.Default.Register<string, string>(recipient, "ConfigSave", (_, _) => notifications++);
+        try
+        {
+            var exception = Assert.ThrowsExactly<AggregateException>(ConfigManger.Save);
+            Assert.AreEqual(1, exception.InnerExceptions.Count);
+            Assert.AreEqual(42, JsonSerializer.Deserialize<SampleConfig>(File.ReadAllText(path), ConfigManger.DefaultOptions)!.Value);
+            Assert.AreEqual(1, notifications);
+            Assert.IsFalse(File.Exists(KitopiaPaths.GetConfigFilePath(failedKey)));
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+            ConfigManger.RemoveConfig(savedKey);
+            ConfigManger.RemoveConfig(failedKey);
+            ConfigManger.Configs = originalConfigs;
+            File.Delete(path);
+        }
+    }
+
+    [TestMethod]
+    public void LoadAndSave_LegacyConfigWithMissingNewFields_PreservesExistingSettings()
+    {
+        var key = "test-config-" + Guid.NewGuid().ToString("N");
+        var path = KitopiaPaths.GetConfigFilePath(key);
+        File.WriteAllText(path, "{\"ConfigVersion\":2,\"maxHistory\":17,\"themeChoice\":1,\"deviceBroadcastName\":\"Existing\"}");
+        try
+        {
+            var config = (KitopiaConfig)ConfigManger.LoadConfig(key, new KitopiaConfig());
+            Assert.AreEqual(string.Empty, config.language);
+            Assert.AreEqual(50, config.indexingMaximumCpuUsagePercent);
+            ConfigManger.Save(key);
+            var restored = JsonSerializer.Deserialize<KitopiaConfig>(File.ReadAllText(path), ConfigManger.DefaultOptions)!;
+            Assert.AreEqual(17, restored.maxHistory);
+            Assert.AreEqual(ThemeEnum.深色, restored.themeChoice);
+            Assert.AreEqual("Existing", restored.deviceBroadcastName);
+        }
+        finally
+        {
+            ConfigManger.RemoveConfig(key);
+            File.Delete(path);
+            File.Delete(path + ".bak");
         }
     }
 
@@ -441,6 +635,12 @@ public sealed class ConfigMangerServiceTests
     public sealed class FailingSaveConfig : SampleConfig
     {
         public override void BeforeSave() => throw new InvalidOperationException("save failure");
+    }
+
+    public sealed class CapturingSaveConfig : SampleConfig
+    {
+        [System.Text.Json.Serialization.JsonIgnore] public int BeforeSaveThread;
+        public override void BeforeSave() => BeforeSaveThread = Environment.CurrentManagedThreadId;
     }
 
     private sealed class RecordingToast : IToastService

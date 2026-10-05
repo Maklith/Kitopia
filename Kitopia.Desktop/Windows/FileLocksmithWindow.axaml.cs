@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
@@ -104,7 +105,7 @@ public partial class FileLocksmithWindow : Window, IFileLocksmithWindow
     {
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "选择要监控的目录",
+            Title = Lang.Get("lang.kitopia.choose_directory_to_monitor"),
             AllowMultiple = false
         });
 

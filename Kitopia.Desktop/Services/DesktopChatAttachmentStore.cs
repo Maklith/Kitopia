@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Search;
 using Kitopia.Feature.DeviceCommunication.Application;
@@ -39,7 +40,7 @@ public sealed class DesktopChatAttachmentStore : IChatAttachmentStore
 
         var files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "选择要发送的文件",
+            Title = Lang.Get("lang.kitopia.select_files_to_send"),
             AllowMultiple = true
         });
         cancellationToken.ThrowIfCancellationRequested();
@@ -62,7 +63,7 @@ public sealed class DesktopChatAttachmentStore : IChatAttachmentStore
         var extension = Path.GetExtension(suggestedFileName);
         var file = await provider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = $"保存文件: {suggestedFileName}",
+            Title = Lang.Format("lang.kitopia.messages.save_file_value", suggestedFileName),
             SuggestedFileName = suggestedFileName,
             DefaultExtension = string.IsNullOrWhiteSpace(extension) ? null : extension.TrimStart('.')
         });

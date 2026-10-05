@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using PluginCore;
 using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
@@ -17,7 +18,7 @@ public class UrlAnalyzer : IInputDataAnalyzer
             if (inputData.InputType == InputType.网址)
                 yield return new SearchViewItem
                 {
-                    ItemDisplayName = $"打开网页:{inputData.Data}",
+                    ItemDisplayName = Lang.Format("lang.kitopia.messages.open_website_value", inputData.Data),
                     FileType = FileType.URL,
                     OnlyKey = (string)inputData.Data,
                     Icon = null,

@@ -49,7 +49,7 @@
                                                    FontSize="13"
                                                    Foreground="{DynamicResource SemiColorText0}" />
                                         <Button Name="Button"
-                                                ToolTip.Tip="删除"
+                                                ToolTip.Tip="{DynamicResource 'lang.kitopia.delete'}"
                                                 HorizontalAlignment="Right"
                                                 Background="Transparent"
                                                 BorderThickness="0"
@@ -85,7 +85,7 @@
                                Margin="0,16"
                                IsHitTestVisible="False"
                                IsVisible="{TemplateBinding ShowEmptyHint}"
-                               Text="无项目"
+                               Text="{DynamicResource 'lang.kitopia.no_items'}"
                                FontSize="13"
                                Foreground="{DynamicResource SemiColorText2}" />
 
@@ -94,7 +94,7 @@
                           IsVisible="{TemplateBinding WithAdd}">
                         <TextBox Grid.Column="0" Height="32" CornerRadius="6"
                                  VerticalContentAlignment="Center"
-                                 PlaceholderText="输入新项目内容..."
+                                 PlaceholderText="{DynamicResource 'lang.kitopia.enter_a_new_item'}"
                                  Text="{Binding $parent[controls:ListShow].TextValue, Mode=TwoWay}">
                             <TextBox.KeyBindings>
                                 <KeyBinding Gesture="Enter"
@@ -115,7 +115,7 @@
                                 <controls:FontIcon FontSize="12" HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"
                                                    Glyph="&#xf107;" />
-                                <TextBlock Text="添加" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.add'}" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </Grid>
@@ -127,7 +127,7 @@
                                 Command="{TemplateBinding PickFoldersCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <controls:FontIcon FontSize="13" VerticalAlignment="Center" Glyph="&#xF419;" />
-                                <TextBlock Text="选择目录" FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.select_folder'}" FontSize="13" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                         <Button Height="32" Padding="14,0" CornerRadius="6" FontSize="13"
@@ -135,7 +135,7 @@
                                 Command="{TemplateBinding PickFilesCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <controls:FontIcon FontSize="13" VerticalAlignment="Center" Glyph="&#xf3de;" />
-                                <TextBlock Text="选择文件" FontSize="13" VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.select_file'}" FontSize="13" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>

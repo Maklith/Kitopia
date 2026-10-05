@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.CustomScenario.CustomScenarioValueSerializer;
 using Kitopia.Desktop.Features.Utils;
 using PluginCore.CustomScenario;
@@ -6,22 +7,22 @@ namespace Kitopia.Desktop.Features.CustomScenario;
 
 public static class CustomScenarioGlobe
 {
-    public static readonly Dictionary<string, string> I18N = new()
+    public static readonly Dictionary<string, string> TypeNames = new()
     {
-        { typeof(string).FullName!, "字符串" },
-        { typeof(bool).FullName!, "布尔" },
-        { typeof(int).FullName!, "整数" },
-        { typeof(double).FullName!, "浮点" },
-        { typeof(object).FullName!, "任意" },
-        { typeof(NodeConnectorClass).FullName!, "节点" }
+        { typeof(string).FullName!, "lang.kitopia.string" },
+        { typeof(bool).FullName!, "lang.kitopia.boolean_type" },
+        { typeof(int).FullName!, "lang.kitopia.types.integer" },
+        { typeof(double).FullName!, "lang.kitopia.decimal" },
+        { typeof(object).FullName!, "lang.kitopia.any" },
+        { typeof(NodeConnectorClass).FullName!, "lang.kitopia.node_type" }
     };
 
     public static readonly ObservableDictionary<string, CustomScenarioTriggerInfo> Triggers = new()
     {
-        { "Kitopia_SoftwareStarted", new CustomScenarioTriggerInfo { Name = "Kitopia程序启动时" } },
+        { "Kitopia_SoftwareStarted", new CustomScenarioTriggerInfo { Name = "lang.kitopia.when_kitopia_starts" } },
         {
             "Kitopia_SoftwareShutdown",
-            new CustomScenarioTriggerInfo { Name = "Kitopia程序关闭时", Description = "注意该触发器不会进入Tick" }
+            new CustomScenarioTriggerInfo { Name = "lang.kitopia.when_kitopia_exits", Description = "lang.kitopia.this_trigger_does_not_enter_tick" }
         }
     };
 
@@ -45,7 +46,7 @@ public static class CustomScenarioGlobe
                 valueTuples.Add(new CustomScenarioValueTuple
                 {
                     Type = keyValuePair.Key,
-                    Value = GetI18N(keyValuePair.Key.FullName)
+                    Value = GetTypeNameKey(keyValuePair.Key.FullName!)
                 });
 
             return valueTuples;
@@ -60,9 +61,9 @@ public static class CustomScenarioGlobe
         { "双精度浮点数", typeof(double) }
     };
 
-    public static string GetI18N(string key)
+    public static string GetTypeNameKey(string key)
     {
-        if (I18N.TryGetValue(key, out var n)) return n;
+        if (TypeNames.TryGetValue(key, out var n)) return n;
 
         return key;
     }

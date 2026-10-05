@@ -1,6 +1,7 @@
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Abstractions.Shell;
 using Kitopia.Desktop.Features.Search.Preview;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,7 +15,7 @@ public partial class MouseQuickWindowViewModel : ObservableObject, IDisposable
     private int _index;
     private CancellationTokenSource? _previewCancellation;
 
-    [ObservableProperty] private string _fileName = "文件速览";
+    [ObservableProperty] private string _fileName = Lang.Get("lang.kitopia.file_preview");
     [ObservableProperty] private string _fileDetails = "";
     [ObservableProperty] private string _selectedPath = "";
     [ObservableProperty] private string _positionLabel = "";
@@ -23,7 +24,7 @@ public partial class MouseQuickWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty] private IReadOnlyList<FilePreviewEntry>? _entries;
     [ObservableProperty] private string? _nativePath;
     [ObservableProperty] private string? _notice;
-    [ObservableProperty] private string? _message = "在资源管理器中选中文件，使用已配置的速览快捷键预览。";
+    [ObservableProperty] private string? _message = Lang.Get("lang.kitopia.select_a_file_in_explorer_and_use_the_preview_hotkey");
     [ObservableProperty] private bool _isLoading;
 
     public Task SetFilesAsync(IReadOnlyList<string> files)
@@ -73,7 +74,7 @@ public partial class MouseQuickWindowViewModel : ObservableObject, IDisposable
         Notice = null;
         Message = null;
         SelectedPath = _files.Count > 0 ? _files[_index] : "";
-        FileName = _files.Count > 0 ? Path.GetFileName(SelectedPath) : "文件速览";
+        FileName = _files.Count > 0 ? Path.GetFileName(SelectedPath) : Lang.Get("lang.kitopia.file_preview");
         FileDetails = "";
         PositionLabel = _files.Count > 0 ? $"{_index + 1} / {_files.Count}" : "";
         PreviousCommand.NotifyCanExecuteChanged();
@@ -85,7 +86,7 @@ public partial class MouseQuickWindowViewModel : ObservableObject, IDisposable
         {
             if (_files.Count == 0)
             {
-                Message = "在资源管理器中选中文件，使用已配置的速览快捷键预览。";
+                Message = Lang.Get("lang.kitopia.select_a_file_in_explorer_and_use_the_preview_hotkey");
                 return;
             }
             var content = await FilePreviewLoader.LoadAsync(SelectedPath, cancellation.Token);
@@ -108,7 +109,7 @@ public partial class MouseQuickWindowViewModel : ObservableObject, IDisposable
                                         or ArgumentException or NotSupportedException or InvalidOperationException)
         {
             if (!cancellation.IsCancellationRequested)
-                Message = $"无法预览此文件：{exception.Message}";
+                Message = Lang.Format("lang.kitopia.cannot_preview_this_file_value", exception.Message);
         }
         finally
         {

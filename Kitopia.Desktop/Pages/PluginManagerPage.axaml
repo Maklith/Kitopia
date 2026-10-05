@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:plugin="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages.plugin;assembly=Kitopia.Desktop.Features"
@@ -14,13 +15,13 @@
             <!-- 1. Header: Local extensions + Title + Subtitle + Count -->
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="本地扩展" Theme="{DynamicResource KitopiaPageKickerText}" />
-                    <TextBlock Text="已安装插件" Theme="{DynamicResource KitopiaPageTitleText}" />
-                    <TextBlock Text="管理本地已安装的扩展与组件，支持配置、更新与状态切换。"
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.local_extensions'}" Theme="{DynamicResource KitopiaPageKickerText}" />
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.installed_plugins'}" Theme="{DynamicResource KitopiaPageTitleText}" />
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.configure_update_and_enable_installed_extensions'}"
                                Theme="{DynamicResource KitopiaPageSubtitleText}" />
                 </StackPanel>
                 <TextBlock Grid.Column="1"
-                           Text="{Binding Items.Count, StringFormat='共 {0} 个插件'}"
+                           Text="{lang:Lang &apos;lang.kitopia.value_plugins&apos;, Value={Binding Items.Count}}"
                            FontSize="13"
                            Foreground="{DynamicResource SemiColorText2}"
                            VerticalAlignment="Bottom" />
@@ -100,13 +101,13 @@
                                                     <Border CornerRadius="4" Padding="6,2"
                                                             Background="{DynamicResource KitopiaBadgeSuccessBackground}"
                                                             IsVisible="{Binding PluginLocalInfo.IsEnabled}">
-                                                        <TextBlock Text="已启用" FontSize="11" FontWeight="Medium"
+                                                        <TextBlock Text="{DynamicResource 'lang.kitopia.enabled'}" FontSize="11" FontWeight="Medium"
                                                                    Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" />
                                                     </Border>
                                                     <Border CornerRadius="4" Padding="6,2"
                                                             Background="{DynamicResource KitopiaBadgeNeutralBackground}"
                                                             IsVisible="{Binding !PluginLocalInfo.IsEnabled}">
-                                                        <TextBlock Text="已禁用" FontSize="11" FontWeight="Medium"
+                                                        <TextBlock Text="{DynamicResource 'lang.kitopia.disabled'}" FontSize="11" FontWeight="Medium"
                                                                    Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
                                                     </Border>
                                                 </Panel>
@@ -174,13 +175,13 @@
                                                                FontSize="11" FontWeight="SemiBold"
                                                                Foreground="{DynamicResource SemiColorText0}"
                                                                VerticalAlignment="Center" />
-                                                    <TextBlock Text="{Binding RatingCount, StringFormat='· {0} 条评价'}"
+                                                    <TextBlock Text="{lang:Lang &apos;lang.kitopia.ratings_count_suffix&apos;, Value={Binding RatingCount}}"
                                                                FontSize="11"
                                                                Foreground="{DynamicResource SemiColorText2}"
                                                                VerticalAlignment="Center" />
                                                 </StackPanel>
 
-                                                <TextBlock Text="暂无评分"
+                                                <TextBlock Text="{DynamicResource 'lang.kitopia.no_ratings'}"
                                                            FontSize="11"
                                                            Foreground="{DynamicResource SemiColorText2}"
                                                            VerticalAlignment="Center"
@@ -245,12 +246,12 @@
                                         <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,8,0,0" VerticalAlignment="Center"
                                               IsVisible="{Binding !IsDownloading}">
                                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                                <Button Content="配置"
+                                                <Button Content="{DynamicResource 'lang.kitopia.configure'}"
                                                         Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
                                                         IsVisible="{Binding PluginLocalInfo.IsEnabled}"
                                                         Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).ToPluginSettingPageCommand}"
                                                         CommandParameter="{Binding }" />
-                                                <Button Classes="Primary" Content="更新"
+                                                <Button Classes="Primary" Content="{DynamicResource 'lang.kitopia.update'}"
                                                         Padding="10,2" MinHeight="24" Height="24" FontSize="11" CornerRadius="6"
                                                         IsVisible="{Binding CanUpdate}"
                                                         Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).UpdateCommand}"
@@ -264,20 +265,20 @@
                                                               CommandParameter="{Binding}">
                                                     <ToggleButton.Styles>
                                                         <Style Selector="ToggleButton[IsChecked=True]">
-                                                            <Setter Property="Content" Value="禁用" />
+                                                            <Setter Property="Content" Value="{DynamicResource 'lang.kitopia.disable'}" />
                                                         </Style>
                                                         <Style Selector="ToggleButton[IsChecked=False]">
-                                                            <Setter Property="Content" Value="启用" />
+                                                            <Setter Property="Content" Value="{DynamicResource 'lang.kitopia.enable'}" />
                                                         </Style>
                                                         <Style Selector="ToggleButton[IsChecked=False].Danger">
-                                                            <Setter Property="Content" Value="卸载中" />
+                                                            <Setter Property="Content" Value="{DynamicResource 'lang.kitopia.uninstalling'}" />
                                                         </Style>
                                                     </ToggleButton.Styles>
                                                 </ToggleButton>
                                             </StackPanel>
 
                                             <!-- Subtle Danger Button on Right (like Image 1) -->
-                                            <Button Grid.Column="1" Content="删除"
+                                            <Button Grid.Column="1" Content="{DynamicResource 'lang.kitopia.delete'}"
                                                     Theme="{DynamicResource KitopiaDangerSubtleButton}"
                                                     IsVisible="{Binding CanRemove}"
                                                     Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).DeleteCommand}"
@@ -301,8 +302,8 @@
                                             <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.85" />
                                         </Border.Background>
                                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
-                                            <TextBlock Text="插件动态卸载失败，重启后完成卸载/更新" />
-                                            <Button Classes="Primary" Content="重启"
+                                            <TextBlock Text="{DynamicResource 'lang.kitopia.restart_to_finish_removing_or_updating_this_plugin'}" />
+                                            <Button Classes="Primary" Content="{DynamicResource 'lang.kitopia.restart'}"
                                                     Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).RestartAppCommand}" />
                                         </StackPanel>
                                     </Border>
@@ -313,11 +314,11 @@
                                             <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.85" />
                                         </Border.Background>
                                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6">
-                                            <TextBlock Text="插件加载失败" HorizontalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource SemiColorDanger}" />
+                                            <TextBlock Text="{DynamicResource 'lang.kitopia.plugin_failed_to_load'}" HorizontalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource SemiColorDanger}" />
                                             <TextBlock Text="{Binding PluginLocalInfo.LoadFailedReason}"
                                                        TextWrapping="Wrap" MaxWidth="280"
                                                        FontSize="{DynamicResource SemiFontSizeSmall}" />
-                                            <Button Classes="Danger" Content="删除" HorizontalAlignment="Center"
+                                            <Button Classes="Danger" Content="{DynamicResource 'lang.kitopia.delete'}" HorizontalAlignment="Center"
                                                     IsVisible="{Binding CanRemove}"
                                                     Command="{Binding Path=$parent[ItemsControl].((plugin:PluginManagerPageViewModel)DataContext).DeleteCommand}"
                                                     CommandParameter="{Binding }" />

@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
@@ -17,8 +18,8 @@
             <!-- 1. Header: Community directory + Title + Subtitle + Plugin Count -->
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="社区目录" Theme="{DynamicResource KitopiaPageKickerText}" />
-                    <TextBlock Text="市场" Theme="{DynamicResource KitopiaPageTitleText}" />
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.community'}" Theme="{DynamicResource KitopiaPageKickerText}" />
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.marketplace'}" Theme="{DynamicResource KitopiaPageTitleText}" />
                 </StackPanel>
                 <TextBlock Grid.Column="1"
                            Text="{Binding ItemCountText}"
@@ -41,7 +42,7 @@
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                     <TextBox Grid.Column="0"
                              Text="{Binding Keyword, Mode=TwoWay}"
-                             PlaceholderText="搜索名称、标识或简介"
+                             PlaceholderText="{DynamicResource 'lang.kitopia.search_name_id_or_description'}"
                              Classes="ClearButton"
                              CornerRadius="6"
                              VerticalContentAlignment="Center">
@@ -89,11 +90,11 @@
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Center">
                     <StackPanel Spacing="8" HorizontalAlignment="Center">
-                        <TextBlock Text="没有找到匹配的插件"
+                        <TextBlock Text="{DynamicResource 'lang.kitopia.no_matching_plugins'}"
                                    FontSize="16" FontWeight="SemiBold"
                                    Foreground="{DynamicResource SemiColorText0}"
                                    HorizontalAlignment="Center" />
-                        <TextBlock Text="尝试更换搜索词或平台筛选。"
+                        <TextBlock Text="{DynamicResource 'lang.kitopia.try_another_search_term_or_platform_filter'}"
                                    FontSize="13"
                                    Foreground="{DynamicResource SemiColorText2}"
                                    HorizontalAlignment="Center" />
@@ -204,7 +205,7 @@
                                                             <Button Theme="{DynamicResource KitopiaBadgeTagButton}"
                                                                     Command="{Binding Path=$parent[UserControl].((pages:MarketPageViewModel)DataContext).SearchTagCommand}"
                                                                     CommandParameter="{Binding TagName}"
-                                                                    ToolTip.Tip="{Binding TagName, StringFormat='在市场中筛选 #{0}'}"
+                                                                    ToolTip.Tip="{lang:Lang &apos;lang.kitopia.filter_marketplace_by_value&apos;, Value={Binding TagName}}"
                                                                     IsVisible="{Binding IsTag}">
                                                                 <TextBlock Text="{Binding Text}"
                                                                            FontSize="11" FontWeight="Medium"
@@ -236,13 +237,13 @@
                                                                FontSize="11" FontWeight="SemiBold"
                                                                Foreground="{DynamicResource SemiColorText0}"
                                                                VerticalAlignment="Center" />
-                                                    <TextBlock Text="{Binding RatingCount, StringFormat='· {0} 条评价'}"
+                                                    <TextBlock Text="{lang:Lang &apos;lang.kitopia.ratings_count_suffix&apos;, Value={Binding RatingCount}}"
                                                                FontSize="11"
                                                                Foreground="{DynamicResource SemiColorText2}"
                                                                VerticalAlignment="Center" />
                                                 </StackPanel>
 
-                                                <TextBlock Text="暂无评分"
+                                                <TextBlock Text="{DynamicResource 'lang.kitopia.no_ratings'}"
                                                            FontSize="11"
                                                            Foreground="{DynamicResource SemiColorText2}"
                                                            VerticalAlignment="Center"
@@ -319,10 +320,10 @@
                                                         FontSize="12" CornerRadius="6">
                                                     <Button.Styles>
                                                         <Style Selector="Button[IsEnabled=True]">
-                                                            <Setter Property="Content" Value="下载" />
+                                                            <Setter Property="Content" Value="{DynamicResource 'lang.kitopia.download'}" />
                                                         </Style>
                                                         <Style Selector="Button[IsEnabled=False]">
-                                                            <Setter Property="Content" Value="已安装" />
+                                                            <Setter Property="Content" Value="{DynamicResource 'lang.kitopia.installed'}" />
                                                         </Style>
                                                     </Button.Styles>
                                                 </Button>
@@ -349,14 +350,14 @@
 
             <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="12" IsVisible="{Binding IsScenarioMarket}">
                 <StackPanel Orientation="Horizontal" Spacing="12">
-                    <Button Content="管理我的情景" Command="{Binding ManageScenariosCommand}" CornerRadius="6" />
+                    <Button Content="{DynamicResource 'lang.kitopia.manage_my_scenarios'}" Command="{Binding ManageScenariosCommand}" CornerRadius="6" />
                     <TextBlock Text="{Binding LoadError}" Foreground="{DynamicResource SemiColorDanger}"
                                TextWrapping="Wrap" MaxWidth="400" VerticalAlignment="Center" />
                 </StackPanel>
                 <Panel Grid.Row="1">
                     <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsLoading}"
                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    <TextBlock Text="暂无情景" IsVisible="{Binding HasNoScenarios}"
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.no_scenarios'}" IsVisible="{Binding HasNoScenarios}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                     <ScrollViewer IsVisible="{Binding !IsLoading}">
                         <ItemsControl ItemsSource="{Binding Scenarios}">
@@ -381,19 +382,19 @@
                                                 <Border Grid.Column="2" CornerRadius="4" Padding="6,2"
                                                         Background="{DynamicResource KitopiaBadgeSuccessBackground}"
                                                         IsVisible="{Binding IsPublic}" VerticalAlignment="Top">
-                                                    <TextBlock Text="公开" FontSize="11" FontWeight="Medium"
+                                                    <TextBlock Text="{DynamicResource 'lang.kitopia.public'}" FontSize="11" FontWeight="Medium"
                                                                Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" />
                                                 </Border>
                                                 <Border Grid.Column="2" CornerRadius="4" Padding="6,2"
                                                         Background="{DynamicResource KitopiaBadgeCurrentBackground}"
                                                         IsVisible="{Binding IsPendingPublication}" VerticalAlignment="Top">
-                                                    <TextBlock Text="待审核" FontSize="11" FontWeight="Medium"
+                                                    <TextBlock Text="{DynamicResource 'lang.kitopia.pending_review'}" FontSize="11" FontWeight="Medium"
                                                                Foreground="{DynamicResource KitopiaBadgeCurrentForeground}" />
                                                 </Border>
                                                 <Border Grid.Column="2" CornerRadius="4" Padding="6,2"
                                                         Background="{DynamicResource KitopiaBadgeNeutralBackground}"
                                                         IsVisible="{Binding IsPrivate}" VerticalAlignment="Top">
-                                                    <TextBlock Text="私有" FontSize="11" FontWeight="Medium"
+                                                    <TextBlock Text="{DynamicResource 'lang.kitopia.private'}" FontSize="11" FontWeight="Medium"
                                                                Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
                                                 </Border>
                                             </Grid>
@@ -410,7 +411,7 @@
                                                         <DataTemplate x:DataType="x:String">
                                                             <Button Theme="{DynamicResource KitopiaBadgeTagButton}"
                                                                     Command="{Binding Path=$parent[UserControl].((pages:MarketPageViewModel)DataContext).SearchTagCommand}"
-                                                                    CommandParameter="{Binding}" ToolTip.Tip="按标签筛选">
+                                                                    CommandParameter="{Binding}" ToolTip.Tip="{DynamicResource 'lang.kitopia.filter_by_tag'}">
                                                                 <TextBlock Text="#{Binding}" FontSize="11" FontWeight="Medium"
                                                                            Foreground="{DynamicResource KitopiaBadgeTagForeground}" />
                                                             </Button>
@@ -424,9 +425,9 @@
                                                                IsVisible="{Binding !HasRatings}" />
                                                     <TextBlock Text="{Binding RatingScoreText}" FontSize="11" FontWeight="SemiBold"
                                                                Foreground="{DynamicResource SemiColorText0}" IsVisible="{Binding HasRatings}" />
-                                                    <TextBlock Text="{Binding RatingCount, StringFormat='· {0} 条评价'}" FontSize="11"
+                                                    <TextBlock Text="{lang:Lang &apos;lang.kitopia.ratings_count_suffix&apos;, Value={Binding RatingCount}}" FontSize="11"
                                                                Foreground="{DynamicResource SemiColorText2}" IsVisible="{Binding HasRatings}" />
-                                                    <TextBlock Text="暂无评分" FontSize="11" Foreground="{DynamicResource SemiColorText2}"
+                                                    <TextBlock Text="{DynamicResource 'lang.kitopia.no_ratings'}" FontSize="11" Foreground="{DynamicResource SemiColorText2}"
                                                                IsVisible="{Binding !HasRatings}" />
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding ReviewText}" TextWrapping="Wrap" MaxLines="2" Margin="0,5,0,0"
@@ -455,11 +456,11 @@
                                             </Grid>
 
                                             <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
-                                                <Button Content="发布版本" CornerRadius="6"
+                                                <Button Content="{DynamicResource 'lang.kitopia.publish_version'}" CornerRadius="6"
                                                         IsVisible="{Binding CanManage}"
                                                         Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).UploadScenarioVersionCommand}"
                                                         CommandParameter="{Binding}" />
-                                                <Button Content="编辑信息" CornerRadius="6"
+                                                <Button Content="{DynamicResource 'lang.kitopia.edit_information'}" CornerRadius="6"
                                                         IsVisible="{Binding CanManage}"
                                                         Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).EditScenarioInformationCommand}"
                                                         CommandParameter="{Binding}" />
@@ -467,11 +468,11 @@
                                                         IsVisible="{Binding CanCancelReview}"
                                                         Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).CancelScenarioReviewCommand}"
                                                         CommandParameter="{Binding}" />
-                                                <Button Content="撤回" CornerRadius="6"
+                                                <Button Content="{DynamicResource 'lang.kitopia.withdraw'}" CornerRadius="6"
                                                         IsVisible="{Binding CanWithdraw}"
                                                         Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).WithdrawScenarioReleaseCommand}"
                                                         CommandParameter="{Binding}" />
-                                                <Button Content="删除" Theme="{DynamicResource KitopiaDangerSubtleButton}" CornerRadius="6"
+                                                <Button Content="{DynamicResource 'lang.kitopia.delete'}" Theme="{DynamicResource KitopiaDangerSubtleButton}" CornerRadius="6"
                                                         IsVisible="{Binding CanManage}"
                                                         Command="{Binding Path=$parent[ItemsControl].((pages:MarketPageViewModel)DataContext).DeleteScenarioCommand}"
                                                         CommandParameter="{Binding}" />
@@ -492,7 +493,7 @@
                         Spacing="12"
                         Margin="0,8,0,0"
                         IsVisible="{Binding HasMultiplePages}">
-                <Button Content="上一页"
+                <Button Content="{DynamicResource 'lang.kitopia.previous_page'}"
                         Command="{Binding PreviousPageCommand}"
                         IsEnabled="{Binding CanPreviousPage}"
                         Height="32" Padding="14,0"
@@ -504,7 +505,7 @@
                            VerticalAlignment="Center"
                            Margin="4,0" />
 
-                <Button Content="下一页"
+                <Button Content="{DynamicResource 'lang.kitopia.next_page'}"
                         Command="{Binding NextPageCommand}"
                         IsEnabled="{Binding CanNextPage}"
                         Height="32" Padding="14,0"
@@ -513,7 +514,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
                     <TextBox Width="76" Height="32"
                              Text="{Binding TargetPageText, Mode=TwoWay}"
-                             PlaceholderText="{Binding CurrentPage, StringFormat='第 {0} 页'}"
+                             PlaceholderText="{lang:Lang &apos;lang.kitopia.page_value&apos;, Value={Binding CurrentPage}}"
                              TextAlignment="Center"
                              CornerRadius="6"
                              VerticalContentAlignment="Center">
@@ -521,7 +522,7 @@
                             <KeyBinding Gesture="Enter" Command="{Binding JumpToPageCommand}" />
                         </TextBox.KeyBindings>
                     </TextBox>
-                    <Button Content="跳转"
+                    <Button Content="{DynamicResource 'lang.kitopia.go'}"
                             Command="{Binding JumpToPageCommand}"
                             Height="32" Padding="12,0"
                             CornerRadius="6" />

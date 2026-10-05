@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
@@ -21,7 +22,7 @@ public class ImageAnalyzer : IInputDataAnalyzer
                 if (image != null)
                     yield return new SearchViewItem
                     {
-                        ItemDisplayName = "保存剪贴板图像?",
+                        ItemDisplayName = Lang.Get("lang.kitopia.save_clipboard_image"),
                         FileType = FileType.自定义,
                         IconSymbol = 0xE357,
                         Icon = null,

@@ -1,3 +1,4 @@
+using PluginCore.Localization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,15 +16,15 @@ using Point = Avalonia.Point;
 
 namespace KitopiaEx.CustomScenarioMethods;
 
-[ScenarioMethodCategory("文字识别")]
+[ScenarioMethodCategory("lang.kitopiaex.ocr")]
 public class Ocr
 {
-    [ScenarioMethod("文字提取", $"{nameof(dResult)}=截图数据", "return=文字识别结果数据")]
+    [ScenarioMethod("lang.kitopiaex.extract_text", $"{nameof(dResult)}=lang.kitopiaex.capture_data", "return=lang.kitopiaex.ocr_result_data", Id = "文字提取")]
     public IEnumerable<OcrResult> OcrImg(ScreenCaptureResult dResult, CancellationToken ct)
     {
         if (dResult.Source is null)
         {
-            throw new Exception("无图像数据");
+            throw new Exception(Lang.Get("lang.kitopiaex.no_image_data"));
         }
 
         return OcrImgBase(dResult.Source, ct);
@@ -34,7 +35,7 @@ public class Ocr
         var service = Kitopia.ServiceProvider.GetService<IOcrService>();
         if (service is null || !service.IsAvailable)
         {
-            throw new InvalidOperationException("主程序本地 OCR 模型不可用。");
+            throw new InvalidOperationException(Lang.Get("lang.kitopiaex.the_host_local_ocr_model_is_unavailable"));
         }
 
         return service.RecognizeAsync(image, ct).GetAwaiter().GetResult()
@@ -47,7 +48,7 @@ public class Ocr
             .ToArray();
     }
 
-    [ScenarioMethod("文字提取结果显示", $"{nameof(dResult)}=截图数据", $"{nameof(ocrResults)}=文字识别结果数据")]
+    [ScenarioMethod("lang.kitopiaex.show_ocr_results", $"{nameof(dResult)}=lang.kitopiaex.capture_data", $"{nameof(ocrResults)}=lang.kitopiaex.ocr_result_data", Id = "文字提取结果显示")]
     public void OcrResultShow(ScreenCaptureResult dResult, IEnumerable<OcrResult> ocrResults, CancellationToken ct)
     {
         if (dResult.Source != null) OcrResultShowBase(dResult.Source, ocrResults, ct);
@@ -64,7 +65,7 @@ public class Ocr
         }));
     }
 
-    [ScenarioMethod("获取文字提取结果显示实例", "return=文字提取结果显示实例")]
+    [ScenarioMethod("lang.kitopiaex.get_ocr_result_window", "return=lang.kitopiaex.ocr_result_window", Id = "获取文字提取结果显示实例")]
     public OcrResultShowWindow OcrResultShowIn(CancellationToken ct)
     {
         OcrResultShowWindow ocrResultShowWindow = null;
@@ -80,7 +81,7 @@ public class Ocr
         return ocrResultShowWindow;
     }
 
-    [ScenarioMethod("设置文字提取结果", $"{nameof(screenCapture)}=截图数据", $"{nameof(ocrResults)}=文字识别结果数据")]
+    [ScenarioMethod("lang.kitopiaex.set_ocr_results", $"{nameof(screenCapture)}=lang.kitopiaex.capture_data", $"{nameof(ocrResults)}=lang.kitopiaex.ocr_result_data", Id = "设置文字提取结果")]
     public void SetOcrResultShowWindowData(OcrResultShowWindow imagePin, ScreenCaptureResult screenCapture,
         IEnumerable<OcrResult> ocrResults, CancellationToken ct)
     {

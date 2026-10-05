@@ -5,6 +5,7 @@
 // Date: 2026/01/05 16:01
 // FileEffect:
 
+using PluginCore.Localization;
 using System.Collections.Generic;
 using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,7 +31,7 @@ public class ImageAnalyzer : IInputDataAnalyzer
                 //Pin
                 yield return new SearchViewItem
                 {
-                    ItemDisplayName = "置顶图片",
+                    ItemDisplayName = Lang.Get("lang.kitopiaex.pin_captured_image"),
                     FileType = FileType.自定义,
                     IconSymbol = 0xf602,
                     Icon = null,
@@ -44,7 +45,7 @@ public class ImageAnalyzer : IInputDataAnalyzer
                //Ocr
                yield return new SearchViewItem
                {
-                   ItemDisplayName = "文字提取",
+                   ItemDisplayName = Lang.Get("lang.kitopiaex.extract_text"),
                    FileType = FileType.自定义,
                    IconSymbol = 0xEA72,
                    Icon = null,

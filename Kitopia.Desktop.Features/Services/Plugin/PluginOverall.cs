@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using System.Collections.Concurrent;
 using System.Reflection;
 using Avalonia.Controls.Notifications;
@@ -95,7 +96,7 @@ public class PluginOverall
             SubItems = [
                 new ContextMenuItem
                 {
-                    Title = "添加到索引",
+                    Title = Lang.Get("lang.kitopia.add_to_index"),
                     Icon = exePath,
                     Command = exePath,
                     Arguments = StartupArgumentManager.GenerateCmd(StartupAction.IndexAdd, "{0}"),
@@ -103,14 +104,14 @@ public class PluginOverall
                 },
                 new ContextMenuItem
                 {
-                    Title = "文件占用解锁",
+                    Title = Lang.Get("lang.kitopia.file_lock_manager"),
                     Icon = exePath,
                     Command = exePath,
                     Arguments = StartupArgumentManager.GenerateCmd(StartupAction.FileLocksmith, "{all}"),
                 },
                 new ContextMenuItem
                 {
-                    Title = "局域网分享",
+                    Title = Lang.Get("lang.kitopia.lan_sharing"),
                     Icon = exePath,
                     Command = exePath,
                     Arguments = StartupArgumentManager.GenerateCmd(StartupAction.LanFileShare, "{all}"),
@@ -243,7 +244,7 @@ public class PluginOverall
         var screenCaptureWindow = ServiceManager.Services?.GetService<IScreenCaptureWindow>();
         if (screenCaptureWindow is null)
         {
-            ShowUnavailable("截图功能");
+            ShowUnavailable(Lang.Get("lang.kitopia.screen_capture_feature"));
             return Task.CompletedTask;
         }
 
@@ -259,7 +260,7 @@ public class PluginOverall
             catch (Exception exception)
             {
                 ShowToast(
-                    "功能执行失败",
+                    Lang.Get("lang.kitopia.action_failed"),
                     exception.InnerException?.Message ?? exception.Message,
                     NotificationType.Error);
             }
@@ -268,7 +269,7 @@ public class PluginOverall
 
     private static void ShowUnavailable(string featureName)
     {
-        ShowToast(featureName, "当前平台暂不支持此功能。", NotificationType.Warning);
+        ShowToast(featureName, Lang.Get("lang.kitopia.this_feature_is_unavailable_on_this_platform"), NotificationType.Warning);
     }
 
     private static void ShowToast(string title, string message, NotificationType notificationType)

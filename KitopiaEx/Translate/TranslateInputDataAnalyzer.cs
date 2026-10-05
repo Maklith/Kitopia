@@ -1,3 +1,4 @@
+using PluginCore.Localization;
 using System.Collections.Generic;
 using Avalonia.Threading;
 using PluginCore;
@@ -20,7 +21,7 @@ public class TranslateInputDataAnalyzer : IInputDataAnalyzer
             {
                 yield return  new SearchViewItem()
                 {
-                    ItemDisplayName = "翻译",
+                    ItemDisplayName = Lang.Get("lang.kitopiaex.translate"),
                     FileType = FileType.自定义,
                     IconSymbol = 0xf834,
                     Action = (e,s) =>

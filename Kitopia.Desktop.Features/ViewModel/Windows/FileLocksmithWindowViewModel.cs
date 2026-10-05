@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Abstractions.FileSystem;
 
 namespace Kitopia.Desktop.Features.ViewModel.Windows;
@@ -65,13 +66,13 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
     private List<string>? _targetPaths;
 
     [ObservableProperty]
-    private string _statusMessage = "就绪";
+    private string _statusMessage = Lang.Get("lang.kitopia.ready");
 
     [ObservableProperty]
     private bool _isScanning;
 
     [ObservableProperty]
-    private string _scopeTitle = "全系统监控";
+    private string _scopeTitle = Lang.Get("lang.kitopia.system_wide_monitoring");
 
     public FileLocksmithWindowViewModel(IFileLockService fileLockService)
     {
@@ -145,15 +146,15 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
 
         if (!string.IsNullOrEmpty(RootDir))
         {
-            ScopeTitle = $"监控目录: {RootDir}";
+            ScopeTitle = Lang.Format("lang.kitopia.messages.monitoring_directory_value", RootDir);
         }
         else if (TargetPaths != null && TargetPaths.Count > 0)
         {
-            ScopeTitle = TargetPaths.Count == 1 ? $"监控文件: {TargetPaths[0]}" : $"监控文件: {TargetPaths.Count} 项";
+            ScopeTitle = TargetPaths.Count == 1 ? Lang.Format("lang.kitopia.messages.monitoring_file_value", TargetPaths[0]) : Lang.Format("lang.kitopia.messages.monitoring_value_files", TargetPaths.Count);
         }
         else
         {
-            ScopeTitle = "全系统文件句柄监控";
+            ScopeTitle = Lang.Get("lang.kitopia.system_wide_file_handle_monitoring");
         }
 
         _ = ScanAsync();
@@ -169,7 +170,7 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
             TargetPaths = processes.Select(r => r.FilePath).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
         ApplyFilter();
-        StatusMessage = $"共 {processes.Count} 条进程记录";
+        StatusMessage = Lang.Format("lang.kitopia.messages.value_process_records", processes.Count);
     }
 
     [RelayCommand]
@@ -177,7 +178,7 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
     {
         if (IsScanning) return;
         IsScanning = true;
-        StatusMessage = "正在扫描系统文件句柄与驱动...";
+        StatusMessage = Lang.Get("lang.kitopia.scanning_file_handles_and_drivers");
 
         try
         {
@@ -193,7 +194,7 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
             if (_isLoaded && AllRecords.Count > 0 && AreRecordsEquivalent(results, AllRecords))
             {
                 int currentShown = FilteredRecords.Count;
-                StatusMessage = $"锁定 {lockedCount} | 显示 {currentShown} / 共 {results.Count} 条 | 耗时 {sw.ElapsedMilliseconds} ms | 上次刷新 {DateTime.Now:HH:mm:ss}";
+                StatusMessage = Lang.Format("lang.kitopia.messages.locked_value_showing_value_of_value_value_ms_last_refresh_value", lockedCount, currentShown, results.Count, sw.ElapsedMilliseconds, DateTime.Now);
                 return;
             }
 
@@ -201,11 +202,11 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
             ApplyFilter();
 
             int shownCount = FilteredRecords.Count;
-            StatusMessage = $"锁定 {lockedCount} | 显示 {shownCount} / 共 {results.Count} 条 | 耗时 {sw.ElapsedMilliseconds} ms | 上次刷新 {DateTime.Now:HH:mm:ss}";
+            StatusMessage = Lang.Format("lang.kitopia.messages.locked_value_showing_value_of_value_value_ms_last_refresh_value", lockedCount, shownCount, results.Count, sw.ElapsedMilliseconds, DateTime.Now);
         }
         catch (Exception ex)
         {
-            StatusMessage = $"扫描失败: {ex.Message}";
+            StatusMessage = Lang.Format("lang.kitopia.messages.scan_failed_value", ex.Message);
         }
         finally
         {
@@ -389,7 +390,7 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
                 {
                     dirNode.IsSelfLocked = true;
                     dirNode.SelfLockCount = dirProcs.Count;
-                    dirNode.State = "已锁定";
+                    dirNode.State = Lang.Get("lang.kitopia.locked");
                 }
 
                 foreach (var rec in dirProcs)
@@ -401,9 +402,9 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
                         ProcessName = rec.ProcessName,
                         ProcessId = rec.ProcessId,
                         PidText = rec.PidText,
-                        Subtitle = "占用此目录",
+                        Subtitle = Lang.Get("lang.kitopia.locking_this_folder"),
                         FilePath = rec.FilePath,
-                        State = "目录锁定",
+                        State = Lang.Get("lang.kitopia.folder_locked"),
                         IsLocked = true,
                         SourceRecord = rec
                     };
@@ -419,8 +420,8 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
                 bool isFileLocked = group.Any(r => r.IsLocked);
                 bool isFileDriver = group.Any(r => r.IsDriverModule);
                 string fileState = isFileLocked
-                    ? (isFileDriver ? "驱动锁定" : "已锁定")
-                    : "空闲";
+                    ? (isFileDriver ? Lang.Get("lang.kitopia.driver_lock") : Lang.Get("lang.kitopia.locked"))
+                    : Lang.Get("lang.kitopia.idle");
 
                 string fileKey = $"file:{fullPath}";
                 bool isFileExp = isFileLocked;
@@ -453,7 +454,7 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
                             ProcessName = rec.ProcessName,
                             ProcessId = rec.ProcessId,
                             PidText = rec.PidText,
-                            Subtitle = rec.IsDriverModule ? "内核驱动服务" : $"PID: {rec.ProcessId}",
+                            Subtitle = rec.IsDriverModule ? Lang.Get("lang.kitopia.kernel_driver_service") : $"PID: {rec.ProcessId}",
                             FilePath = rec.FilePath,
                             State = rec.State,
                             IsLocked = rec.IsLocked,
@@ -723,7 +724,7 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
         _expansionStateCache.Clear();
         RootDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folderPath));
         TargetPaths = null;
-        ScopeTitle = $"监控目录: {RootDir}";
+        ScopeTitle = Lang.Format("lang.kitopia.messages.monitoring_directory_value", RootDir);
         _ = ScanAsync();
     }
 
@@ -768,7 +769,7 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
         if (target.IsDriverModule)
         {
             var err = await _fileLockService.StopDriverForFileAsync(target.FilePath);
-            StatusMessage = err == null ? $"已停止驱动: {target.FilePath}" : err;
+            StatusMessage = err == null ? Lang.Format("lang.kitopia.messages.stopped_driver_value", target.FilePath) : err;
             await ScanAsync();
             return;
         }
@@ -776,7 +777,7 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
         if (target.ProcessId > 4)
         {
             var success = await _fileLockService.UnlockFileAsync([target.ProcessId]);
-            StatusMessage = success ? $"已结束进程 PID={target.ProcessId}" : $"结束进程 PID={target.ProcessId} 失败或部分未退出";
+            StatusMessage = success ? Lang.Format("lang.kitopia.messages.terminated_process_pid_value", target.ProcessId) : Lang.Format("lang.kitopia.messages.some_processes_could_not_be_terminated_for_pid_value", target.ProcessId);
             await ScanAsync();
         }
     }
@@ -792,12 +793,12 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
             if (target.IsDriverModule)
             {
                 var err = await _fileLockService.StopDriverForFileAsync(target.FilePath);
-                StatusMessage = err == null ? $"已停止驱动: {target.FilePath}" : err;
+                StatusMessage = err == null ? Lang.Format("lang.kitopia.messages.stopped_driver_value", target.FilePath) : err;
             }
             else if (target.ProcessId > 4)
             {
                 var success = await _fileLockService.UnlockFileAsync([target.ProcessId]);
-                StatusMessage = success ? $"已结束进程 PID={target.ProcessId}" : $"结束进程 PID={target.ProcessId} 失败";
+                StatusMessage = success ? Lang.Format("lang.kitopia.messages.terminated_process_pid_value", target.ProcessId) : Lang.Format("lang.kitopia.messages.unable_to_terminate_process_pid_value", target.ProcessId);
             }
             await ScanAsync();
             return;
@@ -863,7 +864,7 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
             await _fileLockService.UnlockFileAsync(pids);
         }
 
-        StatusMessage = $"已尝试解除文件全部占用: {Path.GetFileName(filePath)}";
+        StatusMessage = Lang.Format("lang.kitopia.messages.attempted_to_release_all_file_locks_value", Path.GetFileName(filePath));
         await ScanAsync();
     }
 
@@ -894,7 +895,7 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
             await _fileLockService.UnlockFileAsync(pids);
         }
 
-        StatusMessage = $"已尝试解除目录内全部占用: {dirNode.Title}";
+        StatusMessage = Lang.Format("lang.kitopia.messages.attempted_to_release_all_locks_in_directory_value", dirNode.Title);
         await ScanAsync();
     }
 
@@ -941,11 +942,11 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
         var err = await _fileLockService.UnlockAndDeleteFileAsync(filePath);
         if (err == null)
         {
-            StatusMessage = $"已解除占用并删除: {Path.GetFileName(filePath)}";
+            StatusMessage = Lang.Format("lang.kitopia.messages.unlocked_and_deleted_value", Path.GetFileName(filePath));
         }
         else
         {
-            StatusMessage = $"删除失败: {err}";
+            StatusMessage = Lang.Format("lang.kitopia.messages.delete_failed_value", err);
         }
         await ScanAsync();
     }
@@ -997,7 +998,7 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"无法打开所在位置: {ex.Message}";
+            StatusMessage = Lang.Format("lang.kitopia.messages.unable_to_open_location_value", ex.Message);
         }
     }
 

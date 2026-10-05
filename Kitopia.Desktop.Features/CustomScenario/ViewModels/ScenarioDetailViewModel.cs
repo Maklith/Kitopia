@@ -5,6 +5,7 @@ using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Irihi.Avalonia.Shared.Contracts;
+using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.CustomScenario.Services;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Plugin;
@@ -35,7 +36,7 @@ public partial class ScenarioDetailViewModel : ObservableObject, IDialogContext
     public bool CanManage => Scenario.CanManage;
     public bool HasReleases => Releases.Count > 0;
     public bool HasEditingRelease => EditingRelease is not null;
-    public string EditingReleaseHeader => EditingRelease is null ? "" : $"编辑版本说明 · {EditingRelease.DisplayVersion}";
+    public string EditingReleaseHeader => EditingRelease is null ? "" : Lang.Format("lang.kitopia.edit_release_notes_value", EditingRelease.DisplayVersion);
     public bool HasPendingInformationReview => Scenario.Review is { Status: 0 } review && review.Kind != 2;
     public event EventHandler<object?>? RequestClose;
 
@@ -86,13 +87,13 @@ public partial class ScenarioDetailViewModel : ObservableObject, IDialogContext
         try
         {
             var imported = await ScenarioMarketService.ImportAsync(Scenario.Id, version: release.Version);
-            await ShowToastAsync("情景已导入",
+            await ShowToastAsync(Lang.Get("lang.kitopia.scenario_imported"),
                 imported.HasInit ? imported.Name : $"{imported.Name}：{imported.InitError}",
                 imported.HasInit ? NotificationType.Success : NotificationType.Warning);
         }
         catch (Exception exception)
         {
-            await ShowToastAsync("情景导入失败", exception.Message, NotificationType.Error);
+            await ShowToastAsync(Lang.Get("lang.kitopia.scenario_import_failed"), exception.Message, NotificationType.Error);
         }
     }
 
@@ -103,7 +104,7 @@ public partial class ScenarioDetailViewModel : ObservableObject, IDialogContext
             string.Equals(item.Uuid, Scenario.SourceUuid, StringComparison.OrdinalIgnoreCase));
         if (local is null)
         {
-            await ShowToastAsync("无法发布版本", "本地找不到对应的情景文件，请先在客户端打开该情景。", NotificationType.Warning);
+            await ShowToastAsync(Lang.Get("lang.kitopia.cannot_publish_version"), Lang.Get("lang.kitopia.scenario_file_not_found_open_the_scenario_in_the_client_first"), NotificationType.Warning);
             return;
         }
 
@@ -156,7 +157,7 @@ public partial class ScenarioDetailViewModel : ObservableObject, IDialogContext
         if (EditingRelease is null || IsSaving) return;
         if (string.IsNullOrWhiteSpace(EditingDetail) || EditingDetail.Length > 2000)
         {
-            Error = "版本说明不能为空且不能超过 2000 个字符。";
+            Error = Lang.Get("lang.kitopia.release_notes_are_required_and_must_not_exceed_2000_characters");
             return;
         }
 
@@ -166,8 +167,8 @@ public partial class ScenarioDetailViewModel : ObservableObject, IDialogContext
         {
             await ScenarioMarketService.UpdateReleaseDetailAsync(Scenario.Id, EditingRelease.Version, EditingDetail.Trim());
             EditingRelease = null;
-            await ShowToastAsync("版本说明已保存",
-                Scenario.IsPrivate ? "版本说明已更新。" : "版本说明已提交审核。", NotificationType.Success);
+            await ShowToastAsync(Lang.Get("lang.kitopia.release_notes_saved"),
+                Scenario.IsPrivate ? Lang.Get("lang.kitopia.release_notes_updated") : Lang.Get("lang.kitopia.release_notes_submitted_for_review"), NotificationType.Success);
             await LoadAsync();
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or JsonException)
@@ -201,13 +202,13 @@ public partial class ScenarioDetailViewModel : ObservableObject, IDialogContext
         if (release is not { CanWithdraw: true }) return;
         ServiceManager.Services.GetRequiredService<IToastService>().Show(new ToastRequest
         {
-            Header = "撤回情景版本",
-            Text = $"确定撤回 {release.DisplayVersion} 吗？撤回后该版本将不能下载。",
+            Header = Lang.Get("lang.kitopia.withdraw_scenario_version"),
+            Text = Lang.Format("lang.kitopia.withdraw_value_this_version_will_no_longer_be_downloadable", release.DisplayVersion),
             AutoCloseDelay = null,
             Actions =
             [
-                new ToastAction { Text = "撤回", IsPrimary = true, Callback = () => _ = WithdrawReleaseAsync(release) },
-                new ToastAction { Text = "取消" }
+                new ToastAction { Text = Lang.Get("lang.kitopia.withdraw"), IsPrimary = true, Callback = () => _ = WithdrawReleaseAsync(release) },
+                new ToastAction { Text = Lang.Get("lang.kitopia.cancel") }
             ]
         }, ServiceManager.Services.GetService<IWindowTool>()?.GetForegroundWindow());
     }

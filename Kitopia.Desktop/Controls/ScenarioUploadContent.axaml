@@ -1,32 +1,33 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
              xmlns:services="clr-namespace:Kitopia.Desktop.Services"
              x:Class="Kitopia.Desktop.Controls.ScenarioUploadContent"
              x:DataType="services:ScenarioUploadService" MinWidth="460" MaxWidth="620">
     <StackPanel Spacing="12" Margin="24">
-        <TextBlock Text="情景市场" Theme="{DynamicResource KitopiaPageKickerText}" />
+        <TextBlock Text="{DynamicResource 'lang.kitopia.scenario_marketplace'}" Theme="{DynamicResource KitopiaPageKickerText}" />
         <TextBlock Text="{Binding DialogTitle}" FontSize="20" FontWeight="SemiBold" />
         <StackPanel Spacing="6" IsVisible="{Binding IsInformationEdit}">
-            <TextBlock Text="名称" />
-            <TextBox Text="{Binding Name}" Watermark="情景名称" MaxLength="128" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
-            <TextBlock Text="情景简介" />
-            <TextBox Text="{Binding Description}" Watermark="介绍情景的用途和功能" MaxLength="4000"
+            <TextBlock Text="{DynamicResource 'lang.kitopia.name'}" />
+            <TextBox Text="{Binding Name}" Watermark="{DynamicResource 'lang.kitopia.scenario_name'}" MaxLength="128" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
+            <TextBlock Text="{DynamicResource 'lang.kitopia.summary'}" />
+            <TextBox Text="{Binding Description}" Watermark="{DynamicResource 'lang.kitopia.describe_the_scenario_s_purpose'}" MaxLength="4000"
                      AcceptsReturn="True" TextWrapping="Wrap" MinHeight="96" MaxHeight="180"
                      IsEnabled="{Binding CanEdit}" CornerRadius="6" />
         </StackPanel>
         <StackPanel Spacing="6" IsVisible="{Binding IsRelease}">
-            <TextBlock Text="情景" />
+            <TextBlock Text="{DynamicResource 'lang.kitopia.scenarios'}" />
             <TextBlock Text="{Binding Name}" TextWrapping="Wrap" Foreground="{DynamicResource SemiColorText1}" />
-            <TextBlock Text="版本号" />
-            <TextBox Text="{Binding Version}" Watermark="如 1.0.0 或 1.1.0-beta.1" MaxLength="32" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
-            <TextBlock Text="版本更新内容" />
-            <TextBox Text="{Binding Detail}" Watermark="说明本版本主要更新与修复内容" MaxLength="2000"
+            <TextBlock Text="{DynamicResource 'lang.kitopia.version_number'}" />
+            <TextBox Text="{Binding Version}" Watermark="{DynamicResource 'lang.kitopia.e_g_1_0_0_or_1_1_0_beta_1'}" MaxLength="32" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
+            <TextBlock Text="{DynamicResource 'lang.kitopia.release_notes'}" />
+            <TextBox Text="{Binding Detail}" Watermark="{DynamicResource 'lang.kitopia.describe_changes_and_fixes_in_this_release'}" MaxLength="2000"
                      AcceptsReturn="True" TextWrapping="Wrap" MinHeight="96" MaxHeight="180"
                      IsEnabled="{Binding CanEdit}" CornerRadius="6" />
         </StackPanel>
         <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Text="标签" />
-            <TextBlock Grid.Column="1" Text="{Binding Tags.Count, StringFormat='已添加 {0} 个'}"
+            <TextBlock Text="{DynamicResource 'lang.kitopia.tags'}" />
+            <TextBlock Grid.Column="1" Text="{lang:Lang &apos;lang.kitopia.value_added&apos;, Value={Binding Tags.Count}}"
                        FontSize="12" Foreground="{DynamicResource SemiColorText2}" />
         </Grid>
         <Border MinHeight="42" Padding="8,8,8,2" CornerRadius="8"
@@ -46,7 +47,7 @@
                                                Foreground="{DynamicResource KitopiaBadgeTagForeground}" />
                                     <Button Theme="{DynamicResource BorderlessButton}" Width="16" Height="16" Padding="0"
                                             Command="{Binding Path=$parent[UserControl].((services:ScenarioUploadService)DataContext).RemoveTagCommand}"
-                                            CommandParameter="{Binding}" ToolTip.Tip="移除标签">
+                                            CommandParameter="{Binding}" ToolTip.Tip="{DynamicResource 'lang.kitopia.remove_tag'}">
                                         <TextBlock Text="×" FontSize="13" Foreground="{DynamicResource KitopiaBadgeTagForeground}" />
                                     </Button>
                                 </StackPanel>
@@ -54,30 +55,30 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <TextBlock Text="暂无标签，请在下方输入并添加" FontSize="12"
+                <TextBlock Text="{DynamicResource 'lang.kitopia.no_tags_yet'}" FontSize="12"
                            Foreground="{DynamicResource SemiColorText2}" IsVisible="{Binding !HasTags}" />
             </StackPanel>
         </Border>
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <TextBox Grid.Column="0" Text="{Binding TagInput}" Watermark="输入标签，按回车添加" MaxLength="20"
+            <TextBox Grid.Column="0" Text="{Binding TagInput}" Watermark="{DynamicResource 'lang.kitopia.enter_a_tag_and_press_enter'}" MaxLength="20"
                      IsEnabled="{Binding CanEdit}" CornerRadius="6">
                 <TextBox.KeyBindings>
                     <KeyBinding Gesture="Enter" Command="{Binding AddTagCommand}" />
                 </TextBox.KeyBindings>
             </TextBox>
-            <Button Grid.Column="1" Content="添加" Command="{Binding AddTagCommand}" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
+            <Button Grid.Column="1" Content="{DynamicResource 'lang.kitopia.add'}" Command="{Binding AddTagCommand}" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
         </Grid>
-        <TextBlock Text="每个标签最多 20 个字母、数字或汉字，最多添加 10 个标签。"
+        <TextBlock Text="{DynamicResource 'lang.kitopia.up_to_10_tags_each_with_at_most_20_letters_digits_or_chinese_characters'}"
                    FontSize="12" Foreground="{DynamicResource SemiColorText2}" />
-        <CheckBox Content="公开" IsChecked="{Binding IsPublic}" IsEnabled="{Binding CanChangeVisibility}" />
-        <TextBlock Text="已发布的文件不能覆盖，请使用新的版本号。公开情景的新版本需要审核。"
+        <CheckBox Content="{DynamicResource 'lang.kitopia.public'}" IsChecked="{Binding IsPublic}" IsEnabled="{Binding CanChangeVisibility}" />
+        <TextBlock Text="{DynamicResource 'lang.kitopia.published_files_cannot_be_overwritten_use_a_new_version_number_public_releases_require_review'}"
                    TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SemiColorText2}"
                    IsVisible="{Binding IsRelease}" />
         <TextBlock Text="{Binding Error}" TextWrapping="Wrap" Foreground="{DynamicResource SemiColorDanger}" />
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-            <Button Content="重新授权" Command="{Binding AuthorizeCommand}" IsVisible="{Binding NeedsAuthorization}" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
-            <Button Content="取消" Command="{Binding CloseCommand}" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
-            <Button Content="上传" Command="{Binding UploadCommand}" IsEnabled="{Binding CanEdit}" Classes="Primary" CornerRadius="6" />
+            <Button Content="{DynamicResource 'lang.kitopia.authorize_again'}" Command="{Binding AuthorizeCommand}" IsVisible="{Binding NeedsAuthorization}" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
+            <Button Content="{DynamicResource 'lang.kitopia.cancel'}" Command="{Binding CloseCommand}" IsEnabled="{Binding CanEdit}" CornerRadius="6" />
+            <Button Content="{DynamicResource 'lang.kitopia.upload'}" Command="{Binding UploadCommand}" IsEnabled="{Binding CanEdit}" Classes="Primary" CornerRadius="6" />
         </StackPanel>
     </StackPanel>
 </UserControl>

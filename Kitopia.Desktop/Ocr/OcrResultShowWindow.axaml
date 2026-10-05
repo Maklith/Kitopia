@@ -7,7 +7,7 @@
               mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
               x:Class="Kitopia.Desktop.Ocr.OcrResultShowWindow"
               Width="1440" Height="810" WindowStartupLocation="CenterScreen"
-              Title="文字提取结果">
+              Title="{DynamicResource 'lang.kitopia.ocr_results'}">
     <u:UrsaWindow.TitleBarContent>
         <Button Width="32" Height="24" Background="Transparent" BorderBrush="Transparent"
                 BorderThickness="0" HorizontalAlignment="Right" Click="Button_OnClick">

@@ -11,6 +11,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Feature.Localization;
 using Kitopia.Feature.DeviceCommunication.Application;
 using Kitopia.Feature.DeviceCommunication.Discovery;
 using Kitopia.Feature.DeviceCommunication.Messages.Chat;
@@ -45,10 +46,10 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     public ObservableCollection<object> CurrentMessages =>
         SelectedConversation?.Messages ?? _emptyMessages;
 
-    public string CurrentConversationTitle => SelectedConversation?.DisplayName ?? "设备聊天";
+    public string CurrentConversationTitle => SelectedConversation?.DisplayName ?? Lang.Get("lang.kitopia.device_chat");
 
     public string CurrentConversationSubtitle => SelectedConversation is null
-        ? "请选择设备开始聊天"
+        ? Lang.Get("lang.kitopia.select_a_device_to_start_chatting")
         : $"{SelectedConversation.StatusText} · {SelectedConversation.AddressSummaryText}";
 
     public bool HasConversationSelected => SelectedConversation is not null;
@@ -99,6 +100,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         };
 
         _deviceDiscoveryService.Devices.CollectionChanged += OnDiscoveredDevicesCollectionChanged;
+        Lang.Current.PropertyChanged += OnLanguageChanged;
         SyncConversationsFromDiscovery();
         _receiveTask = RunReceiveLoopAsync(_receiveCancellation.Token);
         SyncDisplayContext();
@@ -106,6 +108,26 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     [ObservableProperty] private DeviceConversationItem? _selectedConversation;
+
+    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName != nameof(Lang.Language)) return;
+        _postToUi(() =>
+        {
+            if (_disposed) return;
+            OnPropertyChanged(nameof(CurrentConversationTitle));
+            OnPropertyChanged(nameof(CurrentConversationSubtitle));
+            foreach (var conversation in Conversations)
+            {
+                conversation.RefreshLanguage();
+                foreach (var message in conversation.Messages)
+                {
+                    if (message is FileChatMessageItem file) file.RefreshLanguage();
+                    else if (message is DeviceChatMessageItem chat) chat.RefreshLanguage();
+                }
+            }
+        });
+    }
 
     [ObservableProperty] private string _messageText = string.Empty;
 
@@ -144,7 +166,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
-        var name = await _platform.PromptTextAsync("修改备注名", "请输入新的备注名:", device.CustomName);
+        var name = await _platform.PromptTextAsync(Lang.Get("lang.kitopia.edit_custom_name"), Lang.Get("lang.kitopia.enter_a_new_custom_name"), device.CustomName);
         if (name is null) {
             return;
         }
@@ -247,7 +269,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             message.IsPending = false;
             message.IsFailed = true;
             Logger.Warning(ex, "Send chat message failed. DeviceId={DeviceId}", conversation.DeviceId);
-            _ = _notificationSink.ShowAsync("设备聊天", $"消息发送失败: {ex.Message}", ChatNotificationKind.Error);
+            _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Format("lang.kitopia.message_send_failed_value", ex.Message), ChatNotificationKind.Error);
         }
         finally {
             IsSending = false;
@@ -325,7 +347,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         var errors = new List<string>();
 
         if (_clipboardService is null) {
-            var clipText = await _platform.PromptTextAsync("粘贴发送", "请输入要发送的文本:", null);
+            var clipText = await _platform.PromptTextAsync(Lang.Get("lang.kitopia.paste_and_send"), Lang.Get("lang.kitopia.enter_text_to_send"), null);
             if (!string.IsNullOrWhiteSpace(clipText)) {
                 MessageText = clipText;
                 await SendMessageAsync();
@@ -368,7 +390,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     ApplyItemCommands(imageBubble);
                     imageBubble.IsPending = true;
                     conversation.Messages.Add(imageBubble);
-                    conversation.SetLastMessage("[图片]", imageBubble.Timestamp);
+                    conversation.SetLastMessage(Lang.Get("lang.kitopia.image_message"), imageBubble.Timestamp);
                     SortConversations();
                     RequestMessageListAutoScroll();
 
@@ -397,7 +419,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         if (errors.Count > 0) {
-            _ = _notificationSink.ShowAsync("设备聊天", $"监听和发送部分失败: {string.Join(";", errors)}",
+            _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Format("lang.kitopia.some_listeners_or_senders_failed_value", string.Join(";", errors)),
                 ChatNotificationKind.Warning);
         }
     }
@@ -449,7 +471,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             ApplyItemCommands(fileBubble);
             conversation.Messages.Add(fileBubble);
 
-            conversation.SetLastMessage($"[文件] {fileInfo.Name}", fileBubble.Timestamp);
+            conversation.SetLastMessage(Lang.Format("lang.kitopia.file_value", fileInfo.Name), fileBubble.Timestamp);
 
             var cts = new CancellationTokenSource();
             lock (_fileSendCancellations) { _fileSendCancellations[transferId] = cts; }
@@ -535,11 +557,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             offer.IsReceiving = true;
             offer.ReceiveProgress = 0d;
             offer.LocalFilePath = saveTarget.LocalPath;
-            conversation.SetLastMessage($"[文件] {offer.FileName}", DateTimeOffset.Now);
+            conversation.SetLastMessage(Lang.Format("lang.kitopia.file_value", offer.FileName), DateTimeOffset.Now);
             SortConversations();
         }
         catch (Exception ex) {
-            _ = _notificationSink.ShowAsync("设备聊天", $"同意失败: {ex.Message}", ChatNotificationKind.Error);
+            _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Format("lang.kitopia.failed_to_accept_value", ex.Message), ChatNotificationKind.Error);
         }
     }
 
@@ -557,11 +579,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         try {
             await _messageAppService.RejectFileAsync(conversation.DeviceId, transferId, "rejected_by_user");
             offer.IsHandled = true;
-            conversation.SetLastMessage($"[文件] {offer.FileName}", DateTimeOffset.Now);
+            conversation.SetLastMessage(Lang.Format("lang.kitopia.file_value", offer.FileName), DateTimeOffset.Now);
             SortConversations();
         }
         catch (Exception ex) {
-            _ = _notificationSink.ShowAsync("设备聊天", $"拒绝失败: {ex.Message}", ChatNotificationKind.Error);
+            _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Format("lang.kitopia.failed_to_reject_value", ex.Message), ChatNotificationKind.Error);
         }
     }
 
@@ -573,17 +595,17 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
         try {
             if (_clipboardService is null) {
-                _ = _notificationSink.ShowAsync("设备聊天", "当前平台不支持复制图片", ChatNotificationKind.Warning);
+                _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Get("lang.kitopia.copying_images_is_unavailable_on_this_platform"), ChatNotificationKind.Warning);
                 return;
             }
 
             var copied = await _clipboardService.SetImageAsync(imageBytes);
-            _ = _notificationSink.ShowAsync("设备聊天", copied ? "图片已复制到剪贴板" : "图片复制失败",
+            _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), copied ? Lang.Get("lang.kitopia.image_copied_to_clipboard") : Lang.Get("lang.kitopia.failed_to_copy_image"),
                 copied ? ChatNotificationKind.Information : ChatNotificationKind.Warning);
         }
         catch (Exception ex) {
             Logger.Warning(ex, "Copy image to clipboard failed.");
-            _ = _notificationSink.ShowAsync("设备聊天", $"图片复制失败: {ex.Message}", ChatNotificationKind.Warning);
+            _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Format("lang.kitopia.failed_to_copy_image_value", ex.Message), ChatNotificationKind.Warning);
         }
     }
 
@@ -621,7 +643,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         if (item?.LocalFilePath is null) return;
         if (_clipboardService is null)
         {
-            _ = _notificationSink.ShowAsync("设备聊天", "当前平台不支持复制文件路径", ChatNotificationKind.Warning);
+            _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Get("lang.kitopia.copying_file_paths_is_unavailable_on_this_platform"), ChatNotificationKind.Warning);
             return;
         }
 
@@ -629,7 +651,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         {
             if (!await _clipboardService.SetTextAsync(item.LocalFilePath))
             {
-                _ = _notificationSink.ShowAsync("设备聊天", "复制文件路径失败", ChatNotificationKind.Warning);
+                _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Get("lang.kitopia.failed_to_copy_file_path"), ChatNotificationKind.Warning);
             }
         }
         catch (Exception ex) { Logger.Error(ex, "复制文件失败"); }
@@ -661,8 +683,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private void ViewFileDetails(FileChatMessageItem? item)
     {
         if (item is null) return;
-        var details = $"文件名：{item.FileName}\n大小：{item.FileSizeText}\n路径：{item.LocalFilePath ?? "暂无"}\n状态：{item.StateText}";
-        _ = _notificationSink.ShowAsync("文件详情", details, persistent: true);
+        var details = Lang.Format("lang.kitopia.file_value_size_value_path_value_state_value", item.FileName, item.FileSizeText, item.LocalFilePath ?? Lang.Get("lang.kitopia.none"), item.StateText);
+        _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.file_details"), details, persistent: true);
     }
 
     private void ExecuteOnUiThread(Action action) {
@@ -805,16 +827,16 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             var timestamp = timestampUtc.ToLocalTime();
             var imageItem = DeviceChatMessageItem.CreateImage(payloadBytes, isOutgoing: false, timestamp);
             if (imageItem.ImagePreview is null) {
-                imageItem.Text = $"[图片] {DeviceChatMessageItem.FormatFileSizeLabel(message.SizeBytes)}";
+                imageItem.Text = Lang.Format("lang.kitopia.image_value", DeviceChatMessageItem.FormatFileSizeLabel(message.SizeBytes));
             }
 
             ApplyItemCommands(imageItem);
             conversation.Messages.Add(imageItem);
-            conversation.SetLastMessage("[图片]", timestamp);
+            conversation.SetLastMessage(Lang.Get("lang.kitopia.image_message"), timestamp);
 
             if (!IsForegroundCurrentConversation(conversation)) {
                 conversation.UnreadCount++;
-                ShowIncomingNotification(conversation, "[图片]");
+                ShowIncomingNotification(conversation, Lang.Get("lang.kitopia.image_message"));
             }
             else {
                 conversation.UnreadCount = 0;
@@ -832,7 +854,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             if (!TryGetConversation(message.ConversationId, out var conversation)) return;
 
             var fileBubble = new FileChatMessageItem(
-                message.FileName ?? "未知文件",
+                message.FileName ?? Lang.Get("lang.kitopia.unknown_file"),
                 message.TotalBytes ?? 0,
                 isOutgoing: false,
                 message.TimestampUtc.ToLocalTime())
@@ -857,11 +879,11 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
             ApplyItemCommands(fileBubble);
             conversation.Messages.Add(fileBubble);
-            conversation.SetLastMessage($"[文件] {message.FileName}", fileBubble.Timestamp);
+            conversation.SetLastMessage(Lang.Format("lang.kitopia.file_value", message.FileName), fileBubble.Timestamp);
             if (!IsForegroundCurrentConversation(conversation))
             {
                 conversation.UnreadCount++;
-                ShowIncomingNotification(conversation, $"[文件] {fileBubble.FileName}");
+                ShowIncomingNotification(conversation, Lang.Format("lang.kitopia.file_value", fileBubble.FileName));
             }
             else
             {
@@ -895,7 +917,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 }
             }
 
-            conversation.SetLastMessage("[文件] 已完成", message.TimestampUtc.ToLocalTime());
+            conversation.SetLastMessage(Lang.Get("lang.kitopia.file_completed"), message.TimestampUtc.ToLocalTime());
             SortConversations();
             RequestMessageListAutoScroll();
         });
@@ -916,7 +938,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             fileItem.IsFailed = true;
             fileItem.IsHandled = true;
 
-            conversation.SetLastMessage("[文件] 传输失败", message.TimestampUtc.ToLocalTime());
+            conversation.SetLastMessage(Lang.Get("lang.kitopia.file_transfer_failed"), message.TimestampUtc.ToLocalTime());
             SortConversations();
             RequestMessageListAutoScroll();
         });
@@ -953,7 +975,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 outgoingItem.IsReceiving = true;
             }
 
-            conversation.SetLastMessage("[文件] 对方已同意接收", message.TimestampUtc.ToLocalTime());
+            conversation.SetLastMessage(Lang.Get("lang.kitopia.file_accepted_by_recipient"), message.TimestampUtc.ToLocalTime());
             SortConversations();
             RequestMessageListAutoScroll();
         });
@@ -991,13 +1013,13 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             fileItem.IsReceiving = true;
             fileItem.ReceiveProgress = progress;
             fileItem.UpdateTransferSpeed(transferred, message.TimestampUtc);
-            conversation.SetLastMessage($"[文件] {fileItem.FileName} ({progress * 100:0.0}%)", message.TimestampUtc.ToLocalTime());
+            conversation.SetLastMessage(Lang.Format("lang.kitopia.file_transfer_progress", fileItem.FileName, progress * 100), message.TimestampUtc.ToLocalTime());
             RequestMessageListAutoScroll();
         });
     }
 
     private void ShowPersistentFileSendErrorToast(string text) {
-        _ = _notificationSink.ShowAsync("设备聊天", text, ChatNotificationKind.Error, persistent: true);
+        _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), text, ChatNotificationKind.Error, persistent: true);
     }
 
     private void ShowIncomingNotification(DeviceConversationItem conversation, string preview)
@@ -1172,6 +1194,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         _displayContextSyncTimer.Stop();
         _messageListAutoScrollTimer.Stop();
         _deviceDiscoveryService.Devices.CollectionChanged -= OnDiscoveredDevicesCollectionChanged;
+        Lang.Current.PropertyChanged -= OnLanguageChanged;
         foreach (var trackedDevice in _trackedDevices.Values) {
             trackedDevice.PropertyChanged -= OnTrackedDevicePropertyChanged;
         }
@@ -1193,6 +1216,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 }
 
 public partial class DeviceConversationItem : ObservableObject {
+    internal void RefreshLanguage()
+    {
+        if (LastMessageAt is null) LastMessagePreview = Lang.Get("lang.kitopia.no_messages");
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(AddressSummaryText));
+    }
     public DeviceConversationItem(string deviceId) {
         DeviceId = deviceId;
     }
@@ -1202,7 +1231,7 @@ public partial class DeviceConversationItem : ObservableObject {
 
     public DiscoveredDevice? Device { get; private set; }
 
-    [ObservableProperty] private string _computerName = "未知设备";
+    [ObservableProperty] private string _computerName = Lang.Get("lang.kitopia.unknown_device");
 
     [ObservableProperty] private string _customName = string.Empty;
 
@@ -1218,7 +1247,7 @@ public partial class DeviceConversationItem : ObservableObject {
 
     [ObservableProperty] private bool _isOnline;
 
-    [ObservableProperty] private string _lastMessagePreview = "无消息";
+    [ObservableProperty] private string _lastMessagePreview = Lang.Get("lang.kitopia.no_messages");
 
     [ObservableProperty] private DateTimeOffset? _lastMessageAt;
 
@@ -1241,7 +1270,7 @@ public partial class DeviceConversationItem : ObservableObject {
                 return $"IPv6: {Ipv6AddressText}";
             }
 
-            return "未知IP";
+            return Lang.Get("lang.kitopia.unknown_ip");
         }
     }
 
@@ -1250,7 +1279,7 @@ public partial class DeviceConversationItem : ObservableObject {
     public string OperatingSystemTagText => OperatingSystem;
 
     public IPAddress PreferredTransportAddress => Ipv6Address != IPAddress.None ? Ipv6Address : Ipv4Address;
-        public string StatusText => IsOnline ? "在线" : "离线";
+        public string StatusText => IsOnline ? Lang.Get("lang.kitopia.online") : Lang.Get("lang.kitopia.offline");
     public bool HasUnread => UnreadCount > 0;
     public string UnreadCountText => UnreadCount > 99 ? "99+" : UnreadCount.ToString();
     public string LastMessageTimeText => LastMessageAt?.ToLocalTime().ToString("HH:mm") ?? string.Empty;
@@ -1342,7 +1371,7 @@ public partial class DeviceChatMessageItem : ObservableObject {
 
     public static DeviceChatMessageItem CreateFile(string fileName, long sizeBytes, bool isOutgoing,
         DateTimeOffset timestamp) {
-        return new DeviceChatMessageItem($"[文件] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing, timestamp) {
+        return new DeviceChatMessageItem(Lang.Format("lang.kitopia.file_value_value", fileName, FormatFileSizeLabel(sizeBytes)), isOutgoing, timestamp) {
             FileName = fileName,
             FileSizeBytes = sizeBytes
         };
@@ -1354,7 +1383,7 @@ public partial class DeviceChatMessageItem : ObservableObject {
         string fileName,
         long sizeBytes,
         DateTimeOffset timestamp) {
-        return new DeviceChatMessageItem($"[文件] {fileName} ({FormatFileSizeLabel(sizeBytes)})", isOutgoing: false, timestamp) {
+        return new DeviceChatMessageItem(Lang.Format("lang.kitopia.file_value_value", fileName, FormatFileSizeLabel(sizeBytes)), isOutgoing: false, timestamp) {
             ConversationId = conversationId,
             FileName = fileName,
             FileSizeBytes = sizeBytes,
@@ -1381,7 +1410,7 @@ public partial class DeviceChatMessageItem : ObservableObject {
             return $"{bytes / (double)oneKb:0.00} KB";
         }
 
-        return $"{bytes} 字节";
+        return Lang.Format("lang.kitopia.value_bytes", bytes);
     }
 
     [ObservableProperty] private string _text;
@@ -1432,12 +1461,18 @@ public partial class DeviceChatMessageItem : ObservableObject {
     public string TimeText => Timestamp.ToLocalTime().ToString("HH:mm");
 
     public string StateText => IsFailed
-        ? "失败"
+        ? Lang.Get("lang.kitopia.failed")
         : IsReceiving
             ? BuildTransferStateText()
             : IsPending
-                ? "发送中..."
+                ? Lang.Get("lang.kitopia.sending")
                 : string.Empty;
+
+    internal void RefreshLanguage()
+    {
+        OnPropertyChanged(nameof(StateText));
+        OnPropertyChanged(nameof(HasState));
+    }
 
     public bool HasState => !string.IsNullOrEmpty(StateText);
 

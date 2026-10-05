@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using KitopiaEx.Ocr;
@@ -9,7 +9,7 @@ namespace KitopiaEx.CustomScenarioMethods;
 
 public class Translate
 {
-    [ScenarioMethod("翻译文字提取结果", $"{nameof(dResult)}=文字识别结果数据",$"{nameof(sourceTranslateLang)}=源语言",$"{nameof(translateLang)}=目标语言", "return=文字识别结果数据")]
+    [ScenarioMethod("lang.kitopiaex.translate_ocr_results", $"{nameof(dResult)}=lang.kitopiaex.ocr_result_data",$"{nameof(sourceTranslateLang)}=lang.kitopiaex.source_language",$"{nameof(translateLang)}=lang.kitopiaex.target_language", "return=lang.kitopiaex.ocr_result_data", Id = "翻译文字提取结果")]
     public async Task<IEnumerable<OcrResult>> TranslateOcrResults(IEnumerable<OcrResult> dResult,[SelfInput]SourceTranslateLang sourceTranslateLang,[SelfInput]TargetTranslateLang translateLang, CancellationToken ct)
     {
         List<OcrResult> result = new List<OcrResult>();
@@ -24,7 +24,7 @@ public class Translate
         return result;
     }
     
-    [ScenarioMethod("翻译文字", $"{nameof(dResult)}=文字识别结果数据",$"{nameof(sourceTranslateLang)}=源语言",$"{nameof(translateLang)}=目标语言", "return=文字识别结果数据")]
+    [ScenarioMethod("lang.kitopiaex.translate_text", $"{nameof(dResult)}=lang.kitopiaex.ocr_result_data",$"{nameof(sourceTranslateLang)}=lang.kitopiaex.source_language",$"{nameof(translateLang)}=lang.kitopiaex.target_language", "return=lang.kitopiaex.ocr_result_data", Id = "翻译文字")]
     public async Task<string> TranslateOcrResults(string dResult,[SelfInput]SourceTranslateLang sourceTranslateLang,[SelfInput]TargetTranslateLang translateLang, CancellationToken? ct=null)
     {
         return await TranslateApi.GetTranslation(dResult,sourceTranslateLang,translateLang);

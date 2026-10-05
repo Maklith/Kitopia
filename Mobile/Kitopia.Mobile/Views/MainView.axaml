@@ -28,14 +28,14 @@
                                TextWrapping="Wrap"
                                Foreground="{DynamicResource SemiColorText1}" />
                     <TextBox x:Name="TextPromptInput"
-                             PlaceholderText="请输入内容" />
+                             PlaceholderText="{DynamicResource 'lang.kitopia.enter_content'}" />
                     <StackPanel Orientation="Horizontal"
                                 HorizontalAlignment="Right"
                                 Spacing="8">
-                        <Button Content="取消"
+                        <Button Content="{DynamicResource 'lang.kitopia.cancel'}"
                                 Classes="Secondary"
                                 Click="OnTextPromptCancelClicked" />
-                        <Button Content="确定"
+                        <Button Content="{DynamicResource 'lang.kitopia.ok'}"
                                 Classes="Primary"
                                 Click="OnTextPromptConfirmClicked" />
                     </StackPanel>

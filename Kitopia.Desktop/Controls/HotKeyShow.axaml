@@ -9,7 +9,7 @@
             <ControlTemplate>
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
                     <!-- Left: Keycaps + Inline Scope Badge (Coordinated, balanced, no broken icons) -->
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6" VerticalAlignment="Center" ClipToBounds="True">
                         <!-- Keycaps -->
                         <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" IsEnabled="{TemplateBinding IsActivated}">
                             <controls:HotKeyShowItme Content="Ctrl" IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='Ctrl'}" />
@@ -17,12 +17,12 @@
                             <controls:HotKeyShowItme Content="Shift" IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='Shift'}" />
                             <controls:HotKeyShowItme Content="Alt" IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='Alt'}" />
                             <controls:HotKeyShowItme Content="{TemplateBinding KeyName}" IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='KeyName'}" />
-                            <TextBlock Text="未设置快捷键" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource SemiColorText3}"
+                            <TextBlock Text="{DynamicResource 'lang.kitopia.no_hotkey_set'}" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource SemiColorText3}"
                                        IsVisible="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=KeyType, Converter={StaticResource HotKeyKeyTypeToVisible}, ConverterParameter='None'}" />
                         </StackPanel>
 
                         <!-- Scope Pill Badge -->
-                        <Border Background="{DynamicResource SemiColorFill0}"
+                        <Border Grid.Column="1" Background="{DynamicResource SemiColorFill0}"
                                 BorderBrush="{DynamicResource SemiColorBorder}"
                                 BorderThickness="1"
                                 CornerRadius="4"
@@ -36,16 +36,16 @@
                                        ToolTip.Tip="{TemplateBinding ScopeDescription}"
                                        VerticalAlignment="Center" />
                         </Border>
-                    </StackPanel>
+                    </Grid>
 
                     <!-- Right: Secondary Edit Button & Status-Aware Toggle Button -->
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                        <Button Name="EditButton" Classes="HotKeyEditBtn" Content="修改"
+                        <Button Name="EditButton" Classes="HotKeyEditBtn" Content="{DynamicResource 'lang.kitopia.modify'}"
                                 Command="{TemplateBinding EditHotKey}" />
-                        <Button Name="DisableButton" Classes="HotKeyDisableBtn" Content="停用"
+                        <Button Name="DisableButton" Classes="HotKeyDisableBtn" Content="{DynamicResource 'lang.kitopia.deactivate'}"
                                 IsVisible="{TemplateBinding IsActivated}"
                                 Command="{TemplateBinding ToggleHotKey}" />
-                        <Button Name="EnableButton" Classes="HotKeyEnableBtn" Content="启用"
+                        <Button Name="EnableButton" Classes="HotKeyEnableBtn" Content="{DynamicResource 'lang.kitopia.enable'}"
                                 IsVisible="{TemplateBinding IsActivated, Converter={x:Static BoolConverters.Not}}"
                                 Command="{TemplateBinding ToggleHotKey}" />
                     </StackPanel>

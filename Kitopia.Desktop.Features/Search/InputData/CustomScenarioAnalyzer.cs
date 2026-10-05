@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using PluginCore;
 using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
@@ -16,7 +17,7 @@ public class CustomScenarioAnalyzer : IInputDataAnalyzer
                 if (inputData.Data is Kitopia.Desktop.Features.CustomScenario.CustomScenario scenario)
                     yield return new SearchViewItem
                     {
-                        ItemDisplayName = $"运行情景:'{scenario.Name}'",
+                        ItemDisplayName = Lang.Format("lang.kitopia.messages.run_scenario_value", scenario.Name),
                         FileType = FileType.自定义情景,
                         IconSymbol = 0xF78B,
                         Icon = null,

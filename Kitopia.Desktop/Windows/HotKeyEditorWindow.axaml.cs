@@ -1,6 +1,8 @@
+using Kitopia.Feature.Localization;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,6 +13,7 @@ using Avalonia.Threading;
 using Avalonia.Win32.Input;
 using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
+using Kitopia.Desktop.Features.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using Ursa.Controls;
@@ -43,7 +46,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
         Alt.IsVisible = _type == HotKeyType.Keyboard && hotKeyModel.IsSelectAlt;
         Shift.IsVisible = _type == HotKeyType.Keyboard && hotKeyModel.IsSelectShift;
         Win.IsVisible = _type == HotKeyType.Keyboard && hotKeyModel.IsSelectWin;
-        KeyName.Content = _type == HotKeyType.Keyboard ? hotKeyModel.SelectKey.ToString() : MouseButtonName(hotKeyModel.MouseButton);
+        KeyName.Content = _type == HotKeyType.Keyboard ? Lang.Get(hotKeyModel.SelectKey) : HotKeyDisplay.MouseButtonName(hotKeyModel.MouseButton);
         ProcessScope.SelectedIndex = (int)hotKeyModel.ProcessScope;
         _processTags = new ObservableCollection<string>(
             hotKeyModel.ProcessNames
@@ -75,7 +78,23 @@ public partial class HotKeyEditorWindow : UrsaWindow
 
         LoadRunningProcesses();
         IgnoreTextInput.IsChecked = hotKeyModel.IgnoreTextInput;
-        Opened += (_, _) => MouseCaptureArea.Focus();
+        Opened += (_, _) =>
+        {
+            Lang.Current.PropertyChanged += OnLanguageChanged;
+            MouseCaptureArea.Focus();
+        };
+        Closed += (_, _) => Lang.Current.PropertyChanged -= OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(Lang.Keys)) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            Name.Text = Converter.HotKeySignNameToStringCtr.FormatFriendlyName(_hotKeyModel.SignName);
+            KeyName.Content = _type == HotKeyType.Keyboard ? Lang.Get(_selectedKey ?? EKey.未设置) : HotKeyDisplay.MouseButtonName(_selectedMouseButton);
+            ValidationMessage.Text = string.Empty;
+        });
     }
 
     private void HotKeyEditorWindow_OnKeyDown(object sender, KeyEventArgs e)
@@ -89,7 +108,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
         if (key is Key.LeftShift or Key.RightShift or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin
             or Key.LeftCtrl or Key.RightCtrl or Key.None) return;
         _selectedKey = (EKey)KeyInterop.VirtualKeyFromKey(key);
-        KeyName.Content = _selectedKey.ToString();
+        KeyName.Content = Lang.Get(_selectedKey.Value);
         KeyName.IsVisible = true;
         e.Handled = true;
     }
@@ -99,7 +118,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
         if ((_type == HotKeyType.Keyboard && _selectedKey is null or EKey.未设置 or 0) ||
             (_type == HotKeyType.Mouse && _selectedMouseButton is null or 0 or ushort.MaxValue))
         {
-            ValidationMessage.Text = "请先录入快捷键。";
+            ValidationMessage.Text = Lang.Get("lang.kitopia.enter_a_hotkey_first");
             return;
         }
         var scope = (HotKeyProcessScope)ProcessScope.SelectedIndex;
@@ -113,7 +132,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         if (scope != HotKeyProcessScope.All && processes.Length == 0)
         {
-            ValidationMessage.Text = "请至少填写一个进程名。";
+            ValidationMessage.Text = Lang.Get("lang.kitopia.enter_at_least_one_process_name");
             ProcessNames.Focus();
             return;
         }
@@ -133,7 +152,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
         };
         if (!ServiceManager.Services.GetRequiredService<IHotKetImpl>().Modify(candidate))
         {
-            ValidationMessage.Text = "快捷键注册失败，可能已被其他程序占用。";
+            ValidationMessage.Text = Lang.Get("lang.kitopia.unable_to_register_the_hotkey_it_may_be_in_use_by_another_application");
             return;
         }
         Close();
@@ -155,25 +174,15 @@ public partial class HotKeyEditorWindow : UrsaWindow
             PointerUpdateKind.XButton2Pressed => (ushort)MouseHookType.XButton2,
             _ => _selectedMouseButton
         };
-        KeyName.Content = MouseButtonName(_selectedMouseButton);
+        KeyName.Content = HotKeyDisplay.MouseButtonName(_selectedMouseButton);
         KeyName.IsVisible = true;
         e.Handled = true;
     }
 
-    private static string MouseButtonName(ushort? button) => button switch
-    {
-        (ushort)MouseHookType.LeftButton => "鼠标左键",
-        (ushort)MouseHookType.RightButton => "鼠标右键",
-        (ushort)MouseHookType.MiddleButton => "鼠标中键",
-        (ushort)MouseHookType.XButton1 => "鼠标侧键1",
-        (ushort)MouseHookType.XButton2 => "鼠标侧键2",
-        _ => "未设置"
-    };
-
     private void KeyBoard_OnClick(object? sender, RoutedEventArgs e)
     {
         _type = HotKeyType.Keyboard;
-        KeyName.Content = _selectedKey?.ToString() ?? "未设置";
+        KeyName.Content = Lang.Get(_selectedKey ?? EKey.未设置);
         MouseCaptureArea.Focus();
     }
 
@@ -181,7 +190,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
     {
         _type = HotKeyType.Mouse;
         Ctrl.IsVisible = Alt.IsVisible = Shift.IsVisible = Win.IsVisible = false;
-        KeyName.Content = MouseButtonName(_selectedMouseButton);
+        KeyName.Content = HotKeyDisplay.MouseButtonName(_selectedMouseButton);
         MouseCaptureArea.Focus();
     }
 

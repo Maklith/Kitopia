@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using KitopiaEx.Translate;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -19,13 +19,13 @@ public class Translate
     /// <param name="dResult">屏幕截图结果 / Screen capture result</param>
     [Feature(
         "translate",
-        "翻译",
-        "选择屏幕区域，识别其中的文字并翻译为简体中文。",
-        "截图与图像",
+        "lang.kitopiaex.translate",
+        "lang.kitopiaex.select_a_screen_region_recognize_its_text_and_translate_to_simplified_chinese",
+        "lang.kitopia.screenshots_and_images",
         0xf834,
         120,
         Activation = FeatureActivationMode.ScreenCapture)]
-    [Capture("翻译", 0xf834)]
+    [Capture("lang.kitopiaex.translate", 0xf834)]
     public void TranslateImgCapture(ScreenCaptureResult dResult)
     {
         var service = KitopiaEx.ServiceProvider.GetService<global::KitopiaEx.CustomScenarioMethods.Ocr>()!;

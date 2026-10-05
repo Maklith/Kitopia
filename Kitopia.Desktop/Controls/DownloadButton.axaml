@@ -19,10 +19,10 @@
                                 FontSize="13">
                             <Button.Styles>
                                 <Style Selector="Button[IsEnabled=True]">
-                                    <Setter Property="Content">下载</Setter>
+                                    <Setter Property="Content" Value="{DynamicResource 'lang.kitopia.download'}" />
                                 </Style>
                                 <Style Selector="Button[IsEnabled=False]">
-                                    <Setter Property="Content">无法下载</Setter>
+                                    <Setter Property="Content" Value="{DynamicResource 'lang.kitopia.download_unavailable'}" />
                                 </Style>
                             </Button.Styles>
                         </Button>

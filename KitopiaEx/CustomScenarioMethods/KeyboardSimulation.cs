@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using PluginCore.CustomScenario.Attribute.Scenario;
 using SharpHook;
@@ -9,21 +9,21 @@ namespace KitopiaEx.CustomScenarioMethods;
 
 public class KeyboardSimulation
 {
-    [ScenarioMethod("按下键盘按键", "key=按键")]
+    [ScenarioMethod("lang.kitopiaex.press_keyboard_key", "key=lang.kitopiaex.key", Id = "按下键盘按键")]
     public void PressKey([SelfInput] KeyCode key, CancellationToken ct)
     {
         var eventSimulator = new EventSimulator();
         eventSimulator.SimulateKeyPress(key);
     }
 
-    [ScenarioMethod("释放键盘按键", "key=按键")]
+    [ScenarioMethod("lang.kitopiaex.release_keyboard_key", "key=lang.kitopiaex.key", Id = "释放键盘按键")]
     public void ReleaseKey([SelfInput] KeyCode key, CancellationToken ct)
     {
         var eventSimulator = new EventSimulator();
         eventSimulator.SimulateKeyRelease(key);
     }
 
-    [ScenarioMethod("按下键盘按键并延迟释放", "key=按键")]
+    [ScenarioMethod("lang.kitopiaex.press_keyboard_key_and_release_after_delay", "key=lang.kitopiaex.key", Id = "按下键盘按键并延迟释放")]
     public void PressAndReleaseKey([SelfInput] KeyCode key, CancellationToken ct)
     {
         PressKey(key, ct);

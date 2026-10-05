@@ -24,8 +24,8 @@ internal static class OcrModelPackage
             PluginStr = "Kitopia",
             Model = new OnnxModelInfo
             {
-                Name = "PP-OCRv6 tiny 文字检测模型",
-                Description = "PP-OCRv6 tiny，用于检测本地图片和屏幕截图中的文字区域。",
+                Name = "lang.kitopia.models.ocr_detector",
+                Description = "lang.kitopia.pp_ocrv6_tiny_detects_text_regions_in_local_images_and_screen_captures",
                 SignName = DetectorSignName,
                 ModelPath = DetectorPath,
                 RequiredFiles = [RecognizerPath, DictionaryPath],
@@ -37,8 +37,8 @@ internal static class OcrModelPackage
             PluginStr = "Kitopia",
             Model = new OnnxModelInfo
             {
-                Name = "PP-OCRv6 tiny 文字识别模型",
-                Description = "PP-OCRv6 tiny，用于识别本地图片和屏幕截图中的中英文等文字。",
+                Name = "lang.kitopia.models.ocr_recognizer",
+                Description = "lang.kitopia.pp_ocrv6_tiny_recognizes_chinese_english_and_other_text_in_images_and_captures",
                 SignName = RecognizerSignName,
                 ModelPath = RecognizerPath,
                 RequiredFiles = [DetectorPath, DictionaryPath],

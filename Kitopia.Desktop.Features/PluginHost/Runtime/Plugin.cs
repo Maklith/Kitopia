@@ -1,5 +1,6 @@
 #region
 
+using Kitopia.Feature.Localization;
 using System.Reflection;
 using Kitopia.Desktop.Features.CustomScenario;
 using Kitopia.Desktop.Features.Services.Config;
@@ -47,7 +48,7 @@ public class Plugin
                 throw new InvalidOperationException($"未找到快捷键 {model.SignName} 的触发方法。");
             _hotKeyIds.Add(model.UUID);
             if (!ServiceManager.Services.GetRequiredService<IHotKetImpl>().Register(model, callback))
-                ServiceManager.Services.GetService<IToastService>()?.Show("快捷键注册失败", model.SignName);
+                ServiceManager.Services.GetService<IToastService>()?.Show(Lang.Get("lang.kitopia.hotkey_registration_failed"), model.SignName);
         }
     }
 
@@ -63,6 +64,9 @@ public class Plugin
         _plugin = new AssemblyLoadContextH(pluginInfo.FullPath, pluginInfo.FullPath.Split(Path.DirectorySeparatorChar)
             .Last() + "_plugin", pluginInfo.PluginBaseInfo.Dependencies);
         Logger.Debug($"加载插件:{pluginInfo.FullPath}");
+        PluginCore.Localization.Lang.Lookup = Lang.Get;
+        PluginCore.Localization.Lang.BindingSource = Lang.Current;
+        Lang.Current.RegisterAssembly(_dll);
         var t = _dll.GetExportedTypes();
         //Dictionary<string, (MethodInfo, object)> methodInfos = new();
         ScenarioMethodCategoryGroup pluginMainScenarioMethodCategoryGroup = new();
@@ -189,7 +193,7 @@ public class Plugin
                             }
                             catch (Exception exception)
                             {
-                                ServiceManager.Services.GetService<IToastService>().Show("执行截图扩展方法时出现错误",
+                                ServiceManager.Services.GetService<IToastService>().Show(Lang.Get("lang.kitopia.screen_capture_extension_failed"),
                                     exception.InnerException?.Message ?? exception.Message);
                                 Logger.Error(exception, "错误");
                             }
@@ -432,6 +436,16 @@ public class Plugin
         }
         catch (Exception exception) { succeeded = false; Logger.Error(exception, "释放插件 {Plugin} 服务容器失败", name); }
         finally { ServiceProvider = null; }
+
+        if (_plugin is not null)
+        {
+            var assemblyName = _dll.GetName().Name!;
+            var prefix = "lang." + assemblyName.ToLowerInvariant() + ".";
+            foreach (var key in CustomScenarioGlobe.TypeNames.Where(pair => pair.Value.StartsWith(prefix, StringComparison.Ordinal))
+                         .Select(pair => pair.Key).ToArray())
+                CustomScenarioGlobe.TypeNames.Remove(key);
+            Cleanup(() => Lang.Current.UnregisterAssembly(assemblyName));
+        }
 
         var context = _plugin;
         _plugin = null;

@@ -4,7 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="400"
         x:Class="Kitopia.Desktop.Windows.LongScreenshotProgressWindow"
-        Title="长截图进度"
+        Title="{DynamicResource 'lang.kitopia.scrolling_screenshot_progress'}"
         Width="300" Height="400"
         WindowStartupLocation="Manual"
         Topmost="True"
@@ -23,7 +23,7 @@
             
             <Button Name="StopButton" Grid.Row="1" Classes="Primary"
                     Height="32" Padding="18,0" CornerRadius="6" FontSize="13"
-                    Content="完成 / 停止" HorizontalAlignment="Center" Click="StopButton_Click"/>
+                    Content="{DynamicResource 'lang.kitopia.finish_stop'}" HorizontalAlignment="Center" Click="StopButton_Click"/>
         </Grid>
     </Border>
 </Window>

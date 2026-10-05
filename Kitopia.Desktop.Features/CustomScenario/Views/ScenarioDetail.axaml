@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
              xmlns:scenario="clr-namespace:Kitopia.Desktop.Features.CustomScenario.ViewModels"
              xmlns:model="clr-namespace:Kitopia.Desktop.Features.CustomScenario.Services"
              xmlns:u="https://irihi.tech/ursa"
@@ -9,13 +10,13 @@
     <Border CornerRadius="12" Background="{DynamicResource SemiColorBackground1}" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="24,14,20,10">
-                <TextBlock Text="情景详情" FontSize="16" FontWeight="SemiBold"
+                <TextBlock Text="{DynamicResource 'lang.kitopia.scenario_details'}" FontSize="16" FontWeight="SemiBold"
                            Foreground="{DynamicResource SemiColorText0}" VerticalAlignment="Center" />
                 <Button Grid.Column="1" Theme="{DynamicResource BorderlessButton}"
                         Command="{Binding CloseCommand}" Width="28" Height="28" Padding="0"
                         CornerRadius="6" FontSize="14" Foreground="{DynamicResource SemiColorText2}"
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Cursor="Hand" ToolTip.Tip="关闭" Content="✕" />
+                        Cursor="Hand" ToolTip.Tip="{DynamicResource 'lang.kitopia.close'}" Content="✕" />
             </Grid>
 
             <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
@@ -36,15 +37,15 @@
                                                Foreground="{DynamicResource SemiColorText0}" TextWrapping="Wrap" />
                                     <Border CornerRadius="999" Padding="10,3" Background="{DynamicResource KitopiaBadgeSuccessBackground}"
                                             IsVisible="{Binding Scenario.IsPublic}">
-                                        <TextBlock Text="公开情景" FontSize="12" Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" />
+                                        <TextBlock Text="{DynamicResource 'lang.kitopia.public_scenario'}" FontSize="12" Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" />
                                     </Border>
                                     <Border CornerRadius="999" Padding="10,3" Background="{DynamicResource KitopiaBadgeCurrentBackground}"
                                             IsVisible="{Binding Scenario.IsPendingPublication}">
-                                        <TextBlock Text="待审核" FontSize="12" Foreground="{DynamicResource KitopiaBadgeCurrentForeground}" />
+                                        <TextBlock Text="{DynamicResource 'lang.kitopia.pending_review'}" FontSize="12" Foreground="{DynamicResource KitopiaBadgeCurrentForeground}" />
                                     </Border>
                                     <Border CornerRadius="999" Padding="10,3" Background="{DynamicResource KitopiaBadgeNeutralBackground}"
                                             IsVisible="{Binding Scenario.IsPrivate}">
-                                        <TextBlock Text="私有情景" FontSize="12" Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
+                                        <TextBlock Text="{DynamicResource 'lang.kitopia.private_scenario'}" FontSize="12" Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
                                     </Border>
                                 </StackPanel>
                                 <TextBlock Text="{Binding Scenario.SourceUuid}" FontSize="12"
@@ -58,7 +59,7 @@
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Scenario.Author}" FontSize="13" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource SemiColorText0}" />
-                                        <TextBlock Text="作者" FontSize="11" Foreground="{DynamicResource SemiColorText2}" />
+                                        <TextBlock Text="{DynamicResource 'lang.kitopia.author'}" FontSize="11" Foreground="{DynamicResource SemiColorText2}" />
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Text="{Binding Scenario.DescriptionDisplay}" TextWrapping="Wrap"
@@ -76,8 +77,8 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                                 <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,0,0" IsVisible="{Binding CanManage}">
-                                    <Button Content="发布版本" Classes="Primary" CornerRadius="6" Command="{Binding UploadVersionCommand}" />
-                                    <Button Content="编辑信息" CornerRadius="6" Command="{Binding EditInformationCommand}" />
+                                    <Button Content="{DynamicResource 'lang.kitopia.publish_version'}" Classes="Primary" CornerRadius="6" Command="{Binding UploadVersionCommand}" />
+                                    <Button Content="{DynamicResource 'lang.kitopia.edit_information'}" CornerRadius="6" Command="{Binding EditInformationCommand}" />
                                     <Button Content="{Binding Scenario.ReviewActionText}" CornerRadius="6"
                                             IsVisible="{Binding HasPendingInformationReview}"
                                             Command="{Binding CancelInformationReviewCommand}" />
@@ -85,17 +86,17 @@
                             </StackPanel>
                             <StackPanel Grid.Column="2" Spacing="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8,0,0,0">
                                 <StackPanel HorizontalAlignment="Right">
-                                    <TextBlock Text="最新版本" FontSize="12" Foreground="{DynamicResource SemiColorText2}" HorizontalAlignment="Right" />
+                                    <TextBlock Text="{DynamicResource 'lang.kitopia.latest_version'}" FontSize="12" Foreground="{DynamicResource SemiColorText2}" HorizontalAlignment="Right" />
                                     <TextBlock Text="{Binding Scenario.LastVersion, FallbackValue=—}" FontSize="16" FontWeight="SemiBold"
                                                Foreground="{DynamicResource SemiColorText0}" HorizontalAlignment="Right" Margin="0,2,0,0" />
                                 </StackPanel>
                                 <StackPanel HorizontalAlignment="Right">
-                                    <TextBlock Text="下载量" FontSize="12" Foreground="{DynamicResource SemiColorText2}" HorizontalAlignment="Right" />
+                                    <TextBlock Text="{DynamicResource 'lang.kitopia.downloads'}" FontSize="12" Foreground="{DynamicResource SemiColorText2}" HorizontalAlignment="Right" />
                                     <TextBlock Text="{Binding Scenario.DownloadCounts}" FontSize="16" FontWeight="SemiBold"
                                                Foreground="{DynamicResource SemiColorText0}" HorizontalAlignment="Right" Margin="0,2,0,0" />
                                 </StackPanel>
                                 <StackPanel HorizontalAlignment="Right">
-                                    <TextBlock Text="评分" FontSize="12" Foreground="{DynamicResource SemiColorText2}" HorizontalAlignment="Right" />
+                                    <TextBlock Text="{DynamicResource 'lang.kitopia.rating'}" FontSize="12" Foreground="{DynamicResource SemiColorText2}" HorizontalAlignment="Right" />
                                     <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" Margin="0,2,0,0">
                                         <TextBlock Text="★" FontSize="13" Foreground="{DynamicResource SemiColorWarning}" IsVisible="{Binding Scenario.HasRatings}" />
                                         <TextBlock Text="☆" FontSize="13" Foreground="{DynamicResource SemiColorText3}" IsVisible="{Binding !Scenario.HasRatings}" />
@@ -104,7 +105,7 @@
                                         <TextBlock Text="—" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource SemiColorText2}"
                                                    IsVisible="{Binding !Scenario.HasRatings}" />
                                     </StackPanel>
-                                    <TextBlock Text="{Binding Scenario.RatingCount, StringFormat='{}{0} 条评价'}" FontSize="11"
+                                    <TextBlock Text="{lang:Lang &apos;lang.kitopia.value_ratings&apos;, Value={Binding Scenario.RatingCount}}" FontSize="11"
                                                Foreground="{DynamicResource SemiColorText2}" HorizontalAlignment="Right" Margin="0,2,0,0" />
                                 </StackPanel>
                             </StackPanel>
@@ -116,8 +117,8 @@
                     <Border CornerRadius="12" Background="{DynamicResource SemiColorBackground0}"
                             BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" Padding="24">
                         <StackPanel Spacing="10">
-                            <TextBlock Text="情景介绍" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource SemiColorText2}" />
-                            <TextBlock Text="详细介绍" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource SemiColorText0}" />
+                            <TextBlock Text="{DynamicResource 'lang.kitopia.about_this_scenario'}" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource SemiColorText2}" />
+                            <TextBlock Text="{DynamicResource 'lang.kitopia.details'}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource SemiColorText0}" />
                             <TextBlock Text="{Binding Scenario.DescriptionDisplay}" TextWrapping="Wrap" LineHeight="22"
                                        Foreground="{DynamicResource SemiColorText1}" Margin="0,6,0,0" />
                         </StackPanel>
@@ -131,8 +132,8 @@
                             <TextBox Text="{Binding EditingDetail}" AcceptsReturn="True" TextWrapping="Wrap"
                                      MinHeight="92" MaxHeight="180" MaxLength="2000" IsEnabled="{Binding !IsSaving}" />
                             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                                <Button Content="取消" Command="{Binding CancelEditReleaseDetailCommand}" IsEnabled="{Binding !IsSaving}" />
-                                <Button Content="保存说明" Classes="Primary" Command="{Binding SaveReleaseDetailCommand}" IsEnabled="{Binding !IsSaving}" />
+                                <Button Content="{DynamicResource 'lang.kitopia.cancel'}" Command="{Binding CancelEditReleaseDetailCommand}" IsEnabled="{Binding !IsSaving}" />
+                                <Button Content="{DynamicResource 'lang.kitopia.save_notes'}" Classes="Primary" Command="{Binding SaveReleaseDetailCommand}" IsEnabled="{Binding !IsSaving}" />
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -142,14 +143,14 @@
                         <StackPanel Spacing="16">
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel>
-                                    <TextBlock Text="版本时间线" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource SemiColorText2}" />
-                                    <TextBlock Text="全部版本与审核记录" FontSize="18" FontWeight="Bold"
+                                    <TextBlock Text="{DynamicResource 'lang.kitopia.version_history'}" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource SemiColorText2}" />
+                                    <TextBlock Text="{DynamicResource 'lang.kitopia.all_versions_and_review_history'}" FontSize="18" FontWeight="Bold"
                                                Foreground="{DynamicResource SemiColorText0}" Margin="0,2,0,0" />
                                 </StackPanel>
-                                <TextBlock Grid.Column="1" Text="{Binding Releases.Count, StringFormat='共 {0} 个版本'}"
+                                <TextBlock Grid.Column="1" Text="{lang:Lang &apos;lang.kitopia.value_versions&apos;, Value={Binding Releases.Count}}"
                                            FontSize="13" Foreground="{DynamicResource SemiColorText2}" VerticalAlignment="Bottom" />
                             </Grid>
-                            <TextBlock Text="加载中..." IsVisible="{Binding IsLoading}" Foreground="{DynamicResource SemiColorText2}" />
+                            <TextBlock Text="{DynamicResource 'lang.kitopia.loading'}" IsVisible="{Binding IsLoading}" Foreground="{DynamicResource SemiColorText2}" />
                             <ItemsControl ItemsSource="{Binding Releases}" IsVisible="{Binding !IsLoading}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="model:ScenarioRelease">
@@ -177,29 +178,29 @@
                                                 <Grid ColumnDefinitions="*,Auto">
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                                         <TextBlock Text="{Binding DisplayVersion}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource SemiColorText0}" />
-                                                        <Border CornerRadius="999" Padding="8,2" Background="{DynamicResource KitopiaBadgeSuccessBackground}" IsVisible="{Binding IsPublished}"><TextBlock Text="已发布" FontSize="11" Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" /></Border>
-                                                        <Border CornerRadius="999" Padding="8,2" Background="{DynamicResource KitopiaBadgeCurrentBackground}" IsVisible="{Binding IsPendingReview}"><TextBlock Text="待审核" FontSize="11" Foreground="{DynamicResource KitopiaBadgeCurrentForeground}" /></Border>
-                                                        <Border CornerRadius="999" Padding="8,2" Background="{DynamicResource KitopiaBadgeNeutralBackground}" IsVisible="{Binding IsDraft}"><TextBlock Text="草稿" FontSize="11" Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" /></Border>
-                                                        <Border CornerRadius="999" Padding="8,2" Background="{DynamicResource KitopiaBadgeDangerBackground}" IsVisible="{Binding IsRejected}"><TextBlock Text="已拒绝" FontSize="11" Foreground="{DynamicResource KitopiaBadgeDangerForeground}" /></Border>
-                                                        <Border CornerRadius="999" Padding="8,2" Background="{DynamicResource KitopiaBadgeNeutralBackground}" IsVisible="{Binding IsWithdrawn}"><TextBlock Text="已撤回" FontSize="11" Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" /></Border>
-                                                        <Border CornerRadius="999" Padding="8,2" Background="{DynamicResource KitopiaBadgeTagBackground}" IsVisible="{Binding IsCurrent}"><TextBlock Text="当前版本" FontSize="11" Foreground="{DynamicResource KitopiaBadgeTagForeground}" /></Border>
+                                                        <Border CornerRadius="999" Padding="8,2" Background="{DynamicResource KitopiaBadgeSuccessBackground}" IsVisible="{Binding IsPublished}"><TextBlock Text="{DynamicResource 'lang.kitopia.published'}" FontSize="11" Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" /></Border>
+                                                        <Border CornerRadius="999" Padding="8,2" Background="{DynamicResource KitopiaBadgeCurrentBackground}" IsVisible="{Binding IsPendingReview}"><TextBlock Text="{DynamicResource 'lang.kitopia.pending_review'}" FontSize="11" Foreground="{DynamicResource KitopiaBadgeCurrentForeground}" /></Border>
+                                                        <Border CornerRadius="999" Padding="8,2" Background="{DynamicResource KitopiaBadgeNeutralBackground}" IsVisible="{Binding IsDraft}"><TextBlock Text="{DynamicResource 'lang.kitopia.draft'}" FontSize="11" Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" /></Border>
+                                                        <Border CornerRadius="999" Padding="8,2" Background="{DynamicResource KitopiaBadgeDangerBackground}" IsVisible="{Binding IsRejected}"><TextBlock Text="{DynamicResource 'lang.kitopia.rejected'}" FontSize="11" Foreground="{DynamicResource KitopiaBadgeDangerForeground}" /></Border>
+                                                        <Border CornerRadius="999" Padding="8,2" Background="{DynamicResource KitopiaBadgeNeutralBackground}" IsVisible="{Binding IsWithdrawn}"><TextBlock Text="{DynamicResource 'lang.kitopia.withdrawn'}" FontSize="11" Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" /></Border>
+                                                        <Border CornerRadius="999" Padding="8,2" Background="{DynamicResource KitopiaBadgeTagBackground}" IsVisible="{Binding IsCurrent}"><TextBlock Text="{DynamicResource 'lang.kitopia.current_version'}" FontSize="11" Foreground="{DynamicResource KitopiaBadgeTagForeground}" /></Border>
                                                     </StackPanel>
                                                     <TextBlock Grid.Column="1" Text="{Binding CreateTimeText}" FontSize="11" Foreground="{DynamicResource SemiColorText2}" VerticalAlignment="Center" />
                                                 </Grid>
                                                 <Grid IsVisible="{Binding HasCandidateDetail}" ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,4,0,0">
-                                                    <Border Grid.Column="0" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" CornerRadius="6" Padding="10"><StackPanel><TextBlock Text="线上版本说明" FontSize="11" Foreground="{DynamicResource SemiColorText2}" /><TextBlock Text="{Binding Detail, FallbackValue=未填写说明}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SemiColorText1}" Margin="0,4,0,0" /></StackPanel></Border>
-                                                    <Border Grid.Column="1" BorderBrush="{DynamicResource KitopiaBadgeTagForeground}" BorderThickness="1" CornerRadius="6" Padding="10" Background="{DynamicResource KitopiaBadgeTagBackground}"><StackPanel><TextBlock Text="候选版本说明（待审核）" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource KitopiaBadgeTagForeground}" /><TextBlock Text="{Binding CandidateDetail, FallbackValue=未填写说明}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SemiColorText1}" Margin="0,4,0,0" /></StackPanel></Border>
+                                                    <Border Grid.Column="0" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" CornerRadius="6" Padding="10"><StackPanel><TextBlock Text="{DynamicResource 'lang.kitopia.published_release_notes'}" FontSize="11" Foreground="{DynamicResource SemiColorText2}" /><TextBlock Text="{lang:Lang Value={Binding Detail}, FallbackKey='lang.kitopia.no_release_notes'}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SemiColorText1}" Margin="0,4,0,0" /></StackPanel></Border>
+                                                    <Border Grid.Column="1" BorderBrush="{DynamicResource KitopiaBadgeTagForeground}" BorderThickness="1" CornerRadius="6" Padding="10" Background="{DynamicResource KitopiaBadgeTagBackground}"><StackPanel><TextBlock Text="{DynamicResource 'lang.kitopia.candidate_release_notes_pending_review'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource KitopiaBadgeTagForeground}" /><TextBlock Text="{lang:Lang Value={Binding CandidateDetail}, FallbackKey='lang.kitopia.no_release_notes'}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SemiColorText1}" Margin="0,4,0,0" /></StackPanel></Border>
                                                 </Grid>
-                                                <TextBlock Text="{Binding Detail, FallbackValue=未填写说明}" TextWrapping="Wrap" FontSize="13" LineHeight="20"
+                                                <TextBlock Text="{lang:Lang Value={Binding Detail}, FallbackKey='lang.kitopia.no_release_notes'}" TextWrapping="Wrap" FontSize="13" LineHeight="20"
                                                            Foreground="{DynamicResource SemiColorText1}" Margin="0,4,0,6" IsVisible="{Binding !HasCandidateDetail}" />
                                                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
-                                                    <Button Content="导入到 Kitopia" Classes="Primary" CornerRadius="6" IsVisible="{Binding CanDownload}"
+                                                    <Button Content="{DynamicResource 'lang.kitopia.import_into_kitopia'}" Classes="Primary" CornerRadius="6" IsVisible="{Binding CanDownload}"
                                                             Command="{Binding Path=$parent[UserControl].((scenario:ScenarioDetailViewModel)DataContext).ImportReleaseCommand}" CommandParameter="{Binding .}" />
-                                                    <Button Content="编辑版本详情" CornerRadius="6" IsVisible="{Binding CanEdit}"
+                                                    <Button Content="{DynamicResource 'lang.kitopia.edit_version_details'}" CornerRadius="6" IsVisible="{Binding CanEdit}"
                                                             Command="{Binding Path=$parent[UserControl].((scenario:ScenarioDetailViewModel)DataContext).EditReleaseDetailCommand}" CommandParameter="{Binding .}" />
-                                                    <Button Content="取消审核" CornerRadius="6" IsVisible="{Binding CanCancelReview}"
+                                                    <Button Content="{DynamicResource 'lang.kitopia.cancel_review'}" CornerRadius="6" IsVisible="{Binding CanCancelReview}"
                                                             Command="{Binding Path=$parent[UserControl].((scenario:ScenarioDetailViewModel)DataContext).CancelReleaseReviewCommand}" CommandParameter="{Binding .}" />
-                                                    <Button Content="撤回此版本" Theme="{DynamicResource KitopiaDangerSubtleButton}" CornerRadius="6" IsVisible="{Binding CanWithdraw}"
+                                                    <Button Content="{DynamicResource 'lang.kitopia.withdraw_this_version'}" Theme="{DynamicResource KitopiaDangerSubtleButton}" CornerRadius="6" IsVisible="{Binding CanWithdraw}"
                                                             Command="{Binding Path=$parent[UserControl].((scenario:ScenarioDetailViewModel)DataContext).WithdrawReleaseCommand}" CommandParameter="{Binding .}" />
                                                 </StackPanel>
                                                 <Expander Header="{Binding ReviewHistoryText}" IsVisible="{Binding HasReviewHistory}" Margin="0,3,0,0">
@@ -210,7 +211,7 @@
                                                                     <StackPanel Spacing="3">
                                                                         <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="{Binding StatusText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SemiColorText1}" /><TextBlock Text="{Binding CreateTimeText}" FontSize="11" Foreground="{DynamicResource SemiColorText2}" /></StackPanel>
                                                                         <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SemiColorText1}" IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                                                                        <TextBlock Text="{Binding ReviewComment, StringFormat='审核意见：{0}'}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SemiColorDanger}" IsVisible="{Binding ReviewComment, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                                                        <TextBlock Text="{lang:Lang &apos;lang.kitopia.review_comment_value&apos;, Value={Binding ReviewComment}}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SemiColorDanger}" IsVisible="{Binding ReviewComment, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                                                     </StackPanel>
                                                                 </Border>
                                                             </DataTemplate>
@@ -222,7 +223,7 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <TextBlock Text="暂无历史版本" IsVisible="{Binding HasReleases, Converter={x:Static BoolConverters.Not}}"
+                            <TextBlock Text="{DynamicResource 'lang.kitopia.no_version_history'}" IsVisible="{Binding HasReleases, Converter={x:Static BoolConverters.Not}}"
                                        Foreground="{DynamicResource SemiColorText2}" />
                         </StackPanel>
                     </Border>

@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.JsonConverter;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
+using Kitopia.Feature.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Config;
@@ -63,8 +64,12 @@ public class ConfigManger : IConfigService, IConfigProvider
         get => _configs;
         set
         {
-            _configs = value;
-            AllConfigs = value.AsReadOnly();
+            lock (SaveGate)
+            {
+                PendingWrites.Clear();
+                _configs = value;
+                AllConfigs = value.AsReadOnly();
+            }
         }
     }
     public static KitopiaConfig Config => Configs.TryGetValue("KitopiaConfig", out var config) ? (KitopiaConfig)config : null!;
@@ -74,6 +79,7 @@ public class ConfigManger : IConfigService, IConfigProvider
     private static readonly HashSet<string> RecoveredConfigKeys = new(StringComparer.Ordinal);
     private static readonly HashSet<string> BackupLoadedConfigKeys = new(StringComparer.Ordinal);
     private static readonly object SaveGate = new();
+    private static readonly Dictionary<string, string> PendingWrites = new(StringComparer.Ordinal);
 
     private static void NotifyConfigIssue(string key, string message, NotificationType type)
     {
@@ -84,7 +90,7 @@ public class ConfigManger : IConfigService, IConfigProvider
 
             _ = toast.Show(new ToastRequest
             {
-                Header = "配置异常",
+                Header = Lang.Get("lang.kitopia.configuration_error"),
                 Text = $"{key}：{message}",
                 NotificationType = type,
                 AutoCloseDelay = null
@@ -120,17 +126,18 @@ public class ConfigManger : IConfigService, IConfigProvider
         catch (Exception exception)
         {
             Logger.Error(exception, "无法访问配置目录");
-            NotifyConfigIssue("配置目录", "无法访问配置目录，请检查目录权限或磁盘状态。", NotificationType.Error);
+            NotifyConfigIssue(Lang.Get("lang.kitopia.messages.configuration_directory"), Lang.Get("lang.kitopia.messages.cannot_access_the_configuration_directory_check_permissions_and_disk_status"), NotificationType.Error);
             throw;
         }
         if (KitopiaPaths.ConfigMigrationError is { } migrationError)
         {
             Logger.Warning(migrationError, "旧配置目录迁移失败");
-            NotifyConfigIssue("配置目录", "旧配置迁移失败，部分设置可能无法加载；请检查日志和配置目录。", NotificationType.Warning);
+            NotifyConfigIssue(Lang.Get("lang.kitopia.messages.configuration_directory"), Lang.Get("lang.kitopia.messages.legacy_configuration_migration_failed_some_settings_may_be_unavailable_check_the_logs_and_configuration_directory"), NotificationType.Warning);
         }
 
         RemoveConfig("KitopiaConfig");
         LoadConfig("KitopiaConfig", new KitopiaConfig(), useDefaultsOnInvalidJson: true);
+        Lang.Current.UseLanguage(Config.language);
         Config.GetType()
             .GetFields(BindingFlags.Instance | BindingFlags.Public)
             .ToList()
@@ -145,9 +152,9 @@ public class ConfigManger : IConfigService, IConfigProvider
                             if (!ServiceManager.Services.GetService<IHotKetImpl>()!.Register(hotKeyModel, value as Action<HotKeyModel>))
                                 ServiceManager.Services.GetService<IToastService>().Show(new DialogContent
                                 {
-                                    Title = $"快捷键{hotKeyModel.SignName}设置失败",
-                                    Content = "请重新设置快捷键，按键与系统其他程序冲突",
-                                    CloseButtonText = "关闭"
+                                    Title = Lang.Format("lang.kitopia.messages.unable_to_set_hotkey_value", hotKeyModel.SignName),
+                                    Content = Lang.Get("lang.kitopia.choose_another_hotkey_this_key_combination_is_already_in_use"),
+                                    CloseButtonText = Lang.Get("lang.kitopia.close")
                                 }.ToToastRequest());
                     }
             });
@@ -280,7 +287,7 @@ public class ConfigManger : IConfigService, IConfigProvider
                         config.ConfigVersion = config.CurrentConfigVersion;
                         RecoveredConfigKeys.Add(key);
                         Logger.Error(exception, "配置 {Key} 和备份无法解析，本次使用默认值，保留原文件", key);
-                        NotifyConfigIssue(key, "主文件和备份均无法读取，当前仅使用内存默认值，已暂停保存。请检查配置文件。", NotificationType.Error);
+                        NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.the_configuration_and_backup_are_unreadable_using_defaults_in_memory_with_saving_suspended_check_the_configuration_files"), NotificationType.Error);
                     }
                 }
                 catch (JsonException exception) when (useDefaultsOnInvalidJson)
@@ -291,7 +298,7 @@ public class ConfigManger : IConfigService, IConfigProvider
                     config.ConfigVersion = config.CurrentConfigVersion;
                     RecoveredConfigKeys.Add(key);
                     Logger.Error(exception, "配置 {Key} 和备份无法解析，本次使用默认值，保留原文件", key);
-                    NotifyConfigIssue(key, "主文件无法读取且没有可用备份，当前仅使用内存默认值，已暂停保存。请检查配置文件。", NotificationType.Error);
+                    NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.the_configuration_is_unreadable_and_no_backup_is_available_using_defaults_in_memory_with_saving_suspended_check_the_configuration_file"), NotificationType.Error);
                 }
                 config.Name = key;
                 // Migration and plugin callbacks are outside JSON recovery: their failures must not replace user data.
@@ -300,9 +307,9 @@ public class ConfigManger : IConfigService, IConfigProvider
                 {
                     var message = mainMissing
                         ? restoreFailed
-                            ? "主文件缺失，已从备份加载，但恢复主文件失败；请检查磁盘权限。"
-                            : "主文件缺失，已从备份恢复。"
-                        : "主文件损坏，已从备份加载；下次保存会修复主文件，并保留有效备份。";
+                            ? Lang.Get("lang.kitopia.messages.the_configuration_is_missing_loaded_the_backup_but_could_not_restore_the_file_check_disk_permissions")
+                            : Lang.Get("lang.kitopia.messages.the_missing_configuration_was_restored_from_its_backup")
+                        : Lang.Get("lang.kitopia.messages.the_configuration_is_damaged_loaded_the_backup_the_next_save_will_repair_the_file_and_preserve_the_valid_backup");
                     NotifyConfigIssue(key, message, NotificationType.Warning);
                 }
                 else if (document is not null && File.Exists(filePath + ".bak"))
@@ -316,7 +323,7 @@ public class ConfigManger : IConfigService, IConfigProvider
                     catch (Exception exception)
                     {
                         Logger.Warning(exception, "配置 {Key} 的备份无法读取，主文件仍可用", key);
-                        NotifyConfigIssue(key, "备份文件损坏或无法读取，主文件仍可用；请检查备份文件。", NotificationType.Error);
+                        NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.the_backup_is_damaged_or_unreadable_the_configuration_is_still_usable_check_the_backup_file"), NotificationType.Error);
                     }
                 }
             }
@@ -324,8 +331,8 @@ public class ConfigManger : IConfigService, IConfigProvider
             {
                 Logger.Error(exception, "加载配置 {Key} 失败", key);
                 var message = backupAttempted && !loadedBackup
-                    ? "主文件和备份均无法读取，配置未加载；原文件未覆盖，请检查日志。"
-                    : "配置加载失败，原文件未覆盖；请检查日志和配置文件。";
+                    ? Lang.Get("lang.kitopia.messages.the_configuration_and_backup_are_unreadable_nothing_was_loaded_or_overwritten_check_the_logs")
+                    : Lang.Get("lang.kitopia.messages.failed_to_load_the_configuration_the_original_file_was_preserved_check_the_logs_and_configuration_file");
                 NotifyConfigIssue(key, message, NotificationType.Error);
                 throw;
             }
@@ -335,15 +342,15 @@ public class ConfigManger : IConfigService, IConfigProvider
         {
             config.ConfigVersion = config.CurrentConfigVersion;
             Logger.Information("配置 {Key} 主文件和备份均不存在，创建默认配置：{Path}", key, filePath);
-            try { WriteConfigFile(key, config); }
+            try { WriteConfigFile(key, JsonSerializer.Serialize(config, config.GetType(), DefaultOptions)); }
             catch (Exception exception)
             {
                 Logger.Error(exception, "创建配置 {Key} 失败", key);
-                NotifyConfigIssue(key, "创建默认配置失败，请检查磁盘空间或目录权限。", NotificationType.Error);
+                NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.unable_to_create_default_configuration_check_disk_space_and_directory_permissions"), NotificationType.Error);
                 throw;
             }
             if (useDefaultsOnInvalidJson)
-                NotifyConfigIssue(key, "未找到主文件和备份，已创建默认配置。如非首次使用，请检查配置目录。", NotificationType.Warning);
+                NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.no_configuration_or_backup_was_found_so_defaults_were_created_check_the_configuration_directory_if_this_is_not_the_first_launch"), NotificationType.Warning);
         }
 
         Configs.Add(key, config);
@@ -373,7 +380,7 @@ public class ConfigManger : IConfigService, IConfigProvider
         {
             RemoveConfig(key);
             Logger.Error(exception, "初始化配置 {Key} 失败", key);
-            NotifyConfigIssue(key, "配置初始化失败，请检查日志；原文件未覆盖。", NotificationType.Error);
+            NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.configuration_initialization_failed_the_original_file_was_preserved_check_the_logs"), NotificationType.Error);
             throw;
         }
     }
@@ -396,7 +403,7 @@ public class ConfigManger : IConfigService, IConfigProvider
             Logger.Warning("配置版本 {ConfigVersion} 高于当前版本 {CurrentConfigVersion}，跳过迁移",
                 config.ConfigVersion, config.CurrentConfigVersion);
             if (key is not null)
-                NotifyConfigIssue(key, "配置来自更新版本，已跳过迁移和保存，以免覆盖未知数据。", NotificationType.Warning);
+                NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.the_configuration_comes_from_a_newer_version_migration_and_saving_are_suspended_to_preserve_unknown_data"), NotificationType.Warning);
             return;
         }
 
@@ -407,9 +414,17 @@ public class ConfigManger : IConfigService, IConfigProvider
         config.ConfigVersion = config.CurrentConfigVersion;
     }
 
-    internal static void WriteConfigFile(string key, ConfigBase configBase)
+    internal static bool WriteConfigFile(string key, string json, bool preserveBackup = false, bool queued = false)
     {
         var configFile = new FileInfo(KitopiaPaths.GetConfigFilePath(key));
+        lock (SaveGate)
+        {
+            if (queued && (!PendingWrites.TryGetValue(key, out var pending) || !ReferenceEquals(pending, json)))
+                return false;
+            if (!preserveBackup && configFile.Exists && File.ReadAllText(configFile.FullName) == json)
+                return false;
+        }
+
         if (configFile.DirectoryName is { } directory)
         {
             Directory.CreateDirectory(directory);
@@ -419,29 +434,37 @@ public class ConfigManger : IConfigService, IConfigProvider
         var backupPath = $"{configFile.FullName}.bak";
         try
         {
-            configBase.ConfigVersion = configBase.CurrentConfigVersion;
-            var json = JsonSerializer.Serialize(configBase, configBase.GetType(), DefaultOptions);
             File.WriteAllText(temporaryPath, json);
 
-            if (configFile.Exists)
+            lock (SaveGate)
             {
-                try
+                // A newer request may have arrived while the temporary file was being written.
+                if (queued && (!PendingWrites.TryGetValue(key, out var pending) || !ReferenceEquals(pending, json)))
+                    return false;
+                if (!preserveBackup && File.Exists(configFile.FullName) && File.ReadAllText(configFile.FullName) == json)
+                    return false;
+
+                if (File.Exists(configFile.FullName))
                 {
-                    File.Replace(temporaryPath, configFile.FullName,
-                        BackupLoadedConfigKeys.Contains(key) ? null : backupPath, true);
+                    try
+                    {
+                        File.Replace(temporaryPath, configFile.FullName,
+                            preserveBackup ? null : backupPath, true);
+                    }
+                    catch (PlatformNotSupportedException)
+                    {
+                        if (!preserveBackup)
+                            File.Copy(configFile.FullName, backupPath, true);
+                        File.Move(temporaryPath, configFile.FullName, true);
+                    }
                 }
-                catch (PlatformNotSupportedException)
+                else
                 {
-                    if (!BackupLoadedConfigKeys.Contains(key))
-                        File.Copy(configFile.FullName, backupPath, true);
-                    File.Move(temporaryPath, configFile.FullName, true);
+                    File.Move(temporaryPath, configFile.FullName);
                 }
+                BackupLoadedConfigKeys.Remove(key);
+                return true;
             }
-            else
-            {
-                File.Move(temporaryPath, configFile.FullName);
-            }
-            BackupLoadedConfigKeys.Remove(key);
         }
         finally
         {
@@ -450,53 +473,68 @@ public class ConfigManger : IConfigService, IConfigProvider
         }
     }
 
-    private static void SaveConfigFile(string key, ConfigBase configBase)
+    private static string? PrepareConfigSave(string key, ConfigBase configBase)
     {
         if (configBase.ConfigVersion > configBase.CurrentConfigVersion)
         {
             if (UnsupportedConfigKeys.Add(key))
-                NotifyConfigIssue(key, "配置来自更新版本，已跳过保存，以免覆盖未知数据。", NotificationType.Warning);
+                NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.the_configuration_comes_from_a_newer_version_saving_is_suspended_to_preserve_unknown_data"), NotificationType.Warning);
         }
 
         if (UnsupportedConfigKeys.Contains(key))
         {
             Logger.Warning("配置 {Key} 使用更高版本，跳过保存以避免覆盖未知字段", key);
-            return;
+            return null;
         }
 
         if (RecoveredConfigKeys.Contains(key))
         {
             Logger.Warning("配置 {Key} 仅使用了内存默认值，跳过保存以保留损坏文件", key);
-            return;
+            return null;
         }
 
+        configBase.BeforeSave();
+        configBase.ConfigVersion = configBase.CurrentConfigVersion;
+        return JsonSerializer.Serialize(configBase, configBase.GetType(), DefaultOptions);
+    }
+
+    private static bool SaveConfigFile(string key, ConfigBase configBase)
+    {
+        PendingWrites.Remove(key);
         try
         {
-            configBase.BeforeSave();
-            WriteConfigFile(key, configBase);
+            var json = PrepareConfigSave(key, configBase);
+            if (json is null || !WriteConfigFile(key, json, BackupLoadedConfigKeys.Contains(key)))
+                return false;
+
             configBase.AfterSave();
+            return true;
         }
         catch (Exception exception)
         {
             Logger.Error(exception, "保存配置 {Key} 失败", key);
-            NotifyConfigIssue(key, "保存配置时发生异常，最新更改可能未写入；请检查日志。", NotificationType.Error);
+            NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.failed_to_save_the_configuration_recent_changes_may_not_be_written_check_the_logs"), NotificationType.Error);
             throw;
         }
     }
 
     public static void RemoveConfig(string key)
     {
-        foreach (var name in Configs.Keys.Where(name => name == key ||
-                     name.StartsWith(key + "#", StringComparison.Ordinal)).ToArray())
+        lock (SaveGate)
         {
-            var config = Configs[name];
-            foreach (var uuid in hotkeysMappings.Where(pair => ReferenceEquals(pair.Value.Config, config))
-                         .Select(pair => pair.Key).ToArray())
-                hotkeysMappings.Remove(uuid);
-            Configs.Remove(name);
-            UnsupportedConfigKeys.Remove(name);
-            RecoveredConfigKeys.Remove(name);
-            BackupLoadedConfigKeys.Remove(name);
+            foreach (var name in Configs.Keys.Where(name => name == key ||
+                         name.StartsWith(key + "#", StringComparison.Ordinal)).ToArray())
+            {
+                var config = Configs[name];
+                foreach (var uuid in hotkeysMappings.Where(pair => ReferenceEquals(pair.Value.Config, config))
+                             .Select(pair => pair.Key).ToArray())
+                    hotkeysMappings.Remove(uuid);
+                PendingWrites.Remove(name);
+                Configs.Remove(name);
+                UnsupportedConfigKeys.Remove(name);
+                RecoveredConfigKeys.Remove(name);
+                BackupLoadedConfigKeys.Remove(name);
+            }
         }
     }
 
@@ -516,17 +554,21 @@ public class ConfigManger : IConfigService, IConfigProvider
 
     public static void Save()
     {
+        var saved = false;
+        List<Exception>? errors = null;
         lock (SaveGate)
         {
             var keyCollection = Configs.Keys.ToList();
             foreach (var configsKey in keyCollection)
             {
-                var configBase = Configs[configsKey];
-                SaveConfigFile(configsKey, configBase);
+                if (!Configs.TryGetValue(configsKey, out var configBase)) continue;
+                try { saved |= SaveConfigFile(configsKey, configBase); }
+                catch (Exception exception) { (errors ??= []).Add(exception); }
             }
         }
 
-        WeakReferenceMessenger.Default.Send<string, string>("ConfigSave", "ConfigSave");
+        if (saved) WeakReferenceMessenger.Default.Send<string, string>("ConfigSave", "ConfigSave");
+        if (errors is not null) throw new AggregateException("One or more configurations could not be saved.", errors);
     }
 
     public static void Save(string? key)
@@ -534,20 +576,72 @@ public class ConfigManger : IConfigService, IConfigProvider
         if (string.IsNullOrWhiteSpace(key))
         {
             Logger.Warning("尝试保存配置但 key 为 null 或空，跳过保存");
-            NotifyConfigIssue("未知配置", "保存请求缺少配置标识，已跳过保存。", NotificationType.Warning);
+            NotifyConfigIssue(Lang.Get("lang.kitopia.messages.unknown_configuration"), Lang.Get("lang.kitopia.messages.saving_was_skipped_because_the_configuration_identifier_is_missing"), NotificationType.Warning);
             return;
         }
 
-        if (!Configs.TryGetValue(key, out var configBase))
-        {
-            Logger.Warning("未找到 key 为 {Key} 的配置，跳过保存", key);
-            NotifyConfigIssue(key, "配置尚未加载，已跳过保存。", NotificationType.Warning);
-            return;
-        }
-
+        bool saved;
         lock (SaveGate)
-            SaveConfigFile(key, configBase);
-        WeakReferenceMessenger.Default.Send<string, string>("ConfigSave", "ConfigSave");
+        {
+            if (!Configs.TryGetValue(key, out var configBase))
+            {
+                Logger.Warning("未找到 key 为 {Key} 的配置，跳过保存", key);
+                NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.saving_was_skipped_because_the_configuration_has_not_been_loaded"), NotificationType.Warning);
+                return;
+            }
+            saved = SaveConfigFile(key, configBase);
+        }
+        if (saved) WeakReferenceMessenger.Default.Send<string, string>("ConfigSave", "ConfigSave");
+    }
+
+    public static async Task SaveAsync(string key)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        try
+        {
+            ConfigBase configBase;
+            string json;
+            bool preserveBackup;
+            lock (SaveGate)
+            {
+                if (!Configs.TryGetValue(key, out configBase!))
+                    return;
+
+                PendingWrites.Remove(key);
+                var snapshot = PrepareConfigSave(key, configBase);
+                if (snapshot is null) return;
+                json = snapshot;
+                preserveBackup = BackupLoadedConfigKeys.Contains(key);
+                PendingWrites[key] = json;
+            }
+
+            // Serialize on the caller's thread; only immutable JSON crosses to the file writer.
+            var saved = await Task.Run(() =>
+            {
+                try { return WriteConfigFile(key, json, preserveBackup, queued: true); }
+                finally
+                {
+                    lock (SaveGate)
+                        if (PendingWrites.TryGetValue(key, out var pending) && ReferenceEquals(pending, json))
+                            PendingWrites.Remove(key);
+                }
+            });
+            if (!saved) return;
+
+            lock (SaveGate)
+            {
+                if (!Configs.TryGetValue(key, out var current) || !ReferenceEquals(current, configBase))
+                    return;
+            }
+            configBase.AfterSave();
+            WeakReferenceMessenger.Default.Send<string, string>("ConfigSave", "ConfigSave");
+        }
+        catch (Exception exception)
+        {
+            Logger.Error(exception, "保存配置 {Key} 失败", key);
+            NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.failed_to_save_the_configuration_recent_changes_may_not_be_written_check_the_logs"), NotificationType.Error);
+            throw;
+        }
     }
 
     Version IConfigService.Version => Version;

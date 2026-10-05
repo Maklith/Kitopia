@@ -10,6 +10,7 @@
         xmlns:inputData="clr-namespace:PluginCore.SearchWindow.InputData;assembly=PluginCore"
         xmlns:windows="clr-namespace:Kitopia.Desktop.Features.Search.ViewModels;assembly=Kitopia.Desktop.Features"
         xmlns:searchWindow="clr-namespace:Kitopia.Desktop.Converter.SearchWindow"
+        xmlns:localization="clr-namespace:Kitopia.Feature.Localization;assembly=Kitopia.Feature"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Kitopia.Desktop.Windows.SearchWindow"
         x:DataType="windows:SearchWindowViewModel"
@@ -72,7 +73,7 @@
                     </Border>
 
                     <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" IsTabStop="False"
-                             PlaceholderText="搜索..." AcceptsReturn="False" KeyDown="tx_KeyDown"
+                             PlaceholderText="{DynamicResource 'lang.kitopia.search'}" AcceptsReturn="False" KeyDown="tx_KeyDown"
                              Name="tx"
                              AcceptsTab="False" FontSize="24"
                              Text="{Binding Search}">
@@ -82,7 +83,7 @@
                                                 Glyph="&#xf691;" />
                         </TextBox.InnerLeftContent>
                         <TextBox.InnerRightContent>
-                            <Button Theme="{DynamicResource BorderlessButton}" ToolTip.Tip="切换列表/预览"
+                            <Button Theme="{DynamicResource BorderlessButton}" ToolTip.Tip="{DynamicResource 'lang.kitopia.toggle_list_preview'}"
                                     IsVisible="{Binding CanUsePreview}"
                                     Command="{Binding TogglePreviewModeCommand}">
                                 <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf8cb;" />
@@ -90,10 +91,10 @@
                         </TextBox.InnerRightContent>
                     </TextBox>
 
-                    <u:Banner Focusable="False" Type="Warning" Content="Everything服务未运行,无法搜索文档,请检查"
+                    <u:Banner Focusable="False" Type="Warning" Content="{DynamicResource 'lang.kitopia.everything_is_not_running_document_search_is_unavailable'}"
                               IsVisible="{Binding !EverythingIsOk}"
                               CanClose="True" />
-                    <u:Banner Focusable="False" Type="Information" Content="当前处于选择模式"
+                    <u:Banner Focusable="False" Type="Information" Content="{DynamicResource 'lang.kitopia.selection_mode'}"
                               IsVisible="{Binding NowInSelectMode}"
                               CanClose="False" />
 
@@ -133,28 +134,28 @@
                                                 ToolTip.Tip="{Binding ItemDisplayName}">
                                             <Button.ContextFlyout>
                                                 <MenuFlyout>
-                                                    <MenuItem Header="打开"
+                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.open'}"
                                                               Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFileCommand}"
                                                               CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="以管理员身份运行"
+                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.run_as_administrator'}"
                                                               Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
                                                               CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="打开文件所在位置"
+                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.open_file_location'}"
                                                               Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}"
                                                               CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="在终端中打开"
+                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.open_in_terminal'}"
                                                               Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
                                                               CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="固定" IsVisible="{Binding !IsPined}"
+                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.pin'}" IsVisible="{Binding !IsPined}"
                                                               Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).PinCommand}"
                                                               CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="取消固定" IsVisible="{Binding IsPined}"
+                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.unpin'}" IsVisible="{Binding IsPined}"
                                                               Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).PinCommand}"
                                                               CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="收藏"
+                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.favorite'}"
                                                               Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).StarCommand}"
                                                               CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="忽略"
+                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.ignore'}"
                                                               Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).IgnoreItemCommand}"
                                                               CommandParameter="{Binding .}" />
                                                 </MenuFlyout>
@@ -209,24 +210,29 @@
                             <Setter Property="Margin" Value="0,2" />
                             <Setter Property="Template">
                                 <ControlTemplate x:DataType="pluginCore:SearchViewItem">
-                                    <Button ToolTip.Tip="{Binding Path=. ,Converter={StaticResource SearchItemToInfo}}"
-                                            HorizontalAlignment="Stretch"
+                                    <Button HorizontalAlignment="Stretch"
                                             IsTabStop="True"
                                             Name="Item"
                                             Theme="{DynamicResource BorderlessButton}"
                                             Click="SearchItem_OnClick"
                                             CommandParameter="{Binding .}">
+                                        <ToolTip.Tip>
+                                            <MultiBinding Converter="{StaticResource SearchItemToInfo}">
+                                                <Binding Path="." />
+                                                <ReflectionBinding Source="{x:Static localization:Lang.Current}" Path="Keys" />
+                                            </MultiBinding>
+                                        </ToolTip.Tip>
                                         <Button.ContextFlyout>
                                             <MenuFlyout>
-                                                <MenuItem Header="以管理员身份运行"
+                                                <MenuItem Header="{DynamicResource 'lang.kitopia.run_as_administrator'}"
                                                           Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
                                                           IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='RunAsAdmin'}"
                                                           CommandParameter="{Binding .}" />
-                                                <MenuItem Header="打开文件所在位置"
+                                                <MenuItem Header="{DynamicResource 'lang.kitopia.open_file_location'}"
                                                           Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}"
                                                           IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Folder'}"
                                                           CommandParameter="{Binding .}" />
-                                                <MenuItem Header="在终端中打开"
+                                                <MenuItem Header="{DynamicResource 'lang.kitopia.open_in_terminal'}"
                                                           Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
                                                           IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Console'}"
                                                           CommandParameter="{Binding .}" />
@@ -234,7 +240,7 @@
                                                           Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).StarCommand}"
                                                           IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Star'}"
                                                           CommandParameter="{Binding .}" />
-                                                <MenuItem Header="忽略"
+                                                <MenuItem Header="{DynamicResource 'lang.kitopia.ignore'}"
                                                           Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IgnoreItemCommand}"
                                                           IsVisible="{Binding Path=FileType,Converter={StaticResource CanIgnoreCtr}}"
                                                           CommandParameter="{Binding .}" />
@@ -298,7 +304,7 @@
                                                         IsVisible="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IsPreviewMode, Converter={x:Static BoolConverters.Not}}">
                                                 <Button KeyboardNavigation.TabNavigation="None"
                                                         Theme="{DynamicResource BorderlessButton}"
-                                                        ToolTip.Tip="以管理员身份运行"
+                                                        ToolTip.Tip="{DynamicResource 'lang.kitopia.run_as_administrator'}"
                                                         IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='RunAsAdmin'}"
                                                         Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
                                                         CommandParameter="{Binding  }">
@@ -308,7 +314,7 @@
                                                 </Button>
                                                 <Button KeyboardNavigation.TabNavigation="None"
                                                         Theme="{DynamicResource BorderlessButton}"
-                                                        ToolTip.Tip="打开文件所在文件夹"
+                                                        ToolTip.Tip="{DynamicResource 'lang.kitopia.open_containing_folder'}"
                                                         IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Folder'}"
                                                         Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}"
                                                         CommandParameter="{Binding}">
@@ -318,7 +324,7 @@
                                                 </Button>
                                                 <Button KeyboardNavigation.TabNavigation="None"
                                                         Theme="{DynamicResource BorderlessButton}"
-                                                        ToolTip.Tip="在终端中打开文件夹/文件所在文件夹"
+                                                        ToolTip.Tip="{DynamicResource 'lang.kitopia.open_containing_folder_in_terminal'}"
                                                         IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Console'}"
                                                         Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
                                                         CommandParameter="{Binding}">
