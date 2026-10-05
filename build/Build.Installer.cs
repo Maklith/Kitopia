@@ -16,18 +16,13 @@ partial class Build
         .OnlyWhenDynamic(() => Release is not null)
         .Executes(() => BuildInstaller("win-x64", "x86_64-pc-windows-msvc"));
 
-    Target PackInstallerX86 => _ => _
-        .DependsOn(CreateRelease, PackWindowsX86)
-        .OnlyWhenDynamic(() => Release is not null)
-        .Executes(() => BuildInstaller("win-x86", "i686-pc-windows-msvc"));
-
     Target PackInstallerArm64 => _ => _
         .DependsOn(CreateRelease, PackWindowsArm64)
         .OnlyWhenDynamic(() => Release is not null)
         .Executes(() => BuildInstaller("win-arm64", "aarch64-pc-windows-msvc"));
 
     Target PackInstaller => _ => _
-        .DependsOn(PackInstallerX64, PackInstallerX86, PackInstallerArm64)
+        .DependsOn(PackInstallerX64, PackInstallerArm64)
         .OnlyWhenDynamic(() => Release is not null);
 
     // Compatibility alias for the previous x64-only installer target.
@@ -103,7 +98,6 @@ partial class Build
         var runtimeArchitecture = runtime switch
         {
             "win-x64" => (Is64: true, Name: "x64", FileName: "windowsdesktop-runtime-win-x64.exe"),
-            "win-x86" => (Is64: false, Name: "x86", FileName: "windowsdesktop-runtime-win-x86.exe"),
             "win-arm64" => (Is64: true, Name: "ARM64", FileName: "windowsdesktop-runtime-win-arm64.exe"),
             _ => throw new ArgumentOutOfRangeException(nameof(runtime), runtime, "Unsupported installer runtime")
         };

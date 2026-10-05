@@ -50,7 +50,7 @@ public class AssemblyLoadContextH : AssemblyLoadContext
         var name = assemblyName.Name ?? string.Empty;
         // Types crossing the SDK boundary must use the host's assembly identity.
         if (name is "PluginCore" or "Pinyin.NET" or "WinRT.Runtime" or "Microsoft.Windows.SDK.NET" or
-            "OpenCvSharp" or "Serilog" or "CommunityToolkit.Mvvm" or "Ursa" ||
+            "OpenCvSharp" or "FFmpeg.AutoGen" or "Serilog" or "CommunityToolkit.Mvvm" or "Ursa" ||
             name.StartsWith("Avalonia", StringComparison.Ordinal) ||
             name.StartsWith("Irihi.", StringComparison.Ordinal) ||
             name.StartsWith("Semi.Avalonia", StringComparison.Ordinal) ||

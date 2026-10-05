@@ -80,9 +80,9 @@ partial class Build : FalloutBuild
 
     Target LocalTest => _ => _
         .DependsOn(RestoreWindows)
-        .Executes(() =>
+        .Executes(async () =>
         {
-            PublishWindows("win-x64");
+            await PublishWindowsAsync("win-x64");
             PublishOnnxPlugins();
             BuildInstaller("win-x64", "x86_64-pc-windows-msvc");
         });

@@ -1,0 +1,17 @@
+{
+  "version": "N-127203-ga35c879992",
+  "releaseUrl": "https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-10-05-13-07",
+  "license": "LGPL-3.0-or-later",
+  "runtimes": {
+    "win-x64": {
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-05-13-07/ffmpeg-N-127203-ga35c879992-win64-lgpl-shared.zip",
+      "sha256": "17c80fdc5c8f59f24c2275b3f33ef9cded8fd789120dbd36d0ca91b30403ed4f",
+      "archiveRoot": "ffmpeg-N-127203-ga35c879992-win64-lgpl-shared"
+    },
+    "win-arm64": {
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-05-13-07/ffmpeg-N-127203-ga35c879992-winarm64-lgpl-shared.zip",
+      "sha256": "5fe1263e5f0e3fb4969d0b079ad6f28d5fbda2802e266e7840b867044db99662",
+      "archiveRoot": "ffmpeg-N-127203-ga35c879992-winarm64-lgpl-shared"
+    }
+  }
+}

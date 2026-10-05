@@ -1,0 +1,273 @@
+<u:UrsaWindow xmlns="https://github.com/avaloniaui"
+              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+              xmlns:u="https://irihi.tech/ursa"
+              xmlns:vm="clr-namespace:KitopiaEx.ImageCompression"
+              xmlns:lang="clr-namespace:PluginCore.Localization;assembly=PluginCore"
+              x:Class="KitopiaEx.ImageCompression.ImageCompressionWindow"
+              x:DataType="vm:ImageCompressionViewModel"
+              Width="1080" Height="740" MinWidth="900" MinHeight="600"
+              WindowStartupLocation="CenterScreen"
+              IsFullScreenButtonVisible="False"
+              Background="{DynamicResource CompressionCanvasBrush}"
+              Title="{DynamicResource lang.kitopiaex.compression.title}">
+    <u:UrsaWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="CompressionCanvasBrush" Color="#F5F6F8" />
+                    <SolidColorBrush x:Key="CompressionWarningBackground" Color="#FFF4CE" />
+                    <SolidColorBrush x:Key="CompressionWarningForeground" Color="#B74700" />
+                    <SolidColorBrush x:Key="CompressionControlBorder" Color="#D1D5DB" />
+                    <SolidColorBrush x:Key="CompressionAccentForeground" Color="White" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="CompressionCanvasBrush" Color="#181818" />
+                    <SolidColorBrush x:Key="CompressionWarningBackground" Color="#40B74700" />
+                    <SolidColorBrush x:Key="CompressionWarningForeground" Color="#FFBE8A" />
+                    <SolidColorBrush x:Key="CompressionControlBorder" Color="#29FFFFFF" />
+                    <SolidColorBrush x:Key="CompressionAccentForeground" Color="#111827" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </u:UrsaWindow.Resources>
+    <u:UrsaWindow.Styles>
+        <Style Selector="TextBlock.icon">
+            <Setter Property="FontFamily" Value="{DynamicResource FluentFont}" />
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText2}" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="Button.tool">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="Button, TextBox, ComboBox, NumericUpDown">
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="MinHeight" Value="34" />
+        </Style>
+        <Style Selector="Button.accent">
+            <Setter Property="Background" Value="{DynamicResource KitopiaPrimaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource CompressionAccentForeground}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.standard">
+            <Setter Property="Background" Value="{DynamicResource KitopiaCardBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CompressionControlBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Button.standard:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+        </Style>
+        <Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource KitopiaPrimaryHoverBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource CompressionAccentForeground}" />
+        </Style>
+        <Style Selector="Button.accent:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource KitopiaPrimaryActiveBrush}" />
+        </Style>
+        <Style Selector="Border.status">
+            <Setter Property="Background" Value="{DynamicResource KitopiaBadgeNeutralBackground}" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="Border.status TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeNeutralForeground}" />
+        </Style>
+        <Style Selector="Border.status.completed">
+            <Setter Property="Background" Value="{DynamicResource KitopiaBadgeSuccessBackground}" />
+        </Style>
+        <Style Selector="Border.status.completed TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeSuccessForeground}" />
+        </Style>
+        <Style Selector="Border.status.running">
+            <Setter Property="Background" Value="{DynamicResource KitopiaBadgeCurrentBackground}" />
+        </Style>
+        <Style Selector="Border.status.running TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeCurrentForeground}" />
+        </Style>
+        <Style Selector="Border.status.warning">
+            <Setter Property="Background" Value="{DynamicResource CompressionWarningBackground}" />
+        </Style>
+        <Style Selector="Border.status.warning TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource CompressionWarningForeground}" />
+        </Style>
+        <Style Selector="Border.status.failed">
+            <Setter Property="Background" Value="{DynamicResource KitopiaBadgeDangerBackground}" />
+        </Style>
+        <Style Selector="Border.status.failed TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeDangerForeground}" />
+        </Style>
+        <Style Selector="TextBlock.status">
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+    </u:UrsaWindow.Styles>
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="24,12,24,20" RowSpacing="16">
+        <StackPanel Spacing="4">
+            <TextBlock Text="{DynamicResource lang.kitopia.screenshots_and_images}" Theme="{StaticResource KitopiaPageKickerText}" />
+            <TextBlock Text="{DynamicResource lang.kitopiaex.compression.title}" FontSize="20" FontWeight="SemiBold" />
+        </StackPanel>
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding CanEdit}">
+                <Button Classes="standard" Click="AddFiles_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Classes="icon" Text="&#xe71a;" />
+                        <TextBlock Text="{DynamicResource lang.kitopiaex.compression.add_images}" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="standard" Click="AddFolder_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Classes="icon" Text="&#xf418;" />
+                        <TextBlock Text="{DynamicResource lang.kitopiaex.compression.add_folder}" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="tool" Theme="{StaticResource KitopiaDangerSubtleButton}" Command="{Binding ClearCommand}"
+                        ToolTip.Tip="{DynamicResource lang.kitopiaex.compression.clear}">
+                    <TextBlock Classes="icon" Text="&#xf34c;" />
+                </Button>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="label" VerticalAlignment="Center"
+                           Text="{DynamicResource lang.kitopiaex.compression.adding}" IsVisible="{Binding IsAdding}" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="2" Padding="16" CornerRadius="12" Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1"
+                BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
+        <Grid ColumnDefinitions="*,1,264" ColumnSpacing="16">
+            <Grid RowDefinitions="32,*,Auto" DragDrop.AllowDrop="True"
+                  DragDrop.DragOver="Files_DragOver" DragDrop.Drop="Files_Drop">
+                <Grid ColumnDefinitions="*,70,70,62,104,32" Margin="8,0,8,0">
+                    <TextBlock Classes="label" Text="{DynamicResource lang.kitopiaex.compression.file}" />
+                    <TextBlock Grid.Column="1" Classes="label" Text="{DynamicResource lang.kitopiaex.compression.original}" />
+                    <TextBlock Grid.Column="2" Classes="label" Text="{DynamicResource lang.kitopiaex.compression.output}" />
+                    <TextBlock Grid.Column="3" Classes="label" Text="{DynamicResource lang.kitopiaex.compression.reduction}" />
+                    <TextBlock Grid.Column="4" Classes="label" Text="{DynamicResource lang.kitopiaex.compression.status}" />
+                </Grid>
+                <ListBox Name="FileList" Grid.Row="1" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}"
+                         Background="Transparent" Padding="0">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="8,4" />
+                            <Setter Property="MinHeight" Value="64" />
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ImageCompressionItem">
+                            <Grid ColumnDefinitions="*,70,70,62,104,32" Height="56">
+                                <Grid ColumnDefinitions="44,*" ColumnSpacing="10" Margin="0,0,8,0">
+                                    <Border Width="44" Height="44" CornerRadius="4" ClipToBounds="True"
+                                            Background="{DynamicResource SemiColorFill0}" VerticalAlignment="Center">
+                                        <Image Source="{Binding Thumbnail}" Stretch="Uniform" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                                        <TextBlock Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourcePath}" />
+                                        <TextBlock Classes="label" Text="{Binding SourcePath}" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Grid.Column="1" Text="{Binding OriginalSize}" FontSize="12" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="{Binding OutputSize}" FontSize="12" VerticalAlignment="Center" ToolTip.Tip="{Binding OutputPath}" />
+                                <TextBlock Grid.Column="3" Text="{Binding Reduction}" FontSize="12" VerticalAlignment="Center" />
+                                <Border Grid.Column="4" Classes="status" Classes.completed="{Binding IsCompleted}"
+                                        Classes.warning="{Binding IsWarning}" Classes.failed="{Binding IsFailed}"
+                                        Classes.running="{Binding IsRunning}" ToolTip.Tip="{Binding Error}">
+                                    <TextBlock Classes="status" Text="{lang:Lang Value={Binding Status}}" TextWrapping="Wrap" />
+                                </Border>
+                                <Button Grid.Column="5" Classes="tool" Theme="{StaticResource BorderlessButton}"
+                                        IsEnabled="{Binding $parent[u:UrsaWindow].((vm:ImageCompressionViewModel)DataContext).CanEdit}"
+                                        Command="{Binding $parent[u:UrsaWindow].((vm:ImageCompressionViewModel)DataContext).RemoveCommand}"
+                                        CommandParameter="{Binding}" ToolTip.Tip="{DynamicResource lang.kitopiaex.compression.remove}">
+                                    <TextBlock Classes="icon" Text="&#xf369;" />
+                                </Button>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock Grid.Row="1" Text="{DynamicResource lang.kitopiaex.compression.empty}"
+                           Classes="label" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           IsVisible="{Binding IsEmpty}" IsHitTestVisible="False" />
+                <TextBlock Grid.Row="2" Text="{Binding Summary}" FontSize="12" Margin="8,12,0,0" />
+            </Grid>
+            <Border Grid.Column="1" Background="{DynamicResource SemiColorBorder}" />
+            <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="16" IsEnabled="{Binding CanEdit}">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{DynamicResource lang.kitopiaex.compression.format}" />
+                        <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Formats}" SelectedItem="{Binding Format}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate><TextBlock Text="{lang:Lang Value={Binding}}" /></DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Spacing="8" IsVisible="{Binding IsLossy}">
+                        <TextBlock Text="{DynamicResource lang.kitopiaex.compression.mode}" />
+                        <RadioButton GroupName="CompressionMode" IsChecked="{Binding IsQualityMode}"
+                                     Content="{DynamicResource lang.kitopiaex.compression.quality_mode}" />
+                        <RadioButton GroupName="CompressionMode" IsChecked="{Binding IsTargetMode}"
+                                     Content="{DynamicResource lang.kitopiaex.compression.target_mode}" />
+                        <Grid ColumnDefinitions="*,82" ColumnSpacing="8" IsVisible="{Binding IsQualityMode}">
+                            <Slider Name="QualitySlider" Minimum="1" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding Quality}" />
+                            <NumericUpDown Grid.Column="1" Minimum="1" Maximum="100" Increment="1" FormatString="0'%'" Value="{Binding Quality}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,82" ColumnSpacing="8" IsVisible="{Binding IsTargetMode}">
+                            <Slider Minimum="1" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding TargetPercent}" />
+                            <NumericUpDown Grid.Column="1" Minimum="1" Maximum="100" Increment="1" FormatString="0'%'" Value="{Binding TargetPercent}" />
+                        </Grid>
+                    </StackPanel>
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="{DynamicResource lang.kitopiaex.compression.resize}" />
+                        <Grid ColumnDefinitions="*,82" ColumnSpacing="8">
+                            <Slider Minimum="1" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding ResizePercent}" />
+                            <NumericUpDown Grid.Column="1" Minimum="1" Maximum="100" Increment="1" FormatString="0'%'" Value="{Binding ResizePercent}" />
+                        </Grid>
+                        <TextBlock Classes="label" Text="{DynamicResource lang.kitopiaex.compression.max_dimension}" />
+                        <NumericUpDown Minimum="0" Maximum="32768" Increment="100" FormatString="0' px'" Value="{Binding MaxDimension}" />
+                    </StackPanel>
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="{DynamicResource lang.kitopiaex.compression.output_directory}" />
+                        <Grid ColumnDefinitions="*,32" ColumnSpacing="6">
+                            <TextBox Text="{Binding OutputDirectory}" PlaceholderText="{DynamicResource lang.kitopiaex.compression.source_directory}" />
+                            <Button Grid.Column="1" Classes="tool standard" Click="OutputFolder_Click"
+                                    ToolTip.Tip="{DynamicResource lang.kitopiaex.compression.choose_directory}">
+                                <TextBlock Classes="icon" Text="&#xf418;" />
+                            </Button>
+                        </Grid>
+                        <CheckBox IsChecked="{Binding SkipLarger}" Content="{DynamicResource lang.kitopiaex.compression.skip_larger}" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+        </Border>
+
+        <Grid Grid.Row="3" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+            <TextBlock Name="ErrorMessage" Text="{Binding Message}" TextWrapping="Wrap" MaxHeight="64"
+                       Foreground="{DynamicResource SemiColorDanger}" />
+            <ProgressBar Grid.Row="1" Minimum="0" Maximum="{Binding Items.Count}" Value="{Binding ProcessedCount}"
+                         Height="4" IsVisible="{Binding IsBusy}" />
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <TextBlock Text="{Binding ProgressText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Classes="tool standard" Click="OpenOutput_Click" IsEnabled="{Binding HasOutputDirectory}"
+                            ToolTip.Tip="{DynamicResource lang.kitopiaex.compression.open_output}">
+                        <TextBlock Classes="icon" Text="&#xe891;" />
+                    </Button>
+                    <Button Classes="standard" Command="{Binding StartCancelCommand}" IsVisible="{Binding IsBusy}"
+                            Content="{DynamicResource lang.kitopiaex.compression.cancel}" />
+                    <Button Name="StartButton" Command="{Binding StartCommand}" Classes="accent"
+                            Content="{DynamicResource lang.kitopiaex.compression.start}" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</u:UrsaWindow>

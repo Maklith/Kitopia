@@ -33,6 +33,7 @@ public class MqttManager
     /// MQTT服务器实例 / MQTT server instance
     /// </summary>
     public static MqttServer Server;
+    public static TaskCompletionSource PluginsReady { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         
     private static FileStream fileStream;
     
@@ -418,6 +419,19 @@ public class MqttManager
                             ServiceManager.Services.GetService<IWindowTool>()?.SetForegroundWindow(platformHandle.Handle);
                         }
                     }
+                });
+                break;
+            }
+            case StartupAction.ImageCompression:
+            {
+                await PluginsReady.Task;
+                await Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    if (StartupArgumentManager.Handlers.TryGetValue(action, out var handler))
+                        await handler(values);
+                    else if (toast != null)
+                        await toast.Show(Lang.Get("lang.kitopia.action_failed"),
+                            Lang.Format("lang.kitopia.plugins.not_installed", "KitopiaEx"));
                 });
                 break;
             }

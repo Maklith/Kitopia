@@ -1,5 +1,6 @@
 using System;
 using System.IO.Compression;
+using System.Threading.Tasks;
 using Fallout.Common;
 using Fallout.Common.IO;
 using Fallout.Solutions;
@@ -22,20 +23,15 @@ partial class Build
     Target PackWindowsX64 => _ => _
         .DependsOn(CreateRelease, RestoreWindows)
         .OnlyWhenDynamic(() => Release is not null)
-        .Executes(() => PublishWindows("win-x64"));
-
-    Target PackWindowsX86 => _ => _
-        .DependsOn(CreateRelease, RestoreWindows)
-        .OnlyWhenDynamic(() => Release is not null)
-        .Executes(() => PublishWindows("win-x86"));
+        .Executes(() => PublishWindowsAsync("win-x64"));
 
     Target PackWindowsArm64 => _ => _
         .DependsOn(CreateRelease, RestoreWindows)
         .OnlyWhenDynamic(() => Release is not null)
-        .Executes(() => PublishWindows("win-arm64"));
+        .Executes(() => PublishWindowsAsync("win-arm64"));
 
     Target PackWindows => _ => _
-        .DependsOn(PackWindowsX64, PackWindowsX86, PackWindowsArm64)
+        .DependsOn(PackWindowsX64, PackWindowsArm64)
         .OnlyWhenDynamic(() => Release is not null);
 
     // Kept as a compatibility alias for local scripts that used the old target name.
@@ -43,11 +39,12 @@ partial class Build
         .DependsOn(PackWindowsX64)
         .OnlyWhenDynamic(() => Release is not null);
 
-    void PublishWindows(string runtime)
+    async Task PublishWindowsAsync(string runtime)
     {
         var output = ArtifactsDirectory / "windows" / runtime;
         var platformTarget = GetWindowsPlatformTarget(runtime);
         output.DeleteDirectory();
+        await BundleFfmpegAsync(runtime);
 
         DotNetPublish(c => c
             .SetProject(AvaloniaProject.Path)
@@ -87,7 +84,6 @@ partial class Build
 
     static string GetWindowsPlatformTarget(string runtime) => runtime switch
     {
-        "win-x86" => "x86",
         "win-x64" => "x64",
         "win-arm64" => "ARM64",
         _ => throw new ArgumentOutOfRangeException(nameof(runtime), runtime, "Unsupported Windows runtime")

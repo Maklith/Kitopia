@@ -1,6 +1,10 @@
 using PluginCore.Localization;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Avalonia.Threading;
+using KitopiaEx.ImageCompression;
 using KitopiaEx.CustomScenarioMethods;
 using KitopiaEx.CustomScenarioValueSerializer;
 using KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
@@ -16,6 +20,7 @@ public class KitopiaEx : IPlugin
     public static IServiceProvider ServiceProvider;
 
     private IPlugin _pluginImplementation;
+    private ContextMenuItem? _imageCompressionMenuItem;
 
     
     public void OnEnabled(IServiceProvider serviceProvider, Dictionary<string, IServiceProvider> dependencyServiceProviders)
@@ -60,10 +65,31 @@ public class KitopiaEx : IPlugin
             
         });
         Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureInfo), new ScreenCaptureInfoCustomScenarioValueSerializer());
+        StartupArgumentManager.Handlers[StartupAction.ImageCompression] = paths => ImageCompressionWindow.OpenFilesAsync(paths);
+        if (Kitopia.ServiceProvider.GetService<IExplorerContextMenuConfiger>() is { } contextMenu)
+        {
+            var executable = Path.Combine(AppContext.BaseDirectory, "Kitopia.Desktop.exe");
+            _imageCompressionMenuItem = new ContextMenuItem
+            {
+                Title = Lang.Get("lang.kitopiaex.compression.title"),
+                Icon = executable,
+                Command = executable,
+                Arguments = StartupArgumentManager.GenerateCmd(StartupAction.ImageCompression, "{all}")
+            };
+            foreach (var item in contextMenu.GetAllMenuItems().Where(item =>
+                         item.Command == executable && item.Arguments == _imageCompressionMenuItem.Arguments))
+                contextMenu.RemoveMenuItem(item);
+            contextMenu.AddMenuItem(_imageCompressionMenuItem);
+        }
     }
 
     public void OnDisabled()
     {
+        StartupArgumentManager.Handlers.TryRemove(StartupAction.ImageCompression, out _);
+        if (_imageCompressionMenuItem != null)
+            Kitopia.ServiceProvider.GetService<IExplorerContextMenuConfiger>()?.RemoveMenuItem(_imageCompressionMenuItem);
+        _imageCompressionMenuItem = null;
+        Dispatcher.UIThread.Post(() => ImageCompressionWindow.Current?.Close());
         Kitopia.JsonConverters.Remove(typeof(ScreenCaptureInfo));
         Kitopia.ToolTipConverters.Remove(typeof(ScreenCaptureInfo));
         Kitopia.ToolTipConverters.Remove(typeof(ScreenCaptureResult));

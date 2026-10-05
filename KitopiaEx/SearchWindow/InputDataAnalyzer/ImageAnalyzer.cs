@@ -5,12 +5,16 @@
 // Date: 2026/01/05 16:01
 // FileEffect:
 
-using PluginCore.Localization;
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading;
+using KitopiaEx.ImageCompression;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
+using PluginCore.Localization;
 using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 
@@ -18,16 +22,49 @@ namespace KitopiaEx.SearchWindow.InputDataAnalyzer;
 
 public class ImageAnalyzer : IInputDataAnalyzer
 {
-    public InputDataAnalyzeTimeFlags AnalyzeTimeFlags => InputDataAnalyzeTimeFlags.InputEmpty | InputDataAnalyzeTimeFlags.WindowShow;
+    public InputDataAnalyzeTimeFlags AnalyzeTimeFlags => InputDataAnalyzeTimeFlags.InputEmpty |
+        InputDataAnalyzeTimeFlags.WindowShow | InputDataAnalyzeTimeFlags.InputChanged;
 
     public IEnumerable<SearchViewItem> AnalyzeInputData(IEnumerable<InputData> inputDatas)
     {
-        foreach (var inputData in inputDatas)
+        var inputs = inputDatas as IReadOnlyCollection<InputData> ?? inputDatas.ToArray();
+        var paths = inputs.Where(input => input.InputType == InputType.文件)
+            .Select(input => input.Data).OfType<string>()
+            .Where(path => ImageCompressor.IsSupported(path) && File.Exists(path))
+            .Distinct(System.OperatingSystem.IsWindows() ? System.StringComparer.OrdinalIgnoreCase : System.StringComparer.Ordinal)
+            .ToArray();
+        if (paths.Length > 0)
+            yield return new SearchViewItem
+            {
+                ItemDisplayName = Lang.Get("lang.kitopiaex.compression.title"),
+                FileType = FileType.自定义,
+                IconSymbol = 0xEA14,
+                IsVisible = true,
+                ShowAsMiniApp = true,
+                Action = (_, _) => _ = ImageCompressionWindow.OpenFilesAsync(paths)
+            };
+        foreach (var inputData in inputs)
             if (inputData.InputType == InputType.图像)
             {
                 var image = inputData.Data as Mat;
                 if (image == null)
-                    yield break;
+                    continue;
+                if (paths.Length == 0)
+                    yield return new SearchViewItem
+                    {
+                        ItemDisplayName = Lang.Get("lang.kitopiaex.compression.title"),
+                        FileType = FileType.自定义,
+                        IconSymbol = 0xEA14,
+                        IsVisible = true,
+                        ShowAsMiniApp = true,
+                        Action = (_, _) =>
+                        {
+                            Cv2.ImEncode(".png", image, out var bytes);
+                            // Search clears the input collection when an action is launched.
+                            GC.KeepAlive(inputData);
+                            _ = ImageCompressionWindow.OpenFilesAsync([], bytes);
+                        }
+                    };
                 //Pin
                 yield return new SearchViewItem
                 {

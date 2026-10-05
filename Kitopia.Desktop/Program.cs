@@ -57,6 +57,7 @@ using Kitopia.Desktop.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Kitopia.Feature.DeviceCommunication.Identity;
 using PluginCore;
+using PluginCore.Media;
 using PluginCore.Onnx;
 using Serilog;
 using SharpHook;
@@ -134,6 +135,7 @@ internal class Program {
     private static IServiceProvider ConfigureServices() {
         var services = new ServiceCollection();
         services.AddDesktopPluginHost();
+        services.AddSingleton<Ffmpeg>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<Kitopia.Feature.DeviceCommunication.Application.IChatNotificationSink,
             DesktopChatNotificationSink>();
@@ -357,7 +359,6 @@ internal class Program {
         PluginOverall.InitializeContextMenu();
         ServiceManager.Services.GetService<IHotKetImpl>()!.StartHook();
 
-        MqttManager.ProcessLocalArgs(arg).GetAwaiter().GetResult();
         if (ConfigManger.Config.checkKitopiaCompanion) {
             if (ServiceManager.Services.GetService<IExplorerContextMenuService>()!.RegisterAsync()
                 .GetAwaiter()
@@ -396,8 +397,10 @@ internal class Program {
         Logger.Information("主题初始化完成");
 
         await PluginManager.InitAsync();
+        MqttManager.PluginsReady.TrySetResult();
         Logger.Information("插件管理器初始化完成");
         CustomScenarioManger.Init();
+        await MqttManager.ProcessLocalArgs(arg);
         Logger.Information("场景管理器初始化完成");
         ServiceManager.Services.GetService<SharedMessageAppService>();
         ServiceManager.Services.GetService<SharedDeviceCommunication.IDeviceCommunicationRuntime>()!

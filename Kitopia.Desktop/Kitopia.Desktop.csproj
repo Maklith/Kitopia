@@ -5,7 +5,7 @@
     </PropertyGroup>
     <PropertyGroup Condition=" '$(OS)' == 'Windows_NT' ">
         <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
-        <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+        <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
         <WindowsPackageType>None</WindowsPackageType>
         <EnableMsixTooling>true</EnableMsixTooling>
     </PropertyGroup>
@@ -38,6 +38,41 @@
         <Configurations>Debug;Release</Configurations>
         <Platforms>AnyCPU;x64</Platforms>
     </PropertyGroup>
+
+    <PropertyGroup>
+        <FfmpegRuntimeIdentifier>$(RuntimeIdentifier)</FfmpegRuntimeIdentifier>
+        <FfmpegRuntimeIdentifier Condition="'$(FfmpegRuntimeIdentifier)' == '' and ('$(PlatformTarget)' == 'ARM64' or '$(Platform)' == 'ARM64')">win-arm64</FfmpegRuntimeIdentifier>
+        <FfmpegRuntimeIdentifier Condition="'$(FfmpegRuntimeIdentifier)' == '' and ('$(PlatformTarget)' == 'x64' or '$(Platform)' == 'x64')">win-x64</FfmpegRuntimeIdentifier>
+        <FfmpegRuntimeIdentifier Condition="'$(FfmpegRuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</FfmpegRuntimeIdentifier>
+        <FfmpegBundleDirectory>$(MSBuildProjectDirectory)\..\artifacts\ffmpeg\$(FfmpegRuntimeIdentifier)\tools\ffmpeg</FfmpegBundleDirectory>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(FfmpegRuntimeIdentifier)' == 'win-x64' or '$(FfmpegRuntimeIdentifier)' == 'win-arm64'">
+        <_RequiredFfmpegFile Include="$(FfmpegBundleDirectory)\avutil-61.dll;$(FfmpegBundleDirectory)\swresample-7.dll;$(FfmpegBundleDirectory)\swscale-10.dll;$(FfmpegBundleDirectory)\avcodec-63.dll;$(FfmpegBundleDirectory)\avformat-63.dll;$(FfmpegBundleDirectory)\avfilter-12.dll;$(FfmpegBundleDirectory)\avdevice-63.dll" />
+        <_RequiredFfmpegFile Include="$(FfmpegBundleDirectory)\LICENSE.txt;$(FfmpegBundleDirectory)\GPL-3.0.txt;$(FfmpegBundleDirectory)\bundle.json;$(FfmpegBundleDirectory)\SOURCE.md" />
+        <_MissingFfmpegFile Include="@(_RequiredFfmpegFile)" />
+        <_MissingFfmpegFile Remove="@(_RequiredFfmpegFile->Exists())" />
+    </ItemGroup>
+    <Target Name="PrepareFfmpegForDebug"
+            Condition="'$(Configuration)' == 'Debug' and '$(DesignTimeBuild)' != 'true' and '$(OS)' == 'Windows_NT' and ('$(FfmpegRuntimeIdentifier)' == 'win-x64' or '$(FfmpegRuntimeIdentifier)' == 'win-arm64')"
+            Inputs="$(MSBuildProjectDirectory)\..\build\Build.Ffmpeg.cs;$(MSBuildProjectDirectory)\..\build\Ffmpeg\manifest.json;$(MSBuildProjectDirectory)\..\build\Ffmpeg\README.md;$(MSBuildProjectDirectory)\..\LICENSE"
+            Outputs="$(FfmpegBundleDirectory)\..\..\.debug-prepared;@(_MissingFfmpegFile)">
+        <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
+              Command="dotnet run --project &quot;$(MSBuildProjectDirectory)\..\build\kitopia.csproj&quot; --configuration Release -- BundleFfmpeg --ffmpeg-runtime $(FfmpegRuntimeIdentifier)" />
+        <Touch Files="$(FfmpegBundleDirectory)\..\..\.debug-prepared" AlwaysCreate="true" />
+    </Target>
+    <Target Name="IncludeFfmpegContent" BeforeTargets="AssignTargetPaths" DependsOnTargets="PrepareFfmpegForDebug"
+            Condition="'$(FfmpegRuntimeIdentifier)' == 'win-x64' or '$(FfmpegRuntimeIdentifier)' == 'win-arm64'">
+        <ItemGroup>
+            <_FfmpegContent Include="$(FfmpegBundleDirectory)\*" />
+        </ItemGroup>
+        <ItemGroup>
+            <Content Include="@(_FfmpegContent)">
+                <Link>tools\ffmpeg\%(_FfmpegContent.RecursiveDir)%(_FfmpegContent.Filename)%(_FfmpegContent.Extension)</Link>
+                <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+                <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+            </Content>
+        </ItemGroup>
+    </Target>
 
 
     <ItemGroup>
