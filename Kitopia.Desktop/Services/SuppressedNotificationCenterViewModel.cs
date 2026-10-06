@@ -17,7 +17,7 @@ internal sealed class SuppressedNotificationCenterViewModel : ObservableObject
         };
     }
 
-    public ObservableCollection<SuppressedNotificationItemViewModel> Items { get; } = [];
+    public ObservableCollection<ToastItemViewModel> Items { get; } = [];
     public bool HasNotifications => Items.Count > 0;
     public IRelayCommand ClearAllCommand { get; }
 }

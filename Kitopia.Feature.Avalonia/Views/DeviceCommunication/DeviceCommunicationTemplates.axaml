@@ -15,7 +15,7 @@
                 <StackPanel Spacing="6">
                     <Image Source="{Binding ImagePreview}"
                            IsVisible="{Binding HasImage}"
-                           MaxWidth="320" Stretch="Uniform"
+                           MaxWidth="320" MaxHeight="320" Stretch="Uniform"
                            Cursor="Hand">
                         <Image.ContextFlyout>
                             <MenuFlyout>
@@ -30,29 +30,15 @@
                     </Image>
                     <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap"
                                          IsVisible="{Binding HasText}" />
-                    <StackPanel Orientation="Horizontal" Spacing="8"
-                                IsVisible="{Binding CanHandleIncomingOffer}">
-                        <Button Classes="Primary" Content="{DynamicResource 'lang.kitopia.accept'}"
-                                Command="{Binding AcceptCommand}"
-                                CommandParameter="{Binding .}" />
-                        <Button Classes="Secondary" Content="{DynamicResource 'lang.kitopia.reject'}"
-                                Command="{Binding RejectCommand}"
-                                CommandParameter="{Binding .}" />
-                    </StackPanel>
-                    <StackPanel Spacing="4" IsVisible="{Binding IsReceiving}">
-                        <ProgressBar Minimum="0" Maximum="1"
-                                     Value="{Binding ReceiveProgress}"
-                                     Height="6" MinWidth="220" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
                         <TextBlock Text="{Binding TimeText}"
                                    FontSize="11"
                                    Foreground="{DynamicResource SemiColorText2}" />
-                        <TextBlock Text="{Binding StateText}"
+                        <TextBlock Grid.Column="1" Text="{Binding StateText}" TextWrapping="Wrap"
                                    FontSize="11"
                                    Foreground="{DynamicResource SemiColorText2}"
                                    IsVisible="{Binding HasState}" />
-                    </StackPanel>
+                    </Grid>
                 </StackPanel>
             </Border>
 
@@ -64,7 +50,7 @@
                 <StackPanel Spacing="6">
                     <Image Source="{Binding ImagePreview}"
                            IsVisible="{Binding HasImage}"
-                           MaxWidth="320" Stretch="Uniform"
+                           MaxWidth="320" MaxHeight="320" Stretch="Uniform"
                            Cursor="Hand">
                         <Image.ContextFlyout>
                             <MenuFlyout>
@@ -80,84 +66,82 @@
                     <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap"
                                          IsVisible="{Binding HasText}"
                                          Foreground="White" />
-                    <StackPanel Spacing="4" IsVisible="{Binding IsReceiving}">
-                        <ProgressBar Minimum="0" Maximum="1"
-                                     Value="{Binding ReceiveProgress}"
-                                     Height="6" MinWidth="220" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
                         <TextBlock Text="{Binding TimeText}"
                                    FontSize="11"
                                    Foreground="White" Opacity="0.85" />
-                        <TextBlock Text="{Binding StateText}"
+                        <TextBlock Grid.Column="1" Text="{Binding StateText}" TextWrapping="Wrap"
                                    FontSize="11"
                                    Foreground="White" Opacity="0.85"
                                    IsVisible="{Binding HasState}" />
-                    </StackPanel>
+                    </Grid>
                 </StackPanel>
             </Border>
         </StackPanel>
     </DataTemplate>
 
     <DataTemplate x:Key="FileChatMessageTemplate" x:DataType="vm:FileChatMessageItem">
-        <StackPanel Margin="0,0,0,8">
-            <Border MaxWidth="420" Padding="0"
+        <Grid x:Name="FileMessageRoot" Margin="0,0,0,8">
+            <Border Width="320" MaxWidth="{Binding #FileMessageRoot.Bounds.Width}" Padding="12"
                     IsVisible="{Binding IsIncomingFileOffer}"
                     Background="{StaticResource IncomingBubbleBrush}"
-                    CornerRadius="10"
-                    HorizontalAlignment="Left"
-                    Cursor="Hand">
-                <StackPanel>
-                    <Border Background="{DynamicResource SemiColorFill1}" CornerRadius="8" Padding="12" Margin="8">
-                        <StackPanel Spacing="0">
-                            <Grid ColumnDefinitions="64,*" ColumnSpacing="10">
-                                <Border Width="64" Height="64" CornerRadius="6"
-                                        Background="{DynamicResource SemiColorFill0}"
-                                        HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Image Source="{Binding FileIcon}" Width="48" Height="48"
-                                           Stretch="Uniform" />
-                                </Border>
-                                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding FileName}" FontWeight="SemiBold"
-                                               TextTrimming="CharacterEllipsis" MaxWidth="280" />
-                                    <TextBlock Text="{Binding FileSizeText}"
-                                               Foreground="{DynamicResource SemiColorText1}"
-                                               FontSize="{DynamicResource SemiFontSizeSmall}" />
-                                    <ProgressBar Minimum="0" Maximum="1" Value="{Binding ReceiveProgress}"
-                                                 Height="4" IsVisible="{Binding IsReceiving}" />
-                                </StackPanel>
+                    CornerRadius="8"
+                    HorizontalAlignment="Left">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="48,*" ColumnSpacing="12">
+                        <Border Width="48" Height="48" CornerRadius="6"
+                                Background="{DynamicResource SemiColorFill0}">
+                            <Grid Margin="4">
+                                <TextBlock Text="{Binding FileTypeText}"
+                                           IsVisible="{Binding !HasFileIcon}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SemiColorText1}" />
+                                <Image Source="{Binding FileIcon}" Width="32" Height="32"
+                                       IsVisible="{Binding HasFileIcon}" Stretch="Uniform" />
                             </Grid>
-                            <StackPanel Spacing="6" Margin="0,8,0,0"
-                                        IsVisible="{Binding CanHandleIncomingOffer}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Button Classes="Primary" Content="{DynamicResource 'lang.kitopia.accept'}"
-                                            Command="{Binding AcceptCommand}"
-                                            CommandParameter="{Binding .}" />
-                                    <Button Classes="Secondary" Content="{DynamicResource 'lang.kitopia.reject'}"
-                                            Command="{Binding RejectCommand}"
-                                            CommandParameter="{Binding .}" />
-                                </StackPanel>
-                            </StackPanel>
-                            <TextBlock Text="{Binding StateText}" FontSize="11"
-                                       Foreground="{DynamicResource SemiColorText2}"
-                                       IsVisible="{Binding HasState}"
-                                       Margin="0,4,0,0" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding FileName}" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FileName}" />
+                            <TextBlock Text="{Binding FileSizeText}"
+                                       Foreground="{DynamicResource SemiColorText1}"
+                                       FontSize="{DynamicResource SemiFontSizeSmall}" />
                         </StackPanel>
-                    </Border>
-                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="12,4,12,8">
-                        <TextBlock Text="{Binding TimeText}" FontSize="11"
+                    </Grid>
+                    <ProgressBar Minimum="0" Maximum="1" Value="{Binding ReceiveProgress}"
+                                 Height="4" IsVisible="{Binding IsReceiving}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBlock Text="{Binding StateText}" FontSize="11" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource SemiColorText2}"
+                                   IsVisible="{Binding HasState}" />
+                        <TextBlock Grid.Column="1" Text="{Binding TimeText}" FontSize="11"
+                                   VerticalAlignment="Bottom"
                                    Foreground="{DynamicResource SemiColorText2}" />
-                    </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8"
+                          IsVisible="{Binding CanHandleIncomingOffer}">
+                        <Button Classes="Primary" Content="{DynamicResource 'lang.kitopia.accept'}"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Command="{Binding AcceptCommand}" CommandParameter="{Binding .}" />
+                        <Button Grid.Column="1" Classes="Secondary" Content="{DynamicResource 'lang.kitopia.reject'}"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Command="{Binding RejectCommand}" CommandParameter="{Binding .}" />
+                    </Grid>
                 </StackPanel>
                 <Border.ContextFlyout>
                     <MenuFlyout>
                         <MenuItem Header="{DynamicResource 'lang.kitopia.open'}"
+                                  IsEnabled="{Binding CanUseLocalFile}"
                                   Command="{Binding OpenCommand}"
                                   CommandParameter="{Binding .}" />
                         <MenuItem Header="{DynamicResource 'lang.kitopia.save_as'}"
+                                  IsEnabled="{Binding CanUseLocalFile}"
                                   Command="{Binding SaveAsCommand}"
                                   CommandParameter="{Binding .}" />
                         <MenuItem Header="{DynamicResource 'lang.kitopia.copy_file'}"
+                                  IsEnabled="{Binding CanUseLocalFile}"
                                   Command="{Binding CopyFileCommand}"
                                   CommandParameter="{Binding .}" />
                         <Separator />
@@ -172,52 +156,54 @@
                 </Border.ContextFlyout>
             </Border>
 
-            <Border MaxWidth="420" Padding="0"
+            <Border Width="320" MaxWidth="{Binding #FileMessageRoot.Bounds.Width}" Padding="12"
                     IsVisible="{Binding IsOutgoing}"
                     Background="{StaticResource OutgoingBubbleBrush}"
-                    CornerRadius="10"
-                    HorizontalAlignment="Right"
-                    Cursor="Hand">
-                <StackPanel>
-                    <Border Background="#33FFFFFF" CornerRadius="8" Padding="12" Margin="8">
-                        <Grid ColumnDefinitions="64,*" ColumnSpacing="10">
-                            <Border Width="64" Height="64" CornerRadius="6"
-                                    Background="#22FFFFFF"
-                                    HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Image Source="{Binding FileIcon}" Width="48" Height="48"
-                                       Stretch="Uniform" />
-                            </Border>
-                            <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding FileName}" FontWeight="SemiBold"
-                                           TextTrimming="CharacterEllipsis" MaxWidth="280"
+                    CornerRadius="8"
+                    HorizontalAlignment="Right">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="48,*" ColumnSpacing="12">
+                        <Border Width="48" Height="48" CornerRadius="6" Background="#22FFFFFF">
+                            <Grid Margin="4">
+                                <TextBlock Text="{Binding FileTypeText}"
+                                           IsVisible="{Binding !HasFileIcon}"
+                                           FontSize="11" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Foreground="White" />
-                                <TextBlock Text="{Binding FileSizeText}"
-                                           Foreground="White" Opacity="0.85"
-                                           FontSize="{DynamicResource SemiFontSizeSmall}" />
-                                <ProgressBar Minimum="0" Maximum="1" Value="{Binding ReceiveProgress}"
-                                             Height="4" IsVisible="{Binding IsReceiving}"
-                                             Foreground="White" />
-                                <TextBlock Text="{Binding StateText}" FontSize="11"
-                                           Foreground="White" Opacity="0.85"
-                                           IsVisible="{Binding HasState}" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="12,4,12,8">
-                        <TextBlock Text="{Binding TimeText}" FontSize="11"
+                                <Image Source="{Binding FileIcon}" Width="32" Height="32"
+                                       IsVisible="{Binding HasFileIcon}" Stretch="Uniform" />
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding FileName}" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FileName}"
+                                       Foreground="White" />
+                            <TextBlock Text="{Binding FileSizeText}"
+                                       Foreground="White" Opacity="0.85"
+                                       FontSize="{DynamicResource SemiFontSizeSmall}" />
+                        </StackPanel>
+                    </Grid>
+                    <ProgressBar Minimum="0" Maximum="1" Value="{Binding ReceiveProgress}"
+                                 Height="4" IsVisible="{Binding IsReceiving}" Foreground="White" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBlock Text="{Binding StateText}" FontSize="11" TextWrapping="Wrap"
+                                   Foreground="White" Opacity="0.85" IsVisible="{Binding HasState}" />
+                        <TextBlock Grid.Column="1" Text="{Binding TimeText}" FontSize="11"
+                                   VerticalAlignment="Bottom"
                                    Foreground="White" Opacity="0.85" />
-                    </StackPanel>
+                    </Grid>
                 </StackPanel>
                 <Border.ContextFlyout>
                     <MenuFlyout>
                         <MenuItem Header="{DynamicResource 'lang.kitopia.cancel_transfer'}"
                                   IsVisible="{Binding IsTransferActive}"
-                                  Command="{Binding CancelCommand}" />
+                                  Command="{Binding CancelCommand}" CommandParameter="{Binding .}" />
                         <MenuItem Header="{DynamicResource 'lang.kitopia.view_details'}"
-                                  Command="{Binding ViewDetailsCommand}" />
+                                  Command="{Binding ViewDetailsCommand}" CommandParameter="{Binding .}" />
                     </MenuFlyout>
                 </Border.ContextFlyout>
             </Border>
-        </StackPanel>
+        </Grid>
     </DataTemplate>
 </ResourceDictionary>

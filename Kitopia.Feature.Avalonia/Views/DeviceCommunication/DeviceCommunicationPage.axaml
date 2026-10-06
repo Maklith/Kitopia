@@ -56,19 +56,20 @@
                                     </MenuFlyout>
                                 </Border.ContextFlyout>
                                 <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="6">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="6">
                                         <Label Theme="{DynamicResource TagLabel}" Classes="Green"
                                                IsVisible="{Binding HasIpv6}"
                                                FontSize="{DynamicResource SemiFontSizeSmall}">IPv6</Label>
-                                        <Label Theme="{DynamicResource TagLabel}"
+                                        <Label Grid.Column="1" Theme="{DynamicResource TagLabel}"
                                                IsVisible="{Binding HasOperatingSystem}"
                                                FontSize="{DynamicResource SemiFontSizeSmall}"
                                                Content="{Binding OperatingSystemTagText}" />
-                                        <TextBlock Text="{Binding DisplayName}"
+                                        <TextBlock Grid.Column="2" Text="{Binding DisplayName}"
                                                    FontWeight="SemiBold"
                                                    TextTrimming="CharacterEllipsis"
+                                                   ToolTip.Tip="{Binding DisplayName}"
                                                    VerticalAlignment="Center" />
-                                    </StackPanel>
+                                    </Grid>
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <Border Background="{DynamicResource SemiColorDanger}"
@@ -87,14 +88,17 @@
                                                    TextTrimming="CharacterEllipsis"
                                                    MaxWidth="220" />
                                         <TextBlock Text="{lang:Lang &apos;lang.kitopia.computer_value&apos;, Value={Binding ComputerName}}"
+                                                   TextTrimming="CharacterEllipsis"
                                                    Foreground="{DynamicResource SemiColorText2}"
                                                    FontSize="11" />
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <StackPanel Spacing="2">
                                             <TextBlock Text="{Binding Ipv4AddressText}"
+                                                       TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource SemiColorText2}"
                                                        FontSize="11"
                                                        IsVisible="{Binding HasIpv4}" />
                                             <TextBlock Text="{Binding Ipv6AddressText}"
+                                                       TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource SemiColorText2}"
                                                        FontSize="11"
                                                        IsVisible="{Binding HasIpv6}" />
@@ -155,8 +159,10 @@
                         </Button>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBlock Text="{Binding CurrentConversationTitle}"
+                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CurrentConversationTitle}"
                                        FontSize="16" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding CurrentConversationSubtitle}"
+                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CurrentConversationSubtitle}"
                                        Foreground="{DynamicResource SemiColorText1}"
                                        FontSize="{DynamicResource SemiFontSizeSmall}" />
                         </StackPanel>
@@ -261,14 +267,14 @@
                 PointerPressed="OnImagePreviewOverlayPointerPressed"
                 KeyDown="OnImagePreviewOverlayKeyDown">
             <Grid RowDefinitions="Auto,*" RowSpacing="12">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
                     <TextBlock x:Name="ImagePreviewTitle"
                                Text="{DynamicResource 'lang.kitopia.image_preview_100'}"
                                Foreground="White"
                                FontSize="16"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center" />
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                         <Button MinWidth="36"
                                 MinHeight="36"
                                 Padding="8"

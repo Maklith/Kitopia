@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:services="clr-namespace:Kitopia.Desktop.Services"
+        xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
         xmlns:u="https://irihi.tech/ursa"
         mc:Ignorable="d"
         x:DataType="services:SuppressedNotificationCenterViewModel"
@@ -44,63 +45,14 @@
                        FontSize="14" Foreground="{DynamicResource SemiColorText2}" />
             <ScrollViewer Grid.Row="1" IsVisible="{Binding HasNotifications}"
                           VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch">
-                <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl x:Name="NotificationItemsControl" ItemsSource="{Binding Items}">
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="services:SuppressedNotificationItemViewModel">
-                            <Button Margin="0,0,0,8"
-                                    Command="{Binding OpenCommand}"
-                                    HorizontalContentAlignment="Stretch"
-                                     HorizontalAlignment="Stretch"
-                                     Background="Transparent"
-                                     BorderThickness="0"
-                                     Padding="0">
-                                 <Border Margin="0,3,0,5"
-                                         Background="{DynamicResource KitopiaCardBackgroundBrush}"
-                                         BorderBrush="{DynamicResource SemiColorBorder}"
-                                         BorderThickness="1"
-                                         CornerRadius="12"
-                                         BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
-                                         Padding="14,12">
-                                     <Grid RowDefinitions="Auto,Auto"
-                                           ColumnDefinitions="Auto,*,Auto"
-                                           RowSpacing="6"
-                                           ColumnSpacing="10">
-                                         <PathIcon Grid.Row="0"
-                                                   Grid.Column="0"
-                                                   Width="18"
-                                                   Height="18"
-                                                   Margin="0,2,0,0"
-                                                   VerticalAlignment="Top"
-                                                   Data="{DynamicResource NotificationCardInformationIconPathData}"
-                                                   Foreground="{DynamicResource NotificationCardInformationIconForeground}" />
-
-                                         <TextBlock Grid.Row="0"
-                                                    Grid.Column="1"
-                                                    Text="{Binding Header}"
-                                                    Foreground="{DynamicResource SemiColorText0}"
-                                                    FontSize="13"
-                                                    FontWeight="SemiBold"
-                                                    TextWrapping="Wrap" />
-
-                                         <TextBlock Grid.Row="0"
-                                                    Grid.Column="2"
-                                                    Text="{Binding CreatedAtText}"
-                                                    Foreground="{DynamicResource SemiColorText2}"
-                                                    FontSize="11"
-                                                    HorizontalAlignment="Right"
-                                                    VerticalAlignment="Center" />
-
-                                         <TextBlock Grid.Row="1"
-                                                    Grid.Column="1"
-                                                    Grid.ColumnSpan="2"
-                                                    Text="{Binding Text}"
-                                                    FontSize="12"
-                                                    LineHeight="17"
-                                                    Foreground="{DynamicResource SemiColorText1}"
-                                                    TextWrapping="Wrap" />
-                                     </Grid>
-                                 </Border>
-                             </Button>
+                        <DataTemplate x:DataType="services:ToastItemViewModel">
+                            <StackPanel Margin="0,3,0,8" Spacing="4">
+                                <controls:ToastCard />
+                                <TextBlock Text="{Binding CreatedAtText}" FontSize="11"
+                                           Foreground="{DynamicResource SemiColorText2}" HorizontalAlignment="Right" />
+                            </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

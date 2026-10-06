@@ -30,8 +30,9 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
     private readonly INavigationService _navigationService;
     private readonly IChatAttachmentStore _attachmentStore;
     private readonly IServiceProvider _serviceProvider;
-    private readonly object _transferToastSync = new();
-    private readonly Dictionary<Guid, IToastProgressHandle> _incomingTransferToasts = [];
+    private readonly Dictionary<Guid, (string ConversationId, IToastProgressHandle Handle)> _incomingTransferToasts = [];
+    private readonly DispatcherTimer _transferToastContextTimer = new(DispatcherPriority.Background, Dispatcher.UIThread)
+        { Interval = TimeSpan.FromMilliseconds(300) };
 
     public DesktopIncomingMessageSink(
         IncomingMessageBuffer messageBuffer,
@@ -47,6 +48,7 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
         _navigationService = navigationService;
         _attachmentStore = attachmentStore;
         _serviceProvider = serviceProvider;
+        _transferToastContextTimer.Tick += (_, _) => CloseIncomingTransferToastsInCurrentConversation();
     }
 
     public async ValueTask PublishAsync(AppMessage message, CancellationToken cancellationToken = default)
@@ -69,8 +71,15 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
 
     private void NotifyIfNeeded(DeviceMessageEvent messageEvent)
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => NotifyIfNeeded(messageEvent));
+            return;
+        }
+
         try
         {
+            CloseIncomingTransferToastsInCurrentConversation();
             var conversationId = messageEvent.ConversationId;
             var messageAppService = _serviceProvider.GetRequiredService<IMessageAppService>();
             if (string.IsNullOrWhiteSpace(conversationId) ||
@@ -104,11 +113,15 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
                         fileOffer.FileName,
                         fileOffer.TotalBytes);
                     break;
-                case FileTransferUpdatedEvent { Direction: FileTransferDirection.Download } downloadEvent
-                    when downloadEvent.Status is FileTransferStatus.InProgress or
+                case FileTransferUpdatedEvent downloadEvent
+                    when (downloadEvent.Direction == FileTransferDirection.Download ||
+                          _incomingTransferToasts.ContainsKey(downloadEvent.TransferId)) &&
+                         downloadEvent.Status is FileTransferStatus.InProgress or
                         FileTransferStatus.Completed or
                         FileTransferStatus.Rejected or
-                        FileTransferStatus.Failed:
+                        FileTransferStatus.Failed or
+                        FileTransferStatus.Cancelled or
+                        FileTransferStatus.Timeout:
                     UpdateIncomingTransferToast(displayName, downloadEvent);
                     break;
                 case FileTransferUpdatedEvent { Direction: FileTransferDirection.Upload } uploadFailure
@@ -172,7 +185,6 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
                     CloseOnClick = true,
                     Callback = () => _ = AcceptIncomingOfferFromToastAsync(
                         conversationId,
-                        displayName,
                         transferId,
                         resolvedFileName)
                 },
@@ -194,7 +206,6 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
 
     private async Task AcceptIncomingOfferFromToastAsync(
         string conversationId,
-        string displayName,
         Guid transferId,
         string fileName)
     {
@@ -211,7 +222,6 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
                 transferId,
                 saveTarget.DisplayPath,
                 saveTarget.OpenWriteAsync);
-            ShowIncomingProgressToast(transferId, displayName, fileName);
         }
         catch (Exception exception)
         {
@@ -244,36 +254,25 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
         }
     }
 
-    private void ShowIncomingProgressToast(Guid transferId, string displayName, string fileName)
+    private void ShowIncomingProgressToast(string conversationId, Guid transferId, string displayName, string fileName)
     {
-        lock (_transferToastSync)
+        if (!_incomingTransferToasts.ContainsKey(transferId))
         {
-            if (_incomingTransferToasts.TryGetValue(transferId, out var existingHandle))
-            {
-                existingHandle.Update(
-                    progress: 0,
-                    text: Lang.Format("lang.kitopia.messages.receiving_value", fileName),
-                    header: Lang.Format("lang.kitopia.messages.device_chat_value", displayName),
-                    isIndeterminate: false);
-                return;
-            }
-
-            _incomingTransferToasts[transferId] = _toastService.ShowProgress(
+            var handle = _toastService.ShowProgress(
                 Lang.Format("lang.kitopia.messages.device_chat_value", displayName),
                 Lang.Format("lang.kitopia.messages.receiving_value", fileName),
                 NotificationType.Information,
                 initialProgress: 0,
                 isIndeterminate: false);
+            _incomingTransferToasts.Add(transferId, (conversationId, handle));
+            _transferToastContextTimer.Start();
         }
     }
 
     private void UpdateIncomingTransferToast(string displayName, FileTransferUpdatedEvent transferEvent)
     {
-        IToastProgressHandle? handle;
-        lock (_transferToastSync)
-        {
-            _incomingTransferToasts.TryGetValue(transferEvent.TransferId, out handle);
-        }
+        _incomingTransferToasts.TryGetValue(transferEvent.TransferId, out var toast);
+        var handle = toast.Handle;
 
         var fileName = string.IsNullOrWhiteSpace(transferEvent.FileName)
             ? transferEvent.TransferId.ToString("D")
@@ -284,11 +283,9 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
             case FileTransferStatus.InProgress:
                 if (handle is null)
                 {
-                    ShowIncomingProgressToast(transferEvent.TransferId, displayName, fileName);
-                    lock (_transferToastSync)
-                    {
-                        _incomingTransferToasts.TryGetValue(transferEvent.TransferId, out handle);
-                    }
+                    ShowIncomingProgressToast(transferEvent.ConversationId, transferEvent.TransferId, displayName, fileName);
+                    _incomingTransferToasts.TryGetValue(transferEvent.TransferId, out toast);
+                    handle = toast.Handle;
                 }
 
                 if (handle is not null)
@@ -313,6 +310,7 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
                 break;
             case FileTransferStatus.Rejected:
             case FileTransferStatus.Failed:
+            case FileTransferStatus.Timeout:
                 if (handle is not null)
                 {
                     handle.Fail(
@@ -330,14 +328,35 @@ public sealed class DesktopIncomingMessageSink : IIncomingMessageSink
 
                 RemoveIncomingTransferToast(transferEvent.TransferId);
                 break;
+            case FileTransferStatus.Cancelled:
+                handle?.Close();
+                RemoveIncomingTransferToast(transferEvent.TransferId);
+                break;
         }
     }
 
     private void RemoveIncomingTransferToast(Guid transferId)
     {
-        lock (_transferToastSync)
+        _incomingTransferToasts.Remove(transferId);
+        if (_incomingTransferToasts.Count == 0)
         {
-            _incomingTransferToasts.Remove(transferId);
+            _transferToastContextTimer.Stop();
+        }
+    }
+
+    private void CloseIncomingTransferToastsInCurrentConversation()
+    {
+        if (_incomingTransferToasts.Count == 0) return;
+
+        var messageAppService = _serviceProvider.GetRequiredService<IMessageAppService>();
+        foreach (var (transferId, toast) in _incomingTransferToasts)
+        {
+            if (messageAppService.ResolveIncomingDisplayMode(toast.ConversationId) ==
+                IncomingMessageDisplayMode.ShowInCurrentConversation)
+            {
+                toast.Handle.Close();
+                RemoveIncomingTransferToast(transferId);
+            }
         }
     }
 

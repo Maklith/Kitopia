@@ -10,6 +10,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using Kitopia.Feature.Avalonia.DeviceCommunication.ViewModels;
 
 namespace Kitopia.Feature.Avalonia.DeviceCommunication.Views;
@@ -25,6 +26,7 @@ public partial class DeviceCommunicationPage : UserControl
     private Image? _imagePreviewContent;
     private TextBlock? _imagePreviewTitle;
     private Border? _fileDropOverlay;
+    private readonly RelayCommand<DeviceChatMessageItem> _previewImageCommand;
     private double _imagePreviewWidth;
     private double _imagePreviewHeight;
     private double _imagePreviewScale = 1d;
@@ -39,6 +41,7 @@ public partial class DeviceCommunicationPage : UserControl
 
     public DeviceCommunicationPage()
     {
+        _previewImageCommand = new RelayCommand<DeviceChatMessageItem>(ShowImagePreview);
         InitializeComponent();
         _conversationScrollViewer = this.FindControl<ScrollViewer>("ConversationScrollViewer");
         _conversationItemsControl = this.FindControl<ItemsControl>("ConversationItemsControl");
@@ -51,6 +54,8 @@ public partial class DeviceCommunicationPage : UserControl
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         SizeChanged += OnPageSizeChanged;
+        AddHandler(InputElement.PointerPressedEvent, OnPreviewImagePointerPressed);
+        AddHandler(InputElement.DoubleTappedEvent, OnFileCardDoubleTapped);
     }
 
     private const double CompactWidthThreshold = 700d;
@@ -103,6 +108,7 @@ public partial class DeviceCommunicationPage : UserControl
     {
         if (e.PropertyName == nameof(DeviceCommunicationPageViewModel.CurrentMessages))
         {
+            CloseImagePreview();
             BindCurrentMessages();
             SetConversationItemsSource(_boundViewModel?.CurrentMessages);
             ScrollToLatest();
@@ -131,6 +137,8 @@ public partial class DeviceCommunicationPage : UserControl
         }
 
         _boundMessages = messages;
+        foreach (var message in _boundViewModel.CurrentMessages.OfType<DeviceChatMessageItem>())
+            message.PreviewImageCommand = _previewImageCommand;
         _boundMessages.CollectionChanged += OnCurrentMessagesCollectionChanged;
     }
 
@@ -142,11 +150,26 @@ public partial class DeviceCommunicationPage : UserControl
         }
 
         _boundMessages.CollectionChanged -= OnCurrentMessagesCollectionChanged;
+        if (_boundMessages is System.Collections.Generic.IEnumerable<object> messages)
+        {
+            foreach (var message in messages.OfType<DeviceChatMessageItem>())
+                if (ReferenceEquals(message.PreviewImageCommand, _previewImageCommand)) message.PreviewImageCommand = null;
+        }
         _boundMessages = null;
     }
 
     private void OnCurrentMessagesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        if (e.OldItems is { } oldItems)
+        {
+            foreach (var message in oldItems.OfType<DeviceChatMessageItem>())
+                if (ReferenceEquals(message.PreviewImageCommand, _previewImageCommand)) message.PreviewImageCommand = null;
+        }
+        if (e.NewItems is { } items)
+        {
+            foreach (var message in items.OfType<DeviceChatMessageItem>())
+                message.PreviewImageCommand = _previewImageCommand;
+        }
         ScrollToLatest();
     }
 
@@ -328,13 +351,13 @@ public partial class DeviceCommunicationPage : UserControl
     private void OnFileCardDoubleTapped(object? sender, RoutedEventArgs e)
     {
         if (_boundViewModel?.OpenFileCommand is null) return;
-        if (sender is not Border { DataContext: FileChatMessageItem item } || !item.HasLocalFile) return;
+        if (e.Source is not Control { DataContext: FileChatMessageItem item } || !item.CanUseLocalFile) return;
         _boundViewModel.OpenFileCommand.Execute(item);
     }
 
     private void OnPreviewImagePointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Control { DataContext: DeviceChatMessageItem messageItem })
+        if (e.Source is not Image { DataContext: DeviceChatMessageItem messageItem })
         {
             return;
         }
@@ -346,19 +369,9 @@ public partial class DeviceCommunicationPage : UserControl
         }
     }
 
-    private void OnPreviewImageZoomClicked(object? sender, RoutedEventArgs e)
+    private void ShowImagePreview(DeviceChatMessageItem? messageItem)
     {
-        if (sender is not Control { DataContext: DeviceChatMessageItem messageItem })
-        {
-            return;
-        }
-
-        ShowImagePreview(messageItem);
-    }
-
-    private void ShowImagePreview(DeviceChatMessageItem messageItem)
-    {
-        if (messageItem.ImagePreview is null ||
+        if (messageItem?.ImagePreview is null ||
             _imagePreviewOverlay is null ||
             _imagePreviewCanvas is null ||
             _imagePreviewContent is null)

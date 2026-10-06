@@ -153,7 +153,10 @@ public sealed class FileTransferPayloadHandler
                     receivedBytes,
                     Math.Max(receivedBytes, totalBytes),
                     null,
-                    DateTimeOffset.UtcNow),
+                    DateTimeOffset.UtcNow)
+                {
+                    LocalFilePath = Path.IsPathRooted(session.SavePath) ? session.SavePath : null
+                },
                 CancellationToken.None);
         }
         catch (OperationCanceledException)

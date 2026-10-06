@@ -44,6 +44,7 @@ public sealed class SharedFileTransferPayloadHandlerTests
                 .FirstOrDefault(evt => evt.Status == FileTransferStatus.Completed);
             Assert.IsNotNull(completed);
             Assert.AreEqual(FileTransferDirection.Download, completed.Direction);
+            Assert.AreEqual(tempFile, completed.LocalFilePath);
         }
         finally
         {
@@ -86,6 +87,7 @@ public sealed class SharedFileTransferPayloadHandlerTests
             .FirstOrDefault(evt => evt.Status == FileTransferStatus.Completed);
         Assert.IsNotNull(completed);
         Assert.AreEqual(payloadBytes.LongLength, completed.BytesTransferred);
+        Assert.IsNull(completed.LocalFilePath);
     }
 
     [TestMethod]

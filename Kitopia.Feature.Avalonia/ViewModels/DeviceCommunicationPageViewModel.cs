@@ -313,20 +313,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     case FileTransferUpdatedEvent { Status: FileTransferStatus.WaitingForAccept } transferEvent:
                         OnFileOfferReceived(transferEvent);
                         break;
-                    case FileTransferUpdatedEvent { Status: FileTransferStatus.Accepted } transferEvent:
-                        OnFileTransferAccepted(transferEvent);
-                        break;
-                    case FileTransferUpdatedEvent { Status: FileTransferStatus.InProgress } transferEvent:
-                        OnFileTransferProgress(transferEvent);
-                        break;
-                    case FileTransferUpdatedEvent { Status: FileTransferStatus.Completed } transferEvent:
-                        OnFileTransferCompleted(transferEvent);
-                        break;
-                    case FileTransferUpdatedEvent { Status: FileTransferStatus.Delivered } deliveredEvent:
-                        OnFileTransferDelivered(deliveredEvent);
-                        break;
                     case FileTransferUpdatedEvent transferEvent:
-                        OnFileTransferRejected(transferEvent);
+                        OnFileTransferUpdated(transferEvent);
                         break;
                 }
             }
@@ -500,10 +488,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     await SendFileToConversationAsync(capturedConversation, msgWithIcon, fs, capturedToken);
                     ExecuteOnUiThread(() =>
                     {
-                        capturedBubble.IsPending = false;
-                        capturedBubble.IsReceiving = false;
+                        if (!capturedBubble.IsTransferActive) return;
+                        capturedBubble.Status = FileTransferStatus.Completed;
                         capturedBubble.ReceiveProgress = 1d;
-                        capturedBubble.IsFailed = false;
                     });
                 }
                 catch (Exception ex)
@@ -511,8 +498,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     if (capturedToken.IsCancellationRequested) return;
                     ExecuteOnUiThread(() =>
                     {
-                        capturedBubble.IsPending = false;
-                        capturedBubble.IsFailed = true;
+                        if (capturedBubble.IsTransferActive) capturedBubble.Status = FileTransferStatus.Failed;
                     });
                     lock (errors)
                     {
@@ -548,19 +534,20 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 return;
             }
 
+            if (!offer.CanHandleIncomingOffer) return;
+            offer.Status = FileTransferStatus.Accepted;
+            offer.ReceiveProgress = 0d;
+            offer.LocalFilePath = saveTarget.LocalPath;
             await _messageAppService.AcceptFileAsync(
                 conversation.DeviceId,
                 transferId,
                 saveTarget.DisplayPath,
                 saveTarget.OpenWriteAsync);
-            offer.IsHandled = true;
-            offer.IsReceiving = true;
-            offer.ReceiveProgress = 0d;
-            offer.LocalFilePath = saveTarget.LocalPath;
-            conversation.SetLastMessage(Lang.Format("lang.kitopia.file_value", offer.FileName), DateTimeOffset.Now);
+            conversation.SetLastMessage(Lang.Format("lang.kitopia.file_value", offer.FileName) + " " + offer.StateText, DateTimeOffset.Now);
             SortConversations();
         }
         catch (Exception ex) {
+            if (offer.Status == FileTransferStatus.Accepted) offer.Status = FileTransferStatus.Failed;
             _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Format("lang.kitopia.failed_to_accept_value", ex.Message), ChatNotificationKind.Error);
         }
     }
@@ -577,9 +564,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         try {
+            offer.Status = FileTransferStatus.Rejected;
             await _messageAppService.RejectFileAsync(conversation.DeviceId, transferId, "rejected_by_user");
-            offer.IsHandled = true;
-            conversation.SetLastMessage(Lang.Format("lang.kitopia.file_value", offer.FileName), DateTimeOffset.Now);
+            conversation.SetLastMessage(Lang.Format("lang.kitopia.file_value", offer.FileName) + " " + offer.StateText, DateTimeOffset.Now);
             SortConversations();
         }
         catch (Exception ex) {
@@ -616,7 +603,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     [RelayCommand]
     private void OpenFile(FileChatMessageItem? item)
     {
-        if (item?.HasLocalFile != true || !_platform.CanOpenFile) return;
+        if (item?.CanUseLocalFile != true || !_platform.CanOpenFile) return;
         try { _platform.OpenFile(item.LocalFilePath!); }
         catch (Exception ex) { Logger.Error(ex, "打开文件失败"); }
     }
@@ -624,10 +611,10 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     [RelayCommand]
     private async Task SaveAsFileAsync(FileChatMessageItem? item)
     {
-        if (item?.LocalFilePath is null) return;
+        if (item?.CanUseLocalFile != true) return;
         var saveTarget = await _attachmentStore.PickSaveTargetAsync(item.FileName);
         if (saveTarget is null) return;
-        await using var src = File.OpenRead(item.LocalFilePath);
+        await using var src = File.OpenRead(item.LocalFilePath!);
         await using var dst = await saveTarget.OpenWriteAsync(CancellationToken.None);
         if (dst.CanSeek)
         {
@@ -640,7 +627,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     [RelayCommand]
     private async Task CopyFileAsync(FileChatMessageItem? item)
     {
-        if (item?.LocalFilePath is null) return;
+        if (item?.CanUseLocalFile != true) return;
         if (_clipboardService is null)
         {
             _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Get("lang.kitopia.copying_file_paths_is_unavailable_on_this_platform"), ChatNotificationKind.Warning);
@@ -649,7 +636,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
         try
         {
-            if (!await _clipboardService.SetTextAsync(item.LocalFilePath))
+            if (!await _clipboardService.SetTextAsync(item.LocalFilePath!))
             {
                 _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Get("lang.kitopia.failed_to_copy_file_path"), ChatNotificationKind.Warning);
             }
@@ -658,11 +645,10 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     [RelayCommand]
-    private void CancelTransfer(FileChatMessageItem? item)
+    private async Task CancelTransferAsync(FileChatMessageItem? item)
     {
-        if (item?.TrackingTransferId is null) return;
-
-        var transferId = item.TrackingTransferId.Value;
+        if (item is not { IsTransferActive: true, TrackingTransferId: { } transferId }) return;
+        item.Status = FileTransferStatus.Cancelled;
         lock (_fileSendCancellations)
         {
             if (_fileSendCancellations.TryGetValue(transferId, out var cts))
@@ -671,12 +657,23 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             }
         }
 
-        var deviceId = SelectedConversation?.DeviceId ?? item.ConversationId;
+        var deviceId = item.ConversationId;
         if (!string.IsNullOrWhiteSpace(deviceId))
-            _ = _messageAppService.CancelTransferAsync(deviceId, transferId, "user_cancelled");
-        item.IsFailed = true;
-        item.IsReceiving = false;
-        item.IsHandled = true;
+        {
+            if (TryGetConversation(deviceId, out var conversation))
+            {
+                conversation.SetLastMessage(Lang.Format("lang.kitopia.file_value", item.FileName) + " " + item.StateText, DateTimeOffset.Now);
+                SortConversations();
+            }
+            try
+            {
+                await _messageAppService.CancelTransferAsync(deviceId, transferId, "user_cancelled");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning(ex, "Notify peer of transfer cancellation failed. DeviceId={DeviceId} TransferId={TransferId}", deviceId, transferId);
+            }
+        }
     }
 
     [RelayCommand]
@@ -734,18 +731,6 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         return conversation is not null;
-    }
-
-    private static FileChatMessageItem? FindOutgoingFileItem(DeviceConversationItem conversation, Guid transferId)
-    {
-        return conversation.Messages.OfType<FileChatMessageItem>()
-            .FirstOrDefault(item => item.IsOutgoing && item.TrackingTransferId == transferId);
-    }
-
-    private static FileChatMessageItem? FindIncomingFileItem(DeviceConversationItem conversation, Guid transferId)
-    {
-        return conversation.Messages.OfType<FileChatMessageItem>()
-            .FirstOrDefault(item => !item.IsOutgoing && item.IsIncomingFileOffer && item.TrackingTransferId == transferId);
     }
 
     private static FileChatMessageItem? FindFileItemByTransferId(DeviceConversationItem conversation, Guid transferId)
@@ -827,7 +812,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             var timestamp = timestampUtc.ToLocalTime();
             var imageItem = DeviceChatMessageItem.CreateImage(payloadBytes, isOutgoing: false, timestamp);
             if (imageItem.ImagePreview is null) {
-                imageItem.Text = Lang.Format("lang.kitopia.image_value", DeviceChatMessageItem.FormatFileSizeLabel(message.SizeBytes));
+                imageItem.Text = Lang.Format("lang.kitopia.image_value", FileChatMessageItem.FormatFileSizeLabel(message.SizeBytes));
             }
 
             ApplyItemCommands(imageItem);
@@ -852,6 +837,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
         ExecuteOnUiThread(() => {
             if (!TryGetConversation(message.ConversationId, out var conversation)) return;
+            if (FindFileItemByTransferId(conversation, message.TransferId) is not null) return;
 
             var fileBubble = new FileChatMessageItem(
                 message.FileName ?? Lang.Get("lang.kitopia.unknown_file"),
@@ -860,8 +846,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 message.TimestampUtc.ToLocalTime())
             {
                 ConversationId = message.ConversationId,
-                TrackingTransferId = message.TransferId,
-                IsIncomingFileOffer = true
+                TrackingTransferId = message.TransferId
             };
 
             fileBubble.FileIcon = CreateBitmap(message.IconPng);
@@ -895,125 +880,43 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         });
     }
 
-    private void OnFileTransferCompleted(FileTransferUpdatedEvent message) {
+    private void OnFileTransferUpdated(FileTransferUpdatedEvent message) {
         if (_disposed) return;
         ExecuteOnUiThread(() => {
             if (!TryGetConversation(message.ConversationId, out var conversation)) return;
-
             var fileItem = FindFileItemByTransferId(conversation, message.TransferId);
-            if (fileItem is not null)
-            {
-                fileItem.ReceiveProgress = 1d;
-                fileItem.IsReceiving = false;
-                fileItem.ResetTransferSpeed();
-                fileItem.IsHandled = true;
-                fileItem.IsPending = false;
-                fileItem.IsFailed = false;
+            if (fileItem is null) return;
 
-                // Refresh icon from actual saved file
-                if (!string.IsNullOrWhiteSpace(fileItem.LocalFilePath) && File.Exists(fileItem.LocalFilePath))
+            // Terminal states must not be undone by events already in flight.
+            if (!fileItem.IsTransferActive && fileItem.Status != message.Status &&
+                (fileItem.Status != FileTransferStatus.Failed ||
+                 message.Status is not (FileTransferStatus.Rejected or FileTransferStatus.Cancelled or FileTransferStatus.Timeout))) return;
+            if (message.Status == FileTransferStatus.Delivered && fileItem.IsReceiving) return;
+            if (message.Status == FileTransferStatus.Accepted && fileItem.Status == FileTransferStatus.InProgress) return;
+            if (message.LocalFilePath is { } localPath) fileItem.LocalFilePath = localPath;
+
+            if (message.Status == FileTransferStatus.InProgress)
+            {
+                var transferred = Math.Max(0L, message.BytesTransferred ?? 0L);
+                var total = Math.Max(1L, message.TotalBytes ?? fileItem.FileSizeBytes);
+                fileItem.Status = FileTransferStatus.InProgress;
+                if (!fileItem.CanUpdateProgress(message.TimestampUtc)) return;
+                fileItem.ReceiveProgress = Math.Clamp((double)transferred / total, 0d, 1d);
+                fileItem.UpdateTransferSpeed(transferred, message.TimestampUtc);
+            }
+            else
+            {
+                fileItem.Status = message.Status;
+                if (message.Status == FileTransferStatus.Completed)
                 {
-                    _ = LoadFileIconAsync(fileItem, fileItem.LocalFilePath);
+                    fileItem.ReceiveProgress = 1d;
+                    if (fileItem.HasLocalFile) _ = LoadFileIconAsync(fileItem, fileItem.LocalFilePath!);
                 }
             }
 
-            conversation.SetLastMessage(Lang.Get("lang.kitopia.file_completed"), message.TimestampUtc.ToLocalTime());
-            SortConversations();
-            RequestMessageListAutoScroll();
-        });
-    }
-
-    private void OnFileTransferRejected(FileTransferUpdatedEvent message) {
-        if (_disposed) return;
-        ExecuteOnUiThread(() => {
-            if (!TryGetConversation(message.ConversationId, out var conversation)) return;
-
-            var fileItem = FindFileItemByTransferId(conversation, message.TransferId);
-            if (fileItem is null) return;
-
-            fileItem.ReceiveProgress = 0d;
-            fileItem.IsReceiving = false;
-            fileItem.ResetTransferSpeed();
-            fileItem.IsPending = false;
-            fileItem.IsFailed = true;
-            fileItem.IsHandled = true;
-
-            conversation.SetLastMessage(Lang.Get("lang.kitopia.file_transfer_failed"), message.TimestampUtc.ToLocalTime());
-            SortConversations();
-            RequestMessageListAutoScroll();
-        });
-    }
-
-    private void OnFileTransferProgress(
-        FileChatMessage message,
-        long? bytesTransferred,
-        long? totalBytes,
-        DateTimeOffset timestampUtc) {
-        OnFileTransferProgress(new FileTransferUpdatedEvent(
-            message.ConversationId,
-            message.ChannelId,
-            FileTransferDirection.Upload,
-            FileTransferStatus.InProgress,
-            message.FileName,
-            bytesTransferred,
-            totalBytes,
-            null,
-            timestampUtc));
-    }
-
-    private void OnFileTransferAccepted(FileTransferUpdatedEvent message) {
-        if (_disposed) return;
-        ExecuteOnUiThread(() => {
-            if (!TryGetConversation(message.ConversationId, out var conversation)) return;
-
-            var outgoingItem = FindOutgoingFileItem(conversation, message.TransferId);
-            if (outgoingItem is not null)
-            {
-                outgoingItem.IsWaitingForAccept = false;
-                outgoingItem.IsPending = false;
-                outgoingItem.IsFailed = false;
-                outgoingItem.IsReceiving = true;
-            }
-
-            conversation.SetLastMessage(Lang.Get("lang.kitopia.file_accepted_by_recipient"), message.TimestampUtc.ToLocalTime());
-            SortConversations();
-            RequestMessageListAutoScroll();
-        });
-    }
-
-    private void OnFileTransferDelivered(FileTransferUpdatedEvent message) {
-        if (_disposed) return;
-        ExecuteOnUiThread(() => {
-            if (!TryGetConversation(message.ConversationId, out var conversation)) return;
-
-            var outgoingItem = FindOutgoingFileItem(conversation, message.TransferId);
-            if (outgoingItem is not null)
-            {
-                outgoingItem.IsOfferDelivered = true;
-                outgoingItem.IsWaitingForAccept = true;
-            }
-        });
-    }
-
-    private void OnFileTransferProgress(FileTransferUpdatedEvent message) {
-        if (_disposed) return;
-        ExecuteOnUiThread(() => {
-            if (!TryGetConversation(message.ConversationId, out var conversation)) return;
-
-            var transferred = Math.Max(0L, message.BytesTransferred ?? 0L);
-            var total = Math.Max(1L, message.TotalBytes ?? 0);
-            var progress = Math.Clamp((double)transferred / total, 0d, 1d);
-
-            var fileItem = FindFileItemByTransferId(conversation, message.TransferId);
-            if (fileItem is null) return;
-
-            // Throttle UI refresh to avoid flickering
-            if (!fileItem.CanUpdateProgress(message.TimestampUtc)) return;
-
-            fileItem.IsReceiving = true;
-            fileItem.ReceiveProgress = progress;
-            fileItem.UpdateTransferSpeed(transferred, message.TimestampUtc);
-            conversation.SetLastMessage(Lang.Format("lang.kitopia.file_transfer_progress", fileItem.FileName, progress * 100), message.TimestampUtc.ToLocalTime());
+            conversation.SetLastMessage(Lang.Format("lang.kitopia.file_value", fileItem.FileName) + " " + fileItem.StateText,
+                message.TimestampUtc.ToLocalTime());
+            if (message.Status != FileTransferStatus.InProgress) SortConversations();
             RequestMessageListAutoScroll();
         });
     }
@@ -1054,6 +957,8 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         var ctx = _platform.GetDisplayContext(SelectedConversation?.DeviceId);
         _messageAppService.UpdateDisplayContext(ctx.IsMainWindowActive, ctx.IsChatPageOpen,
             SelectedConversation?.DeviceId);
+        if (ctx.IsMainWindowActive && ctx.IsChatPageOpen && SelectedConversation is { } conversation)
+            conversation.UnreadCount = 0;
     }
 
     private DeviceConversationItem? FindConversationByAddress(IPAddress remoteAddress) {
@@ -1356,7 +1261,7 @@ public partial class DeviceChatMessageItem : ObservableObject {
             return item;
         }
 
-        item.ImageBytes = imageBytes.ToArray();
+        item.ImageBytes = imageBytes;
 
         try {
             using var stream = new MemoryStream(imageBytes, writable: false);
@@ -1369,104 +1274,25 @@ public partial class DeviceChatMessageItem : ObservableObject {
         return item;
     }
 
-    public static DeviceChatMessageItem CreateFile(string fileName, long sizeBytes, bool isOutgoing,
-        DateTimeOffset timestamp) {
-        return new DeviceChatMessageItem(Lang.Format("lang.kitopia.file_value_value", fileName, FormatFileSizeLabel(sizeBytes)), isOutgoing, timestamp) {
-            FileName = fileName,
-            FileSizeBytes = sizeBytes
-        };
-    }
-
-    public static DeviceChatMessageItem CreateIncomingFileOffer(
-        string conversationId,
-        Guid transferId,
-        string fileName,
-        long sizeBytes,
-        DateTimeOffset timestamp) {
-        return new DeviceChatMessageItem(Lang.Format("lang.kitopia.file_value_value", fileName, FormatFileSizeLabel(sizeBytes)), isOutgoing: false, timestamp) {
-            ConversationId = conversationId,
-            FileName = fileName,
-            FileSizeBytes = sizeBytes,
-            TrackingTransferId = transferId,
-            IsIncomingFileOffer = true
-        };
-    }
-
-    public static string FormatFileSizeLabel(long sizeBytes) {
-        var bytes = Math.Max(0L, sizeBytes);
-        const long oneKb = 1024;
-        const long oneMb = 1024L * 1024L;
-        const long oneGb = 1024L * 1024L * 1024L;
-
-        if (bytes >= oneGb) {
-            return $"{bytes / (double)oneGb:0.00} GB";
-        }
-
-        if (bytes >= oneMb) {
-            return $"{bytes / (double)oneMb:0.00} MB";
-        }
-
-        if (bytes >= oneKb) {
-            return $"{bytes / (double)oneKb:0.00} KB";
-        }
-
-        return Lang.Format("lang.kitopia.value_bytes", bytes);
-    }
-
     [ObservableProperty] private string _text;
-
     [ObservableProperty] private bool _isOutgoing;
-
     [ObservableProperty] private DateTimeOffset _timestamp;
-
     [ObservableProperty] private bool _isPending;
-
     [ObservableProperty] private bool _isFailed;
-
     [ObservableProperty] private Bitmap? _imagePreview;
-
     [ObservableProperty] private byte[]? _imageBytes;
+    [ObservableProperty] private System.Windows.Input.ICommand? _previewImageCommand;
 
-    [ObservableProperty] private string _fileName = string.Empty;
-
-    [ObservableProperty] private long _fileSizeBytes;
-
-    [ObservableProperty] private Guid? _trackingTransferId;
-
-    [ObservableProperty] private double _receiveProgress;
-
-    [ObservableProperty] private bool _isReceiving;
-
-    [ObservableProperty] private double _transferSpeedBytesPerSecond;
-
-    [ObservableProperty] private string _conversationId = string.Empty;
-
-    [ObservableProperty] private bool _isIncomingFileOffer;
-
-    [ObservableProperty] private bool _isHandled;
-
-    public System.Windows.Input.ICommand? AcceptCommand { get; set; }
-    public System.Windows.Input.ICommand? RejectCommand { get; set; }
     public System.Windows.Input.ICommand? CopyImageCommand { get; set; }
-    public System.Windows.Input.ICommand? PreviewImageCommand { get; set; }
-
-    private long _transferStartBytes = -1;
-    private DateTimeOffset? _transferStartTimestampUtc;
 
     public bool IsIncoming => !IsOutgoing;
     public bool HasImage => ImagePreview is not null;
-    public bool HasFile => !string.IsNullOrWhiteSpace(FileName);
-    public bool CanHandleIncomingOffer => IsIncomingFileOffer && !IsHandled && TrackingTransferId.HasValue;
     public bool HasText => !string.IsNullOrWhiteSpace(Text);
     public string TimeText => Timestamp.ToLocalTime().ToString("HH:mm");
-
     public string StateText => IsFailed
         ? Lang.Get("lang.kitopia.failed")
-        : IsReceiving
-            ? BuildTransferStateText()
-            : IsPending
-                ? Lang.Get("lang.kitopia.sending")
-                : string.Empty;
+        : IsPending ? Lang.Get("lang.kitopia.sending") : string.Empty;
+    public bool HasState => !string.IsNullOrEmpty(StateText);
 
     internal void RefreshLanguage()
     {
@@ -1474,114 +1300,20 @@ public partial class DeviceChatMessageItem : ObservableObject {
         OnPropertyChanged(nameof(HasState));
     }
 
-    public bool HasState => !string.IsNullOrEmpty(StateText);
+    partial void OnIsOutgoingChanged(bool value) => OnPropertyChanged(nameof(IsIncoming));
+    partial void OnTimestampChanged(DateTimeOffset value) => OnPropertyChanged(nameof(TimeText));
+    partial void OnTextChanged(string value) => OnPropertyChanged(nameof(HasText));
+    partial void OnImagePreviewChanged(Bitmap? value) => OnPropertyChanged(nameof(HasImage));
 
-    partial void OnIsOutgoingChanged(bool value) {
-        OnPropertyChanged(nameof(IsIncoming));
-    }
-
-    partial void OnTimestampChanged(DateTimeOffset value) {
-        OnPropertyChanged(nameof(TimeText));
-    }
-
-    partial void OnIsPendingChanged(bool value) {
+    partial void OnIsPendingChanged(bool value)
+    {
         OnPropertyChanged(nameof(StateText));
         OnPropertyChanged(nameof(HasState));
     }
 
-    partial void OnIsFailedChanged(bool value) {
+    partial void OnIsFailedChanged(bool value)
+    {
         OnPropertyChanged(nameof(StateText));
         OnPropertyChanged(nameof(HasState));
-    }
-
-    partial void OnTextChanged(string value) {
-        OnPropertyChanged(nameof(HasText));
-    }
-
-    partial void OnImagePreviewChanged(Bitmap? value) {
-        OnPropertyChanged(nameof(HasImage));
-    }
-
-    partial void OnFileNameChanged(string value) {
-        OnPropertyChanged(nameof(HasFile));
-    }
-
-    partial void OnTrackingTransferIdChanged(Guid? value) {
-        OnPropertyChanged(nameof(CanHandleIncomingOffer));
-    }
-
-    partial void OnIsIncomingFileOfferChanged(bool value) {
-        OnPropertyChanged(nameof(CanHandleIncomingOffer));
-    }
-
-    partial void OnIsHandledChanged(bool value) {
-        OnPropertyChanged(nameof(CanHandleIncomingOffer));
-    }
-
-    partial void OnReceiveProgressChanged(double value) {
-        OnPropertyChanged(nameof(StateText));
-        OnPropertyChanged(nameof(HasState));
-    }
-
-    partial void OnIsReceivingChanged(bool value) {
-        OnPropertyChanged(nameof(StateText));
-        OnPropertyChanged(nameof(HasState));
-    }
-
-    partial void OnTransferSpeedBytesPerSecondChanged(double value) {
-        OnPropertyChanged(nameof(StateText));
-        OnPropertyChanged(nameof(HasState));
-    }
-
-    public void UpdateTransferSpeed(long transferredBytes, DateTimeOffset timestampUtc) {
-        if (!_transferStartTimestampUtc.HasValue || transferredBytes < _transferStartBytes) {
-            _transferStartBytes = Math.Max(0L, transferredBytes);
-            _transferStartTimestampUtc = timestampUtc;
-            TransferSpeedBytesPerSecond = 0d;
-            return;
-        }
-
-        var elapsedSeconds = (timestampUtc - _transferStartTimestampUtc.Value).TotalSeconds;
-        if (elapsedSeconds <= 0.0001d) {
-            return;
-        }
-
-        var elapsedBytes = Math.Max(0L, transferredBytes - _transferStartBytes);
-        TransferSpeedBytesPerSecond = Math.Max(0d, elapsedBytes / elapsedSeconds);
-    }
-
-    public void ResetTransferSpeed() {
-        _transferStartBytes = -1;
-        _transferStartTimestampUtc = null;
-        TransferSpeedBytesPerSecond = 0d;
-    }
-
-    private string BuildTransferStateText() {
-        var progressText = $"{ReceiveProgress * 100:0.0}%";
-        if (TransferSpeedBytesPerSecond <= 0d) {
-            return progressText;
-        }
-
-        return $"{progressText} | {FormatBytes(TransferSpeedBytesPerSecond)}/s";
-    }
-
-    private static string FormatBytes(double bytes) {
-        var units = new[] { "B", "KB", "MB", "GB", "TB" };
-        var value = Math.Max(0d, bytes);
-        var unitIndex = 0;
-        while (value >= 1024d && unitIndex < units.Length - 1) {
-            value /= 1024d;
-            unitIndex++;
-        }
-
-        if (value >= 100d) {
-            return $"{value:0} {units[unitIndex]}";
-        }
-
-        if (value >= 10d) {
-            return $"{value:0.0} {units[unitIndex]}";
-        }
-
-        return $"{value:0.00} {units[unitIndex]}";
     }
 }

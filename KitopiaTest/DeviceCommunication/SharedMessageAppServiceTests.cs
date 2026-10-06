@@ -57,6 +57,55 @@ public sealed class SharedMessageAppServiceTests
         Assert.IsNotNull(session.OpenWriteStreamAsync);
         Assert.AreSame(target, await session.OpenWriteStreamAsync(CancellationToken.None));
         Assert.AreEqual(2, listener.SendCount);
+        await using var acceptedEvents = service.ReceiveAsync(receiveCancellation.Token).GetAsyncEnumerator();
+        Assert.IsTrue(await acceptedEvents.MoveNextAsync());
+        var accepted = (FileTransferUpdatedEvent)acceptedEvents.Current;
+        Assert.AreEqual(FileTransferStatus.Accepted, accepted.Status);
+        Assert.AreEqual(FileTransferDirection.Download, accepted.Direction);
+        Assert.IsNull(accepted.LocalFilePath);
+    }
+
+    [TestMethod]
+    [DataRow(FileTransferStatus.Accepted)]
+    [DataRow(FileTransferStatus.Rejected)]
+    [DataRow(FileTransferStatus.Cancelled)]
+    public async Task LocalFileDecision_PublishesDownloadStateForChat(FileTransferStatus status)
+    {
+        var listener = new RecordingLocalDataListener();
+        using var discovery = new FakeDeviceDiscoveryService();
+        discovery.AddDevice(new DiscoveredDevice { Id = "peer-1", Ipv4Address = IPAddress.Loopback, TcpPort = 45000 });
+        var store = new FileTransferSessionStore();
+        var transferId = Guid.NewGuid();
+        store.TryAdd(new FileTransferSession
+        {
+            ConversationId = "peer-1", TransferId = transferId, FileName = "archive.zip", SizeBytes = 100,
+            IsIncoming = true, State = FileTransferState.Offered
+        });
+        var service = new MessageAppService(new MessageCodecRegistry(), new DeviceTransportService(listener, discovery),
+            new IncomingMessageBuffer(), store);
+        var path = Path.Combine(Path.GetTempPath(), "received.zip");
+        switch (status)
+        {
+            case FileTransferStatus.Accepted:
+                await service.AcceptFileAsync("peer-1", transferId, path);
+                break;
+            case FileTransferStatus.Rejected:
+                await service.RejectFileAsync("peer-1", transferId, "rejected_by_user");
+                break;
+            case FileTransferStatus.Cancelled:
+                await service.CancelTransferAsync("peer-1", transferId, "user_cancelled");
+                break;
+        }
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using var events = service.ReceiveAsync(cancellation.Token).GetAsyncEnumerator();
+        Assert.IsTrue(await events.MoveNextAsync());
+        var message = (FileTransferUpdatedEvent)events.Current;
+        Assert.AreEqual(status, message.Status);
+        Assert.AreEqual(FileTransferDirection.Download, message.Direction);
+        Assert.AreEqual(transferId, message.TransferId);
+        Assert.AreEqual("peer-1", message.ConversationId);
+        if (status == FileTransferStatus.Accepted) Assert.AreEqual(path, message.LocalFilePath);
+        Assert.AreEqual(1, listener.SendCount);
     }
 
     private sealed class FakeDeviceDiscoveryService : IDeviceDiscoveryService

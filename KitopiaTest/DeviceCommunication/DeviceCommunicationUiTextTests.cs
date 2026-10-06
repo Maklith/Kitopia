@@ -1,5 +1,6 @@
 using Kitopia.Feature.Avalonia.DeviceCommunication.ViewModels;
 using Kitopia.Feature.DeviceCommunication.Discovery;
+using Kitopia.Feature.DeviceCommunication.Application;
 
 namespace KitopiaTest.DeviceCommunication;
 
@@ -37,25 +38,23 @@ public class DeviceCommunicationUiTextTests
     [TestMethod]
     public void CreateFile_DoesNotDisplayKbSize()
     {
-        var item = DeviceChatMessageItem.CreateFile("demo.txt", 12_345, isOutgoing: true, DateTimeOffset.Now);
+        var item = new FileChatMessageItem("demo.txt", 12_345, isOutgoing: true, DateTimeOffset.Now);
 
-        Assert.IsTrue(item.Text.Contains("KB", StringComparison.OrdinalIgnoreCase));
-        StringAssert.Contains(item.Text, "demo.txt");
+        Assert.IsTrue(item.FileSizeText.Contains("KB", StringComparison.OrdinalIgnoreCase));
+        Assert.AreEqual("demo.txt", item.FileName);
     }
 
     [TestMethod]
     public void IncomingFileOffer_DoesNotDisplayKbSize()
     {
         var transferId = Guid.NewGuid();
-        var item = DeviceChatMessageItem.CreateIncomingFileOffer(
-            "conversation-1",
-            transferId,
-            "archive.zip",
-            1_048_576,
-            DateTimeOffset.Now);
+        var item = new FileChatMessageItem("archive.zip", 1_048_576, isOutgoing: false, DateTimeOffset.Now)
+        {
+            ConversationId = "conversation-1", TrackingTransferId = transferId
+        };
 
-        Assert.IsFalse(item.Text.Contains("KB", StringComparison.OrdinalIgnoreCase));
-        StringAssert.Contains(item.Text, "archive.zip");
+        Assert.IsFalse(item.FileSizeText.Contains("KB", StringComparison.OrdinalIgnoreCase));
+        Assert.AreEqual("archive.zip", item.FileName);
         Assert.AreEqual("conversation-1", item.ConversationId);
         Assert.AreEqual(transferId, item.TrackingTransferId);
         Assert.IsTrue(item.IsIncomingFileOffer);
@@ -85,8 +84,7 @@ public class DeviceCommunicationUiTextTests
     public void FileChatMessageItem_OfferDelivered_ShowsWaitingForAccept()
     {
         var item = new FileChatMessageItem("test.zip", 1024, isOutgoing: true, DateTimeOffset.Now);
-        item.IsOfferDelivered = true;
-        item.IsWaitingForAccept = true;
+        item.Status = FileTransferStatus.Delivered;
         Assert.AreEqual("请求已送达，等待对方接受...", item.StateText);
     }
 
@@ -94,7 +92,6 @@ public class DeviceCommunicationUiTextTests
     public void FileChatMessageItem_IncomingFileOffer_ShowsWaiting()
     {
         var item = new FileChatMessageItem("test.zip", 1024, isOutgoing: false, DateTimeOffset.Now);
-        item.IsIncomingFileOffer = true;
         item.TrackingTransferId = Guid.NewGuid();
         Assert.AreEqual("等待接收", item.StateText);
         Assert.IsTrue(item.CanHandleIncomingOffer);
@@ -104,7 +101,7 @@ public class DeviceCommunicationUiTextTests
     public void FileChatMessageItem_ReceivingOutgoing_ShowsSpeedAndPercent()
     {
         var item = new FileChatMessageItem("test.zip", 10 * 1024 * 1024, isOutgoing: true, DateTimeOffset.Now);
-        item.IsReceiving = true;
+        item.Status = FileTransferStatus.InProgress;
         item.ReceiveProgress = 0.45;
         item.TransferSpeedBytesPerSecond = 2.5 * 1024 * 1024;
         var state = item.StateText;
@@ -117,7 +114,7 @@ public class DeviceCommunicationUiTextTests
     public void FileChatMessageItem_ReceivingIncoming_ShowsReceiving()
     {
         var item = new FileChatMessageItem("test.zip", 10 * 1024 * 1024, isOutgoing: false, DateTimeOffset.Now);
-        item.IsReceiving = true;
+        item.Status = FileTransferStatus.InProgress;
         item.ReceiveProgress = 0.5;
         var state = item.StateText;
         StringAssert.Contains(state, "接收中");
@@ -128,7 +125,7 @@ public class DeviceCommunicationUiTextTests
     public void FileChatMessageItem_Failed_ShowsFailed()
     {
         var item = new FileChatMessageItem("test.zip", 1024, isOutgoing: true, DateTimeOffset.Now);
-        item.IsFailed = true;
+        item.Status = FileTransferStatus.Failed;
         Assert.AreEqual("失败", item.StateText);
     }
 
@@ -136,9 +133,7 @@ public class DeviceCommunicationUiTextTests
     public void FileChatMessageItem_Completed_ShowsDone()
     {
         var item = new FileChatMessageItem("test.zip", 1024, isOutgoing: true, DateTimeOffset.Now);
-        item.IsPending = false;
-        item.IsReceiving = false;
-        item.IsFailed = false;
+        item.Status = FileTransferStatus.Completed;
         Assert.AreEqual("已完成", item.StateText);
     }
 

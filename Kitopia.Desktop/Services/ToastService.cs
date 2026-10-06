@@ -30,10 +30,7 @@ public class ToastService : IToastService
     private readonly Dictionary<Guid, ToastItemViewModel> _items = [];
     private readonly Dictionary<Guid, CancellationTokenSource> _autoCloseCtsMap = [];
     private readonly Dictionary<Guid, TaskCompletionSource<bool>> _dismissedTcsMap = [];
-    private readonly List<SuppressedNotificationEntry> _suppressedEntries = [];
     private readonly SuppressedNotificationCenterViewModel _notificationCenterViewModel;
-    private readonly DispatcherTimer _fullScreenMonitorTimer = new(DispatcherPriority.Background, Dispatcher.UIThread)
-        { Interval = TimeSpan.FromMilliseconds(600) };
     private readonly DispatcherTimer _trayBlinkTimer = new(DispatcherPriority.Background, Dispatcher.UIThread)
         { Interval = TimeSpan.FromMilliseconds(500) };
     private ToastShowWindow? _toastShowWindow;
@@ -42,10 +39,7 @@ public class ToastService : IToastService
     private WindowIcon? _trayNotifyIcon;
     private WindowIcon? _trayEmptyIcon;
     private bool _isUnregistered;
-    private bool _isFlushingSuppressedRequests;
     private bool _trayBlinkPhaseVisible = true;
-    private int _suppressedUnreadCount;
-    private string? _latestSuppressedPreview;
 
     private const int MaxSuppressedQueueSize = 20;
     private const string TrayDefaultToolTip = "Kitopia.Desktop";
@@ -56,7 +50,6 @@ public class ToastService : IToastService
     public ToastService()
     {
         _notificationCenterViewModel = new SuppressedNotificationCenterViewModel(ClearUnreadSuppressedNotifications);
-        _fullScreenMonitorTimer.Tick += (_, _) => CheckSuppressedQueueOnUiThread();
         _trayBlinkTimer.Tick += (_, _) => BlinkTrayIconOnUiThread();
     }
 
@@ -148,10 +141,10 @@ public class ToastService : IToastService
     {
         if (Dispatcher.UIThread.CheckAccess())
         {
-            return _suppressedUnreadCount > 0;
+            return _notificationCenterViewModel.HasNotifications;
         }
 
-        return Dispatcher.UIThread.InvokeAsync(() => _suppressedUnreadCount > 0).GetAwaiter().GetResult();
+        return Dispatcher.UIThread.InvokeAsync(() => _notificationCenterViewModel.HasNotifications).GetAwaiter().GetResult();
     }
 
     public bool TryOpenLatestSuppressedNotification()
@@ -241,23 +234,7 @@ public class ToastService : IToastService
 
     private Task ShowAndReturnCompletionTaskOnUiThread(ToastRequest request)
     {
-        if (_isUnregistered)
-        {
-            return Task.CompletedTask;
-        }
-
-        if (!_isFlushingSuppressedRequests && ShouldSuppressToastForFullScreenOnUiThread())
-        {
-            return SuppressToastOnUiThread(request);
-        }
-
-        var toastId = AddToastOnUiThread(request);
-        if (toastId == Guid.Empty)
-        {
-            return Task.CompletedTask;
-        }
-
-        return GetOrCreateDismissedTaskOnUiThread(toastId);
+        return GetOrCreateDismissedTaskOnUiThread(ShowOnUiThread(request));
     }
 
     private Guid ShowAndReturnId(ToastRequest request)
@@ -280,36 +257,32 @@ public class ToastService : IToastService
 
     private Guid ShowOnUiThread(ToastRequest request)
     {
-        if (_isUnregistered)
-        {
-            return Guid.Empty;
-        }
-
-        if (!_isFlushingSuppressedRequests && ShouldSuppressToastForFullScreenOnUiThread())
-        {
-            SuppressToastOnUiThread(request);
-            return Guid.Empty;
-        }
-
-        return AddToastOnUiThread(request);
+        return AddToastOnUiThread(request, ShouldSuppressToastForFullScreenOnUiThread());
     }
 
-    private Guid AddToastOnUiThread(ToastRequest request)
+    private Guid AddToastOnUiThread(ToastRequest request, bool suppressed = false)
     {
-        if (_isUnregistered)
-        {
-            return Guid.Empty;
-        }
+        if (_isUnregistered) return Guid.Empty;
 
-        EnsureWindowCreatedOnUiThread();
+        if (!suppressed) EnsureWindowCreatedOnUiThread();
         var toastId = Guid.NewGuid();
         var toastItem = CreateToastItemOnUiThread(toastId, request);
-
         _items[toastId] = toastItem;
         _dismissedTcsMap[toastId] = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _hostViewModel.Items.Add(toastItem);
-        ScheduleAutoCloseOnUiThread(toastId, request.AutoCloseDelay);
-        UpdateHostWindowVisibilityOnUiThread();
+        if (suppressed)
+        {
+            if (_notificationCenterViewModel.Items.Count >= MaxSuppressedQueueSize)
+                FinalizeRemoveToastOnUiThread(_notificationCenterViewModel.Items[^1].Id);
+            _notificationCenterViewModel.Items.Insert(0, toastItem);
+            EnsureSuppressionIndicatorsOnUiThread();
+        }
+        else
+        {
+            _hostViewModel.Items.Add(toastItem);
+            ScheduleAutoCloseOnUiThread(toastId, request.AutoCloseDelay);
+            UpdateHostWindowVisibilityOnUiThread();
+        }
+
         return toastId;
     }
 
@@ -335,35 +308,9 @@ public class ToastService : IToastService
         return item;
     }
 
-    private Task SuppressToastOnUiThread(ToastRequest request)
-    {
-        var dismissedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _suppressedEntries.Add(new SuppressedNotificationEntry(
-            request.Header,
-            request.Text,
-            DateTimeOffset.Now,
-            request.ClickCallback,
-            dismissedTcs));
-        if (_suppressedEntries.Count > MaxSuppressedQueueSize)
-        {
-            var removed = _suppressedEntries[0];
-            removed.DismissedTcs.TrySetResult(true);
-            _suppressedEntries.RemoveAt(0);
-        }
-        _suppressedUnreadCount = _suppressedEntries.Count;
-        _latestSuppressedPreview = BuildPreviewText(request);
-        if (_notificationCenterWindow?.IsVisible == true)
-        {
-            RefreshNotificationCenterItemsOnUiThread();
-        }
-
-        EnsureSuppressionIndicatorsOnUiThread();
-        return dismissedTcs.Task;
-    }
-
     private bool ShowSuppressedNotificationCenterOnUiThread()
     {
-        if (_suppressedEntries.Count == 0)
+        if (!_notificationCenterViewModel.HasNotifications)
         {
             return false;
         }
@@ -375,7 +322,6 @@ public class ToastService : IToastService
             return true;
         }
 
-        RefreshNotificationCenterItemsOnUiThread();
         _notificationCenterWindow.RepositionNearCursor();
         _notificationCenterWindow.Show();
         _notificationCenterWindow.Activate();
@@ -396,87 +342,25 @@ public class ToastService : IToastService
         };
     }
 
-    private void RefreshNotificationCenterItemsOnUiThread()
-    {
-        _notificationCenterViewModel.Items.Clear();
-        for (var i = _suppressedEntries.Count - 1; i >= 0; i--)
-        {
-            var entry = _suppressedEntries[i];
-            _notificationCenterViewModel.Items.Add(new SuppressedNotificationItemViewModel(
-                entry.Header,
-                entry.Text,
-                entry.CreatedAt,
-                () => OpenSuppressedEntryOnUiThread(entry)));
-        }
-    }
-
-    private void OpenSuppressedEntryOnUiThread(SuppressedNotificationEntry entry)
-    {
-        if (!_suppressedEntries.Remove(entry))
-        {
-            return;
-        }
-        _notificationCenterWindow?.Hide();
-        try
-        {
-            entry.ClickCallback?.Invoke();
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "打开被抑制通知失败");
-        }
-
-        entry.DismissedTcs.TrySetResult(true);
-        _suppressedUnreadCount = _suppressedEntries.Count;
-        _latestSuppressedPreview = _suppressedEntries.Count > 0
-            ? BuildPreviewText(new ToastRequest
-            {
-                Header = _suppressedEntries[^1].Header,
-                Text = _suppressedEntries[^1].Text
-            })
-            : null;
-        RefreshNotificationCenterItemsOnUiThread();
-        if (_suppressedEntries.Count == 0)
-        {
-            ClearUnreadSuppressedNotificationsOnUiThread();
-            
-        }
-        else
-        {
-            UpdateTrayToolTipOnUiThread();
-        }
-    }
-
     private bool TryOpenLatestSuppressedNotificationOnUiThread()
     {
-        if (_suppressedEntries.Count == 0)
-        {
-            return false;
-        }
+        if (!_notificationCenterViewModel.HasNotifications) return false;
+        var command = _notificationCenterViewModel.Items[0].ClickCommand;
+        if (command?.CanExecute(null) != true) return false;
 
-        var latest = _suppressedEntries[^1];
-        latest.ClickCallback?.Invoke();
-        ClearUnreadSuppressedNotificationsOnUiThread();
-        return latest.ClickCallback is not null;
+        command.Execute(null);
+        return true;
     }
 
-    private static string BuildPreviewText(ToastRequest request)
+    private static string BuildPreviewText(ToastItemViewModel item)
     {
-        if (!string.IsNullOrWhiteSpace(request.Header) && !string.IsNullOrWhiteSpace(request.Text))
-        {
-            return $"{request.Header}: {request.Text}";
-        }
-
-        return !string.IsNullOrWhiteSpace(request.Text) ? request.Text : request.Header;
+        if (!string.IsNullOrWhiteSpace(item.Header) && !string.IsNullOrWhiteSpace(item.Text))
+            return $"{item.Header}: {item.Text}";
+        return !string.IsNullOrWhiteSpace(item.Text) ? item.Text : item.Header;
     }
 
     private void EnsureSuppressionIndicatorsOnUiThread()
     {
-        if (!_fullScreenMonitorTimer.IsEnabled)
-        {
-            _fullScreenMonitorTimer.Start();
-        }
-
         if (!_trayBlinkTimer.IsEnabled)
         {
             _trayBlinkPhaseVisible = true;
@@ -492,17 +376,9 @@ public class ToastService : IToastService
         UpdateTrayToolTipOnUiThread();
     }
 
-    private void CheckSuppressedQueueOnUiThread()
-    {
-        if (_suppressedEntries.Count == 0)
-        {
-            StopSuppressionIndicatorsOnUiThread();
-        }
-    }
-
     private void BlinkTrayIconOnUiThread()
     {
-        if (_suppressedEntries.Count == 0)
+        if (!_notificationCenterViewModel.HasNotifications)
         {
             StopSuppressionIndicatorsOnUiThread();
             return;
@@ -524,11 +400,6 @@ public class ToastService : IToastService
 
     private void StopSuppressionIndicatorsOnUiThread()
     {
-        if (_fullScreenMonitorTimer.IsEnabled)
-        {
-            _fullScreenMonitorTimer.Stop();
-        }
-
         if (_trayBlinkTimer.IsEnabled)
         {
             _trayBlinkTimer.Stop();
@@ -546,22 +417,10 @@ public class ToastService : IToastService
         trayIcon.ToolTipText = TrayDefaultToolTip;
     }
 
-    private void ClearSuppressionUnreadStateOnUiThread()
-    {
-        _suppressedUnreadCount = 0;
-        _latestSuppressedPreview = null;
-    }
-
     private void ClearUnreadSuppressedNotificationsOnUiThread()
     {
-        foreach (var entry in _suppressedEntries)
-        {
-            entry.DismissedTcs.TrySetResult(true);
-        }
-
-        _suppressedEntries.Clear();
-        _notificationCenterViewModel.Items.Clear();
-        ClearSuppressionUnreadStateOnUiThread();
+        while (_notificationCenterViewModel.HasNotifications)
+            FinalizeRemoveToastOnUiThread(_notificationCenterViewModel.Items[^1].Id);
         StopSuppressionIndicatorsOnUiThread();
     }
 
@@ -573,13 +432,13 @@ public class ToastService : IToastService
             return;
         }
 
-        if (_suppressedUnreadCount <= 0)
+        if (!_notificationCenterViewModel.HasNotifications)
         {
             trayIcon.ToolTipText = TrayDefaultToolTip;
             return;
         }
 
-        var preview = _latestSuppressedPreview;
+        var preview = BuildPreviewText(_notificationCenterViewModel.Items[0]);
         if (!string.IsNullOrWhiteSpace(preview) && preview.Length > 32)
         {
             preview = preview[..32] + "...";
@@ -587,8 +446,8 @@ public class ToastService : IToastService
 
         var blinkMark = _trayBlinkPhaseVisible ? Lang.Get("lang.kitopia.new_message") : "";
         trayIcon.ToolTipText = string.IsNullOrWhiteSpace(preview)
-            ? $"{blinkMark}Kitopia.Desktop ({_suppressedUnreadCount})"
-            : $"{blinkMark}Kitopia.Desktop ({_suppressedUnreadCount}) {preview}";
+            ? $"{blinkMark}Kitopia.Desktop ({_notificationCenterViewModel.Items.Count})"
+            : $"{blinkMark}Kitopia.Desktop ({_notificationCenterViewModel.Items.Count}) {preview}";
     }
 
     private static TrayIcon? GetPrimaryTrayIconOnUiThread()
@@ -740,8 +599,10 @@ public class ToastService : IToastService
 
     private void RemoveToastOnUiThread(Guid toastId)
     {
-        if (!TryBeginClosingToastOnUiThread(toastId))
+        if (!TryBeginClosingToastOnUiThread(toastId)) return;
+        if (_items.TryGetValue(toastId, out var item) && _notificationCenterViewModel.Items.Contains(item))
         {
+            FinalizeRemoveToastOnUiThread(toastId);
             return;
         }
 
@@ -760,6 +621,11 @@ public class ToastService : IToastService
         }
         CancelAutoCloseOnUiThread(toastId);
         _hostViewModel.Items.Remove(item);
+        if (_notificationCenterViewModel.Items.Remove(item))
+        {
+            if (_notificationCenterViewModel.HasNotifications) UpdateTrayToolTipOnUiThread();
+            else StopSuppressionIndicatorsOnUiThread();
+        }
         CompleteDismissedTaskOnUiThread(toastId);
         UpdateHostWindowVisibilityOnUiThread();
     }
@@ -777,6 +643,8 @@ public class ToastService : IToastService
     private void ScheduleAutoCloseOnUiThread(Guid toastId, TimeSpan? delay)
     {
         CancelAutoCloseOnUiThread(toastId);
+        // Suppressed notifications stay available until the user dismisses them.
+        if (_items.TryGetValue(toastId, out var item) && _notificationCenterViewModel.Items.Contains(item)) return;
 
         if (!delay.HasValue || delay.Value <= TimeSpan.Zero)
         {
@@ -990,13 +858,6 @@ public class ToastService : IToastService
         _notificationCenterWindow?.ClosePermanently();
         _notificationCenterWindow = null;
     }
-
-    private sealed record SuppressedNotificationEntry(
-        string Header,
-        string Text,
-        DateTimeOffset CreatedAt,
-        Action? ClickCallback,
-        TaskCompletionSource<bool> DismissedTcs);
 
     private static WindowIcon CreateTrayIcon(Uri assetUri)
     {

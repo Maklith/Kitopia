@@ -38,6 +38,8 @@ internal sealed partial class ToastItemViewModel : ObservableObject
     }
 
     public Guid Id { get; }
+    public DateTimeOffset CreatedAt { get; } = DateTimeOffset.UtcNow;
+    public string CreatedAtText => CreatedAt.ToLocalTime().ToString("HH:mm:ss");
 
     public ObservableCollection<ToastActionViewModel> Actions { get; } = [];
 

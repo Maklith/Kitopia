@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Vanara.PInvoke;
@@ -140,30 +139,4 @@ public partial class ToastShowWindow : Window
         }
     }
 
-    private void ToastCard_OnPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is not StyledElement element || element.DataContext is not ToastItemViewModel toastItem)
-        {
-            return;
-        }
-
-        if (e.Source is StyledElement sourceElement)
-        {
-            if (sourceElement is Visual sourceVisual && sourceVisual.FindAncestorOfType<Button>() is not null)
-            {
-                return;
-            }
-
-            if (sourceElement.DataContext is ToastActionViewModel)
-            {
-                return;
-            }
-        }
-
-        if (toastItem.ClickCommand is not null && toastItem.ClickCommand.CanExecute(null))
-        {
-            toastItem.ClickCommand.Execute(null);
-            e.Handled = true;
-        }
-    }
 }

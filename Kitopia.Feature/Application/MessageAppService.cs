@@ -120,7 +120,7 @@ public sealed class MessageAppService : IMessageAppService
             cancellationToken);
     }
 
-    private ValueTask AcceptFileCoreAsync(
+    private async ValueTask AcceptFileCoreAsync(
         string deviceId,
         Guid transferId,
         string saveTarget,
@@ -132,27 +132,52 @@ public sealed class MessageAppService : IMessageAppService
             throw new InvalidOperationException("File offer is missing or no longer available.");
         }
 
-        return SendCoreAsync(deviceId, new FileAcceptChatMessage(deviceId, transferId), cancellationToken);
+        _fileTransferSessionStore.TryGet(transferId, out var session);
+        var accepted = new FileTransferUpdatedEvent(deviceId, transferId, FileTransferDirection.Download,
+            FileTransferStatus.Accepted, session?.FileName, 0, session?.SizeBytes, null, DateTimeOffset.UtcNow)
+        {
+            LocalFilePath = Path.IsPathRooted(saveTarget) ? saveTarget : null
+        };
+        try
+        {
+            await _incomingMessageBuffer.PublishEventAsync(accepted, cancellationToken);
+            await SendCoreAsync(deviceId, new FileAcceptChatMessage(deviceId, transferId), cancellationToken);
+        }
+        catch
+        {
+            _fileTransferSessionStore.TryCancelIncoming(transferId, deviceId);
+            await _incomingMessageBuffer.PublishEventAsync(accepted with
+            {
+                Status = FileTransferStatus.Failed, Reason = "accept_failed", TimestampUtc = DateTimeOffset.UtcNow
+            }, CancellationToken.None);
+            throw;
+        }
     }
 
-    public ValueTask RejectFileAsync(
+    public async ValueTask RejectFileAsync(
         string deviceId,
         Guid transferId,
         string reason,
         CancellationToken cancellationToken = default)
     {
         _fileTransferSessionStore.TryRemoveIncomingOffer(transferId, deviceId);
-        return SendCoreAsync(deviceId, new FileRejectChatMessage(deviceId, transferId, reason), cancellationToken);
+        await _incomingMessageBuffer.PublishEventAsync(new FileTransferUpdatedEvent(deviceId, transferId,
+            FileTransferDirection.Download, FileTransferStatus.Rejected, null, null, null, reason, DateTimeOffset.UtcNow),
+            cancellationToken);
+        await SendCoreAsync(deviceId, new FileRejectChatMessage(deviceId, transferId, reason), cancellationToken);
     }
 
-    public ValueTask CancelTransferAsync(
+    public async ValueTask CancelTransferAsync(
         string deviceId,
         Guid transferId,
         string reason,
         CancellationToken cancellationToken = default)
     {
-        _fileTransferSessionStore.TryCancelIncoming(transferId, deviceId);
-        return SendCoreAsync(deviceId, new FileCancelChatMessage(deviceId, transferId, reason), cancellationToken);
+        var incoming = _fileTransferSessionStore.TryCancelIncoming(transferId, deviceId);
+        await _incomingMessageBuffer.PublishEventAsync(new FileTransferUpdatedEvent(deviceId, transferId,
+            incoming ? FileTransferDirection.Download : FileTransferDirection.Upload,
+            FileTransferStatus.Cancelled, null, null, null, reason, DateTimeOffset.UtcNow), cancellationToken);
+        await SendCoreAsync(deviceId, new FileCancelChatMessage(deviceId, transferId, reason), cancellationToken);
     }
 
     public IAsyncEnumerable<DeviceMessageEvent> ReceiveAsync(CancellationToken cancellationToken = default)

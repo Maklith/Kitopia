@@ -1,7 +1,9 @@
-using Kitopia.Feature.Localization;
 using System;
+using System.IO;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Kitopia.Feature.DeviceCommunication.Application;
+using Kitopia.Feature.Localization;
 
 namespace Kitopia.Feature.Avalonia.DeviceCommunication.ViewModels;
 
@@ -17,7 +19,6 @@ public partial class FileChatMessageItem : ObservableObject
         _fileName = fileName;
         _fileSizeBytes = fileSizeBytes;
         _isOutgoing = isOutgoing;
-        _isPending = true;
         _timestamp = timestamp;
         _localFilePath = localFilePath;
     }
@@ -30,13 +31,7 @@ public partial class FileChatMessageItem : ObservableObject
     [ObservableProperty] private DateTimeOffset _timestamp;
     [ObservableProperty] private string _conversationId = string.Empty;
     [ObservableProperty] private Guid? _trackingTransferId;
-    [ObservableProperty] private bool _isIncomingFileOffer;
-    [ObservableProperty] private bool _isHandled;
-    [ObservableProperty] private bool _isPending;
-    [ObservableProperty] private bool _isFailed;
-    [ObservableProperty] private bool _isReceiving;
-    [ObservableProperty] private bool _isWaitingForAccept;
-    [ObservableProperty] private bool _isOfferDelivered;
+    [ObservableProperty] private FileTransferStatus _status = FileTransferStatus.WaitingForAccept;
     [ObservableProperty] private double _receiveProgress;
     [ObservableProperty] private double _transferSpeedBytesPerSecond;
 
@@ -62,9 +57,22 @@ public partial class FileChatMessageItem : ObservableObject
         return true;
     }
 
-    public bool CanHandleIncomingOffer => IsIncomingFileOffer && !IsHandled && TrackingTransferId.HasValue;
-    public bool IsTransferActive => (IsPending || IsReceiving || IsWaitingForAccept) && !IsFailed && !IsHandled;
-    public bool HasLocalFile => !string.IsNullOrWhiteSpace(LocalFilePath) && System.IO.File.Exists(LocalFilePath);
+    public bool IsIncomingFileOffer => !IsOutgoing;
+    public bool IsPending => Status is FileTransferStatus.WaitingForAccept or FileTransferStatus.Delivered;
+    public bool IsReceiving => Status is FileTransferStatus.Accepted or FileTransferStatus.InProgress;
+    public bool IsTransferActive => IsPending || IsReceiving;
+    public bool CanHandleIncomingOffer => !IsOutgoing && Status == FileTransferStatus.WaitingForAccept && TrackingTransferId.HasValue;
+    public bool HasLocalFile => !string.IsNullOrWhiteSpace(LocalFilePath) && File.Exists(LocalFilePath);
+    public bool CanUseLocalFile => Status == FileTransferStatus.Completed && HasLocalFile;
+    public bool HasFileIcon => FileIcon is not null;
+    public string FileTypeText
+    {
+        get
+        {
+            var extension = Path.GetExtension(FileName);
+            return string.IsNullOrEmpty(extension) ? Lang.Get("lang.kitopia.file") : extension.TrimStart('.').ToUpperInvariant();
+        }
+    }
     public string TimeText => Timestamp.ToLocalTime().ToString("HH:mm");
     public string ProgressPercentText => $"{ReceiveProgress * 100:0}";
 
@@ -72,19 +80,23 @@ public partial class FileChatMessageItem : ObservableObject
     {
         get
         {
-            if (IsFailed && !IsReceiving) return Lang.Get("lang.kitopia.failed");
-            if (IsIncomingFileOffer && !IsHandled) return Lang.Get("lang.kitopia.waiting_to_receive");
             if (IsReceiving)
             {
                 var speed = BuildSpeedText();
                 var pct = ProgressPercentText;
                 return Lang.Format(IsOutgoing ? "lang.kitopia.sending_value_value" : "lang.kitopia.receiving_value_value", speed, pct);
             }
-            if (IsOutgoing && IsPending && !IsOfferDelivered) return Lang.Get("lang.kitopia.sending_request");
-            if (IsOutgoing && IsPending && IsWaitingForAccept) return Lang.Get("lang.kitopia.request_delivered_waiting_for_acceptance");
-            if (IsHandled && IsIncomingFileOffer) return Lang.Get("lang.kitopia.saved");
-            if (!IsPending && !IsFailed && !IsReceiving) return Lang.Get("lang.kitopia.completed");
-            return string.Empty;
+            return Status switch
+            {
+                FileTransferStatus.WaitingForAccept => Lang.Get(IsOutgoing ? "lang.kitopia.sending_request" : "lang.kitopia.waiting_to_receive"),
+                FileTransferStatus.Delivered => Lang.Get("lang.kitopia.request_delivered_waiting_for_acceptance"),
+                FileTransferStatus.Completed => Lang.Get(IsOutgoing ? "lang.kitopia.completed" : "lang.kitopia.saved"),
+                FileTransferStatus.Rejected => Lang.Get("lang.kitopia.rejected"),
+                FileTransferStatus.Cancelled => Lang.Get("lang.kitopia.cancelled"),
+                FileTransferStatus.Timeout => Lang.Get("lang.kitopia.transfer_timed_out"),
+                FileTransferStatus.Failed => Lang.Get("lang.kitopia.failed"),
+                _ => string.Empty
+            };
         }
     }
 
@@ -97,6 +109,7 @@ public partial class FileChatMessageItem : ObservableObject
         OnPropertyChanged(nameof(StateText));
         OnPropertyChanged(nameof(HasState));
         OnPropertyChanged(nameof(FileSizeText));
+        OnPropertyChanged(nameof(FileTypeText));
     }
 
     public void UpdateTransferSpeed(long transferredBytes, DateTimeOffset timestampUtc)
@@ -147,32 +160,25 @@ public partial class FileChatMessageItem : ObservableObject
         return Lang.Format("lang.kitopia.value_bytes", bytes);
     }
 
-    partial void OnIsOutgoingChanged(bool value) => OnPropertyChanged(nameof(StateText));
+    partial void OnIsOutgoingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsIncomingFileOffer));
+        OnPropertyChanged(nameof(CanHandleIncomingOffer));
+        OnPropertyChanged(nameof(StateText));
+        OnPropertyChanged(nameof(HasState));
+    }
     partial void OnTimestampChanged(DateTimeOffset value) => OnPropertyChanged(nameof(TimeText));
-    partial void OnIsPendingChanged(bool value)
+    partial void OnStatusChanged(FileTransferStatus value)
     {
+        if (!IsReceiving) ResetTransferSpeed();
         OnPropertyChanged(nameof(StateText));
         OnPropertyChanged(nameof(HasState));
+        OnPropertyChanged(nameof(IsPending));
+        OnPropertyChanged(nameof(IsReceiving));
         OnPropertyChanged(nameof(IsTransferActive));
-    }
-    partial void OnIsFailedChanged(bool value)
-    {
-        OnPropertyChanged(nameof(StateText));
-        OnPropertyChanged(nameof(HasState));
-        OnPropertyChanged(nameof(IsTransferActive));
-    }
-    partial void OnIsIncomingFileOfferChanged(bool value)
-    {
         OnPropertyChanged(nameof(CanHandleIncomingOffer));
-        OnPropertyChanged(nameof(StateText));
-        OnPropertyChanged(nameof(HasState));
-    }
-    partial void OnIsHandledChanged(bool value)
-    {
-        OnPropertyChanged(nameof(CanHandleIncomingOffer));
-        OnPropertyChanged(nameof(StateText));
-        OnPropertyChanged(nameof(HasState));
-        OnPropertyChanged(nameof(IsTransferActive));
+        OnPropertyChanged(nameof(CanUseLocalFile));
+        OnPropertyChanged(nameof(HasLocalFile));
     }
     partial void OnTrackingTransferIdChanged(Guid? value) => OnPropertyChanged(nameof(CanHandleIncomingOffer));
     partial void OnReceiveProgressChanged(double value)
@@ -181,28 +187,17 @@ public partial class FileChatMessageItem : ObservableObject
         OnPropertyChanged(nameof(HasState));
         OnPropertyChanged(nameof(ProgressPercentText));
     }
-    partial void OnIsReceivingChanged(bool value)
-    {
-        OnPropertyChanged(nameof(StateText));
-        OnPropertyChanged(nameof(HasState));
-        OnPropertyChanged(nameof(IsTransferActive));
-    }
     partial void OnTransferSpeedBytesPerSecondChanged(double value)
     {
         OnPropertyChanged(nameof(StateText));
         OnPropertyChanged(nameof(HasState));
     }
-    partial void OnIsWaitingForAcceptChanged(bool value)
-    {
-        OnPropertyChanged(nameof(StateText));
-        OnPropertyChanged(nameof(HasState));
-        OnPropertyChanged(nameof(IsTransferActive));
-    }
-    partial void OnIsOfferDeliveredChanged(bool value)
-    {
-        OnPropertyChanged(nameof(StateText));
-        OnPropertyChanged(nameof(HasState));
-    }
     partial void OnFileSizeBytesChanged(long value) => OnPropertyChanged(nameof(FileSizeText));
-    partial void OnLocalFilePathChanged(string? value) => OnPropertyChanged(nameof(HasLocalFile));
+    partial void OnFileNameChanged(string value) => OnPropertyChanged(nameof(FileTypeText));
+    partial void OnFileIconChanged(Bitmap? value) => OnPropertyChanged(nameof(HasFileIcon));
+    partial void OnLocalFilePathChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasLocalFile));
+        OnPropertyChanged(nameof(CanUseLocalFile));
+    }
 }

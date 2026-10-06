@@ -42,7 +42,10 @@ public sealed record FileTransferUpdatedEvent(
     long? TotalBytes,
     string? Reason,
     DateTimeOffset TimestampUtc,
-    byte[]? IconPng = null) : DeviceMessageEvent(ConversationId, TimestampUtc);
+    byte[]? IconPng = null) : DeviceMessageEvent(ConversationId, TimestampUtc)
+{
+    public string? LocalFilePath { get; init; }
+}
 
 public static class DeviceMessageEventFactory
 {

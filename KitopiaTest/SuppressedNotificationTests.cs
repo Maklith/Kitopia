@@ -1,13 +1,17 @@
 using System.Reflection;
+using System.Collections;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Notifications;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Kitopia.Desktop.Controls;
 using Kitopia.Desktop.Services;
+using Kitopia.Feature.Localization;
 using PluginCore;
 
 namespace KitopiaTest;
@@ -71,7 +75,7 @@ public sealed class SuppressedNotificationTests
                 Assert.IsFalse(window.IsCloseButtonVisible);
 
                 var button = window.FindControl<Button>("ClearAllButton")!;
-                var items = window.GetVisualDescendants().OfType<ItemsControl>().Single();
+                var items = window.FindControl<ItemsControl>("NotificationItemsControl")!;
                 Assert.AreEqual(2, items.ItemCount);
                 Assert.IsTrue(button.IsEffectivelyEnabled);
                 var header = window.GetVisualDescendants().OfType<TextBlock>()
@@ -133,7 +137,6 @@ public sealed class SuppressedNotificationTests
             {
                 var timer = GetField<DispatcherTimer>(service, "_trayBlinkTimer");
                 Assert.AreSame(Dispatcher.UIThread, timer.Dispatcher, "Tray blinking must run on the UI dispatcher even when the service is created during background startup.");
-                Assert.AreSame(Dispatcher.UIThread, GetField<DispatcherTimer>(service, "_fullScreenMonitorTimer").Dispatcher);
                 Assert.IsTrue(AssetLoader.Exists(new Uri("avares://Kitopia.Desktop/Assets/icon_notify.ico")));
                 var trayIcon = TrayIcon.GetIcons(Application.Current!)![0];
                 var completion = Suppress(service, new ToastRequest { Header = "New message", Text = "Preview" });
@@ -227,12 +230,13 @@ public sealed class SuppressedNotificationTests
 
                 Dispatcher.UIThread.RunJobs();
                 var window = GetField<SuppressedNotificationCenterWindow>(service, "_notificationCenterWindow");
-                var items = window.GetVisualDescendants().OfType<ItemsControl>().Single();
+                var items = window.FindControl<ItemsControl>("NotificationItemsControl")!;
                 Assert.AreEqual(20, items.ItemCount);
                 var headers = window.GetVisualDescendants().OfType<TextBlock>().Select(item => item.Text).ToArray();
                 CollectionAssert.Contains(headers, "Message 20");
                 CollectionAssert.DoesNotContain(headers, "Oldest");
                 Assert.IsTrue(oldest.IsCompletedSuccessfully);
+                Assert.AreEqual(20, GetField<IDictionary>(service, "_items").Count);
                 StringAssert.Contains(TrayIcon.GetIcons(Application.Current!)![0].ToolTipText!, "(20)");
             }
             finally
@@ -244,10 +248,230 @@ public sealed class SuppressedNotificationTests
         }, CancellationToken.None);
     }
 
+    [TestMethod]
+    [DataRow(NotificationType.Information, false, "zh-CN", 350)]
+    [DataRow(NotificationType.Success, true, "zh-CN", 280)]
+    [DataRow(NotificationType.Warning, false, "en-US", 280)]
+    [DataRow(NotificationType.Error, true, "en-US", 350)]
+    public async Task SuppressedCard_NotificationTypeProgressAndActions_MatchNormalToast(
+        NotificationType type, bool dark, string language, int width)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SuppressedNotificationTests));
+        await session.Dispatch(async () =>
+        {
+            var originalLanguage = Lang.Current.Language;
+            Lang.Current.UseLanguage(language);
+            Application.Current!.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+            var normal = new ToastService();
+            var suppressed = new ToastService();
+            try
+            {
+                var request = new ToastRequest
+                {
+                    Header = "Phone", Text = "project-archive-with-a-very-long-file-name.zip (10 MB)",
+                    NotificationType = type, AutoCloseDelay = null,
+                    ShowProgressBar = true, ProgressValue = 45,
+                    Actions =
+                    [
+                        new ToastAction { Text = Lang.Get("lang.kitopia.agree"), IsPrimary = true },
+                        new ToastAction { Text = Lang.Get("lang.kitopia.reject") },
+                        new ToastAction { Text = Lang.Get("lang.kitopia.open_chat") }
+                    ]
+                };
+                var add = typeof(ToastService).GetMethod("AddToastOnUiThread", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                add.Invoke(normal, [request, false]);
+                Suppress(suppressed, request);
+                Assert.IsTrue(suppressed.ShowSuppressedNotificationCenter());
+                var normalWindow = GetField<ToastShowWindow>(normal, "_toastShowWindow");
+                var centerWindow = GetField<SuppressedNotificationCenterWindow>(suppressed, "_notificationCenterWindow");
+                centerWindow.Width = width;
+                await Task.Delay(350);
+                Dispatcher.UIThread.RunJobs();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                var normalCard = normalWindow.GetVisualDescendants().OfType<ToastCard>().Single();
+                var centerCard = centerWindow.GetVisualDescendants().OfType<ToastCard>().Single();
+                Assert.AreEqual(normalCard.DataContext!.GetType(), centerCard.DataContext!.GetType());
+                var createdAtText = (string)centerCard.DataContext.GetType().GetProperty("CreatedAtText")!.GetValue(centerCard.DataContext)!;
+                Assert.IsTrue(centerWindow.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == createdAtText));
+                foreach (var card in new[] { normalCard, centerCard })
+                {
+                    CollectionAssert.Contains(card.Classes.ToArray(), type.ToString().ToLowerInvariant());
+                    var icon = card.FindControl<PathIcon>("ToastIcon")!;
+                    Assert.AreSame(card.FindResource($"NotificationCard{type}IconPathData"), icon.Data);
+                    Assert.AreEqual(45d, card.GetVisualDescendants().OfType<ProgressBar>().Single().Value);
+                    var buttons = card.GetVisualDescendants().OfType<Button>()
+                        .Where(button => button.Classes.Contains("toast-action")).ToArray();
+                    Assert.HasCount(3, buttons);
+                    CollectionAssert.AreEqual(request.Actions.Select(action => action.Text).ToArray(), buttons.Select(button => button.Content).ToArray());
+                    Assert.IsTrue(buttons[0].Classes.Contains("primary"));
+                    Assert.AreEqual(new CornerRadius(8), card.FindControl<Border>("ToastCardBorder")!.CornerRadius);
+                    foreach (var control in card.GetVisualDescendants().OfType<Control>()
+                                 .Where(control => control.IsEffectivelyVisible && control is Button or TextBlock or ProgressBar))
+                    {
+                        var point = control.TranslatePoint(default, card)!.Value;
+                        Assert.IsTrue(point.X >= -0.5 && point.X + control.Bounds.Width <= card.Bounds.Width + 0.5,
+                            $"{control.GetType().Name} exceeds card width at {width}.");
+                    }
+                }
+                Assert.AreEqual(normalCard.FindControl<PathIcon>("ToastIcon")!.Foreground, centerCard.FindControl<PathIcon>("ToastIcon")!.Foreground);
+                var screenshotDirectory = Path.Combine(AppContext.BaseDirectory, "TestResults", "toast-display");
+                Directory.CreateDirectory(screenshotDirectory);
+                using var normalFrame = normalWindow.CaptureRenderedFrame();
+                using var centerFrame = centerWindow.CaptureRenderedFrame();
+                Assert.IsNotNull(normalFrame);
+                Assert.IsNotNull(centerFrame);
+                var normalScreenshot = Path.Combine(screenshotDirectory, $"normal-{type}-{language}-{dark}.png");
+                var centerScreenshot = Path.Combine(screenshotDirectory, $"suppressed-{type}-{language}-{dark}.png");
+                normalFrame.Save(normalScreenshot);
+                centerFrame.Save(centerScreenshot);
+                TestContext.AddResultFile(normalScreenshot);
+                TestContext.AddResultFile(centerScreenshot);
+            }
+            finally
+            {
+                normal.Unregister();
+                suppressed.Unregister();
+                Lang.Current.UseLanguage(originalLanguage);
+            }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    [DataRow("Accept", false)]
+    [DataRow("Accept", true)]
+    [DataRow("Reject", false)]
+    [DataRow("Reject", true)]
+    public async Task SuppressedOffer_ActionClick_InvokesOnlyActionAndRespectsCloseSetting(string actionText, bool close)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SuppressedNotificationTests));
+        await session.Dispatch(() =>
+        {
+            var service = new ToastService();
+            var clicked = 0;
+            var accepted = 0;
+            var rejected = 0;
+            try
+            {
+                var completion = Suppress(service, new ToastRequest
+                {
+                    Header = "Phone", Text = "archive.zip", ClickCallback = () => clicked++,
+                    Actions =
+                    [
+                        new ToastAction { Text = "Accept", Callback = () => accepted++, CloseOnClick = close, IsPrimary = true },
+                        new ToastAction { Text = "Reject", Callback = () => rejected++, CloseOnClick = close }
+                    ]
+                });
+                Assert.IsTrue(service.ShowSuppressedNotificationCenter());
+                var window = GetField<SuppressedNotificationCenterWindow>(service, "_notificationCenterWindow");
+                Dispatcher.UIThread.RunJobs();
+                var button = window.GetVisualDescendants().OfType<Button>().Single(value => Equals(value.Content, actionText));
+                var point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+                window.MouseDown(point, MouseButton.Left);
+                window.MouseUp(point, MouseButton.Left);
+                Assert.AreEqual(actionText == "Accept" ? 1 : 0, accepted);
+                Assert.AreEqual(actionText == "Reject" ? 1 : 0, rejected);
+                Assert.AreEqual(0, clicked);
+                Assert.AreEqual(close, completion.IsCompletedSuccessfully);
+                Assert.AreEqual(!close, service.HasUnreadSuppressedNotifications());
+            }
+            finally
+            {
+                service.Unregister();
+            }
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task SuppressedProgress_UpdatedAndFinished_PreservesLiveStateUntilClosed(bool failed)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SuppressedNotificationTests));
+        await session.Dispatch(async () =>
+        {
+            var service = new ToastService();
+            try
+            {
+                var completion = Suppress(service, new ToastRequest
+                {
+                    Header = "Phone", Text = "archive.zip", ShowProgressBar = true, IsProgressIndeterminate = true
+                });
+                var entries = GetField<IDictionary>(service, "_items");
+                var id = (Guid)entries.Keys.Cast<object>().Single();
+                var handleType = typeof(ToastService).GetNestedType("ToastProgressHandle", BindingFlags.NonPublic)!;
+                var handle = (IToastProgressHandle)Activator.CreateInstance(handleType,
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, [service, id], null)!;
+                Assert.IsTrue(service.ShowSuppressedNotificationCenter());
+                var window = GetField<SuppressedNotificationCenterWindow>(service, "_notificationCenterWindow");
+                Dispatcher.UIThread.RunJobs();
+                await Task.Run(() => handle.Update(65, "Receiving 65%", "Tablet", false));
+                Dispatcher.UIThread.RunJobs();
+                var card = window.GetVisualDescendants().OfType<ToastCard>().Single();
+                var progress = card.GetVisualDescendants().OfType<ProgressBar>().Single();
+                Assert.AreEqual(65d, progress.Value);
+                Assert.IsFalse(progress.IsIndeterminate);
+                Assert.IsTrue(card.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == "Receiving 65%"));
+                if (failed) handle.Fail("Transfer failed", autoCloseDelay: TimeSpan.FromMilliseconds(1));
+                else handle.Complete("Saved", autoCloseDelay: TimeSpan.FromMilliseconds(1));
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(failed ? 65d : 100d, progress.Value);
+                CollectionAssert.Contains(card.Classes.ToArray(), failed ? "error" : "success");
+                Assert.AreSame(card.FindResource(failed ? "NotificationCardErrorIconPathData" : "NotificationCardSuccessIconPathData"),
+                    card.FindControl<PathIcon>("ToastIcon")!.Data);
+                Assert.AreEqual(0, GetField<IDictionary>(service, "_autoCloseCtsMap").Count);
+                Assert.IsFalse(completion.IsCompleted);
+                handle.Close();
+                Assert.IsTrue(completion.IsCompletedSuccessfully);
+                Assert.IsFalse(service.HasUnreadSuppressedNotifications());
+                Assert.AreEqual(0, entries.Count);
+                handle.Update(75);
+                Assert.AreEqual(0, entries.Count);
+            }
+            finally
+            {
+                service.Unregister();
+            }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task OpenLatest_CloseSetting_PreservesOtherNotifications(bool close)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SuppressedNotificationTests));
+        await session.Dispatch(() =>
+        {
+            var service = new ToastService();
+            var clicked = 0;
+            try
+            {
+                var older = Suppress(service, new ToastRequest { Header = "Older", Text = "Message" });
+                var latest = Suppress(service, new ToastRequest
+                {
+                    Header = "Latest", Text = "Message", ClickCallback = () => clicked++, CloseOnClick = close
+                });
+                Assert.IsTrue(service.TryOpenLatestSuppressedNotification());
+                Assert.AreEqual(1, clicked);
+                Assert.AreEqual(close, latest.IsCompletedSuccessfully);
+                Assert.IsFalse(older.IsCompleted);
+                Assert.AreEqual(close ? 1 : 2, GetField<IDictionary>(service, "_items").Count);
+            }
+            finally
+            {
+                service.Unregister();
+            }
+        }, CancellationToken.None);
+    }
+
     private static Task Suppress(ToastService service, ToastRequest request)
     {
-        var method = typeof(ToastService).GetMethod("SuppressToastOnUiThread", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        return (Task)method.Invoke(service, [request])!;
+        var add = typeof(ToastService).GetMethod("AddToastOnUiThread", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var id = (Guid)add.Invoke(service, [request, true])!;
+        var completion = typeof(ToastService).GetMethod("GetOrCreateDismissedTaskOnUiThread", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        return (Task)completion.Invoke(service, [id])!;
     }
 
     private static T GetField<T>(ToastService service, string name) =>

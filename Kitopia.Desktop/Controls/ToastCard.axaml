@@ -1,0 +1,147 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:services="clr-namespace:Kitopia.Desktop.Services"
+             xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
+             x:Class="Kitopia.Desktop.Controls.ToastCard"
+             x:DataType="services:ToastItemViewModel"
+             Classes.information="{Binding IsInformation}"
+             Classes.success="{Binding IsSuccess}"
+             Classes.warning="{Binding IsWarning}"
+             Classes.error="{Binding IsError}">
+    <UserControl.Styles>
+        <Style Selector="Button.toast-action">
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+        </Style>
+        <Style Selector="Button.toast-action.primary">
+            <Setter Property="Background" Value="{DynamicResource SemiColorPrimary}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="controls|ToastCard.information PathIcon#ToastIcon">
+            <Setter Property="Foreground" Value="{DynamicResource NotificationCardInformationIconForeground}" />
+            <Setter Property="Data" Value="{DynamicResource NotificationCardInformationIconPathData}" />
+        </Style>
+
+        <Style Selector="controls|ToastCard.success PathIcon#ToastIcon">
+            <Setter Property="Foreground" Value="{DynamicResource NotificationCardSuccessIconForeground}" />
+            <Setter Property="Data" Value="{DynamicResource NotificationCardSuccessIconPathData}" />
+        </Style>
+
+        <Style Selector="controls|ToastCard.warning PathIcon#ToastIcon">
+            <Setter Property="Foreground" Value="{DynamicResource NotificationCardWarningIconForeground}" />
+            <Setter Property="Data" Value="{DynamicResource NotificationCardWarningIconPathData}" />
+        </Style>
+
+        <Style Selector="controls|ToastCard.error PathIcon#ToastIcon">
+            <Setter Property="Foreground" Value="{DynamicResource NotificationCardErrorIconForeground}" />
+            <Setter Property="Data" Value="{DynamicResource NotificationCardErrorIconPathData}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border x:Name="ToastCardBorder"
+            Background="{DynamicResource KitopiaCardBackgroundBrush}"
+            BorderBrush="{DynamicResource SemiColorBorder}"
+            BorderThickness="1"
+            CornerRadius="8"
+            BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
+            Padding="14,12"
+            PointerPressed="OnCardPointerPressed">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+              ColumnDefinitions="Auto,*,Auto"
+              RowSpacing="6"
+              ColumnSpacing="10">
+            <PathIcon x:Name="ToastIcon"
+                      Grid.Row="0"
+                      Grid.Column="0"
+                      Width="18"
+                      Height="18"
+                      Margin="0,2,0,0"
+                      VerticalAlignment="Top" />
+
+            <TextBlock Grid.Row="0"
+                       Grid.Column="1"
+                       Text="{Binding Header}"
+                       Foreground="{DynamicResource SemiColorText0}"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap" />
+
+            <Button Grid.Row="0"
+                    Grid.Column="2"
+                    Command="{Binding CloseCommand}"
+                    IsVisible="{Binding ShowCloseButton}"
+                    Width="24"
+                    Height="24"
+                    Padding="0"
+                    CornerRadius="4"
+                    BorderThickness="0"
+                    Background="Transparent"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    ToolTip.Tip="{DynamicResource 'lang.kitopia.close'}">
+                <Button.Styles>
+                    <Style Selector="Button:pointerover /template/ ContentPresenter">
+                        <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+                    </Style>
+                </Button.Styles>
+                <controls:FontIcon FontSize="10" Glyph="&#xf36a;"
+                                   Foreground="{DynamicResource SemiColorText2}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+            </Button>
+
+            <TextBlock Grid.Row="1"
+                       Grid.Column="1"
+                       Grid.ColumnSpan="2"
+                       Text="{Binding Text}"
+                       FontSize="12"
+                       LineHeight="17"
+                       Foreground="{DynamicResource SemiColorText1}"
+                       TextWrapping="Wrap" />
+
+            <ProgressBar Grid.Row="2"
+                         Grid.Column="1"
+                         Grid.ColumnSpan="2"
+                         IsVisible="{Binding ShowProgressBar}"
+                         Height="4"
+                         CornerRadius="2"
+                         Minimum="0"
+                         Maximum="100"
+                         Margin="0,4,0,0"
+                         Foreground="{DynamicResource SemiColorPrimary}"
+                         Value="{Binding ProgressValue}"
+                         IsIndeterminate="{Binding IsProgressIndeterminate}" />
+
+            <ItemsControl Grid.Row="3"
+                          Grid.Column="1"
+                          Grid.ColumnSpan="2"
+                          ItemsSource="{Binding Actions}"
+                          IsVisible="{Binding HasActions}"
+                          Margin="0,4,0,0">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="services:ToastActionViewModel">
+                        <Button Content="{Binding Text}"
+                                Command="{Binding Command}"
+                                Classes="toast-action"
+                                Classes.primary="{Binding IsPrimary}"
+                                Height="28"
+                                Padding="12,0"
+                                CornerRadius="6"
+                                FontSize="12"
+                                FontWeight="Medium"
+                                BorderThickness="1"
+                                MinWidth="64" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Grid>
+    </Border>
+</UserControl>
