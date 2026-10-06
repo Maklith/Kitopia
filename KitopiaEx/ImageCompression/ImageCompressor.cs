@@ -30,33 +30,40 @@ public sealed class ImageCompressor(Ffmpeg ffmpeg)
         var originalBytes = new FileInfo(sourcePath).Length;
         var format = options.Format switch
         {
+            ImageCompressionFormat.Original => FfmpegImageFormat.Original,
             ImageCompressionFormat.WebP => FfmpegImageFormat.WebP,
             ImageCompressionFormat.JPEG => FfmpegImageFormat.JPEG,
-            _ => FfmpegImageFormat.PNG
+            ImageCompressionFormat.PNG => FfmpegImageFormat.PNG,
+            _ => throw new ArgumentOutOfRangeException(nameof(options))
         };
         using var image = ffmpeg.OpenImage(sourcePath, format, options.ResizePercent, options.MaxDimension, cancellationToken);
         var directory = string.IsNullOrWhiteSpace(options.OutputDirectory)
             ? Path.GetDirectoryName(sourcePath)! : Path.GetFullPath(options.OutputDirectory);
         Directory.CreateDirectory(directory);
-        var extension = options.Format switch
+        var extension = image.Format switch
         {
-            ImageCompressionFormat.WebP => ".webp",
-            ImageCompressionFormat.JPEG => ".jpg",
-            _ => ".png"
+            FfmpegImageFormat.WebP => ".webp",
+            FfmpegImageFormat.JPEG => options.Format == ImageCompressionFormat.Original &&
+                Path.GetExtension(sourcePath).Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ? ".jpeg" : ".jpg",
+            FfmpegImageFormat.PNG => ".png",
+            FfmpegImageFormat.BMP => ".bmp",
+            FfmpegImageFormat.AVIF => ".avif",
+            _ => throw new NotSupportedException(Lang.Get("lang.kitopiaex.compression.unsupported"))
         };
         var temporary = Path.Combine(directory, $".kitopia-{Guid.NewGuid():N}{extension}");
         var candidate = Path.Combine(directory, $".kitopia-{Guid.NewGuid():N}{extension}");
         var targetBytes = Math.Max(1, (long)(originalBytes * (options.TargetPercent / 100.0)));
         try
         {
-            if (options.Mode == ImageCompressionMode.Quality || options.Format == ImageCompressionFormat.PNG)
+            if (options.Mode == ImageCompressionMode.Quality || image.Format == FfmpegImageFormat.BMP ||
+                options.Lossless && image.Format is FfmpegImageFormat.PNG or FfmpegImageFormat.WebP)
             {
-                image.Encode(temporary, options.Quality, cancellationToken);
+                image.Encode(temporary, options.Quality, options.Lossless, cancellationToken);
             }
             else
             {
                 // Keep the highest tested quality under budget, or quality 1 when the budget is unattainable.
-                image.Encode(temporary, 1, cancellationToken);
+                image.Encode(temporary, 1, options.Lossless, cancellationToken);
                 if (new FileInfo(temporary).Length <= targetBytes)
                 {
                     var low = 2;
@@ -64,7 +71,7 @@ public sealed class ImageCompressor(Ffmpeg ffmpeg)
                     while (low <= high)
                     {
                         var quality = (low + high) / 2;
-                        image.Encode(candidate, quality, cancellationToken);
+                        image.Encode(candidate, quality, options.Lossless, cancellationToken);
                         if (new FileInfo(candidate).Length <= targetBytes)
                         {
                             File.Move(candidate, temporary, overwrite: true);

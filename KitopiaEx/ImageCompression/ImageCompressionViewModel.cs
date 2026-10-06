@@ -27,6 +27,9 @@ public sealed partial class ImageCompressionViewModel : ObservableObject, IDispo
         Items.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(IsEmpty));
+            OnPropertyChanged(nameof(CanChooseCompressionType));
+            OnPropertyChanged(nameof(IsLossy));
+            if (!IsLossy) Mode = ImageCompressionMode.Quality;
             OnPropertyChanged(nameof(HasOutputDirectory));
             OnPropertyChanged(nameof(Summary));
             StartCommand.NotifyCanExecuteChanged();
@@ -36,14 +39,27 @@ public sealed partial class ImageCompressionViewModel : ObservableObject, IDispo
 
     public Ffmpeg Ffmpeg { get; }
     public ObservableCollection<ImageCompressionItem> Items { get; } = [];
-    public ImageCompressionFormat[] Formats { get; } = Enum.GetValues<ImageCompressionFormat>();
+    public ImageCompressionFormat[] Formats { get; } =
+        [ImageCompressionFormat.Original, ImageCompressionFormat.WebP, ImageCompressionFormat.JPEG, ImageCompressionFormat.PNG];
     public bool IsEmpty => Items.Count == 0;
     public bool HasOutputDirectory => !IsEmpty || !string.IsNullOrWhiteSpace(OutputDirectory);
     public bool CanStart => !_disposed && !IsBusy && !IsAdding && !IsEmpty && FfmpegAvailable;
     public bool CanEdit => !_disposed && !IsBusy && !IsAdding;
     public bool IsQualityMode { get => Mode == ImageCompressionMode.Quality; set { if (value) Mode = ImageCompressionMode.Quality; } }
     public bool IsTargetMode { get => Mode == ImageCompressionMode.TargetSize; set { if (value) Mode = ImageCompressionMode.TargetSize; } }
-    public bool IsLossy => Format != ImageCompressionFormat.PNG;
+    public bool IsLossyCompression { get => !Lossless; set { if (value) Lossless = false; } }
+    public bool CanChooseCompressionType => Format is ImageCompressionFormat.PNG or ImageCompressionFormat.WebP ||
+        Format == ImageCompressionFormat.Original && (IsEmpty || Items.Any(item =>
+            Path.GetExtension(item.SourcePath).ToLowerInvariant() is ".png" or ".webp"));
+    public bool IsLossy => Format == ImageCompressionFormat.JPEG ||
+        Format is ImageCompressionFormat.PNG or ImageCompressionFormat.WebP && !Lossless ||
+        Format == ImageCompressionFormat.Original && Items.Any(item =>
+            Path.GetExtension(item.SourcePath).ToLowerInvariant() switch
+            {
+                ".jpg" or ".jpeg" or ".avif" => true,
+                ".png" or ".webp" => !Lossless,
+                _ => false
+            });
     public string Summary => Lang.Format("lang.kitopiaex.compression.summary", Items.Count,
         ImageCompressionItem.FormatSize(Items.Sum(item => item.OriginalBytes)),
         ImageCompressionItem.FormatSize(Items.Where(item => item.OutputPath != null)
@@ -69,8 +85,13 @@ public sealed partial class ImageCompressionViewModel : ObservableObject, IDispo
     [NotifyPropertyChangedFor(nameof(IsTargetMode))]
     private ImageCompressionMode _mode;
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanChooseCompressionType))]
     [NotifyPropertyChangedFor(nameof(IsLossy))]
-    private ImageCompressionFormat _format = ImageCompressionFormat.WebP;
+    private ImageCompressionFormat _format = ImageCompressionFormat.Original;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLossyCompression))]
+    [NotifyPropertyChangedFor(nameof(IsLossy))]
+    private bool _lossless = true;
     [ObservableProperty] private int _quality = 80;
     [ObservableProperty] private int _targetPercent = 50;
     [ObservableProperty] private int _resizePercent = 100;
@@ -82,7 +103,12 @@ public sealed partial class ImageCompressionViewModel : ObservableObject, IDispo
 
     partial void OnFormatChanged(ImageCompressionFormat value)
     {
-        if (value == ImageCompressionFormat.PNG) Mode = ImageCompressionMode.Quality;
+        if (!IsLossy) Mode = ImageCompressionMode.Quality;
+    }
+
+    partial void OnLosslessChanged(bool value)
+    {
+        if (!IsLossy) Mode = ImageCompressionMode.Quality;
     }
 
     [RelayCommand]
@@ -186,7 +212,7 @@ public sealed partial class ImageCompressionViewModel : ObservableObject, IDispo
     {
         var options = new ImageCompressionOptions
         {
-            Mode = Mode, Format = Format, Quality = Quality, TargetPercent = TargetPercent,
+            Mode = Mode, Format = Format, Lossless = Lossless, Quality = Quality, TargetPercent = TargetPercent,
             ResizePercent = ResizePercent, MaxDimension = MaxDimension, OutputDirectory = OutputDirectory,
             SkipLarger = SkipLarger
         };

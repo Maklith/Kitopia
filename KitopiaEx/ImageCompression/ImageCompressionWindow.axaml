@@ -204,11 +204,20 @@
                 <StackPanel Spacing="16" IsEnabled="{Binding CanEdit}">
                     <StackPanel Spacing="6">
                         <TextBlock Text="{DynamicResource lang.kitopiaex.compression.format}" />
-                        <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Formats}" SelectedItem="{Binding Format}">
+                        <ComboBox Name="FormatComboBox" HorizontalAlignment="Stretch" ItemsSource="{Binding Formats}" SelectedItem="{Binding Format}">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate><TextBlock Text="{lang:Lang Value={Binding}}" /></DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
+                    </StackPanel>
+                    <StackPanel Name="CompressionTypeOptions" Spacing="6" IsVisible="{Binding CanChooseCompressionType}">
+                        <TextBlock Text="{DynamicResource lang.kitopiaex.compression.compression_type}" />
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <RadioButton Name="LosslessOption" GroupName="CompressionType" IsChecked="{Binding Lossless}"
+                                         Content="{DynamicResource lang.kitopiaex.compression.lossless}" />
+                            <RadioButton Name="LossyOption" GroupName="CompressionType" IsChecked="{Binding IsLossyCompression}"
+                                         Content="{DynamicResource lang.kitopiaex.compression.lossy}" />
+                        </StackPanel>
                     </StackPanel>
                     <StackPanel Spacing="8" IsVisible="{Binding IsLossy}">
                         <TextBlock Text="{DynamicResource lang.kitopiaex.compression.mode}" />

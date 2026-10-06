@@ -10,15 +10,17 @@ public enum ImageCompressionMode
 
 public enum ImageCompressionFormat
 {
+    [Description("lang.kitopiaex.compression.keep_original")] Original = -1,
     WebP,
     JPEG,
-    [Description("lang.kitopiaex.compression.png_lossless")] PNG
+    PNG
 }
 
 public sealed record ImageCompressionOptions
 {
     public ImageCompressionMode Mode { get; init; }
-    public ImageCompressionFormat Format { get; init; } = ImageCompressionFormat.WebP;
+    public ImageCompressionFormat Format { get; init; } = ImageCompressionFormat.Original;
+    public bool Lossless { get; init; } = true;
     public int Quality { get; init; } = 80;
     public int TargetPercent { get; init; } = 50;
     public int ResizePercent { get; init; } = 100;

@@ -39,6 +39,8 @@ public sealed class ImageCompressionWindowTests
             PluginCore.Localization.Lang.BindingSource = HostLang.Current;
             Application.Current!.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
             var viewModel = new ImageCompressionViewModel(new Ffmpeg());
+            Assert.AreEqual(ImageCompressionFormat.Original, viewModel.Format);
+            Assert.AreEqual(ImageCompressionFormat.Original, viewModel.Formats[0]);
             using var pixelImage = new SKBitmap(96, 64);
             using (var canvas = new SKCanvas(pixelImage))
             {
@@ -71,6 +73,10 @@ public sealed class ImageCompressionWindowTests
                 frame.Save(screenshot);
                 TestContext.AddResultFile(screenshot);
                 var list = window.FindControl<ListBox>("FileList")!;
+                var format = window.FindControl<ComboBox>("FormatComboBox")!;
+                Assert.AreEqual(ImageCompressionFormat.Original, format.SelectedItem);
+                Assert.IsTrue(format.GetVisualDescendants().OfType<TextBlock>()
+                    .Any(text => text.Text == HostLang.Get("lang.kitopiaex.compression.keep_original")));
                 Assert.IsTrue(list.Bounds.Width > 400);
                 Assert.AreEqual(viewModel.Items.Count, list.Items.Count);
                 var start = window.FindControl<Button>("StartButton")!;
@@ -84,12 +90,64 @@ public sealed class ImageCompressionWindowTests
                     var remove = row.GetVisualDescendants().OfType<Button>().Single();
                     Assert.IsTrue(remove.TranslatePoint(default, row)!.Value.X + remove.Bounds.Width <= row.Bounds.Width);
                 }
-                var radioButtons = window.GetVisualDescendants().OfType<RadioButton>().ToArray();
+                var radioButtons = window.GetVisualDescendants().OfType<RadioButton>()
+                    .Where(button => button.GroupName == "CompressionMode").ToArray();
+                var typeOptions = window.FindControl<StackPanel>("CompressionTypeOptions")!;
+                var lossless = window.FindControl<RadioButton>("LosslessOption")!;
+                var lossy = window.FindControl<RadioButton>("LossyOption")!;
+                Assert.AreEqual(1, viewModel.Formats.Count(value => value == ImageCompressionFormat.PNG));
+                Assert.IsTrue(typeOptions.IsEffectivelyVisible);
+                Assert.IsTrue(lossless.IsChecked);
+                Assert.IsFalse(viewModel.IsLossy);
+                Assert.IsTrue(radioButtons.All(button => !button.IsEffectivelyVisible));
+                viewModel.Format = ImageCompressionFormat.WebP;
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(typeOptions.IsEffectivelyVisible);
+                Assert.IsFalse(viewModel.IsLossy);
+                Assert.IsTrue(radioButtons.All(button => !button.IsEffectivelyVisible));
+                lossy.IsChecked = true;
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(radioButtons.All(button => button.IsEffectivelyVisible));
                 radioButtons[1].IsChecked = true;
                 Assert.AreEqual(ImageCompressionMode.TargetSize, viewModel.Mode);
                 viewModel.Format = ImageCompressionFormat.PNG;
+                lossless.IsChecked = true;
                 Assert.AreEqual(ImageCompressionMode.Quality, viewModel.Mode);
                 Assert.IsFalse(viewModel.IsLossy);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(typeOptions.IsEffectivelyVisible);
+                Assert.IsTrue(format.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == "PNG"));
+                lossy.IsChecked = true;
+                Assert.IsFalse(viewModel.Lossless);
+                Assert.IsTrue(viewModel.IsLossy);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(radioButtons.All(button => button.IsEffectivelyVisible));
+                radioButtons[1].IsChecked = true;
+                Assert.AreEqual(ImageCompressionMode.TargetSize, viewModel.Mode);
+                lossless.IsChecked = true;
+                Assert.IsTrue(viewModel.Lossless);
+                Assert.IsFalse(viewModel.IsLossy);
+                Assert.AreEqual(ImageCompressionMode.Quality, viewModel.Mode);
+                viewModel.Format = ImageCompressionFormat.Original;
+                viewModel.Items.Add(new ImageCompressionItem(@"C:\Photos\photo.jpeg", 10000, null));
+                viewModel.Items.Add(new ImageCompressionItem(@"C:\Photos\image.webp", 10000, null));
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(typeOptions.IsEffectivelyVisible);
+                Assert.IsTrue(lossless.IsChecked);
+                Assert.IsTrue(viewModel.IsLossy);
+                Assert.IsTrue(radioButtons.All(button => button.IsEffectivelyVisible));
+                viewModel.Format = ImageCompressionFormat.JPEG;
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsFalse(typeOptions.IsEffectivelyVisible);
+                Assert.IsTrue(radioButtons.All(button => button.IsEffectivelyVisible));
+                viewModel.Format = ImageCompressionFormat.Original;
+                Dispatcher.UIThread.RunJobs();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                using var mixedFrame = window.CaptureRenderedFrame();
+                Assert.IsNotNull(mixedFrame);
+                var mixedScreenshot = Path.Combine(TestContext.TestRunDirectory!, $"image-compression-mixed-{language}-{width}-{dark}.png");
+                mixedFrame.Save(mixedScreenshot);
+                TestContext.AddResultFile(mixedScreenshot);
                 viewModel.ClearCommand.Execute(null);
                 Assert.IsTrue(viewModel.IsEmpty);
                 Assert.IsFalse(start.IsEffectivelyEnabled);
