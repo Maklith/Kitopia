@@ -33,7 +33,7 @@ public enum ThemeEnum
 [ConfigName("lang.kitopia.kitopia_settings")]
 public class KitopiaConfig : ConfigBase
 {
-    internal const int CurrentSchemaVersion = 2;
+    internal const int CurrentSchemaVersion = 3;
 
     [JsonIgnore]
     public override int CurrentConfigVersion => CurrentSchemaVersion;
@@ -50,6 +50,7 @@ public class KitopiaConfig : ConfigBase
 
         const int managedCollectionsVersion = 1;
         const int previewScopeVersion = 2;
+        const int selectionTranslationHotkeyVersion = 3;
 
         if (ConfigVersion < managedCollectionsVersion)
             MigrateLegacyCollections(root);
@@ -62,6 +63,26 @@ public class KitopiaConfig : ConfigBase
             mouseHotkey.ProcessScope = HotKeyProcessScope.Include;
             mouseHotkey.ProcessNames = ["explorer.exe"];
             mouseHotkey.IgnoreTextInput = true;
+        }
+
+        if (ConfigVersion < selectionTranslationHotkeyVersion &&
+            !root.TryGetProperty(nameof(selectionTranslationAutoHotKey), out _))
+        {
+            if (root.TryGetProperty("selectionTranslationEnabled", out var enabled) &&
+                enabled.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                selectionTranslationAutoHotKey.IsEnabled = enabled.GetBoolean();
+
+            if (root.TryGetProperty("selectionTranslationExcludedProcesses", out var excluded) &&
+                excluded.ValueKind == JsonValueKind.Array)
+            {
+                selectionTranslationAutoHotKey.ProcessNames = excluded.EnumerateArray()
+                    .Where(value => value.ValueKind == JsonValueKind.String)
+                    .Select(value => HotKeyModel.NormalizeProcessName(value.GetString()!))
+                    .Where(name => name.Length > 0)
+                    .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                if (selectionTranslationAutoHotKey.ProcessNames.Length > 0)
+                    selectionTranslationAutoHotKey.ProcessScope = HotKeyProcessScope.Exclude;
+            }
         }
     }
 
@@ -252,7 +273,44 @@ public class KitopiaConfig : ConfigBase
 
 
     [ConfigFieldCategory("lang.kitopia.file_preview")] [ConfigField("lang.kitopia.capture_mouse_input", "lang.kitopia.required_for_mouse_hotkeys", 0xE61C, ConfigFieldType.布尔)]
-    public bool mouseCapture = false;
+    public bool mouseCapture = true;
+
+    [ConfigFieldCategory("lang.kitopia.selection_translation")]
+    [ConfigField("lang.kitopia.selection_translation_auto_hotkey", "lang.kitopia.selection_translation_auto_hotkey_description", 0xf834,
+        ConfigFieldType.快捷键, actionName: "selectionTranslationAutoHotKeyAction")]
+    public HotKeyModel selectionTranslationAutoHotKey = new()
+    {
+        IsEnabled = true,
+        MainName = "Kitopia",
+        Name = "自动划词翻译",
+        Type = HotKeyType.Mouse,
+        MouseButton = 1,
+        MouseTrigger = MouseHotKeyTrigger.DragRelease,
+        DragDistancePixels = 4
+    };
+
+    [ConfigField("lang.kitopia.selection_translation_hotkey", "lang.kitopia.selection_translation_hotkey_description", 0xf834,
+        ConfigFieldType.快捷键, actionName: "selectionTranslationHotKeyAction")]
+    public HotKeyModel selectionTranslationHotKey = new()
+    {
+        IsEnabled = true,
+        MainName = "Kitopia",
+        Name = "划词翻译",
+        IsSelectCtrl = true,
+        IsSelectAlt = true,
+        IsSelectShift = false,
+        IsSelectWin = false,
+        SelectKey = EKey.Y,
+        IgnoreTextInput = false
+    };
+
+    [ConfigField<TranslationSourceLanguage>("lang.kitopia.selection_translation_source_language",
+        "lang.kitopia.selection_translation_source_language_description", 0xf834)]
+    public TranslationSourceLanguage selectionTranslationSourceLanguage = TranslationSourceLanguage.Auto;
+
+    [ConfigField<TranslationTargetLanguage>("lang.kitopia.selection_translation_target_language",
+        "lang.kitopia.selection_translation_target_language_description", 0xf834)]
+    public TranslationTargetLanguage selectionTranslationTargetLanguage = TranslationTargetLanguage.SimplifiedChinese;
 
     [ConfigField("lang.kitopia.file_preview_hotkey", "lang.kitopia.preview_files_selected_in_explorer_using_a_keyboard_or_mouse_hotkey", 0xF4B8, ConfigFieldType.快捷键, actionName: "mouseHotkeyAction")]
     public HotKeyModel mouseHotkey = new()
@@ -310,8 +368,6 @@ public class KitopiaConfig : ConfigBase
     {
         invokes.Add("screenShotHotKeyAction", new Action<HotKeyModel>(e =>
         {
-            Logger.Debug("截图热键被触发");
-
             Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     ServiceManager.Services.GetService<IScreenCaptureWindow>()!.CaptureScreen();
@@ -333,17 +389,22 @@ public class KitopiaConfig : ConfigBase
         }));
         invokes.Add("mouseHotkeyAction", new Action<HotKeyModel>(e =>
         {
-            Logger.Debug("文件速览快捷键触发");
             ServiceManager.Services.GetService<IMouseQuickWindowService>()!.Open();
+        }));
+        invokes.Add("selectionTranslationHotKeyAction", new Action<HotKeyModel>(e =>
+        {
+            _ = ServiceManager.Services.GetService<ISelectionTranslationService>()?.TriggerManualAsync();
+        }));
+        invokes.Add("selectionTranslationAutoHotKeyAction", new Action<HotKeyModel>(e =>
+        {
+            _ = ServiceManager.Services.GetService<ISelectionTranslationService>()?.TriggerAutomaticAsync(e);
         }));
         invokes.Add("searchHotKeyAction", new Action<HotKeyModel>(e =>
         {
-            Logger.Debug("显示搜索框热键被触发");
             ServiceManager.Services.GetService<ISearchWindowService>()!.ShowOrHiddenSearchWindow();
         }));
         invokes.Add("topMostWindowHotKeyAction", new Action<HotKeyModel>(e =>
         {
-            Logger.Debug("置顶窗口热键被触发");
             ServiceManager.Services.GetService<IWindowTool>()!.SelectAndSetWindowTopMost();
         }));
         invokes.Add("截图方法列表",

@@ -1,0 +1,176 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
+        xmlns:vm="clr-namespace:Kitopia.Desktop.ViewModels"
+        x:Class="Kitopia.Desktop.Windows.SelectionTranslationWindow"
+        x:DataType="vm:SelectionTranslationWindowViewModel"
+        mc:Ignorable="d"
+        Width="440"
+        MinWidth="360"
+        MaxWidth="620"
+        MaxHeight="620"
+        SizeToContent="Height"
+        CanResize="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        WindowDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+    <Window.Styles>
+        <Style Selector="Button.tool">
+            <Setter Property="Theme" Value="{StaticResource BorderlessButton}" />
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.tool:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource KitopiaPrimaryLightBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource KitopiaPrimaryBrush}" />
+        </Style>
+        <Style Selector="TextBlock.body">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+        </Style>
+    </Window.Styles>
+    <Border Margin="10"
+            Padding="16"
+            CornerRadius="10"
+            Background="{DynamicResource KitopiaCardBackgroundBrush}"
+            BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
+            BorderThickness="1"
+            BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="12">
+            <Grid ColumnDefinitions="*,Auto" PointerPressed="TitleBar_OnPointerPressed">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.selection_translation'}"
+                               FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.selection_translation_source'}"
+                               FontSize="11" Foreground="{DynamicResource SemiColorText2}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                    <Button Classes="tool"
+                            Command="{Binding CopySourceCommand}"
+                            ToolTip.Tip="{DynamicResource 'lang.kitopia.selection_translation_copy_source'}"
+                            AutomationProperties.Name="{DynamicResource 'lang.kitopia.selection_translation_copy_source'}">
+                        <PathIcon Width="16" Height="16" Data="M 5,1 L 14,1 18,5 18,19 5,19 Z M 7,3 L 7,17 16,17 16,7 12,7 12,3 Z M 2,5 L 2,22 15,22 15,20 4,20 4,5 Z" />
+                    </Button>
+                    <Button Classes="tool"
+                            ToolTip.Tip="{DynamicResource 'lang.kitopia.more'}"
+                            AutomationProperties.Name="{DynamicResource 'lang.kitopia.more'}">
+                        <Button.Flyout>
+                            <MenuFlyout>
+                                <MenuItem Header="{DynamicResource 'lang.kitopia.selection_translation_exclude_current_process'}"
+                                          IsEnabled="{Binding CanExcludeCurrentProcess}"
+                                          Click="ExcludeCurrentProcess_OnClick" />
+                            </MenuFlyout>
+                        </Button.Flyout>
+                        <StackPanel Orientation="Horizontal" Spacing="3">
+                            <Ellipse Width="3" Height="3" Fill="{DynamicResource SemiColorText0}" />
+                            <Ellipse Width="3" Height="3" Fill="{DynamicResource SemiColorText0}" />
+                            <Ellipse Width="3" Height="3" Fill="{DynamicResource SemiColorText0}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="tool"
+                            IsVisible="{Binding IsPinned}"
+                            Command="{Binding CloseCommand}"
+                            ToolTip.Tip="{DynamicResource 'lang.kitopia.close'}"
+                            AutomationProperties.Name="{DynamicResource 'lang.kitopia.close'}">
+                        <PathIcon Width="13" Height="13" Data="M 1,0 L 7,6 13,0 14,1 8,7 14,13 13,14 7,8 1,14 0,13 6,7 0,1 Z" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8">
+                <ComboBox ItemsSource="{Binding SourceLanguages}"
+                          SelectedItem="{Binding SourceLanguage, Mode=TwoWay}"
+                          HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{lang:Lang Value={Binding}}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding TargetLanguages}"
+                          SelectedItem="{Binding TargetLanguage, Mode=TwoWay}"
+                          HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{lang:Lang Value={Binding}}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </Grid>
+
+            <Border Grid.Row="2" Padding="10" CornerRadius="6"
+                    Background="{DynamicResource SemiColorFillQuaternary}"
+                    BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1">
+                <Grid RowDefinitions="Auto,*" RowSpacing="6">
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.selection_translation_source'}"
+                               FontSize="11" Foreground="{DynamicResource SemiColorText2}" />
+                    <ScrollViewer Grid.Row="1" MaxHeight="150" HorizontalScrollBarVisibility="Disabled">
+                        <TextBlock Classes="body" Text="{Binding SourceText}" />
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="3" Padding="10" CornerRadius="6"
+                    Background="{DynamicResource SemiColorFillQuaternary}"
+                    BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1">
+                <Grid RowDefinitions="Auto,*" RowSpacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{DynamicResource 'lang.kitopia.selection_translation_result'}"
+                                   FontSize="11" Foreground="{DynamicResource SemiColorText2}" />
+                        <ProgressBar Grid.Column="1" Width="42" Height="4" IsIndeterminate="True"
+                                     IsVisible="{Binding IsLoading}" />
+                    </Grid>
+                    <ScrollViewer Grid.Row="1" MaxHeight="240" HorizontalScrollBarVisibility="Disabled">
+                        <TextBlock Classes="body" Text="{Binding TranslatedText}"
+                                   IsVisible="{Binding HasTranslation}" />
+                    </ScrollViewer>
+                    <TextBlock Grid.Row="1" Classes="body"
+                               Text="{Binding ErrorMessage}"
+                               Foreground="#C42B1C"
+                               IsVisible="{Binding HasError}" />
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock Text="{DynamicResource 'lang.kitopia.selection_translation_pinned'}"
+                           VerticalAlignment="Center" FontSize="11"
+                           Foreground="{DynamicResource SemiColorText2}"
+                           IsVisible="{Binding IsPinned}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                    <Button Classes="tool" Command="{Binding CopyTranslationCommand}"
+                            ToolTip.Tip="{DynamicResource 'lang.kitopia.selection_translation_copy_result'}"
+                            AutomationProperties.Name="{DynamicResource 'lang.kitopia.selection_translation_copy_result'}">
+                        <PathIcon Width="16" Height="16" Data="M 5,1 L 14,1 18,5 18,19 5,19 Z M 7,3 L 7,17 16,17 16,7 12,7 12,3 Z M 2,5 L 2,22 15,22 15,20 4,20 4,5 Z" />
+                    </Button>
+                    <Button Classes="tool" Click="PinButton_OnClick"
+                            ToolTip.Tip="{DynamicResource 'lang.kitopia.selection_translation_pin'}"
+                            AutomationProperties.Name="{DynamicResource 'lang.kitopia.selection_translation_pin'}">
+                        <PathIcon Width="16" Height="16" Data="M 6,1 L 18,1 18,4 15,7 15,11 19,15 17,17 13,13 9,13 5,17 3,15 7,11 7,7 4,4 4,1 Z M 10,13 L 10,22 12,22 12,13 Z" />
+                    </Button>
+                    <Button Classes="tool" Command="{Binding RetryCommand}"
+                            IsVisible="{Binding HasError}"
+                            ToolTip.Tip="{DynamicResource 'lang.kitopia.retry'}"
+                            AutomationProperties.Name="{DynamicResource 'lang.kitopia.retry'}">
+                        <PathIcon Width="16" Height="16" Data="M 8,2 A 6,6 0 1 0 14,8 L 12,8 A 4,4 0 1 1 8,4 Z M 8,0 L 8,6 14,6 Z" />
+                    </Button>
+                    <Button Classes="tool" Command="{Binding CloseCommand}"
+                            ToolTip.Tip="{DynamicResource 'lang.kitopia.close'}"
+                            AutomationProperties.Name="{DynamicResource 'lang.kitopia.close'}">
+                        <PathIcon Width="13" Height="13" Data="M 1,0 L 7,6 13,0 14,1 8,7 14,13 13,14 7,8 1,14 0,13 6,7 0,1 Z" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

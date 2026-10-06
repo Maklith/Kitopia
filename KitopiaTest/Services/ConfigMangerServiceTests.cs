@@ -136,6 +136,57 @@ public sealed class ConfigMangerServiceTests
     }
 
     [TestMethod]
+    public void MigrateConfig_LegacySelectionTranslation_PreservesDisabledStateAndExclusions()
+    {
+        const string json = """
+            {"ConfigVersion":2,"selectionTranslationEnabled":false,
+             "selectionTranslationExcludedProcesses":[" WINWORD.EXE ","winword","code.exe",""],
+             "selectionTranslationHotKey":{"IsEnabled":false,"SelectKey":65}}
+            """;
+        using var document = JsonDocument.Parse(json);
+        var config = document.RootElement.Deserialize<KitopiaConfig>(ConfigManger.DefaultOptions)!;
+        ConfigManger.MigrateConfig(document.RootElement, config);
+        var model = config.selectionTranslationAutoHotKey;
+        Assert.IsFalse(model.IsEnabled);
+        Assert.AreEqual(HotKeyType.Mouse, model.Type);
+        Assert.AreEqual(MouseHotKeyTrigger.DragRelease, model.MouseTrigger);
+        Assert.AreEqual((ushort)4, model.DragDistancePixels);
+        Assert.AreEqual(HotKeyProcessScope.Exclude, model.ProcessScope);
+        CollectionAssert.AreEqual(new[] { "WINWORD", "code" }, model.ProcessNames);
+        Assert.IsFalse(model.CanExecuteInProcess("winword"));
+        Assert.IsFalse(config.selectionTranslationHotKey.IsEnabled);
+        Assert.AreEqual(EKey.A, config.selectionTranslationHotKey.SelectKey);
+        var saved = JsonSerializer.Serialize(config, ConfigManger.DefaultOptions);
+        Assert.IsFalse(saved.Contains("selectionTranslationEnabled"));
+        Assert.IsFalse(saved.Contains("selectionTranslationExcludedProcesses"));
+        Assert.AreEqual(config.CurrentConfigVersion, config.ConfigVersion);
+    }
+
+    [TestMethod]
+    public void MigrateConfig_ExplicitSelectionHotkey_PreservesConfiguredScopeAndTrigger()
+    {
+        const string json = """
+            {"ConfigVersion":2,"selectionTranslationEnabled":false,
+             "selectionTranslationExcludedProcesses":["winword"],
+             "selectionTranslationAutoHotKey":{"IsEnabled":true,"Type":1,"MouseButton":2,
+                "MouseTrigger":1,"DragDistancePixels":12,"ProcessScope":1,"ProcessNames":["code"]}}
+            """;
+        using var document = JsonDocument.Parse(json);
+        var config = document.RootElement.Deserialize<KitopiaConfig>(ConfigManger.DefaultOptions)!;
+        ConfigManger.MigrateConfig(document.RootElement, config);
+        var model = config.selectionTranslationAutoHotKey;
+        Assert.IsTrue(model.IsEnabled);
+        Assert.AreEqual((ushort)2, model.MouseButton);
+        Assert.AreEqual(MouseHotKeyTrigger.DragRelease, model.MouseTrigger);
+        Assert.AreEqual((ushort)12, model.DragDistancePixels);
+        Assert.AreEqual(HotKeyProcessScope.Include, model.ProcessScope);
+        CollectionAssert.AreEqual(new[] { "code" }, model.ProcessNames);
+        ConfigManger.MigrateConfig(document.RootElement, config);
+        Assert.IsTrue(model.IsEnabled);
+        CollectionAssert.AreEqual(new[] { "code" }, model.ProcessNames);
+    }
+
+    [TestMethod]
     public void MigrateConfig_FutureConfig_PreservesLoadedValues()
     {
         using var document = JsonDocument.Parse("{\"mouseHotkey\":{}}");

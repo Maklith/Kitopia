@@ -178,6 +178,14 @@ public class ConfigManger : IConfigService, IConfigProvider
                 {
                     Dispatcher.UIThread.Invoke(() =>
                         ServiceManager.Services.GetRequiredService<IHotKetImpl>().StartHook());
+                    Dispatcher.UIThread.Post(() =>
+                        ServiceManager.Services.GetService<ISelectionTranslationService>()?.Refresh());
+                    break;
+                }
+                case nameof(KitopiaConfig.selectionTranslationAutoHotKey):
+                {
+                    Dispatcher.UIThread.Post(() =>
+                        ServiceManager.Services.GetService<ISelectionTranslationService>()?.Refresh());
                     break;
                 }
                 case "autoStart":

@@ -42,6 +42,8 @@ public class HotKeySignNameToStringCtr : IMultiValueConverter
             "激活鼠标快捷菜单" => Lang.Get("lang.kitopia.mouse_quick_menu"),
             "截图" => Lang.Get("lang.kitopia.capture_screen_area"),
             "文件速览" => Lang.Get("lang.kitopia.file_preview"),
+            "划词翻译" => Lang.Get("lang.kitopia.selection_translation"),
+            "自动划词翻译" => Lang.Get("lang.kitopia.selection_translation_auto_hotkey"),
             _ => s
         };
     }

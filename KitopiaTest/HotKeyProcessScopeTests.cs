@@ -47,7 +47,30 @@ public sealed class HotKeyProcessScopeTests
     {
         var restored = JsonSerializer.Deserialize<HotKeyModel>("{\"SelectKey\":65,\"IsEnabled\":true}")!;
         Assert.AreEqual(HotKeyProcessScope.All, restored.ProcessScope);
+        Assert.AreEqual(MouseHotKeyTrigger.Hold, restored.MouseTrigger);
         Assert.IsTrue(restored.CanExecuteInProcess("any-process"));
+    }
+
+    [TestMethod]
+    public void Serialization_DragShortcut_PreservesSettingsAndOmitsRuntimePosition()
+    {
+        var model = new HotKeyModel
+        {
+            Type = HotKeyType.Mouse, MouseTrigger = MouseHotKeyTrigger.DragRelease,
+            MouseButton = 1, DragDistancePixels = 8, IsEnabled = true,
+            TriggerPosition = new PixelPoint(120, 340)
+        };
+        var json = JsonSerializer.Serialize(model, ConfigManger.DefaultOptions);
+        var restored = JsonSerializer.Deserialize<HotKeyModel>(json, ConfigManger.DefaultOptions)!;
+        Assert.AreEqual(MouseHotKeyTrigger.DragRelease, restored.MouseTrigger);
+        Assert.AreEqual((ushort)8, restored.DragDistancePixels);
+        Assert.IsTrue(restored.IsEnabled);
+        Assert.IsNull(restored.TriggerPosition);
+        Assert.IsFalse(json.Contains(nameof(HotKeyModel.TriggerPosition)));
+        var candidate = new HotKeyModel(model);
+        Assert.AreEqual(model.MouseTrigger, candidate.MouseTrigger);
+        Assert.AreEqual(model.DragDistancePixels, candidate.DragDistancePixels);
+        Assert.IsNull(candidate.TriggerPosition);
     }
 
     [TestMethod]

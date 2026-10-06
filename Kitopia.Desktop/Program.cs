@@ -19,6 +19,7 @@ using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.MQTT;
 using Kitopia.Desktop.Features.Services.Onnx;
 using Kitopia.Desktop.Features.Services.Plugin;
+using Kitopia.Desktop.Features.Translation;
 using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Features.ViewModel.Account;
 using Kitopia.Desktop.Features.ViewModel.Main;
@@ -39,6 +40,7 @@ using Kitopia.Desktop.Platform.Linux;
 using Kitopia.Desktop.Abstractions;
 using Kitopia.Desktop.Abstractions.FileSystem;
 using Kitopia.Desktop.Abstractions.Shell;
+using Kitopia.Desktop.Abstractions.TextSelection;
 using Kitopia.Feature.Avalonia.DeviceCommunication.ViewModels;
 using Kitopia.Feature.Avalonia.DeviceCommunication.Views;
 using Kitopia.Desktop.Features.CustomScenario.Services;
@@ -54,6 +56,7 @@ using DesktopOcrService = Kitopia.Desktop.Features.Ocr.IOcrService;
 using Kitopia.Desktop.Pages;
 using Kitopia.Desktop.Services;
 using Kitopia.Desktop.Windows;
+using Kitopia.Desktop.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Kitopia.Feature.DeviceCommunication.Identity;
 using PluginCore;
@@ -147,6 +150,7 @@ internal class Program {
         services.AddSingleton<ISearchItemChooseService, SearchItemChooseService>();
         services.AddSingleton<IFeatureFilePicker, DesktopFeatureFilePicker>();
         services.AddSingleton<IMouseQuickWindowService, MouseQuickWindowService>();
+        services.AddSingleton<ITranslationService, BingTranslationService>();
 #if WINDOWS
         services.AddSingleton<ExplorerFileSelection>();
         services.AddSingleton<SimpleGlobalHook>();
@@ -203,6 +207,10 @@ internal class Program {
         services.AddTransient<Kitopia.Feature.DeviceCommunication.Application.IChatClipboardService,
             DesktopChatClipboardService>();
         services.AddSingleton<IWindowTool, WindowToolServiceWindow>();
+        services.AddSingleton<ITextSelectionService, WindowsTextSelectionService>();
+        services.AddSingleton<SelectionTranslationWindowViewModel>();
+        services.AddSingleton<SelectionTranslationWindow>();
+        services.AddSingleton<ISelectionTranslationService, SelectionTranslationService>();
         services.AddSingleton<IApplicationService, ApplicationService>();
         services.AddTransient<IImageTool, ImageTool>();
         services.AddTransient<IExplorerContextMenuService, ExplorerContextMenuService>();
@@ -358,6 +366,10 @@ internal class Program {
         });
         PluginOverall.InitializeContextMenu();
         ServiceManager.Services.GetService<IHotKetImpl>()!.StartHook();
+#if WINDOWS
+        await Dispatcher.UIThread.InvokeAsync(() =>
+            ServiceManager.Services.GetService<ISelectionTranslationService>()?.Start());
+#endif
 
         if (ConfigManger.Config.checkKitopiaCompanion) {
             if (ServiceManager.Services.GetService<IExplorerContextMenuService>()!.RegisterAsync()

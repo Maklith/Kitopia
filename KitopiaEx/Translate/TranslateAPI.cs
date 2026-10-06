@@ -6,6 +6,8 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using PluginCore;
 
 namespace KitopiaEx.Translate;
 
@@ -56,6 +58,17 @@ public static class TranslateApi
         ArgumentNullException.ThrowIfNull(text);
         cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(text)) return text;
+
+        if (Kitopia.ServiceProvider?.GetService<ITranslationService>() is { } translationService)
+        {
+            return await translationService.TranslateAsync(
+                    text,
+                    ToSourceLanguage(from),
+                    ToTargetLanguage(to),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         var sourceLanguage = SourceTranslateLangToName(from);
         var targetLanguage = TargetTranslateLangToName(to);
 
@@ -139,4 +152,23 @@ public static class TranslateApi
 
         throw new HttpRequestException("Microsoft Translator authentication failed.");
     }
+
+    private static TranslationSourceLanguage ToSourceLanguage(SourceTranslateLang language) => language switch
+    {
+        SourceTranslateLang.自动检测 => TranslationSourceLanguage.Auto,
+        SourceTranslateLang.简体中文 => TranslationSourceLanguage.SimplifiedChinese,
+        SourceTranslateLang.繁體中文 => TranslationSourceLanguage.TraditionalChinese,
+        SourceTranslateLang.English => TranslationSourceLanguage.English,
+        SourceTranslateLang.日本語 => TranslationSourceLanguage.Japanese,
+        _ => throw new ArgumentOutOfRangeException(nameof(language), language, null)
+    };
+
+    private static TranslationTargetLanguage ToTargetLanguage(TargetTranslateLang language) => language switch
+    {
+        TargetTranslateLang.简体中文 => TranslationTargetLanguage.SimplifiedChinese,
+        TargetTranslateLang.繁體中文 => TranslationTargetLanguage.TraditionalChinese,
+        TargetTranslateLang.English => TranslationTargetLanguage.English,
+        TargetTranslateLang.日本語 => TranslationTargetLanguage.Japanese,
+        _ => throw new ArgumentOutOfRangeException(nameof(language), language, null)
+    };
 }

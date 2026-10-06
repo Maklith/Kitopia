@@ -34,6 +34,7 @@ public class ApplicationService : IApplicationService {
 
     public async Task ExitAsync(int exitCode = 0) {
         ConfigManger.Save();
+        ServiceManager.Services.GetService<ISelectionTranslationService>()?.Stop();
         var startupMessageBroker = ServiceManager.Services.GetService<IStartupMessageBroker>();
         if (startupMessageBroker is not null) {
             await startupMessageBroker.StopAsync().ConfigureAwait(false);

@@ -60,12 +60,24 @@
                                            Foreground="{DynamicResource SemiColorText2}" />
                             </StackPanel>
                         </Border>
-                        <Grid IsVisible="{Binding #Mouse.IsChecked}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <Grid IsVisible="{Binding #Mouse.IsChecked}" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <TextBlock Text="{DynamicResource 'lang.kitopia.hotkeys.mouse_trigger'}" VerticalAlignment="Center" FontSize="12" />
+                            <ComboBox Grid.Column="1" Name="MouseTrigger" Width="180" SelectionChanged="MouseTrigger_OnSelectionChanged">
+                                <ComboBoxItem Content="{DynamicResource 'lang.kitopia.hotkeys.hold'}" />
+                                <ComboBoxItem Content="{DynamicResource 'lang.kitopia.hotkeys.drag_release'}" />
+                            </ComboBox>
+                        </Grid>
+                        <Grid Name="HoldSettings" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                             <TextBlock Text="{DynamicResource 'lang.kitopia.hold_duration'}" VerticalAlignment="Center" FontSize="12" />
                             <Slider Grid.Column="1" Name="Slider" Minimum="100" Maximum="5000" Value="1000"
                                     TickFrequency="100" IsSnapToTickEnabled="True" />
                             <TextBlock Grid.Column="2" Text="{Binding #Slider.Value, StringFormat='{}{0:0} ms'}"
                                        MinWidth="58" VerticalAlignment="Center" FontSize="12" />
+                        </Grid>
+                        <Grid Name="DragSettings" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="False">
+                            <TextBlock Text="{DynamicResource 'lang.kitopia.hotkeys.minimum_drag_distance'}" VerticalAlignment="Center" FontSize="12" />
+                            <NumericUpDown Grid.Column="1" Name="DragDistance" Minimum="1" Maximum="100" Value="4"
+                                           Increment="1" FormatString="0 'px'" Width="180" />
                         </Grid>
                     </StackPanel>
                 </Border>

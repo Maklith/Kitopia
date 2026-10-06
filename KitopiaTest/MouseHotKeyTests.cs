@@ -13,6 +13,9 @@ using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Platform.Windows;
 using Kitopia.Desktop.Controls;
+using Kitopia.Desktop.Abstractions.TextSelection;
+using Kitopia.Desktop.Services;
+using Kitopia.Desktop.ViewModels;
 using Kitopia.Desktop.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -93,6 +96,127 @@ public sealed class MouseHotKeyTests
         SendMouseEvent(HookMouseButton.Button1, false);
         return Task.CompletedTask;
     });
+
+    [TestMethod]
+    [DataRow(0, 0, false)]
+    [DataRow(3, 0, false)]
+    [DataRow(2, 3, false)]
+    [DataRow(4, 0, true)]
+    [DataRow(-4, 0, true)]
+    [DataRow(3, 3, true)]
+    public Task MouseReleased_DragMode_RequiresDistanceAndReportsReleasePosition(int deltaX, int deltaY, bool expected)
+        => RunAsync(service =>
+        {
+            var model = new KitopiaConfig().selectionTranslationAutoHotKey;
+            var invoked = 0;
+            PixelPoint? triggerPosition = null;
+            service.Register(model, hotkey => { invoked++; triggerPosition = hotkey.TriggerPosition; });
+            SendMouseEvent(HookMouseButton.Button1, true, 100, 100);
+            Assert.IsNull(GetHotkey(model.UUID).Timer);
+            SendMouseEvent(HookMouseButton.Button1, false, (short)(100 + deltaX), (short)(100 + deltaY));
+            Assert.AreEqual(expected ? 1 : 0, invoked);
+            if (expected) Assert.AreEqual(new PixelPoint(100 + deltaX, 100 + deltaY), triggerPosition);
+            Assert.IsNull(GetHotkey(model.UUID).PressPosition);
+            SendMouseEvent(HookMouseButton.Button1, false, 500, 500);
+            Assert.AreEqual(expected ? 1 : 0, invoked);
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
+    public Task MouseReleased_DragMode_UsesConfiguredButtonAndDistance() => RunAsync(service =>
+    {
+        var model = new HotKeyModel
+        {
+            Type = HotKeyType.Mouse, MouseTrigger = MouseHotKeyTrigger.DragRelease,
+            MouseButton = 2, DragDistancePixels = 10, IsEnabled = true
+        };
+        var invoked = 0;
+        service.Register(model, _ => invoked++);
+        SendMouseEvent(HookMouseButton.Button1, true);
+        SendMouseEvent(HookMouseButton.Button1, false, 20, 0);
+        Assert.AreEqual(0, invoked);
+        SendMouseEvent(HookMouseButton.Button2, true);
+        SendMouseEvent(HookMouseButton.Button1, false, 20, 0);
+        Assert.IsNotNull(GetHotkey(model.UUID).PressPosition);
+        SendMouseEvent(HookMouseButton.Button2, false, 9, 0);
+        Assert.AreEqual(0, invoked);
+        SendMouseEvent(HookMouseButton.Button2, true);
+        SendMouseEvent(HookMouseButton.Button2, false, 10, 0);
+        Assert.AreEqual(1, invoked);
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    [DataRow("disabled")]
+    [DataRow("capture-disabled")]
+    [DataRow("window-changed")]
+    [DataRow("scope-changed")]
+    [DataRow("modified")]
+    public Task MouseReleased_DragMode_RevalidatesRegistrationAndScope(string change) => RunAsync(service =>
+    {
+        var model = new KitopiaConfig().selectionTranslationAutoHotKey;
+        var invoked = 0;
+        service.Register(model, _ => invoked++);
+        SendMouseEvent(HookMouseButton.Button1, true);
+        switch (change)
+        {
+            case "disabled": model.IsEnabled = false; break;
+            case "window-changed": GetHotkey(model.UUID).PressWindow = default; break;
+            case "scope-changed":
+                model.ProcessScope = HotKeyProcessScope.Include;
+                model.ProcessNames = ["kitopia-nonexistent-process"];
+                break;
+            case "modified":
+                Assert.IsTrue(service.Modify(new HotKeyModel(model) { DragDistancePixels = 5 }));
+                break;
+        }
+        SendMouseEvent(HookMouseButton.Button1, false, 100, 100, change != "capture-disabled");
+        Assert.AreEqual(0, invoked);
+        Assert.IsNull(GetHotkey(model.UUID).PressPosition);
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    public Task MouseReleased_DragCallbackThrows_DoesNotEscapeDispatcher() => RunAsync(service =>
+    {
+        var model = new KitopiaConfig().selectionTranslationAutoHotKey;
+        var invoked = false;
+        service.Register(model, _ => { invoked = true; throw new InvalidOperationException("Test callback"); });
+        SendMouseEvent(HookMouseButton.Button1, true);
+        SendMouseEvent(HookMouseButton.Button1, false, 100, 100);
+        Assert.IsTrue(invoked);
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    [DataRow(HotKeyProcessScope.All)]
+    [DataRow(HotKeyProcessScope.Exclude)]
+    [DataRow(HotKeyProcessScope.Include)]
+    public Task SelectionTranslation_ExcludeCurrentProcess_UpdatesAutomaticHotkeyScope(HotKeyProcessScope scope)
+        => RunAsync(service =>
+        {
+            var config = new KitopiaConfig();
+            ConfigManger.Configs["KitopiaConfig"] = config;
+            var model = config.selectionTranslationAutoHotKey;
+            model.ProcessScope = scope;
+            model.ProcessNames = scope == HotKeyProcessScope.Include ? ["WINWORD.exe", "code"] : ["notepad"];
+            service.Register(model, _ => { });
+            using var hook = new SimpleGlobalHook();
+            var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!));
+            var translation = new SelectionTranslationService(hook, service, null!, null!, window);
+            typeof(SelectionTranslationService).GetField("_currentSelection", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(translation, new TextSelectionSnapshot("selected text", 1, "WINWORD.EXE", null));
+            typeof(SelectionTranslationService).GetMethod("ExcludeCurrentProcess", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(translation, null);
+            Assert.AreSame(model, service.GetByUuid(model.UUID));
+            Assert.IsFalse(model.CanExecuteInProcess("winword"));
+            Assert.AreEqual(scope == HotKeyProcessScope.Include ? HotKeyProcessScope.Include : HotKeyProcessScope.Exclude,
+                model.ProcessScope);
+            Assert.IsTrue(model.CanExecuteInProcess("code"));
+            Assert.AreEqual(scope == HotKeyProcessScope.All, model.CanExecuteInProcess("notepad"));
+            window.Close();
+            return Task.CompletedTask;
+        });
 
     [TestMethod]
     public Task MousePressed_HeldUntilThreshold_InvokesRegisteredAction() => RunAsync(async service =>
@@ -176,16 +300,20 @@ public sealed class MouseHotKeyTests
     });
 
     [TestMethod]
-    public Task MousePressed_OutsideProcessScope_DoesNotStartHold() => RunAsync(service =>
+    [DataRow(MouseHotKeyTrigger.Hold)]
+    [DataRow(MouseHotKeyTrigger.DragRelease)]
+    public Task MousePressed_OutsideProcessScope_DoesNotArmTrigger(MouseHotKeyTrigger trigger) => RunAsync(service =>
     {
         var model = new HotKeyModel
         {
             Type = HotKeyType.Mouse, IsEnabled = true, MouseButton = 1,
+            MouseTrigger = trigger,
             ProcessScope = HotKeyProcessScope.Include, ProcessNames = ["kitopia-nonexistent-process"]
         };
         service.Register(model, _ => Assert.Fail("Out-of-scope shortcut must not fire."));
         SendMouseEvent(HookMouseButton.Button1, true);
         Assert.IsNull(GetHotkey(model.UUID).Timer);
+        Assert.IsNull(GetHotkey(model.UUID).PressPosition);
         return Task.CompletedTask;
     });
 
@@ -239,6 +367,42 @@ public sealed class MouseHotKeyTests
             Assert.IsNotNull(recorder.Modified);
             Assert.AreEqual(EKey.K, recorder.Modified.SelectKey);
             Assert.IsFalse(recorder.Modified.IsEnabled);
+        }
+        finally
+        {
+            window.Close();
+            ServiceManager.Services = originalServices;
+        }
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    public Task Editor_DragMode_SavesTriggerDistanceAndKeepsDisabledState() => RunAsync(_ =>
+    {
+        var recorder = new RecordingHotkeys();
+        var originalServices = ServiceManager.Services;
+        using var services = new ServiceCollection().AddSingleton<IHotKetImpl>(recorder).BuildServiceProvider();
+        var model = new KitopiaConfig().selectionTranslationAutoHotKey;
+        model.IsEnabled = false;
+        var window = new HotKeyEditorWindow(model);
+        try
+        {
+            ServiceManager.Services = services;
+            window.Show();
+            var trigger = window.FindControl<ComboBox>("MouseTrigger")!;
+            Assert.AreEqual((int)MouseHotKeyTrigger.DragRelease, trigger.SelectedIndex);
+            Assert.IsFalse(window.FindControl<Grid>("HoldSettings")!.IsVisible);
+            Assert.IsTrue(window.FindControl<Grid>("DragSettings")!.IsVisible);
+            trigger.SelectedIndex = (int)MouseHotKeyTrigger.Hold;
+            Assert.IsTrue(window.FindControl<Grid>("HoldSettings")!.IsVisible);
+            trigger.SelectedIndex = (int)MouseHotKeyTrigger.DragRelease;
+            window.FindControl<NumericUpDown>("DragDistance")!.Value = 8;
+            window.FindControl<Button>("SaveButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.IsNotNull(recorder.Modified);
+            Assert.AreEqual(MouseHotKeyTrigger.DragRelease, recorder.Modified.MouseTrigger);
+            Assert.AreEqual((ushort)8, recorder.Modified.DragDistancePixels);
+            Assert.IsFalse(recorder.Modified.IsEnabled);
+            Assert.AreEqual((ushort)4, model.DragDistancePixels);
         }
         finally
         {
@@ -361,12 +525,12 @@ public sealed class MouseHotKeyTests
         ((ConcurrentDictionary<string, HotKeyImpl.HotkeyInfo>)typeof(HotKeyImpl)
             .GetField("HotKeys", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!)[uuid];
 
-    private static void SendMouseEvent(HookMouseButton button, bool pressed)
+    private static void SendMouseEvent(HookMouseButton button, bool pressed, short x = 0, short y = 0, bool capture = true)
     {
-        ConfigManger.Configs["KitopiaConfig"] = new KitopiaConfig { mouseCapture = true };
+        ConfigManger.Configs["KitopiaConfig"] = new KitopiaConfig { mouseCapture = capture };
         try
         {
-            RaiseMouseEvent(button, pressed);
+            RaiseMouseEvent(button, pressed, x, y);
             Dispatcher.UIThread.RunJobs();
         }
         finally
@@ -449,9 +613,9 @@ public sealed class MouseHotKeyTests
         return Task.CompletedTask;
     });
 
-    private static void RaiseMouseEvent(HookMouseButton button, bool pressed) => typeof(HotKeyImpl)
+    private static void RaiseMouseEvent(HookMouseButton button, bool pressed, short x = 0, short y = 0) => typeof(HotKeyImpl)
         .GetMethod(pressed ? "OnMousePressed" : "OnMouseReleased", BindingFlags.Static | BindingFlags.NonPublic)!
-        .Invoke(null, [null, new MouseHookEventArgs(new UioHookEvent { Mouse = new MouseEventData { Button = button } })]);
+        .Invoke(null, [null, new MouseHookEventArgs(new UioHookEvent { Mouse = new MouseEventData { Button = button, X = x, Y = y } })]);
 
     private static async Task RunAsync(Func<HotKeyImpl, Task> test)
     {

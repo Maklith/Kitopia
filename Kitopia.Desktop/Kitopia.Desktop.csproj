@@ -131,6 +131,7 @@
         <PackageReference Include="Semi.Avalonia.ColorPicker" Version="12.1.0.1" />
         <PackageReference Include="Semi.Avalonia.DataGrid" Version="12.1.0.1" />
         <PackageReference Include="System.Drawing.Common" Version="10.0.9" />
+        <PackageReference Include="SharpHook" Version="7.1.2" Condition="'$(OS)' == 'Windows_NT'" />
     </ItemGroup>
     <ItemGroup>
         <Compile Update="Windows\DialogWindow.axaml.cs">

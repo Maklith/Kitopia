@@ -42,6 +42,10 @@ public partial class HotKeyEditorWindow : UrsaWindow
         KeyBoard.IsChecked = _type == HotKeyType.Keyboard;
         Mouse.IsChecked = _type == HotKeyType.Mouse;
         Slider.Value = hotKeyModel.PressTimeMillis;
+        DragDistance.Value = hotKeyModel.DragDistancePixels;
+        MouseTrigger.SelectedIndex = (int)hotKeyModel.MouseTrigger;
+        HoldSettings.IsVisible = _type == HotKeyType.Mouse && MouseTrigger.SelectedIndex == 0;
+        DragSettings.IsVisible = _type == HotKeyType.Mouse && MouseTrigger.SelectedIndex == 1;
         Ctrl.IsVisible = _type == HotKeyType.Keyboard && hotKeyModel.IsSelectCtrl;
         Alt.IsVisible = _type == HotKeyType.Keyboard && hotKeyModel.IsSelectAlt;
         Shift.IsVisible = _type == HotKeyType.Keyboard && hotKeyModel.IsSelectShift;
@@ -146,6 +150,8 @@ public partial class HotKeyEditorWindow : UrsaWindow
             MouseButton = _selectedMouseButton,
             Type = _type,
             PressTimeMillis = (ushort)Slider.Value,
+            MouseTrigger = (MouseHotKeyTrigger)MouseTrigger.SelectedIndex,
+            DragDistancePixels = (ushort)(DragDistance.Value ?? 4),
             ProcessScope = scope,
             ProcessNames = processes,
             IgnoreTextInput = IgnoreTextInput.IsChecked == true
@@ -182,6 +188,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
     private void KeyBoard_OnClick(object? sender, RoutedEventArgs e)
     {
         _type = HotKeyType.Keyboard;
+        HoldSettings.IsVisible = DragSettings.IsVisible = false;
         KeyName.Content = Lang.Get(_selectedKey ?? EKey.未设置);
         MouseCaptureArea.Focus();
     }
@@ -189,6 +196,8 @@ public partial class HotKeyEditorWindow : UrsaWindow
     private void Mouse_OnClick(object? sender, RoutedEventArgs e)
     {
         _type = HotKeyType.Mouse;
+        HoldSettings.IsVisible = MouseTrigger.SelectedIndex == 0;
+        DragSettings.IsVisible = MouseTrigger.SelectedIndex == 1;
         Ctrl.IsVisible = Alt.IsVisible = Shift.IsVisible = Win.IsVisible = false;
         KeyName.Content = HotKeyDisplay.MouseButtonName(_selectedMouseButton);
         MouseCaptureArea.Focus();
@@ -197,6 +206,13 @@ public partial class HotKeyEditorWindow : UrsaWindow
     private void ProcessScope_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (ProcessListSection is not null) ProcessListSection.IsVisible = ProcessScope.SelectedIndex > 0;
+    }
+
+    private void MouseTrigger_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (HoldSettings is null || DragSettings is null) return;
+        HoldSettings.IsVisible = _type == HotKeyType.Mouse && MouseTrigger.SelectedIndex == 0;
+        DragSettings.IsVisible = _type == HotKeyType.Mouse && MouseTrigger.SelectedIndex == 1;
     }
 
     private void UpdateEmptyTagsHint()

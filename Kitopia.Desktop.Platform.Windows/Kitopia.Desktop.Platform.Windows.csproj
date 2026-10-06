@@ -15,6 +15,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
         <Reference Include="Microsoft.Windows.SDK.NET">
             <HintPath>Microsoft.Windows.SDK.NET.dll</HintPath>
         </Reference>

@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
@@ -12,6 +13,7 @@ using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.HotKey;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using Serilog;
 using SharpHook;
 using SharpHook.Data;
 using Vanara.PInvoke;
@@ -20,6 +22,7 @@ namespace Kitopia.Desktop.Platform.Windows;
 
 public class HotKeyImpl : IHotKetImpl
 {
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<HotKeyImpl>();
     private static Avalonia.Controls.Window _globalHotKeyWindow = null!;
     private static readonly ConcurrentDictionary<string, HotkeyInfo> HotKeys = new();
     private SimpleGlobalHook? _inputHook;
@@ -34,6 +37,7 @@ public class HotKeyImpl : IHotKetImpl
         public required Action<HotKeyModel> CallBack;
         public DispatcherTimer? Timer;
         public HWND PressWindow;
+        public PixelPoint? PressPosition;
     }
 
     private static int _id;
@@ -65,7 +69,11 @@ public class HotKeyImpl : IHotKetImpl
 
         if (!ConfigManger.Config.mouseCapture)
         {
-            foreach (var (_, hotkey) in HotKeys) hotkey.Timer?.Stop();
+            foreach (var (_, hotkey) in HotKeys)
+            {
+                hotkey.Timer?.Stop();
+                hotkey.PressPosition = null;
+            }
         }
 
         // SharpHook 在同一进程中只能运行一个监听器。
@@ -106,7 +114,7 @@ public class HotKeyImpl : IHotKetImpl
             Dispatcher.UIThread.Post(() =>
             {
                 if (hotkey.Id == 0 && model.IsEnabled && User32.GetForegroundWindow() == foreground &&
-                    CanExecuteInWindow(model, foreground)) hotkey.CallBack(model);
+                    CanExecuteInWindow(model, foreground)) InvokeHotkey(hotkey);
             });
             return;
         }
@@ -148,33 +156,51 @@ public class HotKeyImpl : IHotKetImpl
         var dataButton = (ushort)e.Data.Button;
         if (dataButton == 0) return;
         var foreground = User32.GetForegroundWindow();
+        var position = new PixelPoint(e.Data.X, e.Data.Y);
 
         Dispatcher.UIThread.Post(() =>
         {
-            if (!ConfigManger.Config.mouseCapture || User32.GetForegroundWindow() != foreground) return;
-            foreach (var (_, value) in HotKeys)
+            try
             {
-                if (value.HotKeyModel.Type != HotKeyType.Mouse || value.Id == -1 ||
-                    !value.HotKeyModel.IsEnabled || value.HotKeyModel.MouseButton != dataButton) continue;
-
-                if (!CanExecuteInWindow(value.HotKeyModel, foreground)) continue;
-                value.PressWindow = foreground;
-
-                if (value.Timer is null)
+                if (!ConfigManger.Config.mouseCapture || User32.GetForegroundWindow() != foreground) return;
+                foreach (var (_, value) in HotKeys)
                 {
-                    var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(value.HotKeyModel.PressTimeMillis) };
-                    timer.Tick += (_, _) =>
-                    {
-                        timer.Stop();
-                        if (value.Id != -1 && value.HotKeyModel.IsEnabled && ConfigManger.Config.mouseCapture &&
-                            User32.GetForegroundWindow() == value.PressWindow &&
-                            CanExecuteInWindow(value.HotKeyModel, value.PressWindow))
-                            value.CallBack.Invoke(value.HotKeyModel);
-                    };
-                    value.Timer = timer;
-                }
+                    if (value.HotKeyModel.Type != HotKeyType.Mouse || value.Id == -1 ||
+                        !value.HotKeyModel.IsEnabled || value.HotKeyModel.MouseButton != dataButton) continue;
 
-                value.Timer.Start();
+                    if (!CanExecuteInWindow(value.HotKeyModel, foreground)) continue;
+                    value.PressWindow = foreground;
+                    value.PressPosition = position;
+                    value.HotKeyModel.TriggerPosition = null;
+                    if (value.HotKeyModel.MouseTrigger == MouseHotKeyTrigger.DragRelease) continue;
+
+                    if (value.Timer is null)
+                    {
+                        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(value.HotKeyModel.PressTimeMillis) };
+                        timer.Tick += (_, _) =>
+                        {
+                            timer.Stop();
+                            try
+                            {
+                                if (value.Id != -1 && value.HotKeyModel.IsEnabled && ConfigManger.Config.mouseCapture &&
+                                    User32.GetForegroundWindow() == value.PressWindow &&
+                                    CanExecuteInWindow(value.HotKeyModel, value.PressWindow))
+                                    InvokeHotkey(value);
+                            }
+                            catch (Exception exception)
+                            {
+                                LogManager.Logger.Warning(exception, "执行鼠标快捷键失败");
+                            }
+                        };
+                        value.Timer = timer;
+                    }
+
+                    value.Timer.Start();
+                }
+            }
+            catch (Exception exception)
+            {
+                LogManager.Logger.Warning(exception, "处理鼠标快捷键按下事件失败");
             }
         });
     }
@@ -183,13 +209,37 @@ public class HotKeyImpl : IHotKetImpl
     {
         var dataButton = (ushort)e.Data.Button;
         if (dataButton == 0) return;
+        var foreground = User32.GetForegroundWindow();
+        var position = new PixelPoint(e.Data.X, e.Data.Y);
 
         Dispatcher.UIThread.Post(() =>
         {
-            foreach (var (_, value) in HotKeys)
+            try
             {
-                if (value.HotKeyModel.Type == HotKeyType.Mouse && value.HotKeyModel.MouseButton == dataButton)
+                foreach (var (_, value) in HotKeys)
+                {
+                    var model = value.HotKeyModel;
+                    if (model.Type != HotKeyType.Mouse || model.MouseButton != dataButton) continue;
                     value.Timer?.Stop();
+                    var pressPosition = value.PressPosition;
+                    value.PressPosition = null;
+                    if (model.MouseTrigger != MouseHotKeyTrigger.DragRelease || pressPosition is not { } start ||
+                        value.Id != 0 || !model.IsEnabled || !ConfigManger.Config.mouseCapture ||
+                        (nint)foreground == 0 || foreground != value.PressWindow ||
+                        User32.GetForegroundWindow() != foreground || !CanExecuteInWindow(model, foreground)) continue;
+
+                    var deltaX = (long)position.X - start.X;
+                    var deltaY = (long)position.Y - start.Y;
+                    if (deltaX * deltaX + deltaY * deltaY < (long)model.DragDistancePixels * model.DragDistancePixels)
+                        continue;
+
+                    model.TriggerPosition = position;
+                    InvokeHotkey(value);
+                }
+            }
+            catch (Exception exception)
+            {
+                LogManager.Logger.Warning(exception, "处理鼠标快捷键释放事件失败");
             }
         });
     }
@@ -201,10 +251,19 @@ public class HotKeyImpl : IHotKetImpl
             var int32 = wparam.ToInt32();
             var hotkey = HotKeys.FirstOrDefault(entry => entry.Value.Id == int32 && entry.Value.HotKeyModel.IsEnabled).Value;
             if (hotkey is not null && CanExecuteInWindow(hotkey.HotKeyModel, User32.GetForegroundWindow()))
-                hotkey.CallBack.Invoke(hotkey.HotKeyModel);
+                InvokeHotkey(hotkey);
         }
 
         return IntPtr.Zero;
+    }
+
+    private static void InvokeHotkey(HotkeyInfo hotkey)
+    {
+        var model = hotkey.HotKeyModel;
+        Logger.Information("快捷键触发：{HotKeyName}，UUID：{HotKeyUuid}，输入类型：{HotKeyType}，触发方式：{Trigger}",
+            model.SignName, model.UUID, model.Type,
+            model.Type == HotKeyType.Mouse ? model.MouseTrigger.ToString() : "KeyPress");
+        hotkey.CallBack(model);
     }
 
     
@@ -237,6 +296,7 @@ public class HotKeyImpl : IHotKetImpl
         if (model.Type == HotKeyType.Mouse)
         {
             if (model.MouseButton is null or 0 or ushort.MaxValue) return false;
+            if (model.MouseTrigger == MouseHotKeyTrigger.DragRelease && model.DragDistancePixels == 0) return false;
             id = 0;
             return true;
         }
@@ -266,6 +326,8 @@ public class HotKeyImpl : IHotKetImpl
         hotkey.Id = -1;
         hotkey.Timer?.Stop();
         hotkey.Timer = null;
+        hotkey.PressPosition = null;
+        hotkey.HotKeyModel.TriggerPosition = null;
         return true;
     }
 

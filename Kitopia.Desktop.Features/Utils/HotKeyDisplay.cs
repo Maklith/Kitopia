@@ -26,7 +26,10 @@ public static class HotKeyDisplay
             HotKeyProcessScope.Exclude => Lang.Format("lang.kitopia.hotkeys.scope.exclude", processes),
             _ => Lang.Get("lang.kitopia.all_processes")
         };
-        if (model.Type == HotKeyType.Mouse) scope += Lang.Format("lang.kitopia.hotkeys.hold_duration", model.PressTimeMillis);
+        if (model.Type == HotKeyType.Mouse)
+            scope += model.MouseTrigger == MouseHotKeyTrigger.DragRelease
+                ? Lang.Format("lang.kitopia.hotkeys.drag_distance", model.DragDistancePixels)
+                : Lang.Format("lang.kitopia.hotkeys.hold_duration", model.PressTimeMillis);
         if (!model.IsEnabled) scope += Lang.Get("lang.kitopia.disabled_suffix");
         return scope;
     }
