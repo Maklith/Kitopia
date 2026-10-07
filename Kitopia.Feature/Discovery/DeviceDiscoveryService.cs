@@ -14,7 +14,7 @@ namespace Kitopia.Feature.DeviceCommunication.Discovery;
 public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
 {
     private const string LogCategory = "DiscoveryService";
-    private const int DiscoveryPort = 53535;
+    private const int DiscoveryPort = 49526;
     private const string MulticastAddressV4 = "239.255.255.250";
     private const string MulticastAddressV6 = "ff02::1";
     private const int DiscoveryMulticastHopLimit = 1;
