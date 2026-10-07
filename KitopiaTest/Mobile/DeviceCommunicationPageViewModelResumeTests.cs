@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Threading.Channels;
 using Avalonia;
 using Avalonia.Controls;
@@ -7,6 +8,8 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Kitopia.Desktop.Features.ViewModel.Main;
+using Kitopia.Desktop.Services;
 using Kitopia.Feature.DeviceCommunication.Application;
 using Kitopia.Feature.Avalonia.DeviceCommunication.ViewModels;
 using Kitopia.Feature.Avalonia.DeviceCommunication.Views;
@@ -15,7 +18,9 @@ using Kitopia.Feature.DeviceCommunication.Messages.Chat;
 using Kitopia.Feature.Localization;
 using Kitopia.Mobile.Services;
 using Kitopia.Mobile.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using ObservableCollections;
+using PluginCore;
 
 namespace KitopiaTest.Mobile;
 
@@ -142,6 +147,245 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
 
         Assert.AreEqual(1, viewModel.Conversations.Single().UnreadCount);
         Assert.AreEqual(0, notificationService.ShowCount);
+    }
+
+    [TestMethod]
+    [DataRow("text")]
+    [DataRow("image")]
+    [DataRow("file")]
+    public async Task IncomingMessage_WindowActivatedBeforeContextTimer_KeepsCurrentConversationRead(string kind)
+    {
+        using var discovery = new FakeDiscoveryService(new DiscoveredDevice { Id = "peer-1", Name = "Phone" });
+        var messages = new FakeMessageAppService();
+        var platform = new FakeChatPlatformService { DisplayContext = new(false, true) };
+        var notifications = new FakeToastService();
+        var processed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var viewModel = new DeviceCommunicationPageViewModel(discovery, messages,
+            new FakeChatAttachmentStore(), platform, new FakeDeviceCommunicationSettings(), notifications,
+            postToUi: action => { action(); processed.TrySetResult(); });
+        var conversation = viewModel.Conversations.Single();
+        conversation.UnreadCount = 2;
+        Assert.AreEqual(IncomingMessageDisplayMode.NotifyByToast, messages.ResolveIncomingDisplayMode("peer-1"));
+
+        platform.DisplayContext = new(true, true);
+        var timestamp = DateTimeOffset.UtcNow;
+        DeviceMessageEvent incoming = kind switch
+        {
+            "image" => new ChatMessageReceivedEvent(new ImageChatMessage("peer-1", Guid.NewGuid(), 100, "image/png", true),
+                null, "peer-1", timestamp),
+            "file" => FileEvent(Guid.NewGuid(), FileTransferStatus.WaitingForAccept),
+            _ => new ChatMessageReceivedEvent(new TextChatMessage("peer-1", "hello"), null, "peer-1", timestamp)
+        };
+        await messages.Events.Writer.WriteAsync(incoming);
+        await processed.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.HasCount(1, conversation.Messages);
+        Assert.AreEqual(0, conversation.UnreadCount);
+        Assert.IsFalse(conversation.HasUnread);
+        Assert.AreEqual(0, notifications.ShowCount);
+        Assert.AreEqual(IncomingMessageDisplayMode.ShowInCurrentConversation, messages.ResolveIncomingDisplayMode("peer-1"));
+    }
+
+    [TestMethod]
+    [DataRow(false, true)]
+    [DataRow(true, false)]
+    public async Task IncomingMessage_WindowDeactivatedOrPageClosedBeforeContextTimer_IncrementsUnread(bool active, bool chatOpen)
+    {
+        using var discovery = new FakeDiscoveryService(new DiscoveredDevice { Id = "peer-1", Name = "Phone" });
+        var messages = new FakeMessageAppService();
+        var platform = new FakeChatPlatformService();
+        var notifications = new FakeToastService();
+        var processed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var viewModel = new DeviceCommunicationPageViewModel(discovery, messages,
+            new FakeChatAttachmentStore(), platform, new FakeDeviceCommunicationSettings(), notifications,
+            postToUi: action => { action(); processed.TrySetResult(); });
+        Assert.AreEqual(IncomingMessageDisplayMode.ShowInCurrentConversation, messages.ResolveIncomingDisplayMode("peer-1"));
+
+        platform.DisplayContext = new(active, chatOpen);
+        await messages.Events.Writer.WriteAsync(new ChatMessageReceivedEvent(new TextChatMessage("peer-1", "hello"),
+            null, "peer-1", DateTimeOffset.UtcNow));
+        await processed.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.AreEqual(1, viewModel.Conversations.Single().UnreadCount);
+        Assert.AreEqual(1, notifications.ShowCount);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void DisplayContext_ReturnToConversation_ClearsOnlySelectedUnread(bool refreshView)
+    {
+        using var discovery = new FakeDiscoveryService(new DiscoveredDevice { Id = "peer-1", Name = "Phone" },
+            new DiscoveredDevice { Id = "peer-2", Name = "Tablet" });
+        var platform = new FakeChatPlatformService { DisplayContext = new(false, true) };
+        using var viewModel = new DeviceCommunicationPageViewModel(discovery, new FakeMessageAppService(),
+            new FakeChatAttachmentStore(), platform, new FakeDeviceCommunicationSettings(), new FakeToastService(),
+            postToUi: action => action());
+        var first = viewModel.Conversations.Single(value => value.DeviceId == "peer-1");
+        var second = viewModel.Conversations.Single(value => value.DeviceId == "peer-2");
+        first.UnreadCount = 2;
+        second.UnreadCount = 3;
+        viewModel.SelectedConversation = second;
+        Assert.AreEqual(3, second.UnreadCount);
+
+        platform.DisplayContext = new(true, true);
+        if (refreshView) viewModel.RefreshCurrentConversationView();
+        else viewModel.SyncDisplayContext();
+
+        Assert.AreEqual(2, first.UnreadCount);
+        Assert.AreEqual(0, second.UnreadCount);
+        viewModel.SelectedConversation = first;
+        Assert.AreEqual(0, first.UnreadCount);
+    }
+
+    [TestMethod]
+    public void IncomingMessages_OtherDeviceWhileChatOpen_CountsOnlyOtherConversation()
+    {
+        using var discovery = new FakeDiscoveryService(new DiscoveredDevice { Id = "peer-1", Name = "Phone" },
+            new DiscoveredDevice { Id = "peer-2", Name = "Tablet" });
+        var timestamp = DateTimeOffset.UtcNow;
+        var events = new DeviceMessageEvent[]
+        {
+            new ChatMessageReceivedEvent(new TextChatMessage("peer-1", "read"), null, "peer-1", timestamp),
+            new ChatMessageReceivedEvent(new TextChatMessage("peer-2", "unread"), null, "peer-2", timestamp),
+            new ChatMessageReceivedEvent(new ImageChatMessage("peer-2", Guid.NewGuid(), 100, "image/png", true),
+                null, "peer-2", timestamp),
+            FileEvent(Guid.NewGuid(), FileTransferStatus.WaitingForAccept) with { ConversationId = "peer-2" }
+        };
+        var notifications = new FakeToastService();
+        using var viewModel = new DeviceCommunicationPageViewModel(discovery, new FakeMessageAppService(incomingEvents: events),
+            new FakeChatAttachmentStore(), new FakeChatPlatformService(), new FakeDeviceCommunicationSettings(), notifications,
+            postToUi: action => action());
+
+        Assert.AreEqual("peer-1", viewModel.SelectedConversation?.DeviceId);
+        Assert.AreEqual(0, viewModel.Conversations.Single(value => value.DeviceId == "peer-1").UnreadCount);
+        Assert.AreEqual(3, viewModel.Conversations.Single(value => value.DeviceId == "peer-2").UnreadCount);
+        Assert.AreEqual(3, notifications.ShowCount);
+    }
+
+    [TestMethod]
+    public void IncomingFile_ProgressAndCompletion_KeepOneUnreadMessage()
+    {
+        using var discovery = new FakeDiscoveryService(new DiscoveredDevice { Id = "peer-1", Name = "Phone" });
+        var transferId = Guid.NewGuid();
+        var events = new[]
+        {
+            FileEvent(transferId, FileTransferStatus.WaitingForAccept),
+            FileEvent(transferId, FileTransferStatus.Accepted),
+            FileEvent(transferId, FileTransferStatus.InProgress),
+            FileEvent(transferId, FileTransferStatus.Completed)
+        };
+        var notifications = new FakeToastService();
+        using var viewModel = new DeviceCommunicationPageViewModel(discovery, new FakeMessageAppService(incomingEvents: events),
+            new FakeChatAttachmentStore(), new FakeChatPlatformService { DisplayContext = new(false, true) },
+            new FakeDeviceCommunicationSettings(), notifications, postToUi: action => action());
+
+        var conversation = viewModel.Conversations.Single();
+        Assert.HasCount(1, conversation.Messages);
+        Assert.AreEqual(1, conversation.UnreadCount);
+        Assert.AreEqual(1, notifications.ShowCount);
+    }
+
+    [TestMethod]
+    public void NavigateToChat_PagePublishesDisplayContext_PreservesCurrentConversation()
+    {
+        var messages = new FakeMessageAppService();
+        using var services = new ServiceCollection().AddSingleton<IMessageAppService>(messages).BuildServiceProvider();
+        var previousServices = ServiceManager.Services;
+        try
+        {
+            ServiceManager.Services = services;
+            var navigation = new NavigationService();
+            var main = new MainWindowViewModel(navigation);
+            main.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(main.Content) && Equals(main.Content, "device/chat"))
+                    messages.UpdateDisplayContext(true, true, "peer-1");
+            };
+
+            navigation.Navigate("device/chat");
+
+            Assert.AreEqual(IncomingMessageDisplayMode.ShowInCurrentConversation, messages.ResolveIncomingDisplayMode("peer-1"));
+            Assert.AreEqual(IncomingMessageDisplayMode.NotifyByToast, messages.ResolveIncomingDisplayMode("peer-2"));
+            navigation.Navigate("home");
+            Assert.AreEqual(IncomingMessageDisplayMode.NotifyByToast, messages.ResolveIncomingDisplayMode("peer-1"));
+        }
+        finally
+        {
+            ServiceManager.Services = previousServices;
+        }
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task UnreadBadge_PageReloadAndWindowActivation_HideCurrentAndPreserveOther(bool dark)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(DeviceCommunicationPageViewModelResumeTests));
+        await session.Dispatch(() =>
+        {
+            Application.Current!.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+            var window = new Kitopia.Desktop.Windows.MainWindow
+            {
+                Width = 1000, Height = 700, WindowState = WindowState.Normal, Content = null
+            };
+            using var discovery = new FakeDiscoveryService(new DiscoveredDevice { Id = "peer-1", Name = "Phone" },
+                new DiscoveredDevice { Id = "peer-2", Name = "Tablet" });
+            var platform = new FakeChatPlatformService { DisplayContext = new(false, true) };
+            using var viewModel = new DeviceCommunicationPageViewModel(discovery, new FakeMessageAppService(),
+                new FakeChatAttachmentStore(), platform, new FakeDeviceCommunicationSettings(), new FakeToastService(),
+                postToUi: action => action());
+            var first = viewModel.Conversations.Single(value => value.DeviceId == "peer-1");
+            var second = viewModel.Conversations.Single(value => value.DeviceId == "peer-2");
+            var page = new DeviceCommunicationPage { DataContext = viewModel };
+            window.Content = page;
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                typeof(WindowBase).GetMethod("HandleDeactivated", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .Invoke(window, null);
+                first.UnreadCount = 2;
+                second.UnreadCount = 103;
+                var firstLabel = page.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(text => ReferenceEquals(text.DataContext, first) && text.Text == "2");
+                Assert.IsTrue(((Border)firstLabel.Parent!).IsVisible);
+
+                // Headless Activate() does not dispatch the platform focus callbacks.
+                platform.DisplayContext = new(true, true);
+                typeof(WindowBase).GetMethod("HandleActivated", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .Invoke(window, null);
+                Assert.AreEqual(0, first.UnreadCount);
+                Assert.IsFalse(((Border)firstLabel.Parent!).IsVisible);
+                Assert.AreEqual(103, second.UnreadCount);
+
+                window.Content = null;
+                Dispatcher.UIThread.RunJobs();
+                first.UnreadCount = 2;
+                window.Content = page;
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(0, first.UnreadCount);
+                var otherLabel = page.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(text => ReferenceEquals(text.DataContext, second) && text.Text == "99+");
+                Assert.IsTrue(otherLabel.IsEffectivelyVisible);
+
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                using var frame = window.CaptureRenderedFrame();
+                Assert.IsNotNull(frame);
+                var screenshotDirectory = Path.Combine(AppContext.BaseDirectory, "TestResults", "lan-chat-display");
+                Directory.CreateDirectory(screenshotDirectory);
+                var screenshot = Path.Combine(screenshotDirectory, $"unread-badges-{dark}.png");
+                frame.Save(screenshot, PngBitmapEncoderOptions.Default);
+                TestContext.AddResultFile(screenshot);
+            }
+            finally
+            {
+                window.Closing += (_, args) => args.Cancel = false;
+                window.Close();
+            }
+        }, CancellationToken.None);
     }
 
     [TestMethod]
@@ -540,12 +784,14 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         public Func<ValueTask>? AcceptAction { get; init; }
         public (string DeviceId, Guid TransferId)? CancelledTransfer { get; private set; }
         private readonly DeviceMessageEvent? _incomingEvent;
-        private readonly IncomingMessageDisplayMode _displayMode;
+        private readonly IncomingMessageDisplayMode? _displayMode;
         private readonly IReadOnlyList<DeviceMessageEvent>? _incomingEvents;
+        private ChatDisplayContext _displayContext;
+        private string? _selectedConversationId;
 
         public FakeMessageAppService(
             DeviceMessageEvent? incomingEvent = null,
-            IncomingMessageDisplayMode displayMode = IncomingMessageDisplayMode.ShowInCurrentConversation,
+            IncomingMessageDisplayMode? displayMode = null,
             IReadOnlyList<DeviceMessageEvent>? incomingEvents = null)
         {
             _incomingEvent = incomingEvent;
@@ -586,21 +832,31 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
             await foreach (var incomingEvent in Events.Reader.ReadAllAsync(cancellationToken)) yield return incomingEvent;
         }
 
-        public void UpdateDisplayContext(bool isMainWindowActive, bool isDeviceChatPageOpen, string? selectedConversationId) { }
+        public void UpdateDisplayContext(bool isMainWindowActive, bool isDeviceChatPageOpen, string? selectedConversationId)
+        {
+            _displayContext = new(isMainWindowActive, isDeviceChatPageOpen);
+            _selectedConversationId = selectedConversationId;
+        }
         public void RequestOpenConversation(string conversationId) { }
         public string? GetRequestedConversationId() => null;
         public void ClearRequestedConversationId() { }
-        public IncomingMessageDisplayMode ResolveIncomingDisplayMode(string conversationId) => _displayMode;
-        public IncomingMessageDisplayMode ResolveIncomingDisplayMode(bool isMainWindowActive, bool isDeviceChatPageOpen, string conversationId, string? selectedConversationId) => _displayMode;
+        public IncomingMessageDisplayMode ResolveIncomingDisplayMode(string conversationId) =>
+            ResolveIncomingDisplayMode(_displayContext.IsMainWindowActive, _displayContext.IsChatPageOpen,
+                conversationId, _selectedConversationId);
+        public IncomingMessageDisplayMode ResolveIncomingDisplayMode(bool isMainWindowActive, bool isDeviceChatPageOpen,
+            string conversationId, string? selectedConversationId) => _displayMode ??
+            (isMainWindowActive && isDeviceChatPageOpen && conversationId == selectedConversationId
+                ? IncomingMessageDisplayMode.ShowInCurrentConversation : IncomingMessageDisplayMode.NotifyByToast);
     }
 
     private sealed class FakeChatPlatformService : IChatPlatformService
     {
+        public ChatDisplayContext DisplayContext { get; set; } = new(true, true);
         public bool CanOpenFile { get; init; }
         public string? OpenedFile { get; set; }
         public void OpenFile(string path) => OpenedFile = path;
         public Task<string?> PromptTextAsync(string title, string prompt, string? initialValue) => Task.FromResult<string?>(null);
-        public ChatDisplayContext GetDisplayContext(string? selectedConversationId) => new(true, true);
+        public ChatDisplayContext GetDisplayContext(string? selectedConversationId) => DisplayContext;
     }
 
     private sealed class FakeChatAttachmentStore : IChatAttachmentStore

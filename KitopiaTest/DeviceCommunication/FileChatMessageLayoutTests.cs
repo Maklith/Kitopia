@@ -142,7 +142,7 @@ public sealed class FileChatMessageLayoutTests
     }
 
     [TestMethod]
-    public async Task IncomingCard_ReceivingToCompleted_UpdatesFileAndCancelActions()
+    public async Task IncomingCard_WaitingToCompleted_UpdatesStatusProgressAndActions()
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(FileChatMessageLayoutTests));
         await session.Dispatch(() =>
@@ -170,6 +170,11 @@ public sealed class FileChatMessageLayoutTests
                 Dispatcher.UIThread.RunJobs();
                 var card = window.GetVisualDescendants().OfType<Border>()
                     .Single(border => border.IsEffectivelyVisible && border.Parent is Grid { Name: "FileMessageRoot" });
+                var progress = card.GetVisualDescendants().OfType<ProgressBar>().Single();
+                var state = card.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(text => text.Text == Lang.Get("lang.kitopia.waiting_to_receive"));
+                Assert.IsFalse(progress.IsVisible);
+                Assert.IsTrue(item.CanHandleIncomingOffer);
                 var flyout = (MenuFlyout)card.ContextFlyout!;
                 flyout.ShowAt(card);
                 Dispatcher.UIThread.RunJobs();
@@ -177,8 +182,19 @@ public sealed class FileChatMessageLayoutTests
                 var cancel = flyout.Items.OfType<MenuItem>().Single(menu => Equals(menu.Header, Lang.Get("lang.kitopia.cancel_transfer")));
                 Assert.IsFalse(open.IsEnabled);
 
-                item.Status = FileTransferStatus.InProgress;
+                item.Status = FileTransferStatus.Accepted;
                 Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(progress.IsVisible);
+                Assert.AreEqual(item.StateText, state.Text);
+                Assert.IsFalse(item.CanHandleIncomingOffer);
+
+                item.Status = FileTransferStatus.InProgress;
+                item.ReceiveProgress = 0.5;
+                item.TransferSpeedBytesPerSecond = 2.5 * 1024 * 1024;
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(progress.IsVisible);
+                Assert.AreEqual(0.5, progress.Value);
+                Assert.AreEqual(Lang.Format("lang.kitopia.receiving_value_value", "2.5 MB/s", "50"), state.Text);
                 Assert.IsTrue(cancel.IsVisible);
                 cancel.Command!.Execute(cancel.CommandParameter);
                 Assert.AreSame(item, cancelledItem);
@@ -188,6 +204,8 @@ public sealed class FileChatMessageLayoutTests
                 File.WriteAllText(path, "received");
                 item.Status = FileTransferStatus.Completed;
                 Dispatcher.UIThread.RunJobs();
+                Assert.IsFalse(progress.IsVisible);
+                Assert.AreEqual(Lang.Get("lang.kitopia.saved"), state.Text);
                 Assert.IsTrue(open.IsEnabled);
                 Assert.IsFalse(cancel.IsVisible);
             }

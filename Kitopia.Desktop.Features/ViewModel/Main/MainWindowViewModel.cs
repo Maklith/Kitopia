@@ -169,17 +169,16 @@ public partial class MainWindowViewModel : ObservableRecipient
 
         UpdateMenuSelection(MenuItems, route);
 
-        try
+        if (!string.Equals(route, "device/chat", StringComparison.Ordinal))
         {
-            var messageAppService = ServiceManager.Services?.GetService<IMessageAppService>();
-            messageAppService?.UpdateDisplayContext(
-                isMainWindowActive: true,
-                isDeviceChatPageOpen: string.Equals(route, "device/chat", StringComparison.Ordinal),
-                selectedConversationId: null);
-
-        }
-        catch
-        {
+            try
+            {
+                var messageAppService = ServiceManager.Services?.GetService<IMessageAppService>();
+                messageAppService?.UpdateDisplayContext(false, false, null);
+            }
+            catch
+            {
+            }
         }
     }
 

@@ -1,8 +1,12 @@
 using System;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Kitopia.Desktop.Features.Services;
+using Kitopia.Feature.Avalonia.DeviceCommunication.ViewModels;
+using Kitopia.Feature.Avalonia.DeviceCommunication.Views;
 using Serilog;
 using Ursa.Controls;
 
@@ -22,8 +26,19 @@ public partial class MainWindow : UrsaWindow
             Logger.Fatal(e.Exception, "");
         };
         Opened += FirstOpenEventHandler;
+        Activated += OnActivationChanged;
+        Deactivated += OnActivationChanged;
 
         IsVisible = false;
+    }
+
+    private void OnActivationChanged(object? sender, EventArgs e)
+    {
+        if (this.GetVisualDescendants().OfType<DeviceCommunicationPage>().FirstOrDefault()?.DataContext
+            is DeviceCommunicationPageViewModel viewModel)
+        {
+            viewModel.SyncDisplayContext();
+        }
     }
 
 

@@ -714,6 +714,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
+        SyncDisplayContext();
         OnPropertyChanged(nameof(CurrentMessages));
         OnPropertyChanged(nameof(CurrentConversationTitle));
         OnPropertyChanged(nameof(CurrentConversationSubtitle));
@@ -883,6 +884,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private void OnFileTransferUpdated(FileTransferUpdatedEvent message) {
         if (_disposed) return;
         ExecuteOnUiThread(() => {
+            SyncDisplayContext();
             if (!TryGetConversation(message.ConversationId, out var conversation)) return;
             var fileItem = FindFileItemByTransferId(conversation, message.TransferId);
             if (fileItem is null) return;
@@ -936,6 +938,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     private bool IsForegroundCurrentConversation(DeviceConversationItem conversation) {
+        SyncDisplayContext();
         var mode = _messageAppService.ResolveIncomingDisplayMode(conversation.DeviceId);
         return mode == IncomingMessageDisplayMode.ShowInCurrentConversation;
     }
@@ -949,7 +952,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         _messageListAutoScrollTimer.Start();
     }
 
-    private void SyncDisplayContext() {
+    public void SyncDisplayContext() {
         if (_disposed) {
             return;
         }
@@ -1057,10 +1060,6 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     }
 
     partial void OnSelectedConversationChanged(DeviceConversationItem? value) {
-        if (value is not null) {
-            value.UnreadCount = 0;
-        }
-
         SyncDisplayContext();
 
         OnPropertyChanged(nameof(HasConversationSelected));

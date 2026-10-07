@@ -76,6 +76,7 @@ public partial class DeviceCommunicationPage : UserControl
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
         BindViewModel();
+        _boundViewModel?.SyncDisplayContext();
     }
 
     private void BindViewModel()
