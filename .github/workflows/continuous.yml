@@ -23,13 +23,14 @@ jobs:
     name: windows-latest
     runs-on: windows-latest
     env:
-      # An isolated SDK uses file-based workloads, whose installation state can be cached.
-      DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
       DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         id: setup-dotnet
+        env:
+          # An isolated SDK uses file-based workloads, whose installation state can be cached.
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
         with:
           dotnet-version: '10.0.x'
       - name: Cache Android workload
@@ -37,10 +38,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ${{ env.DOTNET_INSTALL_DIR }}/packs
-            ${{ env.DOTNET_INSTALL_DIR }}/sdk-manifests
-            ${{ env.DOTNET_INSTALL_DIR }}/metadata/workloads
-            ${{ env.DOTNET_INSTALL_DIR }}/template-packs
+            ${{ runner.temp }}/dotnet/packs
+            ${{ runner.temp }}/dotnet/sdk-manifests
+            ${{ runner.temp }}/dotnet/metadata/workloads
+            ${{ runner.temp }}/dotnet/template-packs
           key: ${{ runner.os }}-${{ runner.arch }}-android-workload-v1-${{ steps.setup-dotnet.outputs.dotnet-version }}
       - name: Install Android workload
         if: steps.android-workload-cache.outputs.cache-hit != 'true'
