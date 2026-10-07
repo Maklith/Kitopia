@@ -22,6 +22,7 @@ using PluginCore;
 using PluginCore.Config;
 using SharpHook;
 using SharpHook.Data;
+using Vanara.PInvoke;
 using MouseButton = Avalonia.Input.MouseButton;
 using HookMouseButton = SharpHook.Data.MouseButton;
 
@@ -217,6 +218,124 @@ public sealed class MouseHotKeyTests
             window.Close();
             return Task.CompletedTask;
         });
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public Task SelectionTranslation_HiddenWindow_SameSelectionReopens(bool escape) => RunAsync(async hotkeys =>
+    {
+        var config = new KitopiaConfig();
+        ConfigManger.Configs["KitopiaConfig"] = config;
+        using var hook = new SimpleGlobalHook();
+        var backend = new SelectionTranslationBackend();
+        var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!));
+        var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window);
+        service.Start();
+        try
+        {
+            await service.TriggerAutomaticAsync(config.selectionTranslationAutoHotKey).WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(window.IsVisible);
+            Assert.AreEqual("translated text", window.ViewModel.TranslatedText);
+
+            if (escape) window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            else window.ViewModel.CloseCommand.Execute(null);
+            Assert.IsFalse(window.IsVisible);
+
+            await service.TriggerAutomaticAsync(config.selectionTranslationAutoHotKey).WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(window.IsVisible);
+            Assert.AreEqual("selected text", window.ViewModel.SourceText);
+            Assert.AreEqual("translated text", window.ViewModel.TranslatedText);
+            Assert.AreEqual(2, backend.TranslationCount);
+            Assert.IsFalse(backend.ClipboardFallbackAllowed);
+        }
+        finally
+        {
+            service.Stop();
+            Dispatcher.UIThread.RunJobs();
+            window.Close();
+        }
+    });
+
+    [TestMethod]
+    public Task SelectionTranslation_VisibleCompletedSelection_DoesNotTranslateAgain() => RunAsync(async hotkeys =>
+    {
+        var config = new KitopiaConfig();
+        ConfigManger.Configs["KitopiaConfig"] = config;
+        using var hook = new SimpleGlobalHook();
+        var backend = new SelectionTranslationBackend();
+        var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!));
+        var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window);
+        service.Start();
+        try
+        {
+            await service.TriggerAutomaticAsync(config.selectionTranslationAutoHotKey).WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(window.IsVisible);
+            Assert.IsTrue(window.ViewModel.CanExcludeCurrentProcess);
+
+            await service.TriggerAutomaticAsync(config.selectionTranslationAutoHotKey).WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(window.IsVisible);
+            Assert.AreEqual("translated text", window.ViewModel.TranslatedText);
+            Assert.AreEqual(1, backend.TranslationCount);
+            Assert.IsTrue(window.ViewModel.CanExcludeCurrentProcess);
+        }
+        finally
+        {
+            service.Stop();
+            Dispatcher.UIThread.RunJobs();
+            window.Close();
+        }
+    });
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public Task SelectionTranslation_PendingTranslation_RepeatedTriggerStillCompletes(bool pinned) => RunAsync(async hotkeys =>
+    {
+        var config = new KitopiaConfig();
+        ConfigManger.Configs["KitopiaConfig"] = config;
+        using var hook = new SimpleGlobalHook();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completed = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var backend = new SelectionTranslationBackend
+        {
+            Translate = token =>
+            {
+                started.TrySetResult();
+                return completed.Task.WaitAsync(token);
+            }
+        };
+        var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!));
+        var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window);
+        service.Start();
+        try
+        {
+            var first = service.TriggerAutomaticAsync(config.selectionTranslationAutoHotKey);
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(window.IsVisible);
+            Assert.IsTrue(window.ViewModel.IsLoading);
+            window.ViewModel.IsPinned = pinned;
+
+            var second = service.TriggerAutomaticAsync(config.selectionTranslationAutoHotKey);
+            completed.SetResult("translated text");
+            await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(window.IsVisible);
+            Assert.IsFalse(window.ViewModel.IsLoading);
+            Assert.AreEqual("translated text", window.ViewModel.TranslatedText);
+            Assert.AreEqual(pinned ? 1 : 2, backend.TranslationCount);
+        }
+        finally
+        {
+            service.Stop();
+            Dispatcher.UIThread.RunJobs();
+            window.Close();
+        }
+    });
 
     [TestMethod]
     public Task MousePressed_HeldUntilThreshold_InvokesRegisteredAction() => RunAsync(async service =>
@@ -635,7 +754,33 @@ public sealed class MouseHotKeyTests
                 foreach (var model in service.GetAllRegistered()) service.Remove(model.UUID);
                 ConfigManger.Configs = originalConfigs;
             }
+            return true;
         }, CancellationToken.None);
+    }
+
+    private sealed class SelectionTranslationBackend : ITextSelectionService, ITranslationService
+    {
+        public Func<CancellationToken, Task<string>> Translate { get; init; } = _ => Task.FromResult("translated text");
+        public int TranslationCount { get; private set; }
+        public bool ClipboardFallbackAllowed { get; private set; }
+
+        public Task<TextSelectionSnapshot?> TryGetSelectionAsync(bool allowClipboardFallback,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ClipboardFallbackAllowed |= allowClipboardFallback;
+            return Task.FromResult<TextSelectionSnapshot?>(new TextSelectionSnapshot(
+                "selected text", (nint)User32.GetForegroundWindow(), "selection-test", null));
+        }
+
+        public Task<string> TranslateAsync(string text,
+            TranslationSourceLanguage sourceLanguage = TranslationSourceLanguage.Auto,
+            TranslationTargetLanguage targetLanguage = TranslationTargetLanguage.SimplifiedChinese,
+            CancellationToken cancellationToken = default)
+        {
+            TranslationCount++;
+            return Translate(cancellationToken);
+        }
     }
 
     private sealed class RecordingHotkeys : IHotKetImpl

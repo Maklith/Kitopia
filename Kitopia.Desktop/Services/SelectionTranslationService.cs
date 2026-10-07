@@ -122,23 +122,32 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
 
     private async Task TranslateFromSelectionAsync(bool manual, PixelPoint? releasePosition = null)
     {
-        var (version, token) = BeginRequest();
-        Dispatcher.UIThread.Post(() =>
+        if (!manual && await Dispatcher.UIThread.InvokeAsync(() => _window.IsVisible && _window.ViewModel.IsPinned))
         {
-            if (version == Volatile.Read(ref _requestVersion))
-                _window.ViewModel.CanExcludeCurrentProcess = false;
-        });
+            LogManager.Logger.Debug("自动划词翻译跳过：窗口已固定");
+            return;
+        }
+
+        var (version, token) = BeginRequest();
         try
         {
             var foreground = (nint)User32.GetForegroundWindow();
-            if (foreground == 0) return;
+            if (foreground == 0)
+            {
+                LogManager.Logger.Debug("划词翻译跳过：没有前台窗口，手动：{Manual}，请求：{RequestVersion}", manual, version);
+                return;
+            }
             if (releasePosition is null && User32.GetCursorPos(out var point))
                 releasePosition = new PixelPoint(point.X, point.Y);
 
             if (!manual)
                 await Task.Delay(AutomaticDelayMilliseconds, token).ConfigureAwait(false);
 
-            if ((nint)User32.GetForegroundWindow() != foreground) return;
+            if ((nint)User32.GetForegroundWindow() != foreground)
+            {
+                LogManager.Logger.Debug("划词翻译跳过：等待选区期间前台窗口变化，手动：{Manual}，请求：{RequestVersion}", manual, version);
+                return;
+            }
             TextSelectionSnapshot? snapshot;
             await _selectionReadGate.WaitAsync(token).ConfigureAwait(false);
             try
@@ -152,14 +161,27 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
             {
                 _selectionReadGate.Release();
             }
+            token.ThrowIfCancellationRequested();
+            if ((nint)User32.GetForegroundWindow() != foreground)
+            {
+                LogManager.Logger.Debug("划词翻译跳过：读取选区期间前台窗口变化，手动：{Manual}，请求：{RequestVersion}", manual, version);
+                return;
+            }
             if (snapshot is null || snapshot.SourceWindow != foreground || string.IsNullOrWhiteSpace(snapshot.Text))
             {
+                LogManager.Logger.Debug("划词翻译跳过：未读取到当前窗口的有效选区，手动：{Manual}，请求：{RequestVersion}，选区窗口：{SelectionWindow}，前台窗口：{ForegroundWindow}",
+                    manual, version, snapshot?.SourceWindow, foreground);
                 if (manual)
                     ShowError(version, Lang.Get("lang.kitopia.selection_translation_no_selection"), releasePosition);
                 return;
             }
             if (!manual && (!ConfigManger.Config.selectionTranslationAutoHotKey.IsEnabled ||
-                !ConfigManger.Config.selectionTranslationAutoHotKey.CanExecuteInProcess(snapshot.ProcessName))) return;
+                !ConfigManger.Config.selectionTranslationAutoHotKey.CanExecuteInProcess(snapshot.ProcessName)))
+            {
+                LogManager.Logger.Debug("自动划词翻译跳过：快捷键已停用或应用被排除，进程：{ProcessName}，请求：{RequestVersion}",
+                    snapshot.ProcessName, version);
+                return;
+            }
             if (snapshot.Text.Length > MaximumTextLength)
             {
                 ShowError(version, Lang.Get("lang.kitopia.selection_translation_text_too_long"), releasePosition);
@@ -167,12 +189,21 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
             }
             var windowState = await Dispatcher.UIThread.InvokeAsync(() =>
                 (IsVisible: _window.IsVisible, IsPinned: _window.ViewModel.IsPinned,
+                    IsLoading: _window.ViewModel.IsLoading,
                     SourceLanguage: _window.ViewModel.SourceLanguage,
                     TargetLanguage: _window.ViewModel.TargetLanguage));
-            if (!manual && windowState.IsVisible && windowState.IsPinned) return;
-            if (!manual && IsSameSelection(snapshot)) return;
+            token.ThrowIfCancellationRequested();
+            if (!manual && windowState.IsVisible && windowState.IsPinned)
+            {
+                LogManager.Logger.Debug("自动划词翻译跳过：窗口已固定，请求：{RequestVersion}", version);
+                return;
+            }
+            if (!manual && windowState.IsVisible && !windowState.IsLoading && IsSameSelection(snapshot))
+            {
+                LogManager.Logger.Debug("自动划词翻译跳过：相同选区已显示，请求：{RequestVersion}", version);
+                return;
+            }
 
-            _currentSelection = snapshot;
             var sourceLanguage = ConfigManger.Config.selectionTranslationSourceLanguage;
             var targetLanguage = ConfigManger.Config.selectionTranslationTargetLanguage;
             if (windowState.IsVisible)
@@ -184,10 +215,13 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
             Dispatcher.UIThread.Post(() =>
             {
                 if (version != Volatile.Read(ref _requestVersion)) return;
+                _currentSelection = snapshot;
                 _window.ViewModel.CanExcludeCurrentProcess =
                     !string.IsNullOrWhiteSpace(snapshot.ProcessName);
                 _window.ViewModel.BeginTranslation(snapshot.Text, sourceLanguage, targetLanguage);
                 _window.ShowAt(releasePosition);
+                LogManager.Logger.Debug("划词翻译显示窗口，进程：{ProcessName}，文本长度：{TextLength}，手动：{Manual}，请求：{RequestVersion}",
+                    snapshot.ProcessName, snapshot.Text.Length, manual, version);
             });
 
             var translated = await _translationService.TranslateAsync(
@@ -201,6 +235,7 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
+            LogManager.Logger.Debug("划词翻译请求已取消，手动：{Manual}，请求：{RequestVersion}", manual, version);
         }
         catch (Exception exception)
         {
