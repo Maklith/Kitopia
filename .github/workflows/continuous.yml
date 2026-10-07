@@ -22,14 +22,43 @@ jobs:
   windows-latest:
     name: windows-latest
     runs-on: windows-latest
+    env:
+      # An isolated SDK uses file-based workloads, whose installation state can be cached.
+      DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+      DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
+        id: setup-dotnet
         with:
           dotnet-version: '10.0.x'
+      - name: Cache Android workload
+        id: android-workload-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.DOTNET_INSTALL_DIR }}/packs
+            ${{ env.DOTNET_INSTALL_DIR }}/sdk-manifests
+            ${{ env.DOTNET_INSTALL_DIR }}/metadata/workloads
+            ${{ env.DOTNET_INSTALL_DIR }}/template-packs
+          key: ${{ runner.os }}-${{ runner.arch }}-android-workload-v1-${{ steps.setup-dotnet.outputs.dotnet-version }}
       - name: Install Android workload
-        run: dotnet workload install android
+        if: steps.android-workload-cache.outputs.cache-hit != 'true'
+        run: dotnet workload install android --skip-manifest-update
+      - name: Identify Rust toolchain
+        id: rust-toolchain
+        run: |
+          $toolchainDirectory = Split-Path -Parent (Split-Path -Parent (rustup which rustc))
+          "directory=$toolchainDirectory" >> $env:GITHUB_OUTPUT
+          "version=$(rustc --version)" >> $env:GITHUB_OUTPUT
+      - name: Cache Rust Windows targets
+        id: rust-toolchain-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.rust-toolchain.outputs.directory }}
+          key: ${{ runner.os }}-${{ runner.arch }}-rust-windows-i686-aarch64-v1-${{ steps.rust-toolchain.outputs.version }}
       - name: Install Rust Windows targets
+        if: steps.rust-toolchain-cache.outputs.cache-hit != 'true'
         run: rustup target add i686-pc-windows-msvc aarch64-pc-windows-msvc
       - name: 'Cache: .fallout/temp, ~/.nuget/packages'
         uses: actions/cache@v4
