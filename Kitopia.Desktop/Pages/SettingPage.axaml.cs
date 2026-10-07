@@ -103,7 +103,10 @@ public partial class SettingPage : UserControl
             {
                 var expander = new Expander();
                 expander.Classes.Add("SemiExpander");
-                expander.Header = new TextBlock { Text = config.GetType().GetCustomAttribute<ConfigName>()?.Name ?? config.Name, FontSize = 14, FontWeight = FontWeight.SemiBold };
+                var title = config.GetType().GetCustomAttribute<ConfigName>()?.Name ?? config.Name;
+                var header = new TextBlock { FontSize = 14, FontWeight = FontWeight.SemiBold };
+                disposables.Add(header.Bind(TextBlock.TextProperty, (BindingBase)new LangExtension(title).ProvideValue(null!)));
+                expander.Header = header;
                 expander.HorizontalAlignment = HorizontalAlignment.Stretch;
                 expander.HorizontalContentAlignment = HorizontalAlignment.Stretch;
                 expander.IsExpanded = false;

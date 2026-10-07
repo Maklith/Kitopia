@@ -1,18 +1,23 @@
+using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Controls.Capture;
 using Kitopia.Desktop.Features.Services.Config;
+using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Windows;
+using Kitopia.Feature.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
+using PluginCore.CustomScenario.Attribute;
 using Point = Avalonia.Point;
 using Rect = Avalonia.Rect;
 using Size = Avalonia.Size;
@@ -26,6 +31,60 @@ public sealed class ScreenCaptureSelectionInteractionTests
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<Kitopia.Desktop.App>()
         .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })
         .UseSkia();
+
+    [TestMethod]
+    public Task CaptureActionTooltips_PluginMetadata_TranslateAndRefreshWithLanguage()
+    {
+        return RunSelectionTestAsync(window =>
+        {
+            var previousLanguage = Lang.Current.Language;
+            var assembly = typeof(KitopiaEx.Config).Assembly;
+            var needsRegistration = !Lang.Current.Keys.Contains("lang.kitopiaex.save_image_locally");
+            var items = window.GetLogicalDescendants().OfType<ItemsControl>()
+                .Single(control => control.ItemsSource is IEnumerable<ScreenCaptureExMethod>);
+            var previousItems = items.ItemsSource;
+            try
+            {
+                if (needsRegistration) Lang.Current.RegisterAssembly(assembly);
+                var actions = assembly.GetExportedTypes().SelectMany(type => type.GetMethods())
+                    .Select(method => method.GetCustomAttribute<CaptureAttribute>())
+                    .OfType<CaptureAttribute>()
+                    .Select(attribute => new ScreenCaptureExMethod
+                    {
+                        Description = attribute.Description, Symbol = attribute.Symbol, Action = _ => { }
+                    }).ToList();
+                Assert.HasCount(4, actions);
+                actions.Add(new ScreenCaptureExMethod { Description = "Custom plugin action", Action = _ => { } });
+                items.ItemsSource = actions;
+                window.FindControl<Border>("ToolBar")!.IsVisible = true;
+                Dispatcher.UIThread.RunJobs();
+                var buttons = items.GetVisualDescendants().OfType<Button>().ToArray();
+                Assert.HasCount(actions.Count, buttons);
+
+                foreach (var language in new[] { "zh-CN", "en-US", "zh-CN" })
+                {
+                    Lang.Current.UseLanguage(language);
+                    Dispatcher.UIThread.RunJobs();
+                    foreach (var button in buttons)
+                    {
+                        var action = (ScreenCaptureExMethod)button.DataContext!;
+                        Assert.AreEqual(Lang.Get(action.Description), ToolTip.GetTip(button));
+                    }
+                    var saveButton = buttons.Single(button =>
+                        ((ScreenCaptureExMethod)button.DataContext!).Description == "lang.kitopiaex.save_image_locally");
+                    Assert.AreEqual(language == "en-US" ? "Save image locally" : "保存图像到本地", ToolTip.GetTip(saveButton));
+                    Assert.AreEqual("Custom plugin action", ToolTip.GetTip(buttons[^1]));
+                }
+            }
+            finally
+            {
+                items.ItemsSource = previousItems;
+                if (needsRegistration) Lang.Current.UnregisterAssembly(assembly.GetName().Name!);
+                Lang.Current.UseLanguage(previousLanguage);
+            }
+            return Task.CompletedTask;
+        });
+    }
 
     [TestMethod]
     [DataRow(8d, 8d)]

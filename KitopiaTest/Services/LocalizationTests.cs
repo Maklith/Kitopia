@@ -18,6 +18,7 @@ using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Pages;
 using Kitopia.Desktop.Controls;
 using Kitopia.Desktop.Features.ViewModel.Pages;
+using Kitopia.Desktop.Features.ViewModel.Pages.plugin;
 using Kitopia.Desktop.Platform.Windows;
 using Kitopia.Feature.Avalonia.Localization;
 using Kitopia.Feature.Localization;
@@ -196,6 +197,79 @@ public sealed class LocalizationTests
     }
 
     [TestMethod]
+    public async Task PluginSettings_LanguageChanges_RefreshesSelectionAndGroupHeaders()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(LocalizationTests));
+        var verified = await session.Dispatch(() =>
+        {
+            var previousServices = ServiceManager.Services;
+            var previousConfigs = ConfigManger.Configs;
+            var previousLanguage = Lang.Current.Language;
+            var assembly = typeof(KitopiaEx.Config).Assembly;
+            var needsRegistration = !Lang.Current.Keys.Contains("lang.kitopiaex.kitopiaex_settings");
+            using var services = new ServiceCollection().AddSingleton<IAccountService, AccountService>()
+                .AddSingleton<AccountCardViewModel>().BuildServiceProvider();
+            ServiceManager.Services = services;
+            const string key = "kitopiaex#KitopiaEx.Config";
+            ConfigManger.Configs = new Dictionary<string, ConfigBase>
+            {
+                ["KitopiaConfig"] = new KitopiaConfig { Name = "KitopiaConfig" },
+                [key] = new KitopiaEx.Config { Name = key }
+            };
+            var selectionWindow = new Window { Width = 900, Height = 600 };
+            var settingsWindow = new Window { Width = 900, Height = 700 };
+            try
+            {
+                if (needsRegistration) Lang.Current.RegisterAssembly(assembly);
+                Lang.Current.UseLanguage("zh-CN");
+                var viewModel = new PluginSettingViewModel();
+                viewModel.LoadByPluginInfo("kitopiaex");
+                var selection = new PluginSettingSelectPage { DataContext = viewModel };
+                selectionWindow.Content = selection;
+                selectionWindow.Show();
+                var settings = new SettingPage();
+                settings.LoadAllConfigs();
+                settingsWindow.Content = settings;
+                settingsWindow.Show();
+                Dispatcher.UIThread.RunJobs();
+                var title = selection.GetLogicalDescendants().OfType<TextBlock>()
+                    .Single(label => label.Text == "KitopiaEx主配置文件");
+                var header = settings.GetLogicalDescendants().OfType<Expander>()
+                    .Select(expander => expander.Header).OfType<TextBlock>().Single();
+
+                foreach (var language in new[] { "en-US", "zh-CN" })
+                {
+                    Lang.Current.UseLanguage(language);
+                    Dispatcher.UIThread.RunJobs();
+                    var expected = language == "en-US" ? "KitopiaEx settings" : "KitopiaEx主配置文件";
+                    Assert.AreEqual(expected, title.Text);
+                    Assert.AreEqual(expected, header.Text);
+                    Assert.AreEqual("lang.kitopiaex.kitopiaex_settings", viewModel.SettingItems.Single().Title);
+                }
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                using var screenshot = selectionWindow.CaptureRenderedFrame();
+                Assert.IsNotNull(screenshot);
+                var screenshotDirectory = Path.Combine(AppContext.BaseDirectory, "TestResults", "plugin-localization");
+                Directory.CreateDirectory(screenshotDirectory);
+                var screenshotPath = Path.Combine(screenshotDirectory, "plugin-settings-zh-CN.png");
+                screenshot.Save(screenshotPath);
+                TestContext.AddResultFile(screenshotPath);
+            }
+            finally
+            {
+                selectionWindow.Close();
+                settingsWindow.Close();
+                ConfigManger.Configs = previousConfigs;
+                ServiceManager.Services = previousServices;
+                if (needsRegistration) Lang.Current.UnregisterAssembly(assembly.GetName().Name!);
+                Lang.Current.UseLanguage(previousLanguage);
+            }
+            return true;
+        }, CancellationToken.None);
+        Assert.IsTrue(verified);
+    }
+
+    [TestMethod]
     public async Task HotkeyPage_LanguageChanges_RefreshesTitlesKeysAndScope()
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(LocalizationTests));
@@ -332,7 +406,7 @@ public sealed class LocalizationTests
                      .Where(file => !file.Split(Path.DirectorySeparatorChar).Any(segment => segment is "bin" or "obj")))
         {
             var source = File.ReadAllText(file);
-            foreach (Match match in Regex.Matches(source, @"(?<=[\""'])lang\.[a-z0-9_]+(?:\.[a-z0-9_]+)+(?=[\""'])|(?<=DynamicResource )lang\.[a-z0-9_]+(?:\.[a-z0-9_]+)+"))
+            foreach (Match match in Regex.Matches(source, @"\blang\.[a-z0-9_]+(?:\.[a-z0-9_]+)+"))
                 Assert.IsTrue(keys.Contains(match.Value), $"Missing key {match.Value}: {file}");
             Assert.IsFalse(Regex.IsMatch(source, @"\{DynamicResource ['\"" ]*Lang\.|Lang\.(?:Get|Format)\(\""[^\"" ]*\p{IsCJKUnifiedIdeographs}"), file);
         }

@@ -5,6 +5,7 @@
 
              xmlns:plugin="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages.plugin;assembly=Kitopia.Desktop.Features"
              xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="plugin:PluginSettingViewModel"
              x:Class="Kitopia.Desktop.Pages.PluginSettingSelectPage">
@@ -73,7 +74,7 @@
                                 BorderThickness="0"
                                 Padding="0">
                             <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-                                <TextBlock Grid.Column="0" Text="{Binding Title}"
+                                <TextBlock Grid.Column="0" Text="{lang:Lang Value={Binding Title}}"
                                            FontSize="16" FontWeight="SemiBold"
                                            Foreground="{DynamicResource SemiColorText0}"
                                            VerticalAlignment="Center" />

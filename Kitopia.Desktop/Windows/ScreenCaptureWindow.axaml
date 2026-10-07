@@ -7,6 +7,7 @@
         xmlns:capture="clr-namespace:Kitopia.Desktop.Controls.Capture"
         xmlns:plugin1="clr-namespace:Kitopia.Desktop.Features.Services.Plugin;assembly=Kitopia.Desktop.Features"
         xmlns:utils="clr-namespace:Kitopia.Desktop.Features.Utils;assembly=Kitopia.Desktop.Features"
+        xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
         xmlns:u="https://irihi.tech/ursa"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Kitopia.Desktop.Windows.ScreenCaptureWindow"
@@ -114,8 +115,8 @@
                     
                     <ItemsControl ItemsSource="{Binding Source={x:Static plugin1:PluginOverall.AllScreenCaptureExMethods}}">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="utils:ScreenCaptureExMethod">
-                                <Button ToolTip.Tip="{Binding Description}" Width="36" Height="36" Click="ExButton_OnClick">
+                            <DataTemplate DataType="utils:ScreenCaptureExMethod" x:DataType="utils:ScreenCaptureExMethod">
+                                <Button ToolTip.Tip="{lang:Lang Value={Binding Description}}" Width="36" Height="36" Click="ExButton_OnClick">
                                     <controls1:FontIcon VerticalAlignment="Center" HorizontalAlignment="Center" Width="20" Height="20" FontFamily="{StaticResource FluentFont}" Glyph="{Binding Symbol,Converter={StaticResource IntToIconSymbol}}" FontSize="20" />
                                 </Button>
                             </DataTemplate>
