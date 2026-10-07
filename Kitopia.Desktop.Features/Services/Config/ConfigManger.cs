@@ -13,6 +13,7 @@ using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
 using Kitopia.Feature.Localization;
 using Microsoft.Extensions.DependencyInjection;
+using NuGet.Versioning;
 using PluginCore;
 using PluginCore.Config;
 using PluginCore.CustomScenario.Attribute.ConfigField;
@@ -25,7 +26,7 @@ namespace Kitopia.Desktop.Features.Services.Config;
 public class ConfigManger : IConfigService, IConfigProvider
 {
     private static ILogger Logger = LogManager.Logger.ForContext<ConfigManger>();
-    public static Version Version = System.Version.Parse(ServiceManager.Version);
+    public static NuGetVersion Version = NuGetVersion.Parse(ServiceManager.Version);
     public static string ApiUrl
     {
         get
@@ -652,7 +653,7 @@ public class ConfigManger : IConfigService, IConfigProvider
         }
     }
 
-    Version IConfigService.Version => Version;
+    NuGetVersion IConfigService.Version => Version;
     string IConfigService.ApiUrl => ApiUrl;
     string IConfigService.WebUrl => WebUrl;
     IReadOnlyDictionary<string, ConfigBase> IConfigService.Configs => AllConfigs;

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using NuGet.Versioning;
 using Kitopia.Desktop.Features.Services.Config;
 using PluginCore;
 using PluginCore.Config;
@@ -7,7 +8,7 @@ namespace Kitopia.Desktop.Features.Services.Interfaces;
 
 public interface IConfigService
 {
-    Version Version => throw new NotSupportedException();
+    NuGetVersion Version => throw new NotSupportedException();
     string ApiUrl => throw new NotSupportedException();
     string WebUrl => throw new NotSupportedException();
     IReadOnlyDictionary<string, ConfigBase> Configs => throw new NotSupportedException();

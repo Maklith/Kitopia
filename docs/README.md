@@ -53,7 +53,7 @@ Windows 的 Everything 搜索需要 Everything 已安装并运行，可以在设
 - **结果操作**：打开、以管理员身份运行、打开所在目录、在终端中打开目录、收藏、固定和预览。
 - **输入识别**：识别路径、网址、命令和数学表达式，也可读取剪贴板路径或保存剪贴板图片。
 - **插件搜索能力**：通过插件增加翻译、窗口切换、窗口置顶等搜索结果。
-![img_1.png](img_1.png)
+![img_1.png](assets/README/Kitopia1791371657264.png)
 
 ### 2. 文件速览与索引管理
 
@@ -64,8 +64,8 @@ Windows 的 Everything 搜索需要 Everything 已安装并运行，可以在设
 - **索引范围**：设置扫描目录、指定文件、允许的扩展名，以及要排除的目录和项目。
 - **索引状态**：查看拼音、文档内容和图片索引的状态、进度及错误，按范围更新或重建索引。
 - **资源控制**：可以调整语义搜索延迟、结果数量和 Windows 下索引任务的 CPU 使用上限。
-![img_2.png](img_2.png)
-![img_3.png](img_3.png)
+![img_2.png](assets/README/Kitopia1791371791267.png)
+![img_3.png](assets/README/Kitopia1791371852066.png)
 ### 3. 截图与图像处理
 
 - **区域和窗口截图**：选择屏幕区域或窗口，支持多屏幕环境。
@@ -76,7 +76,7 @@ Windows 的 Everything 搜索需要 Everything 已安装并运行，可以在设
 - **本地 OCR**：通过 PaddleOCR 模型提取截图中的文字。
 - **截图扩展**：启用 `KitopiaEx` 后，可识别二维码、翻译截图文字、保存图片和将截图贴在屏幕上。
 
-![img_4.png](img_4.png)
+![img_4.png](assets/README/Kitopia1791371884258.png)
 
 ### 4. 翻译与图片压缩
 
@@ -86,9 +86,10 @@ Windows 的 Everything 搜索需要 Everything 已安装并运行，可以在设
 - **批量图片压缩**：`KitopiaEx` 提供按画质或目标体积压缩、无损选项、尺寸调整，以及 WebP、JPEG、PNG 输出。
 
 翻译功能使用在线服务，需要网络连接；OCR 识别和语义索引在本地执行。
-![img_5.png](img_5.png)
 
 
+![selection-translation.png](assets/README/selection-translation.png)
+![image-compression.png](assets/README/image-compression.png)
 ### 5. 局域网聊天与文件互传
 
 桌面端的设备聊天页面和 Kitopia Mobile 可以发现同一局域网中的设备，并发送文字、图片及文件。
@@ -101,7 +102,7 @@ Windows 的 Everything 搜索需要 Everything 已安装并运行，可以在设
 - **移动端适配**：Android 端提供文件选择、接收保存、通知和前台通信服务。
 
 设备通信通过局域网组播发现，使用 TCP 和 TLS 传输，不需要登录账号。设备需要处于可互通的局域网，防火墙和无线网络的客户端隔离设置会影响发现与传输。
-![img_6.png](img_6.png)
+![device-chat.png](assets/README/device-chat.png)
 ### 6. 节点化情景
 
 通过可视化编辑器连接节点，组合内置能力和插件功能。
@@ -110,7 +111,7 @@ Windows 的 Everything 搜索需要 Everything 已安装并运行，可以在设
 - **触发方式**：从搜索框运行，或配置运行、停止快捷键和插件提供的自动触发器。
 - **插件节点**：使用截图、OCR、二维码、翻译、剪贴板、图片处理、应用启动和键盘模拟等节点。
 - **情景市场**：浏览并导入已发布情景，登录后可上传情景及管理版本。
-![img_7.png](img_7.png)
+![img_7.png](assets/README/Kitopia1791372061989.png)
 
 ### 7. 插件、模型与功能管理
 
@@ -119,7 +120,7 @@ Windows 的 Everything 搜索需要 Everything 已安装并运行，可以在设
 - **插件管理**：启用、停用、卸载插件，查看依赖并调整插件设置。
 - **模型管理**：管理 ONNX 模型与推理设备，使用 CPU、Windows GPU 或 OpenVINO 等推理后端插件；可用后端取决于平台和硬件。
 - **开发扩展**：插件 SDK 保留 `PluginCore` 公共命名空间和程序集标识，可以扩展功能入口、搜索、截图操作和情景节点。
-![img_8.png](img_8.png)
+![img_8.png](assets/README/Kitopia1791372113723.png)
 
 
 ### 8. Windows 系统增强
@@ -128,7 +129,7 @@ Windows 的 Everything 搜索需要 Everything 已安装并运行，可以在设
 - **资源管理器右键菜单**：通过配套组件接入文件操作和局域网分享。
 - **窗口管理**：按标题查找并切换窗口，选择窗口置顶。
 - **应用设置**：配置主题、强调色、语言、自动启动和更新检查。
-![img_9.png](img_9.png)
+![img_9.png](assets/README/Kitopia1791372133407.png)
 ## 数据与联网
 
 桌面端配置、插件、情景、日志和接收文件由本地数据目录管理，Windows 下默认位于 `%LOCALAPPDATA%\Kitopia`。文件名、文档内容及图片的语义索引在本地建立。

@@ -45,7 +45,8 @@ public sealed class ConfigMangerServiceTests
 
             IConfigService service = new ConfigManger();
 
-            Assert.AreEqual(ConfigManger.Version, service.Version);
+            Assert.AreSame(ConfigManger.Version, service.Version);
+            Assert.AreEqual(ServiceManager.Version, service.Version.ToFullString());
             Assert.AreEqual(ConfigManger.ApiUrl, service.ApiUrl);
             Assert.AreSame(ConfigManger.AllConfigs, service.Configs);
             Assert.AreSame(ConfigManger.Config, service.Config);

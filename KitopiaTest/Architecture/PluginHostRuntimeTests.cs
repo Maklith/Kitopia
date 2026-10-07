@@ -1,3 +1,4 @@
+using NuGet.Versioning;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Plugin;
 using PluginCore;
@@ -89,10 +90,16 @@ public sealed class PluginHostRuntimeTests
     [DataRow("0.3.5.1", "[0.3.5.0]", false)]
     [DataRow("0.3.5.1", "1.0.0", false)]
     [DataRow("0.3.5.1", "invalid", false)]
+    [DataRow("1.0.0-beta.1", "*", false)]
+    [DataRow("1.0.0-beta.1", "*-*", true)]
+    [DataRow("1.0.0-beta.1", "[1.0.0-beta.1]", true)]
+    [DataRow("1.0.0-beta.1", "[1.0.0-beta.2,2.0.0)", false)]
+    [DataRow("1.0.0-beta.1", "[1.0.0,2.0.0)", false)]
+    [DataRow("1.0.0-beta.1+build.2", "[1.0.0-beta.1+build.1]", true)]
     public void CheckDependencies_HostVersion_UsesNuGetRanges(string version, string range, bool expected)
     {
         var previousVersion = ConfigManger.Version;
-        ConfigManger.Version = new Version(version);
+        ConfigManger.Version = NuGetVersion.Parse(version);
         try
         {
             var info = new PluginLocalInfo

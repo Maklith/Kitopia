@@ -1,15 +1,16 @@
-using Kitopia.Feature.Localization;
 using System.Runtime.InteropServices;
 using Avalonia.Controls.Notifications;
-using Kitopia.Desktop.Features.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
-using PluginCore;
+using NuGet.Versioning;
 using Serilog;
+using Kitopia.Desktop.Features.Services;
+using Kitopia.Feature.Localization;
+using PluginCore;
 
 namespace Kitopia.Desktop.Platform.Windows
 {
-    public class GitHubUpdateService
+    public class GitHubUpdateService(HttpClient? httpClient = null)
     {
         private static readonly ILogger Logger = LogManager.Logger.ForContext<GitHubUpdateService>();
         private static readonly HttpClient HttpClient = new() {
@@ -26,7 +27,7 @@ namespace Kitopia.Desktop.Platform.Windows
             {
                 
                 var url = $"https://update.kitopia.top/repos/{Owner}/{Repo}/releases";
-                var response = await HttpClient.GetAsync(url);
+                using var response = await (httpClient ?? HttpClient).GetAsync(url);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -52,19 +53,18 @@ namespace Kitopia.Desktop.Platform.Windows
                     return (false, null, null, null);
                 }
 
-                // Remove 'v' prefix if present
-                var cleanTagName = tagName.TrimStart('v');
+                var cleanTagName = tagName.TrimStart('v', 'V');
                 
-                if (!Version.TryParse(ServiceManager.Version , out var currentVersion))
+                if (!NuGetVersion.TryParse(ServiceManager.Version, out var currentVersion))
                 {
                     Logger.Warning($"Failed to parse current version: {ServiceManager.Version }");
                     _ =ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.update"), Lang.Get("lang.kitopia.cannot_check_for_updates_invalid_current_version"), NotificationType.Error);
                     return (false, null, null, null);
                 }
 
-                if (Version.TryParse(cleanTagName, out var latestVersion))
+                if (NuGetVersion.TryParse(cleanTagName, out var latestVersion))
                 {
-                    if (latestVersion> currentVersion)
+                    if (VersionComparer.VersionRelease.Compare(latestVersion, currentVersion) > 0)
                     {
                         var runtime = RuntimeInformation.ProcessArchitecture switch
                         {
