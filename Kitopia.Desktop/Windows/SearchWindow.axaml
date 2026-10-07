@@ -358,7 +358,9 @@
                 <GridSplitter Grid.Column="1" Width="1" ResizeDirection="Columns"
                               IsVisible="{Binding IsPreviewMode}" Background="{DynamicResource SemiColorBorder}" />
 
-                <Border Grid.Column="2" IsVisible="{Binding IsPreviewMode}" Padding="8">
+                <Border Grid.Column="2" IsVisible="{Binding IsPreviewMode}"
+                        MinHeight="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=MaxHeight}"
+                        Padding="8">
                     <controls1:FilePreviewControl Name="FilePreviewSurface" DataContext="{Binding FilePreview}" />
                 </Border>
             </Grid>
