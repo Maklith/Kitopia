@@ -5,8 +5,10 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Microsoft.Extensions.DependencyInjection;
+using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Platform.Windows;
 using PluginCore;
+using PluginCore.Config;
 
 namespace KitopiaTest.Services;
 
@@ -34,6 +36,7 @@ public sealed class GitHubUpdateServiceTests
     {
         var previousVersion = ServiceManager.Version;
         var previousServices = ServiceManager.Services;
+        var previousConfigs = ConfigManger.Configs;
         var toast = new RecordingToast();
         using var services = new ServiceCollection().AddSingleton<IToastService>(toast).BuildServiceProvider();
         var cleanTagName = tagName.TrimStart('v', 'V');
@@ -56,6 +59,10 @@ public sealed class GitHubUpdateServiceTests
             }
         });
         using var client = new HttpClient(new ReleaseResponseHandler(json));
+        ConfigManger.Configs = new Dictionary<string, ConfigBase>
+        {
+            ["KitopiaConfig"] = new KitopiaConfig { allowPrereleaseUpdates = true }
+        };
         ServiceManager.Version = currentVersion;
         ServiceManager.Services = services;
 
@@ -87,6 +94,94 @@ public sealed class GitHubUpdateServiceTests
         {
             ServiceManager.Version = previousVersion;
             ServiceManager.Services = previousServices;
+            ConfigManger.Configs = previousConfigs;
+        }
+    }
+
+    [TestMethod]
+    [DataRow(false, true, "2.0.0-beta.1", "1.0.0", true, "v1.1.0")]
+    [DataRow(true, true, "2.0.0-beta.1", "1.0.0", true, "2.0.0-beta.1")]
+    [DataRow(false, false, "2.0.0-rc.1", "1.0.0", true, "v1.1.0")]
+    [DataRow(true, false, "2.0.0-rc.1", "1.0.0", true, "2.0.0-rc.1")]
+    [DataRow(false, true, "2.0.0", "1.0.0", true, "v1.1.0")]
+    [DataRow(true, true, "2.0.0", "1.0.0", true, "2.0.0")]
+    [DataRow(false, true, "2.0.0-beta.1", "1.0.0", false, null)]
+    [DataRow(false, false, "2.0.0-beta.1", "1.0.0", false, null)]
+    [DataRow(true, true, "2.0.0-beta.1", "1.0.0", false, "2.0.0-beta.1")]
+    [DataRow(false, true, "2.0.0-beta.1", "1.1.0", true, null)]
+    [DataRow(false, true, "2.0.0-beta.1", "1.1.0-rc.1", true, "v1.1.0")]
+    [DataRow(false, true, "2.0.0-beta.1", "1.2.0-beta.1", true, null)]
+    [DataRow(null, false, "2.0.0-beta.1", "1.0.0", true, "v1.1.0")]
+    public async Task CheckForUpdatesAsync_PrereleasePreference_SelectsFirstEligiblePublishedRelease(
+        bool? allowPrereleaseUpdates, bool githubPrerelease, string prereleaseTag, string currentVersion,
+        bool includeStableRelease, string? expectedVersion)
+    {
+        var previousVersion = ServiceManager.Version;
+        var previousServices = ServiceManager.Services;
+        var previousConfigs = ConfigManger.Configs;
+        var toast = new RecordingToast();
+        using var services = new ServiceCollection().AddSingleton<IToastService>(toast).BuildServiceProvider();
+        var releases = new List<object>
+        {
+            new { tag_name = "3.0.0", draft = true, prerelease = false },
+            new
+            {
+                tag_name = prereleaseTag,
+                prerelease = githubPrerelease,
+                assets = new[]
+                {
+                    new
+                    {
+                        name = $"Kitopia{prereleaseTag}_Installer.exe",
+                        browser_download_url = $"https://github.com/Maklith/kitopia/releases/download/{prereleaseTag}/Kitopia{prereleaseTag}_Installer.exe"
+                    }
+                }
+            }
+        };
+        if (includeStableRelease)
+        {
+            releases.Add(new
+            {
+                tag_name = "v1.1.0",
+                prerelease = false,
+                assets = new[]
+                {
+                    new
+                    {
+                        name = "Kitopia1.1.0_Installer.exe",
+                        browser_download_url = "https://github.com/Maklith/kitopia/releases/download/v1.1.0/Kitopia1.1.0_Installer.exe"
+                    }
+                }
+            });
+        }
+        using var client = new HttpClient(new ReleaseResponseHandler(JsonSerializer.Serialize(releases)));
+        ConfigManger.Configs = allowPrereleaseUpdates.HasValue
+            ? new Dictionary<string, ConfigBase>
+            {
+                ["KitopiaConfig"] = new KitopiaConfig { allowPrereleaseUpdates = allowPrereleaseUpdates.Value }
+            }
+            : new Dictionary<string, ConfigBase>();
+        ServiceManager.Version = currentVersion;
+        ServiceManager.Services = services;
+        try
+        {
+            var result = await new GitHubUpdateService(client).CheckForUpdatesAsync();
+
+            Assert.AreEqual(expectedVersion is not null, result.hasUpdate);
+            Assert.AreEqual(expectedVersion, result.latestVersion);
+            Assert.IsEmpty(toast.Notifications);
+            if (expectedVersion is not null)
+                Assert.AreEqual(
+                    $"https://update.kitopia.top/Maklith/kitopia/releases/download/{expectedVersion}/Kitopia{expectedVersion.TrimStart('v', 'V')}_Installer.exe",
+                    result.downloadUrl);
+            else
+                Assert.IsNull(result.downloadUrl);
+        }
+        finally
+        {
+            ServiceManager.Version = previousVersion;
+            ServiceManager.Services = previousServices;
+            ConfigManger.Configs = previousConfigs;
         }
     }
 

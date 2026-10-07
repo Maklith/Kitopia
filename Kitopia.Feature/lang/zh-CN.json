@@ -204,6 +204,8 @@
   "lang.kitopia.some_listeners_or_senders_failed_value": "监听和发送部分失败: {0}",
   "lang.kitopia.cut": "剪切",
   "lang.kitopia.check_for_updates": "检查更新",
+  "lang.kitopia.allow_prerelease_updates": "接收预发布版本更新",
+  "lang.kitopia.allow_prerelease_updates_description": "检查更新时包含 Beta、RC 等预发布版本。",
   "lang.kitopia.check_companion_installation": "检查Kitopia伴侣程序是否安装",
   "lang.kitopia.keyboard_hotkey": "键盘快捷键",
   "lang.kitopia.arrow": "箭头",

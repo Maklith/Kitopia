@@ -352,6 +352,9 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("lang.kitopia.create_shortcuts_on_update", "lang.kitopia.create_desktop_and_start_menu_shortcuts_when_updating", 0xE61C, ConfigFieldType.布尔)]
     public bool createShortcutsOnUpdate = false;
 
+    [ConfigField("lang.kitopia.allow_prerelease_updates", "lang.kitopia.allow_prerelease_updates_description", 0xE974, ConfigFieldType.布尔)]
+    public bool allowPrereleaseUpdates = false;
+
     [ConfigField("lang.kitopia.check_for_updates", "lang.kitopia.check_for_updates_now", 0xE974, ConfigFieldType.按钮,actionName: "检查更新")]
     public async Task CheckUpdate()
     {

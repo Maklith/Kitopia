@@ -16,6 +16,21 @@ namespace KitopiaTest.Services;
 public sealed class ConfigMangerServiceTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void PrereleaseUpdates_LegacyAndConfiguredJson_DefaultsToDisabledAndPersistsSelection(bool allowPrereleaseUpdates)
+    {
+        Assert.IsFalse(new KitopiaConfig().allowPrereleaseUpdates);
+        var config = JsonSerializer.Deserialize<KitopiaConfig>("{}", ConfigManger.DefaultOptions)!;
+        Assert.IsFalse(config.allowPrereleaseUpdates);
+
+        config.allowPrereleaseUpdates = allowPrereleaseUpdates;
+        var json = JsonSerializer.Serialize(config, ConfigManger.DefaultOptions);
+        var restored = JsonSerializer.Deserialize<KitopiaConfig>(json, ConfigManger.DefaultOptions)!;
+        Assert.AreEqual(allowPrereleaseUpdates, restored.allowPrereleaseUpdates);
+    }
+
+    [TestMethod]
     public void ThemeColorConfig_LegacyAndCustomizedJson_PreservesDefaultsAndSelection()
     {
         var legacy = JsonSerializer.Deserialize<KitopiaConfig>("{}", ConfigManger.DefaultOptions)!;

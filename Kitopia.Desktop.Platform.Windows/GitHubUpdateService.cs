@@ -5,6 +5,7 @@ using Newtonsoft.Json.Linq;
 using NuGet.Versioning;
 using Serilog;
 using Kitopia.Desktop.Features.Services;
+using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Feature.Localization;
 using PluginCore;
 
@@ -38,11 +39,29 @@ namespace Kitopia.Desktop.Platform.Windows
 
                 var json = await response.Content.ReadAsStringAsync();
                 var releases = JArray.Parse(json);
-                var release = releases.Count > 0 ? releases[0] : null;
+                var allowPrereleaseUpdates = ConfigManger.Config?.allowPrereleaseUpdates == true;
+                JToken? release = null;
+                NuGetVersion? latestVersion = null;
+                foreach (var candidate in releases)
+                {
+                    if (candidate["draft"]?.Value<bool>() == true ||
+                        !allowPrereleaseUpdates && candidate["prerelease"]?.Value<bool>() == true)
+                        continue;
+
+                    var candidateTagName = candidate["tag_name"]?.ToString()?.TrimStart('v', 'V');
+                    NuGetVersion.TryParse(candidateTagName, out var candidateVersion);
+                    if (!allowPrereleaseUpdates && candidateVersion?.IsPrerelease == true)
+                        continue;
+
+                    release = candidate;
+                    latestVersion = candidateVersion;
+                    break;
+                }
 
                 if (release == null)
                 {
-                    _ =ServiceManager.Services .GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.update"), Lang.Get("lang.kitopia.cannot_check_for_updates_no_release_version_found"), NotificationType.Error);
+                    if (releases.Count == 0)
+                        _ = ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.update"), Lang.Get("lang.kitopia.cannot_check_for_updates_no_release_version_found"), NotificationType.Error);
                     return (false, null, null, null);
                 }
 
@@ -62,7 +81,7 @@ namespace Kitopia.Desktop.Platform.Windows
                     return (false, null, null, null);
                 }
 
-                if (NuGetVersion.TryParse(cleanTagName, out var latestVersion))
+                if (latestVersion is not null)
                 {
                     if (VersionComparer.VersionRelease.Compare(latestVersion, currentVersion) > 0)
                     {

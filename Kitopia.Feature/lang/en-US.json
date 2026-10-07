@@ -471,6 +471,8 @@
   "lang.kitopia.create_shortcuts_on_update": "Create shortcuts on update",
   "lang.kitopia.create_desktop_and_start_menu_shortcuts_when_updating": "Create desktop and Start menu shortcuts when updating",
   "lang.kitopia.check_for_updates": "Check for updates",
+  "lang.kitopia.allow_prerelease_updates": "Allow prerelease updates",
+  "lang.kitopia.allow_prerelease_updates_description": "Include Beta, RC and other prerelease versions when checking for updates.",
   "lang.kitopia.check_for_updates_now": "Check for updates now",
   "lang.kitopia.developer_options": "Developer options",
   "lang.kitopia.use_local_development_server": "Use local development server",
