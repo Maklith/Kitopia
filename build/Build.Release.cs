@@ -6,6 +6,7 @@ using Fallout.Common.Git;
 using Fallout.Solutions;
 using Fallout.Common.Tools.Git;
 using Fallout.Common.Tools.GitHub;
+using NuGet.Versioning;
 using Octokit;
 using Serilog;
 
@@ -17,6 +18,7 @@ partial class Build
         {
             var repository = GitRepository.FromUrl("https://github.com/Maklith/Kitopia");
             var version = AvaloniaProject.GetProperty("Version");
+            var isPrerelease = NuGetVersion.Parse(version).IsPrerelease;
             var body = BuildReleaseNotes(repository);
 
             GitHubClient.Git.Reference.Create(
@@ -30,7 +32,7 @@ partial class Build
                 new NewRelease(version)
                 {
                     Name = version,
-                    Prerelease = true,
+                    Prerelease = isPrerelease,
                     Draft = false,
                     Body = body
                 }).Result;
