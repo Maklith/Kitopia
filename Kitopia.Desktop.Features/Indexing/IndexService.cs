@@ -42,8 +42,7 @@ public sealed class IndexService : IIndexService, IDisposable
     private int _pinyinRebuildQueued;
     private int _statusPublishQueued;
     private int _statusPublishVersion;
-    private BgeOnnxEmbeddingService? _textEmbeddingService;
-    private ChineseClipEmbeddingService? _imageEmbeddingService;
+    private EmbeddingGemmaEmbeddingService? _embeddingService;
     private readonly IOcrService? _ocrService;
     private IndexStatusSnapshot _status = IndexStatusSnapshot.Empty;
     private readonly object _operationStateLock = new();
@@ -475,19 +474,14 @@ public sealed class IndexService : IIndexService, IDisposable
             merged[result.Source.OnlyKey] = result with { Weight = 1d / (60 + index + 1) };
         }
 
-        // Indexing deliberately runs CLIP, OCR, and BGE one at a time. Do not let an interactive
+        // Indexing keeps native model sessions bounded. Do not let an interactive
         // semantic query load another native model session during that memory-sensitive pass.
         if (!ShouldSearchSemantically(query, pinyinResults.Count) || GetStatus().IsRebuilding)
         {
             return merged.Values.OrderByDescending(result => result.Weight).Take(maximumResults).ToList();
         }
 
-        var semanticTasks = new[]
-        {
-            SearchTextAsync(query, maximumResults, cancellationToken),
-            SearchImagesAsync(query, maximumResults, cancellationToken)
-        };
-        var semanticResults = await Task.WhenAll(semanticTasks);
+        var semanticResults = await SearchSemanticAsync(query, maximumResults, cancellationToken);
         foreach (var match in semanticResults.SelectMany(matches => matches))
         {
             if (IsIgnoredPath(match.Key, ignoredPaths))
@@ -954,9 +948,9 @@ public sealed class IndexService : IIndexService, IDisposable
         bool force,
         CancellationToken cancellationToken)
     {
-        if (!TryGetImageEmbeddingService(out var imageEmbeddingService))
+        if (!TryGetEmbeddingService(out var imageEmbeddingService))
         {
-            throw new InvalidOperationException("Chinese-CLIP RN50 INT8 model files are unavailable.");
+            throw new InvalidOperationException("EmbeddingGemma 2 Q4 model files are unavailable.");
         }
 
         var fingerprint = TryGetFileFingerprint(fullPath)
@@ -964,9 +958,10 @@ public sealed class IndexService : IIndexService, IDisposable
         var existing = await _store.GetFileStateAsync(fullPath, IndexFileKind.Image, cancellationToken);
         var imageIsCurrent = await _store.HasImageVectorAsync(
             fullPath, imageEmbeddingService.ModelId, cancellationToken);
-        BgeOnnxEmbeddingService? textEmbeddingService = null;
+        EmbeddingGemmaEmbeddingService? textEmbeddingService = null;
         var ocrAvailable = _ocrService is { IsAvailable: true }
-                           && TryGetTextEmbeddingService(out textEmbeddingService);
+                           && ConfigManger.Config.enableSemanticSearch
+                           && TryGetEmbeddingService(out textEmbeddingService);
         var ocrIsCurrent = !ocrAvailable;
         if (ocrAvailable)
         {
@@ -1009,9 +1004,9 @@ public sealed class IndexService : IIndexService, IDisposable
         IReadOnlyList<ImageIndexWorkItem> items,
         CancellationToken cancellationToken)
     {
-        if (!TryGetImageEmbeddingService(out var embeddingService))
+        if (!TryGetEmbeddingService(out var embeddingService))
         {
-            throw new InvalidOperationException("Chinese-CLIP RN50 INT8 model files are unavailable.");
+            throw new InvalidOperationException("EmbeddingGemma 2 Q4 model files are unavailable.");
         }
 
         var failed = new HashSet<string>(EntryKeyComparer);
@@ -1067,7 +1062,7 @@ public sealed class IndexService : IIndexService, IDisposable
             {
                 try
                 {
-                    var vector = await embeddingService.EmbedImageAsync(item.Path, cancellationToken);
+                    var vector = (await embeddingService.EmbedImagesAsync([item.Path], cancellationToken))[0];
                     await _store.UpsertImageAsync(
                         item.Path,
                         item.Fingerprint.ToImageFingerprint(),
@@ -1114,9 +1109,9 @@ public sealed class IndexService : IIndexService, IDisposable
         var ocrCompleted = item.Existing?.OcrCompleted ?? false;
         if (item.OcrAvailable && item.NeedsOcr)
         {
-            if (!TryGetTextEmbeddingService(out var textEmbeddingService))
+            if (!TryGetEmbeddingService(out var textEmbeddingService))
             {
-                throw new InvalidOperationException("BGE text model files are unavailable.");
+                throw new InvalidOperationException("EmbeddingGemma 2 Q4 model files are unavailable.");
             }
 
             var copied = await _store.HasCompletedOcrForContentHashAsync(
@@ -1193,7 +1188,8 @@ public sealed class IndexService : IIndexService, IDisposable
 
         if (indexDocuments)
         {
-            TryGetTextEmbeddingService(out var documentEmbeddingService);
+            EmbeddingGemmaEmbeddingService? documentEmbeddingService = null;
+            if (ConfigManger.Config.enableSemanticSearch) TryGetEmbeddingService(out documentEmbeddingService);
             foreach (var (path, _) in fileItems.Where(item => item.Kind == IndexFileKind.Document))
             {
                 await WaitIfPausedAsync(cancellationToken);
@@ -1318,8 +1314,7 @@ public sealed class IndexService : IIndexService, IDisposable
 
     public void Dispose()
     {
-        _textEmbeddingService?.Dispose();
-        _imageEmbeddingService?.Dispose();
+        _embeddingService?.Dispose();
         _rebuildGate.Dispose();
         _pinyinBuildGate.Dispose();
     }
@@ -1328,11 +1323,8 @@ public sealed class IndexService : IIndexService, IDisposable
     {
         try
         {
-            var textEmbeddingService = _textEmbeddingService;
-            var imageEmbeddingService = _imageEmbeddingService;
             await Task.WhenAll(
-                textEmbeddingService?.ReleaseSessionAsync() ?? Task.CompletedTask,
-                imageEmbeddingService?.ReleaseSessionsAsync() ?? Task.CompletedTask,
+                _embeddingService?.ReleaseSessionsAsync() ?? Task.CompletedTask,
                 _ocrService?.ReleaseSessionsAsync() ?? Task.CompletedTask);
         }
         catch (Exception exception)
@@ -1418,44 +1410,37 @@ public sealed class IndexService : IIndexService, IDisposable
         }
     }
 
-    private async Task<IReadOnlyList<RankedVectorMatch>> SearchTextAsync(string query, int maximumResults, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<RankedVectorMatch>[]> SearchSemanticAsync(string query, int maximumResults, CancellationToken cancellationToken)
     {
-        if (!TryGetTextEmbeddingService(out var embeddingService)) return [];
+        if (!TryGetEmbeddingService(out var embeddingService)) return [];
         try
         {
             var vector = (await embeddingService.EmbedAsync(
-                [BgeOnnxEmbeddingService.QueryInstruction + query],
-                BgeOnnxEmbeddingService.MetadataMaximumTokens,
+                [EmbeddingGemmaEmbeddingService.QueryInstruction + query],
+                EmbeddingGemmaEmbeddingService.QueryMaximumTokens,
                 cancellationToken))[0];
-            var matches = await _store.SearchTextAsync(embeddingService.ModelId, vector, maximumResults, cancellationToken);
-            return matches.Select((match, index) => new RankedVectorMatch(match.Key, match.Score, index)).ToArray();
+            var tasks = new[]
+            {
+                ConfigManger.Config.enableSemanticSearch
+                    ? _store.SearchTextAsync(embeddingService.ModelId, vector, maximumResults, cancellationToken)
+                    : Task.FromResult<IReadOnlyList<VectorMatch>>([]),
+                _store.SearchImagesAsync(embeddingService.ModelId, vector, maximumResults, cancellationToken)
+            };
+            var matches = await Task.WhenAll(tasks);
+            return matches.Select(group => (IReadOnlyList<RankedVectorMatch>)group
+                .Select((match, index) => new RankedVectorMatch(match.Key, match.Score, index)).ToArray()).ToArray();
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            Logger.Warning(exception, "Text semantic query failed.");
-            return [];
-        }
-    }
-
-    private async Task<IReadOnlyList<RankedVectorMatch>> SearchImagesAsync(string query, int maximumResults, CancellationToken cancellationToken)
-    {
-        if (!TryGetImageEmbeddingService(out var embeddingService)) return [];
-        try
-        {
-            var vector = await embeddingService.EmbedTextAsync(query, cancellationToken);
-            var matches = await _store.SearchImagesAsync(embeddingService.ModelId, vector, maximumResults, cancellationToken);
-            return matches.Select((match, index) => new RankedVectorMatch(match.Key, match.Score, index)).ToArray();
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            Logger.Warning(exception, "Image semantic query failed.");
+            Logger.Warning(exception, "EmbeddingGemma semantic query failed.");
             return [];
         }
     }
 
     private async Task IndexGenericTextEntriesAsync(CancellationToken cancellationToken)
     {
-        if (!TryGetTextEmbeddingService(out var embeddingService)) return;
+        if (!ConfigManger.Config.enableSemanticSearch) return;
+        if (!TryGetEmbeddingService(out var embeddingService)) return;
         var entries = GetGenericTextEntriesSnapshot();
         foreach (var batch in entries.Chunk(32))
         {
@@ -1468,13 +1453,13 @@ public sealed class IndexService : IIndexService, IDisposable
                     if (!await _store.HasTextVectorAsync(item.OnlyKey, embeddingService.ModelId, token))
                     {
                         pending.Add(item.OnlyKey);
-                        contents.Add(CreateTextContent(item));
+                        contents.Add(EmbeddingGemmaEmbeddingService.FormatDocument(CreateTextContent(item), item.DisplayName));
                     }
                 }
 
                 if (pending.Count == 0) return;
                 var vectors = await embeddingService.EmbedAsync(
-                    contents, BgeOnnxEmbeddingService.MetadataMaximumTokens, token);
+                    contents, EmbeddingGemmaEmbeddingService.MetadataMaximumTokens, token);
                 for (var index = 0; index < pending.Count; index++)
                     await _store.UpsertTextAsync(pending[index], embeddingService.ModelId, vectors[index], token);
             }, cancellationToken);
@@ -1484,7 +1469,7 @@ public sealed class IndexService : IIndexService, IDisposable
     private async Task IndexDocumentVectorAsync(
         string path,
         bool force,
-        BgeOnnxEmbeddingService embeddingService,
+        EmbeddingGemmaEmbeddingService embeddingService,
         CancellationToken cancellationToken)
     {
         try
@@ -1520,12 +1505,12 @@ public sealed class IndexService : IIndexService, IDisposable
                 cancellationToken);
             if (!copied)
             {
-                float[]? contentVector = null;
+                IReadOnlyList<float[]> contentVectors = [];
                 if (DocumentTextExtractor.TryCreateSource(path, out var source))
                 {
                     try
                     {
-                        contentVector = await EmbedDocumentAsync(
+                        contentVectors = await EmbedDocumentAsync(
                             source with { ContentHash = contentHash },
                             embeddingService,
                             cancellationToken);
@@ -1541,14 +1526,15 @@ public sealed class IndexService : IIndexService, IDisposable
                     }
                 }
 
-                if (contentVector is not null)
+                if (contentVectors.Count > 0)
                 {
-                    await _store.UpsertDocumentTextAsync(path, embeddingService.ModelId, contentVector, cancellationToken);
+                    await _store.UpsertDocumentTextAsync(path, embeddingService.ModelId, contentVectors, cancellationToken);
                 }
                 else
                 {
                     var fallback = (await embeddingService.EmbedAsync(
-                        [CreateFileTextContent(path)], BgeOnnxEmbeddingService.MetadataMaximumTokens, cancellationToken))[0];
+                        [EmbeddingGemmaEmbeddingService.FormatDocument(CreateFileTextContent(path), Path.GetFileName(path))],
+                        EmbeddingGemmaEmbeddingService.MetadataMaximumTokens, cancellationToken))[0];
                     await _store.UpsertTextAsync(path, embeddingService.ModelId, fallback, cancellationToken);
                 }
             }
@@ -1563,66 +1549,38 @@ public sealed class IndexService : IIndexService, IDisposable
         }
     }
 
-    private static async Task<float[]?> EmbedDocumentAsync(
+    private static async Task<IReadOnlyList<float[]>> EmbedDocumentAsync(
         DocumentContentSource source,
-        BgeOnnxEmbeddingService embeddingService,
+        EmbeddingGemmaEmbeddingService embeddingService,
         CancellationToken cancellationToken)
     {
-        var total = new double[BgeOnnxEmbeddingService.VectorDimensions];
-        var vectorCount = 0;
+        var vectors = new List<float[]>();
         var chunks = new List<string>(32);
+        var title = Path.GetFileName(source.Path);
         await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(
                            source,
-                           embeddingService.CountTokens,
+                           text => embeddingService.CountDocumentTokens(text, title),
                            cancellationToken))
         {
-            chunks.Add(chunk);
+            chunks.Add(EmbeddingGemmaEmbeddingService.FormatDocument(chunk, title));
             if (chunks.Count < 32) continue;
-            vectorCount += await AddChunkVectorsAsync(chunks, total, embeddingService, cancellationToken);
+            vectors.AddRange(await embeddingService.EmbedAsync(
+                chunks, EmbeddingGemmaEmbeddingService.DocumentMaximumTokens, cancellationToken));
             chunks.Clear();
         }
 
         if (chunks.Count > 0)
         {
-            vectorCount += await AddChunkVectorsAsync(chunks, total, embeddingService, cancellationToken);
+            vectors.AddRange(await embeddingService.EmbedAsync(
+                chunks, EmbeddingGemmaEmbeddingService.DocumentMaximumTokens, cancellationToken));
         }
 
-        if (vectorCount == 0) return null;
-        var vector = new float[total.Length];
-        var squaredLength = 0d;
-        for (var index = 0; index < vector.Length; index++)
-        {
-            vector[index] = (float)(total[index] / vectorCount);
-            squaredLength += vector[index] * vector[index];
-        }
-
-        var length = Math.Sqrt(squaredLength);
-        if (length <= 0) return vector;
-        for (var index = 0; index < vector.Length; index++) vector[index] = (float)(vector[index] / length);
-        return vector;
-    }
-
-    private static async Task<int> AddChunkVectorsAsync(
-        IReadOnlyList<string> chunks,
-        double[] total,
-        BgeOnnxEmbeddingService embeddingService,
-        CancellationToken cancellationToken)
-    {
-        var vectors = await embeddingService.EmbedAsync(
-            chunks,
-            BgeOnnxEmbeddingService.DocumentMaximumTokens,
-            cancellationToken);
-        foreach (var vector in vectors)
-        {
-            for (var index = 0; index < vector.Length; index++) total[index] += vector[index];
-        }
-
-        return vectors.Count;
+        return vectors;
     }
 
     private async Task IndexOcrTextAsync(
         string imagePath,
-        BgeOnnxEmbeddingService embeddingService,
+        EmbeddingGemmaEmbeddingService embeddingService,
         CancellationToken cancellationToken)
     {
         if (_ocrService is null || !_ocrService.IsAvailable)
@@ -1675,40 +1633,24 @@ public sealed class IndexService : IIndexService, IDisposable
 
         var text = textBuilder.ToString();
         var vector = (await embeddingService.EmbedAsync(
-            [text],
-            BgeOnnxEmbeddingService.MetadataMaximumTokens,
+            [EmbeddingGemmaEmbeddingService.FormatDocument(text)],
+            EmbeddingGemmaEmbeddingService.DocumentMaximumTokens,
             cancellationToken))[0];
         await _store.UpsertOcrTextAsync(imagePath, embeddingService.ModelId, vector, cancellationToken);
     }
 
-    private bool TryGetTextEmbeddingService([NotNullWhen(true)] out BgeOnnxEmbeddingService? service)
+    private bool TryGetEmbeddingService([NotNullWhen(true)] out EmbeddingGemmaEmbeddingService? service)
     {
-        service = _textEmbeddingService;
+        service = _embeddingService;
         if (service is not null) return true;
         lock (_entriesLock)
         {
-            if (_textEmbeddingService is null && BgeOnnxEmbeddingService.TryCreate(out var created))
+            if (_embeddingService is null && EmbeddingGemmaEmbeddingService.TryCreate(out var created))
             {
-                _textEmbeddingService = created;
+                _embeddingService = created;
             }
 
-            service = _textEmbeddingService;
-            return service is not null;
-        }
-    }
-
-    private bool TryGetImageEmbeddingService([NotNullWhen(true)] out ChineseClipEmbeddingService? service)
-    {
-        service = _imageEmbeddingService;
-        if (service is not null) return true;
-        lock (_entriesLock)
-        {
-            if (_imageEmbeddingService is null && ChineseClipEmbeddingService.TryCreate(out var created))
-            {
-                _imageEmbeddingService = created;
-            }
-
-            service = _imageEmbeddingService;
+            service = _embeddingService;
             return service is not null;
         }
     }
@@ -1744,8 +1686,8 @@ public sealed class IndexService : IIndexService, IDisposable
                         status.IsPaused,
                         status.TotalFileItems,
                         status.CompletedFileItems,
-                        "BGE small zh INT8",
-                        "Chinese-CLIP RN50 INT8",
+                        EmbeddingGemmaModelPackage.DisplayName,
+                        EmbeddingGemmaModelPackage.DisplayName,
                         status.CurrentOperation,
                         status.CurrentItem,
                         status.LastError,

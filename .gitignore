@@ -373,3 +373,4 @@ uToolkitopia/obj/
 obj/
 PlugCleanTool/obj/
 .worktrees/
+Kitopia.Desktop.Features/Assets/EmbeddingGemma2/onnx/*.onnx_data

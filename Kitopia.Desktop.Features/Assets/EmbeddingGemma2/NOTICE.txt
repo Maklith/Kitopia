@@ -1,0 +1,7 @@
+EmbeddingGemma 2 is developed by Google DeepMind and released under Apache 2.0.
+https://huggingface.co/google/embeddinggemma-2
+
+This distribution uses the ONNX Community conversion, with Q4 weights and
+float32 activations. Only text and vision graphs are included.
+https://huggingface.co/onnx-community/embeddinggemma-2-ONNX
+Revision: daa72c51243991dfcaf9f9137d2c573d8f7790c0

@@ -76,11 +76,11 @@ partial class Build
             compressionLevel: CompressionLevel.SmallestSize, fileMode: FileMode.Create);
         (staging / "plugins").DeleteDirectory();
 
-        var bgeModelArchive = installerAssets / "BGE_Model.zip";
-        bgeModelArchive.DeleteFile();
-        (staging / "BGE_Model").ZipTo(bgeModelArchive,
+        var embeddingModelArchive = installerAssets / "EmbeddingGemma2.zip";
+        embeddingModelArchive.DeleteFile();
+        (staging / "EmbeddingGemma2").ZipTo(embeddingModelArchive,
             compressionLevel: CompressionLevel.SmallestSize, fileMode: FileMode.Create);
-        (staging / "BGE_Model").DeleteDirectory();
+        (staging / "EmbeddingGemma2").DeleteDirectory();
 
         var ocrModelArchive = installerAssets / "Ocr.zip";
         ocrModelArchive.DeleteFile();

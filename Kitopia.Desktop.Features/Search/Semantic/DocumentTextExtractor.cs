@@ -70,12 +70,13 @@ internal static partial class DocumentTextExtractor
     public static async IAsyncEnumerable<string> ExtractChunksAsync(
         DocumentContentSource source,
         TokenCounter countTokens,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        [EnumeratorCancellation] CancellationToken cancellationToken,
+        int maximumTokens = EmbeddingGemmaEmbeddingService.DocumentMaximumTokens)
     {
         var extension = Path.GetExtension(source.Path);
         if (IsPlainTextExtension(extension))
         {
-            await foreach (var chunk in ReadPlainTextChunksAsync(source.Path, countTokens, cancellationToken))
+            await foreach (var chunk in ReadPlainTextChunksAsync(source.Path, countTokens, maximumTokens, cancellationToken))
             {
                 yield return chunk;
             }
@@ -85,7 +86,7 @@ internal static partial class DocumentTextExtractor
 
         if (extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
         {
-            foreach (var chunk in ReadPdfChunks(source.Path, countTokens, cancellationToken))
+            foreach (var chunk in ReadPdfChunks(source.Path, countTokens, maximumTokens, cancellationToken))
             {
                 yield return chunk;
             }
@@ -93,7 +94,7 @@ internal static partial class DocumentTextExtractor
             yield break;
         }
 
-        await foreach (var chunk in ReadOpenXmlChunksAsync(source.Path, extension, countTokens, cancellationToken))
+        await foreach (var chunk in ReadOpenXmlChunksAsync(source.Path, extension, countTokens, maximumTokens, cancellationToken))
         {
             yield return chunk;
         }
@@ -117,9 +118,10 @@ internal static partial class DocumentTextExtractor
     private static async IAsyncEnumerable<string> ReadPlainTextChunksAsync(
         string path,
         TokenCounter countTokens,
+        int maximumTokens,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var chunker = new TextChunker(countTokens);
+        var chunker = new TextChunker(countTokens, maximumTokens);
         await using var stream = new FileStream(
             path,
             FileMode.Open,
@@ -153,9 +155,9 @@ internal static partial class DocumentTextExtractor
         }
     }
 
-    private static IEnumerable<string> ReadPdfChunks(string path, TokenCounter countTokens, CancellationToken cancellationToken)
+    private static IEnumerable<string> ReadPdfChunks(string path, TokenCounter countTokens, int maximumTokens, CancellationToken cancellationToken)
     {
-        var chunker = new TextChunker(countTokens);
+        var chunker = new TextChunker(countTokens, maximumTokens);
         using var document = TryOpenPdf(path);
         if (document is null)
         {
@@ -1104,6 +1106,7 @@ internal static partial class DocumentTextExtractor
         string path,
         string extension,
         TokenCounter countTokens,
+        int maximumTokens,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         using var archive = TryOpenArchive(path);
@@ -1125,7 +1128,7 @@ internal static partial class DocumentTextExtractor
             _ => []
         };
 
-        var chunker = new TextChunker(countTokens);
+        var chunker = new TextChunker(countTokens, maximumTokens);
         var textBuffer = new char[4096];
         foreach (var entry in entries.OrderBy(entry => entry.FullName, StringComparer.OrdinalIgnoreCase))
         {
@@ -1446,21 +1449,24 @@ internal static partial class DocumentTextExtractor
 
     private sealed class TextChunker
     {
-        // The BGE input adds [CLS] and [SEP], leaving 254 payload WordPiece tokens.
-        // DocumentMaximumTokens is 256. The BGE sequence reserves [CLS] and [SEP].
-        private const int MaximumPayloadTokens = 254;
+        private readonly int _maximumTokens;
         private const int OverlapTokens = 48;
         private const int MaximumBufferedCharacters = 16 * 1024;
         private const int ForcedOverlapCharacters = 512;
         private readonly TokenCounter _countTokens;
+        private readonly int _prefixTokens;
         private readonly StringBuilder _text = new();
         private char[] _tokenBuffer = [];
         private bool _previousWasWhitespace;
-        private int _nextTokenCheckLength = MaximumPayloadTokens;
+        private int _nextTokenCheckLength;
 
-        public TextChunker(TokenCounter countTokens)
+        public TextChunker(TokenCounter countTokens, int maximumTokens)
         {
+            ArgumentOutOfRangeException.ThrowIfLessThan(maximumTokens, 2);
             _countTokens = countTokens;
+            _prefixTokens = countTokens(ReadOnlySpan<char>.Empty);
+            _maximumTokens = maximumTokens;
+            _nextTokenCheckLength = Math.Min(maximumTokens, MaximumBufferedCharacters);
         }
 
         public string? Append(char character)
@@ -1469,8 +1475,12 @@ internal static partial class DocumentTextExtractor
             {
                 if (!_previousWasWhitespace)
                 {
-                    _text.Append(' ');
+                    _text.Append(character is '\r' or '\n' ? '\n' : ' ');
                     _previousWasWhitespace = true;
+                }
+                else if (character is '\r' or '\n' && _text.Length > 0)
+                {
+                    _text[^1] = '\n';
                 }
             }
             else if (!char.IsControl(character))
@@ -1485,7 +1495,7 @@ internal static partial class DocumentTextExtractor
             }
 
             var tokenCount = CountTokens(0, _text.Length);
-            if (tokenCount >= MaximumPayloadTokens)
+            if (tokenCount >= _maximumTokens)
             {
                 return TakeChunk(forceCharacterLimit: false);
             }
@@ -1499,7 +1509,7 @@ internal static partial class DocumentTextExtractor
             // position that could reach the payload limit.
             _nextTokenCheckLength = Math.Min(
                 MaximumBufferedCharacters,
-                _text.Length + Math.Max(1, MaximumPayloadTokens - tokenCount));
+                _text.Length + Math.Max(1, _maximumTokens - tokenCount));
             return null;
         }
 
@@ -1526,7 +1536,7 @@ internal static partial class DocumentTextExtractor
 
         private string TakeChunk(bool forceCharacterLimit)
         {
-            var breakIndex = forceCharacterLimit ? FindForcedBreakIndex() : FindBreakIndex();
+            var breakIndex = FindBreakIndex(forceCharacterLimit);
             var chunkStart = FindTrimmedStart(0, breakIndex);
             var chunkEnd = FindTrimmedEnd(chunkStart, breakIndex);
             var chunk = _text.ToString(chunkStart, chunkEnd - chunkStart);
@@ -1545,29 +1555,21 @@ internal static partial class DocumentTextExtractor
             var tokenCount = CountTokens(0, _text.Length);
             _nextTokenCheckLength = Math.Min(
                 MaximumBufferedCharacters,
-                _text.Length + Math.Max(1, MaximumPayloadTokens - tokenCount));
+                _text.Length + Math.Max(1, _maximumTokens - tokenCount));
             return chunk;
         }
 
-        private int FindBreakIndex()
+        private int FindBreakIndex(bool forceCharacterLimit)
         {
-            var breakIndex = FindMaximumPrefixLength();
-            var preferredStart = Math.Max(0, breakIndex - 48);
-            for (var index = breakIndex - 1; index >= preferredStart; index--)
+            var breakIndex = forceCharacterLimit
+                ? Math.Min(MaximumBufferedCharacters, _text.Length)
+                : FindMaximumPrefixLength();
+            // Prefer a complete paragraph without producing very small chunks.
+            for (var index = breakIndex - 1; index >= breakIndex / 2; index--)
             {
-                if (IsBreakCharacter(_text[index]))
-                {
-                    return index + 1;
-                }
+                if (_text[index] == '\n') return index + 1;
             }
-
-            return breakIndex;
-        }
-
-        private int FindForcedBreakIndex()
-        {
-            var breakIndex = Math.Min(MaximumBufferedCharacters, _text.Length);
-            var preferredStart = Math.Max(0, breakIndex - ForcedOverlapCharacters);
+            var preferredStart = Math.Max(0, breakIndex - (forceCharacterLimit ? ForcedOverlapCharacters : 48));
             for (var index = breakIndex - 1; index >= preferredStart; index--)
             {
                 if (IsBreakCharacter(_text[index]))
@@ -1586,7 +1588,7 @@ internal static partial class DocumentTextExtractor
             while (low < high)
             {
                 var middle = low + (high - low + 1) / 2;
-                if (CountTokens(0, middle) <= MaximumPayloadTokens)
+                if (CountTokens(0, middle) <= _maximumTokens)
                 {
                     low = middle;
                 }
@@ -1620,7 +1622,7 @@ internal static partial class DocumentTextExtractor
             while (low < high)
             {
                 var middle = low + (high - low) / 2;
-                if (_countTokens(chunk.AsSpan(middle)) > OverlapTokens)
+                if (_countTokens(chunk.AsSpan(middle)) - _prefixTokens > OverlapTokens)
                 {
                     low = middle + 1;
                 }

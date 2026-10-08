@@ -23,5 +23,5 @@ public sealed record IndexStatusSnapshot(
 {
     public static IndexStatusSnapshot Empty { get; } = new(
         0, 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, 0,
-        "BGE small zh INT8", "Chinese-CLIP RN50 INT8", null, null, null, DateTimeOffset.UtcNow);
+        "EmbeddingGemma 2 Q4", "EmbeddingGemma 2 Q4", null, null, null, DateTimeOffset.UtcNow);
 }

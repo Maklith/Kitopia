@@ -2,6 +2,7 @@
 # Set default behavior to automatically normalize line endings.
 ###############################################################################
 * text=auto
+Kitopia.Desktop.Features/Assets/EmbeddingGemma2/onnx/* binary
 
 ###############################################################################
 # Set default behavior for command prompt diff.

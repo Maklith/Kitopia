@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
-        <Version>1.0.0</Version>
+        <Version>1.0.1</Version>
         <ImplicitUsings>enable</ImplicitUsings>
         <EnableDynamicLoading>true</EnableDynamicLoading>
         <Nullable>enable</Nullable>
@@ -10,6 +10,7 @@
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
         <AppendTargetFrameworkToOutputPath>output</AppendTargetFrameworkToOutputPath>
         <OutputPath>$(LocalAppData)\Kitopia\plugins\kitopiaonnxruntimecpu\</OutputPath>
+        <OutputPath Condition="'$(OnnxRuntimeOutputPath)' != ''">$(OnnxRuntimeOutputPath)</OutputPath>
 
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">

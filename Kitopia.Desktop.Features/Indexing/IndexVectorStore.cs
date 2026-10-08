@@ -1,6 +1,8 @@
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
+using Kitopia.Desktop.Features.Search.Semantic;
 using Kitopia.Desktop.Features.Utils;
 using Microsoft.Data.Sqlite;
 
@@ -22,6 +24,7 @@ internal sealed class IndexVectorStore
     private const string FileSourceStagingTable = "index_file_source_staging";
     private const int FileSourceBatchSize = 256;
     private const int FileSourceReadBatchSize = 512;
+    private const int MaximumVectorCandidates = 4096;
     private static readonly StringComparer FilePathComparer =
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
     private static string FilePathCollation => OperatingSystem.IsWindows() ? " COLLATE NOCASE" : string.Empty;
@@ -302,8 +305,31 @@ internal sealed class IndexVectorStore
     public Task UpsertOcrTextAsync(string key, string modelId, float[] vector, CancellationToken cancellationToken) =>
         UpsertVectorAsync(TextVectorTable, TextMetadataTable, key, null, modelId, vector, TextContentKind.ImageOcr, cancellationToken);
 
-    public Task UpsertDocumentTextAsync(string key, string modelId, float[] vector, CancellationToken cancellationToken) =>
-        UpsertVectorAsync(TextVectorTable, TextMetadataTable, key, null, modelId, vector, TextContentKind.Document, cancellationToken);
+    public async Task UpsertDocumentTextAsync(
+        string key, string modelId, IReadOnlyList<float[]> vectors, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(vectors);
+        ArgumentOutOfRangeException.ThrowIfZero(vectors.Count);
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await using var connection = await OpenAsync(cancellationToken);
+            using var transaction = connection.BeginTransaction();
+            await DeleteMappedVectorAsync(connection, transaction, TextVectorTable, TextMetadataTable, "key", key, cancellationToken);
+            for (var chunkIndex = 0; chunkIndex < vectors.Count; chunkIndex++)
+            {
+                var vector = vectors[chunkIndex];
+                var rowId = await InsertVectorAsync(connection, transaction, TextVectorTable, modelId, vector, cancellationToken);
+                await UpsertMetadataAsync(connection, transaction, TextMetadataTable, "key", key, null,
+                    modelId, vector.Length, rowId, TextContentKind.Document, cancellationToken, chunkIndex);
+            }
+            transaction.Commit();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
 
     public async Task DeleteOcrTextAsync(string key, CancellationToken cancellationToken)
     {
@@ -425,7 +451,7 @@ internal sealed class IndexVectorStore
             destinationKey,
             contentHash,
             modelId,
-            [TextContentKind.Document, TextContentKind.Entry],
+            [TextContentKind.Document],
             TextContentKind.Document,
             cancellationToken);
 
@@ -620,28 +646,34 @@ internal sealed class IndexVectorStore
         CancellationToken cancellationToken)
     {
         var kinds = string.Join(',', sourceKinds.Select(kind => (int)kind));
-        long? sourceRowId;
+        string? sourceKey = null;
         await using (var source = connection.CreateCommand())
         {
             source.CommandText = $"""
-                SELECT metadata.vector_rowid
+                SELECT DISTINCT metadata.key
                 FROM {FileStateTable} AS state
                 INNER JOIN {TextMetadataTable} AS metadata ON metadata.key = state.path
                 WHERE state.content_hash = $contentHash
                   AND metadata.model_id = $modelId
                   AND metadata.content_kind IN ({kinds})
                   AND metadata.key <> $destinationKey
-                LIMIT 1;
                 """;
             source.Parameters.AddWithValue("$contentHash", contentHash);
             source.Parameters.AddWithValue("$modelId", modelId);
             source.Parameters.AddWithValue("$destinationKey", destinationKey);
-            sourceRowId = await source.ExecuteScalarAsync(cancellationToken) is { } value && value is not DBNull
-                ? Convert.ToInt64(value)
-                : null;
+            await using var reader = await source.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                // Titled documents with the same body can have different embeddings.
+                if (destinationKind == TextContentKind.Document
+                    && !string.Equals(Path.GetFileName(reader.GetString(0)), Path.GetFileName(destinationKey), StringComparison.Ordinal))
+                    continue;
+                sourceKey = reader.GetString(0);
+                break;
+            }
         }
 
-        if (sourceRowId is null)
+        if (sourceKey is null)
         {
             return false;
         }
@@ -655,25 +687,28 @@ internal sealed class IndexVectorStore
             "key",
             destinationKey,
             cancellationToken);
-        var vectorRowId = await CopyVectorAsync(
-            connection,
-            transaction,
-            TextVectorTable,
-            modelId,
-            sourceRowId.Value,
-            cancellationToken);
-        await UpsertMetadataAsync(
-            connection,
-            transaction,
-            TextMetadataTable,
-            "key",
-            destinationKey,
-            null,
-            modelId,
-            512,
-            vectorRowId,
-            destinationKind,
-            cancellationToken);
+        var sourceChunks = new List<(long RowId, int ChunkIndex)>();
+        await using (var source = connection.CreateCommand())
+        {
+            source.Transaction = transaction;
+            source.CommandText = $"""
+                SELECT vector_rowid, chunk_index FROM {TextMetadataTable}
+                WHERE key = $key AND model_id = $modelId AND content_kind IN ({kinds})
+                ORDER BY chunk_index;
+                """;
+            source.Parameters.AddWithValue("$key", sourceKey);
+            source.Parameters.AddWithValue("$modelId", modelId);
+            await using var reader = await source.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+                sourceChunks.Add((reader.GetInt64(0), reader.GetInt32(1)));
+        }
+        foreach (var (rowId, chunkIndex) in sourceChunks)
+        {
+            var vectorRowId = await CopyVectorAsync(connection, transaction, TextVectorTable, modelId, rowId, cancellationToken);
+            await UpsertMetadataAsync(connection, transaction, TextMetadataTable, "key", destinationKey, null,
+                modelId, EmbeddingGemmaEmbeddingService.VectorDimensions, vectorRowId,
+                destinationKind, cancellationToken, chunkIndex);
+        }
         transaction.Commit();
         return true;
     }
@@ -740,7 +775,7 @@ internal sealed class IndexVectorStore
                 destinationPath,
                 fingerprint,
                 modelId,
-                1024,
+                EmbeddingGemmaEmbeddingService.VectorDimensions,
                 vectorRowId,
                 null,
                 cancellationToken);
@@ -1013,12 +1048,13 @@ internal sealed class IndexVectorStore
         int maximumResults,
         CancellationToken cancellationToken)
     {
+        if (maximumResults <= 0) return [];
         await _gate.WaitAsync(cancellationToken);
         try
         {
             await using var connection = await OpenAsync(cancellationToken);
             await using var command = connection.CreateCommand();
-            command.CommandText = $"""
+            var nearestQuery = $"""
                 SELECT metadata.{keyColumn}, vectors.distance
                 FROM {vectorTable} AS vectors
                 INNER JOIN {metadataTable} AS metadata ON metadata.vector_rowid = vectors.rowid
@@ -1029,22 +1065,71 @@ internal sealed class IndexVectorStore
                 ORDER BY vectors.distance;
                 """;
             command.Parameters.Add("$queryVector", SqliteType.Blob).Value = ToBlob(query.Span);
-            command.Parameters.AddWithValue("$maximumResults", Math.Max(1, maximumResults));
+            var candidateLimit = Math.Min(maximumResults, MaximumVectorCandidates);
+            var limitParameter = command.Parameters.AddWithValue("$maximumResults", candidateLimit);
             command.Parameters.AddWithValue("$modelId", modelId);
             command.Parameters.AddWithValue("$dimensions", query.Length);
-            var matches = new List<VectorMatch>(maximumResults);
-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
+            var matches = new List<VectorMatch>();
+            var keys = new HashSet<string>(FilePathComparer);
+            while (true)
             {
-                matches.Add(new VectorMatch(reader.GetString(0), 1d - reader.GetDouble(1)));
+                cancellationToken.ThrowIfCancellationRequested();
+                var fullScan = candidateLimit > MaximumVectorCandidates;
+                // vec0 bounds k. If many chunks from one file fill that budget, group
+                // an exact scan instead so other matching files cannot be crowded out.
+                command.CommandText = fullScan ? $"""
+                    SELECT metadata.{keyColumn}, MIN(vec_distance_cosine(vectors.embedding, $queryVector)) AS distance
+                    FROM {vectorTable} AS vectors
+                    INNER JOIN {metadataTable} AS metadata ON metadata.vector_rowid = vectors.rowid
+                    WHERE vectors.model_id = $modelId AND metadata.dimensions = $dimensions
+                    GROUP BY metadata.{keyColumn}
+                    ORDER BY distance, metadata.{keyColumn}
+                    LIMIT $maximumResults;
+                    """ : nearestQuery;
+                limitParameter.Value = fullScan ? maximumResults : candidateLimit;
+                matches.Clear();
+                keys.Clear();
+                var rowsRead = 0;
+                await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+                {
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        rowsRead++;
+                        var key = reader.GetString(0);
+                        if (!keys.Add(key)) continue;
+                        matches.Add(new VectorMatch(key, 1d - reader.GetDouble(1)));
+                        if (matches.Count == maximumResults) break;
+                    }
+                }
+                if (fullScan || matches.Count == maximumResults || rowsRead < candidateLimit)
+                    return matches;
+                candidateLimit *= 2;
             }
-
-            return matches;
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    private static async Task EnsureVectorDimensionsAsync(
+        SqliteConnection connection, string vectorTable, string metadataTable, CancellationToken cancellationToken)
+    {
+        await using var schema = connection.CreateCommand();
+        schema.CommandText = "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = $table;";
+        schema.Parameters.AddWithValue("$table", vectorTable);
+        if (await schema.ExecuteScalarAsync(cancellationToken) is not string definition
+            || Regex.IsMatch(definition, $@"embedding\s+float\s*\[\s*{EmbeddingGemmaEmbeddingService.VectorDimensions}\s*\]",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            return;
+
+        // Only derived vectors are invalidated; managed file sources and content hashes survive.
+        using var transaction = connection.BeginTransaction();
+        await using var reset = connection.CreateCommand();
+        reset.Transaction = transaction;
+        reset.CommandText = $"DROP TABLE {vectorTable}; DROP TABLE IF EXISTS {metadataTable};";
+        await reset.ExecuteNonQueryAsync(cancellationToken);
+        transaction.Commit();
     }
 
     private async Task<SqliteConnection> OpenAsync(CancellationToken cancellationToken)
@@ -1059,19 +1144,24 @@ internal sealed class IndexVectorStore
             if (!_initialized)
             {
                 await ExecuteAsync(connection, "PRAGMA journal_mode = WAL;", cancellationToken);
-                await ExecuteAsync(connection, $"CREATE VIRTUAL TABLE IF NOT EXISTS {TextVectorTable} USING vec0(embedding float[512] distance_metric=cosine, model_id TEXT PARTITION KEY);", cancellationToken);
-                await ExecuteAsync(connection, $"CREATE VIRTUAL TABLE IF NOT EXISTS {ImageVectorTable} USING vec0(embedding float[1024] distance_metric=cosine, model_id TEXT PARTITION KEY);", cancellationToken);
+                await EnsureVectorDimensionsAsync(connection, TextVectorTable, TextMetadataTable, cancellationToken);
+                await EnsureVectorDimensionsAsync(connection, ImageVectorTable, ImageMetadataTable, cancellationToken);
+                await ExecuteAsync(connection, $"CREATE VIRTUAL TABLE IF NOT EXISTS {TextVectorTable} USING vec0(embedding float[{EmbeddingGemmaEmbeddingService.VectorDimensions}] distance_metric=cosine, model_id TEXT PARTITION KEY);", cancellationToken);
+                await ExecuteAsync(connection, $"CREATE VIRTUAL TABLE IF NOT EXISTS {ImageVectorTable} USING vec0(embedding float[{EmbeddingGemmaEmbeddingService.VectorDimensions}] distance_metric=cosine, model_id TEXT PARTITION KEY);", cancellationToken);
                 await ExecuteAsync(connection, $"""
                     CREATE TABLE IF NOT EXISTS {TextMetadataTable} (
-                        key TEXT NOT NULL PRIMARY KEY{FilePathCollation},
+                        key TEXT NOT NULL{FilePathCollation},
+                        chunk_index INTEGER NOT NULL DEFAULT 0,
                         model_id TEXT NOT NULL,
                         dimensions INTEGER NOT NULL,
                         vector_rowid INTEGER NOT NULL,
                         content_kind INTEGER NOT NULL DEFAULT 0,
-                        updated_at INTEGER NOT NULL
+                        updated_at INTEGER NOT NULL,
+                        PRIMARY KEY(key, chunk_index)
                     );
                     """, cancellationToken);
                 await EnsureTextContentKindColumnAsync(connection, cancellationToken);
+                await EnsureTextChunksAsync(connection, cancellationToken);
                 await ExecuteAsync(connection, $"""
                     CREATE TABLE IF NOT EXISTS {ImageMetadataTable} (
                         path TEXT NOT NULL PRIMARY KEY{FilePathCollation},
@@ -1535,7 +1625,8 @@ internal sealed class IndexVectorStore
         int dimensions,
         long vectorRowId,
         TextContentKind? textContentKind,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int chunkIndex = 0)
     {
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
@@ -1556,9 +1647,9 @@ internal sealed class IndexVectorStore
         else
         {
             command.CommandText = $"""
-                INSERT INTO {metadataTable}(key, model_id, dimensions, vector_rowid, content_kind, updated_at)
-                VALUES($key, $modelId, $dimensions, $vectorRowId, $contentKind, unixepoch())
-                ON CONFLICT(key) DO UPDATE SET
+                INSERT INTO {metadataTable}(key, chunk_index, model_id, dimensions, vector_rowid, content_kind, updated_at)
+                VALUES($key, $chunkIndex, $modelId, $dimensions, $vectorRowId, $contentKind, unixepoch())
+                ON CONFLICT(key, chunk_index) DO UPDATE SET
                     model_id = excluded.model_id,
                     dimensions = excluded.dimensions,
                     vector_rowid = excluded.vector_rowid,
@@ -1566,6 +1657,7 @@ internal sealed class IndexVectorStore
                     updated_at = excluded.updated_at;
                 """;
             command.Parameters.AddWithValue("$contentKind", (int)(textContentKind ?? TextContentKind.Entry));
+            command.Parameters.AddWithValue("$chunkIndex", chunkIndex);
         }
 
         command.Parameters.AddWithValue("$key", key);
@@ -1584,31 +1676,11 @@ internal sealed class IndexVectorStore
         string key,
         CancellationToken cancellationToken)
     {
-        long? rowId;
-        await using (var select = connection.CreateCommand())
-        {
-            select.Transaction = transaction;
-            select.CommandText = $"SELECT vector_rowid FROM {metadataTable} WHERE {keyColumn} = $key;";
-            select.Parameters.AddWithValue("$key", key);
-            rowId = await select.ExecuteScalarAsync(cancellationToken) is { } value && value is not DBNull
-                ? Convert.ToInt64(value)
-                : null;
-        }
-
-        if (rowId is not null)
-        {
-            await using var vectorDelete = connection.CreateCommand();
-            vectorDelete.Transaction = transaction;
-            vectorDelete.CommandText = $"DELETE FROM {vectorTable} WHERE rowid = $rowId;";
-            vectorDelete.Parameters.AddWithValue("$rowId", rowId.Value);
-            await vectorDelete.ExecuteNonQueryAsync(cancellationToken);
-        }
-
-        await using var metadataDelete = connection.CreateCommand();
-        metadataDelete.Transaction = transaction;
-        metadataDelete.CommandText = $"DELETE FROM {metadataTable} WHERE {keyColumn} = $key;";
-        metadataDelete.Parameters.AddWithValue("$key", key);
-        await metadataDelete.ExecuteNonQueryAsync(cancellationToken);
+        await ExecuteInTransactionAsync(connection, transaction, $"""
+            DELETE FROM {vectorTable}
+            WHERE rowid IN (SELECT vector_rowid FROM {metadataTable} WHERE {keyColumn} = $key);
+            DELETE FROM {metadataTable} WHERE {keyColumn} = $key;
+            """, cancellationToken, ("$key", key));
     }
 
     private static async Task DeleteMappedTextVectorIfKindAsync(
@@ -1679,6 +1751,44 @@ internal sealed class IndexVectorStore
             cancellationToken);
     }
 
+    private static async Task EnsureTextChunksAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
+        await using (var schema = connection.CreateCommand())
+        {
+            schema.CommandText = $"PRAGMA table_info({TextMetadataTable});";
+            await using var reader = await schema.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+                if (reader.GetString(1) == "chunk_index") return;
+        }
+
+        // Averaged document vectors cannot be recovered as individual chunks.
+        // Preserve entry/OCR vectors, file sources and fingerprints for reindexing.
+        using var transaction = connection.BeginTransaction();
+        await ExecuteInTransactionAsync(connection, transaction, $"""
+            CREATE TABLE index_text_metadata_chunks (
+                key TEXT NOT NULL{FilePathCollation},
+                chunk_index INTEGER NOT NULL DEFAULT 0,
+                model_id TEXT NOT NULL,
+                dimensions INTEGER NOT NULL,
+                vector_rowid INTEGER NOT NULL,
+                content_kind INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY(key, chunk_index)
+            );
+            INSERT OR REPLACE INTO index_text_metadata_chunks
+                (key, model_id, dimensions, vector_rowid, content_kind, updated_at)
+            SELECT key, model_id, dimensions, vector_rowid, content_kind, updated_at
+            FROM {TextMetadataTable}
+            WHERE content_kind <> {(int)TextContentKind.Document}
+            ORDER BY updated_at, rowid;
+            DELETE FROM {TextVectorTable}
+            WHERE rowid NOT IN (SELECT vector_rowid FROM index_text_metadata_chunks);
+            DROP TABLE {TextMetadataTable};
+            ALTER TABLE index_text_metadata_chunks RENAME TO {TextMetadataTable};
+            """, cancellationToken);
+        transaction.Commit();
+    }
+
     private static async Task EnsureCaseInsensitiveTableAsync(
         SqliteConnection connection,
         string table,
@@ -1709,12 +1819,14 @@ internal sealed class IndexVectorStore
         {
             TextMetadataTable => $"""
                 CREATE TABLE {temporaryTable} (
-                    key TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+                    key TEXT NOT NULL COLLATE NOCASE,
+                    chunk_index INTEGER NOT NULL DEFAULT 0,
                     model_id TEXT NOT NULL,
                     dimensions INTEGER NOT NULL,
                     vector_rowid INTEGER NOT NULL,
                     content_kind INTEGER NOT NULL DEFAULT 0,
-                    updated_at INTEGER NOT NULL
+                    updated_at INTEGER NOT NULL,
+                    PRIMARY KEY(key, chunk_index)
                 );
                 """,
             ImageMetadataTable => $"""
@@ -1745,7 +1857,7 @@ internal sealed class IndexVectorStore
 
         var columns = table switch
         {
-            TextMetadataTable => "key, model_id, dimensions, vector_rowid, content_kind, updated_at",
+            TextMetadataTable => "key, chunk_index, model_id, dimensions, vector_rowid, content_kind, updated_at",
             ImageMetadataTable => "path, fingerprint, model_id, dimensions, vector_rowid, updated_at",
             FileStateTable => "path, file_kind, length, last_write_utc_ticks, content_hash, ocr_completed, ocr_model_id, updated_at",
             _ => throw new ArgumentException($"Unsupported case migration table '{table}'.", nameof(table))

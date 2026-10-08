@@ -78,15 +78,7 @@ public class PluginOverall
         }
 
         Features.Add(BuiltInFeatureSource, builtInFeatures);
-        OnnxModelInfos.Add(BuiltInFeatureSource,
-        [
-            new OnnxModelInfoWrapper
-            {
-                Model = BgeModelPackage.CreateModelInfo(),
-                PluginStr = BuiltInFeatureSource
-            }
-        ]);
-        OnnxModelInfos[BuiltInFeatureSource].AddRange(ChineseClipModelPackage.CreateModelInfos());
+        OnnxModelInfos.Add(BuiltInFeatureSource, EmbeddingGemmaModelPackage.CreateModelInfos().ToList());
         OnnxModelInfos[BuiltInFeatureSource].AddRange(OcrModelPackage.CreateModelInfos());
 
         var exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Kitopia.Desktop.exe");

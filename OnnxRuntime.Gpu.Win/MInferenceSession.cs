@@ -110,6 +110,34 @@ public class MInferenceSession : IInferenceSession
         }
     }
     
+public Memory<float> Infer(
+        List<(string, Memory<int>, Memory<long>)> int64Inputs,
+        List<(string, Memory<int>, Memory<float>)> floatInputs,
+        string outputName,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var session = _inferenceSession ?? throw new InvalidOperationException("The inference session has not been initialized.");
+        var inputs = new List<NamedOnnxValue>(int64Inputs.Count + floatInputs.Count);
+        foreach (var (name, shape, data) in int64Inputs)
+            inputs.Add(NamedOnnxValue.CreateFromTensor(name, new DenseTensor<long>(data, shape.Span)));
+        foreach (var (name, shape, data) in floatInputs)
+            inputs.Add(NamedOnnxValue.CreateFromTensor(name, new DenseTensor<float>(data, shape.Span)));
+        using var runOptions = new RunOptions();
+        using var registration = cancellationToken.Register(() => runOptions.Terminate = true);
+        try
+        {
+            using var outputs = session.Run(inputs, [outputName], runOptions);
+            cancellationToken.ThrowIfCancellationRequested();
+            return outputs[0].AsTensor<float>().ToArray();
+        }
+        catch (OnnxRuntimeException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+    }
+
+
     public void Dispose()
     {
         _inferenceSession?.Dispose();

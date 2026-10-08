@@ -312,6 +312,86 @@ public sealed class DocumentTextExtractorTests
         }
     }
 
+    [TestMethod]
+    public async Task ExtractChunksAsync_DefaultBudget_KeepsLongTextWithinTheModelContext()
+    {
+        ConfigManger.Config.plainTextExtensions.Add(".txt");
+        var path = CreateTemporaryPath(".txt");
+        try
+        {
+            await File.WriteAllTextAsync(path, new string('x', 20000));
+            Assert.IsTrue(DocumentTextExtractor.TryCreateSource(path, out var source));
+            var chunks = new List<string>();
+            await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(
+                               source, text => text.Length + 20, CancellationToken.None))
+                chunks.Add(chunk);
+            Assert.IsTrue(chunks[0].Length > 254);
+            Assert.IsTrue(chunks.All(chunk => chunk.Length + 20 <= 8192));
+            Assert.IsTrue(chunks.Sum(chunk => chunk.Length) >= 20000);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [TestMethod]
+    public async Task ExtractChunksAsync_LongDocument_PrefersParagraphBoundaries()
+    {
+        var path = CreateTemporaryPath(".md");
+        try
+        {
+            var paragraph = new string('a', 180);
+            await File.WriteAllTextAsync(path, paragraph + "\n\n" + new string('b', 400));
+            var chunks = await ExtractChunksAsync(path);
+            Assert.AreEqual(paragraph, chunks[0]);
+            Assert.IsTrue(chunks.All(chunk => chunk.Length <= 254));
+            Assert.IsTrue(chunks.Any(chunk => chunk.Contains('b')));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [TestMethod]
+    public async Task ExtractChunksAsync_ShortDocument_PreservesParagraphsInOneChunk()
+    {
+        var path = CreateTemporaryPath(".md");
+        try
+        {
+            await File.WriteAllTextAsync(path, "First paragraph.\r\n\r\nSecond paragraph.");
+            var chunks = await ExtractChunksAsync(path);
+            Assert.HasCount(1, chunks);
+            Assert.AreEqual("First paragraph.\nSecond paragraph.", chunks[0]);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [TestMethod]
+    public async Task ExtractChunksAsync_TitleOverhead_DoesNotConsumeContentOverlap()
+    {
+        var path = CreateTemporaryPath(".md");
+        try
+        {
+            await File.WriteAllTextAsync(path, new string('a', 400));
+            Assert.IsTrue(DocumentTextExtractor.TryCreateSource(path, out var source));
+            var chunks = new List<string>();
+            await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(
+                               source, text => text.Length + 80, CancellationToken.None, maximumTokens: 254))
+                chunks.Add(chunk);
+            Assert.IsTrue(chunks.All(chunk => chunk.Length + 80 <= 254));
+            Assert.AreEqual(400 + 48 * (chunks.Count - 1), chunks.Sum(chunk => chunk.Length));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private static async Task<List<string>> ExtractChunksAsync(string path)
     {
         Assert.IsTrue(DocumentTextExtractor.TryCreateSource(path, out var source));
@@ -319,7 +399,8 @@ public sealed class DocumentTextExtractorTests
         await foreach (var chunk in DocumentTextExtractor.ExtractChunksAsync(
                            source,
                            text => text.Length,
-                           CancellationToken.None))
+                           CancellationToken.None,
+                           maximumTokens: 254))
         {
             chunks.Add(chunk);
         }

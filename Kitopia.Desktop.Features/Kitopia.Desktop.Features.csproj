@@ -59,6 +59,8 @@
         <PackageReference Include="SharpHook" Version="7.1.2" Condition="$(TargetFramework.Contains('-windows'))" />
         <PackageReference Include="SharpHook.Reactive" Version="7.1.2" Condition="$(TargetFramework.Contains('-windows'))" />
         <PackageReference Include="SkiaSharp" Version="3.119.4" />
+        <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+        <PackageReference Include="Tokenizers.HuggingFace" Version="3.23.1" />
         <PackageReference Include="Silk.NET.Direct3D11" Version="2.23.0" Condition="$(TargetFramework.Contains('-windows'))" />
         <PackageReference Include="System.Drawing.Common" Version="10.0.9" />
         <PackageReference Include="System.Management" Version="10.0.9" Condition="$(TargetFramework.Contains('-windows'))" />
@@ -84,8 +86,8 @@
     <ItemGroup>
         <AvaloniaResource Include="Assets\FluentSystemIcons-Filled.ttf" />
         <AvaloniaResource Include="Assets\FluentSystemIcons-Regular.ttf" />
-        <Content Include="Assets\ChineseClip\**\*">
-            <Link>ChineseClip\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        <Content Include="Assets\EmbeddingGemma2\**\*" Exclude="Assets\EmbeddingGemma2\onnx\*.onnx_data">
+            <Link>EmbeddingGemma2\%(RecursiveDir)%(Filename)%(Extension)</Link>
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         </Content>

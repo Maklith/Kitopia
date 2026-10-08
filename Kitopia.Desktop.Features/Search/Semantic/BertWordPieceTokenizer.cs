@@ -63,7 +63,8 @@ internal sealed class BertWordPieceTokenizer
         var index = 0;
         foreach (var line in File.ReadLines(vocabularyPath))
         {
-            vocabulary[line.Trim()] = index++;
+            // Whitespace is a valid token; trimming can create zero-length word pieces.
+            vocabulary[line] = index++;
         }
 
         return new BertWordPieceTokenizer(vocabulary);

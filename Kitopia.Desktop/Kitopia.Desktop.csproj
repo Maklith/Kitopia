@@ -88,13 +88,8 @@
         <Content Include="Assets\icon.png">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
-        <Content Include="..\Kitopia.Desktop.Features\Assets\BGE_Model\**\*">
-            <Link>BGE_Model\%(RecursiveDir)%(Filename)%(Extension)</Link>
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-        </Content>
-        <Content Include="..\Kitopia.Desktop.Features\Assets\ChineseClip\**\*">
-            <Link>ChineseClip\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        <Content Include="..\Kitopia.Desktop.Features\Assets\EmbeddingGemma2\**\*" Exclude="..\Kitopia.Desktop.Features\Assets\EmbeddingGemma2\onnx\*.onnx_data">
+            <Link>EmbeddingGemma2\%(RecursiveDir)%(Filename)%(Extension)</Link>
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         </Content>
@@ -193,14 +188,15 @@
         <Folder Include="Tools\"/>
     </ItemGroup>
 
-    <Target Name="CopyBgeModelForDebug" AfterTargets="Build"
+    <Target Name="CopyEmbeddingGemmaModelForDebug" AfterTargets="Build"
             Condition="'$(Configuration)' == 'Debug' And '$(LOCALAPPDATA)' != ''">
         <ItemGroup>
-            <BgeModelFiles Include="$(MSBuildProjectDirectory)\..\Kitopia.Desktop.Features\Assets\BGE_Model\**\*" />
+            <EmbeddingGemmaModelFiles Include="$(MSBuildProjectDirectory)\..\Kitopia.Desktop.Features\Assets\EmbeddingGemma2\**\*"
+                                     Exclude="$(MSBuildProjectDirectory)\..\Kitopia.Desktop.Features\Assets\EmbeddingGemma2\onnx\*.onnx_data" />
         </ItemGroup>
-        <MakeDir Directories="@(BgeModelFiles->'$(LOCALAPPDATA)\Kitopia\BGE_Model\%(RecursiveDir)')" />
-        <Copy SourceFiles="@(BgeModelFiles)"
-              DestinationFiles="@(BgeModelFiles->'$(LOCALAPPDATA)\Kitopia\BGE_Model\%(RecursiveDir)%(Filename)%(Extension)')"
+        <MakeDir Directories="@(EmbeddingGemmaModelFiles->'$(LOCALAPPDATA)\Kitopia\EmbeddingGemma2\%(RecursiveDir)')" />
+        <Copy SourceFiles="@(EmbeddingGemmaModelFiles)"
+              DestinationFiles="@(EmbeddingGemmaModelFiles->'$(LOCALAPPDATA)\Kitopia\EmbeddingGemma2\%(RecursiveDir)%(Filename)%(Extension)')"
               SkipUnchangedFiles="true" />
     </Target>
 

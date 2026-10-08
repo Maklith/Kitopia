@@ -28,8 +28,8 @@
       "Target": "{localUserData}\\Kitopia\\plugins"
     },
     {
-      "Package": "BGE_Model.zip",
-      "Target": "{localUserData}\\Kitopia\\BGE_Model"
+      "Package": "EmbeddingGemma2.zip",
+      "Target": "{localUserData}\\Kitopia\\EmbeddingGemma2"
     },
     {
       "Package": "Ocr.zip",
