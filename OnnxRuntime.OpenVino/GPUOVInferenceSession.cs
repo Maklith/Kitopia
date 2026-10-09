@@ -8,13 +8,15 @@ namespace OnnxRuntime.OpenVino;
 
 public class GPUOVInferenceSession : IInferenceSession
 {
-    static GPUOVInferenceSession() => Shared.RuntimeAvailabilityProbe.ConfigureNativeLibraryResolution();
+    private readonly OnnxRuntimeGpuWin _runtime;
+
+    public GPUOVInferenceSession(OnnxRuntimeGpuWin runtime) => _runtime = runtime;
 
     public string Device => "GPU(OpenVino)";
     public bool? CheckAvailability()
     {
         using var options = new SessionOptions();
-        options.AppendExecutionProvider_OpenVINO("GPU");
+        _runtime.AppendExecutionProvider(options, OrtHardwareDeviceType.GPU);
         return Shared.RuntimeAvailabilityProbe.Check(options, requireExecutionProvider: true);
     }
 
@@ -29,12 +31,13 @@ public class GPUOVInferenceSession : IInferenceSession
     {
         using var sessionOptions = new SessionOptions
         {
+            GraphOptimizationLevel = GraphOptimizationLevel.ORT_DISABLE_ALL,
             EnableCpuMemArena = useCpuMemoryArena, EnableMemoryPattern = false,
             IntraOpNumThreads = intraOpNumThreads, InterOpNumThreads = 1
         };
         sessionOptions.AddSessionConfigEntry("session.intra_op.allow_spinning", "0");
         sessionOptions.AddSessionConfigEntry("session.inter_op.allow_spinning", "0");
-        sessionOptions.AppendExecutionProvider_OpenVINO("GPU");
+        _runtime.AppendExecutionProvider(sessionOptions, OrtHardwareDeviceType.GPU);
         var session = new InferenceSession(modelPath, sessionOptions);
         _inferenceSession?.Dispose();
         _inferenceSession = session;
@@ -43,8 +46,8 @@ public class GPUOVInferenceSession : IInferenceSession
 
     public void InitSession(byte[] modelData)
     {
-        using var sessionOptions = new SessionOptions();
-        sessionOptions.AppendExecutionProvider_OpenVINO("GPU");
+        using var sessionOptions = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_DISABLE_ALL };
+        _runtime.AppendExecutionProvider(sessionOptions, OrtHardwareDeviceType.GPU);
         var session = new InferenceSession(modelData, sessionOptions);
         _inferenceSession?.Dispose();
         _inferenceSession = session;

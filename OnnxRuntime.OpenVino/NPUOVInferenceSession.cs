@@ -8,13 +8,15 @@ namespace OnnxRuntime.OpenVino;
 
 public class NPUOVInferenceSession : IInferenceSession
 {
-    static NPUOVInferenceSession() => Shared.RuntimeAvailabilityProbe.ConfigureNativeLibraryResolution();
+    private readonly OnnxRuntimeGpuWin _runtime;
+
+    public NPUOVInferenceSession(OnnxRuntimeGpuWin runtime) => _runtime = runtime;
 
     public string Device => "NPU(OpenVino)";
     public bool? CheckAvailability()
     {
         using var options = new SessionOptions();
-        options.AppendExecutionProvider_OpenVINO("NPU");
+        _runtime.AppendExecutionProvider(options, OrtHardwareDeviceType.NPU);
         return Shared.RuntimeAvailabilityProbe.Check(options, requireExecutionProvider: true);
     }
 
@@ -29,12 +31,13 @@ public class NPUOVInferenceSession : IInferenceSession
     {
         using var sessionOptions = new SessionOptions
         {
+            GraphOptimizationLevel = GraphOptimizationLevel.ORT_DISABLE_ALL,
             EnableCpuMemArena = useCpuMemoryArena, EnableMemoryPattern = false,
             IntraOpNumThreads = intraOpNumThreads, InterOpNumThreads = 1
         };
         sessionOptions.AddSessionConfigEntry("session.intra_op.allow_spinning", "0");
         sessionOptions.AddSessionConfigEntry("session.inter_op.allow_spinning", "0");
-        sessionOptions.AppendExecutionProvider_OpenVINO("NPU");
+        _runtime.AppendExecutionProvider(sessionOptions, OrtHardwareDeviceType.NPU);
         var session = new InferenceSession(modelPath, sessionOptions);
         _inferenceSession?.Dispose();
         _inferenceSession = session;
@@ -43,8 +46,8 @@ public class NPUOVInferenceSession : IInferenceSession
 
     public void InitSession(byte[] modelData)
     {
-        using var sessionOptions = new SessionOptions();
-        sessionOptions.AppendExecutionProvider_OpenVINO("NPU");
+        using var sessionOptions = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_DISABLE_ALL };
+        _runtime.AppendExecutionProvider(sessionOptions, OrtHardwareDeviceType.NPU);
         var session = new InferenceSession(modelData, sessionOptions);
         _inferenceSession?.Dispose();
         _inferenceSession = session;

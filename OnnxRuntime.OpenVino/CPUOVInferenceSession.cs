@@ -8,13 +8,15 @@ namespace OnnxRuntime.OpenVino;
 
 public class CPUOVInferenceSession : IInferenceSession
 {
-    static CPUOVInferenceSession() => Shared.RuntimeAvailabilityProbe.ConfigureNativeLibraryResolution();
+    private readonly OnnxRuntimeGpuWin _runtime;
+
+    public CPUOVInferenceSession(OnnxRuntimeGpuWin runtime) => _runtime = runtime;
 
     public string Device => "CPU(OpenVino)";
     public bool? CheckAvailability()
     {
         using var options = new SessionOptions();
-        options.AppendExecutionProvider_OpenVINO("CPU");
+        _runtime.AppendExecutionProvider(options, OrtHardwareDeviceType.CPU);
         return Shared.RuntimeAvailabilityProbe.Check(options, requireExecutionProvider: true);
     }
 
@@ -29,15 +31,13 @@ public class CPUOVInferenceSession : IInferenceSession
     {
         using var sessionOptions = new SessionOptions
         {
+            GraphOptimizationLevel = GraphOptimizationLevel.ORT_DISABLE_ALL,
             EnableCpuMemArena = useCpuMemoryArena, EnableMemoryPattern = false,
             IntraOpNumThreads = intraOpNumThreads, InterOpNumThreads = 1
         };
         sessionOptions.AddSessionConfigEntry("session.intra_op.allow_spinning", "0");
         sessionOptions.AddSessionConfigEntry("session.inter_op.allow_spinning", "0");
-        var providerOptions = new Dictionary<string, string> { ["device_type"] = "CPU" };
-        if (intraOpNumThreads > 0)
-            providerOptions["num_of_threads"] = intraOpNumThreads.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        sessionOptions.AppendExecutionProvider("OpenVINO", providerOptions);
+        _runtime.AppendExecutionProvider(sessionOptions, OrtHardwareDeviceType.CPU, intraOpNumThreads);
         var session = new InferenceSession(modelPath, sessionOptions);
         _inferenceSession?.Dispose();
         _inferenceSession = session;
@@ -46,8 +46,8 @@ public class CPUOVInferenceSession : IInferenceSession
 
     public void InitSession(byte[] modelData)
     {
-        using var sessionOptions = new SessionOptions();
-        sessionOptions.AppendExecutionProvider_OpenVINO("CPU");
+        using var sessionOptions = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_DISABLE_ALL };
+        _runtime.AppendExecutionProvider(sessionOptions, OrtHardwareDeviceType.CPU);
         var session = new InferenceSession(modelData, sessionOptions);
         _inferenceSession?.Dispose();
         _inferenceSession = session;

@@ -39,6 +39,7 @@
       <ProjectReference Include="..\Kitopia.Desktop.Platform.Linux\Kitopia.Desktop.Platform.Linux.csproj" />
       <ProjectReference Include="..\Kitopia.Desktop.Features\Kitopia.Desktop.Features.csproj" />
       <ProjectReference Include="..\OnnxRuntime.CPU\OnnxRuntime.CPU.csproj" AdditionalProperties="OnnxRuntimeOutputPath=bin\$(Configuration)\" />
+      <ProjectReference Include="..\OnnxRuntime.OpenVino\OnnxRuntime.OpenVino.csproj" AdditionalProperties="OnnxRuntimeOutputPath=bin\$(Configuration)\" />
       <ProjectReference Include="..\Kitopia.Desktop\Kitopia.Desktop.csproj" />
       <ProjectReference Include="..\KitopiaEx\KitopiaEx.csproj" AdditionalProperties="KitopiaExTestBuild=true" />
       <ProjectReference Include="..\Kitopia.Feature\Kitopia.Feature.csproj" />

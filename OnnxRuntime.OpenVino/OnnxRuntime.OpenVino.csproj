@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
-        <Version>1.0.4</Version>
+        <Version>1.0.5</Version>
         <ImplicitUsings>enable</ImplicitUsings>
         <EnableDynamicLoading>true</EnableDynamicLoading>
         <Nullable>enable</Nullable>
@@ -10,11 +10,13 @@
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
         <AppendTargetFrameworkToOutputPath>output</AppendTargetFrameworkToOutputPath>
         <OutputPath>$(LocalAppData)\Kitopia\plugins\kitopiaonnxruntimeopenvino\</OutputPath>
+        <OutputPath Condition="'$(OnnxRuntimeOutputPath)' != ''">$(OnnxRuntimeOutputPath)</OutputPath>
 
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Intel.ML.OnnxRuntime.OpenVino" Version="1.24.1" />
+        <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" />
+        <PackageReference Include="Intel.ML.OnnxRuntime.EP.OpenVINO" Version="1.7.0" />
     </ItemGroup>
 
     <ItemGroup>
@@ -34,4 +36,14 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
     </ItemGroup>
+
+    <!-- OpenVINOEp.GetLibraryPath requires the package's native runtime directory. -->
+    <Target Name="PreserveOpenVinoNativeLayout" AfterTargets="ComputeFilesToPublish">
+        <ItemGroup>
+            <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"
+                                   Condition="'%(ResolvedFileToPublish.NuGetPackageId)' == 'Intel.ML.OnnxRuntime.EP.OpenVINO' And '%(ResolvedFileToPublish.AssetType)' == 'native'">
+                <RelativePath>%(ResolvedFileToPublish.PathInPackage)</RelativePath>
+            </ResolvedFileToPublish>
+        </ItemGroup>
+    </Target>
 </Project>

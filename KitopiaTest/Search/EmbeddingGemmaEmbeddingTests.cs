@@ -87,6 +87,36 @@ public sealed class EmbeddingGemmaEmbeddingTests
     }
 
     [TestMethod]
+    public async Task EmbedAsync_OfficialOpenVinoPlugin_MatchesTextAndImageReferences()
+    {
+        using var runtime = new OnnxRuntime.OpenVino.OnnxRuntimeGpuWin();
+        PluginOverall.OnnxRuntimes["EG2-Test"]["EG2-Test-CPU"] =
+            () => new OnnxRuntime.OpenVino.CPUOVInferenceSession(runtime);
+        try
+        {
+            var rows = _reference.RootElement.GetProperty("texts").EnumerateArray().ToArray();
+            var vectors = await _service.EmbedAsync(
+                rows.Take(4).Select(row => row.GetProperty("text").GetString()!).ToArray(), 8192, CancellationToken.None);
+            for (var index = 0; index < vectors.Count; index++) AssertVector(rows[index], vectors[index], 0.9999);
+            var truncated = await _service.EmbedAsync([rows[4].GetProperty("text").GetString()!], 24, CancellationToken.None);
+            AssertVector(rows[4], truncated[0], 0.9999);
+            foreach (var row in _reference.RootElement.GetProperty("images").EnumerateArray())
+            {
+                var path = Path.Combine(_referenceDirectory, row.GetProperty("file").GetString()!);
+                var vector = (await _service.EmbedImagesAsync([path], CancellationToken.None))[0];
+                AssertVector(row, vector, 0.999);
+            }
+            await _service.ReleaseSessionsAsync();
+            var reloaded = await _service.EmbedAsync([rows[0].GetProperty("text").GetString()!], 512, CancellationToken.None);
+            AssertVector(rows[0], reloaded[0], 0.9999);
+        }
+        finally
+        {
+            await _service.ReleaseSessionsAsync();
+        }
+    }
+
+    [TestMethod]
     public async Task EmbedDocumentAsync_LongDocument_RetainsIndependentChunkVectors()
     {
         var path = Path.Combine(Path.GetTempPath(), $"kitopia-eg2-chunks-{Guid.NewGuid():N}.md");
