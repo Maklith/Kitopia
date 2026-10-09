@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using Microsoft.ML.OnnxRuntime;
@@ -55,15 +56,53 @@ internal static class RuntimeAvailabilityProbe
         if (requireExecutionProvider)
             options.AddSessionConfigEntry("session.disable_cpu_ep_fallback", "1");
 
-        using var session = new InferenceSession(requireCudnn ? _cudnnModel : Model, options);
-        var input = requireCudnn ? new float[16] : Enumerable.Range(1, 16).Select(value => (float)value).ToArray();
-        using var outputs = session.Run([
-            NamedOnnxValue.CreateFromTensor("input", new DenseTensor<float>(input, [1, 16]))
-        ]);
-        var output = outputs[0].AsTensor<float>();
-        if (output.Length != input.Length || output.Where((value, index) =>
-                !float.IsFinite(value) || Math.Abs(value - (requireCudnn ? 1f / 16 : input[index])) > 0.001f).Any())
-            throw new InvalidOperationException("The runtime probe produced an invalid inference result.");
+        try
+        {
+            using var session = new InferenceSession(requireCudnn ? _cudnnModel : Model, options);
+            var input = requireCudnn ? new float[16] : Enumerable.Range(1, 16).Select(value => (float)value).ToArray();
+            using var outputs = session.Run([
+                NamedOnnxValue.CreateFromTensor("input", new DenseTensor<float>(input, [1, 16]))
+            ]);
+            var output = outputs[0].AsTensor<float>();
+            if (output.Length != input.Length || output.Where((value, index) =>
+                    !float.IsFinite(value) || Math.Abs(value - (requireCudnn ? 1f / 16 : input[index])) > 0.001f).Any())
+                throw new InvalidOperationException("The runtime probe produced an invalid inference result.");
+        }
+        catch (OnnxRuntimeException exception)
+        {
+            var environment = OrtEnv.Instance();
+            var details = new List<string>();
+            // Session memory queries dereference the allocator that may be missing here.
+            foreach (var device in environment.GetEpDevices())
+            {
+                foreach (var memoryType in new[] { OrtDeviceMemoryType.DEFAULT, OrtDeviceMemoryType.HOST_ACCESSIBLE })
+                {
+                    using var memory = device.GetMemoryInfo(memoryType);
+                    if (memory.IsInvalid) continue;
+                    using var shared = environment.GetSharedAllocator(memory);
+                    details.Add($"{device.EpName} {device.HardwareDevice.Type}: {memory.Name}, id={memory.Id}, " +
+                                $"memory={memoryType}, shared allocator={shared is not null}");
+                }
+            }
+            if (OperatingSystem.IsWindows())
+            {
+                using var process = Process.GetCurrentProcess();
+                foreach (ProcessModule module in process.Modules)
+                {
+                    if (module.ModuleName.StartsWith("openvino", StringComparison.OrdinalIgnoreCase) ||
+                        module.ModuleName.Equals("ze_loader.dll", StringComparison.OrdinalIgnoreCase) ||
+                        module.ModuleName.Equals("ze_intel_npu.dll", StringComparison.OrdinalIgnoreCase) ||
+                        module.ModuleName.Equals("npu_level_zero_umd.dll", StringComparison.OrdinalIgnoreCase))
+                        details.Add($"{module.ModuleName} {module.FileVersionInfo.FileVersion}: {module.FileName}");
+                }
+            }
+            // The host displays the base exception, so retain the native error in this message.
+            throw new InvalidOperationException(
+                $"{typeof(RuntimeAvailabilityProbe).Assembly.GetName().Name} " +
+                $"{typeof(RuntimeAvailabilityProbe).Assembly.GetName().Version}, " +
+                $"ONNX Runtime {environment.GetVersionString()}: {exception.Message}{Environment.NewLine}" +
+                string.Join(Environment.NewLine, details));
+        }
         return true;
     }
 }

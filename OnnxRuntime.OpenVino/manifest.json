@@ -1,7 +1,7 @@
 {
   "Name": "Onnx OpenVino推理环境",
   "NameSign": "kitopiaonnxruntimeopenvino",
-  "Version": "1.0.6",
+  "Version": "1.0.10",
   "Description": "官方拓展插件,提供OpenVino推理环境",
   "Main": "OnnxRuntime.OpenVino.dll",
   "Dependencies": {
