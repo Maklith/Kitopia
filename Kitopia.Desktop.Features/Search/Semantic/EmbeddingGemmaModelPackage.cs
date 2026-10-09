@@ -9,13 +9,21 @@ internal static class EmbeddingGemmaModelPackage
     public const string TextModelSignName = "embeddinggemma-2-text-onnx-q4";
     public const string VisionModelSignName = "embeddinggemma-2-vision-onnx-q4";
     public const string DisplayName = "EmbeddingGemma 2 Q4";
-    public static readonly string[] RequiredFiles =
+    public static readonly string[] TextModelFiles =
     [
         "onnx/model_q4.onnx", "onnx/model_q4.onnx_data.part001", "onnx/model_q4.onnx_data.part002",
-        "onnx/model_q4.onnx_data.part003", "onnx/model_q4.onnx_data.part004", "onnx/model_q4.onnx_data.part005",
+        "onnx/model_q4.onnx_data.part003", "onnx/model_q4.onnx_data.part004", "onnx/model_q4.onnx_data.part005"
+    ];
+    public static readonly string[] VisionModelFiles =
+    [
         "onnx/vision_encoder_q4.onnx", "onnx/vision_encoder_q4.onnx_data.part001",
         "onnx/vision_encoder_q4.onnx_data.part002", "onnx/vision_encoder_q4.onnx_data.part003",
-        "onnx/vision_encoder_q4.onnx_data.part004",
+        "onnx/vision_encoder_q4.onnx_data.part004"
+    ];
+    public static readonly string[] RequiredFiles =
+    [
+        ..TextModelFiles,
+        ..VisionModelFiles,
         "tokenizer.json", "tokenizer_config.json", "processor_config.json", "config.json"
     ];
     public static readonly string DirectoryPath = ResolveDirectory(
@@ -41,7 +49,7 @@ internal static class EmbeddingGemmaModelPackage
                 Description = "lang.kitopia.embeddinggemma_text_description",
                 SignName = TextModelSignName,
                 ModelPath = TextModelPath,
-                RequiredFiles = RequiredFiles.Select(file => Path.Combine(DirectoryPath, file)).ToArray(),
+                RequiredFiles = TextModelFiles.Select(file => Path.Combine(DirectoryPath, file)).ToArray(),
                 IsBundled = true
             }
         },
@@ -54,7 +62,7 @@ internal static class EmbeddingGemmaModelPackage
                 Description = "lang.kitopia.embeddinggemma_vision_description",
                 SignName = VisionModelSignName,
                 ModelPath = VisionModelPath,
-                RequiredFiles = RequiredFiles.Select(file => Path.Combine(DirectoryPath, file)).ToArray(),
+                RequiredFiles = VisionModelFiles.Select(file => Path.Combine(DirectoryPath, file)).ToArray(),
                 IsBundled = true
             }
         }

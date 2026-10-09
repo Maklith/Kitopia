@@ -109,7 +109,7 @@ public class KitopiaConfig : ConfigBase
     internal static readonly IReadOnlyList<string> DefaultTransientDirectoryNames =
     [
         "temp", "tmp", "temporary", "cache", "caches", "inetcache", "temporary internet files",
-        ".minecraft", "assets", "data", "tdata", "logs","node_modules"
+        ".minecraft", "assets", "data", "tdata", "logs","node_modules","Emoji","Thumb"
     ];
     internal static readonly IReadOnlyList<string> DefaultAllowedFileExtensions =
     [

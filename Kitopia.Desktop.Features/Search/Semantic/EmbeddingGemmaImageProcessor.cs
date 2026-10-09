@@ -1,7 +1,10 @@
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using Kitopia.Desktop.Features.Imaging;
 
 namespace Kitopia.Desktop.Features.Search.Semantic;
 
@@ -10,6 +13,7 @@ internal static class EmbeddingGemmaImageProcessor
     public const int MaximumPatches = 280 * 9;
     private const int PatchSize = 16;
     private const int PoolingSize = 3;
+    private const long MaximumDecodedPixels = 64L * 1024 * 1024;
 
     internal static (int Width, int Height) GetTargetSize(int width, int height)
     {
@@ -33,14 +37,42 @@ internal static class EmbeddingGemmaImageProcessor
         return (targetWidth, targetHeight);
     }
 
-    public static (float[] Pixels, long[] Positions, int SoftTokens) Process(string path)
+    public static (float[] Pixels, long[] Positions, int SoftTokens) Process(string path, CancellationToken cancellationToken = default)
     {
-        var options = new DecoderOptions { MaxFrames = 1 };
-        var info = Image.Identify(options, path);
-        if ((long)info.Width * info.Height > 64L * 1024 * 1024)
-            throw new InvalidDataException("The image exceeds the 64-megapixel decoding limit.");
-        using var image = Image.Load<Rgb24>(options, path);
-        var (width, height) = GetTargetSize(image.Width, image.Height);
+        cancellationToken.ThrowIfCancellationRequested();
+        var options = new DecoderOptions { Configuration = ImageInputLoader.ImageConfiguration, MaxFrames = 1, SkipMetadata = true };
+        using var stream = File.OpenRead(path);
+        var info = Image.Identify(options, stream);
+        var (width, height) = GetTargetSize(info.Width, info.Height);
+        stream.Position = 0;
+        Image<Rgb24> decoded;
+        if ((long)info.Width * info.Height <= MaximumDecodedPixels)
+        {
+            decoded = Image.Load<Rgb24>(options, stream);
+        }
+        else if (info.Metadata.DecodedImageFormat == PngFormat.Instance)
+        {
+            decoded = ImageInputLoader.LoadPngRows(stream, width, height, cancellationToken);
+        }
+        else if (info.Metadata.DecodedImageFormat == JpegFormat.Instance
+                 && ((long)info.Width + 7) / 8 * (((long)info.Height + 7) / 8) <= MaximumDecodedPixels)
+        {
+            decoded = JpegDecoder.Instance.Decode<Rgb24>(new JpegDecoderOptions
+            {
+                GeneralOptions = new DecoderOptions
+                {
+                    Configuration = ImageInputLoader.ImageConfiguration, MaxFrames = 1, SkipMetadata = true,
+                    TargetSize = new Size(width, height)
+                },
+                ResizeMode = JpegDecoderResizeMode.IdctOnly
+            }, stream);
+        }
+        else
+        {
+            throw new InvalidDataException($"Image '{path}' ({info.Width}x{info.Height}, {info.Metadata.DecodedImageFormat?.Name}) cannot be decoded within the indexing memory budget.");
+        }
+        using var image = decoded;
+        cancellationToken.ThrowIfCancellationRequested();
         // The official uint8 processor rounds and clips between separable resize passes.
         image.Mutate(context => context.Resize(new ResizeOptions
         {
@@ -56,6 +88,7 @@ internal static class EmbeddingGemmaImageProcessor
             Sampler = KnownResamplers.Bicubic,
             Compand = false
         }));
+        cancellationToken.ThrowIfCancellationRequested();
         var patchWidth = width / PatchSize;
         var patchHeight = height / PatchSize;
         var pixels = new float[MaximumPatches * PatchSize * PatchSize * 3];
@@ -64,6 +97,8 @@ internal static class EmbeddingGemmaImageProcessor
         image.ProcessPixelRows(accessor =>
         {
             for (var patchY = 0; patchY < patchHeight; patchY++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 for (var patchX = 0; patchX < patchWidth; patchX++)
                 {
                     var patch = patchY * patchWidth + patchX;
@@ -82,6 +117,7 @@ internal static class EmbeddingGemmaImageProcessor
                         }
                     }
                 }
+            }
         });
         return (pixels, positions, patchWidth * patchHeight / (PoolingSize * PoolingSize));
     }

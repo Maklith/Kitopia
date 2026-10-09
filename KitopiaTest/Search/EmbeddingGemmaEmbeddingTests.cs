@@ -294,6 +294,81 @@ public sealed class EmbeddingGemmaEmbeddingTests
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task SearchAsync_IndexOperationInProgress_SearchesStoredVectorsOnSharedSession(bool paused)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"kitopia-eg2-search-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        using var started = new ManualResetEventSlim();
+        using var resume = new ManualResetEventSlim();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var probe = new SchedulingSession
+        {
+            BeforeInference = count =>
+            {
+                if (count != 1) return;
+                started.Set();
+                resume.Wait(cancellation.Token);
+            }
+        };
+        var sessionCreations = 0;
+        PluginOverall.OnnxRuntimes["EG2-Test"]["EG2-Test-CPU"] = () =>
+        {
+            sessionCreations++;
+            return probe;
+        };
+        using var index = new IndexService();
+        var embeddingField = typeof(IndexService).GetField("_embeddingService", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        Task<IReadOnlyList<float[]>>? indexingInference = null;
+        try
+        {
+            var document = Path.Combine(directory, "archive.txt");
+            var image = Path.Combine(directory, "portrait.png");
+            await File.WriteAllTextAsync(document, "data", cancellation.Token);
+            await File.WriteAllTextAsync(image, "data", cancellation.Token);
+            var store = new IndexVectorStore(Path.Combine(directory, "index.db"));
+            await store.SynchronizeFileSourceAsync(
+                IndexSource.Manual, [document, image], new HashSet<string>(), cancellation.Token);
+            var vector = new float[EmbeddingGemmaEmbeddingService.VectorDimensions];
+            vector[0] = 1;
+            await store.UpsertTextAsync(document, _service.ModelId, vector, cancellation.Token);
+            await store.UpsertImageAsync(image, "1:1", _service.ModelId, vector, cancellation.Token);
+            typeof(IndexService).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(index, store);
+            embeddingField.SetValue(index, _service);
+            typeof(IndexService).GetField("_status", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(index, IndexStatusSnapshot.Empty with { IsRebuilding = true });
+            index.SetForegroundPause(paused);
+            Assert.HasCount(0, index.SearchPinyin("people", 10, cancellation.Token));
+
+            indexingInference = _service.EmbedAsync(["Indexed document"], 1024, cancellation.Token);
+            Assert.IsTrue(started.Wait(TimeSpan.FromSeconds(5)));
+            var search = index.SearchAsync("people", 10, cancellation.Token);
+            Assert.IsFalse(search.IsCompleted, "Search must wait for the shared session's active inference.");
+            resume.Set();
+            var results = await search;
+            await indexingInference;
+
+            CollectionAssert.AreEquivalent(new[] { document, image }, results.Select(result => result.Source.OnlyKey).ToArray());
+            Assert.AreEqual(1, sessionCreations);
+            Assert.HasCount(2, probe.Batches);
+            var expected = _service.EncodeInput(EmbeddingGemmaEmbeddingService.QueryInstruction + "people", 512);
+            Assert.IsTrue(probe.InputRows[^1].Span[..expected.Length].SequenceEqual(expected));
+            Assert.IsFalse(probe.IsDisposed);
+            Assert.IsTrue(index.GetStatus().IsRebuilding);
+            Assert.AreEqual(paused, index.GetStatus().IsPaused);
+        }
+        finally
+        {
+            resume.Set();
+            if (indexingInference is not null) await indexingInference;
+            embeddingField.SetValue(index, null);
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [TestMethod]
     public async Task EmbedAsync_BackendChanged_DisposesPreviousSessionAndUsesNewRuntime()
     {
         using var previous = new SchedulingSession();

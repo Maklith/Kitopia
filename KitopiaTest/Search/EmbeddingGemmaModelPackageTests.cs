@@ -32,7 +32,7 @@ public sealed class EmbeddingGemmaModelPackageTests
     }
 
     [TestMethod]
-    public void CreateModelInfos_RegistersOnlyBundledTextAndVisionQ4Graphs()
+    public void CreateModelInfos_UsesModelSpecificGraphAndShardFiles()
     {
         var models = EmbeddingGemmaModelPackage.CreateModelInfos().Select(info => info.Model).ToArray();
         Assert.HasCount(2, models);
@@ -42,8 +42,13 @@ public sealed class EmbeddingGemmaModelPackageTests
         Assert.AreEqual(EmbeddingGemmaModelPackage.TextModelPath, models[0].ModelPath);
         Assert.AreEqual(EmbeddingGemmaModelPackage.VisionModelPath, models[1].ModelPath);
         CollectionAssert.AreEqual(
-            EmbeddingGemmaModelPackage.RequiredFiles.Select(file => Path.Combine(EmbeddingGemmaModelPackage.DirectoryPath, file)).ToArray(),
+            EmbeddingGemmaModelPackage.TextModelFiles.Select(file => Path.Combine(EmbeddingGemmaModelPackage.DirectoryPath, file)).ToArray(),
             models[0].RequiredFiles.ToArray());
+        CollectionAssert.AreEqual(
+            EmbeddingGemmaModelPackage.VisionModelFiles.Select(file => Path.Combine(EmbeddingGemmaModelPackage.DirectoryPath, file)).ToArray(),
+            models[1].RequiredFiles.ToArray());
+        CollectionAssert.DoesNotContain(models[0].RequiredFiles.ToArray(), EmbeddingGemmaModelPackage.VisionModelPath);
+        CollectionAssert.DoesNotContain(models[1].RequiredFiles.ToArray(), EmbeddingGemmaModelPackage.TextModelPath);
     }
 
     [TestMethod]

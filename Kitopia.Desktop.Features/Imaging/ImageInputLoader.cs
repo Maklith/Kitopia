@@ -1,5 +1,12 @@
 using System.Buffers.Binary;
+using System.Runtime.InteropServices;
+using Hjg.Pngcs;
 using OpenCvSharp;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Memory;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
+using Size = OpenCvSharp.Size;
 
 namespace Kitopia.Desktop.Features.Imaging;
 
@@ -21,21 +28,65 @@ internal static class ImageInputLoader
     private const ulong Gif87aSignatureLittleEndian = 0x0000_6137_3846_4947UL;
     private const ulong Gif89aSignatureLittleEndian = 0x0000_6139_3846_4947UL;
     private static readonly byte[] PngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+    internal static readonly Configuration ImageConfiguration = Configuration.Default.Clone();
 
-    public static Mat LoadBgr(string path, int maximumPixels)
+    static ImageInputLoader()
+    {
+        ImageConfiguration.MemoryAllocator = MemoryAllocator.Create(new MemoryAllocatorOptions
+        {
+            AllocationLimitMegabytes = 256,
+            MaximumPoolSizeMegabytes = 16
+        });
+    }
+
+    public static Mat LoadBgr(string path, int maximumPixels, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentOutOfRangeException.ThrowIfLessThan(maximumPixels, 1);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        if (!TryReadDimensions(path, out var dimensions, out var isJpeg))
+        if (!TryReadDimensions(path, out var dimensions, out var isJpeg, out var isPng))
         {
             throw new InvalidDataException($"Unable to read supported image dimensions from '{path}'.");
         }
 
         if ((long)dimensions.Width * dimensions.Height > MaximumDecodedPixels && !isJpeg)
         {
-            throw new InvalidDataException(
-                $"Image '{path}' is too large for bounded indexing ({dimensions.Width}x{dimensions.Height}).");
+            var scale = Math.Sqrt(maximumPixels / ((double)dimensions.Width * dimensions.Height));
+            var width = Math.Max(1, (int)Math.Floor(dimensions.Width * scale));
+            var height = Math.Max(1, (int)Math.Floor(dimensions.Height * scale));
+            if ((long)width * height > maximumPixels)
+            {
+                if (width >= height) width = maximumPixels / height;
+                else height = maximumPixels / width;
+            }
+            if (!isPng || (long)width * dimensions.Height > MaximumDecodedPixels)
+                throw new InvalidDataException(
+                    $"Image '{path}' is too large for bounded indexing ({dimensions.Width}x{dimensions.Height}).");
+            using var stream = File.OpenRead(path);
+            using var rgb = LoadPngRows(stream, width, height, cancellationToken);
+            var bgr = new Mat(height, width, MatType.CV_8UC3);
+            try
+            {
+                unsafe
+                {
+                    rgb.ProcessPixelRows(accessor =>
+                    {
+                        for (var row = 0; row < height; row++)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            accessor.GetRowSpan(row).CopyTo(new Span<Rgb24>((void*)bgr.Ptr(row), width));
+                        }
+                    });
+                }
+                Cv2.CvtColor(bgr, bgr, ColorConversionCodes.RGB2BGR);
+                return bgr;
+            }
+            catch
+            {
+                bgr.Dispose();
+                throw;
+            }
         }
 
         var readMode = SelectReadMode(isJpeg, dimensions, maximumPixels);
@@ -119,12 +170,13 @@ internal static class ImageInputLoader
     }
 
     internal static bool TryReadDimensions(string path, out Size size) =>
-        TryReadDimensions(path, out size, out _);
+        TryReadDimensions(path, out size, out _, out _);
 
-    private static bool TryReadDimensions(string path, out Size size, out bool isJpeg)
+    private static bool TryReadDimensions(string path, out Size size, out bool isJpeg, out bool isPng)
     {
         size = default;
         isJpeg = false;
+        isPng = false;
         try
         {
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
@@ -138,6 +190,7 @@ internal static class ImageInputLoader
             stream.ReadExactly(signature);
             if (signature[..8].SequenceEqual(PngSignature))
             {
+                isPng = true;
                 stream.Position = 0;
                 return TryReadPngDimensions(stream, out size);
             }
@@ -176,6 +229,92 @@ internal static class ImageInputLoader
                                          or System.Security.SecurityException)
         {
             return false;
+        }
+    }
+
+    internal static Image<Rgb24> LoadPngRows(Stream stream, int targetWidth, int targetHeight, CancellationToken cancellationToken)
+    {
+        PngReader? reader = null;
+        Image<Rgb24>? resized = null;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            reader = new PngReader(stream) { ShouldCloseStream = false, MaxTotalBytesRead = stream.Length };
+            reader.SetUnpackedMode(true);
+            var info = reader.ImgInfo;
+            if (reader.IsInterlaced() || (long)targetWidth * info.Rows > MaximumDecodedPixels)
+                throw new InvalidDataException($"PNG ({info.Cols}x{info.Rows}) cannot be streamed within the indexing memory budget (interlaced: {reader.IsInterlaced()}).");
+            resized = new Image<Rgb24>(ImageConfiguration, targetWidth, info.Rows);
+            var blockRows = Math.Min(info.Rows, Math.Min(64, Math.Max(1, 1024 * 1024 / info.Cols)));
+            var buffer = new Rgb24[info.Cols * blockRows];
+            var palette = info.Indexed ? reader.GetMetadata().GetPLTE() : null;
+            var maximumSample = (1 << Math.Min(8, info.BitDepth)) - 1;
+            // Horizontal resize is row-independent; streaming blocks preserves the official two-pass rounding.
+            for (var startRow = 0; startRow < info.Rows; startRow += blockRows)
+            {
+                var count = Math.Min(blockRows, info.Rows - startRow);
+                for (var row = 0; row < count; row++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var samples = reader.ReadRowByte(startRow + row).ScanlineB;
+                    var pixels = buffer.AsSpan(row * info.Cols, info.Cols);
+                    if (!info.Indexed && !info.Greyscale && !info.Alpha)
+                    {
+                        samples.AsSpan().CopyTo(MemoryMarshal.AsBytes(pixels));
+                        continue;
+                    }
+                    for (var column = 0; column < info.Cols; column++)
+                    {
+                        var offset = column * info.Channels;
+                        if (info.Indexed)
+                        {
+                            var color = palette!.GetEntry(samples[offset]);
+                            pixels[column] = new Rgb24((byte)(color >> 16), (byte)(color >> 8), (byte)color);
+                        }
+                        else if (info.Greyscale)
+                        {
+                            var value = (byte)(samples[offset] * 255 / maximumSample);
+                            pixels[column] = new Rgb24(value, value, value);
+                        }
+                        else
+                        {
+                            pixels[column] = new Rgb24(samples[offset], samples[offset + 1], samples[offset + 2]);
+                        }
+                    }
+                }
+                using var block = Image.WrapMemory<Rgb24>(ImageConfiguration, buffer.AsMemory(0, info.Cols * count), info.Cols, count);
+                using var scaledBlock = block.Clone(context => context.Resize(new ResizeOptions
+                {
+                    Size = new SixLabors.ImageSharp.Size(targetWidth, count), Mode = ResizeMode.Stretch,
+                    Sampler = KnownResamplers.Bicubic, Compand = false
+                }));
+                scaledBlock.ProcessPixelRows(resized, (source, destination) =>
+                {
+                    for (var row = 0; row < count; row++)
+                        source.GetRowSpan(row).CopyTo(destination.GetRowSpan(startRow + row));
+                });
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            resized.Mutate(context => context.Resize(new ResizeOptions
+            {
+                Size = new SixLabors.ImageSharp.Size(targetWidth, targetHeight), Mode = ResizeMode.Stretch,
+                Sampler = KnownResamplers.Bicubic, Compand = false
+            }));
+            return resized;
+        }
+        catch (PngjException exception)
+        {
+            resized?.Dispose();
+            throw new InvalidDataException("Unable to stream the PNG image.", exception);
+        }
+        catch
+        {
+            resized?.Dispose();
+            throw;
+        }
+        finally
+        {
+            reader?.End();
         }
     }
 

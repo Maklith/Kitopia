@@ -54,7 +54,7 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
         CancellationToken cancellationToken = default)
     {
         if (!IsAvailable) return [];
-        using var image = ImageInputLoader.LoadBgr(imagePath, ImageInputLoader.MaximumOcrPixels);
+        using var image = ImageInputLoader.LoadBgr(imagePath, ImageInputLoader.MaximumOcrPixels, cancellationToken);
         return await RecognizeAsync(image, cancellationToken);
     }
 

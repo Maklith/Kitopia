@@ -118,6 +118,7 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
             {
                 var result = await Task.Run(() =>
                 {
+                    var (pixels, positions, tokenCount) = EmbeddingGemmaImageProcessor.Process(path, cancellationToken);
                     var target = ConfigManger.Config.OnnxTargetDevices.GetValueOrDefault(EmbeddingGemmaModelPackage.VisionModelSignName, "CPU");
                     if (_visionDevice != target)
                     {
@@ -126,7 +127,6 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
                     }
                     _visionSession ??= CreateSession(target, "vision_encoder_q4.onnx");
                     _visionDevice = target;
-                    var (pixels, positions, tokenCount) = EmbeddingGemmaImageProcessor.Process(path);
                     var output = _visionSession.Infer(
                         [("pixel_position_ids", new Memory<int>([1, EmbeddingGemmaImageProcessor.MaximumPatches, 2]), positions)],
                         [("pixel_values", new Memory<int>([1, EmbeddingGemmaImageProcessor.MaximumPatches, 768]), pixels)],

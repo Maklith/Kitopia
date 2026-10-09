@@ -475,9 +475,7 @@ public sealed class IndexService : IIndexService, IDisposable
             merged[result.Source.OnlyKey] = result with { Weight = 1d / (60 + index + 1) };
         }
 
-        // Indexing keeps native model sessions bounded. Do not let an interactive
-        // semantic query load another native model session during that memory-sensitive pass.
-        if (!ShouldSearchSemantically(query, pinyinResults.Count) || GetStatus().IsRebuilding)
+        if (!ShouldSearchSemantically(query, pinyinResults.Count))
         {
             return merged.Values.OrderByDescending(result => result.Weight).Take(maximumResults).ToList();
         }

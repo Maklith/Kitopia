@@ -39,6 +39,7 @@
         <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
 
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+        <PackageReference Include="Hjg.Pngcs" Version="1.1.5" />
         <PackageReference Include="HiraokaHyperTools.sqlite-vec" Version="0.1.9" />
         <PackageReference Include="Irihi.Ursa" Version="2.2.0" />
         <PackageReference Include="Markdown.Avalonia" Version="12.0.0-a3" />
