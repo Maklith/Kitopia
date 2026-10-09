@@ -305,8 +305,9 @@ internal sealed class IndexVectorStore
     public Task UpsertOcrTextAsync(string key, string modelId, float[] vector, CancellationToken cancellationToken) =>
         UpsertVectorAsync(TextVectorTable, TextMetadataTable, key, null, modelId, vector, TextContentKind.ImageOcr, cancellationToken);
 
-    public async Task UpsertDocumentTextAsync(
-        string key, string modelId, IReadOnlyList<float[]> vectors, CancellationToken cancellationToken)
+    public async Task UpsertTextChunksAsync(
+        string key, string modelId, IReadOnlyList<float[]> vectors, CancellationToken cancellationToken,
+        TextContentKind contentKind = TextContentKind.Document)
     {
         ArgumentNullException.ThrowIfNull(vectors);
         ArgumentOutOfRangeException.ThrowIfZero(vectors.Count);
@@ -321,7 +322,7 @@ internal sealed class IndexVectorStore
                 var vector = vectors[chunkIndex];
                 var rowId = await InsertVectorAsync(connection, transaction, TextVectorTable, modelId, vector, cancellationToken);
                 await UpsertMetadataAsync(connection, transaction, TextMetadataTable, "key", key, null,
-                    modelId, vector.Length, rowId, TextContentKind.Document, cancellationToken, chunkIndex);
+                    modelId, vector.Length, rowId, contentKind, cancellationToken, chunkIndex);
             }
             transaction.Commit();
         }
@@ -1683,45 +1684,18 @@ internal sealed class IndexVectorStore
             """, cancellationToken, ("$key", key));
     }
 
-    private static async Task DeleteMappedTextVectorIfKindAsync(
+    private static Task DeleteMappedTextVectorIfKindAsync(
         SqliteConnection connection,
         SqliteTransaction transaction,
         string key,
         TextContentKind kind,
-        CancellationToken cancellationToken)
-    {
-        long? rowId;
-        await using (var select = connection.CreateCommand())
-        {
-            select.Transaction = transaction;
-            select.CommandText = $"SELECT vector_rowid FROM {TextMetadataTable} WHERE key = $key AND content_kind = $kind;";
-            select.Parameters.AddWithValue("$key", key);
-            select.Parameters.AddWithValue("$kind", (int)kind);
-            rowId = await select.ExecuteScalarAsync(cancellationToken) is { } value && value is not DBNull
-                ? Convert.ToInt64(value)
-                : null;
-        }
-
-        if (rowId is null)
-        {
-            return;
-        }
-
-        await using (var vectorDelete = connection.CreateCommand())
-        {
-            vectorDelete.Transaction = transaction;
-            vectorDelete.CommandText = $"DELETE FROM {TextVectorTable} WHERE rowid = $rowId;";
-            vectorDelete.Parameters.AddWithValue("$rowId", rowId.Value);
-            await vectorDelete.ExecuteNonQueryAsync(cancellationToken);
-        }
-
-        await using var metadataDelete = connection.CreateCommand();
-        metadataDelete.Transaction = transaction;
-        metadataDelete.CommandText = $"DELETE FROM {TextMetadataTable} WHERE key = $key AND content_kind = $kind;";
-        metadataDelete.Parameters.AddWithValue("$key", key);
-        metadataDelete.Parameters.AddWithValue("$kind", (int)kind);
-        await metadataDelete.ExecuteNonQueryAsync(cancellationToken);
-    }
+        CancellationToken cancellationToken) =>
+        ExecuteInTransactionAsync(connection, transaction, $"""
+            DELETE FROM {TextVectorTable}
+            WHERE rowid IN (
+                SELECT vector_rowid FROM {TextMetadataTable} WHERE key = $key AND content_kind = $kind);
+            DELETE FROM {TextMetadataTable} WHERE key = $key AND content_kind = $kind;
+            """, cancellationToken, ("$key", key), ("$kind", (int)kind));
 
     private static async Task ExecuteAsync(SqliteConnection connection, string sql, CancellationToken cancellationToken)
     {

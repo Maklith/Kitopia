@@ -313,7 +313,7 @@ public sealed class DocumentTextExtractorTests
     }
 
     [TestMethod]
-    public async Task ExtractChunksAsync_DefaultBudget_KeepsLongTextWithinTheModelContext()
+    public async Task ExtractChunksAsync_DefaultBudget_PreservesAllTextIn1024TokenChunks()
     {
         ConfigManger.Config.plainTextExtensions.Add(".txt");
         var path = CreateTemporaryPath(".txt");
@@ -326,7 +326,7 @@ public sealed class DocumentTextExtractorTests
                                source, text => text.Length + 20, CancellationToken.None))
                 chunks.Add(chunk);
             Assert.IsTrue(chunks[0].Length > 254);
-            Assert.IsTrue(chunks.All(chunk => chunk.Length + 20 <= 8192));
+            Assert.IsTrue(chunks.All(chunk => chunk.Length + 20 <= 1024));
             Assert.IsTrue(chunks.Sum(chunk => chunk.Length) >= 20000);
         }
         finally

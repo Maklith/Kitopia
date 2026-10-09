@@ -1,7 +1,7 @@
 {
   "Name": "Onnx CUDA推理环境",
   "NameSign": "kitopiaonnxruntimecuda",
-  "Version": "1.0.1",
+  "Version": "1.0.5",
   "Description": "官方拓展插件,提供CUDA推理环境",
   "Main": "OnnxRuntime.Gpu.Win.dll",
   "Dependencies": {

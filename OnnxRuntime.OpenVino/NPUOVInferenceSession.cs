@@ -8,15 +8,32 @@ namespace OnnxRuntime.OpenVino;
 
 public class NPUOVInferenceSession : IInferenceSession
 {
+    static NPUOVInferenceSession() => Shared.RuntimeAvailabilityProbe.ConfigureNativeLibraryResolution();
+
     public string Device => "NPU(OpenVino)";
+    public bool? CheckAvailability()
+    {
+        using var options = new SessionOptions();
+        options.AppendExecutionProvider_OpenVINO("NPU");
+        return Shared.RuntimeAvailabilityProbe.Check(options, requireExecutionProvider: true);
+    }
+
     private InferenceSession? _inferenceSession;
     private IReadOnlyList<string> _inputNames = [];
     private IReadOnlyList<int[]> _outputShape = [];
     public void InitSession(string modelPath) => InitSession(modelPath, useCpuMemoryArena: true);
 
-    public void InitSession(string modelPath, bool useCpuMemoryArena)
+    public void InitSession(string modelPath, bool useCpuMemoryArena) => InitSession(modelPath, useCpuMemoryArena, 0);
+
+    public void InitSession(string modelPath, bool useCpuMemoryArena, int intraOpNumThreads)
     {
-        using var sessionOptions = new SessionOptions { EnableCpuMemArena = useCpuMemoryArena };
+        using var sessionOptions = new SessionOptions
+        {
+            EnableCpuMemArena = useCpuMemoryArena, EnableMemoryPattern = false,
+            IntraOpNumThreads = intraOpNumThreads, InterOpNumThreads = 1
+        };
+        sessionOptions.AddSessionConfigEntry("session.intra_op.allow_spinning", "0");
+        sessionOptions.AddSessionConfigEntry("session.inter_op.allow_spinning", "0");
         sessionOptions.AppendExecutionProvider_OpenVINO("NPU");
         var session = new InferenceSession(modelPath, sessionOptions);
         _inferenceSession?.Dispose();

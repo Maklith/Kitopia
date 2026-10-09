@@ -1,7 +1,7 @@
 {
   "Name": "Onnx CPU推理环境",
   "NameSign": "kitopiaonnxruntimecpu",
-  "Version": "1.0.1",
+  "Version": "1.0.4",
   "Description": "官方拓展插件,提供CPU推理环境",
   "Main": "OnnxRuntime.Cpu.dll",
   "Dependencies": {

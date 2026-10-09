@@ -117,9 +117,9 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
 
     private void EnsureSessions()
     {
-        _detector ??= _sessions.GetSession(OcrModelPackage.DetectorSignName, useCpuMemoryArena: false)
+        _detector ??= _sessions.GetSession(OcrModelPackage.DetectorSignName, useCpuMemoryArena: true)
                       ?? throw new InvalidOperationException("The OCR detector runtime is unavailable.");
-        _recognizer ??= _sessions.GetSession(OcrModelPackage.RecognizerSignName, useCpuMemoryArena: false)
+        _recognizer ??= _sessions.GetSession(OcrModelPackage.RecognizerSignName, useCpuMemoryArena: true)
                         ?? throw new InvalidOperationException("The OCR recognizer runtime is unavailable.");
         _detectorInputName ??= _detector.InputNames.FirstOrDefault()
                               ?? throw new InvalidOperationException("The OCR detector input metadata is unavailable.");

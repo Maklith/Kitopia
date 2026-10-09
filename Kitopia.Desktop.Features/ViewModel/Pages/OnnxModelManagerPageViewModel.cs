@@ -1,24 +1,70 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using Kitopia.Desktop.Features.Services.Config;
-using PluginCore.Onnx;
+using CommunityToolkit.Mvvm.Input;
+using Kitopia.Desktop.Abstractions.Shell;
+using Kitopia.Desktop.Features.Services.Interfaces;
+using Kitopia.Desktop.Features.Services.Plugin;
 
 namespace Kitopia.Desktop.Features.ViewModel.Pages;
 
-public partial class OnnxModelRuntimeChangerHelper : ObservableObject
+public sealed partial class OnnxModelManagerPageViewModel(IConfigService configService, IDesktopShell shell) : ObservableObject
 {
-    public string TargetDevice { get; set; }
-    [ObservableProperty] public string currentDevice;
+    [ObservableProperty] private IReadOnlyList<OnnxRuntimeStatus> _runtimes = [];
+    [ObservableProperty] private IReadOnlyList<OnnxModelRuntimeSelection> _models = [];
 
-    partial void OnCurrentDeviceChanged(string value)
+    [RelayCommand(IncludeCancelCommand = true)]
+    private async Task RefreshAsync(CancellationToken cancellationToken)
     {
-        if (OnnxModelInfoWrapper is null) return;
-        ConfigManger.Config.OnnxTargetDevices[OnnxModelInfoWrapper.Model.SignName] = value;
-        ConfigManger.Save("KitopiaConfig");
+        Runtimes = PluginOverall.AllTargetDevices
+            .Concat(configService.Config.OnnxTargetDevices.Values)
+            .Append("CPU")
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(device => device != "CPU")
+            .Select(device => new OnnxRuntimeStatus(device))
+            .ToArray();
+        Models = PluginOverall.AllOnnxModelInfos
+            .Select(model => new OnnxModelRuntimeSelection(model, Runtimes, configService)).ToArray();
+
+        foreach (var status in Runtimes)
+        {
+            if (cancellationToken.IsCancellationRequested) return;
+            var factory = PluginOverall.GetOnnxRuntime(status.Device);
+            try
+            {
+                if (factory is null)
+                {
+                    status.IsAvailable = false;
+                    status.Error = "lang.kitopia.onnx.runtime_not_installed";
+                }
+                else
+                {
+                    status.IsAvailable = await Task.Run(() =>
+                    {
+                        using var session = factory();
+                        return session.CheckAvailability();
+                    }, cancellationToken);
+                    if (cancellationToken.IsCancellationRequested) return;
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception exception)
+            {
+                status.IsAvailable = false;
+                // Keep strings only: retaining plugin exception objects prevents assembly unloading.
+                status.Error = exception.GetBaseException().Message;
+            }
+            finally
+            {
+                status.IsChecking = false;
+            }
+        }
     }
 
-    public OnnxModelInfoWrapper OnnxModelInfoWrapper { get; set; }
-}
+    [RelayCommand]
+    private void OpenDocumentation(OnnxRuntimeStatus runtime) => shell.Open(runtime.DocumentationUrl);
 
-public class OnnxModelManagerPageViewModel : ObservableObject
-{
+    [RelayCommand]
+    private void OpenDrivers(OnnxRuntimeStatus runtime) => shell.Open(runtime.DriverUrl!);
 }

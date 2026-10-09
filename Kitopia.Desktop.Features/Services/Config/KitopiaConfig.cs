@@ -254,6 +254,9 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("lang.kitopia.indexing_cpu_limit", "lang.kitopia.limit_logical_processors_used_for_indexing_100_means_unlimited_windows_only", 0xf8cb, ConfigFieldType.整数, null, 100, 5, 5)]
     public int indexingMaximumCpuUsagePercent = 50;
 
+    [ConfigField("lang.kitopia.inference_gpu_memory_limit", "lang.kitopia.inference_gpu_memory_limit_description", 0xf8cb, ConfigFieldType.整数, null, 32768, 128, 128)]
+    public int inferenceMaximumGpuMemoryMiB = 8192;
+
     [ConfigField("lang.kitopia.excluded_folder_names", "lang.kitopia.skip_paths_containing_these_folder_names_such_as_cache_folders", 0xF2D7, ConfigFieldType.字符串列表支持添加)]
     public ObservableCollection<string> transientDirectoryNames =
         new(DefaultTransientDirectoryNames);

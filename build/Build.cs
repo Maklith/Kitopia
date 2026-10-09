@@ -213,8 +213,33 @@ partial class Build : FalloutBuild
             using var response = client.SendAsync(request).GetAwaiter().GetResult();
             var responseBody = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
             if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == HttpStatusCode.Conflict)
+                {
+                    try
+                    {
+                        using var failure = JsonDocument.Parse(responseBody);
+                        if (failure.RootElement.ValueKind == JsonValueKind.Object &&
+                            failure.RootElement.TryGetProperty("flag", out var failureFlag) &&
+                            failureFlag.ValueKind == JsonValueKind.False &&
+                            failure.RootElement.TryGetProperty("data", out var failureCode) &&
+                            failureCode.ValueKind == JsonValueKind.Number && failureCode.TryGetInt32(out var code) && code == 19)
+                        {
+                            throw new InvalidOperationException(
+                                $"Failed to publish {nameSign} {version}: plugin or owner account storage quota is insufficient (code 19). " +
+                                $"The incoming archive is {stream.Length / (1024d * 1024):F2} MiB. " +
+                                "Existing releases and revisions also count toward the quota. " +
+                                "Increase this plugin's quota in Admin > Plugins and, if needed, its owner's quota in Admin > Users, then retry.");
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Preserve the HTTP status and body for non-JSON failures.
+                    }
+                }
                 throw new InvalidOperationException(
                     $"Failed to publish {nameSign} {version}: {(int)response.StatusCode} {response.ReasonPhrase}. {responseBody}");
+            }
 
             using var json = JsonDocument.Parse(responseBody);
             if (json.RootElement.TryGetProperty("flag", out var flag) && !flag.GetBoolean())

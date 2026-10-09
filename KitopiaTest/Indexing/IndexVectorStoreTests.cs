@@ -77,7 +77,7 @@ public sealed class IndexVectorStoreTests
             [document, image],
             NoProtectedKeys,
             CancellationToken.None);
-        await _store.UpsertDocumentTextAsync(document, textModel, [new float[768], new float[768]], CancellationToken.None);
+        await _store.UpsertTextChunksAsync(document, textModel, [new float[768], new float[768]], CancellationToken.None);
         await _store.UpsertOcrTextAsync(image, textModel, new float[768], CancellationToken.None);
         await _store.UpsertImageAsync(image, "1:1", imageModel, new float[768], CancellationToken.None);
         await _store.UpsertFileStateAsync(
@@ -124,9 +124,9 @@ public sealed class IndexVectorStoreTests
             IndexSource.Manual, [ignoredDocument, sibling], NoProtectedKeys, CancellationToken.None);
         await _store.SynchronizeFileSourceAsync(
             IndexSource.EverythingManaged, [ignoredDocument, ignoredImage], NoProtectedKeys, CancellationToken.None);
-        await _store.UpsertDocumentTextAsync(ignoredDocument, "text-model", [new float[768], new float[768]], CancellationToken.None);
+        await _store.UpsertTextChunksAsync(ignoredDocument, "text-model", [new float[768], new float[768]], CancellationToken.None);
         await _store.UpsertImageAsync(ignoredImage, "1:1", "image-model", new float[768], CancellationToken.None);
-        await _store.UpsertDocumentTextAsync(sibling, "text-model", [new float[768]], CancellationToken.None);
+        await _store.UpsertTextChunksAsync(sibling, "text-model", [new float[768]], CancellationToken.None);
         await _store.UpsertFileStateAsync(
             new FileIndexState(ignoredDocument, IndexFileKind.Document, 1, 1, "ignored", false, null),
             CancellationToken.None);
@@ -152,7 +152,7 @@ public sealed class IndexVectorStoreTests
             [document, image],
             NoProtectedKeys,
             CancellationToken.None);
-        await _store.UpsertDocumentTextAsync(document, textModel, [new float[768], new float[768]], CancellationToken.None);
+        await _store.UpsertTextChunksAsync(document, textModel, [new float[768], new float[768]], CancellationToken.None);
         await _store.UpsertImageAsync(image, "1:1", imageModel, new float[768], CancellationToken.None);
         await _store.UpsertFileStateAsync(
             new FileIndexState(document, IndexFileKind.Document, 1, 1, "document", false, null),
@@ -185,6 +185,33 @@ public sealed class IndexVectorStoreTests
         await _store.UpsertOcrTextAsync(image, model, new float[768], CancellationToken.None);
 
         Assert.IsTrue(await _store.HasCompletedOcrForContentHashAsync(contentHash, model, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task UpsertTextChunksAsync_OcrChunks_SearchesCopiesReplacesAndDeletesEveryChunk()
+    {
+        var image = Path.Combine(_directory, "image.png");
+        var duplicate = Path.Combine(_directory, "duplicate.png");
+        var query = new float[768];
+        query[0] = 1;
+        var opposite = new float[768];
+        opposite[0] = -1;
+        await _store.UpsertTextChunksAsync(image, "eg2", [opposite, query, query], CancellationToken.None, TextContentKind.ImageOcr);
+        await _store.UpsertFileStateAsync(
+            new FileIndexState(image, IndexFileKind.Image, 1, 1, "same-content", true, "eg2"), CancellationToken.None);
+
+        var matches = await _store.SearchTextAsync("eg2", query, 10, CancellationToken.None);
+        Assert.HasCount(1, matches);
+        Assert.AreEqual(image, matches[0].Key);
+        Assert.AreEqual(1d, matches[0].Score, 1e-6);
+        Assert.IsTrue(await _store.TryCopyOcrTextForContentHashAsync(duplicate, "same-content", "eg2", CancellationToken.None));
+        await AssertStoredTextVectorsAsync(6);
+        await _store.UpsertTextChunksAsync(image, "eg2", [query], CancellationToken.None, TextContentKind.ImageOcr);
+        await AssertStoredTextVectorsAsync(4);
+        await _store.DeleteOcrTextAsync(duplicate, CancellationToken.None);
+        await AssertStoredTextVectorsAsync(1);
+        Assert.IsTrue(await _store.HasOcrTextVectorAsync(image, "eg2", CancellationToken.None));
+        Assert.IsFalse(await _store.HasOcrTextVectorAsync(duplicate, "eg2", CancellationToken.None));
     }
 
     [TestMethod]
@@ -243,7 +270,7 @@ public sealed class IndexVectorStoreTests
         Assert.IsFalse(await _store.HasImageVectorAsync(image, "old", CancellationToken.None));
         var vector = new float[768];
         vector[0] = 1;
-        await _store.UpsertDocumentTextAsync(document, "eg2", [vector], CancellationToken.None);
+        await _store.UpsertTextChunksAsync(document, "eg2", [vector], CancellationToken.None);
         await _store.UpsertImageAsync(image, "1:1", "eg2", vector, CancellationToken.None);
         Assert.AreEqual(document, (await _store.SearchTextAsync("eg2", vector, 10, CancellationToken.None))[0].Key);
         Assert.AreEqual(image, (await _store.SearchImagesAsync("eg2", vector, 10, CancellationToken.None))[0].Key);
@@ -259,7 +286,7 @@ public sealed class IndexVectorStoreTests
         vector[0] = 1;
         var otherChunk = new float[768];
         otherChunk[1] = 1;
-        await _store.UpsertDocumentTextAsync(original, "eg2", [vector, otherChunk], CancellationToken.None);
+        await _store.UpsertTextChunksAsync(original, "eg2", [vector, otherChunk], CancellationToken.None);
         await _store.UpsertFileStateAsync(new FileIndexState(original, IndexFileKind.Document, 1, 1, "hash", false, null), CancellationToken.None);
         Assert.IsFalse(await _store.TryCopyDocumentTextForContentHashAsync(renamed, "hash", "eg2", CancellationToken.None));
         Assert.IsTrue(await _store.TryCopyDocumentTextForContentHashAsync(sameTitle, "hash", "eg2", CancellationToken.None));
@@ -285,8 +312,8 @@ public sealed class IndexVectorStoreTests
         var other = new float[768];
         other[0] = 0.8f;
         other[1] = 0.6f;
-        await _store.UpsertDocumentTextAsync(document, "eg2", [opposite, query, query, query], CancellationToken.None);
-        await _store.UpsertDocumentTextAsync(sibling, "eg2", [other], CancellationToken.None);
+        await _store.UpsertTextChunksAsync(document, "eg2", [opposite, query, query, query], CancellationToken.None);
+        await _store.UpsertTextChunksAsync(sibling, "eg2", [other], CancellationToken.None);
         await _store.UpsertTextAsync("another-model", "old", query, CancellationToken.None);
 
         var matches = await _store.SearchTextAsync("eg2", query, 2, CancellationToken.None);
@@ -305,8 +332,8 @@ public sealed class IndexVectorStoreTests
         query[0] = 1;
         var other = new float[768];
         other[1] = 1;
-        await _store.UpsertDocumentTextAsync("long", "eg2", Enumerable.Repeat(query, 4097).ToArray(), CancellationToken.None);
-        await _store.UpsertDocumentTextAsync("other", "eg2", [other], CancellationToken.None);
+        await _store.UpsertTextChunksAsync("long", "eg2", Enumerable.Repeat(query, 4097).ToArray(), CancellationToken.None);
+        await _store.UpsertTextChunksAsync("other", "eg2", [other], CancellationToken.None);
         var matches = await _store.SearchTextAsync("eg2", query, 2, CancellationToken.None);
         Assert.HasCount(2, matches);
         Assert.AreEqual("long", matches[0].Key);
@@ -314,14 +341,14 @@ public sealed class IndexVectorStoreTests
     }
 
     [TestMethod]
-    public async Task UpsertDocumentTextAsync_ShorterDocument_ReplacesAllOldChunks()
+    public async Task UpsertTextChunksAsync_ShorterDocument_ReplacesAllOldChunks()
     {
         var first = new float[768];
         first[0] = 1;
         var last = new float[768];
         last[1] = 1;
-        await _store.UpsertDocumentTextAsync("document", "eg2", [first, last, last], CancellationToken.None);
-        await _store.UpsertDocumentTextAsync("document", "eg2", [first], CancellationToken.None);
+        await _store.UpsertTextChunksAsync("document", "eg2", [first, last, last], CancellationToken.None);
+        await _store.UpsertTextChunksAsync("document", "eg2", [first], CancellationToken.None);
 
         await AssertStoredTextVectorsAsync(1);
         var matches = await _store.SearchTextAsync("eg2", last, 10, CancellationToken.None);
@@ -330,13 +357,13 @@ public sealed class IndexVectorStoreTests
     }
 
     [TestMethod]
-    public async Task UpsertDocumentTextAsync_FailedReplacement_RollsBackEveryChunk()
+    public async Task UpsertTextChunksAsync_FailedReplacement_RollsBackEveryChunk()
     {
         var vector = new float[768];
         vector[0] = 1;
-        await _store.UpsertDocumentTextAsync("document", "eg2", [vector, vector], CancellationToken.None);
+        await _store.UpsertTextChunksAsync("document", "eg2", [vector, vector], CancellationToken.None);
 
-        await Assert.ThrowsAsync<SqliteException>(() => _store.UpsertDocumentTextAsync(
+        await Assert.ThrowsAsync<SqliteException>(() => _store.UpsertTextChunksAsync(
             "document", "replacement", [vector, new float[3]], CancellationToken.None));
 
         await AssertStoredTextVectorsAsync(2);
@@ -356,7 +383,7 @@ public sealed class IndexVectorStoreTests
     {
         var document = Path.Combine(_directory, "document.txt");
         await _store.SynchronizeFileSourceAsync(IndexSource.Manual, [document], NoProtectedKeys, CancellationToken.None);
-        await _store.UpsertDocumentTextAsync(document, "eg2", [new float[768], new float[768]], CancellationToken.None);
+        await _store.UpsertTextChunksAsync(document, "eg2", [new float[768], new float[768]], CancellationToken.None);
         switch (operation)
         {
             case "delete":
@@ -388,7 +415,7 @@ public sealed class IndexVectorStoreTests
     [TestMethod]
     public async Task UpsertTextAsync_MetadataFallback_RemovesDocumentChunks()
     {
-        await _store.UpsertDocumentTextAsync("document", "eg2", [new float[768], new float[768]], CancellationToken.None);
+        await _store.UpsertTextChunksAsync("document", "eg2", [new float[768], new float[768]], CancellationToken.None);
         await _store.UpsertTextAsync("document", "eg2", new float[768], CancellationToken.None);
         await AssertStoredTextVectorsAsync(1);
     }
@@ -400,7 +427,7 @@ public sealed class IndexVectorStoreTests
         var image = Path.Combine(_directory, "image.png");
         var state = new FileIndexState(document, IndexFileKind.Document, 123, 456, "hash", false, null);
         await _store.SynchronizeFileSourceAsync(IndexSource.Manual, [document, image], NoProtectedKeys, CancellationToken.None);
-        await _store.UpsertDocumentTextAsync(document, "eg2", [new float[768]], CancellationToken.None);
+        await _store.UpsertTextChunksAsync(document, "eg2", [new float[768]], CancellationToken.None);
         await _store.UpsertTextAsync("application", "eg2", new float[768], CancellationToken.None);
         await _store.UpsertOcrTextAsync(image, "eg2", new float[768], CancellationToken.None);
         await _store.UpsertImageAsync(image, "1:1", "eg2", new float[768], CancellationToken.None);
@@ -415,7 +442,7 @@ public sealed class IndexVectorStoreTests
         Assert.AreEqual(state, await _store.GetFileStateAsync(document, IndexFileKind.Document, CancellationToken.None));
         CollectionAssert.AreEquivalent(new[] { document, image }, await ReadPathsAsync());
         await AssertStoredTextVectorsAsync(2);
-        await _store.UpsertDocumentTextAsync(document, "eg2", [new float[768], new float[768]], CancellationToken.None);
+        await _store.UpsertTextChunksAsync(document, "eg2", [new float[768], new float[768]], CancellationToken.None);
         _store = new IndexVectorStore(Path.Combine(_directory, "index.db"));
         await AssertStoredTextVectorsAsync(4);
     }

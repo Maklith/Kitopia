@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -122,6 +121,8 @@ public sealed class IndexService : IIndexService, IDisposable
         try { stepCancellation?.Cancel(); }
         catch (ObjectDisposedException) { }
         resumeSignal?.TrySetResult(true);
+        if (paused && !foreground)
+            _ = Task.Run(ReleaseIndexingSessionsAsync);
         if (GetStatus().IsRebuilding)
         {
             UpdateStatus(status => status with { IsPaused = effectivePause });
@@ -752,9 +753,6 @@ public sealed class IndexService : IIndexService, IDisposable
         await _rebuildGate.WaitAsync(cancellationToken);
         var indexDocuments = scope is IndexRebuildScope.All or IndexRebuildScope.Documents or IndexRebuildScope.Files;
         var indexImages = scope is IndexRebuildScope.All or IndexRebuildScope.Images or IndexRebuildScope.Files;
-        var originalProcessorAffinity = indexDocuments || indexImages
-            ? LimitIndexingCpu()
-            : null;
         var operationCancellation = BeginOperation(cancellationToken);
         try
         {
@@ -821,7 +819,6 @@ public sealed class IndexService : IIndexService, IDisposable
                 await ReleaseIndexingSessionsAsync();
             }
 
-            RestoreProcessorAffinity(originalProcessorAffinity);
             FinishOperation(operationCancellation);
             UpdateStatus(status => status with
             {
@@ -1333,83 +1330,6 @@ public sealed class IndexService : IIndexService, IDisposable
         }
     }
 
-    private static IntPtr? LimitIndexingCpu()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return null;
-        }
-
-        var usagePercent = Math.Clamp(ConfigManger.Config.indexingMaximumCpuUsagePercent, 1, 100);
-        if (usagePercent == 100)
-        {
-            return null;
-        }
-
-        try
-        {
-            using var process = Process.GetCurrentProcess();
-            var originalAffinity = process.ProcessorAffinity;
-            var originalMask = unchecked((nuint)originalAffinity.ToInt64());
-            var bitCount = IntPtr.Size * 8;
-            var availableProcessorCount = 0;
-            for (var bit = 0; bit < bitCount; bit++)
-            {
-                if ((originalMask & ((nuint)1 << bit)) != 0)
-                {
-                    availableProcessorCount++;
-                }
-            }
-
-            var maximumProcessors = Math.Max(1, availableProcessorCount * usagePercent / 100);
-            if (maximumProcessors >= availableProcessorCount)
-            {
-                return null;
-            }
-
-            var limitedMask = (nuint)0;
-            for (var bit = 0; bit < bitCount && maximumProcessors > 0; bit++)
-            {
-                var processor = (nuint)1 << bit;
-                if ((originalMask & processor) == 0)
-                {
-                    continue;
-                }
-
-                limitedMask |= processor;
-                maximumProcessors--;
-            }
-
-            process.ProcessorAffinity = IntPtr.Size == 8
-                ? new IntPtr(unchecked((long)limitedMask))
-                : new IntPtr(unchecked((int)limitedMask));
-            return originalAffinity;
-        }
-        catch (Exception exception)
-        {
-            Logger.Warning(exception, "Failed to limit indexing CPU usage.");
-            return null;
-        }
-    }
-
-    private static void RestoreProcessorAffinity(IntPtr? originalAffinity)
-    {
-        if (originalAffinity is not { } affinity)
-        {
-            return;
-        }
-
-        try
-        {
-            using var process = Process.GetCurrentProcess();
-            process.ProcessorAffinity = affinity;
-        }
-        catch (Exception exception)
-        {
-            Logger.Warning(exception, "Failed to restore processor affinity after indexing.");
-        }
-    }
-
     private async Task<IReadOnlyList<RankedVectorMatch>[]> SearchSemanticAsync(string query, int maximumResults, CancellationToken cancellationToken)
     {
         if (!TryGetEmbeddingService(out var embeddingService)) return [];
@@ -1528,7 +1448,7 @@ public sealed class IndexService : IIndexService, IDisposable
 
                 if (contentVectors.Count > 0)
                 {
-                    await _store.UpsertDocumentTextAsync(path, embeddingService.ModelId, contentVectors, cancellationToken);
+                    await _store.UpsertTextChunksAsync(path, embeddingService.ModelId, contentVectors, cancellationToken);
                 }
                 else
                 {
@@ -1565,14 +1485,14 @@ public sealed class IndexService : IIndexService, IDisposable
             chunks.Add(EmbeddingGemmaEmbeddingService.FormatDocument(chunk, title));
             if (chunks.Count < 32) continue;
             vectors.AddRange(await embeddingService.EmbedAsync(
-                chunks, EmbeddingGemmaEmbeddingService.DocumentMaximumTokens, cancellationToken));
+                chunks, EmbeddingGemmaEmbeddingService.IndexingMaximumTokens, cancellationToken));
             chunks.Clear();
         }
 
         if (chunks.Count > 0)
         {
             vectors.AddRange(await embeddingService.EmbedAsync(
-                chunks, EmbeddingGemmaEmbeddingService.DocumentMaximumTokens, cancellationToken));
+                chunks, EmbeddingGemmaEmbeddingService.IndexingMaximumTokens, cancellationToken));
         }
 
         return vectors;
@@ -1631,12 +1551,30 @@ public sealed class IndexService : IIndexService, IDisposable
             return;
         }
 
-        var text = textBuilder.ToString();
-        var vector = (await embeddingService.EmbedAsync(
-            [EmbeddingGemmaEmbeddingService.FormatDocument(text)],
-            EmbeddingGemmaEmbeddingService.DocumentMaximumTokens,
-            cancellationToken))[0];
-        await _store.UpsertOcrTextAsync(imagePath, embeddingService.ModelId, vector, cancellationToken);
+        var chunker = new DocumentTextExtractor.TextChunker(
+            text => embeddingService.CountDocumentTokens(text, null),
+            EmbeddingGemmaEmbeddingService.IndexingMaximumTokens);
+        var chunks = new List<string>();
+        foreach (var memory in textBuilder.GetChunks())
+        {
+            for (var index = 0; index < memory.Length; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (chunker.Append(memory.Span[index]) is { Length: > 0 } chunk)
+                    chunks.Add(EmbeddingGemmaEmbeddingService.FormatDocument(chunk));
+            }
+        }
+        if (chunker.Flush() is { Length: > 0 } finalChunk)
+            chunks.Add(EmbeddingGemmaEmbeddingService.FormatDocument(finalChunk));
+        if (chunks.Count == 0)
+        {
+            await _store.DeleteOcrTextAsync(imagePath, cancellationToken);
+            return;
+        }
+        var vectors = await embeddingService.EmbedAsync(
+            chunks, EmbeddingGemmaEmbeddingService.IndexingMaximumTokens, cancellationToken);
+        await _store.UpsertTextChunksAsync(
+            imagePath, embeddingService.ModelId, vectors, cancellationToken, TextContentKind.ImageOcr);
     }
 
     private bool TryGetEmbeddingService([NotNullWhen(true)] out EmbeddingGemmaEmbeddingService? service)

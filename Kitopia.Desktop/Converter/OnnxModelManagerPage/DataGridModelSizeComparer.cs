@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using Kitopia.Desktop.Features.ViewModel.Pages;
 using PluginCore.Onnx;
 
 namespace Kitopia.Desktop.Converter.OnnxModelManagerPage;
@@ -9,6 +10,8 @@ public class DataGridModelSizeComparer : IComparer
 
     public int Compare(object? x, object? y)
     {
+        if (x is OnnxModelRuntimeSelection selection) x = selection.ModelInfo;
+        if (y is OnnxModelRuntimeSelection selection2) y = selection2.ModelInfo;
         if (x is OnnxModelInfoWrapper onnxModelInfoWrapper && y is OnnxModelInfoWrapper onnxModelInfoWrapper2)
         {
             var hasSize = OnnxModelSize.TryGetTotalBytes(onnxModelInfoWrapper.Model, out var size);

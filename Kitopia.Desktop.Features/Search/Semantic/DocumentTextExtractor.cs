@@ -71,7 +71,7 @@ internal static partial class DocumentTextExtractor
         DocumentContentSource source,
         TokenCounter countTokens,
         [EnumeratorCancellation] CancellationToken cancellationToken,
-        int maximumTokens = EmbeddingGemmaEmbeddingService.DocumentMaximumTokens)
+        int maximumTokens = EmbeddingGemmaEmbeddingService.IndexingMaximumTokens)
     {
         var extension = Path.GetExtension(source.Path);
         if (IsPlainTextExtension(extension))
@@ -1447,7 +1447,7 @@ internal static partial class DocumentTextExtractor
         return value is >= 0x80 and <= 0xBF;
     }
 
-    private sealed class TextChunker
+    internal sealed class TextChunker
     {
         private readonly int _maximumTokens;
         private const int OverlapTokens = 48;
