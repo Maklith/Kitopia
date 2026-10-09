@@ -62,6 +62,13 @@ public partial class FilePreviewControl : UserControl
 
     private void ViewModel_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => ViewModel_OnPropertyChanged(sender, e));
+            return;
+        }
+
+        if (!ReferenceEquals(sender, _viewModel)) return;
         if (e.PropertyName == nameof(MouseQuickWindowViewModel.SelectedPath))
         {
             _isApplyingZoom = true;

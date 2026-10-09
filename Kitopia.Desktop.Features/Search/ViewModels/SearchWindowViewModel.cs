@@ -103,7 +103,6 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         ItemsViewList = ItemsView.ToNotifyCollectionChanged();
         this.WhenAnyValue(e => e.Search)
             .DistinctUntilChanged()
-            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(ToSearch, e => { Logger.Error(e, ""); });
     }
 
@@ -420,6 +419,12 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
     public void ToSearch(string? value)
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => ToSearch(value));
+            return;
+        }
+
         if (string.IsNullOrEmpty(value))
         {
             Interlocked.Exchange(ref _searchCancellation, null)?.Cancel();
