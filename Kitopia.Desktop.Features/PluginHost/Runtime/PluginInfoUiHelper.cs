@@ -433,7 +433,8 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
     {
         get
         {
-            if (IsHostBundled || IsDownloading) return false;
+            if ((IsHostBundled && !PluginReleaseRules.IsBundledPluginUpdateAllowed(PluginBaseInfo.NameSign)) ||
+                IsDownloading) return false;
             if (_canUpdate is null)
 
                 lock (_cancellationTokenSource)

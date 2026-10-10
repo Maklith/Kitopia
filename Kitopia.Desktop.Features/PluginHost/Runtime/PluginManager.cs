@@ -483,7 +483,8 @@ public static class PluginManager
     public static Task<bool> Update(string pluginSign, string? targetVersion = null,
         CancellationToken cancellationToken = default) => RunOperationAsync(async () =>
     {
-        if (PluginReleaseRules.IsHostBundled(pluginSign))
+        if (PluginReleaseRules.IsHostBundled(pluginSign) &&
+            !PluginReleaseRules.IsBundledPluginUpdateAllowed(pluginSign))
             return false;
         if (GetPluginLocalInfoByPlgStr(pluginSign) is null) return false;
         var enable = EnablePlugins.ContainsKey(pluginSign) ||
@@ -494,7 +495,8 @@ public static class PluginManager
     private static async Task<bool> DownloadAndApplyAsync(string pluginSign, string? targetVersion, bool enable,
         CancellationToken cancellationToken)
     {
-        if (PluginReleaseRules.IsHostBundled(pluginSign)) return false;
+        if (PluginReleaseRules.IsHostBundled(pluginSign) &&
+            !PluginReleaseRules.IsBundledPluginUpdateAllowed(pluginSign)) return false;
         var info = GetPluginLocalInfoByPlgStr(pluginSign)?.PluginBaseInfo ?? new PluginBaseInfo
         {
             NameSign = pluginSign, Name = pluginSign, Version = targetVersion ?? string.Empty

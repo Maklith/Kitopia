@@ -58,6 +58,8 @@ partial class Build
 
         PublishPlugin(RootDirectory / "KitopiaEx" / "KitopiaEx.csproj", runtime,
             output / "plugins" / "kitopiaex");
+        PublishPlugin(RootDirectory / "OnnxRuntime.CPU" / "OnnxRuntime.CPU.csproj", runtime,
+            output / "plugins" / "kitopiaonnxruntimecpu");
 
         RemoveSymbolsAndDocs(output);
         var archive = RootDirectory / $"Kitopia{AvaloniaProject.GetProperty("Version")}_{runtime}.zip";
