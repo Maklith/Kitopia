@@ -93,10 +93,13 @@
                         <TextBlock Text="{DynamicResource 'lang.kitopia.onnx.environment'}" Theme="{DynamicResource KitopiaPageKickerText}" />
                         <TextBlock Text="{DynamicResource 'lang.kitopia.inference_backend'}" FontSize="20" FontWeight="SemiBold" />
                     </StackPanel>
-                    <Button Grid.Column="1" Width="34" Height="34" Padding="6" VerticalAlignment="Center"
+                    <Button x:Name="RecheckRuntimesButton" Grid.Column="1" Width="34" Height="34" Padding="6" VerticalAlignment="Center"
                             Command="{Binding RefreshCommand}"
                             ToolTip.Tip="{DynamicResource 'lang.kitopia.onnx.recheck'}"
                             AutomationProperties.Name="{DynamicResource 'lang.kitopia.onnx.recheck'}">
+                        <Button.CommandParameter>
+                            <x:Boolean>True</x:Boolean>
+                        </Button.CommandParameter>
                         <controls:FontIcon Glyph="&#xf13e;" FontSize="18" />
                     </Button>
                 </Grid>

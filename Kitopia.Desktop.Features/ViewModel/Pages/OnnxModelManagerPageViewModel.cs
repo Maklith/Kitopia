@@ -6,13 +6,14 @@ using Kitopia.Desktop.Features.Services.Plugin;
 
 namespace Kitopia.Desktop.Features.ViewModel.Pages;
 
-public sealed partial class OnnxModelManagerPageViewModel(IConfigService configService, IDesktopShell shell) : ObservableObject
+public sealed partial class OnnxModelManagerPageViewModel(
+    IConfigService configService, IDesktopShell shell, IOnnxRuntimeProbe runtimeProbe) : ObservableObject
 {
     [ObservableProperty] private IReadOnlyList<OnnxRuntimeStatus> _runtimes = [];
     [ObservableProperty] private IReadOnlyList<OnnxModelRuntimeSelection> _models = [];
 
     [RelayCommand(IncludeCancelCommand = true)]
-    private async Task RefreshAsync(CancellationToken cancellationToken)
+    private async Task RefreshAsync(bool forceRefresh, CancellationToken cancellationToken)
     {
         Runtimes = PluginOverall.AllTargetDevices
             .Concat(configService.Config.OnnxTargetDevices.Values)
@@ -37,11 +38,7 @@ public sealed partial class OnnxModelManagerPageViewModel(IConfigService configS
                 }
                 else
                 {
-                    status.IsAvailable = await Task.Run(() =>
-                    {
-                        using var session = factory();
-                        return session.CheckAvailability();
-                    }, cancellationToken);
+                    status.IsAvailable = await runtimeProbe.CheckAsync(status.Device, cancellationToken, forceRefresh);
                     if (cancellationToken.IsCancellationRequested) return;
                 }
             }

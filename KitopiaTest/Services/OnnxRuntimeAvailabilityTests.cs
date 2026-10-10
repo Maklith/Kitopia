@@ -67,9 +67,9 @@ public sealed class OnnxRuntimeAvailabilityTests
         var config = new TestConfigService();
         config.Config.OnnxTargetDevices["saved-model"] = "test-removed";
         var shell = new TestShell();
-        var viewModel = new OnnxModelManagerPageViewModel(config, shell);
+        var viewModel = new OnnxModelManagerPageViewModel(config, shell, new TestRuntimeProbe());
 
-        await viewModel.RefreshCommand.ExecuteAsync(null);
+        await viewModel.RefreshCommand.ExecuteAsync(false);
         var states = viewModel.Runtimes.ToDictionary(runtime => runtime.Device);
         Assert.AreEqual(true, states["test-good"].IsAvailable);
         Assert.AreEqual(false, states["GPU(CUDA)"].IsAvailable);
@@ -90,7 +90,7 @@ public sealed class OnnxRuntimeAvailabilityTests
         Assert.AreEqual(states["GPU(CUDA)"].DriverUrl, shell.LastOpened);
 
         failing = false;
-        await viewModel.RefreshCommand.ExecuteAsync(null);
+        await viewModel.RefreshCommand.ExecuteAsync(true);
         var repaired = viewModel.Runtimes.Single(runtime => runtime.Device == "GPU(CUDA)");
         Assert.AreEqual(true, repaired.IsAvailable);
         Assert.IsNull(repaired.Error);
@@ -167,8 +167,8 @@ public sealed class OnnxRuntimeAvailabilityTests
             ["test-blocking"] = () => probe,
             ["test-later"] = () => { laterInvocations++; return new LegacySession(); }
         };
-        var viewModel = new OnnxModelManagerPageViewModel(new TestConfigService(), new TestShell());
-        var task = viewModel.RefreshCommand.ExecuteAsync(null);
+        var viewModel = new OnnxModelManagerPageViewModel(new TestConfigService(), new TestShell(), new TestRuntimeProbe());
+        var task = viewModel.RefreshCommand.ExecuteAsync(false);
         try
         {
             await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -240,7 +240,7 @@ public sealed class OnnxRuntimeAvailabilityTests
             }];
             Lang.Current.UseLanguage(language);
             var shell = new TestShell();
-            var viewModel = new OnnxModelManagerPageViewModel(config, shell);
+            var viewModel = new OnnxModelManagerPageViewModel(config, shell, new TestRuntimeProbe());
             var page = new OnnxModelManagerPage { DataContext = viewModel };
             var window = new Window { Content = page, Width = width, Height = 900,
                 RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
@@ -248,6 +248,7 @@ public sealed class OnnxRuntimeAvailabilityTests
             {
                 window.Show();
                 await viewModel.RefreshCommand.ExecutionTask!;
+                Assert.AreEqual(true, page.FindControl<Button>("RecheckRuntimesButton")!.CommandParameter);
                 Dispatcher.UIThread.RunJobs();
                 var row = viewModel.Models.Single(model => model.ModelInfo.Model.SignName == "test-ui");
                 var grid = page.FindControl<DataGrid>("ModelsGrid")!;
@@ -382,6 +383,36 @@ public sealed class OnnxRuntimeAvailabilityTests
             }
             return true;
         }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task Refresh_UsesProbeService_DoesNotCreateMainProcessSession()
+    {
+        PluginOverall.OnnxRuntimes[Source] = new()
+        {
+            ["test-isolated"] = () => throw new InvalidOperationException("A probe must not create a main-process session.")
+        };
+        var calls = new List<(string Device, bool ForceRefresh)>();
+        var probe = new TestRuntimeProbe((device, _, forceRefresh) =>
+        {
+            calls.Add((device, forceRefresh));
+            return Task.FromResult<bool?>(true);
+        });
+        var viewModel = new OnnxModelManagerPageViewModel(new TestConfigService(), new TestShell(), probe);
+        await viewModel.RefreshCommand.ExecuteAsync(false);
+        await viewModel.RefreshCommand.ExecuteAsync(true);
+        CollectionAssert.AreEqual(new[] { ("test-isolated", false), ("test-isolated", true) }, calls);
+        Assert.AreEqual(true, viewModel.Runtimes.Single(runtime => runtime.Device == "test-isolated").IsAvailable);
+    }
+
+    private sealed class TestRuntimeProbe(Func<string, CancellationToken, bool, Task<bool?>>? check = null) : IOnnxRuntimeProbe
+    {
+        public Task<bool?> CheckAsync(string device, CancellationToken cancellationToken = default, bool forceRefresh = false) =>
+            check is not null ? check(device, cancellationToken, forceRefresh) : Task.Run(() =>
+            {
+                using var session = PluginOverall.GetOnnxRuntime(device)!();
+                return session.CheckAvailability();
+            }, cancellationToken);
     }
 
     private sealed class TestConfigService : IConfigService

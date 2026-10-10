@@ -15,7 +15,7 @@ public partial class OnnxModelManagerPage : UserControl
         AttachedToVisualTree += async (_, _) =>
         {
             if (DataContext is not OnnxModelManagerPageViewModel viewModel || viewModel.RefreshCommand.IsRunning) return;
-            await viewModel.RefreshCommand.ExecuteAsync(null);
+            await viewModel.RefreshCommand.ExecuteAsync(false);
         };
         DetachedFromVisualTree += (_, _) =>
         {

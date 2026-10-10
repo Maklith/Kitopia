@@ -33,6 +33,7 @@ public class MqttManager
     /// MQTT服务器实例 / MQTT server instance
     /// </summary>
     public static MqttServer Server;
+    public static int Port { get; private set; }
     public static TaskCompletionSource PluginsReady { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         
     private static FileStream fileStream;
@@ -112,6 +113,7 @@ public class MqttManager
         }
 
 
+        Port = nowPort;
         fileStream = new FileStream(portFilePath, FileMode.CreateNew);
         fileStream.Write(Encoding.UTF8.GetBytes(nowPort.ToString()));
         fileStream.Flush();
@@ -534,6 +536,7 @@ public class MqttManager
 
     private static async Task Server_InterceptingPublishAsync(InterceptingPublishEventArgs arg)
     {
+        if (arg.ApplicationMessage.Topic != "test") return;
         var s = Encoding.UTF8.GetString(arg.ApplicationMessage.Payload);
         Logger.Debug($"Publish {arg.ApplicationMessage.Topic} {s}");
         try

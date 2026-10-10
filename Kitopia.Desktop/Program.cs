@@ -1,8 +1,10 @@
 using Kitopia.Feature.Localization;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -78,13 +80,28 @@ using TaskEditor = Kitopia.Desktop.Windows.TaskEditors.TaskEditor;
 namespace Kitopia.Desktop;
 
 internal class Program {
-    private static readonly ILogger Logger = LogManager.Logger.ForContext<Program>();
+    private static readonly Lazy<ILogger> _logger = new(() => LogManager.Logger.ForContext<Program>());
+    private static ILogger Logger => _logger.Value;
+
+    [DllImport("kernel32.dll")]
+    private static extern uint SetErrorMode(uint mode);
 
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
     [STAThread]
     public static void Main(string[] args) {
+        if (args.Length > 0 && args[0] == OnnxRuntimeProbe.CommandLineArgument) {
+            if (args.Length != 6) {
+                Environment.ExitCode = 2;
+                return;
+            }
+            // Native probe failures must exit without opening a Windows error dialog.
+            if (OperatingSystem.IsWindows()) SetErrorMode(0x0003);
+            OnnxRuntimeProbe.RunAsync(args[1], args[2], int.Parse(args[3], CultureInfo.InvariantCulture), args[4], args[5])
+                .GetAwaiter().GetResult();
+            return;
+        }
         ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder()
             .WithExceptionHandler(new MyCoolObservableExceptionHandler())
             .WithPlatformServices()
@@ -193,6 +210,9 @@ internal class Program {
         services.AddSingleton<IIndexService, IndexService>();
         services.AddSingleton<IIndexMaintenanceService, IndexMaintenanceService>();
         services.AddTransient<IInferenceSessionManager, InferenceSessionManager>();
+        services.AddSingleton<IOnnxRuntimeProbe>(_ => new OnnxRuntimeProbe(
+            Environment.ProcessPath ?? throw new InvalidOperationException("The application executable path is unavailable."),
+            typeof(Program).Assembly.Location, MqttManager.Port));
         #if WINDOWS
         services.AddSingleton<IHotKetImpl, HotKeyImpl>();
         services.AddTransient<IScreenCaptureManager, ScreenCaptureManager>();
