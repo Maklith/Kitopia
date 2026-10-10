@@ -70,27 +70,28 @@ partial class Build
         staging.DeleteDirectory();
         CopyDirectory(ArtifactsDirectory / "windows" / runtime, staging);
 
+        // The Rust installer applies Zstandard to each archive; stored ZIP entries avoid double compression.
         var pluginsArchive = installerAssets / "plugins.zip";
         pluginsArchive.DeleteFile();
         (staging / "plugins").ZipTo(pluginsArchive,
-            compressionLevel: CompressionLevel.SmallestSize, fileMode: FileMode.Create);
+            compressionLevel: CompressionLevel.NoCompression, fileMode: FileMode.Create);
         (staging / "plugins").DeleteDirectory();
 
         var embeddingModelArchive = installerAssets / "EmbeddingGemma2.zip";
         embeddingModelArchive.DeleteFile();
         (staging / "EmbeddingGemma2").ZipTo(embeddingModelArchive,
-            compressionLevel: CompressionLevel.SmallestSize, fileMode: FileMode.Create);
+            compressionLevel: CompressionLevel.NoCompression, fileMode: FileMode.Create);
         (staging / "EmbeddingGemma2").DeleteDirectory();
 
         var ocrModelArchive = installerAssets / "Ocr.zip";
         ocrModelArchive.DeleteFile();
         (staging / "Ocr").ZipTo(ocrModelArchive,
-            compressionLevel: CompressionLevel.SmallestSize, fileMode: FileMode.Create);
+            compressionLevel: CompressionLevel.NoCompression, fileMode: FileMode.Create);
         (staging / "Ocr").DeleteDirectory();
 
         var appArchive = installerAssets / "App.zip";
         appArchive.DeleteFile();
-        staging.ZipTo(appArchive, compressionLevel: CompressionLevel.SmallestSize, fileMode: FileMode.Create);
+        staging.ZipTo(appArchive, compressionLevel: CompressionLevel.NoCompression, fileMode: FileMode.Create);
     }
 
     void WriteInstallerInfo(AbsolutePath infoPath, string runtime)
