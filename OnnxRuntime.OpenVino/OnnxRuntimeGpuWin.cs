@@ -14,13 +14,20 @@ public class OnnxRuntimeGpuWin : IPlugin, IDisposable
     private IntPtr _levelZeroLibrary;
     private bool _disposed;
 
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private delegate int ZeInit(uint flags);
+
     public OnnxRuntimeGpuWin()
     {
         _environment = new Lazy<OrtEnv>(() =>
         {
             // Level Zero teardown invalidates driver state between EP enumeration and session creation.
-            if (OperatingSystem.IsWindows())
-                NativeLibrary.TryLoad(Path.Combine(Environment.SystemDirectory, "ze_loader.dll"), out _levelZeroLibrary);
+            if (OperatingSystem.IsWindows() &&
+                NativeLibrary.TryLoad(Path.Combine(Environment.SystemDirectory, "ze_loader.dll"), out _levelZeroLibrary))
+            {
+                // Initialize all driver types before ORT's hardware discovery initializes Level Zero.
+                Marshal.GetDelegateForFunctionPointer<ZeInit>(NativeLibrary.GetExport(_levelZeroLibrary, "zeInit"))(0);
+            }
             var environment = OrtEnv.Instance();
             environment.RegisterExecutionProviderLibrary(RegistrationName, OpenVINOEp.GetLibraryPath());
             return environment;
@@ -29,7 +36,8 @@ public class OnnxRuntimeGpuWin : IPlugin, IDisposable
 
     static OnnxRuntimeGpuWin() => Shared.RuntimeAvailabilityProbe.ConfigureNativeLibraryResolution();
 
-    internal void AppendExecutionProvider(SessionOptions options, OrtHardwareDeviceType deviceType, int intraOpNumThreads = 0)
+    internal void AppendExecutionProvider(SessionOptions options, OrtHardwareDeviceType deviceType, int intraOpNumThreads = 0,
+        bool allowCpuFallback = false)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var environment = _environment.Value;
@@ -48,10 +56,14 @@ public class OnnxRuntimeGpuWin : IPlugin, IDisposable
         }
         else if (deviceType == OrtHardwareDeviceType.NPU)
         {
-            // Use the hardware's installed Intel compiler for on-device compilation.
-            configuration["NPU_COMPILER_TYPE"] = "DRIVER";
+            // Keep compilation aligned with the OpenVINO version bundled with this provider.
+            configuration["NPU_COMPILER_TYPE"] = "PLUGIN";
+            configuration["CACHE_DIR"] = Path.Combine(Path.GetTempPath(), "Kitopia", "openvino-npu-cache");
+            // ORT profiling otherwise changes this compilation property and invalidates the cache.
+            configuration["PERF_COUNT"] = "YES";
             // This also disables OpenVINO EP's internal CPU retry on compilation failure.
-            options.AddSessionConfigEntry("session.disable_cpu_ep_fallback", "1");
+            if (!allowCpuFallback)
+                options.AddSessionConfigEntry("session.disable_cpu_ep_fallback", "1");
         }
         if (configuration.Count > 0)
         {

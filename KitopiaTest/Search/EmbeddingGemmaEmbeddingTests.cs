@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Kitopia.Desktop.Features.Indexing;
 using Kitopia.Desktop.Features.Ocr;
@@ -84,6 +85,321 @@ public sealed class EmbeddingGemmaEmbeddingTests
         using var canceled = new CancellationTokenSource();
         canceled.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => _service.EmbedAsync(texts, 512, canceled.Token));
+    }
+
+    [TestMethod]
+    public async Task EmbedAsync_OfficialNpuPlugin_MatchesTextReferencesAcrossShapes()
+    {
+        using var runtime = new OnnxRuntime.OpenVino.OnnxRuntimeGpuWin();
+        using (var probe = new OnnxRuntime.OpenVino.NPUOVInferenceSession(runtime))
+        {
+            try { Assert.AreEqual(true, probe.CheckAvailability()); }
+            catch (InvalidOperationException exception) when (
+                exception.Message == "OpenVINO did not report an available NPU device.")
+            {
+                Assert.Inconclusive("An Intel NPU is required for this model test.");
+            }
+        }
+        PluginOverall.OnnxRuntimes["EG2-Test"]["NPU(OpenVino)"] =
+            () => new OnnxRuntime.OpenVino.NPUOVInferenceSession(runtime);
+        ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.TextModelSignName] = "NPU(OpenVino)";
+        try
+        {
+            var rows = _reference.RootElement.GetProperty("texts").EnumerateArray().Take(2).ToArray();
+            foreach (var row in rows)
+            {
+                var vectors = await _service.EmbedAsync([row.GetProperty("text").GetString()!], 512, CancellationToken.None);
+                AssertVector(row, vectors[0], 0.9999);
+            }
+            var batch = await _service.EmbedAsync(Enumerable.Range(0, 8)
+                    .Select(index => rows[index % rows.Length].GetProperty("text").GetString()!).ToArray(),
+                512, CancellationToken.None);
+            for (var index = 0; index < batch.Count; index++) AssertVector(rows[index % rows.Length], batch[index], 0.9999);
+            var longTexts = new[]
+            {
+                string.Concat(Enumerable.Repeat("Apples grow in orchards. ", 200)),
+                string.Concat(Enumerable.Repeat("Satellites orbit the Earth. ", 200)),
+                string.Concat(Enumerable.Repeat("This document describes a software project. ", 200)),
+                string.Concat(Enumerable.Repeat("Flowers grow in the garden. ", 200))
+            };
+            ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.TextModelSignName] = "EG2-Test-CPU";
+            var expected = await _service.EmbedAsync(longTexts, 1024, CancellationToken.None);
+            ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.TextModelSignName] = "NPU(OpenVino)";
+            var concurrent = await _service.EmbedAsync(longTexts, 1024, CancellationToken.None);
+            for (var index = 0; index < expected.Count; index++)
+            {
+                var cosine = concurrent[index].Zip(expected[index], (left, right) => (double)left * right).Sum();
+                Assert.IsTrue(cosine > 0.9999, $"Long text {index}: cosine {cosine}.");
+            }
+        }
+        finally { await _service.ReleaseSessionsAsync(); }
+    }
+
+    [TestMethod]
+    public async Task EmbedAsync_Npu_BindsFixedShapesPadsUnusedModalitiesAndReusesMatchingSession()
+    {
+        var sessions = new List<SchedulingSession>();
+        PluginOverall.OnnxRuntimes["EG2-Test"]["NPU(OpenVino)"] = () =>
+        {
+            var session = new SchedulingSession { Device = "NPU(OpenVino)" };
+            sessions.Add(session);
+            return session;
+        };
+        ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.TextModelSignName] = "NPU(OpenVino)";
+
+        await _service.EmbedAsync(["apple"], 512, CancellationToken.None);
+        await _service.EmbedAsync(["apple"], 512, CancellationToken.None);
+        Assert.HasCount(1, sessions);
+        Assert.HasCount(2, sessions[0].Batches);
+        Assert.IsFalse(sessions[0].IsDisposed);
+        Assert.AreEqual(1L, sessions[0].FreeDimensionOverrides!["batch_size"]);
+        Assert.AreEqual((long)sessions[0].Batches.First().Length, sessions[0].FreeDimensionOverrides!["sequence_length"]);
+        Assert.AreEqual(1024L, sessions[0].FreeDimensionOverrides["sequence_length"]);
+        Assert.AreEqual(280L, sessions[0].FreeDimensionOverrides["num_image_tokens"]);
+        foreach (var name in new[] { "num_video_tokens", "num_audio_tokens" })
+            Assert.AreEqual(1L, sessions[0].FreeDimensionOverrides![name]);
+        Assert.IsTrue(sessions[0].FeatureLengths.All(lengths => lengths == (280 * 512, 512, 512)));
+
+        await _service.EmbedAsync(["apple", "apple"], 512, CancellationToken.None);
+        Assert.HasCount(1, sessions);
+        Assert.HasCount(4, sessions[0].Batches);
+        Assert.IsTrue(sessions[0].Batches.All(batch => batch.Count == 1));
+        Assert.IsFalse(sessions[0].IsDisposed);
+
+        await _service.EmbedAsync([string.Concat(Enumerable.Repeat(" apple", 20))], 512, CancellationToken.None);
+        Assert.HasCount(1, sessions);
+        Assert.HasCount(5, sessions[0].Batches);
+        await _service.EmbedAsync([string.Concat(Enumerable.Repeat(" apple", 1200))], 8192, CancellationToken.None);
+        Assert.HasCount(2, sessions);
+        Assert.IsTrue(sessions[0].IsDisposed);
+        Assert.IsFalse(sessions[1].IsDisposed);
+        Assert.AreEqual(2048L, sessions[1].FreeDimensionOverrides!["sequence_length"]);
+        await _service.EmbedAsync(["apple"], 512, CancellationToken.None);
+        Assert.HasCount(3, sessions);
+        Assert.IsTrue(sessions[1].IsDisposed);
+        Assert.IsFalse(sessions[2].IsDisposed);
+        Assert.HasCount(1, sessions[2].Batches);
+        await _service.EmbedAsync([string.Concat(Enumerable.Repeat(" apple", 2500))], 8192, CancellationToken.None);
+        Assert.HasCount(4, sessions);
+        Assert.IsTrue(sessions[2].IsDisposed);
+        Assert.IsFalse(sessions[3].IsDisposed);
+        await _service.ReleaseSessionsAsync();
+        Assert.IsTrue(sessions.All(session => session.IsDisposed));
+    }
+
+    [TestMethod]
+    public async Task EmbedAsync_NpuPadding_TextAndDifferentImageSizes_MatchReferencesWithOneTextSession()
+    {
+        var creations = 0;
+        // Execute the real graph on CPU to isolate padding correctness from NPU compilation.
+        PluginOverall.OnnxRuntimes["EG2-Test"]["NPU(OpenVino)"] = () =>
+        {
+            creations++;
+            return new OnnxRuntime.CPU.MInferenceSession();
+        };
+        ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.TextModelSignName] = "NPU(OpenVino)";
+        var texts = _reference.RootElement.GetProperty("texts").EnumerateArray().Take(2).ToArray();
+        foreach (var row in texts)
+        {
+            var vector = (await _service.EmbedAsync([row.GetProperty("text").GetString()!], 512, CancellationToken.None))[0];
+            AssertVector(row, vector, 0.999999);
+        }
+        foreach (var row in _reference.RootElement.GetProperty("images").EnumerateArray())
+        {
+            var path = Path.Combine(_referenceDirectory, row.GetProperty("file").GetString()!);
+            var vector = (await _service.EmbedImagesAsync([path], CancellationToken.None))[0];
+            AssertVector(row, vector, 0.999);
+        }
+        Assert.AreEqual(1, creations, "Text and all image sizes must share the same bounded text session.");
+    }
+
+    [TestMethod]
+    public async Task EmbedImagesAsync_Npu_BindsVisionShapesAndReusesSession()
+    {
+        var row = _reference.RootElement.GetProperty("images")[0];
+        var featureLength = row.GetProperty("soft_tokens").GetInt32() * 512;
+        var path = Path.Combine(_referenceDirectory, row.GetProperty("file").GetString()!);
+        using var vision = new SchedulingSession { Device = "NPU(OpenVino)", OutputLength = 280 * 512 };
+        using var text = new SchedulingSession();
+        var visionCreations = 0;
+        PluginOverall.OnnxRuntimes["EG2-Test"]["NPU(OpenVino)"] = () =>
+        {
+            visionCreations++;
+            return vision;
+        };
+        PluginOverall.OnnxRuntimes["EG2-Test"]["EG2-Test-CPU"] = () => text;
+        ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.VisionModelSignName] = "NPU(OpenVino)";
+
+        var vectors = await _service.EmbedImagesAsync([path, path], CancellationToken.None);
+
+        Assert.HasCount(2, vectors);
+        Assert.AreEqual(1, visionCreations);
+        Assert.AreEqual(1L, vision.FreeDimensionOverrides!["s11"]);
+        Assert.AreEqual((long)EmbeddingGemmaImageProcessor.MaximumPatches, vision.FreeDimensionOverrides!["s35"]);
+        Assert.AreEqual(280L, vision.FreeDimensionOverrides!["u0"]);
+        Assert.HasCount(2, vision.Batches);
+        Assert.IsTrue(vision.Batches.All(batch => batch == (1, EmbeddingGemmaImageProcessor.MaximumPatches)));
+        Assert.IsTrue(text.ImageFeatureLengths.All(length => length == featureLength));
+        await _service.ReleaseSessionsAsync();
+        Assert.IsTrue(vision.IsDisposed);
+        Assert.IsTrue(text.IsDisposed);
+    }
+
+    [TestMethod]
+    public async Task EmbedImagesAsync_BoundedNpuGraph_MatchesImageReferencesAndSharesTextSession()
+    {
+        var creations = 0;
+        PluginOverall.OnnxRuntimes["EG2-Test"]["NPU(OpenVino)"] = () =>
+        {
+            creations++;
+            return new OnnxRuntime.CPU.MInferenceSession();
+        };
+        ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.VisionModelSignName] = "NPU(OpenVino)";
+        ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.TextModelSignName] = "NPU(OpenVino)";
+        foreach (var row in _reference.RootElement.GetProperty("images").EnumerateArray())
+        {
+            var path = Path.Combine(_referenceDirectory, row.GetProperty("file").GetString()!);
+            var vector = (await _service.EmbedImagesAsync([path], CancellationToken.None))[0];
+            AssertVector(row, vector, 0.999);
+        }
+        var text = _reference.RootElement.GetProperty("texts")[0];
+        var result = await _service.EmbedAsync([text.GetProperty("text").GetString()!], 512, CancellationToken.None);
+        AssertVector(text, result[0], 0.999999);
+        Assert.AreEqual(2, creations, "All images and text must reuse one vision and one text session.");
+    }
+
+    [TestMethod]
+    [TestCategory("NPU")]
+    public async Task EmbedImagesAsync_OfficialNpuPlugin_MatchesImageReferencesAcrossShapes()
+    {
+        using var runtime = new OnnxRuntime.OpenVino.OnnxRuntimeGpuWin();
+        using (var probe = new OnnxRuntime.OpenVino.NPUOVInferenceSession(runtime))
+        {
+            try { Assert.AreEqual(true, probe.CheckAvailability()); }
+            catch (InvalidOperationException exception) when (
+                exception.Message == "OpenVINO did not report an available NPU device.")
+            {
+                Assert.Inconclusive("An Intel NPU is required for this image model test.");
+            }
+        }
+        PluginOverall.OnnxRuntimes["EG2-Test"]["NPU(OpenVino)"] =
+            () => new OnnxRuntime.OpenVino.NPUOVInferenceSession(runtime);
+        ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.VisionModelSignName] = "NPU(OpenVino)";
+        ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.TextModelSignName] = "NPU(OpenVino)";
+        try
+        {
+            var rows = _reference.RootElement.GetProperty("images").EnumerateArray().ToArray();
+            var paths = rows.Select(row => Path.Combine(_referenceDirectory, row.GetProperty("file").GetString()!)).ToArray();
+            var vectors = await _service.EmbedImagesAsync(paths, CancellationToken.None);
+            for (var index = 0; index < rows.Length; index++) AssertVector(rows[index], vectors[index], 0.999);
+            var cacheDirectory = Path.Combine(Path.GetTempPath(), "Kitopia", "openvino-npu-cache");
+            var cached = Directory.GetFiles(cacheDirectory, "*.blob").ToDictionary(file => file, File.GetLastWriteTimeUtc);
+            await _service.ReleaseSessionsAsync();
+            var repeated = await _service.EmbedImagesAsync([paths[0]], CancellationToken.None);
+            AssertVector(rows[0], repeated[0], 0.999);
+            var changed = Directory.GetFiles(cacheDirectory, "*.blob").Where(file =>
+                !cached.TryGetValue(file, out var time) || time != File.GetLastWriteTimeUtc(file)).ToArray();
+            Assert.HasCount(0, changed, $"Reload compiled new graphs: {string.Join(", ", changed)}.");
+        }
+        finally { await _service.ReleaseSessionsAsync(); }
+    }
+
+    [TestMethod]
+    public async Task EmbedAsync_Npu_LongRequestsOverlapAndReleaseWaitsForAll()
+    {
+        using var started = new CountdownEvent(4);
+        using var resume = new ManualResetEventSlim();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var probe = new SchedulingSession
+        {
+            Device = "NPU(OpenVino)",
+            BeforeInference = _ =>
+            {
+                started.Signal();
+                resume.Wait(cancellation.Token);
+            }
+        };
+        PluginOverall.OnnxRuntimes["EG2-Test"]["NPU(OpenVino)"] = () => probe;
+        ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.TextModelSignName] = "NPU(OpenVino)";
+        var text = string.Concat(Enumerable.Repeat(" apple", 800));
+        var inference = _service.EmbedAsync([text, text, text, text], 1024, cancellation.Token);
+        try
+        {
+            Assert.IsTrue(started.Wait(TimeSpan.FromSeconds(10)), "Four batch=1 requests must overlap.");
+            var release = _service.ReleaseSessionsAsync();
+            Assert.IsFalse(release.IsCompleted);
+            Assert.IsFalse(probe.IsDisposed);
+            resume.Set();
+            var vectors = await inference;
+            await release;
+            Assert.HasCount(4, vectors);
+            Assert.HasCount(4, probe.Batches);
+            Assert.IsTrue(probe.Batches.All(batch => batch == (1, 1024)));
+            Assert.IsTrue(probe.IsDisposed);
+        }
+        finally
+        {
+            resume.Set();
+            await inference;
+        }
+    }
+
+    [TestMethod]
+    public async Task EmbedAsync_Npu_CancellationStopsConcurrentRequestsAndAllowsRelease()
+    {
+        using var started = new CountdownEvent(4);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var probe = new SchedulingSession
+        {
+            Device = "NPU(OpenVino)",
+            BeforeInference = _ =>
+            {
+                started.Signal();
+                cancellation.Token.WaitHandle.WaitOne();
+                cancellation.Token.ThrowIfCancellationRequested();
+            }
+        };
+        PluginOverall.OnnxRuntimes["EG2-Test"]["NPU(OpenVino)"] = () => probe;
+        ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.TextModelSignName] = "NPU(OpenVino)";
+        var inference = _service.EmbedAsync(["apple", "apple", "apple", "apple"], 512, cancellation.Token);
+        try
+        {
+            Assert.IsTrue(started.Wait(TimeSpan.FromSeconds(10)));
+            cancellation.Cancel();
+            await Assert.ThrowsAsync<OperationCanceledException>(() => inference);
+            await _service.ReleaseSessionsAsync();
+            Assert.IsTrue(probe.IsDisposed);
+        }
+        finally
+        {
+            cancellation.Cancel();
+            try { await inference; }
+            catch (OperationCanceledException) { }
+        }
+    }
+
+    [TestMethod]
+    public async Task EmbedAsync_Npu_BackendChanged_DisposesBothCachedSessions()
+    {
+        var sessions = new List<SchedulingSession>();
+        PluginOverall.OnnxRuntimes["EG2-Test"]["NPU(OpenVino)"] = () =>
+        {
+            var session = new SchedulingSession { Device = "NPU(OpenVino)" };
+            sessions.Add(session);
+            return session;
+        };
+        using var cpu = new SchedulingSession();
+        PluginOverall.OnnxRuntimes["EG2-Test"]["EG2-Test-CPU"] = () => cpu;
+        ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.TextModelSignName] = "NPU(OpenVino)";
+        await _service.EmbedAsync(["apple"], 512, CancellationToken.None);
+        await _service.EmbedAsync([string.Concat(Enumerable.Repeat(" apple", 1200))], 8192, CancellationToken.None);
+        Assert.HasCount(2, sessions);
+        Assert.IsTrue(sessions[0].IsDisposed);
+        Assert.IsFalse(sessions[1].IsDisposed);
+        ConfigManger.Config.OnnxTargetDevices[EmbeddingGemmaModelPackage.TextModelSignName] = "EG2-Test-CPU";
+        await _service.EmbedAsync(["apple"], 512, CancellationToken.None);
+        Assert.IsTrue(sessions.All(session => session.IsDisposed));
+        Assert.HasCount(1, cpu.Batches);
     }
 
     [TestMethod]
@@ -255,8 +571,8 @@ public sealed class EmbeddingGemmaEmbeddingTests
         for (var index = 0; index < texts.Length; index++)
         {
             var expected = _service.EncodeInput(texts[index], 1024);
-            Assert.IsTrue(probe.InputRows[index].Span[..expected.Length].SequenceEqual(expected));
-            Assert.IsTrue(probe.InputRows[index].Span[expected.Length..].IndexOfAnyExcept(0L) < 0);
+            Assert.IsTrue(probe.InputRows.ElementAt(index).Span[..expected.Length].SequenceEqual(expected));
+            Assert.IsTrue(probe.InputRows.ElementAt(index).Span[expected.Length..].IndexOfAnyExcept(0L) < 0);
         }
     }
 
@@ -308,7 +624,7 @@ public sealed class EmbeddingGemmaEmbeddingTests
 
             Assert.IsGreaterThan(1, probe.InputRows.Count);
             Assert.IsTrue(probe.Batches.All(batch => batch.Length <= 1024));
-            var lastRow = probe.InputRows[^1].Span;
+            var lastRow = probe.InputRows.Last().Span;
             var end = lastRow.LastIndexOf(1L) + 1;
             Assert.IsTrue(lastRow.Slice(end - 4, 4).SequenceEqual(expectedTail));
             Assert.IsTrue(await store.HasOcrTextVectorAsync("image.png", _service.ModelId, CancellationToken.None));
@@ -383,7 +699,7 @@ public sealed class EmbeddingGemmaEmbeddingTests
             Assert.AreEqual(1, sessionCreations);
             Assert.HasCount(2, probe.Batches);
             var expected = _service.EncodeInput(EmbeddingGemmaEmbeddingService.QueryInstruction + "people", 512);
-            Assert.IsTrue(probe.InputRows[^1].Span[..expected.Length].SequenceEqual(expected));
+            Assert.IsTrue(probe.InputRows.Last().Span[..expected.Length].SequenceEqual(expected));
             Assert.IsFalse(probe.IsDisposed);
             Assert.IsTrue(index.GetStatus().IsRebuilding);
             Assert.AreEqual(paused, index.GetStatus().IsPaused);
@@ -493,7 +809,7 @@ public sealed class EmbeddingGemmaEmbeddingTests
         Assert.AreEqual(2, creations);
         Assert.IsTrue(previous.IsDisposed);
         Assert.IsFalse(replacement.IsDisposed);
-        Assert.AreEqual((1, length), replacement.Batches[0]);
+        Assert.AreEqual((1, length), replacement.Batches.First());
         Assert.HasCount(2, replacement.Batches);
     }
 
@@ -666,7 +982,7 @@ public sealed class EmbeddingGemmaEmbeddingTests
         Assert.HasCount(2, failedTexts);
         Assert.IsTrue(failedTexts.All(session => session.IsDisposed));
         Assert.HasCount(1, cpu.Batches);
-        Assert.AreEqual(featureLength, cpu.ImageFeatureLengths[0]);
+        Assert.AreEqual(featureLength, cpu.ImageFeatureLengths.First());
     }
 
     private sealed class SchedulingSession : IInferenceSession
@@ -674,10 +990,12 @@ public sealed class EmbeddingGemmaEmbeddingTests
         public string Device { get; init; } = "CPU";
         public IReadOnlyList<string> InputNames => [];
         public IReadOnlyList<int[]> OutputShape => [];
-        public List<(int Count, int Length)> Batches { get; } = [];
-        public List<ReadOnlyMemory<long>> InputRows { get; } = [];
-        public List<int> MaskLengths { get; } = [];
-        public List<int> ImageFeatureLengths { get; } = [];
+        public ConcurrentQueue<(int Count, int Length)> Batches { get; } = [];
+        public ConcurrentQueue<ReadOnlyMemory<long>> InputRows { get; } = [];
+        public ConcurrentQueue<int> MaskLengths { get; } = [];
+        public ConcurrentQueue<int> ImageFeatureLengths { get; } = [];
+        public ConcurrentQueue<(int Image, int Video, int Audio)> FeatureLengths { get; } = [];
+        public IReadOnlyDictionary<string, long>? FreeDimensionOverrides { get; private set; }
         public int? OutputLength { get; init; }
         public Action<int>? BeforeInference { get; init; }
         public Action? BeforeInitialization { get; init; }
@@ -685,6 +1003,7 @@ public sealed class EmbeddingGemmaEmbeddingTests
         public bool UseCpuMemoryArena { get; private set; }
         public long GpuMemoryLimitBytes { get; private set; }
         public bool IsDisposed { get; private set; }
+        private int _inferenceCount;
         public void InitSession(string modelPath) => throw new NotSupportedException();
         public void InitSession(byte[] modelData) => throw new NotSupportedException();
         public void InitSession(string modelPath, bool useCpuMemoryArena, int intraOpNumThreads, long gpuMemoryLimitBytes)
@@ -694,21 +1013,29 @@ public sealed class EmbeddingGemmaEmbeddingTests
             WorkerCount = intraOpNumThreads;
             GpuMemoryLimitBytes = gpuMemoryLimitBytes;
         }
+        public void InitSession(string modelPath, bool useCpuMemoryArena, int intraOpNumThreads,
+            long gpuMemoryLimitBytes, IReadOnlyDictionary<string, long>? freeDimensionOverrides)
+        {
+            InitSession(modelPath, useCpuMemoryArena, intraOpNumThreads, gpuMemoryLimitBytes);
+            FreeDimensionOverrides = freeDimensionOverrides;
+        }
         public Memory<float> Infer(List<(string, Memory<int>, Memory<float>)> inputs) => throw new NotSupportedException();
         public Memory<float> Infer(List<(string, Memory<int>, Memory<long>)> int64Inputs,
             List<(string, Memory<int>, Memory<float>)> floatInputs, string outputName, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var shape = int64Inputs[0].Item2.Span;
-            Batches.Add((shape[0], shape[1]));
+            Batches.Enqueue((shape[0], shape[1]));
             for (var index = 0; index < shape[0]; index++)
             {
-                InputRows.Add(int64Inputs[0].Item3.Slice(index * shape[1], shape[1]));
+                InputRows.Enqueue(int64Inputs[0].Item3.Slice(index * shape[1], shape[1]));
                 if (int64Inputs.Count > 1 && int64Inputs[1].Item1 == "attention_mask")
-                    MaskLengths.Add(int64Inputs[1].Item3.Span.Slice(index * shape[1], shape[1]).Count(1L));
+                    MaskLengths.Enqueue(int64Inputs[1].Item3.Span.Slice(index * shape[1], shape[1]).Count(1L));
             }
-            ImageFeatureLengths.Add(floatInputs[0].Item3.Length);
-            BeforeInference?.Invoke(Batches.Count);
+            ImageFeatureLengths.Enqueue(floatInputs[0].Item3.Length);
+            if (floatInputs.Count == 3)
+                FeatureLengths.Enqueue((floatInputs[0].Item3.Length, floatInputs[1].Item3.Length, floatInputs[2].Item3.Length));
+            BeforeInference?.Invoke(Interlocked.Increment(ref _inferenceCount));
             var vectors = new float[OutputLength ?? shape[0] * 768];
             for (var index = 0; index < shape[0]; index++) vectors[index * 768] = 1;
             return vectors;

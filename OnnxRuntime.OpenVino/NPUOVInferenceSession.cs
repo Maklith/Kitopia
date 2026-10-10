@@ -28,16 +28,26 @@ public class NPUOVInferenceSession : IInferenceSession
     public void InitSession(string modelPath, bool useCpuMemoryArena) => InitSession(modelPath, useCpuMemoryArena, 0);
 
     public void InitSession(string modelPath, bool useCpuMemoryArena, int intraOpNumThreads)
+        => InitSession(modelPath, useCpuMemoryArena, intraOpNumThreads, 0, null);
+
+    public void InitSession(string modelPath, bool useCpuMemoryArena, int intraOpNumThreads,
+        long gpuMemoryLimitBytes, IReadOnlyDictionary<string, long>? freeDimensionOverrides)
     {
+        var hasStaticDimensions = freeDimensionOverrides is { Count: > 0 };
         using var sessionOptions = new SessionOptions
         {
-            GraphOptimizationLevel = GraphOptimizationLevel.ORT_DISABLE_ALL,
+            // Basic optimization propagates overrides through Shape/Range/Reshape before NPU compilation.
+            GraphOptimizationLevel = hasStaticDimensions ? GraphOptimizationLevel.ORT_ENABLE_BASIC : GraphOptimizationLevel.ORT_DISABLE_ALL,
             EnableCpuMemArena = useCpuMemoryArena, EnableMemoryPattern = false,
             IntraOpNumThreads = intraOpNumThreads, InterOpNumThreads = 1
         };
         sessionOptions.AddSessionConfigEntry("session.intra_op.allow_spinning", "0");
         sessionOptions.AddSessionConfigEntry("session.inter_op.allow_spinning", "0");
-        _runtime.AppendExecutionProvider(sessionOptions, OrtHardwareDeviceType.NPU);
+        if (hasStaticDimensions)
+            foreach (var (name, value) in freeDimensionOverrides!)
+                sessionOptions.AddFreeDimensionOverrideByName(name, value);
+        // ORT retains unsupported auxiliary operations, such as RotaryEmbedding, on CPU.
+        _runtime.AppendExecutionProvider(sessionOptions, OrtHardwareDeviceType.NPU, allowCpuFallback: hasStaticDimensions);
         var session = new InferenceSession(modelPath, sessionOptions);
         _inferenceSession?.Dispose();
         _inferenceSession = session;

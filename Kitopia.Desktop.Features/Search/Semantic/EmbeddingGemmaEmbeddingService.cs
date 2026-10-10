@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Plugin;
@@ -19,6 +20,9 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
     private const int BatchTokenBudget = 2048;
     private const long BatchAttentionBudget = 1024L * 1024;
     private const int MaximumBatchSize = 4;
+    private const int MaximumImageTokens = EmbeddingGemmaImageProcessor.MaximumPatches / 9;
+    private static readonly float[] EmptyNpuFeatures = new float[512];
+    private static readonly float[] EmptyNpuImageFeatures = new float[MaximumImageTokens * 512];
     private readonly string _directoryPath;
     private readonly Tokenizer _tokenizer;
     private readonly SemaphoreSlim _inferenceGate = new(1, 1);
@@ -26,6 +30,7 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
     private IInferenceSession? _visionSession;
     private string? _textDevice;
     private string? _visionDevice;
+    private (int BatchSize, int SequenceLength, int ImageTokens)? _textShape;
 
     internal EmbeddingGemmaEmbeddingService(string directoryPath)
     {
@@ -78,6 +83,8 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
         var vectors = new List<float[]>(texts.Count);
         var batch = new List<long[]>(MaximumBatchSize);
         var sequenceLength = 0;
+        var isNpu = ConfigManger.Config.OnnxTargetDevices.GetValueOrDefault(
+            EmbeddingGemmaModelPackage.TextModelSignName, "CPU") == "NPU(OpenVino)";
         foreach (var text in texts)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -87,10 +94,11 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
                 ? (int)BitOperations.RoundUpToPowerOf2((uint)tokens.Length)
                 : tokens.Length;
             var paddedLength = Math.Max(sequenceLength, tokenLength);
-            // Attention allocations grow with sequence length squared, not just token count.
+            // NPU requests retain batch=1; queue up to four independently bounded requests.
             if (batch.Count > 0 && (batch.Count == MaximumBatchSize
-                                   || paddedLength * (batch.Count + 1) > BatchTokenBudget
-                                   || (long)paddedLength * paddedLength * (batch.Count + 1) > BatchAttentionBudget))
+                                   || ((!isNpu || paddedLength > IndexingMaximumTokens)
+                                       && (paddedLength * (batch.Count + 1) > BatchTokenBudget
+                                           || (long)paddedLength * paddedLength * (batch.Count + 1) > BatchAttentionBudget))))
             {
                 vectors.AddRange(await InferTextBatchAsync(batch, sequenceLength, Memory<float>.Empty, cancellationToken));
                 batch.Clear();
@@ -113,24 +121,56 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             Memory<float> features;
             int softTokens;
+            var (pixels, positions, tokenCount) = await Task.Run(
+                () => EmbeddingGemmaImageProcessor.Process(path, cancellationToken), cancellationToken);
             await _inferenceGate.WaitAsync(cancellationToken);
             try
             {
                 var result = await Task.Run(() =>
                 {
-                    var (pixels, positions, tokenCount) = EmbeddingGemmaImageProcessor.Process(path, cancellationToken);
                     var target = ConfigManger.Config.OnnxTargetDevices.GetValueOrDefault(EmbeddingGemmaModelPackage.VisionModelSignName, "CPU");
                     if (_visionDevice != target)
                     {
                         _visionSession?.Dispose();
                         _visionSession = null;
                     }
-                    _visionSession ??= CreateSession(target, "vision_encoder_q4.onnx");
+                    var isNpu = target == "NPU(OpenVino)";
+                    if (_visionSession is null)
+                    {
+                        try
+                        {
+                            var visionDimensions = new Dictionary<string, long>
+                            {
+                                ["s11"] = 1,
+                                ["s35"] = EmbeddingGemmaImageProcessor.MaximumPatches,
+                                ["u0"] = MaximumImageTokens
+                            };
+                            _visionSession = CreateSession(target,
+                                "vision_encoder_q4.onnx",
+                                target == "NPU(OpenVino)" ? visionDimensions : null);
+                        }
+                        catch (Exception exception) when (isNpu && PluginOverall.GetOnnxRuntime("CPU") is not null)
+                        {
+                            // A failed NPU compile must not be retried for every image in the same batch.
+                            Log.Warning(exception, "NPU vision session initialization failed; using one CPU fallback session for this service instance.");
+                            _visionSession = CreateSession("CPU", "vision_encoder_q4.onnx");
+                        }
+                    }
                     _visionDevice = target;
                     var output = _visionSession.Infer(
                         [("pixel_position_ids", new Memory<int>([1, EmbeddingGemmaImageProcessor.MaximumPatches, 2]), positions)],
                         [("pixel_values", new Memory<int>([1, EmbeddingGemmaImageProcessor.MaximumPatches, 768]), pixels)],
                         "image_features", cancellationToken);
+                    if (isNpu)
+                    {
+                        if (output.Length != tokenCount * 512 && output.Length != MaximumImageTokens * 512)
+                            throw new InvalidDataException($"Unexpected bounded vision embedding length {output.Length}.");
+                        // CPU text sessions need only the valid prefix. NPU text pads a shorter
+                        // result to the fixed 280-row input below.
+                        if (ConfigManger.Config.OnnxTargetDevices.GetValueOrDefault(
+                                EmbeddingGemmaModelPackage.TextModelSignName, "CPU") != "NPU(OpenVino)")
+                            output = output[..(tokenCount * 512)];
+                    }
                     return (output, tokenCount);
                 }, cancellationToken);
                 (features, softTokens) = result;
@@ -139,7 +179,7 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
             {
                 _inferenceGate.Release();
             }
-            if (features.Length != softTokens * 512)
+            if (features.Length != softTokens * 512 && features.Length != MaximumImageTokens * 512)
                 throw new InvalidDataException($"The vision encoder returned {features.Length} values for {softTokens} tokens.");
             var ids = new long[softTokens + 4];
             ids[0] = 2;
@@ -155,6 +195,22 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
     private async Task<float[][]> InferTextBatchAsync(
         IReadOnlyList<long[]> batch, int sequenceLength, Memory<float> imageFeatures, CancellationToken cancellationToken)
     {
+        var target = ConfigManger.Config.OnnxTargetDevices.GetValueOrDefault(EmbeddingGemmaModelPackage.TextModelSignName, "CPU");
+        var isNpu = target == "NPU(OpenVino)";
+        if (isNpu)
+        {
+            // Fixed buckets avoid recompiling the same weights for each text or image length.
+            sequenceLength = Math.Max(IndexingMaximumTokens,
+                (int)BitOperations.RoundUpToPowerOf2((uint)sequenceLength));
+            if (imageFeatures.IsEmpty)
+                imageFeatures = EmptyNpuImageFeatures;
+            else if (imageFeatures.Length < EmptyNpuImageFeatures.Length)
+            {
+                var paddedFeatures = new float[EmptyNpuImageFeatures.Length];
+                imageFeatures.CopyTo(paddedFeatures);
+                imageFeatures = paddedFeatures;
+            }
+        }
         var ids = new long[batch.Count * sequenceLength];
         var mask = new long[ids.Length];
         for (var index = 0; index < batch.Count; index++)
@@ -163,36 +219,86 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
             Array.Fill(mask, 1L, index * sequenceLength, batch[index].Length);
         }
         Memory<float> output;
+        Memory<float>[]? individualOutputs = null;
         await _inferenceGate.WaitAsync(cancellationToken);
         try
         {
             output = await Task.Run(() =>
             {
-                var target = ConfigManger.Config.OnnxTargetDevices.GetValueOrDefault(EmbeddingGemmaModelPackage.TextModelSignName, "CPU");
+                // Gemma's NPU batch>1 results are incorrect; concurrent runs each keep batch=1.
+                var runtimeBatchSize = isNpu ? 1 : batch.Count;
+                var features = imageFeatures;
+                var unusedFeatures = isNpu ? EmptyNpuFeatures.AsMemory() : Memory<float>.Empty;
+                (int, int, int)? shape = isNpu ? (runtimeBatchSize, sequenceLength, features.Length / 512) : null;
                 if (_textDevice != target)
                 {
+                    _textSession?.Dispose();
+                    _textSession = null;
+                    _textShape = null;
+                }
+                else if (_textShape != shape)
+                {
+                    // One resident NPU graph prevents shape changes from doubling accelerator memory.
                     _textSession?.Dispose();
                     _textSession = null;
                 }
                 // Track the requested device so CPU recovery lasts until pause/reload or a device change.
                 _textDevice = target;
+                _textShape = shape;
                 var runtimeTarget = target;
                 for (var attempt = 0; ; attempt++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     try
                     {
-                        _textSession ??= CreateSession(runtimeTarget, "model_q4.onnx");
-                        return _textSession.Infer(
+                        var session = _textSession;
+                        if (session is null)
+                        {
+                            try
+                            {
+                                session = CreateSession(runtimeTarget, "model_q4.onnx",
+                                    isNpu ? new Dictionary<string, long>
+                                    {
+                                        ["batch_size"] = runtimeBatchSize,
+                                        ["sequence_length"] = sequenceLength,
+                                        ["num_image_tokens"] = features.Length / 512,
+                                        ["num_video_tokens"] = 1,
+                                        ["num_audio_tokens"] = 1
+                                    } : null);
+                                _textSession = session;
+                            }
+                            catch (Exception exception) when (runtimeTarget == "NPU(OpenVino)"
+                                                               && PluginOverall.GetOnnxRuntime("CPU") is not null)
+                            {
+                                // Keep a compiler failure from causing one retry per pending item.
+                                Log.Warning(exception, "NPU text session initialization failed; using one CPU fallback session for this service instance.");
+                                runtimeTarget = "CPU";
+                                session = CreateSession(runtimeTarget, "model_q4.onnx");
+                                _textSession = session;
+                            }
+                        }
+                        Memory<float> InferItem(int index) => session.Infer(
                             [
-                                ("input_ids", new Memory<int>([batch.Count, sequenceLength]), ids),
-                                ("attention_mask", new Memory<int>([batch.Count, sequenceLength]), mask)
+                                ("input_ids", new Memory<int>([runtimeBatchSize, sequenceLength]),
+                                    ids.AsMemory(index * sequenceLength, runtimeBatchSize * sequenceLength)),
+                                ("attention_mask", new Memory<int>([runtimeBatchSize, sequenceLength]),
+                                    mask.AsMemory(index * sequenceLength, runtimeBatchSize * sequenceLength))
                             ],
                             [
-                                ("image_features", new Memory<int>([imageFeatures.Length / 512, 512]), imageFeatures),
-                                ("video_features", new Memory<int>([0, 512]), Memory<float>.Empty),
-                                ("audio_features", new Memory<int>([0, 512]), Memory<float>.Empty)
+                                // No placeholder token selects these zero rows; NPU rejects empty tensors.
+                                ("image_features", new Memory<int>([features.Length / 512, 512]), features),
+                                ("video_features", new Memory<int>([unusedFeatures.Length / 512, 512]), unusedFeatures),
+                                ("audio_features", new Memory<int>([unusedFeatures.Length / 512, 512]), unusedFeatures)
                             ], "sentence_embedding", cancellationToken);
+                        if (!isNpu || batch.Count == 1) return InferItem(0);
+                        var batchOutputs = new Memory<float>[batch.Count];
+                        Parallel.For(0, batch.Count, new ParallelOptions
+                        {
+                            MaxDegreeOfParallelism = MaximumBatchSize,
+                            CancellationToken = cancellationToken
+                        }, index => batchOutputs[index] = InferItem(index));
+                        individualOutputs = batchOutputs;
+                        return Memory<float>.Empty;
                     }
                     catch (OutOfMemoryException exception) when (runtimeTarget == "GPU(CUDA)"
                                                                && (_textSession is null || _textSession.Device == "GPU(CUDA)"))
@@ -228,12 +334,17 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
         {
             _inferenceGate.Release();
         }
-        if (output.Length != batch.Count * VectorDimensions)
+        if (individualOutputs is null && output.Length != batch.Count * VectorDimensions)
             throw new InvalidDataException($"Unexpected sentence embedding length {output.Length}.");
         var vectors = new float[batch.Count][];
         for (var index = 0; index < batch.Count; index++)
         {
-            var vector = output.Span.Slice(index * VectorDimensions, VectorDimensions).ToArray();
+            var row = individualOutputs is null
+                ? output.Slice(index * VectorDimensions, VectorDimensions)
+                : individualOutputs[index];
+            if (row.Length != VectorDimensions)
+                throw new InvalidDataException($"Unexpected sentence embedding length {row.Length}.");
+            var vector = row.ToArray();
             var squaredLength = 0d;
             foreach (var value in vector)
             {
@@ -248,7 +359,8 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
         return vectors;
     }
 
-    private IInferenceSession CreateSession(string target, string fileName)
+    private IInferenceSession CreateSession(string target, string fileName,
+        IReadOnlyDictionary<string, long>? freeDimensionOverrides = null)
     {
         var runtime = PluginOverall.GetOnnxRuntime(target)
                       ?? throw new InvalidOperationException($"The {target} ONNX Runtime plugin is not available.");
@@ -258,7 +370,15 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
             var threads = Math.Max(1, Environment.ProcessorCount *
                 Math.Clamp(ConfigManger.Config.indexingMaximumCpuUsagePercent, 1, 100) / 100);
             var gpuMemoryLimit = (long)Math.Clamp(ConfigManger.Config.inferenceMaximumGpuMemoryMiB, 128, 32768) * 1024 * 1024;
-            session.InitSession(Path.Combine(_directoryPath, "onnx", fileName), useCpuMemoryArena: true, threads, gpuMemoryLimit);
+            var started = Stopwatch.GetTimestamp();
+            if (target == "NPU(OpenVino)")
+                Log.Information("Initializing {Model} for NPU with dimensions {@Dimensions}; compiled graphs are cached on disk.",
+                    fileName, freeDimensionOverrides);
+            session.InitSession(Path.Combine(_directoryPath, "onnx", fileName), useCpuMemoryArena: true, threads,
+                gpuMemoryLimit, freeDimensionOverrides);
+            if (target == "NPU(OpenVino)")
+                Log.Information("NPU session initialization for {Model} completed in {ElapsedSeconds:F1} seconds.",
+                    fileName, Stopwatch.GetElapsedTime(started).TotalSeconds);
             return session;
         }
         catch
@@ -279,6 +399,7 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
             _textSession = null;
             _visionDevice = null;
             _textDevice = null;
+            _textShape = null;
         }
         finally
         {
