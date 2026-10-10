@@ -26,8 +26,15 @@
                     <SolidColorBrush x:Key="OnnxControlBorderBrush" Color="#29FFFFFF" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
-        <onnxModelManagerPage:ModelInfoToRuntimeChangerCtr x:Key="ModelInfoToRuntimeChangerCtr" />
         <onnxModelManagerPage:OnnxModelInfoWrapperToModelSizeCtr x:Key="OnnxModelInfoWrapperToModelSizeCtr" />
+            <ControlTheme x:Key="RuntimeDetailsFlyout" TargetType="FlyoutPresenter"
+                          BasedOn="{StaticResource {x:Type FlyoutPresenter}}">
+                <Setter Property="Background" Value="{DynamicResource KitopiaCardBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource OnnxCardBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="Padding" Value="20" />
+            </ControlTheme>
         </ResourceDictionary>
     </UserControl.Resources>
     <UserControl.Styles>
@@ -71,7 +78,7 @@
     <Panel Background="{DynamicResource OnnxCanvasBrush}">
         <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
         <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="24" RowSpacing="24">
+        <Grid RowDefinitions="Auto,Auto,Auto" Margin="24" RowSpacing="24">
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="{DynamicResource 'lang.kitopia.ai_engine'}" Theme="{DynamicResource KitopiaPageKickerText}" />
@@ -93,133 +100,162 @@
                         <controls:FontIcon Glyph="&#xf13e;" FontSize="18" />
                     </Button>
                 </Grid>
-                <ItemsControl ItemsSource="{Binding Runtimes}">
+                <ItemsControl x:Name="RuntimeCards" ItemsSource="{Binding Runtimes}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="12" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="pages:OnnxRuntimeStatus">
-                            <Border Theme="{DynamicResource KitopiaCard}" Margin="0,0,0,12" Padding="24"
+                            <Border Classes="runtimeCard" Theme="{DynamicResource KitopiaCard}" Padding="24"
+                                    Width="{Binding $parent[ItemsControl].Bounds.Width}" MaxWidth="272" Height="136"
                                     BorderBrush="{DynamicResource OnnxCardBorderBrush}">
-                                <StackPanel Spacing="12">
-                                    <WrapPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding Device}" FontSize="16" FontWeight="SemiBold"
-                                                   Margin="0,0,12,4" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <Grid RowDefinitions="Auto,*" RowSpacing="12">
+                                    <TextBlock Text="{Binding Device}" FontSize="16" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Device}" />
+                                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="12"
+                                          MinHeight="34" VerticalAlignment="Bottom">
                                         <Border Classes="runtimeBadge" Classes.available="{Binding IsVerified}"
                                                 Classes.unavailable="{Binding IsUnavailable}" Classes.checking="{Binding IsChecking}"
-                                                VerticalAlignment="Center" Margin="0,0,0,4">
-                                            <TextBlock Text="{lang:Lang Value={Binding StatusKey}}" TextWrapping="Wrap" MaxWidth="300" />
+                                                HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <TextBlock Text="{lang:Lang Value={Binding StatusKey}}" TextWrapping="Wrap" />
                                         </Border>
-                                    </WrapPanel>
-                                    <TextBlock Text="{lang:Lang Value={Binding RequirementsKey}}" TextWrapping="Wrap"
-                                               IsVisible="{Binding !IsVerified}"
-                                               Foreground="{DynamicResource SemiColorText2}" FontSize="14" />
-                                    <WrapPanel Orientation="Horizontal" IsVisible="{Binding !IsVerified}">
-                                            <Button Content="{DynamicResource 'lang.kitopia.onnx.official_guide'}" Padding="12,4" Margin="0,0,8,4"
-                                                    Command="{Binding $parent[UserControl].((pages:OnnxModelManagerPageViewModel)DataContext).OpenDocumentationCommand}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="{DynamicResource 'lang.kitopia.onnx.drivers'}" Padding="12,4" Margin="0,0,0,4"
-                                                    IsVisible="{Binding HasDriverUrl}"
-                                                    Command="{Binding $parent[UserControl].((pages:OnnxModelManagerPageViewModel)DataContext).OpenDriversCommand}"
-                                                    CommandParameter="{Binding}" />
-                                    </WrapPanel>
-                                    <Expander Header="{DynamicResource 'lang.kitopia.onnx.error_details'}"
-                                              IsVisible="{Binding HasError}" HorizontalAlignment="Stretch">
-                                        <TextBlock Text="{lang:Lang Value={Binding Error}}" TextWrapping="Wrap"
-                                                   Foreground="{DynamicResource KitopiaBadgeDangerForeground}" FontSize="12" />
-                                    </Expander>
-                                </StackPanel>
+                                        <Button Grid.Column="1" Classes="runtimeDetails"
+                                                Content="{DynamicResource 'lang.kitopia.view_details'}"
+                                                Theme="{DynamicResource BorderlessButton}" Background="Transparent"
+                                                BorderThickness="0" Padding="8,4"
+                                                IsVisible="{Binding !IsVerified}" IsEnabled="{Binding !IsChecking}">
+                                            <Button.Flyout>
+                                                <Flyout FlyoutPresenterTheme="{StaticResource RuntimeDetailsFlyout}">
+                                                    <ScrollViewer Width="300" MaxHeight="420"
+                                                                  HorizontalScrollBarVisibility="Disabled"
+                                                                  VerticalScrollBarVisibility="Auto">
+                                                        <StackPanel Spacing="12">
+                                                            <TextBlock Text="{Binding Device}" FontSize="16" FontWeight="SemiBold"
+                                                                       TextWrapping="Wrap" />
+                                                            <TextBlock Text="{lang:Lang Value={Binding RequirementsKey}}" TextWrapping="Wrap"
+                                                                       Foreground="{DynamicResource SemiColorText2}" FontSize="14" />
+                                                            <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8">
+                                                                <Button Content="{DynamicResource 'lang.kitopia.onnx.official_guide'}" Padding="12,4"
+                                                                        Command="{Binding $parent[UserControl].((pages:OnnxModelManagerPageViewModel)DataContext).OpenDocumentationCommand}"
+                                                                        CommandParameter="{Binding}" />
+                                                                <Button Content="{DynamicResource 'lang.kitopia.onnx.drivers'}" Padding="12,4"
+                                                                        IsVisible="{Binding HasDriverUrl}"
+                                                                        Command="{Binding $parent[UserControl].((pages:OnnxModelManagerPageViewModel)DataContext).OpenDriversCommand}"
+                                                                        CommandParameter="{Binding}" />
+                                                            </WrapPanel>
+                                                            <StackPanel Spacing="8" IsVisible="{Binding HasError}">
+                                                                <TextBlock Text="{DynamicResource 'lang.kitopia.onnx.error_details'}" FontWeight="SemiBold" />
+                                                                <SelectableTextBlock Text="{lang:Lang Value={Binding Error}}" TextWrapping="Wrap"
+                                                                                     Foreground="{DynamicResource KitopiaBadgeDangerForeground}" FontSize="12" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </ScrollViewer>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                    </Grid>
+                                </Grid>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </StackPanel>
-            <StackPanel Grid.Row="2">
-                <TextBlock Text="{DynamicResource 'lang.kitopia.onnx.local_models'}" Theme="{DynamicResource KitopiaPageKickerText}" />
-                <TextBlock Text="{DynamicResource 'lang.kitopia.models'}" FontSize="20" FontWeight="SemiBold" />
+            <StackPanel Grid.Row="2" Spacing="12">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.onnx.local_models'}" Theme="{DynamicResource KitopiaPageKickerText}" />
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.models'}" FontSize="20" FontWeight="SemiBold" />
+                </StackPanel>
+                <Border Theme="{DynamicResource KitopiaCard}" Padding="0" ClipToBounds="True"
+                        BorderBrush="{DynamicResource OnnxCardBorderBrush}">
+                    <DataGrid x:Name="ModelsGrid" ItemsSource="{Binding Models}" MinHeight="200" BorderThickness="0"
+                              CanUserReorderColumns="True" CanUserResizeColumns="True" CanUserSortColumns="True"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="{DynamicResource OnnxCardBorderBrush}"
+                              HorizontalScrollBarVisibility="Auto" RowHeight="80" ColumnHeaderHeight="40"
+                              IsReadOnly="True">
+                        <DataGrid.Resources>
+                            <onnxModelManagerPage:PluginStrToPluginName x:Key="PluginStrToPluginName" />
+                        </DataGrid.Resources>
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="{DynamicResource 'lang.kitopia.model_name'}" Width="*" MinWidth="220"
+                                                    SortMemberPath="ModelInfo.Model.Name">
+                                <DataTemplate x:DataType="pages:OnnxModelRuntimeSelection">
+                                    <TextBlock Text="{lang:Lang Value={Binding ModelInfo.Model.Name}}"
+                                               ToolTip.Tip="{lang:Lang Value={Binding ModelInfo.Model.Name}}"
+                                               Margin="12,8" VerticalAlignment="Center" FontWeight="Medium"
+                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxLines="2" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="{DynamicResource 'lang.kitopia.model_description'}" Width="1.6*" MinWidth="240"
+                                                    SortMemberPath="ModelInfo.Model.Description">
+                                <DataTemplate x:DataType="pages:OnnxModelRuntimeSelection">
+                                    <TextBlock Text="{lang:Lang Value={Binding ModelInfo.Model.Description}}"
+                                               ToolTip.Tip="{lang:Lang Value={Binding ModelInfo.Model.Description}}"
+                                               Margin="12,8" VerticalAlignment="Center" FontSize="13"
+                                               Foreground="{DynamicResource SemiColorText2}"
+                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxLines="3" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn x:DataType="pages:OnnxModelRuntimeSelection" Width="128" MinWidth="128"
+                                                Binding="{Binding ModelInfo.PluginStr,Converter={StaticResource PluginStrToPluginName},Mode=OneWay}"
+                                                Header="{DynamicResource 'lang.kitopia.model_source'}" />
+                            <DataGridTemplateColumn Header="{DynamicResource 'lang.kitopia.inference_backend'}" Width="200" MinWidth="200"
+                                                    SortMemberPath="CurrentDevice">
+                                <DataTemplate x:DataType="pages:OnnxModelRuntimeSelection">
+                                    <ComboBox ItemsSource="{Binding Runtimes}"
+                                              SelectedItem="{Binding SelectedRuntime, Mode=TwoWay}"
+                                              IsEnabled="{Binding !ModelInfo.Model.NeedDownload}"
+                                              AutomationProperties.Name="{DynamicResource 'lang.kitopia.inference_backend'}"
+                                              Margin="12,0" Height="34" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                              CornerRadius="6" Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                                              BorderBrush="{DynamicResource OnnxControlBorderBrush}" BorderThickness="1">
+                                        <ComboBox.ItemContainerTheme>
+                                            <ControlTheme TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}"
+                                                          x:DataType="pages:OnnxRuntimeStatus">
+                                                <Setter Property="IsEnabled" Value="{Binding CanSelect}" />
+                                                <Setter Property="ToolTip.Tip" Value="{lang:Lang Value={Binding StatusKey}}" />
+                                            </ControlTheme>
+                                        </ComboBox.ItemContainerTheme>
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="pages:OnnxRuntimeStatus">
+                                                <TextBlock Text="{Binding Device}" TextTrimming="CharacterEllipsis" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </DataTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn x:DataType="pages:OnnxModelRuntimeSelection" Header="{DynamicResource 'lang.kitopia.model_size'}" Width="110" MinWidth="110"
+                                                    CanUserReorder="True" CanUserSort="True"
+                                                    CustomSortComparer="{x:Static onnxModelManagerPage:DataGridModelSizeComparer.Default}">
+                                <DataTemplate x:DataType="pages:OnnxModelRuntimeSelection">
+                                    <Label HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" Padding="4"
+                                           Content="{Binding ModelInfo, Converter={StaticResource OnnxModelInfoWrapperToModelSizeCtr} }" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn x:DataType="pages:OnnxModelRuntimeSelection" Header="{DynamicResource 'lang.kitopia.download_model'}" Width="160" MinWidth="160">
+                                <DataTemplate x:DataType="pages:OnnxModelRuntimeSelection">
+                                    <Panel Margin="12,8" VerticalAlignment="Center">
+                                        <TextBlock Text="{DynamicResource 'lang.kitopia.bundled'}" IsVisible="{Binding ModelInfo.Model.IsBundled}"
+                                                   FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <controls:DownloadButton DataContext="{Binding ModelInfo.Model, DataType={x:Type pages:OnnxModelRuntimeSelection}}"
+                                                                 x:DataType="onnx:OnnxModelInfo"
+                                                                 IsVisible="{Binding !IsBundled}"
+                                                                 NeedDownload="{Binding NeedDownload}"
+                                                                 CanDownload="{Binding CanDownload}"
+                                                                 IsDownloading="{Binding IsDownloading}"
+                                                                 IsIndeterminate="{Binding IsIndeterminate}"
+                                                                 Progress="{Binding Progress}"
+                                                                 DownloadCommand="{Binding DownloadCommand}"
+                                                                 CancelCommand="{Binding CancelCommand}" />
+                                    </Panel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
             </StackPanel>
-            <Border Grid.Row="3" Theme="{DynamicResource KitopiaCard}" Padding="0" ClipToBounds="True"
-                    BorderBrush="{DynamicResource OnnxCardBorderBrush}">
-            <DataGrid x:Name="ModelsGrid" ItemsSource="{Binding Models}" MinHeight="200" BorderThickness="0"
-                      CanUserReorderColumns="True"
-                      CanUserResizeColumns="True"
-                      CanUserSortColumns="True"
-                      HeadersVisibility="All"
-                      IsReadOnly="True">
-
-                <DataGrid.Resources>
-                    <onnxModelManagerPage:PluginStrToPluginName x:Key="PluginStrToPluginName" />
-                </DataGrid.Resources>
-                <DataGrid.Columns>
-                    <DataGridTextColumn x:DataType="pages:OnnxModelRuntimeSelection" Binding="{lang:Lang Value={Binding ModelInfo.Model.Name}}" Width="*" MinWidth="150"
-                                        Header="{DynamicResource 'lang.kitopia.model_name'}" />
-                    <DataGridTextColumn x:DataType="pages:OnnxModelRuntimeSelection" Binding="{lang:Lang Value={Binding ModelInfo.Model.Description}}" Width="180"
-                                        Header="{DynamicResource 'lang.kitopia.model_description'}" />
-                    <DataGridTextColumn x:DataType="pages:OnnxModelRuntimeSelection" Width="90"
-                                        Binding="{Binding ModelInfo.PluginStr,Converter={StaticResource PluginStrToPluginName},Mode=OneWay}"
-                                        Header="{DynamicResource 'lang.kitopia.model_source'}" />
-                    <DataGridTemplateColumn x:DataType="pages:OnnxModelRuntimeSelection" Header="{DynamicResource 'lang.kitopia.inference_backend'}" Width="220">
-                        <DataTemplate x:DataType="pages:OnnxModelRuntimeSelection">
-                            <StackPanel Spacing="4" Margin="4">
-                                <TextBlock Text="{lang:Lang 'lang.kitopia.onnx.selected_backend', Value={Binding CurrentDevice}}" FontSize="12" />
-                                <ItemsControl ItemsSource="{Binding Runtimes}" IsEnabled="{Binding !ModelInfo.Model.NeedDownload}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="pages:OnnxRuntimeStatus">
-                                            <RadioButton Margin="0,0,8,4" IsEnabled="{Binding CanSelect}"
-                                                         Content="{Binding Device}"
-                                                         ToolTip.Tip="{lang:Lang Value={Binding StatusKey}}"
-                                                         Command="{Binding $parent[ItemsControl].((pages:OnnxModelRuntimeSelection)DataContext).SelectRuntimeCommand}"
-                                                         CommandParameter="{Binding}">
-                                                <RadioButton.IsChecked>
-                                                    <MultiBinding Mode="OneWay"
-                                                                  Converter="{StaticResource ModelInfoToRuntimeChangerCtr}">
-                                                        <MultiBinding.Bindings>
-                                                            <Binding
-                                                                Path="$parent[ItemsControl].((pages:OnnxModelRuntimeSelection)DataContext).CurrentDevice" />
-                                                            <Binding
-                                                                Path="Device" />
-
-                                                        </MultiBinding.Bindings>
-                                                    </MultiBinding>
-                                                </RadioButton.IsChecked>
-                                            </RadioButton>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <WrapPanel Orientation="Horizontal" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                </ItemsControl>
-                            </StackPanel>
-
-                        </DataTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTemplateColumn x:DataType="pages:OnnxModelRuntimeSelection" Header="{DynamicResource 'lang.kitopia.model_size'}" Width="90"
-                                            CanUserReorder="True" CanUserSort="True"
-                                            CustomSortComparer="{x:Static onnxModelManagerPage:DataGridModelSizeComparer.Default}">
-                        <DataTemplate x:DataType="pages:OnnxModelRuntimeSelection">
-                            <Label HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" Padding="4"
-                                   Content="{Binding ModelInfo, Converter={StaticResource OnnxModelInfoWrapperToModelSizeCtr} }" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTemplateColumn x:DataType="pages:OnnxModelRuntimeSelection" Header="{DynamicResource 'lang.kitopia.download_model'}" Width="100">
-                        <DataTemplate x:DataType="pages:OnnxModelRuntimeSelection">
-                            <Panel>
-                                <TextBlock Text="{DynamicResource 'lang.kitopia.bundled'}" IsVisible="{Binding ModelInfo.Model.IsBundled}"
-                                           FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <controls:DownloadButton DataContext="{Binding ModelInfo.Model}" x:DataType="onnx:OnnxModelInfo"
-                                                         IsVisible="{Binding !IsBundled}"
-                                                         NeedDownload="{Binding NeedDownload}"
-                                                         CanDownload="{Binding CanDownload}"
-                                                         IsDownloading="{Binding IsDownloading}"
-                                                         IsIndeterminate="{Binding IsIndeterminate}"
-                                                         Progress="{Binding Progress}"
-                                                         DownloadCommand="{Binding DownloadCommand}"
-                                                         CancelCommand="{Binding CancelCommand}" />
-                            </Panel>
-                        </DataTemplate>
-                    </DataGridTemplateColumn>
-                </DataGrid.Columns>
-            </DataGrid>
-            </Border>
 
         </Grid>
         </ScrollViewer>

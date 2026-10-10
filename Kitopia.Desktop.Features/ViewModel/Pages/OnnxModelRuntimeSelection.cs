@@ -21,7 +21,20 @@ public sealed partial class OnnxModelRuntimeSelection : ObservableObject
     public OnnxModelInfoWrapper ModelInfo { get; }
     public IReadOnlyList<OnnxRuntimeStatus> Runtimes { get; }
 
-    [ObservableProperty] private string _currentDevice;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedRuntime))]
+    private string _currentDevice;
+
+    public OnnxRuntimeStatus? SelectedRuntime
+    {
+        get => Runtimes.FirstOrDefault(runtime => runtime.Device == CurrentDevice);
+        set
+        {
+            if (value is null) return;
+            SelectRuntime(value);
+            if (!ReferenceEquals(value, SelectedRuntime)) OnPropertyChanged();
+        }
+    }
 
     [RelayCommand]
     private void SelectRuntime(OnnxRuntimeStatus runtime)

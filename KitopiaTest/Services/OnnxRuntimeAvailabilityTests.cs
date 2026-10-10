@@ -133,6 +133,13 @@ public sealed class OnnxRuntimeAvailabilityTests
             Assert.AreEqual("CPU", config.Config.OnnxTargetDevices[model.Model.SignName]);
             Assert.AreEqual(1, config.SaveCount);
 
+            row.SelectedRuntime = unavailable;
+            row.SelectedRuntime = checking;
+            row.SelectedRuntime = null;
+            row.SelectedRuntime = new OnnxRuntimeStatus("CPU") { IsChecking = false, IsAvailable = true };
+            Assert.AreSame(available, row.SelectedRuntime);
+            Assert.AreEqual(1, config.SaveCount);
+
             checking.IsChecking = false;
             checking.IsAvailable = true;
             model.Model.ModelPath = path + ".missing";
@@ -201,10 +208,13 @@ public sealed class OnnxRuntimeAvailabilityTests
     }
 
     [TestMethod]
-    [DataRow("zh-CN", 900, false)]
-    [DataRow("en-US", 620, false)]
-    [DataRow("zh-CN", 620, true)]
-    public async Task ModelManager_DiagnosticsAndBackendSelection_RenderAndUpdate(string language, int width, bool dark)
+    [DataRow("zh-CN", 900, false, 3)]
+    [DataRow("en-US", 620, false, 2)]
+    [DataRow("zh-CN", 620, true, 2)]
+    [DataRow("en-US", 1560, false, 5)]
+    [DataRow("zh-CN", 1560, false, 5)]
+    [DataRow("en-US", 380, true, 1)]
+    public async Task ModelManager_DiagnosticsAndBackendSelection_RenderAndUpdate(string language, int width, bool dark, int columns)
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(OnnxRuntimeAvailabilityTests));
         await session.Dispatch(async () =>
@@ -229,7 +239,8 @@ public sealed class OnnxRuntimeAvailabilityTests
                 Model = new OnnxModelInfo { Name = "EmbeddingGemma 2", SignName = "test-ui", ModelPath = path, IsBundled = true }
             }];
             Lang.Current.UseLanguage(language);
-            var viewModel = new OnnxModelManagerPageViewModel(config, new TestShell());
+            var shell = new TestShell();
+            var viewModel = new OnnxModelManagerPageViewModel(config, shell);
             var page = new OnnxModelManagerPage { DataContext = viewModel };
             var window = new Window { Content = page, Width = width, Height = 900,
                 RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
@@ -244,22 +255,40 @@ public sealed class OnnxRuntimeAvailabilityTests
                 var scroll = page.FindControl<ScrollViewer>("PageScroll")!;
                 scroll.Offset = new Vector(0, scroll.Extent.Height);
                 Dispatcher.UIThread.RunJobs();
-                var radios = page.GetVisualDescendants().OfType<RadioButton>()
-                    .Where(button => ReferenceEquals(button.Command, row.SelectRuntimeCommand)).ToArray();
-                Assert.HasCount(5, radios);
-                var cuda = radios.Single(button => (string)button.Content! == "GPU(CUDA)");
-                Assert.IsFalse(cuda.IsEnabled);
-                Assert.IsTrue(cuda.IsChecked);
-                var cpu = radios.Single(button => (string)button.Content! == "CPU");
-                Assert.IsTrue(cpu.IsEnabled);
-                cpu.Focus();
-                window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
-                window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+                var picker = page.GetVisualDescendants().OfType<ComboBox>()
+                    .Single(control => ReferenceEquals(control.DataContext, row));
+                Assert.HasCount(5, picker.Items);
+                Assert.AreSame(row.Runtimes.Single(runtime => runtime.Device == "GPU(CUDA)"), picker.SelectedItem);
+                Assert.AreEqual(0, config.SaveCount);
+                picker.Focus();
+                window.KeyPress(Key.F4, RawInputModifiers.None, PhysicalKey.F4, "");
+                window.KeyRelease(Key.F4, RawInputModifiers.None, PhysicalKey.F4, "");
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(picker.IsDropDownOpen);
+                for (var index = 0; index < picker.Items.Count; index++)
+                {
+                    var runtime = (OnnxRuntimeStatus)picker.Items[index]!;
+                    var item = (ComboBoxItem)picker.ContainerFromIndex(index)!;
+                    Assert.AreEqual(runtime.CanSelect, item.IsEnabled);
+                }
+                var cpuItem = (ComboBoxItem)picker.ContainerFromIndex(0)!;
+                cpuItem.Focus();
+                var popup = TopLevel.GetTopLevel(cpuItem)!;
+                popup.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
+                popup.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
                 Dispatcher.UIThread.RunJobs();
                 Assert.AreEqual("CPU", row.CurrentDevice);
-                Assert.IsTrue(cpu.IsChecked);
-                Assert.IsFalse(cuda.IsChecked);
+                Assert.AreSame(row.Runtimes.Single(runtime => runtime.Device == "CPU"), picker.SelectedItem);
+                Assert.IsFalse(picker.IsDropDownOpen);
                 Assert.AreEqual(1, config.SaveCount);
+
+                var modelRows = grid.GetVisualDescendants().OfType<DataGridRow>().ToArray();
+                Assert.IsTrue(modelRows.All(modelRow => modelRow.Bounds.Height <= 81));
+                if (width >= 1560)
+                {
+                    Assert.IsTrue(grid.Columns[1].ActualWidth > grid.Columns[0].ActualWidth);
+                    Assert.IsTrue(grid.Columns[0].ActualWidth < grid.Bounds.Width * 0.4);
+                }
 
                 AvaloniaHeadlessPlatform.ForceRenderTimerTick();
                 using (var modelScreenshot = window.CaptureRenderedFrame())
@@ -273,16 +302,69 @@ public sealed class OnnxRuntimeAvailabilityTests
 
                 var texts = page.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text).ToArray();
                 Assert.Contains(Lang.Get("lang.kitopia.onnx.unavailable"), texts);
-                Assert.Contains(Lang.Get("lang.kitopia.onnx.cuda_requirements"), texts);
-                var cpuRequirements = page.GetVisualDescendants().OfType<TextBlock>()
-                    .Single(text => text.Text == Lang.Get("lang.kitopia.onnx.cpu_requirements"));
-                Assert.IsFalse(cpuRequirements.IsVisible);
-                var cpuGuide = page.GetVisualDescendants().OfType<Button>().Single(button =>
-                    button.Command == viewModel.OpenDocumentationCommand &&
-                    button.CommandParameter is OnnxRuntimeStatus { Device: "CPU" });
-                Assert.IsFalse(cpuGuide.IsEffectivelyVisible);
-                foreach (var expander in page.GetVisualDescendants().OfType<Expander>().Where(expander => expander.IsVisible))
-                    expander.IsExpanded = true;
+                var detailsButtons = page.GetVisualDescendants().OfType<Button>()
+                    .Where(button => button.Classes.Contains("runtimeDetails")).ToArray();
+                var cpuDetails = detailsButtons.Single(button => button.DataContext is OnnxRuntimeStatus { Device: "CPU" });
+                Assert.IsFalse(cpuDetails.IsVisible);
+                Dispatcher.UIThread.RunJobs();
+                var runtimeCards = page.FindControl<ItemsControl>("RuntimeCards")!;
+                var cardBounds = runtimeCards.GetVisualDescendants().OfType<Border>()
+                    .Where(border => border.Classes.Contains("runtimeCard"))
+                    .Select(border => new Rect(border.TranslatePoint(default, runtimeCards)!.Value, border.Bounds.Size))
+                    .ToArray();
+                Assert.HasCount(5, cardBounds);
+                Assert.AreEqual(columns, cardBounds.Select(bounds => Math.Round(bounds.X)).Distinct().Count());
+                Assert.IsTrue(cardBounds.All(bounds => bounds.X >= 0 && bounds.Right <= runtimeCards.Bounds.Width + 1));
+                Assert.IsTrue(cardBounds.All(bounds => bounds.Width > 0 && bounds.Width <= 272));
+                Assert.HasCount(1, cardBounds.Select(bounds => bounds.Height).Distinct());
+                for (var index = 0; index < cardBounds.Length; index++)
+                    for (var other = index + 1; other < cardBounds.Length; other++)
+                        Assert.IsFalse(cardBounds[index].Intersects(cardBounds[other]), "Runtime cards must not overlap.");
+                if (width == 1560)
+                {
+                    window.Width = 900;
+                    Dispatcher.UIThread.RunJobs();
+                    var resizedColumns = runtimeCards.GetVisualDescendants().OfType<Border>()
+                        .Where(border => border.Classes.Contains("runtimeCard"))
+                        .Select(border => Math.Round(border.TranslatePoint(default, runtimeCards)!.Value.X)).Distinct();
+                    Assert.HasCount(3, resizedColumns);
+                    window.Width = width;
+                    Dispatcher.UIThread.RunJobs();
+                }
+                var cudaDetails = detailsButtons.Single(button => button.DataContext is OnnxRuntimeStatus { Device: "GPU(CUDA)" });
+                cudaDetails.Focus();
+                window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+                window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+                Dispatcher.UIThread.RunJobs();
+                var flyout = (Flyout)cudaDetails.Flyout!;
+                Assert.IsTrue(flyout.IsOpen);
+                var diagnostics = (Control)flyout.Content!;
+                Assert.Contains(Lang.Get("lang.kitopia.onnx.cuda_requirements"),
+                    diagnostics.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text));
+                Assert.AreEqual("cudnn64_9.dll is missing",
+                    diagnostics.GetVisualDescendants().OfType<SelectableTextBlock>().Single().Text);
+                var guide = diagnostics.GetVisualDescendants().OfType<Button>().Single(button =>
+                    Equals(button.Content, Lang.Get("lang.kitopia.onnx.official_guide")));
+                Assert.AreSame(viewModel.OpenDocumentationCommand, guide.Command);
+                guide.Command!.Execute(guide.CommandParameter);
+                Assert.AreEqual(((OnnxRuntimeStatus)cudaDetails.DataContext!).DocumentationUrl, shell.LastOpened);
+                var driver = diagnostics.GetVisualDescendants().OfType<Button>().Single(button =>
+                    Equals(button.Content, Lang.Get("lang.kitopia.onnx.drivers")));
+                Assert.AreSame(viewModel.OpenDriversCommand, driver.Command);
+                driver.Command!.Execute(driver.CommandParameter);
+                Assert.AreEqual(((OnnxRuntimeStatus)cudaDetails.DataContext!).DriverUrl, shell.LastOpened);
+                Assert.AreEqual(cardBounds[0].Height,
+                    runtimeCards.GetVisualDescendants().OfType<Border>()
+                        .Single(border => border.Classes.Contains("runtimeCard") && border.DataContext is OnnxRuntimeStatus { Device: "GPU(CUDA)" }).Bounds.Height);
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                using (var detailsScreenshot = window.CaptureRenderedFrame())
+                {
+                    Assert.IsNotNull(detailsScreenshot);
+                    var detailsScreenshotPath = Path.Combine(screenshotDirectory, $"onnx-details-{language}-{width}-{dark}.png");
+                    detailsScreenshot.Save(detailsScreenshotPath);
+                    TestContext.AddResultFile(detailsScreenshotPath);
+                }
+                flyout.Hide();
             }
             finally
             {
