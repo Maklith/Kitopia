@@ -83,11 +83,27 @@
                                                 Glyph="&#xf691;" />
                         </TextBox.InnerLeftContent>
                         <TextBox.InnerRightContent>
-                            <Button Theme="{DynamicResource BorderlessButton}" ToolTip.Tip="{DynamicResource 'lang.kitopia.toggle_list_preview'}"
-                                    IsVisible="{Binding CanUsePreview}"
-                                    Command="{Binding TogglePreviewModeCommand}">
-                                <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf8cb;" />
-                            </Button>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="8,0">
+                                <Border Name="SemanticSearchIndicator" IsVisible="{Binding IsSemanticSearching}"
+                                        IsHitTestVisible="False" Height="28" Padding="8,0" CornerRadius="9999"
+                                        Background="{DynamicResource KitopiaBadgeCurrentBackground}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <ProgressBar Name="SemanticSearchProgress" Width="28" Height="3"
+                                                     Theme="{DynamicResource KitopiaPluginDownloadProgress}"
+                                                     IsIndeterminate="{Binding IsSemanticSearching}"
+                                                     VerticalAlignment="Center" />
+                                        <TextBlock Text="{DynamicResource 'lang.kitopia.semantic_searching'}"
+                                                   Foreground="{DynamicResource KitopiaBadgeCurrentForeground}"
+                                                   FontSize="12" FontWeight="Normal" MaxWidth="180"
+                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                                <Button Theme="{DynamicResource BorderlessButton}" ToolTip.Tip="{DynamicResource 'lang.kitopia.toggle_list_preview'}"
+                                        IsVisible="{Binding CanUsePreview}"
+                                        Command="{Binding TogglePreviewModeCommand}">
+                                    <controls1:FontIcon FontFamily="{StaticResource FluentFont}" Glyph="&#xf8cb;" />
+                                </Button>
+                            </StackPanel>
                         </TextBox.InnerRightContent>
                     </TextBox>
 

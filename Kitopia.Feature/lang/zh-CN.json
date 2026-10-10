@@ -570,6 +570,7 @@
   "lang.kitopia.language": "语言",
   "lang.kitopia.changes_apply_immediately": "语言切换后立即生效",
   "lang.kitopia.semantic_search": "语义搜索",
+  "lang.kitopia.semantic_searching": "语义搜索中...",
   "lang.kitopia.semantic_result_limit": "语义搜索候选数量",
   "lang.kitopia.semantic_search_delay": "语义搜索响应延迟",
   "lang.kitopia.semantic_text_extensions": "语义文本扩展名",

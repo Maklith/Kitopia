@@ -437,6 +437,7 @@
   "lang.kitopia.everything_result_limit": "Everything result limit",
   "lang.kitopia.maximum_files_returned_by_everything": "Maximum files returned by Everything",
   "lang.kitopia.semantic_search": "Semantic search",
+  "lang.kitopia.semantic_searching": "Semantic searching...",
   "lang.kitopia.enable_local_semantic_search": "Enable local semantic search",
   "lang.kitopia.use_the_built_in_chinese_semantic_model_and_pinyin_search_to_improve_relevance": "Use the built-in Chinese semantic model and pinyin search to improve relevance.",
   "lang.kitopia.semantic_search_delay": "Semantic search delay",

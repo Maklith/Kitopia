@@ -59,6 +59,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     [ObservableProperty] private SearchViewItem? _selectedItem;
     [ObservableProperty] private bool _isPreviewMode;
     [ObservableProperty] private bool _canUsePreview;
+    [ObservableProperty] private bool _isSemanticSearching;
     [ObservableProperty] private bool? _previewModeOverride;
     public MouseQuickWindowViewModel FilePreview { get; } = new();
     private SearchViewItem? _lastClickedPreviewItem;
@@ -425,6 +426,9 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             return;
         }
 
+        var version = Interlocked.Increment(ref _searchVersion);
+        IsSemanticSearching = false;
+
         if (string.IsNullOrEmpty(value))
         {
             Interlocked.Exchange(ref _searchCancellation, null)?.Cancel();
@@ -446,7 +450,6 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
         var originalValue = value;
         value = value.ToLowerInvariant();
-        var version = Interlocked.Increment(ref _searchVersion);
         if (originalValue.StartsWith(ConfigManger.Config.everythingSearchPreString) &&
             originalValue.Length > ConfigManger.Config.everythingSearchPreString.Length)
         {
@@ -475,6 +478,16 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 catch (Exception exception)
                 {
                     Logger.Error(exception, "Search failed");
+                }
+                finally
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (Volatile.Read(ref _searchVersion) == version)
+                        {
+                            IsSemanticSearching = false;
+                        }
+                    });
                 }
             });
         }
@@ -520,6 +533,16 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 cancellationToken);
         }
         cancellationToken.ThrowIfCancellationRequested();
+        if (shouldSearchSemantically)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (Volatile.Read(ref _searchVersion) == version && !cancellationToken.IsCancellationRequested)
+                {
+                    IsSemanticSearching = true;
+                }
+            });
+        }
         var rawResults = await Index.SearchAsync(value, 100, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
