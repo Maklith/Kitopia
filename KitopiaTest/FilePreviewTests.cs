@@ -1,5 +1,8 @@
 using System.IO.Compression;
 using System.Text;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.PixelFormats;
 using Kitopia.Desktop.Features.Search.Preview;
 using Kitopia.Desktop.Features.Search.ViewModels;
 
@@ -93,6 +96,21 @@ public sealed class FilePreviewTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_AnimatedWebp_KeepsNativePlayback()
+    {
+        var path = Path.Combine(_directory, "animated.webp");
+        using var image = new Image<Rgba32>(16, 16, new Rgba32(34, 139, 88));
+        using var secondFrame = new Image<Rgba32>(16, 16, new Rgba32(255, 0, 0));
+        image.Frames.RootFrame.Metadata.GetWebpMetadata().FrameDelay = 100;
+        image.Frames.AddFrame(secondFrame.Frames.RootFrame).Metadata.GetWebpMetadata().FrameDelay = 100;
+        await image.SaveAsync(path, new WebpEncoder { FileFormat = WebpFileFormatType.Lossless });
+
+        var preview = await FilePreviewLoader.LoadAsync(path);
+        Assert.AreEqual(path, preview.NativePath);
+        Assert.IsNull(preview.Image);
+    }
+
+    [TestMethod]
     public async Task SetFilesAsync_MultipleFiles_NavigatesAndStopsAtBoundaries()
     {
         var first = Path.Combine(_directory, "first.txt");
@@ -129,9 +147,11 @@ public sealed class FilePreviewTests
     }
 
     [TestMethod]
-    public async Task SetFilesAsync_CorruptedImage_ShowsErrorWithoutThrowing()
+    [DataRow(".png")]
+    [DataRow(".webp")]
+    public async Task SetFilesAsync_CorruptedImage_ShowsErrorWithoutThrowing(string extension)
     {
-        var path = Path.Combine(_directory, "broken.png");
+        var path = Path.Combine(_directory, "broken" + extension);
         await File.WriteAllBytesAsync(path, [0, 1, 2]);
         using var model = new MouseQuickWindowViewModel();
         await model.SetFilesAsync([path]);

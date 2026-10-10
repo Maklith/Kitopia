@@ -1,8 +1,8 @@
-using Kitopia.Feature.Localization;
 using System.IO.Compression;
 using System.Text;
 using Avalonia.Media.Imaging;
 using SkiaSharp;
+using Kitopia.Feature.Localization;
 
 namespace Kitopia.Desktop.Features.Search.Preview;
 
@@ -35,13 +35,15 @@ public static class FilePreviewLoader
             var info = new FileInfo(path);
             var details = Lang.Format("lang.kitopia.messages.value_value_modified_value", info.Extension.TrimStart('.').ToUpperInvariant(), FormatSize(info.Length), info.LastWriteTime);
             var extension = info.Extension.ToLowerInvariant();
-            if (extension is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".tif" or ".tiff" or ".ico")
+            if (extension is ".jpg" or ".jpeg" or ".png" or ".bmp" or ".tif" or ".tiff" or ".ico" or ".webp")
             {
                 await using var stream = File.OpenRead(path);
                 int width, height;
                 using (var codec = SKCodec.Create(new SKManagedStream(stream, disposeManagedStream: false)))
                 {
                     if (codec is null) throw new InvalidDataException(Lang.Get("lang.kitopia.messages.the_image_is_damaged_or_its_encoding_is_unsupported"));
+                    if (extension == ".webp" && codec.FrameCount > 1)
+                        return new FilePreviewContent(info.Name, details, NativePath: path);
                     width = codec.Info.Width;
                     height = codec.Info.Height;
                 }

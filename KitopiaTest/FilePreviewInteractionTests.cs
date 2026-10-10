@@ -109,6 +109,62 @@ public sealed class FilePreviewInteractionTests
     }
 
     [TestMethod]
+    [DataRow(".webp", 90)]
+    [DataRow(".WEBP", 100)]
+    public async Task SetFilesAsync_WebpImage_UsesBuiltInImagePreview(string extension, int quality)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(FilePreviewInteractionTests));
+        await session.Dispatch(async () =>
+        {
+            var path = Path.Combine(_directory, "image" + extension);
+            var imageColor = new SKColor(34, 139, 88);
+            using (var bitmap = new SKBitmap(160, 126))
+            {
+                bitmap.Erase(imageColor);
+                bitmap.SetPixel(0, 0, SKColors.Transparent);
+                using var image = SKImage.FromBitmap(bitmap);
+                using var encoded = image.Encode(SKEncodedImageFormat.Webp, quality);
+                File.WriteAllBytes(path, encoded.ToArray());
+            }
+            using var model = new MouseQuickWindowViewModel();
+            var control = new FilePreviewControl { DataContext = model };
+            var window = new Window { Content = control, Width = 640, Height = 480 };
+            try
+            {
+                window.Show();
+                await model.SetFilesAsync([path]);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsNotNull(model.PreviewImage);
+                Assert.AreEqual(new PixelSize(160, 126), model.PreviewImage.PixelSize);
+                Assert.IsNull(model.NativePath);
+                Assert.IsNull(model.Message);
+                Assert.IsFalse(model.IsLoading);
+                Assert.IsNull(control.FindControl<ContentControl>("NativePreview")!.Content);
+                Assert.AreSame(model.PreviewImage, control.FindControl<Image>("ImagePreview")!.Source);
+                Assert.IsTrue(control.FindControl<Slider>("ImageZoom")!.IsEffectivelyVisible);
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                using var frame = window.CaptureRenderedFrame();
+                Assert.IsNotNull(frame);
+                using var stream = new MemoryStream();
+                frame.Save(stream);
+                stream.Position = 0;
+                using var rendered = SKBitmap.Decode(stream);
+                var center = rendered.GetPixel(rendered.Width / 2, rendered.Height / 2);
+                Assert.IsTrue(Math.Abs(center.Red - imageColor.Red) <= 3
+                              && Math.Abs(center.Green - imageColor.Green) <= 3
+                              && Math.Abs(center.Blue - imageColor.Blue) <= 3,
+                    "The built-in preview must render the decoded WebP image.");
+            }
+            finally
+            {
+                control.DataContext = null;
+                window.Close();
+            }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
     public async Task ToSearch_BackgroundInput_ClearsOldPreviewAndAllowsSelectionChangesOnUiThread()
     {
         ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithPlatformServices().BuildApp();
