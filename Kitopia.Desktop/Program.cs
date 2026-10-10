@@ -61,6 +61,7 @@ using Kitopia.Desktop.Windows;
 using Kitopia.Desktop.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Kitopia.Feature.DeviceCommunication.Identity;
+using Kitopia.Feature.DeviceCommunication.Diagnostics;
 using PluginCore;
 using PluginCore.Media;
 using PluginCore.Onnx;
@@ -153,6 +154,7 @@ internal class Program {
 
     [MemberNotNull]
     private static IServiceProvider ConfigureServices() {
+        DeviceCommunicationDiagnostics.Current = new DesktopDeviceCommunicationDiagnostics(LogManager.Logger);
         var services = new ServiceCollection();
         services.AddDesktopPluginHost();
         services.AddSingleton<Ffmpeg>();

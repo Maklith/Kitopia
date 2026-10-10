@@ -1,6 +1,7 @@
 using System.Reflection;
 using Kitopia.Feature.DeviceCommunication;
 using Kitopia.Feature.DeviceCommunication.Application;
+using Kitopia.Feature.DeviceCommunication.Diagnostics;
 using Kitopia.Feature.DeviceCommunication.Transport;
 using Kitopia.Desktop.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace KitopiaTest.DeviceCommunication;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class DesktopCommunicationRuntimeRegistrationTests
 {
     [TestMethod]
@@ -35,23 +37,32 @@ public sealed class DesktopCommunicationRuntimeRegistrationTests
             BindingFlags.NonPublic | BindingFlags.Static);
 
         Assert.IsNotNull(configureServices);
-        using var serviceProvider = (ServiceProvider)configureServices.Invoke(null, null)!;
+        var previousDiagnostics = DeviceCommunicationDiagnostics.Current;
+        try
+        {
+            using var serviceProvider = (ServiceProvider)configureServices.Invoke(null, null)!;
+            Assert.IsInstanceOfType<DesktopDeviceCommunicationDiagnostics>(DeviceCommunicationDiagnostics.Current);
 
-        Assert.IsInstanceOfType<MessageAppService>(
-            serviceProvider.GetRequiredService<IMessageAppService>());
-        Assert.IsInstanceOfType<LocalDataListenerHost>(
-            serviceProvider.GetRequiredService<ILocalDataListener>());
-        Assert.IsInstanceOfType<DesktopIncomingMessageSink>(
-            serviceProvider.GetRequiredService<IIncomingMessageSink>());
-        Assert.IsInstanceOfType<DeviceCommunicationRuntime>(
-            serviceProvider.GetRequiredService<IDeviceCommunicationRuntime>());
-        Assert.IsInstanceOfType<DesktopChatAttachmentStore>(
-            serviceProvider.GetRequiredService<IChatAttachmentStore>());
-        Assert.IsInstanceOfType<DesktopChatNotificationSink>(
-            serviceProvider.GetRequiredService<IChatNotificationSink>());
-        Assert.IsInstanceOfType<DesktopChatClipboardService>(
-            serviceProvider.GetRequiredService<IChatClipboardService>());
-        Assert.IsInstanceOfType<DesktopChatPlatformService>(
-            serviceProvider.GetRequiredService<IChatPlatformService>());
+            Assert.IsInstanceOfType<MessageAppService>(
+                serviceProvider.GetRequiredService<IMessageAppService>());
+            Assert.IsInstanceOfType<LocalDataListenerHost>(
+                serviceProvider.GetRequiredService<ILocalDataListener>());
+            Assert.IsInstanceOfType<DesktopIncomingMessageSink>(
+                serviceProvider.GetRequiredService<IIncomingMessageSink>());
+            Assert.IsInstanceOfType<DeviceCommunicationRuntime>(
+                serviceProvider.GetRequiredService<IDeviceCommunicationRuntime>());
+            Assert.IsInstanceOfType<DesktopChatAttachmentStore>(
+                serviceProvider.GetRequiredService<IChatAttachmentStore>());
+            Assert.IsInstanceOfType<DesktopChatNotificationSink>(
+                serviceProvider.GetRequiredService<IChatNotificationSink>());
+            Assert.IsInstanceOfType<DesktopChatClipboardService>(
+                serviceProvider.GetRequiredService<IChatClipboardService>());
+            Assert.IsInstanceOfType<DesktopChatPlatformService>(
+                serviceProvider.GetRequiredService<IChatPlatformService>());
+        }
+        finally
+        {
+            DeviceCommunicationDiagnostics.Current = previousDiagnostics;
+        }
     }
 }
