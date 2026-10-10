@@ -1,9 +1,11 @@
 using System;
 using System.IO.Compression;
 using System.Linq;
+using System.Net.Http;
 using Fallout.Common;
 using Fallout.Common.IO;
 using Fallout.Solutions;
+using Serilog;
 
 partial class Build
 {
@@ -51,9 +53,20 @@ partial class Build
         if (string.IsNullOrWhiteSpace(version))
             throw new InvalidOperationException($"{project} must define its own Version.");
         ValidatePluginManifestVersion(project.Path, nameSign, version);
-        if (string.IsNullOrWhiteSpace(apiKey))
+        if (!IsLocalPluginPublish && string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException($"No API key configured for {nameSign}.");
-        if (!ShouldUploadPlugin(nameSign, version, apiKey)) return;
+        var shouldUpload = true;
+        try
+        {
+            if (!ShouldUploadPlugin(nameSign, version, apiKey)) return;
+        }
+        catch (Exception exception) when (IsLocalPluginPublish &&
+            exception is HttpRequestException { StatusCode: null } or OperationCanceledException)
+        {
+            shouldUpload = false;
+            Log.Warning("Skipping upload of {Plugin} {Version}: local plugin server {ApiUrl} is unavailable. {Error}",
+                nameSign, version, PluginPublishApiUrl, exception.Message);
+        }
 
         var output = ArtifactsDirectory / "plugins" / nameSign / runtime;
         output.DeleteDirectory();
@@ -64,6 +77,7 @@ partial class Build
                       $"{nameSign}_{version}_{runtime}.zip";
         archive.DeleteFile();
         output.ZipTo(archive, compressionLevel: CompressionLevel.SmallestSize);
-        UploadPluginArchive(archive, nameSign, version, apiKey);
+        if (shouldUpload)
+            UploadPluginArchive(archive, nameSign, version, apiKey);
     }
 }

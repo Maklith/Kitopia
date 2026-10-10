@@ -9,11 +9,9 @@ using Fallout.Common;
 using Fallout.Common.CI.GitHubActions;
 using Fallout.Common.IO;
 using Fallout.Solutions;
-using Fallout.Common.Tools.DotNet;
 using NuGet.Versioning;
 using Octokit;
 using Serilog;
-using static Fallout.Common.Tools.DotNet.DotNetTasks;
 using Project = Fallout.Solutions.Project;
 
 [GitHubActions(
@@ -70,6 +68,8 @@ partial class Build : FalloutBuild
         (string.IsNullOrWhiteSpace(PluginApiUrl)
             ? IsRelease ? "https://api.kitopia.top:5111" : "https://localhost:5111"
             : PluginApiUrl).TrimEnd('/');
+    internal bool IsLocalPluginPublish => !IsRelease &&
+        Uri.TryCreate(PluginPublishApiUrl, UriKind.Absolute, out var apiUri) && apiUri.IsLoopback;
 
     Target Restore => _ => _
         .DependsOn(RestoreWindows, RestoreAndroid);
@@ -127,11 +127,15 @@ partial class Build : FalloutBuild
     internal bool ShouldUploadPlugin(string nameSign, string version, string apiKey)
     {
         using var client = CreatePluginHttpClient();
+        if (IsLocalPluginPublish)
+            client.Timeout = TimeSpan.FromSeconds(10);
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             $"{PluginPublishApiUrl}/api/v1/plugin/{Uri.EscapeDataString(nameSign)}");
         request.Headers.Add("X-API-Key", apiKey);
         using var response = client.Send(request);
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException($"No API key configured for {nameSign}.");
         var responseBody = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
         if (response.StatusCode == HttpStatusCode.NotFound)
             throw new InvalidOperationException($"Plugin {nameSign} is not registered on {PluginPublishApiUrl}.");
@@ -244,6 +248,14 @@ partial class Build : FalloutBuild
             using var json = JsonDocument.Parse(responseBody);
             if (json.RootElement.TryGetProperty("flag", out var flag) && !flag.GetBoolean())
                 throw new InvalidOperationException($"Web server rejected {nameSign} {version}: {responseBody}");
+        }
+        catch (Exception exception) when (IsLocalPluginPublish &&
+            exception is HttpRequestException { StatusCode: null } or OperationCanceledException)
+        {
+            Log.Warning("Skipping upload of {Plugin} {Version}: local plugin server {ApiUrl} is unavailable. " +
+                        "Archive retained at {Archive}. {Error}",
+                nameSign, version, PluginPublishApiUrl, archiveFile, exception.Message);
+            return;
         }
         catch (HttpRequestException exception)
         {
