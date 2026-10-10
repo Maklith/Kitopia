@@ -11,20 +11,21 @@
         xmlns:windows="clr-namespace:Kitopia.Desktop.Features.Search.ViewModels;assembly=Kitopia.Desktop.Features"
         xmlns:searchWindow="clr-namespace:Kitopia.Desktop.Converter.SearchWindow"
         xmlns:localization="clr-namespace:Kitopia.Feature.Localization;assembly=Kitopia.Feature"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="540"
         x:Class="Kitopia.Desktop.Windows.SearchWindow"
         x:DataType="windows:SearchWindowViewModel"
         Deactivated="w_Deactivated"
         Classes="acrylic"
+        Classes.preview="{Binding IsPreviewMode}"
         Background="Transparent"
         Activated="w_Activated"
         ShowInTaskbar="False"
         ExtendClientAreaToDecorationsHint="True"
-        Width="800"
-        MaxWidth="800"
-        MinWidth="800"
-        MinHeight="150"
-        MaxHeight="640"
+        Width="960"
+        MaxWidth="960"
+        MinWidth="960"
+        MinHeight="180"
+        MaxHeight="768"
         SizeToContent="Height"
         WindowDecorations="BorderOnly"
 
@@ -45,6 +46,11 @@
         <converter1:ControlContentSize x:Key="ControlContentSize" />
         <searchWindow:PreviewModeToGridLengthConverter x:Key="PreviewModeToGridLengthConverter" />
     </Window.Resources>
+    <Window.Styles>
+        <Style Selector="Window.preview > Panel">
+            <Setter Property="MinHeight" Value="{Binding $parent[Window].MaxHeight}" />
+        </Style>
+    </Window.Styles>
     <Panel VerticalAlignment="Stretch">
         <Panel.Background>
             <DynamicResource ResourceKey="KitopiaWindowBackground" />
@@ -204,7 +210,7 @@
                 </StackPanel>
             </Border>
 
-            <Grid Grid.Row="1" MinHeight="0">
+            <Grid Grid.Row="1" MinHeight="0" ClipToBounds="True">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="{Binding IsPreviewMode, Converter={StaticResource PreviewModeToGridLengthConverter}, ConverterParameter=List}" />
                     <ColumnDefinition Width="{Binding IsPreviewMode, Converter={StaticResource PreviewModeToGridLengthConverter}, ConverterParameter=Divider}" />
@@ -375,8 +381,7 @@
                               IsVisible="{Binding IsPreviewMode}" Background="{DynamicResource SemiColorBorder}" />
 
                 <Border Grid.Column="2" IsVisible="{Binding IsPreviewMode}"
-                        MinHeight="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=MaxHeight}"
-                        Padding="8">
+                        MinHeight="0" ClipToBounds="True" Padding="8">
                     <controls1:FilePreviewControl Name="FilePreviewSurface" DataContext="{Binding FilePreview}" />
                 </Border>
             </Grid>
