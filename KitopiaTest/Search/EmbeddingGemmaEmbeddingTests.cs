@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Kitopia.Desktop.Features.Indexing;
-using Kitopia.Desktop.Features.Ocr;
+using Kitopia.Desktop.Features.Search;
 using Kitopia.Desktop.Features.Search.Semantic;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Plugin;
@@ -10,6 +10,7 @@ using Microsoft.Data.Sqlite;
 using OpenCvSharp;
 using PluginCore.Config;
 using PluginCore.Onnx;
+using FileType = PluginCore.FileType;
 
 namespace KitopiaTest.Search;
 
@@ -606,36 +607,104 @@ public sealed class EmbeddingGemmaEmbeddingTests
     }
 
     [TestMethod]
-    public async Task IndexOcrTextAsync_LongOcr_IndexesTailInBoundedChunks()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task IndexFileVectorsAsync_ImageIndex_UsesOnlyImageVectors(bool force)
     {
-        var database = Path.Combine(Path.GetTempPath(), $"kitopia-ocr-chunks-{Guid.NewGuid():N}.db");
-        using var probe = new SchedulingSession();
-        PluginOverall.OnnxRuntimes["EG2-Test"]["EG2-Test-CPU"] = () => probe;
-        var text = string.Concat(Enumerable.Repeat(" apple", 2000)) + " unique_tail";
-        var expectedTail = _service.EncodeInput(EmbeddingGemmaEmbeddingService.FormatDocument(text), 8192).TakeLast(4).ToArray();
+        var directory = Path.Combine(Path.GetTempPath(), $"kitopia-image-index-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        using var index = new IndexService();
+        var embeddingField = typeof(IndexService).GetField("_embeddingService", BindingFlags.Instance | BindingFlags.NonPublic)!;
         try
         {
-            var store = new IndexVectorStore(database);
-            using var index = new IndexService(new FixedOcrService(text));
+            var source = Path.Combine(_referenceDirectory, _reference.RootElement.GetProperty("images")[0].GetProperty("file").GetString()!);
+            var path = Path.Combine(directory, Path.GetFileName(source));
+            File.Copy(source, path);
+            var info = new FileInfo(path);
+            var contentHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(await File.ReadAllBytesAsync(path)));
+            var vector = new float[768];
+            vector[0] = 1;
+            var store = new IndexVectorStore(Path.Combine(directory, "index.db"));
+            await store.SynchronizeFileSourceAsync(IndexSource.Manual, [path], new HashSet<string>(), CancellationToken.None);
+            await store.UpsertImageAsync(path, "current", _service.ModelId, vector, CancellationToken.None);
+            await store.UpsertFileStateAsync(new FileIndexState(
+                path, IndexFileKind.Image, info.Length, info.LastWriteTimeUtc.Ticks, contentHash, true, "old-ocr"), CancellationToken.None);
+            store = new IndexVectorStore(Path.Combine(directory, "index.db"));
             typeof(IndexService).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(index, store);
-            var method = typeof(IndexService).GetMethod("IndexOcrTextAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            embeddingField.SetValue(index, _service);
+            ConfigManger.Config.enableSemanticSearch = true;
+            var method = typeof(IndexService).GetMethod("IndexFileVectorsAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-            await (Task)method.Invoke(index, ["image.png", _service, CancellationToken.None])!;
+            await (Task)method.Invoke(index, [false, true, force, CancellationToken.None])!;
 
-            Assert.IsGreaterThan(1, probe.InputRows.Count);
-            Assert.IsTrue(probe.Batches.All(batch => batch.Length <= 1024));
-            var lastRow = probe.InputRows.Last().Span;
-            var end = lastRow.LastIndexOf(1L) + 1;
-            Assert.IsTrue(lastRow.Slice(end - 4, 4).SequenceEqual(expectedTail));
-            Assert.IsTrue(await store.HasOcrTextVectorAsync("image.png", _service.ModelId, CancellationToken.None));
-            Assert.AreEqual(probe.InputRows.Count, (await store.GetCountsAsync(CancellationToken.None)).TextVectors);
+            Assert.AreEqual((0, 1), await store.GetCountsAsync(CancellationToken.None));
+            Assert.AreEqual(0, index.GetStatus().FailedImages);
+            var state = await store.GetFileStateAsync(path, IndexFileKind.Image, CancellationToken.None);
+            Assert.IsNotNull(state);
+            Assert.AreEqual(contentHash, state.ContentHash);
+            Assert.IsFalse(state.OcrCompleted);
+            Assert.IsNull(state.OcrModelId);
         }
         finally
         {
+            embeddingField.SetValue(index, null);
             SqliteConnection.ClearAllPools();
-            File.Delete(database);
-            File.Delete(database + "-shm");
-            File.Delete(database + "-wal");
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [TestMethod]
+    [DataRow(0.9, 0.6, 0.6, false, false)]
+    [DataRow(0.8, 0.3, 0.95, false, false)]
+    [DataRow(0.9, 0.6, 0.6, true, true)]
+    public async Task SearchAsync_LegacyOcrVectors_IgnoreOcrAndPreserveImageAndPinyinRanking(
+        double singleSimilarity, double dualImageSimilarity, double ocrSimilarity, bool lexicalMatch, bool dualWins)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"kitopia-eg2-fusion-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        using var probe = new SchedulingSession();
+        PluginOverall.OnnxRuntimes["EG2-Test"]["EG2-Test-CPU"] = () => probe;
+        using var index = new IndexService();
+        var embeddingField = typeof(IndexService).GetField("_embeddingService", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        try
+        {
+            var store = new IndexVectorStore(Path.Combine(directory, "index.db"));
+            typeof(IndexService).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(index, store);
+            embeddingField.SetValue(index, _service);
+            var single = Path.Combine(directory, "single.png");
+            var dual = Path.Combine(directory, "dual.png");
+            index.TryAdd(new SearchEntry { OnlyKey = single, DisplayName = "sample1", FileType = FileType.文件 }, IndexSource.Image);
+            index.TryAdd(new SearchEntry { OnlyKey = dual, DisplayName = lexicalMatch ? "people" : "sample2", FileType = FileType.文件 }, IndexSource.Image);
+            var similarities = new[] { singleSimilarity, dualImageSimilarity, ocrSimilarity };
+            var vectors = new float[similarities.Length][];
+            for (var position = 0; position < similarities.Length; position++)
+            {
+                vectors[position] = new float[EmbeddingGemmaEmbeddingService.VectorDimensions];
+                vectors[position][0] = (float)similarities[position];
+                vectors[position][1] = (float)Math.Sqrt(1 - similarities[position] * similarities[position]);
+            }
+            await store.UpsertImageAsync(single, "fixture", _service.ModelId, vectors[0], CancellationToken.None);
+            await store.UpsertImageAsync(dual, "fixture", _service.ModelId, vectors[1], CancellationToken.None);
+            await store.UpsertTextChunksAsync(dual, _service.ModelId, [vectors[2]], CancellationToken.None, TextContentKind.ImageOcr);
+            store = new IndexVectorStore(Path.Combine(directory, "index.db"));
+            typeof(IndexService).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(index, store);
+            await index.RebuildPinyinSearcherAsync();
+            Assert.HasCount(lexicalMatch ? 1 : 0, index.SearchPinyin("people", 10, CancellationToken.None));
+
+            var results = await index.SearchAsync("people", 10, CancellationToken.None);
+
+            Assert.HasCount(2, results);
+            Assert.AreEqual(dualWins ? dual : single, results[0].Source.OnlyKey);
+            Assert.AreEqual(singleSimilarity / 61, results.Single(result => result.Source.OnlyKey == single).Weight, 1e-6);
+            Assert.AreEqual(dualImageSimilarity / 62 + (lexicalMatch ? 1d / 61 : 0),
+                results.Single(result => result.Source.OnlyKey == dual).Weight, 1e-6);
+            if (lexicalMatch) Assert.IsNotNull(results[0].CharMatchResults);
+        }
+        finally
+        {
+            embeddingField.SetValue(index, null);
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(directory, recursive: true);
         }
     }
 
@@ -1041,16 +1110,6 @@ public sealed class EmbeddingGemmaEmbeddingTests
             return vectors;
         }
         public void Dispose() => IsDisposed = true;
-    }
-
-    private sealed class FixedOcrService(string text) : IOcrService
-    {
-        public bool IsAvailable => true;
-        public Task ReleaseSessionsAsync() => Task.CompletedTask;
-        public Task<IReadOnlyList<PluginCore.OcrTextRegion>> RecognizeFileAsync(string imagePath, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<PluginCore.OcrTextRegion>>([new(text, 0, 0, 100, 100)]);
-        public Task<IReadOnlyList<PluginCore.OcrTextRegion>> RecognizeAsync(Mat image, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
     }
 
     private static void AssertVector(JsonElement row, float[] vector, double minimumCosine)

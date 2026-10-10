@@ -203,6 +203,27 @@ public sealed class ConfigMangerServiceTests
     }
 
     [TestMethod]
+    public void MigrateConfig_TinyOcrDevices_MigratesToSmallAndPreservesExplicitSelection()
+    {
+        const string json = """
+            {"ConfigVersion":3,"OnnxTargetDevices":{"paddleocr-v6-tiny-det":"CUDA",
+             "paddleocr-v6-tiny-rec":"OpenVINO","paddleocr-v6-small-rec":"CPU","other":"CUDA"}}
+            """;
+        using var document = JsonDocument.Parse(json);
+        var config = document.RootElement.Deserialize<KitopiaConfig>(ConfigManger.DefaultOptions)!;
+
+        ConfigManger.MigrateConfig(document.RootElement, config);
+        ConfigManger.MigrateConfig(document.RootElement, config);
+
+        Assert.AreEqual("CUDA", config.OnnxTargetDevices["paddleocr-v6-small-det"]);
+        Assert.AreEqual("CPU", config.OnnxTargetDevices["paddleocr-v6-small-rec"]);
+        Assert.AreEqual("CUDA", config.OnnxTargetDevices["other"]);
+        Assert.IsFalse(config.OnnxTargetDevices.ContainsKey("paddleocr-v6-tiny-det"));
+        Assert.IsFalse(config.OnnxTargetDevices.ContainsKey("paddleocr-v6-tiny-rec"));
+        Assert.AreEqual(config.CurrentConfigVersion, config.ConfigVersion);
+    }
+
+    [TestMethod]
     public void MigrateConfig_FutureConfig_PreservesLoadedValues()
     {
         using var document = JsonDocument.Parse("{\"mouseHotkey\":{}}");

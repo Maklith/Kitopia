@@ -133,6 +133,10 @@ public sealed class PaddleOcrService : IOcrService, IDisposable
                 throw new InvalidOperationException("The OCR recognizer output metadata is unavailable.");
             }
         }
+        if (_recognizerOutputDimensions != _alphabet.Length + 1)
+        {
+            throw new InvalidDataException("The OCR dictionary does not match the recognizer's CTC output dimensions.");
+        }
     }
 
     private IReadOnlyList<OcrTextRegion> RecognizeCore(

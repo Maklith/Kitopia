@@ -1,10 +1,7 @@
 using System.Reflection;
 using Kitopia.Desktop.Features.Indexing;
-using Kitopia.Desktop.Features.Ocr;
 using Kitopia.Desktop.Features.Services.Config;
 using PluginCore.Config;
-using OcrTextRegion = PluginCore.OcrTextRegion;
-using OpenCvSharp;
 
 namespace KitopiaTest.Indexing;
 
@@ -152,10 +149,9 @@ public sealed class IndexServiceTests
     }
 
     [TestMethod]
-    public async Task PauseIndexing_AlreadyForegroundPaused_ReleasesSessionsAndWaitsForResume()
+    public async Task PauseIndexing_AlreadyForegroundPaused_WaitsForManualResume()
     {
-        var ocr = new PausedOcrService();
-        using var index = new IndexService(ocr);
+        using var index = new IndexService();
         using var operationCancellation = new CancellationTokenSource();
         typeof(IndexService).GetField("_activeOperationCancellation", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(index, operationCancellation);
@@ -168,26 +164,10 @@ public sealed class IndexServiceTests
         }, operationCancellation.Token);
 
         index.PauseIndexing();
-        await ocr.Released.Task.WaitAsync(TimeSpan.FromSeconds(5));
         index.SetForegroundPause(false);
         Assert.IsFalse(started);
         index.ResumeIndexing();
         await operation.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.IsTrue(started);
-    }
-
-    private sealed class PausedOcrService : IOcrService
-    {
-        public bool IsAvailable => false;
-        public TaskCompletionSource Released { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public Task ReleaseSessionsAsync()
-        {
-            Released.TrySetResult();
-            return Task.CompletedTask;
-        }
-        public Task<IReadOnlyList<OcrTextRegion>> RecognizeFileAsync(string imagePath, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-        public Task<IReadOnlyList<OcrTextRegion>> RecognizeAsync(Mat image, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
     }
 }

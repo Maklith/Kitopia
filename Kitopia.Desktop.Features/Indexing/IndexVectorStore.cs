@@ -302,9 +302,6 @@ internal sealed class IndexVectorStore
     public Task UpsertTextAsync(string key, string modelId, float[] vector, CancellationToken cancellationToken) =>
         UpsertVectorAsync(TextVectorTable, TextMetadataTable, key, null, modelId, vector, TextContentKind.Entry, cancellationToken);
 
-    public Task UpsertOcrTextAsync(string key, string modelId, float[] vector, CancellationToken cancellationToken) =>
-        UpsertVectorAsync(TextVectorTable, TextMetadataTable, key, null, modelId, vector, TextContentKind.ImageOcr, cancellationToken);
-
     public async Task UpsertTextChunksAsync(
         string key, string modelId, IReadOnlyList<float[]> vectors, CancellationToken cancellationToken,
         TextContentKind contentKind = TextContentKind.Document)
@@ -324,27 +321,6 @@ internal sealed class IndexVectorStore
                 await UpsertMetadataAsync(connection, transaction, TextMetadataTable, "key", key, null,
                     modelId, vector.Length, rowId, contentKind, cancellationToken, chunkIndex);
             }
-            transaction.Commit();
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
-    public async Task DeleteOcrTextAsync(string key, CancellationToken cancellationToken)
-    {
-        await _gate.WaitAsync(cancellationToken);
-        try
-        {
-            await using var connection = await OpenAsync(cancellationToken);
-            using var transaction = connection.BeginTransaction();
-            await DeleteMappedTextVectorIfKindAsync(
-                connection,
-                transaction,
-                key,
-                TextContentKind.ImageOcr,
-                cancellationToken);
             transaction.Commit();
         }
         finally
@@ -437,9 +413,6 @@ internal sealed class IndexVectorStore
     public Task<bool> HasTextVectorAsync(string key, string modelId, CancellationToken cancellationToken) =>
         HasVectorAsync(TextMetadataTable, "key", key, modelId, cancellationToken);
 
-    public Task<bool> HasOcrTextVectorAsync(string key, string modelId, CancellationToken cancellationToken) =>
-        HasTextVectorOfKindAsync(key, modelId, TextContentKind.ImageOcr, cancellationToken);
-
     public Task<bool> HasImageVectorAsync(string path, string modelId, CancellationToken cancellationToken) =>
         HasVectorAsync(ImageMetadataTable, "path", path, modelId, cancellationToken);
 
@@ -463,57 +436,6 @@ internal sealed class IndexVectorStore
         string modelId,
         CancellationToken cancellationToken) =>
         TryCopyImageVectorForContentHashCoreAsync(destinationPath, fingerprint, contentHash, modelId, cancellationToken);
-
-    public Task<bool> TryCopyOcrTextForContentHashAsync(
-        string destinationKey,
-        string contentHash,
-        string modelId,
-        CancellationToken cancellationToken) =>
-        TryCopyTextVectorForContentHashAsync(
-            destinationKey,
-            contentHash,
-            modelId,
-            [TextContentKind.ImageOcr],
-            TextContentKind.ImageOcr,
-            cancellationToken);
-
-    public async Task<bool> HasCompletedOcrForContentHashAsync(
-        string contentHash,
-        string modelId,
-        CancellationToken cancellationToken)
-    {
-        await _gate.WaitAsync(cancellationToken);
-        try
-        {
-            await using var connection = await OpenAsync(cancellationToken);
-            await using var completion = connection.CreateCommand();
-            completion.CommandText = $"""
-                SELECT 1
-                FROM {FileStateTable}
-                INNER JOIN {TextMetadataTable} AS metadata
-                    ON metadata.key = {FileStateTable}.path{FilePathCollation}
-                   AND metadata.content_kind = $ocrKind
-                   AND metadata.model_id = $modelId
-                INNER JOIN {TextVectorTable} AS vector
-                    ON vector.rowid = metadata.vector_rowid
-                WHERE {FileStateTable}.file_kind = $kind
-                  AND {FileStateTable}.content_hash = $contentHash
-                  AND {FileStateTable}.ocr_completed = 1
-                  AND {FileStateTable}.ocr_model_id = $modelId
-                  AND vector.model_id = $modelId
-                LIMIT 1;
-                """;
-            completion.Parameters.AddWithValue("$kind", (int)IndexFileKind.Image);
-            completion.Parameters.AddWithValue("$ocrKind", (int)TextContentKind.ImageOcr);
-            completion.Parameters.AddWithValue("$contentHash", contentHash);
-            completion.Parameters.AddWithValue("$modelId", modelId);
-            return await completion.ExecuteScalarAsync(cancellationToken) is not null;
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
 
     public Task<IReadOnlyList<VectorMatch>> SearchImagesAsync(
         string modelId,
@@ -578,38 +500,6 @@ internal sealed class IndexVectorStore
         }
     }
 
-    private async Task<bool> HasTextVectorOfKindAsync(
-        string key,
-        string modelId,
-        TextContentKind contentKind,
-        CancellationToken cancellationToken)
-    {
-        await _gate.WaitAsync(cancellationToken);
-        try
-        {
-            await using var connection = await OpenAsync(cancellationToken);
-            await using var command = connection.CreateCommand();
-            command.CommandText = $"""
-                SELECT 1
-                FROM {TextMetadataTable} AS metadata
-                INNER JOIN {TextVectorTable} AS vector ON vector.rowid = metadata.vector_rowid
-                WHERE metadata.key = $key
-                  AND metadata.model_id = $modelId
-                  AND metadata.content_kind = $contentKind
-                  AND vector.model_id = $modelId
-                LIMIT 1;
-                """;
-            command.Parameters.AddWithValue("$key", key);
-            command.Parameters.AddWithValue("$modelId", modelId);
-            command.Parameters.AddWithValue("$contentKind", (int)contentKind);
-            return await command.ExecuteScalarAsync(cancellationToken) is not null;
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
     private async Task<bool> TryCopyTextVectorForContentHashAsync(
         string destinationKey,
         string contentHash,
@@ -654,8 +544,10 @@ internal sealed class IndexVectorStore
                 SELECT DISTINCT metadata.key
                 FROM {FileStateTable} AS state
                 INNER JOIN {TextMetadataTable} AS metadata ON metadata.key = state.path
+                INNER JOIN {TextVectorTable} AS vector ON vector.rowid = metadata.vector_rowid
                 WHERE state.content_hash = $contentHash
                   AND metadata.model_id = $modelId
+                  AND vector.model_id = $modelId
                   AND metadata.content_kind IN ({kinds})
                   AND metadata.key <> $destinationKey
                 """;
@@ -1215,6 +1107,12 @@ internal sealed class IndexVectorStore
                     await EnsureCaseInsensitiveTableAsync(connection, ImageMetadataTable, cancellationToken);
                     await EnsureCaseInsensitiveTableAsync(connection, FileStateTable, cancellationToken);
                 }
+                // OCR is no longer indexed; retain the image/document vectors and file fingerprints.
+                await DeleteTextByKindAsync(connection, TextContentKind.ImageOcr, cancellationToken);
+                await ExecuteAsync(connection, $"""
+                    UPDATE {FileStateTable} SET ocr_completed = 0, ocr_model_id = NULL
+                    WHERE ocr_completed <> 0 OR ocr_model_id IS NOT NULL;
+                    """, cancellationToken);
                 _initialized = true;
             }
 
@@ -1683,19 +1581,6 @@ internal sealed class IndexVectorStore
             DELETE FROM {metadataTable} WHERE {keyColumn} = $key;
             """, cancellationToken, ("$key", key));
     }
-
-    private static Task DeleteMappedTextVectorIfKindAsync(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
-        string key,
-        TextContentKind kind,
-        CancellationToken cancellationToken) =>
-        ExecuteInTransactionAsync(connection, transaction, $"""
-            DELETE FROM {TextVectorTable}
-            WHERE rowid IN (
-                SELECT vector_rowid FROM {TextMetadataTable} WHERE key = $key AND content_kind = $kind);
-            DELETE FROM {TextMetadataTable} WHERE key = $key AND content_kind = $kind;
-            """, cancellationToken, ("$key", key), ("$kind", (int)kind));
 
     private static async Task ExecuteAsync(SqliteConnection connection, string sql, CancellationToken cancellationToken)
     {

@@ -6,6 +6,7 @@ using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using DeviceDiscoverySignature = Kitopia.Feature.DeviceCommunication.Discovery.DeviceDiscoverySignature;
 using Kitopia.Desktop.Features.Services.Interfaces;
+using Kitopia.Desktop.Features.Ocr;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Config;
@@ -33,7 +34,7 @@ public enum ThemeEnum
 [ConfigName("lang.kitopia.kitopia_settings")]
 public class KitopiaConfig : ConfigBase
 {
-    internal const int CurrentSchemaVersion = 3;
+    internal const int CurrentSchemaVersion = 4;
 
     [JsonIgnore]
     public override int CurrentConfigVersion => CurrentSchemaVersion;
@@ -51,6 +52,15 @@ public class KitopiaConfig : ConfigBase
         const int managedCollectionsVersion = 1;
         const int previewScopeVersion = 2;
         const int selectionTranslationHotkeyVersion = 3;
+        const int smallOcrVersion = 4;
+
+        if (ConfigVersion < smallOcrVersion)
+        {
+            if (OnnxTargetDevices.Remove("paddleocr-v6-tiny-det", out var detectorDevice))
+                OnnxTargetDevices.TryAdd(OcrModelPackage.DetectorSignName, detectorDevice);
+            if (OnnxTargetDevices.Remove("paddleocr-v6-tiny-rec", out var recognizerDevice))
+                OnnxTargetDevices.TryAdd(OcrModelPackage.RecognizerSignName, recognizerDevice);
+        }
 
         if (ConfigVersion < managedCollectionsVersion)
             MigrateLegacyCollections(root);

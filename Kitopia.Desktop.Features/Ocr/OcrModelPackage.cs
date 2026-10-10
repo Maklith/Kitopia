@@ -5,13 +5,13 @@ namespace Kitopia.Desktop.Features.Ocr;
 
 internal static class OcrModelPackage
 {
-    public const string DetectorSignName = "paddleocr-v6-tiny-det";
-    public const string RecognizerSignName = "paddleocr-v6-tiny-rec";
+    public const string DetectorSignName = "paddleocr-v6-small-det";
+    public const string RecognizerSignName = "paddleocr-v6-small-rec";
 
     public static readonly string DirectoryPath = Path.Combine(KitopiaPaths.AppRoot, "Ocr");
-    public static readonly string DetectorPath = Path.Combine(DirectoryPath, "ppocrv6_tiny_det.onnx");
-    public static readonly string RecognizerPath = Path.Combine(DirectoryPath, "ppocrv6_tiny_rec.onnx");
-    public static readonly string DictionaryPath = Path.Combine(DirectoryPath, "ppocrv6_tiny_rec_dict.txt");
+    public static readonly string DetectorPath = Path.Combine(DirectoryPath, "ppocrv6_small_det.onnx");
+    public static readonly string RecognizerPath = Path.Combine(DirectoryPath, "ppocrv6_small_rec.onnx");
+    public static readonly string DictionaryPath = Path.Combine(DirectoryPath, "ppocrv6_small_rec_dict.txt");
 
     public static bool IsComplete() => File.Exists(DetectorPath)
                                        && File.Exists(RecognizerPath)

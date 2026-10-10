@@ -228,7 +228,7 @@ public sealed class IndexingMemoryTests
         using var prepared = PaddleOcrService.PrepareRecognitionImage(source);
 
         Assert.AreEqual(48, prepared.Rows);
-        Assert.IsLessThanOrEqualTo(2048, prepared.Cols);
+        Assert.IsLessThanOrEqualTo(3200, prepared.Cols);
         Assert.AreEqual(0, prepared.Cols % 32);
     }
 

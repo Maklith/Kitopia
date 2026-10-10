@@ -1,12 +1,10 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
-using System.Text;
 using Kitopia.Desktop.Features.Search;
 using Kitopia.Desktop.Features.Search.Semantic;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services;
-using Kitopia.Desktop.Features.Ocr;
 using Pinyin.NET;
 using Serilog;
 
@@ -22,7 +20,6 @@ public sealed class IndexService : IIndexService, IDisposable
     private const int SemanticFallbackPinyinResultLimit = 10;
     private const int MinimumSemanticQueryLength = 2;
     private const int ManagedFileSearchBatchSize = 256;
-    private const int MaximumOcrInputCharacters = 16 * 1024;
     private const int ImageInferenceBatchSize = 8;
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IndexService>();
     private static readonly StringComparer EntryKeyComparer =
@@ -42,7 +39,6 @@ public sealed class IndexService : IIndexService, IDisposable
     private int _statusPublishQueued;
     private int _statusPublishVersion;
     private EmbeddingGemmaEmbeddingService? _embeddingService;
-    private readonly IOcrService? _ocrService;
     private IndexStatusSnapshot _status = IndexStatusSnapshot.Empty;
     private readonly object _operationStateLock = new();
     private CancellationTokenSource? _activeOperationCancellation;
@@ -54,11 +50,6 @@ public sealed class IndexService : IIndexService, IDisposable
     public event EventHandler<IndexStatusSnapshot>? StatusChanged;
 
     bool ISearchEntryIndex.TryAdd(SearchEntry entry) => TryAdd(entry);
-
-    public IndexService(IOcrService? ocrService = null)
-    {
-        _ocrService = ocrService;
-    }
 
     public IndexStatusSnapshot GetStatus() => Volatile.Read(ref _status);
 
@@ -481,22 +472,24 @@ public sealed class IndexService : IIndexService, IDisposable
         }
 
         var semanticResults = await SearchSemanticAsync(query, maximumResults, cancellationToken);
-        foreach (var match in semanticResults.SelectMany(matches => matches))
+        foreach (var group in semanticResults.SelectMany(matches => matches)
+                     .GroupBy(match => match.Key, EntryKeyComparer))
         {
-            if (IsIgnoredPath(match.Key, ignoredPaths))
+            if (IsIgnoredPath(group.Key, ignoredPaths))
             {
                 continue;
             }
 
-            if (!TryGetValue(match.Key, out var entry)) continue;
-            var score = Math.Max(0d, match.Score) / (60 + match.Rank + 1);
-            if (merged.TryGetValue(match.Key, out var existing))
+            if (!TryGetValue(group.Key, out var entry)) continue;
+            // Use the strongest semantic channel per file before adding lexical matches.
+            var score = group.Max(match => Math.Max(0d, match.Score) / (60 + match.Rank + 1));
+            if (merged.TryGetValue(group.Key, out var existing))
             {
-                merged[match.Key] = existing with { Weight = existing.Weight + score };
+                merged[group.Key] = existing with { Weight = existing.Weight + score };
             }
             else
             {
-                merged[match.Key] = new SearchIndexResult(entry, score, null);
+                merged[group.Key] = new SearchIndexResult(entry, score, null);
             }
         }
 
@@ -933,10 +926,7 @@ public sealed class IndexService : IIndexService, IDisposable
         FileFingerprint Fingerprint,
         FileIndexState? Existing,
         string ContentHash,
-        bool NeedsImageVector,
-        bool OcrAvailable,
-        bool NeedsOcr,
-        string? OcrModelId);
+        bool NeedsImageVector);
 
     private async Task<ImageIndexWorkItem> PrepareImageIndexAsync(
         string fullPath,
@@ -953,29 +943,15 @@ public sealed class IndexService : IIndexService, IDisposable
         var existing = await _store.GetFileStateAsync(fullPath, IndexFileKind.Image, cancellationToken);
         var imageIsCurrent = await _store.HasImageVectorAsync(
             fullPath, imageEmbeddingService.ModelId, cancellationToken);
-        EmbeddingGemmaEmbeddingService? textEmbeddingService = null;
-        var ocrAvailable = _ocrService is { IsAvailable: true }
-                           && ConfigManger.Config.enableSemanticSearch
-                           && TryGetEmbeddingService(out textEmbeddingService);
-        var ocrIsCurrent = !ocrAvailable;
-        if (ocrAvailable)
-        {
-            ocrIsCurrent = existing is { OcrCompleted: true }
-                           && string.Equals(existing.OcrModelId, textEmbeddingService!.ModelId, StringComparison.Ordinal);
-        }
-
         var metadataMatches = FileStateMatches(existing, fingerprint);
-        if (!force && metadataMatches && imageIsCurrent && ocrIsCurrent)
+        if (!force && metadataMatches && imageIsCurrent)
         {
             return new ImageIndexWorkItem(
                 fullPath,
                 fingerprint,
                 existing,
                 existing!.ContentHash,
-                false,
-                ocrAvailable,
-                false,
-                ocrAvailable ? textEmbeddingService!.ModelId : existing?.OcrModelId);
+                false);
         }
 
         var contentHash = metadataMatches
@@ -989,10 +965,7 @@ public sealed class IndexService : IIndexService, IDisposable
             fingerprint,
             existing,
             contentHash,
-            force || !imageIsCurrent || !contentMatches,
-            ocrAvailable,
-            ocrAvailable && (!ocrIsCurrent || !contentMatches || force),
-            ocrAvailable ? textEmbeddingService!.ModelId : existing?.OcrModelId);
+            force || !imageIsCurrent || !contentMatches);
     }
 
     private async Task<HashSet<string>> IndexImageVectorBatchAsync(
@@ -1097,51 +1070,6 @@ public sealed class IndexService : IIndexService, IDisposable
         return failed;
     }
 
-    private async Task IndexImageOcrAsync(
-        ImageIndexWorkItem item,
-        CancellationToken cancellationToken)
-    {
-        var ocrCompleted = item.Existing?.OcrCompleted ?? false;
-        if (item.OcrAvailable && item.NeedsOcr)
-        {
-            if (!TryGetEmbeddingService(out var textEmbeddingService))
-            {
-                throw new InvalidOperationException("EmbeddingGemma 2 Q4 model files are unavailable.");
-            }
-
-            var copied = await _store.HasCompletedOcrForContentHashAsync(
-                item.ContentHash,
-                textEmbeddingService.ModelId,
-                cancellationToken);
-            if (copied)
-            {
-                copied = await _store.TryCopyOcrTextForContentHashAsync(
-                    item.Path,
-                    item.ContentHash,
-                    textEmbeddingService.ModelId,
-                    cancellationToken);
-            }
-
-            if (!copied)
-            {
-                await IndexOcrTextAsync(item.Path, textEmbeddingService, cancellationToken);
-            }
-
-            ocrCompleted = true;
-        }
-
-        await _store.UpsertFileStateAsync(
-            new FileIndexState(
-                item.Path,
-                IndexFileKind.Image,
-                item.Fingerprint.Length,
-                item.Fingerprint.LastWriteUtcTicks,
-                item.ContentHash,
-                ocrCompleted,
-                item.OcrAvailable ? item.OcrModelId : item.Existing?.OcrModelId),
-            cancellationToken);
-    }
-
     private async Task IndexFileVectorsAsync(
         bool indexDocuments,
         bool indexImages,
@@ -1226,7 +1154,6 @@ public sealed class IndexService : IIndexService, IDisposable
                     workItem = await PrepareImageIndexAsync(path, force, token);
                 }, cancellationToken);
                 if (!workItem.NeedsImageVector
-                    && !workItem.NeedsOcr
                     && FileStateMatches(workItem.Existing, workItem.Fingerprint))
                 {
                     MarkCompleted();
@@ -1276,7 +1203,7 @@ public sealed class IndexService : IIndexService, IDisposable
                 await WaitIfPausedAsync(cancellationToken);
                 UpdateStatus(status => status with
                 {
-                    CurrentOperation = item.NeedsOcr ? "lang.kitopia.recognizing_image_text" : "lang.kitopia.updating_image_index",
+                    CurrentOperation = "lang.kitopia.updating_image_index",
                     CurrentItem = item.Path
                 });
                 if (failedVectorItems.Contains(item.Path))
@@ -1292,11 +1219,14 @@ public sealed class IndexService : IIndexService, IDisposable
 
                 try
                 {
-                    await RunPausableStepAsync(token => IndexImageOcrAsync(item, token), cancellationToken);
+                    await RunPausableStepAsync(token => _store.UpsertFileStateAsync(
+                        new FileIndexState(item.Path, IndexFileKind.Image,
+                            item.Fingerprint.Length, item.Fingerprint.LastWriteUtcTicks,
+                            item.ContentHash, false, null), token), cancellationToken);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    Logger.Warning(exception, "Failed to index image OCR for {ImagePath}.", item.Path);
+                    Logger.Warning(exception, "Failed to update image index state for {ImagePath}.", item.Path);
                     UpdateStatus(status => status with { FailedImages = status.FailedImages + 1, LastError = exception.Message });
                 }
 
@@ -1318,9 +1248,8 @@ public sealed class IndexService : IIndexService, IDisposable
     {
         try
         {
-            await Task.WhenAll(
-                _embeddingService?.ReleaseSessionsAsync() ?? Task.CompletedTask,
-                _ocrService?.ReleaseSessionsAsync() ?? Task.CompletedTask);
+            if (_embeddingService is { } embeddingService)
+                await embeddingService.ReleaseSessionsAsync();
         }
         catch (Exception exception)
         {
@@ -1494,85 +1423,6 @@ public sealed class IndexService : IIndexService, IDisposable
         }
 
         return vectors;
-    }
-
-    private async Task IndexOcrTextAsync(
-        string imagePath,
-        EmbeddingGemmaEmbeddingService embeddingService,
-        CancellationToken cancellationToken)
-    {
-        if (_ocrService is null || !_ocrService.IsAvailable)
-        {
-            return;
-        }
-
-        IReadOnlyList<PluginCore.OcrTextRegion> regions;
-        regions = await _ocrService.RecognizeFileAsync(imagePath, cancellationToken);
-
-        var textBuilder = new StringBuilder();
-        foreach (var region in regions)
-        {
-            if (string.IsNullOrWhiteSpace(region.Text))
-            {
-                continue;
-            }
-
-            if (textBuilder.Length == MaximumOcrInputCharacters)
-            {
-                break;
-            }
-
-            if (textBuilder.Length > 0)
-            {
-                textBuilder.Append('\n');
-            }
-
-            var remaining = MaximumOcrInputCharacters - textBuilder.Length;
-            if (remaining == 0)
-            {
-                break;
-            }
-
-            if (region.Text.Length <= remaining)
-            {
-                textBuilder.Append(region.Text);
-                continue;
-            }
-
-            textBuilder.Append(region.Text.AsSpan(0, remaining));
-            break;
-        }
-
-        if (textBuilder.Length == 0)
-        {
-            await _store.DeleteOcrTextAsync(imagePath, cancellationToken);
-            return;
-        }
-
-        var chunker = new DocumentTextExtractor.TextChunker(
-            text => embeddingService.CountDocumentTokens(text, null),
-            EmbeddingGemmaEmbeddingService.IndexingMaximumTokens);
-        var chunks = new List<string>();
-        foreach (var memory in textBuilder.GetChunks())
-        {
-            for (var index = 0; index < memory.Length; index++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (chunker.Append(memory.Span[index]) is { Length: > 0 } chunk)
-                    chunks.Add(EmbeddingGemmaEmbeddingService.FormatDocument(chunk));
-            }
-        }
-        if (chunker.Flush() is { Length: > 0 } finalChunk)
-            chunks.Add(EmbeddingGemmaEmbeddingService.FormatDocument(finalChunk));
-        if (chunks.Count == 0)
-        {
-            await _store.DeleteOcrTextAsync(imagePath, cancellationToken);
-            return;
-        }
-        var vectors = await embeddingService.EmbedAsync(
-            chunks, EmbeddingGemmaEmbeddingService.IndexingMaximumTokens, cancellationToken);
-        await _store.UpsertTextChunksAsync(
-            imagePath, embeddingService.ModelId, vectors, cancellationToken, TextContentKind.ImageOcr);
     }
 
     private bool TryGetEmbeddingService([NotNullWhen(true)] out EmbeddingGemmaEmbeddingService? service)
