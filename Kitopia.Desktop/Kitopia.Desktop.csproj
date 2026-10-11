@@ -48,6 +48,7 @@
     </PropertyGroup>
     <ItemGroup Condition="'$(FfmpegRuntimeIdentifier)' == 'win-x64' or '$(FfmpegRuntimeIdentifier)' == 'win-arm64'">
         <_RequiredFfmpegFile Include="$(FfmpegBundleDirectory)\avutil-61.dll;$(FfmpegBundleDirectory)\swresample-7.dll;$(FfmpegBundleDirectory)\swscale-10.dll;$(FfmpegBundleDirectory)\avcodec-63.dll;$(FfmpegBundleDirectory)\avformat-63.dll;$(FfmpegBundleDirectory)\avfilter-12.dll;$(FfmpegBundleDirectory)\avdevice-63.dll" />
+        <_RequiredFfmpegFile Include="$(FfmpegBundleDirectory)\ffmpeg.exe;$(FfmpegBundleDirectory)\ffprobe.exe" />
         <_RequiredFfmpegFile Include="$(FfmpegBundleDirectory)\LICENSE.txt;$(FfmpegBundleDirectory)\GPL-3.0.txt;$(FfmpegBundleDirectory)\bundle.json;$(FfmpegBundleDirectory)\SOURCE.md" />
         <_MissingFfmpegFile Include="@(_RequiredFfmpegFile)" />
         <_MissingFfmpegFile Remove="@(_RequiredFfmpegFile->Exists())" />

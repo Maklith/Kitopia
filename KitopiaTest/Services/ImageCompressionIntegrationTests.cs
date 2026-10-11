@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using Kitopia.Desktop.Features.Services.MQTT;
 using KitopiaEx.ImageCompression;
 using KitopiaEx.SearchWindow.InputDataAnalyzer;
+using KitopiaEx.VideoCompression;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
@@ -167,6 +168,7 @@ public sealed class ImageCompressionIntegrationTests
         var originalConverters = HostKitopia.JsonConverters;
         var originalPluginServices = global::KitopiaEx.KitopiaEx.ServiceProvider;
         StartupArgumentManager.Handlers.TryGetValue(StartupAction.ImageCompression, out var originalHandler);
+        StartupArgumentManager.Handlers.TryGetValue(StartupAction.VideoCompression, out var originalVideoHandler);
         HostKitopia.TypeNames = new Dictionary<string, string>();
         HostKitopia.ToolTipConverters = new Dictionary<Type, Func<object, string>>();
         HostKitopia.JsonConverters = new Dictionary<Type, ICustomScenarioValueSerializer>();
@@ -186,7 +188,11 @@ public sealed class ImageCompressionIntegrationTests
             try
             {
                 plugin.OnEnabled(_services, new Dictionary<string, IServiceProvider>());
-                var entry = menu.GetAllMenuItems().Single(item => item != unrelated);
+                var entry = menu.GetAllMenuItems().Single(item => item.Arguments ==
+                    StartupArgumentManager.GenerateCmd(StartupAction.ImageCompression, "{all}"));
+                Assert.AreEqual(3, menu.GetAllMenuItems().Count);
+                Assert.AreEqual(1, menu.GetAllMenuItems().Count(item => item.Arguments ==
+                    StartupArgumentManager.GenerateCmd(StartupAction.VideoCompression, "{all}")));
                 StringAssert.Contains(entry.Arguments, "{all}");
                 Assert.IsTrue(StartupArgumentManager.Handlers.ContainsKey(StartupAction.ImageCompression));
                 var paths = new[] { CreateImage("first photo.png"), CreateImage("第二张图片.png") };
@@ -201,18 +207,28 @@ public sealed class ImageCompressionIntegrationTests
                     .GetProperty("Current", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
                 CollectionAssert.AreEquivalent(paths, ((ImageCompressionViewModel)window.DataContext!).Items
                     .Select(item => item.SourcePath).ToArray());
+                Assert.IsTrue(StartupArgumentManager.Handlers.ContainsKey(StartupAction.VideoCompression));
+                var videoPath = Path.Combine(_directory, "sample video.mp4");
+                File.WriteAllBytes(videoPath, [0]);
+                await MqttManager.ProcessLocalArgs(["-action:VideoCompression", "-value:" + videoPath]);
+                var videoWindow = (VideoCompressionWindow)typeof(VideoCompressionWindow)
+                    .GetProperty("Current", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+                Assert.AreEqual(videoPath, ((VideoCompressionViewModel)videoWindow.DataContext!).Items.Single().SourcePath);
             }
             finally
             {
                 plugin.OnDisabled();
                 Dispatcher.UIThread.RunJobs();
                 Assert.IsFalse(StartupArgumentManager.Handlers.ContainsKey(StartupAction.ImageCompression));
+                Assert.IsFalse(StartupArgumentManager.Handlers.ContainsKey(StartupAction.VideoCompression));
+                Assert.IsNull(typeof(VideoCompressionWindow).GetProperty("Current", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null));
                 CollectionAssert.AreEqual(new[] { unrelated }, menu.GetAllMenuItems());
                 HostKitopia.TypeNames = originalTypes;
                 HostKitopia.ToolTipConverters = originalTooltips;
                 HostKitopia.JsonConverters = originalConverters;
                 global::KitopiaEx.KitopiaEx.ServiceProvider = originalPluginServices;
                 if (originalHandler != null) StartupArgumentManager.Handlers[StartupAction.ImageCompression] = originalHandler;
+                if (originalVideoHandler != null) StartupArgumentManager.Handlers[StartupAction.VideoCompression] = originalVideoHandler;
             }
             return true;
         }, CancellationToken.None);

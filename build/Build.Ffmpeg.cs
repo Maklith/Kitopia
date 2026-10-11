@@ -51,7 +51,7 @@ partial class Build
         destination.DeleteDirectory();
         Directory.CreateDirectory(destination);
         foreach (var name in new[] { "avutil-61.dll", "swresample-7.dll", "swscale-10.dll", "avcodec-63.dll",
-                     "avformat-63.dll", "avfilter-12.dll", "avdevice-63.dll" })
+                     "avformat-63.dll", "avfilter-12.dll", "avdevice-63.dll", "ffmpeg.exe", "ffprobe.exe" })
         {
             var entry = archive.GetEntry(prefix + "bin/" + name) ?? throw new InvalidDataException($"Missing native library {name}");
             var path = Path.Combine(destination, name);
@@ -66,7 +66,7 @@ partial class Build
         File.Copy(RootDirectory / "LICENSE", Path.Combine(destination, "GPL-3.0.txt"));
         File.Copy(manifestPath, Path.Combine(destination, "bundle.json"));
         File.Copy(RootDirectory / "build" / "Ffmpeg" / "README.md", Path.Combine(destination, "SOURCE.md"));
-        Log.Information("Bundled LGPL FFmpeg native libraries for {Runtime} in {Directory}", runtime, destination);
+        Log.Information("Bundled LGPL FFmpeg tools and native libraries for {Runtime} in {Directory}", runtime, destination);
     }
 
     async Task<string> DownloadFfmpegArchiveAsync(HttpClient client, JsonElement asset)

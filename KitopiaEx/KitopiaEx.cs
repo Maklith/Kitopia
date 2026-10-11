@@ -10,6 +10,7 @@ using KitopiaEx.CustomScenarioValueSerializer;
 using KitopiaEx.INodeInputConnector.ScreenCaptureInfoSelfConnector;
 using KitopiaEx.Ocr;
 using KitopiaEx.Translate;
+using KitopiaEx.VideoCompression;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 
@@ -20,7 +21,7 @@ public class KitopiaEx : IPlugin
     public static IServiceProvider ServiceProvider;
 
     private IPlugin _pluginImplementation;
-    private ContextMenuItem? _imageCompressionMenuItem;
+    private readonly List<ContextMenuItem> _compressionMenuItems = [];
 
     
     public void OnEnabled(IServiceProvider serviceProvider, Dictionary<string, IServiceProvider> dependencyServiceProviders)
@@ -66,30 +67,42 @@ public class KitopiaEx : IPlugin
         });
         Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureInfo), new ScreenCaptureInfoCustomScenarioValueSerializer());
         StartupArgumentManager.Handlers[StartupAction.ImageCompression] = paths => ImageCompressionWindow.OpenFilesAsync(paths);
+        StartupArgumentManager.Handlers[StartupAction.VideoCompression] = VideoCompressionWindow.OpenFilesAsync;
         if (Kitopia.ServiceProvider.GetService<IExplorerContextMenuConfiger>() is { } contextMenu)
         {
             var executable = Path.Combine(AppContext.BaseDirectory, "Kitopia.Desktop.exe");
-            _imageCompressionMenuItem = new ContextMenuItem
+            foreach (var (action, title) in new[]
             {
-                Title = Lang.Get("lang.kitopiaex.compression.title"),
-                Icon = executable,
-                Command = executable,
-                Arguments = StartupArgumentManager.GenerateCmd(StartupAction.ImageCompression, "{all}")
-            };
-            foreach (var item in contextMenu.GetAllMenuItems().Where(item =>
-                         item.Command == executable && item.Arguments == _imageCompressionMenuItem.Arguments))
-                contextMenu.RemoveMenuItem(item);
-            contextMenu.AddMenuItem(_imageCompressionMenuItem);
+                (StartupAction.ImageCompression, "lang.kitopiaex.compression.title"),
+                (StartupAction.VideoCompression, "lang.kitopiaex.video_compression.title")
+            })
+            {
+                var menuItem = new ContextMenuItem
+                {
+                    Title = Lang.Get(title), Icon = executable, Command = executable,
+                    Arguments = StartupArgumentManager.GenerateCmd(action, "{all}")
+                };
+                foreach (var item in contextMenu.GetAllMenuItems().Where(item =>
+                             item.Command == executable && item.Arguments == menuItem.Arguments))
+                    contextMenu.RemoveMenuItem(item);
+                contextMenu.AddMenuItem(menuItem);
+                _compressionMenuItems.Add(menuItem);
+            }
         }
     }
 
     public void OnDisabled()
     {
         StartupArgumentManager.Handlers.TryRemove(StartupAction.ImageCompression, out _);
-        if (_imageCompressionMenuItem != null)
-            Kitopia.ServiceProvider.GetService<IExplorerContextMenuConfiger>()?.RemoveMenuItem(_imageCompressionMenuItem);
-        _imageCompressionMenuItem = null;
-        Dispatcher.UIThread.Post(() => ImageCompressionWindow.Current?.Close());
+        StartupArgumentManager.Handlers.TryRemove(StartupAction.VideoCompression, out _);
+        if (Kitopia.ServiceProvider.GetService<IExplorerContextMenuConfiger>() is { } contextMenu)
+            foreach (var item in _compressionMenuItems) contextMenu.RemoveMenuItem(item);
+        _compressionMenuItems.Clear();
+        Dispatcher.UIThread.Post(() =>
+        {
+            ImageCompressionWindow.Current?.Close();
+            VideoCompressionWindow.Current?.Close();
+        });
         Kitopia.JsonConverters.Remove(typeof(ScreenCaptureInfo));
         Kitopia.ToolTipConverters.Remove(typeof(ScreenCaptureInfo));
         Kitopia.ToolTipConverters.Remove(typeof(ScreenCaptureResult));
@@ -116,6 +129,7 @@ public class KitopiaEx : IPlugin
         services.AddTransient<ScreenCaptureExs.SaveImageToFile>();
 
         services.AddTransient<SearchWindow.InputDataAnalyzer.ImageAnalyzer>();
+        services.AddTransient<SearchWindow.InputDataAnalyzer.VideoAnalyzer>();
         services.AddTransient<SearchWindow.InputDataAnalyzer.SetTopmostWindowAnalyzer>();
         services.AddTransient<SearchWindow.InputDataAnalyzer.WindowSwitcherAnalyzer>();
         

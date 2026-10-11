@@ -425,6 +425,7 @@ public class MqttManager
                 break;
             }
             case StartupAction.ImageCompression:
+            case StartupAction.VideoCompression:
             {
                 await PluginsReady.Task;
                 await Dispatcher.UIThread.InvokeAsync(async () =>
