@@ -4,13 +4,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
-using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Features.Search.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
@@ -19,11 +17,14 @@ namespace Kitopia.Desktop.Windows;
 
 public partial class SearchWindow : Window
 {
+    private readonly double _preferredMaxHeight;
+    private Screen? _placementScreen;
     private INotifyCollectionChanged? _currentItemsSource;
 
     public SearchWindow()
     {
         InitializeComponent();
+        _preferredMaxHeight = MaxHeight;
         WeakReferenceMessenger.Default.Register<string, string>(this, "SearchWindowClose",
             (_, _) => { Dispatcher.UIThread.Invoke(() => { IsVisible = false; }); });
         #if DEBUG
@@ -32,6 +33,10 @@ public partial class SearchWindow : Window
         dataGrid.PropertyChanged += DataGridOnPropertyChanged;
         FilePreviewSurface.CloseRequested += () =>
             (DataContext as SearchWindowViewModel)?.ClosePreviewMode();
+        SizeChanged += (_, _) =>
+        {
+            if (IsVisible) PositionWindow();
+        };
     }
 
     private void DataGridOnPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
@@ -62,25 +67,35 @@ public partial class SearchWindow : Window
 
     public override void Show()
     {
+        _placementScreen = null;
         if (!IsLoaded) base.Show();
-        ServiceManager.Services.GetService<IWindowTool>()!.MoveWindowToMouseScreenCenter(this);
+        var windowTool = ServiceManager.Services.GetRequiredService<IWindowTool>();
+        windowTool.MoveWindowToMouseScreenCenter(this);
+        _placementScreen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+        if (_placementScreen is { } screen)
+            MaxHeight = Math.Min(_preferredMaxHeight, screen.WorkingArea.Height / screen.Scaling);
         base.Show();
-        ServiceManager.Services.GetService<IWindowTool>()!.MoveWindowToMouseScreenCenter(this);
-        ServiceManager.Services.GetService<IWindowTool>()!.SetForegroundWindow(
-            TryGetPlatformHandle()!.Handle);
+        PositionWindow();
+        windowTool.SetForegroundWindow(TryGetPlatformHandle()!.Handle);
         tx.Focus();
         tx.SelectAll();
         ((SearchWindowViewModel?)DataContext)?.LoadLast();
     }
 
-    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    private void PositionWindow()
     {
-        base.OnApplyTemplate(e);
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            var size = desktop.MainWindow.Screens.Primary.Bounds.Size;
-            Position = new PixelPoint((int)((size.Width - Width) / 2), size.Height / 4);
-        }
+        if (_placementScreen is not { } screen) return;
+
+        Position = GetSearchWindowPosition(screen.WorkingArea, screen.Scaling, Bounds.Size);
+    }
+
+    internal static PixelPoint GetSearchWindowPosition(PixelRect area, double scaling, Size size)
+    {
+        var width = (int)Math.Ceiling(size.Width * scaling);
+        var height = (int)Math.Ceiling(size.Height * scaling);
+        return new PixelPoint(
+            area.X + Math.Max(0, (area.Width - width) / 2),
+            Math.Clamp(area.Y + area.Height / 4, area.Y, Math.Max(area.Y, area.Bottom - height)));
     }
 
     private void w_Deactivated(object? sender, EventArgs eventArgs)

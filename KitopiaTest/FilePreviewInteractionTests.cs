@@ -330,6 +330,9 @@ public sealed class FilePreviewInteractionTests
 
                     Assert.AreEqual(960, window.Bounds.Width);
                     Assert.AreEqual(768, window.Bounds.Height);
+                    var screen = window.Screens.ScreenFromWindow(window)!;
+                    Assert.IsTrue(screen.WorkingArea.Contains(new PixelRect(window.Position,
+                        PixelSize.FromSize(window.Bounds.Size, screen.Scaling))));
                     var preview = window.FindControl<FilePreviewControl>("FilePreviewSurface")!;
                     var layout = (Grid)preview.Parent!.Parent!.Parent!;
                     var header = layout.Children.Single(child => Grid.GetRow(child) == 0);
@@ -378,6 +381,8 @@ public sealed class FilePreviewInteractionTests
                     Dispatcher.UIThread.RunJobs();
                     Assert.IsTrue(window.Bounds.Height < window.MaxHeight,
                         "The search window must shrink again after leaving preview mode.");
+                    Assert.AreEqual(screen.WorkingArea.Y + screen.WorkingArea.Height / 4, window.Position.Y,
+                        "The search window must return to its default vertical position after shrinking.");
                 }
                 finally
                 {
