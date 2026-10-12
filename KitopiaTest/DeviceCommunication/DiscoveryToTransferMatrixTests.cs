@@ -1,15 +1,22 @@
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using System.IO.Pipelines;
 using System.Net;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using ObservableCollections;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
+using Kitopia.Desktop.Services;
 using Kitopia.Feature.DeviceCommunication;
+using Kitopia.Feature.DeviceCommunication.Diagnostics;
 using Kitopia.Feature.DeviceCommunication.Discovery;
 using Kitopia.Feature.DeviceCommunication.Identity;
 using Kitopia.Feature.DeviceCommunication.Protocol;
 using Kitopia.Feature.DeviceCommunication.Transport;
-using ObservableCollections;
 
 
 namespace KitopiaTest.DeviceCommunication;
@@ -90,6 +97,60 @@ public sealed class DiscoveryToTransferMatrixTests
         InvokePrivateVoid(discoveryService, "HandleAuthResponse", response, remoteAddress, localIdentity.PublicKey, localHash);
 
         Assert.AreEqual(0, discoveryService.Devices.Count);
+    }
+
+    [TestMethod]
+    [DoNotParallelize]
+    [DataRow("{\"MessageType\":\"probe\",\"Version\":\"0.1\"}", true, "Received probe from", LogEventLevel.Debug)]
+    [DataRow("null", true, "JSON payload is null", LogEventLevel.Warning)]
+    [DataRow("{", true, "Receive loop error on", LogEventLevel.Error)]
+    [DataRow("{\"MessageType\":\"probe\",\"Version\":\"9.9\"}", true, "unsupported protocol version", LogEventLevel.Warning)]
+    [DataRow("{\"MessageType\":\"probe\",\"Version\":\"0.1\"}", false, "local device identity is unavailable", LogEventLevel.Warning)]
+    [DataRow("{\"MessageType\":\"auth.request\",\"Version\":\"0.1\",\"Id\":\"different-device\",\"Nonce\":\"test-nonce\"}", true,
+        "does not match local id", LogEventLevel.Debug)]
+    public async Task Discovery_ReceiveLoop_ReportsDatagramBeforeProcessingOutcome(
+        string payload, bool identityAvailable, string expectedMessage, LogEventLevel expectedLevel)
+    {
+        var identityStore = new FakeIdentityStore(CreateIdentity()) { IsAvailable = identityAvailable };
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings(), identityStore, new FakeLocalDataEndpointProvider(23001));
+        using var receiver = new UdpClient(AddressFamily.InterNetwork);
+        receiver.ExclusiveAddressUse = true;
+        receiver.Client.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+        using var sender = new UdpClient(AddressFamily.InterNetwork);
+        using var cancellation = new CancellationTokenSource();
+        var sink = new DiscoveryLogSink(expectedMessage);
+        using var logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Sink(sink).CreateLogger();
+        var previousDiagnostics = DeviceCommunicationDiagnostics.Current;
+        Task? receiveTask = null;
+        try
+        {
+            DeviceCommunicationDiagnostics.Current = new DesktopDeviceCommunicationDiagnostics(logger);
+            receiveTask = InvokePrivateTask(discoveryService, "ReceiveLoopAsync", receiver, cancellation.Token);
+            await sender.SendAsync(Encoding.UTF8.GetBytes(payload), (IPEndPoint)receiver.Client.LocalEndPoint!);
+            var outcome = await sink.ExpectedEvent.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            var events = sink.Events.ToArray();
+            var receivedIndex = Array.FindIndex(events, entry =>
+                entry.RenderMessage().StartsWith("UDP datagram received from", StringComparison.Ordinal));
+
+            Assert.IsTrue(receivedIndex >= 0, "The raw receive must be reported even when processing rejects the datagram.");
+            Assert.IsTrue(Array.IndexOf(events, outcome) > receivedIndex);
+            Assert.AreEqual(expectedLevel, outcome.Level);
+            if (payload == "{") Assert.IsInstanceOfType<JsonException>(outcome.Exception);
+            Assert.AreEqual(0, discoveryService.Devices.Count);
+        }
+        finally
+        {
+            try
+            {
+                await cancellation.CancelAsync();
+                if (receiveTask is not null) await receiveTask.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+            finally
+            {
+                DeviceCommunicationDiagnostics.Current = previousDiagnostics;
+            }
+        }
     }
 
     [TestMethod]
@@ -346,6 +407,8 @@ public sealed class DiscoveryToTransferMatrixTests
     {
         private readonly DeviceIdentity _identity;
 
+        public bool IsAvailable { get; init; } = true;
+
         public FakeIdentityStore((string PublicKey, string PrivateKey) identity)
         {
             _identity = new DeviceIdentity(
@@ -357,12 +420,27 @@ public sealed class DiscoveryToTransferMatrixTests
         public bool TryGetIdentity(out DeviceIdentity identity)
         {
             identity = _identity;
-            return true;
+            return IsAvailable;
         }
 
         public DeviceIdentity EnsureIdentity()
         {
             return _identity;
+        }
+    }
+
+    private sealed class DiscoveryLogSink(string expectedMessage) : ILogEventSink
+    {
+        public ConcurrentQueue<LogEvent> Events { get; } = new();
+        public TaskCompletionSource<LogEvent> ExpectedEvent { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Emit(LogEvent logEvent)
+        {
+            Events.Enqueue(logEvent);
+            if (logEvent.RenderMessage().Contains(expectedMessage, StringComparison.Ordinal))
+            {
+                ExpectedEvent.TrySetResult(logEvent);
+            }
         }
     }
 

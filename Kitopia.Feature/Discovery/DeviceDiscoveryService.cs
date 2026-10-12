@@ -182,7 +182,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         try
         {
             _udpClientV4 = new UdpClient(AddressFamily.InterNetwork);
-            _udpClientV4.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _udpClientV4.ExclusiveAddressUse = true;
             _udpClientV4.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryPort));
             DeviceCommunicationDiagnostics.Info(LogCategory, $"Bound IPv4 discovery socket on {DiscoveryPort}.");
         }
@@ -195,7 +195,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         try
         {
             _udpClientV6 = new UdpClient(AddressFamily.InterNetworkV6);
-            _udpClientV6.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _udpClientV6.ExclusiveAddressUse = true;
             _udpClientV6.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, true);
             _udpClientV6.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, DiscoveryPort));
             DeviceCommunicationDiagnostics.Info(LogCategory, $"Bound IPv6 discovery socket on {DiscoveryPort}.");
@@ -225,7 +225,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                 true);
             DeviceCommunicationDiagnostics.Info(
                 LogCategory,
-                $"Joined discovery multicast groups {MulticastAddressV4} and {MulticastAddressV6}.");
+                $"Discovery multicast membership: {MulticastAddressV4} on {joinedIpv4Interfaces.Count} IPv4 interfaces, {MulticastAddressV6} on {joinedIpv6Interfaces.Count} IPv6 interfaces.");
         }
         catch (Exception exception)
         {
@@ -316,6 +316,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                 try
                 {
                     udpClientV4.JoinMulticastGroup(multicastIpV4, ipv4Address);
+                    DeviceCommunicationDiagnostics.Info(
+                        LogCategory,
+                        $"Joined IPv4 multicast {multicastIpV4} on {networkInterface.Name} {ipv4Address}.");
                 }
                 catch (Exception exception)
                 {
@@ -357,6 +360,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                 }
 
                 udpClientV6.JoinMulticastGroup(ipv6InterfaceIndex, multicastIpV6);
+                DeviceCommunicationDiagnostics.Info(
+                    LogCategory,
+                    $"Joined IPv6 multicast {multicastIpV6} on {networkInterface.Name} interfaceIndex={ipv6InterfaceIndex}.");
             }
             catch (Exception exception)
             {
@@ -388,16 +394,42 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
 
     private async Task ReceiveLoopAsync(UdpClient client, CancellationToken token)
     {
+        var localEndPoint = client.Client.LocalEndPoint;
+        DeviceCommunicationDiagnostics.Info(
+            LogCategory,
+            $"Discovery receive loop started on {localEndPoint} ({client.Client.AddressFamily}) pid={Environment.ProcessId}.");
         while (!token.IsCancellationRequested)
         {
             try
             {
                 var result = await client.ReceiveAsync(token);
+                DeviceCommunicationDiagnostics.Debug(
+                    LogCategory,
+                    $"UDP datagram received from {result.RemoteEndPoint} on {localEndPoint} bytes={result.Buffer.Length}.");
                 var info = JsonSerializer.Deserialize(
-                    Encoding.UTF8.GetString(result.Buffer),
+                    result.Buffer.AsSpan(),
                     DeviceCommunicationJsonSerializerContext.Default.DiscoveryInfo);
-                if (info is null || !IsSupportedDiscoveryVersion(info.Version) || !TryGetLocalIdentity(out var localIdentity))
+                if (info is null)
                 {
+                    DeviceCommunicationDiagnostics.Warning(
+                        LogCategory,
+                        $"Ignored discovery datagram from {result.RemoteEndPoint}: JSON payload is null.");
+                    continue;
+                }
+
+                if (!IsSupportedDiscoveryVersion(info.Version))
+                {
+                    DeviceCommunicationDiagnostics.Warning(
+                        LogCategory,
+                        $"Ignored discovery datagram from {result.RemoteEndPoint}: unsupported protocol version '{info.Version}', local='{DiscoveryProtocolVersion}'.");
+                    continue;
+                }
+
+                if (!TryGetLocalIdentity(out var localIdentity))
+                {
+                    DeviceCommunicationDiagnostics.Warning(
+                        LogCategory,
+                        $"Ignored discovery datagram from {result.RemoteEndPoint}: local device identity is unavailable.");
                     continue;
                 }
 
@@ -426,9 +458,13 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             }
             catch (Exception exception)
             {
-                DeviceCommunicationDiagnostics.Warning(LogCategory, $"Receive loop error: {exception.Message}");
+                DeviceCommunicationDiagnostics.Error(LogCategory, $"Receive loop error on {localEndPoint}.", exception);
             }
         }
+
+        DeviceCommunicationDiagnostics.Info(
+            LogCategory,
+            $"Discovery receive loop stopped on {localEndPoint}. CancellationRequested={token.IsCancellationRequested}.");
     }
 
     private async Task BroadcastLoopAsync(CancellationToken token)
@@ -655,15 +691,30 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         string localPublicKey,
         CancellationToken token)
     {
-        if (!string.Equals(info.Id, localIdHash, StringComparison.Ordinal) ||
-            string.IsNullOrWhiteSpace(info.Nonce))
+        if (!string.Equals(info.Id, localIdHash, StringComparison.Ordinal))
         {
+            DeviceCommunicationDiagnostics.Debug(
+                LogCategory,
+                $"Ignored auth request from {endpointAddress}: target id={ShortId(info.Id)} does not match local id={ShortId(localIdHash)}.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(info.Nonce))
+        {
+            DeviceCommunicationDiagnostics.Warning(LogCategory, $"Ignored auth request from {endpointAddress}: nonce is missing.");
             return;
         }
 
         var tcpPort = _localDataEndpointProvider.TcpPort;
-        if (tcpPort <= 0 || !_identityStore.TryGetIdentity(out var identity))
+        if (tcpPort <= 0)
         {
+            DeviceCommunicationDiagnostics.Warning(LogCategory, $"Ignored auth request from {endpointAddress}: local TCP listener is unavailable.");
+            return;
+        }
+
+        if (!_identityStore.TryGetIdentity(out var identity))
+        {
+            DeviceCommunicationDiagnostics.Warning(LogCategory, $"Ignored auth request from {endpointAddress}: local device identity is unavailable.");
             return;
         }
 
@@ -895,6 +946,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             ? new UdpClient(AddressFamily.InterNetworkV6)
             : new UdpClient(AddressFamily.InterNetwork);
         await client.SendAsync(bytes, bytes.Length, remoteEndPoint).WaitAsync(token);
+        DeviceCommunicationDiagnostics.Debug(
+            LogCategory,
+            $"Sent {NormalizeMessageType(info.MessageType)} to {remoteEndPoint} from socket {client.Client.LocalEndPoint} bytes={bytes.Length}.");
     }
 
     private static bool IsSameEndpoint(DiscoveredDevice device, IPAddress endpointAddress)
