@@ -184,11 +184,11 @@ git clone --recurse-submodules https://github.com/Maklith/Kitopia.git
 cd Kitopia
 
 # Build desktop project
-dotnet restore "Kitopia.Desktop/Kitopia.Desktop.csproj"
-dotnet build "Kitopia.Desktop/Kitopia.Desktop.csproj" -c Debug
+dotnet restore "src/Kitopia.Desktop/Kitopia.Desktop.csproj"
+dotnet build "src/Kitopia.Desktop/Kitopia.Desktop.csproj" -c Debug
 
 # Run tests
-dotnet test "KitopiaTest/KitopiaTest.csproj"
+dotnet test "tests/KitopiaTest/KitopiaTest.csproj"
 ```
 
 For architecture boundaries and guidelines, please refer to `AGENTS.md` in the repository root.

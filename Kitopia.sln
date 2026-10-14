@@ -3,70 +3,70 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.2.11408.102
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kitopia.Desktop.Features", "Kitopia.Desktop.Features\Kitopia.Desktop.Features.csproj", "{48AA7450-F61F-4D21-8B04-1649B1DED462}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kitopia.Desktop.Features", "src\Kitopia.Desktop.Features\Kitopia.Desktop.Features.csproj", "{48AA7450-F61F-4D21-8B04-1649B1DED462}"
 	ProjectSection(ProjectDependencies) = postProject
 		{B27A1A07-DFEF-4802-99C6-A11AB41719CF} = {B27A1A07-DFEF-4802-99C6-A11AB41719CF}
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kitopia.Desktop.PluginSdk", "Kitopia.Desktop.PluginSdk\Kitopia.Desktop.PluginSdk.csproj", "{B27A1A07-DFEF-4802-99C6-A11AB41719CF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kitopia.Desktop.PluginSdk", "src\Kitopia.Desktop.PluginSdk\Kitopia.Desktop.PluginSdk.csproj", "{B27A1A07-DFEF-4802-99C6-A11AB41719CF}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "KitopiaEx", "KitopiaEx\KitopiaEx.csproj", "{FAC70F92-586D-49DD-A8B9-25EE2BF5AF79}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "KitopiaEx", "plugins\KitopiaEx\KitopiaEx.csproj", "{FAC70F92-586D-49DD-A8B9-25EE2BF5AF79}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop", "Kitopia.Desktop\Kitopia.Desktop.csproj", "{595EC7E6-699C-4E29-B958-098510A2BEEB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop", "src\Kitopia.Desktop\Kitopia.Desktop.csproj", "{595EC7E6-699C-4E29-B958-098510A2BEEB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NodifyM.Avalonia", "NodifyM.Avalonia\NodifyM.Avalonia\NodifyM.Avalonia.csproj", "{C54EDD27-6A70-45D6-AF11-386DC4ACF139}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NodifyM.Avalonia", "external\NodifyM.Avalonia\NodifyM.Avalonia\NodifyM.Avalonia.csproj", "{C54EDD27-6A70-45D6-AF11-386DC4ACF139}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop.Platform.Windows", "Kitopia.Desktop.Platform.Windows\Kitopia.Desktop.Platform.Windows.csproj", "{2B14A838-2840-4412-83B4-DE568C36FCA6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop.Platform.Windows", "src\Kitopia.Desktop.Platform.Windows\Kitopia.Desktop.Platform.Windows.csproj", "{2B14A838-2840-4412-83B4-DE568C36FCA6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop.Platform.Linux", "Kitopia.Desktop.Platform.Linux\Kitopia.Desktop.Platform.Linux.csproj", "{88621E02-A1A5-4896-A43C-B536803C1AFE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop.Platform.Linux", "src\Kitopia.Desktop.Platform.Linux\Kitopia.Desktop.Platform.Linux.csproj", "{88621E02-A1A5-4896-A43C-B536803C1AFE}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "kitopia", "build\kitopia.csproj", "{4698A8B2-97C4-4B97-BF66-C12F9EAFC964}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KitopiaBenchmark", "KitopiaBenchmark\KitopiaBenchmark.csproj", "{E175C03A-AF27-43DB-8BE5-669339A7B5D7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KitopiaBenchmark", "tests\KitopiaBenchmark\KitopiaBenchmark.csproj", "{E175C03A-AF27-43DB-8BE5-669339A7B5D7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pinyin.NET", "PinyinM.NET\Pinyin.NET\Pinyin.NET.csproj", "{540A78AF-B178-4E8D-914B-4C67D9B92DEC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pinyin.NET", "external\PinyinM.NET\Pinyin.NET\Pinyin.NET.csproj", "{540A78AF-B178-4E8D-914B-4C67D9B92DEC}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Plugins", "Plugins", "{5F2D85BA-2357-44E1-89E1-93D131B4FC0D}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OnnxRuntime", "OnnxRuntime", "{250AD197-9979-4711-B062-D96ACD410272}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OnnxRuntime.Gpu.Win", "OnnxRuntime.Gpu.Win\OnnxRuntime.Gpu.Win.csproj", "{6DA9C323-4458-4DBB-A0FD-478B4DBE9EBF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OnnxRuntime.Gpu.Win", "plugins\OnnxRuntime.Gpu.Win\OnnxRuntime.Gpu.Win.csproj", "{6DA9C323-4458-4DBB-A0FD-478B4DBE9EBF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OnnxRuntime.OpenVino", "OnnxRuntime.OpenVino\OnnxRuntime.OpenVino.csproj", "{AC598B0E-0C0D-45DA-96A9-8FDA69FDBEE2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OnnxRuntime.OpenVino", "plugins\OnnxRuntime.OpenVino\OnnxRuntime.OpenVino.csproj", "{AC598B0E-0C0D-45DA-96A9-8FDA69FDBEE2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OnnxRuntime.CPU", "OnnxRuntime.CPU\OnnxRuntime.CPU.csproj", "{5B315CC7-34C7-4AEA-BFD0-C275522A63CD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OnnxRuntime.CPU", "plugins\OnnxRuntime.CPU\OnnxRuntime.CPU.csproj", "{5B315CC7-34C7-4AEA-BFD0-C275522A63CD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KitopiaTest", "KitopiaTest\KitopiaTest.csproj", "{003DC581-CAE3-42AD-A052-EE995F42C121}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KitopiaTest", "tests\KitopiaTest\KitopiaTest.csproj", "{003DC581-CAE3-42AD-A052-EE995F42C121}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HasDependencyPlugin", "HasDependencyPlugin", "{CF8FC215-C1B9-4144-B18C-2DCB9FA49496}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HasDependencyPlugin", "samples\HasDependencyPlugin", "{CF8FC215-C1B9-4144-B18C-2DCB9FA49496}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HasDependencyPluginBase", "HasDependencyPluginBase\HasDependencyPluginBase.csproj", "{9E29B232-0FBE-4143-A18A-1B55AEC3C38D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HasDependencyPluginBase", "samples\HasDependencyPluginBase\HasDependencyPluginBase.csproj", "{9E29B232-0FBE-4143-A18A-1B55AEC3C38D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HasDependencyPlugin", "HasDependencyPlugin\HasDependencyPlugin.csproj", "{885DFB17-A5A1-4849-BDAF-947AD0450807}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HasDependencyPlugin", "samples\HasDependencyPlugin\HasDependencyPlugin.csproj", "{885DFB17-A5A1-4849-BDAF-947AD0450807}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContextMenuDll", "ContextMenuDll\ContextMenuDll.csproj", "{784D5DAD-BFAE-4CC4-B025-178960BEAA95}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContextMenuDll", "src\ContextMenuDll\ContextMenuDll.csproj", "{784D5DAD-BFAE-4CC4-B025-178960BEAA95}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContextMenuDllTester", "ContextMenuDllTester\ContextMenuDllTester.csproj", "{8AB44E60-0EF4-4304-9981-F5859DA57E21}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContextMenuDllTester", "samples\ContextMenuDllTester\ContextMenuDllTester.csproj", "{8AB44E60-0EF4-4304-9981-F5859DA57E21}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ContextMenu", "ContextMenu", "{FD87C257-A026-4588-A815-3EF0D85333BA}"
 EndProject
-Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "Kitopia.StoreCompanionPacking", "Kitopia.StoreCompanionPacking\Kitopia.StoreCompanionPacking.wapproj", "{08444300-5B3C-4EAE-975F-AAFCDA302FE0}"
+Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "Kitopia.StoreCompanionPacking", "src\Kitopia.StoreCompanionPacking\Kitopia.StoreCompanionPacking.wapproj", "{08444300-5B3C-4EAE-975F-AAFCDA302FE0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContextMenu.Avalonia", "ContextMenu.Avalonia\ContextMenu.Avalonia.csproj", "{3F3C5BB3-B44D-4D16-A9A3-7AC4B27DE76B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContextMenu.Avalonia", "src\ContextMenu.Avalonia\ContextMenu.Avalonia.csproj", "{3F3C5BB3-B44D-4D16-A9A3-7AC4B27DE76B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Feature", "Kitopia.Feature\Kitopia.Feature.csproj", "{82A0AFF4-BD61-4D4C-9B28-767AA37B29E0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Feature", "src\Kitopia.Feature\Kitopia.Feature.csproj", "{82A0AFF4-BD61-4D4C-9B28-767AA37B29E0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Feature.Avalonia", "Kitopia.Feature.Avalonia\Kitopia.Feature.Avalonia.csproj", "{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Feature.Avalonia", "src\Kitopia.Feature.Avalonia\Kitopia.Feature.Avalonia.csproj", "{D653389E-59A1-4FD9-A0DE-01305A1BBD8C}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Mobile", "Mobile", "{E0FC68D3-40F2-542A-6A90-38B94336C1AE}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Mobile", "src\Mobile", "{E0FC68D3-40F2-542A-6A90-38B94336C1AE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Mobile", "Mobile\Kitopia.Mobile\Kitopia.Mobile.csproj", "{C0FA546C-D7CE-4769-A890-586E6020D756}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Mobile", "src\Mobile\Kitopia.Mobile\Kitopia.Mobile.csproj", "{C0FA546C-D7CE-4769-A890-586E6020D756}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Mobile.iOS", "Mobile\Kitopia.Mobile.iOS\Kitopia.Mobile.iOS.csproj", "{E93B49F8-15A2-4638-B240-8F6EE57B61DA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Mobile.iOS", "src\Mobile\Kitopia.Mobile.iOS\Kitopia.Mobile.iOS.csproj", "{E93B49F8-15A2-4638-B240-8F6EE57B61DA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Mobile.Android", "Mobile\Kitopia.Mobile.Android\Kitopia.Mobile.Android.csproj", "{57B851CB-55E0-437C-B2B4-130053B3B998}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Mobile.Android", "src\Mobile\Kitopia.Mobile.Android\Kitopia.Mobile.Android.csproj", "{57B851CB-55E0-437C-B2B4-130053B3B998}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop.Abstractions", "Kitopia.Desktop.Abstractions\Kitopia.Desktop.Abstractions.csproj", "{6BABBA9D-0E2C-41B3-829E-70952643F997}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop.Abstractions", "src\Kitopia.Desktop.Abstractions\Kitopia.Desktop.Abstractions.csproj", "{6BABBA9D-0E2C-41B3-829E-70952643F997}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

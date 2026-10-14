@@ -33,7 +33,7 @@ def sha256(path):
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--source-directory", type=Path, required=True)
 parser.add_argument("--output-directory", type=Path,
-                    default=Path(__file__).resolve().parents[1] / "Kitopia.Desktop.Features/Assets/EmbeddingGemma2/onnx")
+                    default=Path(__file__).resolve().parents[1] / "src/Kitopia.Desktop.Features/Assets/EmbeddingGemma2/onnx")
 args = parser.parse_args()
 if args.source_directory.resolve() == args.output_directory.resolve():
     parser.error("Source and output directories must differ.")

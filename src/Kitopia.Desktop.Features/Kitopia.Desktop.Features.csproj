@@ -1,0 +1,124 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net10.0-windows10.0.19041.0</TargetFrameworks>
+        <AssemblyName>Kitopia.Desktop.Features</AssemblyName>
+        <RootNamespace>Kitopia.Desktop.Features</RootNamespace>
+    </PropertyGroup>
+    <PropertyGroup Condition="$(TargetFramework.Contains('-windows'))">
+        <WindowsPackageType>None</WindowsPackageType>
+        <EnableMsixTooling>true</EnableMsixTooling>
+
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+        <DebugType>none</DebugType>
+    </PropertyGroup>
+
+
+    <!--<ItemGroup>
+        <COMReference Include="IWshRuntimeLibrary">
+            <WrapperTool>tlbimp</WrapperTool>
+            <VersionMinor>0</VersionMinor>
+            <VersionMajor>1</VersionMajor>
+            <Guid>f935dc20-1cf0-11d0-adb9-00c04fd58a0b</Guid>
+            <Lcid>0</Lcid>
+            <Isolated>false</Isolated>
+            <EmbedInteropTypes>true</EmbedInteropTypes>
+        </COMReference>
+    </ItemGroup>-->
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+        <PackageReference Include="Hjg.Pngcs" Version="1.1.5" />
+        <PackageReference Include="HiraokaHyperTools.sqlite-vec" Version="0.1.9" />
+        <PackageReference Include="Irihi.Ursa" Version="2.2.0" />
+        <PackageReference Include="Markdown.Avalonia" Version="12.0.0-a3" />
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.9" />
+        <PackageReference Include="MQTTnet" Version="5.2.0.1603" />
+        <PackageReference Include="MQTTnet.Server" Version="5.2.0.1603" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+        <PackageReference Include="NuGet.Versioning" Version="7.9.0" />
+        <PackageReference Include="ObservableCollections" Version="3.3.4"/>
+        <PackageReference Include="Polly" Version="8.7.0" />
+        <PackageReference Include="Polly.RateLimiting" Version="8.4.2" />
+        <PackageReference Include="PDFsharp" Version="6.2.4" />
+        <PackageReference Include="ReactiveUI" Version="23.2.28" />
+        <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+        <PackageReference Include="Serilog.Sinks.File" Version="7.0.0"/>
+        <PackageReference Include="SharpHook" Version="7.1.2" Condition="$(TargetFramework.Contains('-windows'))" />
+        <PackageReference Include="SharpHook.Reactive" Version="7.1.2" Condition="$(TargetFramework.Contains('-windows'))" />
+        <PackageReference Include="SkiaSharp" Version="3.119.4" />
+        <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+        <PackageReference Include="Tokenizers.HuggingFace" Version="3.23.1" />
+        <PackageReference Include="Silk.NET.Direct3D11" Version="2.23.0" Condition="$(TargetFramework.Contains('-windows'))" />
+        <PackageReference Include="System.Drawing.Common" Version="10.0.9" />
+        <PackageReference Include="System.Management" Version="10.0.9" Condition="$(TargetFramework.Contains('-windows'))" />
+        <PackageReference Include="System.Threading.RateLimiting" Version="10.0.9" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="KitopiaBenchmark" />
+        <InternalsVisibleTo Include="KitopiaTest" />
+    </ItemGroup>
+
+
+    <ItemGroup>
+        <ProjectReference Include="..\Kitopia.Desktop.Abstractions\Kitopia.Desktop.Abstractions.csproj"/>
+        <ProjectReference Include="..\..\external\NodifyM.Avalonia\NodifyM.Avalonia\NodifyM.Avalonia.csproj" />
+        <ProjectReference Include="..\..\external\PinyinM.NET\Pinyin.NET\Pinyin.NET.csproj"/>
+        <ProjectReference Include="..\Kitopia.Desktop.PluginSdk\Kitopia.Desktop.PluginSdk.csproj"/>
+        <ProjectReference Include="..\Kitopia.Feature\Kitopia.Feature.csproj"/>
+        <ProjectReference Include="..\Kitopia.Feature.Avalonia\Kitopia.Feature.Avalonia.csproj" />
+    </ItemGroup>
+
+
+    <ItemGroup>
+        <AvaloniaResource Include="Assets\FluentSystemIcons-Filled.ttf" />
+        <AvaloniaResource Include="Assets\FluentSystemIcons-Regular.ttf" />
+        <Content Include="Assets\EmbeddingGemma2\**\*" Exclude="Assets\EmbeddingGemma2\onnx\*.onnx_data">
+            <Link>EmbeddingGemma2\%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
+        <Content Include="Assets\Ocr\**\*">
+            <Link>Ocr\%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
+        <Content Include="$(NuGetPackageRoot)hiraokahypertools.sqlite-vec\0.1.9\runtimes\win-x64\native\vec0.dll">
+            <Link>vec0.dll</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Update="UI\DeviceCommunication\FontIcon.axaml.cs">
+            <DependentUpon>FontIcon.axaml</DependentUpon>
+            <SubType>Code</SubType>
+        </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+        <AdditionalFiles Include="UI\DeviceCommunication\FontIcon.axaml" />
+        <AdditionalFiles Include="UI\DeviceCommunication\DeviceCommunicationIcons.axaml" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+    </ItemGroup>
+</Project>

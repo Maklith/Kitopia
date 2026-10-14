@@ -1,12 +1,12 @@
 [submodule "Kitopia.Desktop.PluginSdk"]
-	path = Kitopia.Desktop.PluginSdk
+	path = src/Kitopia.Desktop.PluginSdk
 	url = https://github.com/Maklith/PluginCore.git
 [submodule "NodifyM.Avalonia"]
-	path = NodifyM.Avalonia
+	path = external/NodifyM.Avalonia
 	url = https://github.com/Maklith/NodifyM.Avalonia/
 [submodule "PinyinM.NET"]
-	path = PinyinM.NET
+	path = external/PinyinM.NET
 	url = https://github.com/Maklith/Pinyin.NET
 [submodule "ModernInstallerR"]
-	path = ModernInstallerR
+	path = installer/ModernInstallerR
 	url = https://github.com/Maklith/ModernInstallerR/

@@ -373,4 +373,11 @@ uToolkitopia/obj/
 obj/
 PlugCleanTool/obj/
 .worktrees/
-Kitopia.Desktop.Features/Assets/EmbeddingGemma2/onnx/*.onnx_data
+src/Kitopia.Desktop.Features/Assets/EmbeddingGemma2/onnx/*.onnx_data
+
+# Local build metadata and generated packages
+/.nuke/
+/.fallout/temp/
+/.fallout/build.schema.json
+/upgrade-assistant.clef
+/Kitopia.Mobile_*.apk

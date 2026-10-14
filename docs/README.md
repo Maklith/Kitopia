@@ -184,11 +184,11 @@ git clone --recurse-submodules https://github.com/Maklith/Kitopia.git
 cd Kitopia
 
 # 编译桌面端
-dotnet restore "Kitopia.Desktop/Kitopia.Desktop.csproj"
-dotnet build "Kitopia.Desktop/Kitopia.Desktop.csproj" -c Debug
+dotnet restore "src/Kitopia.Desktop/Kitopia.Desktop.csproj"
+dotnet build "src/Kitopia.Desktop/Kitopia.Desktop.csproj" -c Debug
 
 # 运行单元测试
-dotnet test "KitopiaTest/KitopiaTest.csproj"
+dotnet test "tests/KitopiaTest/KitopiaTest.csproj"
 ```
 
 更多开发架构规范与依赖边界请参阅仓库根目录下的 `AGENTS.md`。

@@ -60,7 +60,7 @@ partial class Build : FalloutBuild
     internal Release Release;
 
     internal Project AvaloniaProject => Solution.GetProject("Kitopia.Desktop");
-    internal AbsolutePath AndroidProjectFile => RootDirectory / "Mobile" / "Kitopia.Mobile.Android" /
+    internal AbsolutePath AndroidProjectFile => RootDirectory / "src" / "Mobile" / "Kitopia.Mobile.Android" /
                                                 "Kitopia.Mobile.Android.csproj";
     internal bool IsRelease => !string.IsNullOrWhiteSpace(GitHubToken);
     internal AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
@@ -89,10 +89,10 @@ partial class Build : FalloutBuild
 
     internal IEnumerable<AbsolutePath> PluginProjects()
     {
-        yield return RootDirectory / "KitopiaEx" / "KitopiaEx.csproj";
-        yield return RootDirectory / "OnnxRuntime.CPU" / "OnnxRuntime.CPU.csproj";
-        yield return RootDirectory / "OnnxRuntime.Gpu.Win" / "OnnxRuntime.Gpu.Win.csproj";
-        yield return RootDirectory / "OnnxRuntime.OpenVino" / "OnnxRuntime.OpenVino.csproj";
+        yield return RootDirectory / "plugins" / "KitopiaEx" / "KitopiaEx.csproj";
+        yield return RootDirectory / "plugins" / "OnnxRuntime.CPU" / "OnnxRuntime.CPU.csproj";
+        yield return RootDirectory / "plugins" / "OnnxRuntime.Gpu.Win" / "OnnxRuntime.Gpu.Win.csproj";
+        yield return RootDirectory / "plugins" / "OnnxRuntime.OpenVino" / "OnnxRuntime.OpenVino.csproj";
     }
 
     internal void RemoveSymbolsAndDocs(AbsolutePath directory)

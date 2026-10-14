@@ -35,9 +35,9 @@ partial class Build
         PrepareInstallerAssets(runtime);
         PowerShellTasks.PowerShell(
             $"scripts/build_release.ps1 -Target {rustTarget}",
-            RootDirectory / "ModernInstallerR");
+            RootDirectory / "installer" / "ModernInstallerR");
 
-        var installer = RootDirectory / "ModernInstallerR" / "dist" / rustTarget / "ModernInstaller.exe";
+        var installer = RootDirectory / "installer" / "ModernInstallerR" / "dist" / rustTarget / "ModernInstaller.exe";
         var artifact = RootDirectory /
                        $"Kitopia{AvaloniaProject.GetProperty("Version")}_{runtime}_Installer.exe";
         artifact.DeleteFile();
@@ -59,7 +59,7 @@ partial class Build
 
     void PrepareInstallerAssets(string runtime)
     {
-        var installerAssets = RootDirectory / "ModernInstallerR" / "installer_assets";
+        var installerAssets = RootDirectory / "installer" / "ModernInstallerR" / "installer_assets";
         installerAssets.CreateDirectory();
         foreach (var file in (RootDirectory / "build" / "InstallerAssets").GetFiles())
             File.Copy(file, installerAssets / file.Name, true);
