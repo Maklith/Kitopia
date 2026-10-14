@@ -38,9 +38,9 @@ Hit the ground running with these intuitive default shortcuts:
 
 ### 1. All-in-One Search & Launcher
 
-![Fast Search and App Launcher](../assets/README/ppt-search-en-20261014.png)
+![Search List and Split Preview Modes](../assets/README/ppt-search-en-20261014.png)
 
-Open search with `Alt + Space`, with Pinyin matching, history, favorites, and pins. Everything provides full-disk file search. Local AI can find files by document content or image descriptions and requires configured models and an inference backend.
+Open search with `Alt + Space` to launch apps, open files and folders, recognize clipboard paths, visit websites, and run shell commands. Switch between list and split preview modes, with Pinyin matching, history, favorites, and pins. Everything provides full-disk file search. Local AI can find files by document content or image descriptions and requires configured models and an inference backend.
 
 Image source: [Misaka Mikoto, A Certain Scientific Railgun T official character page](https://toaru-project.com/railgun_t/chara/mikoto.html).
 
@@ -48,9 +48,9 @@ Image source: [Misaka Mikoto, A Certain Scientific Railgun T official character 
 
 ### 2. Spacebar File Preview (Quick Look)
 
-![Quick Look PDF Preview and Page Navigation](../assets/README/file-preview-en-20261014.png)
+![Quick Look PDF Reading and In-Search Preview](../assets/README/ppt-quick-look-en-20261014.png)
 
-Select a PDF in Windows Explorer and press `Space` to preview, navigate pages, zoom, and search the document. Images, text, code, and archives are also supported, with an optional preview pane in search. PDF previews require WebView2 Runtime.
+Select a file in Windows Explorer and press `Space`, or switch to preview mode in search. PDFs support zoom, page navigation, rotation, and text search. View files full screen, check their size and modification time, or choose "Open file" to continue in the default application. Images, text, code, and archives are also supported. PDF previews require WebView2 Runtime.
 
 ---
 

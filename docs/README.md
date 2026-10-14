@@ -38,9 +38,9 @@
 
 ### 1. 全能搜索与全局启动中心
 
-![极速搜索与应用启动](assets/README/ppt-search-20261014.png)
+![全能搜索：列表模式与分栏预览](assets/README/ppt-search-20261014.png)
 
-`Alt + Space` 唤出搜索框，支持拼音匹配、历史收藏与置顶。Everything 提供全盘文件检索；本地 AI 可按文档内容或图片描述查找文件，需要配置模型和推理后端。
+`Alt + Space` 唤出搜索框，启动应用、打开文件或文件夹，也可识别剪贴板路径、访问网页和运行 Shell 命令。支持列表模式与分栏预览、拼音匹配、历史收藏与置顶。Everything 提供全盘文件检索；本地 AI 可按文档内容或图片描述查找文件，需要配置模型和推理后端。
 
 图片素材：[《某科学的超电磁炮 T》御坂美琴角色页面](https://toaru-project.com/railgun_t/chara/mikoto.html)。
 
@@ -48,9 +48,9 @@
 
 ### 2. 空格秒速文件预览（Quick Look）
 
-![Quick Look PDF 预览与分页阅读](assets/README/file-preview-20261014.png)
+![Quick Look：PDF 阅读与搜索结果预览](assets/README/ppt-quick-look-20261014.png)
 
-在 Windows 资源管理器中选中 PDF 后按 `Space`，即可预览、翻页、缩放和搜索文档。也支持图片、文本、代码和压缩包，搜索结果可打开分栏预览。PDF 预览需要 WebView2 Runtime。
+在 Windows 资源管理器中选中文件后按 `Space`，或在搜索框中切换预览模式，即可查看文件内容。PDF 支持缩放、翻页、旋转与搜索；可全屏查看，底部显示文件大小与修改时间，点击“打开文件”可用默认程序继续操作。也支持图片、文本、代码和压缩包。PDF 预览需要 WebView2 Runtime。
 
 ---
 
