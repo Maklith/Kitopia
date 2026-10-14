@@ -174,7 +174,7 @@ dotnet test "tests/KitopiaTest/KitopiaTest.csproj" --filter "FullyQualifiedName~
 dotnet format "Kitopia.slnx" --verify-no-changes
 ```
 
-Use `--include` to limit formatting to touched files when applying changes. There is no dedicated format target in the Fallout pipeline. `qodana scan` is available if Qodana is installed.
+Use `--include` to limit formatting to touched files when applying changes. There is no dedicated format target in the Fallout pipeline.
 
 ### Fallout Targets and Side Effects
 

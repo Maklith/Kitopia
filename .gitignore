@@ -131,6 +131,8 @@ $tf/
 _ReSharper*/
 *.[Rr]e[Ss]harper
 *.DotSettings.user
+.idea/
+/Kitopia.sln.DotSettings
 
 # TeamCity is a build add-in
 _TeamCity*
@@ -361,7 +363,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-/.idea/.idea.Kitopia/.idea
 /TestProject1/aaa.cs
 /uToolkitopia/Kitopia - Backup (1).csproj
 /uToolkitopia/Kitopia - Backup.csproj
