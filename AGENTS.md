@@ -20,7 +20,7 @@ This guide describes the current repository layout, feature ownership, and verif
 - Solution files: `Kitopia.slnx` and `Kitopia.sln`. Architecture tests currently locate the repository using `Kitopia.sln`.
 - Desktop composition root: `src/Kitopia.Desktop/Program.cs`; Avalonia lifecycle: `src/Kitopia.Desktop/App.axaml.cs`.
 - Mobile composition: `src/Mobile/Kitopia.Mobile/App.axaml.cs` and `src/Mobile/Kitopia.Mobile/Services/`; native lifecycle code belongs to the Android/iOS hosts.
-- Build automation: Fallout (`FalloutBuild`), implemented in `build/Build.cs` and `build/Build.*.cs`, launched by `build.cmd`, `build.ps1`, or `build.sh`.
+- Build automation: Fallout (`FalloutBuild`), implemented in `build/Build.cs` and `build/Build.*.cs`, launched by `build/build.cmd`, `build/build.ps1`, or `build/build.sh`.
 - Main tests: `tests/KitopiaTest/KitopiaTest.csproj`, MSTest with Avalonia.Headless for UI tests.
 - Windows installer and uninstaller: separate Rust crates under `installer/ModernInstallerR/`.
 
@@ -178,7 +178,7 @@ Use `--include` to limit formatting to touched files when applying changes. Ther
 
 ### Fallout Targets and Side Effects
 
-Use `./build.cmd --help` to inspect targets. Shell equivalents are `./build.ps1` and `./build.sh`.
+Use `./build/build.cmd --help` to inspect targets. Shell equivalents are `./build/build.ps1` and `./build/build.sh`.
 
 | Target | Behavior |
 | --- | --- |

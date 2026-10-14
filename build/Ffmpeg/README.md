@@ -19,7 +19,7 @@ probe; it requires a compatible GPU and driver. An unavailable Main10 encoder
 is reported without silently converting HDR to SDR. Container conversion with
 the codec unchanged copies the existing HEVC HDR stream without an encoder.
 
-To prepare libraries manually, run `./build.cmd BundleFfmpeg`. Add
+To prepare libraries manually, run `./build/build.cmd BundleFfmpeg`. Add
 `--ffmpeg-runtime win-x64` or `--ffmpeg-runtime win-arm64` to prepare just one
 architecture. Release builds outside the publishing script still require a
 prepared bundle, including compression tests run in Release configuration.

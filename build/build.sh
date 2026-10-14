@@ -4,15 +4,16 @@ bash --version 2>&1 | head -n 1
 
 set -eo pipefail
 SCRIPT_DIR=$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)
+REPOSITORY_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 
 ###########################################################################
 # CONFIGURATION
 ###########################################################################
 
-BUILD_PROJECT_FILE="$SCRIPT_DIR/build/kitopia.csproj"
-TEMP_DIRECTORY="$SCRIPT_DIR//.fallout/temp"
+BUILD_PROJECT_FILE="$SCRIPT_DIR/kitopia.csproj"
+TEMP_DIRECTORY="$REPOSITORY_DIR/.fallout/temp"
 
-DOTNET_GLOBAL_FILE="$SCRIPT_DIR//global.json"
+DOTNET_GLOBAL_FILE="$REPOSITORY_DIR/global.json"
 DOTNET_INSTALL_URL="https://dot.net/v1/dotnet-install.sh"
 DOTNET_CHANNEL="STS"
 

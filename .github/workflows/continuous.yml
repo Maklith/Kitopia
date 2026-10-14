@@ -69,7 +69,7 @@ jobs:
             ~/.nuget/packages
           key: ${{ runner.os }}-${{ hashFiles('**/global.json', '**/*.csproj', '**/Directory.Packages.props') }}
       - name: 'Run: Clean'
-        run: ./build.cmd Clean
+        run: ./build/build.cmd Clean
         env:
           GitHubToken: ${{ secrets.GITHUB_TOKEN }}
           PluginApiUrl: ${{ vars.PLUGIN_API_URL || 'https://api.kitopia.top:5111' }}

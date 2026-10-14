@@ -7,16 +7,17 @@ Param(
 Write-Output "PowerShell $($PSVersionTable.PSEdition) version $($PSVersionTable.PSVersion)"
 
 Set-StrictMode -Version 2.0; $ErrorActionPreference = "Stop"; $ConfirmPreference = "None"; trap { Write-Error $_ -ErrorAction Continue; exit 1 }
-$PSScriptRoot = Split-Path $MyInvocation.MyCommand.Path -Parent
+$ScriptDirectory = Split-Path $MyInvocation.MyCommand.Path -Parent
+$RepositoryDirectory = Split-Path $ScriptDirectory -Parent
 
 ###########################################################################
 # CONFIGURATION
 ###########################################################################
 
-$BuildProjectFile = "$PSScriptRoot\build\kitopia.csproj"
-$TempDirectory = "$PSScriptRoot\\.fallout\temp"
+$BuildProjectFile = "$ScriptDirectory\kitopia.csproj"
+$TempDirectory = "$RepositoryDirectory\\.fallout\temp"
 
-$DotNetGlobalFile = "$PSScriptRoot\\global.json"
+$DotNetGlobalFile = "$RepositoryDirectory\\global.json"
 $DotNetInstallUrl = "https://dot.net/v1/dotnet-install.ps1"
 $DotNetChannel = "STS"
 

@@ -133,6 +133,7 @@ _ReSharper*/
 *.DotSettings.user
 .idea/
 /Kitopia.sln.DotSettings
+/.run/
 
 # TeamCity is a build add-in
 _TeamCity*
