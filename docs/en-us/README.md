@@ -8,40 +8,13 @@
 ![GitHub License](https://img.shields.io/github/license/Maklith/Kitopia)
 
 > **Open Source · Modern · Extensible · Node-based**  
-> An all-in-one productivity suite combining fast app launcher, local AI semantic search, Quick Look file preview, professional screenshot & annotation, offline OCR, cross-device LAN file sharing, and node-based workflow automation.
+> Desktop tools for search and launch, local AI semantic search, file previews, screenshots and OCR, device sharing, media compression, and visual workflows.
 
 ---
 
-## 💡 Why Kitopia?
+## ✨ Overview
 
-Ever felt frustrated by everyday desktop clutter and friction?
-
-- Want to preview files with the spacebar? You have to install QuickLook.
-- Want to snip and annotate screenshots? You need Snipaste or similar tools; want quick text translation? You open browser extensions or heavy translation apps.
-- Transferring text or photos between your phone and PC? You log into messaging apps just to send them to yourself...
-- Your background is crowded with multiple standalone utilities, shortcuts constantly clash, and system memory keeps vanishing.
-
-**Kitopia was built to end this fragmentation once and for all.**
-
-Centered around a sleek, modern launcher and an elegant Fluent interface, Kitopia combines **millisecond full-disk search, instant Spacebar file preview, professional screenshot & annotation, offline OCR, selection translation, cross-device LAN file sharing, batch image/video compression**, and **Lego-like automated workflows** into one seamless experience.
-
-No constant app switching, no tedious configurations — just a single shortcut to tackle your highest-frequency tasks instantly.
-
-![Kitopia Overview](../assets/README/Kitopia1791798700928.png)
-
----
-
-## ✨ Key Highlights
-
-- 🚀 **Lightning-Fast Launcher & Search**: Instant launch for desktop apps, files, and system commands; supports Pinyin matching, fuzzy search, history, and pinned favorites.
-- 🧠 **Local AI Semantic Search**: Can't recall the file name? Search directly by document content (Word, Excel, PowerPoint, PDF, Markdown), or find photos in your gallery by describing them in plain language!
-- 👁️ **Spacebar File Preview (Quick Look)**: Select any file in Windows Explorer, press the `Spacebar`, and instantly preview PDFs, code, Markdown, images, and archives without waiting for heavy software to open.
-- 📸 **Ultimate Snipping & Offline OCR**: True HDR color support, smooth scrolling long screenshot, rich annotation tools, and color picker; built-in local OCR extracts text offline, parses QR codes, pins screenshots, and translates text directly.
-- 🌐 **Seamless Selection Translation**: Select text anywhere on your screen to trigger an elegant floating translation popup, with multi-language support and process exclusion rules.
-- 📲 **Cross-Device LAN Sharing**: Auto-discovers phones and PCs on the same Wi-Fi. No cables, no accounts needed — transfer text, photos, and large files at full LAN speed with end-to-end encryption.
-- 🪄 **Blueprint-Style Visual Automation**: No coding required! Connect intuitive nodes to chain screenshots, OCR, translation, clipboard actions, and key simulation into custom workflows, or import community templates from the Scenario Market with one click.
-- ⚡ **Deep Windows System Enhancements**: Shell context menu integration, unlock stubborn "file in use" locks, window topmost pin, and more life-saving utilities.
-- 🔒 **100% Privacy & Offline First**: AI vector search and OCR run completely on your local hardware — your data never leaves your computer. Fully open-source, zero ads, zero bloatware.
+![Kitopia product overview](../assets/README/ppt-overview-en-20261014.png)
 
 ---
 
@@ -64,89 +37,72 @@ Hit the ground running with these intuitive default shortcuts:
 ## 🎯 Feature Walkthrough
 
 ### 1. All-in-One Search & Launcher
-Press `Alt + Space` to bring everything to your fingertips.
-- **Instant Launch**: Millisecond-level launch for regular desktop applications, Windows UWP apps, Control Panel items, settings, and custom workflows.
-- **Pinyin & Initial Matching**: Type `wx` for WeChat, `jsq` for Calculator — with smart frequency ranking.
-- **Everything Full-Disk Search**: Full-disk search across millions of files in milliseconds (using prefix `@` by default or direct input).
-- **Local AI Semantic Search ("Search by Meaning & Description")**:
-  - Can't remember file names? Search by sentence meaning within DOCX, XLSX, PPTX, PDF, and Markdown files.
-  - Natural language photo search: type "suit and tie", "invoice receipt", or "blue sky and grass" to find matching local pictures.
-- **Smart Input Recognition**: Immediate math calculation, one-click URL and file path navigation, and clipboard actions.
 
-![Fast Search and App Launcher](../assets/README/Kitopia1791371657264.png)
+![Fast Search and App Launcher](../assets/README/ppt-search-en-20261014.png)
+
+Open search with `Alt + Space`, with Pinyin matching, history, favorites, and pins. Everything provides full-disk file search. Local AI can find files by document content or image descriptions and requires configured models and an inference backend.
+
+Image source: [Misaka Mikoto, A Certain Scientific Railgun T official character page](https://toaru-project.com/railgun_t/chara/mikoto.html).
 
 ---
 
 ### 2. Spacebar File Preview (Quick Look)
-No more waiting several seconds for heavy office software or IDEs just to inspect a file.
-- **Instant Explorer Preview**: Select any file in Windows Explorer, press `Space`, and a clean preview window pops up instantly.
-- **Rich Formats Out of the Box**: Multi-page PDF reading, Markdown rendering, zoomable high-resolution images, code syntax highlighting, and ZIP archive directory browsing.
-- **In-Search Side Preview**: Browse search results in Kitopia and view an immediate side-by-side preview panel on the right.
 
-![Standalone Quick Look Preview](../assets/README/Kitopia1791371852066.png)
-![In-Search Preview Panel](../assets/README/Kitopia1791371791267.png)
+![Quick Look PDF Preview and Page Navigation](../assets/README/file-preview-en-20261014.png)
+
+Select a PDF in Windows Explorer and press `Space` to preview, navigate pages, zoom, and search the document. Images, text, code, and archives are also supported, with an optional preview pane in search. PDF previews require WebView2 Runtime.
 
 ---
 
 ### 3. Ultimate Snipping, Annotation & Offline OCR
-A powerhouse Swiss Army knife for capturing and working with screen contents.
-- **Versatile Capture**: Freeform rectangles, smart window snapping, multi-monitor support, and true **HDR capture** with accurate color rendering (no washed-out gray screens).
-- **Smooth Scrolling Long Screenshot**: Scroll down to capture long web pages, chat transcripts, or extended documents with automatic stitching.
-- **Comprehensive Annotation**: Rectangles, ellipses, arrows, freehand brushes, highlighters, text notes, mosaics, and blur, with full multi-step undo/redo.
-- **Offline Local OCR**: Extract text from images in milliseconds with local neural networks — no cloud upload, completely private and reliable even offline.
-- **Pin & QR Decoding**: Pin snips as floating reference notes, parse QR codes in one click, and translate captured text directly.
 
-![Snipping and Annotation Toolbar](../assets/README/Kitopia1791371884258.png)
+![Snipping and Annotation Toolbar](../assets/README/ppt-screenshot-en-20261014.png)
+
+Start capture with `Ctrl + Alt + Q`, with HDR, scrolling capture, annotations, and color picking. OCR uses local models. QR decoding, screenshot pinning, and screenshot translation come from `KitopiaEx`; translation requires network services.
 
 ---
 
 ### 4. Selection Translation & Batch Media Compression
-- **Floating Selection Translation**: Translate foreign text anywhere with a hotkey or automatic mouse drag-and-release; pin translation cards or copy with one click.
-- **Batch Image/Video Compression (KitopiaEx Extension)**:
-  - Batch compress JPG, PNG, and WebP by quality percentage or target file size; supports lossless optimization and image resizing.
-  - Batch transcode and compress video files.
 
-![Selection Translation Card](../assets/README/selection-translation.png)
-![Batch Image Compression Tool](../assets/README/image-compression.png)
+![Selection Translation and Image Compression](../assets/README/ppt-translation-compression-en-20261014.png)
+
+Select text and press `Ctrl + Alt + Y`, or enable automatic translation on mouse release. `KitopiaEx` batch-compresses JPG, PNG, and WebP by quality or target size, with image resizing.
+
+![Video Compression and Conversion](../assets/README/ppt-video-compression-en-20261014.png)
+
+Video supports MP4, WebM, MKV, and MOV with H.264, HEVC, VP9, and AV1; codec choices depend on the format. Configure target size, resolution, maximum dimension, audio retention, and HDR-to-SDR conversion, or change the container while keeping the original codec.
 
 ---
 
 ### 5. Cross-Device LAN Sharing (Kitopia Mobile)
-Say goodbye to sending sensitive personal files through third-party chat assistants.
-- **Zero-Config Auto Discovery**: Connect your phone and PC to the same Wi-Fi network, and they discover each other in seconds.
-- **No Login, Direct Encrypted Transfer**: No account needed, no external relay servers — send text messages, clipboard pictures, and gigabyte-sized files at raw Wi-Fi speed.
-- **Android Companion App**: Lightweight Kitopia Mobile app for Android with background service, file saving, and notifications.
 
-![Cross-Device Chat & File Transfer](../assets/README/device-chat.png)
+![Cross-Device Chat & File Transfer](../assets/README/ppt-device-chat-en-20261014.png)
+
+Windows and Android devices discover each other on the LAN and exchange messages and files without account login. Transfers use TCP/TLS, with receive confirmation, progress, and speed indicators.
 
 ---
 
 ### 6. Node-Based Visual Automation (Scenarios)
-**The soul of Kitopia**: Empowering everyone to craft their own automation tools.
-- **Visual Blueprint Canvas**: Assemble personalized workflows without writing code by connecting nodes on an intuitive canvas.
-- **Extensive Node Library**: Snip, OCR, QR decode, translate, read/write clipboard, simulate keystrokes/clicks, evaluate conditions, and more.
-- **Multiple Triggers**: Run workflows via hotkeys, trigger them directly from the search launcher, or schedule them on timer events.
-- **Scenario Market**: Browse and download community and official workflows with a single click.
 
-![Node-Based Scenario Editor](../assets/README/Kitopia1791372061989.png)
+![Node-Based Scenario Editor](../assets/README/ppt-scenario-en-20261014.png)
+
+Connect screenshot, OCR, translation, clipboard, and other nodes to build workflows. Run scenarios from search, hotkeys, or configured triggers, and download shared scenarios from the market.
 
 ---
 
 ### 7. Deep Windows System Utilities
-Tailored for daily Windows pain points:
-- **File Lock Unlocker**: Cannot delete or rename a file because "it is being used by another program"? Right-click to identify the locking process and terminate it immediately.
-- **Window Always-on-Top**: Press `Ctrl + Alt + T` to keep any window pinned on top for effortless side-by-side reference.
-- **Shell Context Menu Integration**: Right-click any file in Windows Explorer to access "Share via LAN", "Compress Image", or "Add to Index".
 
-![Windows Explorer Context Menu Integration](../assets/README/Kitopia1791372133407.png)
+![Deep Windows Utilities](../assets/README/ppt-windows-integration-en-20261014.png)
+
+Inspect processes holding a file, then unlock it or end a process as needed. `Ctrl + Alt + T` toggles a window's topmost state. Explorer context menus provide access to LAN sharing, image compression, and indexing.
 
 ---
 
 ### 8. Plugin Center & Hardware Acceleration
-- **One-Click Plugins**: Load features on demand to keep the software lightweight. Install extensions and widgets from the built-in Plugin Market.
-- **Hardware Inference Acceleration**: Flexible local acceleration options for CPU, Windows GPU (DirectML/CUDA), or Intel OpenVINO.
 
-![Plugin and Model Management](../assets/README/Kitopia1791372113723.png)
+![Plugin and Model Management](../assets/README/ppt-plugins-en-20261014.png)
+
+Install, enable, and manage extensions in the plugin center. OCR and semantic search use local ONNX models with CPU, Windows GPU, or Intel OpenVINO backends. Device support depends on the plugin and runtime environment.
 
 ---
 
@@ -163,7 +119,7 @@ Please visit the [GitHub Releases Page](https://github.com/Maklith/Kitopia/relea
 
 > 📌 **Helpful Tips**:
 > 1. **Full-Disk File Search**: We recommend running Everything alongside Kitopia (can be set to auto-start with Kitopia in Settings) for millisecond disk search.
-> 2. **Advanced Extensions**: QR code recognition, screenshot translation, pinning, and batch image compression are provided by the official `KitopiaEx` plugin, which can be confirmed in "Installed Plugins".
+> 2. **Advanced Extensions**: QR code recognition, screenshot translation, pinning, and batch image/video compression are provided by the official `KitopiaEx` plugin, which can be confirmed in "Installed Plugins".
 > 3. **Local AI & OCR**: Upon first launch, the local semantic search and offline OCR models will be prepared automatically without needing Python or manual setup.
 
 ---
