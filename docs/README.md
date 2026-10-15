@@ -1,7 +1,7 @@
 # Kitopia - 属于你的新一代桌面全能效率神器
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Maklith/Kitopia)
-> [English](/en-us/)
+> [English](/en-us/README.md)
 
 [![GitHub stars](https://img.shields.io/github/stars/Maklith/Kitopia?style=flat-square&logo=github)](https://github.com/Maklith/Kitopia)
 [![GitHub Release](https://img.shields.io/github/v/release/Maklith/Kitopia?include_prereleases)](https://github.com/Maklith/Kitopia/releases)
