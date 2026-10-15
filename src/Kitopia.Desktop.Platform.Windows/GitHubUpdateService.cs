@@ -85,26 +85,11 @@ namespace Kitopia.Desktop.Platform.Windows
                 {
                     if (VersionComparer.VersionRelease.Compare(latestVersion, currentVersion) > 0)
                     {
-                        var runtime = RuntimeInformation.ProcessArchitecture switch
-                        {
-                            Architecture.X86 => "win-x86",
-                            Architecture.X64 => "win-x64",
-                            Architecture.Arm64 => "win-arm64",
-                            var architecture => throw new PlatformNotSupportedException(
-                                $"Unsupported update architecture: {architecture}")
-                        };
-                        var installerNames = new[]
-                        {
-                            $"Kitopia{cleanTagName}_{runtime}_Installer.exe",
-                            $"Kitopia{cleanTagName}_Installer.exe"
-                        };
-                        var htmlUrl = (release["assets"] as JArray)?
-                            .FirstOrDefault(asset => installerNames.Contains(
-                                asset["name"]?.ToString(), StringComparer.OrdinalIgnoreCase))?
-                            ["browser_download_url"]?.ToString();
+                        var htmlUrl = GetInstallerDownloadUrl(release["assets"] as JArray, cleanTagName,
+                            RuntimeInformation.ProcessArchitecture);
                         if (string.IsNullOrWhiteSpace(htmlUrl))
-                            Logger.Warning("No installer asset found for {Runtime} in release {Version}", runtime,
-                                cleanTagName);
+                            Logger.Warning("No installer asset found for {Architecture} in release {Version}",
+                                RuntimeInformation.ProcessArchitecture, cleanTagName);
                         var body = release["body"]?.ToString();
                         htmlUrl = htmlUrl?.Replace("https://github.com/Maklith","https://update.kitopia.top/Maklith");
                         return (true, tagName, htmlUrl, body);
@@ -124,6 +109,26 @@ namespace Kitopia.Desktop.Platform.Windows
                 return (false, null, null, null);
             }
             
+        }
+
+        internal static string? GetInstallerDownloadUrl(JArray? assets, string version, Architecture architecture)
+        {
+            var runtime = architecture switch
+            {
+                Architecture.X86 => "win-x86",
+                Architecture.X64 => "win-x64",
+                Architecture.Arm64 => "win-arm64",
+                _ => throw new PlatformNotSupportedException($"Unsupported update architecture: {architecture}")
+            };
+            var installer = assets?.FirstOrDefault(asset => string.Equals(asset["name"]?.ToString(),
+                $"Kitopia{version}_{runtime}_Installer.exe", StringComparison.OrdinalIgnoreCase));
+
+            // The legacy installer name is published only for x64 clients.
+            if (installer is null && architecture == Architecture.X64)
+                installer = assets?.FirstOrDefault(asset => string.Equals(asset["name"]?.ToString(),
+                    $"Kitopia{version}_Installer.exe", StringComparison.OrdinalIgnoreCase));
+
+            return installer?["browser_download_url"]?.ToString();
         }
     }
 }

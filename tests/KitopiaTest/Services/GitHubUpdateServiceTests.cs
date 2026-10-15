@@ -5,6 +5,7 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json.Linq;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Platform.Windows;
 using PluginCore;
@@ -55,7 +56,15 @@ public sealed class GitHubUpdateServiceTests
             {
                 tag_name = tagName,
                 body = "Release notes",
-                assets = new[] { new { name = installerName, browser_download_url = downloadUrl } }
+                assets = new[]
+                {
+                    new
+                    {
+                        name = $"Kitopia{cleanTagName}_Installer.exe",
+                        browser_download_url = $"https://github.com/Maklith/kitopia/releases/download/{tagName}/Kitopia{cleanTagName}_Installer.exe"
+                    },
+                    new { name = installerName, browser_download_url = downloadUrl }
+                }
             }
         });
         using var client = new HttpClient(new ReleaseResponseHandler(json));
@@ -121,6 +130,7 @@ public sealed class GitHubUpdateServiceTests
         var previousConfigs = ConfigManger.Configs;
         var toast = new RecordingToast();
         using var services = new ServiceCollection().AddSingleton<IToastService>(toast).BuildServiceProvider();
+        var runtime = $"win-{RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()}";
         var releases = new List<object>
         {
             new { tag_name = "3.0.0", draft = true, prerelease = false },
@@ -132,8 +142,8 @@ public sealed class GitHubUpdateServiceTests
                 {
                     new
                     {
-                        name = $"Kitopia{prereleaseTag}_Installer.exe",
-                        browser_download_url = $"https://github.com/Maklith/kitopia/releases/download/{prereleaseTag}/Kitopia{prereleaseTag}_Installer.exe"
+                        name = $"Kitopia{prereleaseTag}_{runtime}_Installer.exe",
+                        browser_download_url = $"https://github.com/Maklith/kitopia/releases/download/{prereleaseTag}/Kitopia{prereleaseTag}_{runtime}_Installer.exe"
                     }
                 }
             }
@@ -148,8 +158,8 @@ public sealed class GitHubUpdateServiceTests
                 {
                     new
                     {
-                        name = "Kitopia1.1.0_Installer.exe",
-                        browser_download_url = "https://github.com/Maklith/kitopia/releases/download/v1.1.0/Kitopia1.1.0_Installer.exe"
+                        name = $"Kitopia1.1.0_{runtime}_Installer.exe",
+                        browser_download_url = $"https://github.com/Maklith/kitopia/releases/download/v1.1.0/Kitopia1.1.0_{runtime}_Installer.exe"
                     }
                 }
             });
@@ -172,7 +182,7 @@ public sealed class GitHubUpdateServiceTests
             Assert.IsEmpty(toast.Notifications);
             if (expectedVersion is not null)
                 Assert.AreEqual(
-                    $"https://update.kitopia.top/Maklith/kitopia/releases/download/{expectedVersion}/Kitopia{expectedVersion.TrimStart('v', 'V')}_Installer.exe",
+                    $"https://update.kitopia.top/Maklith/kitopia/releases/download/{expectedVersion}/Kitopia{expectedVersion.TrimStart('v', 'V')}_{runtime}_Installer.exe",
                     result.downloadUrl);
             else
                 Assert.IsNull(result.downloadUrl);
@@ -183,6 +193,69 @@ public sealed class GitHubUpdateServiceTests
             ServiceManager.Services = previousServices;
             ConfigManger.Configs = previousConfigs;
         }
+    }
+
+    [TestMethod]
+    [DataRow(System.Runtime.InteropServices.Architecture.X64, "win-x64", false)]
+    [DataRow(System.Runtime.InteropServices.Architecture.X64, "win-x64", true)]
+    [DataRow(System.Runtime.InteropServices.Architecture.Arm64, "win-arm64", false)]
+    [DataRow(System.Runtime.InteropServices.Architecture.Arm64, "win-arm64", true)]
+    [DataRow(System.Runtime.InteropServices.Architecture.X86, "win-x86", false)]
+    [DataRow(System.Runtime.InteropServices.Architecture.X86, "win-x86", true)]
+    public void GetInstallerDownloadUrl_MixedAssets_PrefersMatchingArchitectureRegardlessOfOrder(
+        System.Runtime.InteropServices.Architecture architecture, string runtime, bool reverseAssets)
+    {
+        const string version = "1.1.0-beta.1";
+        string[] names =
+        [
+            $"Kitopia{version}_Installer.exe",
+            $"Kitopia{version}_win-x64.zip",
+            $"Kitopia{version}_win-arm64_Installer.exe",
+            $"Kitopia{version}_win-x86_Installer.exe",
+            $"Kitopia{version}_win-x64_Installer.exe"
+        ];
+        if (reverseAssets)
+            Array.Reverse(names);
+        var assets = JArray.FromObject(names.Select(name => new
+        {
+            name,
+            browser_download_url = $"https://github.com/Maklith/kitopia/releases/download/{version}/{name}"
+        }));
+
+        var result = GitHubUpdateService.GetInstallerDownloadUrl(assets, version, architecture);
+
+        Assert.AreEqual(
+            $"https://github.com/Maklith/kitopia/releases/download/{version}/Kitopia{version}_{runtime}_Installer.exe",
+            result);
+    }
+
+    [TestMethod]
+    [DataRow(System.Runtime.InteropServices.Architecture.X64, true, true)]
+    [DataRow(System.Runtime.InteropServices.Architecture.X64, false, false)]
+    [DataRow(System.Runtime.InteropServices.Architecture.Arm64, true, false)]
+    [DataRow(System.Runtime.InteropServices.Architecture.Arm64, false, false)]
+    [DataRow(System.Runtime.InteropServices.Architecture.X86, true, false)]
+    [DataRow(System.Runtime.InteropServices.Architecture.X86, false, false)]
+    public void GetInstallerDownloadUrl_MatchingInstallerMissing_UsesLegacyOnlyForX64(
+        System.Runtime.InteropServices.Architecture architecture, bool includeLegacy, bool expectedDownload)
+    {
+        const string version = "1.1.0";
+        var otherRuntime = architecture == System.Runtime.InteropServices.Architecture.X64 ? "win-arm64" : "win-x64";
+        var assets = JArray.FromObject(new[]
+        {
+            new
+            {
+                name = $"Kitopia{version}_{otherRuntime}_Installer.exe",
+                browser_download_url = $"https://github.com/Maklith/kitopia/releases/download/{version}/Kitopia{version}_{otherRuntime}_Installer.exe"
+            }
+        });
+        const string legacyUrl = "https://github.com/Maklith/kitopia/releases/download/1.1.0/Kitopia1.1.0_Installer.exe";
+        if (includeLegacy)
+            assets.Add(JObject.FromObject(new { name = $"Kitopia{version}_Installer.exe", browser_download_url = legacyUrl }));
+
+        var result = GitHubUpdateService.GetInstallerDownloadUrl(assets, version, architecture);
+
+        Assert.AreEqual(expectedDownload ? legacyUrl : null, result);
     }
 
     private sealed class ReleaseResponseHandler(string json) : HttpMessageHandler
