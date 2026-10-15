@@ -9,7 +9,12 @@ the matching native DLLs, `ffmpeg.exe` and `ffprobe.exe` into
 Debug builds, including Rider F5, prepare the matching bundle automatically
 before MSBuild collects files for copying. Subsequent builds skip preparation
 until the bundle inputs change or a required file is missing. IDE design-time
-builds do not download. Windows publishing prepares the bundle automatically
+builds do not download. Preparation reuses a complete extracted bundle when its
+recorded manifest matches, checking native architectures and the LGPL license.
+Documentation and project-license changes refresh the bundled copies without
+downloading the binary archive again, even when the ZIP cache is absent.
+Missing native files or a changed binary manifest require a verified cached ZIP
+or a download. Windows publishing prepares the bundle automatically
 as well. Image compression uses AutoGen directly; video compression uses the
 bundled tools for probing, transcoding and lossless container conversion.
 The installed app does not download FFmpeg or use an executable from PATH.

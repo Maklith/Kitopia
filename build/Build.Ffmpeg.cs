@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Net.Http;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
@@ -37,35 +38,69 @@ partial class Build
         if (!root.GetProperty("runtimes").TryGetProperty(runtime, out var binary))
             throw new ArgumentOutOfRangeException(nameof(runtime), runtime, "No LGPL FFmpeg bundle is configured");
 
-        using var handler = new HttpClientHandler { UseProxy = !IsRelease };
-        using var client = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
-        var archivePath = await DownloadFfmpegArchiveAsync(client, binary);
-        using var archive = ZipFile.OpenRead(archivePath);
-        var prefix = binary.GetProperty("archiveRoot").GetString() + "/";
-        var license = archive.GetEntry(prefix + "LICENSE.txt") ?? throw new InvalidDataException("Missing FFmpeg license");
-        using (var reader = new StreamReader(license.Open()))
-            if (!(await reader.ReadToEndAsync()).Contains("GNU LESSER GENERAL PUBLIC LICENSE", StringComparison.Ordinal))
-                throw new InvalidDataException("Downloaded FFmpeg does not carry the LGPL license.");
-
         var destination = ArtifactsDirectory / "ffmpeg" / runtime / "tools" / "ffmpeg";
-        destination.DeleteDirectory();
-        Directory.CreateDirectory(destination);
-        foreach (var name in new[] { "avutil-61.dll", "swresample-7.dll", "swscale-10.dll", "avcodec-63.dll",
-                     "avformat-63.dll", "avfilter-12.dll", "avdevice-63.dll", "ffmpeg.exe", "ffprobe.exe" })
+        var nativeFiles = new[] { "avutil-61.dll", "swresample-7.dll", "swscale-10.dll", "avcodec-63.dll",
+            "avformat-63.dll", "avfilter-12.dll", "avdevice-63.dll", "ffmpeg.exe", "ffprobe.exe" };
+        var bundleManifestPath = Path.Combine(destination, "bundle.json");
+        var licensePath = Path.Combine(destination, "LICENSE.txt");
+        var reuseBundle = false;
+        if (File.Exists(bundleManifestPath) && File.Exists(licensePath) &&
+            nativeFiles.All(name => File.Exists(Path.Combine(destination, name))))
         {
-            var entry = archive.GetEntry(prefix + "bin/" + name) ?? throw new InvalidDataException($"Missing native library {name}");
+            try
+            {
+                using var bundledManifest = JsonDocument.Parse(File.ReadAllText(bundleManifestPath));
+                reuseBundle = JsonElement.DeepEquals(root, bundledManifest.RootElement);
+            }
+            catch (JsonException)
+            {
+                Log.Warning("Ignoring invalid FFmpeg bundle manifest {Manifest}", bundleManifestPath);
+            }
+        }
+
+        if (reuseBundle)
+            Log.Information("Reusing existing FFmpeg bundle for {Runtime}", runtime);
+        else
+        {
+            using var handler = new HttpClientHandler { UseProxy = !IsRelease };
+            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
+            var archivePath = await DownloadFfmpegArchiveAsync(client, binary);
+            using var archive = ZipFile.OpenRead(archivePath);
+            var prefix = binary.GetProperty("archiveRoot").GetString() + "/";
+            var license = archive.GetEntry(prefix + "LICENSE.txt") ?? throw new InvalidDataException("Missing FFmpeg license");
+            using (var reader = new StreamReader(license.Open()))
+                if (!(await reader.ReadToEndAsync()).Contains("GNU LESSER GENERAL PUBLIC LICENSE", StringComparison.Ordinal))
+                    throw new InvalidDataException("Downloaded FFmpeg does not carry the LGPL license.");
+
+            destination.DeleteDirectory();
+            Directory.CreateDirectory(destination);
+            foreach (var name in nativeFiles)
+            {
+                var entry = archive.GetEntry(prefix + "bin/" + name) ?? throw new InvalidDataException($"Missing native library {name}");
+                entry.ExtractToFile(Path.Combine(destination, name));
+            }
+            license.ExtractToFile(licensePath);
+        }
+
+        foreach (var name in nativeFiles)
+        {
             var path = Path.Combine(destination, name);
-            entry.ExtractToFile(path);
             using var stream = File.OpenRead(path);
             using var pe = new PEReader(stream);
             var machine = runtime == "win-x64" ? Machine.Amd64 : Machine.Arm64;
             if (pe.PEHeaders.CoffHeader.Machine != machine)
                 throw new InvalidDataException($"FFmpeg {name} has the wrong architecture for {runtime}.");
         }
-        license.ExtractToFile(Path.Combine(destination, "LICENSE.txt"));
-        File.Copy(RootDirectory / "LICENSE", Path.Combine(destination, "GPL-3.0.txt"));
-        File.Copy(manifestPath, Path.Combine(destination, "bundle.json"));
-        File.Copy(RootDirectory / "build" / "Ffmpeg" / "README.md", Path.Combine(destination, "SOURCE.md"));
+        if (reuseBundle)
+        {
+            using var reader = File.OpenText(licensePath);
+            if (!(await reader.ReadToEndAsync()).Contains("GNU LESSER GENERAL PUBLIC LICENSE", StringComparison.Ordinal))
+                throw new InvalidDataException("The existing FFmpeg bundle does not carry the LGPL license.");
+        }
+        else
+            File.Copy(manifestPath, bundleManifestPath);
+        File.Copy(RootDirectory / "LICENSE", Path.Combine(destination, "GPL-3.0.txt"), overwrite: true);
+        File.Copy(RootDirectory / "build" / "Ffmpeg" / "README.md", Path.Combine(destination, "SOURCE.md"), overwrite: true);
         Log.Information("Bundled LGPL FFmpeg tools and native libraries for {Runtime} in {Directory}", runtime, destination);
     }
 
