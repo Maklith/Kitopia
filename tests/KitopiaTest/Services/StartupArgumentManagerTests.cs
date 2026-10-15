@@ -7,6 +7,17 @@ namespace KitopiaTest.Services;
 public sealed class StartupArgumentManagerTests
 {
     [TestMethod]
+    public void Parse_BatchRenameWithMultipleFiles_PreservesSelectedPaths()
+    {
+        string[] paths = [@"C:\Downloads\first document.html", @"C:\Downloads\第二个文件.html"];
+        var result = StartupArgumentManager.Parse(["-action:BatchRename", "-value:" + paths[0], paths[1]]);
+
+        Assert.AreEqual(StartupAction.BatchRename, result.Action);
+        Assert.AreEqual(paths[0], result.Value);
+        CollectionAssert.AreEqual(paths, result.Values);
+    }
+
+    [TestMethod]
     public void Parse_ScenarioVersionUrl_PreservesSelectedVersion()
     {
         var result = StartupArgumentManager.Parse(["kitopiaurl://action=DownloadScenario;value=42;version=2.0.0-beta.1"]);

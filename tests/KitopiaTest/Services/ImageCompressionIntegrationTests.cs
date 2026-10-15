@@ -2,6 +2,7 @@ using System.Reflection;
 using Avalonia.Headless;
 using Avalonia.Threading;
 using Kitopia.Desktop.Features.Services.MQTT;
+using KitopiaEx.BatchRename;
 using KitopiaEx.ImageCompression;
 using KitopiaEx.SearchWindow.InputDataAnalyzer;
 using KitopiaEx.VideoCompression;
@@ -169,11 +170,12 @@ public sealed class ImageCompressionIntegrationTests
         var originalPluginServices = global::KitopiaEx.KitopiaEx.ServiceProvider;
         StartupArgumentManager.Handlers.TryGetValue(StartupAction.ImageCompression, out var originalHandler);
         StartupArgumentManager.Handlers.TryGetValue(StartupAction.VideoCompression, out var originalVideoHandler);
+        StartupArgumentManager.Handlers.TryGetValue(StartupAction.BatchRename, out var originalRenameHandler);
         HostKitopia.TypeNames = new Dictionary<string, string>();
         HostKitopia.ToolTipConverters = new Dictionary<Type, Func<object, string>>();
         HostKitopia.JsonConverters = new Dictionary<Type, ICustomScenarioValueSerializer>();
         await using var session = HeadlessUnitTestSession.StartNew(typeof(ImageCompressionWindowTests));
-        await session.Dispatch(async () =>
+        var routed = await session.Dispatch(async () =>
         {
             var plugin = new global::KitopiaEx.KitopiaEx();
             var menu = _services.GetRequiredService<IExplorerContextMenuConfiger>();
@@ -185,12 +187,18 @@ public sealed class ImageCompressionIntegrationTests
                 Command = Path.Combine(AppContext.BaseDirectory, "Kitopia.Desktop.exe"),
                 Arguments = StartupArgumentManager.GenerateCmd(StartupAction.ImageCompression, "{all}")
             });
+            menu.AddMenuItem(new ContextMenuItem
+            {
+                Title = "Old rename title",
+                Command = Path.Combine(AppContext.BaseDirectory, "Kitopia.Desktop.exe"),
+                Arguments = StartupArgumentManager.GenerateCmd(StartupAction.BatchRename, "{all}")
+            });
             try
             {
                 plugin.OnEnabled(_services, new Dictionary<string, IServiceProvider>());
                 var entry = menu.GetAllMenuItems().Single(item => item.Arguments ==
                     StartupArgumentManager.GenerateCmd(StartupAction.ImageCompression, "{all}"));
-                Assert.AreEqual(3, menu.GetAllMenuItems().Count);
+                Assert.AreEqual(4, menu.GetAllMenuItems().Count);
                 Assert.AreEqual(1, menu.GetAllMenuItems().Count(item => item.Arguments ==
                     StartupArgumentManager.GenerateCmd(StartupAction.VideoCompression, "{all}")));
                 StringAssert.Contains(entry.Arguments, "{all}");
@@ -214,6 +222,23 @@ public sealed class ImageCompressionIntegrationTests
                 var videoWindow = (VideoCompressionWindow)typeof(VideoCompressionWindow)
                     .GetProperty("Current", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
                 Assert.AreEqual(videoPath, ((VideoCompressionViewModel)videoWindow.DataContext!).Items.Single().SourcePath);
+                var renameEntry = menu.GetAllMenuItems().Single(item => item.Arguments ==
+                    StartupArgumentManager.GenerateCmd(StartupAction.BatchRename, "{all}"));
+                Assert.AreEqual(PluginCore.Localization.Lang.Get("lang.kitopiaex.batch_rename.title"), renameEntry.Title);
+                Assert.AreEqual(entry.Command, renameEntry.Command);
+                Assert.AreEqual(entry.Icon, renameEntry.Icon);
+                Assert.IsTrue(StartupArgumentManager.Handlers.ContainsKey(StartupAction.BatchRename));
+                var document = Path.Combine(_directory, "第二个文件 with spaces.html");
+                await File.WriteAllTextAsync(document, "document");
+                await MqttManager.ProcessLocalArgs(["-action:BatchRename", "-value:" + paths[0], document]);
+                var renameWindow = (BatchRenameWindow)typeof(BatchRenameWindow)
+                    .GetProperty("Current", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+                CollectionAssert.AreEquivalent(new[] { paths[0], document },
+                    ((BatchRenameViewModel)renameWindow.DataContext!).Items.Select(item => item.SourcePath).ToArray());
+                await MqttManager.ProcessLocalArgs(["-action:BatchRename", "-value:" + document]);
+                Assert.AreSame(renameWindow, typeof(BatchRenameWindow)
+                    .GetProperty("Current", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null));
+                Assert.AreEqual(2, ((BatchRenameViewModel)renameWindow.DataContext!).Items.Count);
             }
             finally
             {
@@ -221,7 +246,9 @@ public sealed class ImageCompressionIntegrationTests
                 Dispatcher.UIThread.RunJobs();
                 Assert.IsFalse(StartupArgumentManager.Handlers.ContainsKey(StartupAction.ImageCompression));
                 Assert.IsFalse(StartupArgumentManager.Handlers.ContainsKey(StartupAction.VideoCompression));
+                Assert.IsFalse(StartupArgumentManager.Handlers.ContainsKey(StartupAction.BatchRename));
                 Assert.IsNull(typeof(VideoCompressionWindow).GetProperty("Current", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null));
+                Assert.IsNull(typeof(BatchRenameWindow).GetProperty("Current", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null));
                 CollectionAssert.AreEqual(new[] { unrelated }, menu.GetAllMenuItems());
                 HostKitopia.TypeNames = originalTypes;
                 HostKitopia.ToolTipConverters = originalTooltips;
@@ -229,9 +256,11 @@ public sealed class ImageCompressionIntegrationTests
                 global::KitopiaEx.KitopiaEx.ServiceProvider = originalPluginServices;
                 if (originalHandler != null) StartupArgumentManager.Handlers[StartupAction.ImageCompression] = originalHandler;
                 if (originalVideoHandler != null) StartupArgumentManager.Handlers[StartupAction.VideoCompression] = originalVideoHandler;
+                if (originalRenameHandler != null) StartupArgumentManager.Handlers[StartupAction.BatchRename] = originalRenameHandler;
             }
             return true;
         }, CancellationToken.None);
+        Assert.IsTrue(routed);
     }
 
     private string CreateImage(string name)

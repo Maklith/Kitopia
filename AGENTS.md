@@ -50,7 +50,7 @@ The desktop feature catalog is in `src/Kitopia.Desktop.Features/Services/Plugin/
 | Custom scenarios | `src/Kitopia.Desktop.Features/CustomScenario/`: graph, execution, persistence, editor view models, triggers and scenario market. Desktop `Windows/TaskEditor/` owns the editor window. |
 | Plugin host and market | `src/Kitopia.Desktop.Features/PluginHost/`: discovery, dependencies, loading/unloading, packages, downloads, market and plugin settings. |
 | Models and system tools | `Services/Onnx/`, model manager, hotkey manager, file lock UI, LAN share window, shell integration, settings and account services. |
-| KitopiaEx extensions | `plugins/KitopiaEx/`: screenshot OCR/QR/translation/pinning/saving, translation and window search analyzers, image/video compression and scenario nodes. |
+| KitopiaEx extensions | `plugins/KitopiaEx/`: screenshot OCR/QR/translation/pinning/saving, translation and window search analyzers, image/video compression, batch file renaming and scenario nodes. Batch renaming previews conflicts before moving files; optional image compression creates renamed copies while preserving source images. Image/video compression and batch renaming register Explorer menu entries and SDK startup handlers on plugin enable and remove them on disable; the host routes selected paths after plugins are ready. |
 
 ### Defaults and Support Scope
 

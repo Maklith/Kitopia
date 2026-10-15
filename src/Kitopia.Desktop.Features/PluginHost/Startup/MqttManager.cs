@@ -426,6 +426,7 @@ public class MqttManager
             }
             case StartupAction.ImageCompression:
             case StartupAction.VideoCompression:
+            case StartupAction.BatchRename:
             {
                 await PluginsReady.Task;
                 await Dispatcher.UIThread.InvokeAsync(async () =>

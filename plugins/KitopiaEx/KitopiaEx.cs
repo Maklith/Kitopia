@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Avalonia.Threading;
+using KitopiaEx.BatchRename;
 using KitopiaEx.ImageCompression;
 using KitopiaEx.CustomScenarioMethods;
 using KitopiaEx.CustomScenarioValueSerializer;
@@ -21,7 +22,7 @@ public class KitopiaEx : IPlugin
     public static IServiceProvider ServiceProvider;
 
     private IPlugin _pluginImplementation;
-    private readonly List<ContextMenuItem> _compressionMenuItems = [];
+    private readonly List<ContextMenuItem> _fileToolMenuItems = [];
 
     
     public void OnEnabled(IServiceProvider serviceProvider, Dictionary<string, IServiceProvider> dependencyServiceProviders)
@@ -68,13 +69,15 @@ public class KitopiaEx : IPlugin
         Kitopia.JsonConverters.TryAdd(typeof(ScreenCaptureInfo), new ScreenCaptureInfoCustomScenarioValueSerializer());
         StartupArgumentManager.Handlers[StartupAction.ImageCompression] = paths => ImageCompressionWindow.OpenFilesAsync(paths);
         StartupArgumentManager.Handlers[StartupAction.VideoCompression] = VideoCompressionWindow.OpenFilesAsync;
+        StartupArgumentManager.Handlers[StartupAction.BatchRename] = BatchRenameWindow.OpenFilesAsync;
         if (Kitopia.ServiceProvider.GetService<IExplorerContextMenuConfiger>() is { } contextMenu)
         {
             var executable = Path.Combine(AppContext.BaseDirectory, "Kitopia.Desktop.exe");
             foreach (var (action, title) in new[]
             {
                 (StartupAction.ImageCompression, "lang.kitopiaex.compression.title"),
-                (StartupAction.VideoCompression, "lang.kitopiaex.video_compression.title")
+                (StartupAction.VideoCompression, "lang.kitopiaex.video_compression.title"),
+                (StartupAction.BatchRename, "lang.kitopiaex.batch_rename.title")
             })
             {
                 var menuItem = new ContextMenuItem
@@ -86,7 +89,7 @@ public class KitopiaEx : IPlugin
                              item.Command == executable && item.Arguments == menuItem.Arguments))
                     contextMenu.RemoveMenuItem(item);
                 contextMenu.AddMenuItem(menuItem);
-                _compressionMenuItems.Add(menuItem);
+                _fileToolMenuItems.Add(menuItem);
             }
         }
     }
@@ -95,13 +98,15 @@ public class KitopiaEx : IPlugin
     {
         StartupArgumentManager.Handlers.TryRemove(StartupAction.ImageCompression, out _);
         StartupArgumentManager.Handlers.TryRemove(StartupAction.VideoCompression, out _);
+        StartupArgumentManager.Handlers.TryRemove(StartupAction.BatchRename, out _);
         if (Kitopia.ServiceProvider.GetService<IExplorerContextMenuConfiger>() is { } contextMenu)
-            foreach (var item in _compressionMenuItems) contextMenu.RemoveMenuItem(item);
-        _compressionMenuItems.Clear();
+            foreach (var item in _fileToolMenuItems) contextMenu.RemoveMenuItem(item);
+        _fileToolMenuItems.Clear();
         Dispatcher.UIThread.Post(() =>
         {
             ImageCompressionWindow.Current?.Close();
             VideoCompressionWindow.Current?.Close();
+            BatchRenameWindow.Current?.Close();
         });
         Kitopia.JsonConverters.Remove(typeof(ScreenCaptureInfo));
         Kitopia.ToolTipConverters.Remove(typeof(ScreenCaptureInfo));
@@ -130,6 +135,7 @@ public class KitopiaEx : IPlugin
 
         services.AddTransient<SearchWindow.InputDataAnalyzer.ImageAnalyzer>();
         services.AddTransient<SearchWindow.InputDataAnalyzer.VideoAnalyzer>();
+        services.AddTransient<SearchWindow.InputDataAnalyzer.BatchRenameAnalyzer>();
         services.AddTransient<SearchWindow.InputDataAnalyzer.SetTopmostWindowAnalyzer>();
         services.AddTransient<SearchWindow.InputDataAnalyzer.WindowSwitcherAnalyzer>();
         
