@@ -14,7 +14,9 @@
 
 ## ✨ Overview
 
-![Kitopia product overview](../assets/README/ppt-overview-en-20261014.png)
+![Kitopia product overview](../assets/README/ppt-overview-en-20261016.png)
+
+[English presentation](演示文稿1.pptx) · [中文演示文稿](../演示文稿1.pptx)
 
 ---
 
@@ -38,7 +40,7 @@ Hit the ground running with these intuitive default shortcuts:
 
 ### 1. All-in-One Search & Launcher
 
-![Search List and Split Preview Modes](../assets/README/ppt-search-en-20261014.png)
+![Search List and Split Preview Modes](../assets/README/ppt-search-en-20261016.png)
 
 Open search with `Alt + Space` to launch apps, open files and folders, recognize clipboard paths, visit websites, and run shell commands. Switch between list and split preview modes, with Pinyin matching, history, favorites, and pins. Everything provides full-disk file search. Local AI can find files by document content or image descriptions and requires configured models and an inference backend.
 
@@ -48,7 +50,7 @@ Image source: [Misaka Mikoto, A Certain Scientific Railgun T official character 
 
 ### 2. Spacebar File Preview (Quick Look)
 
-![Quick Look PDF Reading and In-Search Preview](../assets/README/ppt-quick-look-en-20261014.png)
+![Quick Look PDF Reading and In-Search Preview](../assets/README/ppt-quick-look-en-20261016.png)
 
 Select a file in Windows Explorer and press `Space`, or switch to preview mode in search. PDFs support zoom, page navigation, rotation, and text search. View files full screen, check their size and modification time, or choose "Open file" to continue in the default application. Images, text, code, and archives are also supported. PDF previews require WebView2 Runtime.
 
@@ -56,7 +58,7 @@ Select a file in Windows Explorer and press `Space`, or switch to preview mode i
 
 ### 3. Ultimate Snipping, Annotation & Offline OCR
 
-![Snipping and Annotation Toolbar](../assets/README/ppt-screenshot-en-20261014.png)
+![Snipping and Annotation Toolbar](../assets/README/ppt-screenshot-en-20261016.png)
 
 Start capture with `Ctrl + Alt + Q`, with HDR, scrolling capture, annotations, and color picking. OCR uses local models. QR decoding, screenshot pinning, and screenshot translation come from `KitopiaEx`; translation requires network services.
 
@@ -64,43 +66,51 @@ Start capture with `Ctrl + Alt + Q`, with HDR, scrolling capture, annotations, a
 
 ### 4. Selection Translation & Batch Media Compression
 
-![Selection Translation and Image Compression](../assets/README/ppt-translation-compression-en-20261014.png)
+![Selection Translation and Image Compression](../assets/README/ppt-translation-compression-en-20261016.png)
 
 Select text and press `Ctrl + Alt + Y`, or enable automatic translation on mouse release. `KitopiaEx` batch-compresses JPG, PNG, and WebP by quality or target size, with image resizing.
 
-![Video Compression and Conversion](../assets/README/ppt-video-compression-en-20261014.png)
+![Video Compression and Conversion](../assets/README/ppt-video-compression-en-20261016.png)
 
 Video supports MP4, WebM, MKV, and MOV with H.264, HEVC, VP9, and AV1; codec choices depend on the format. Configure target size, resolution, maximum dimension, audio retention, and HDR-to-SDR conversion, or change the container while keeping the original codec.
 
 ---
 
-### 5. Cross-Device LAN Sharing (Kitopia Mobile)
+### 5. Batch File Renaming
 
-![Cross-Device Chat & File Transfer](../assets/README/ppt-device-chat-en-20261014.png)
+![Batch Renaming Rules, Numbering and Conflict Preview](../assets/README/ppt-batch-rename-en-20261016.png)
+
+`KitopiaEx` renames files using a base name, prefixes, suffixes, text replacement and sequential numbering. Add files or folders, sort by name, extension, size or time, and compare original and new names before running. The preview checks naming conflicts and invalid names. Open the tool from Explorer's context menu as well. Optional image compression creates renamed WebP, JPEG or PNG copies while preserving the originals; other files are renamed or moved as previewed.
+
+---
+
+### 6. Cross-Device LAN Sharing (Kitopia Mobile)
+
+![Cross-Device Chat & File Transfer](../assets/README/ppt-device-chat-en-20261016.png)
 
 Windows and Android devices discover each other on the LAN and exchange messages and files without account login. Transfers use TCP/TLS, with receive confirmation, progress, and speed indicators.
 
 ---
 
-### 6. Node-Based Visual Automation (Scenarios)
+### 7. Node-Based Visual Automation (Scenarios)
 
-![Node-Based Scenario Editor](../assets/README/ppt-scenario-en-20261014.png)
+![Node-Based Scenario Editor](../assets/README/ppt-scenario-en-20261016.png)
 
 Connect screenshot, OCR, translation, clipboard, and other nodes to build workflows. Run scenarios from search, hotkeys, or configured triggers, and download shared scenarios from the market.
 
 ---
 
-### 7. Deep Windows System Utilities
+### 8. Deep Windows System Utilities
 
-![Deep Windows Utilities](../assets/README/ppt-windows-integration-en-20261014.png)
+![Deep Windows Utilities](../assets/README/ppt-windows-integration-en-20261016.png)
 
 Inspect processes holding a file, then unlock it or end a process as needed. `Ctrl + Alt + T` toggles a window's topmost state. Explorer context menus provide access to LAN sharing, image compression, and indexing.
 
 ---
 
-### 8. Plugin Center & Hardware Acceleration
+### 9. Plugin Center & Hardware Acceleration
 
-![Plugin and Model Management](../assets/README/ppt-plugins-en-20261014.png)
+![Plugin and Model Management](../assets/README/ppt-plugins-en-20261016.png)
 
 Install, enable, and manage extensions in the plugin center. OCR and semantic search use local ONNX models with CPU, Windows GPU, or Intel OpenVINO backends. Device support depends on the plugin and runtime environment.
 

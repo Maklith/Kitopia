@@ -14,7 +14,9 @@
 
 ## ✨ 功能概览
 
-![Kitopia 产品概览](assets/README/ppt-overview-20261014.png)
+![Kitopia 产品概览](assets/README/ppt-overview-20261016.png)
+
+[中文演示文稿](演示文稿1.pptx) · [English presentation](en-us/演示文稿1.pptx)
 
 ---
 
@@ -38,7 +40,7 @@
 
 ### 1. 全能搜索与全局启动中心
 
-![全能搜索：列表模式与分栏预览](assets/README/ppt-search-20261014.png)
+![全能搜索：列表模式与分栏预览](assets/README/ppt-search-20261016.png)
 
 `Alt + Space` 唤出搜索框，启动应用、打开文件或文件夹，也可识别剪贴板路径、访问网页和运行 Shell 命令。支持列表模式与分栏预览、拼音匹配、历史收藏与置顶。Everything 提供全盘文件检索；本地 AI 可按文档内容或图片描述查找文件，需要配置模型和推理后端。
 
@@ -48,7 +50,7 @@
 
 ### 2. 空格秒速文件预览（Quick Look）
 
-![Quick Look：PDF 阅读与搜索结果预览](assets/README/ppt-quick-look-20261014.png)
+![Quick Look：PDF 阅读与搜索结果预览](assets/README/ppt-quick-look-20261016.png)
 
 在 Windows 资源管理器中选中文件后按 `Space`，或在搜索框中切换预览模式，即可查看文件内容。PDF 支持缩放、翻页、旋转与搜索；可全屏查看，底部显示文件大小与修改时间，点击“打开文件”可用默认程序继续操作。也支持图片、文本、代码和压缩包。PDF 预览需要 WebView2 Runtime。
 
@@ -56,7 +58,7 @@
 
 ### 3. 全能截图、专业标注与离线 OCR
 
-![全能截图标注工具栏](assets/README/ppt-screenshot-20261014.png)
+![全能截图标注工具栏](assets/README/ppt-screenshot-20261016.png)
 
 `Ctrl + Alt + Q` 开始截图，支持 HDR、长截图、标注与取色。OCR 使用本地模型；二维码识别、贴图与截图翻译由 `KitopiaEx` 提供，翻译需要网络服务。
 
@@ -64,43 +66,51 @@
 
 ### 4. 悬浮划词翻译与图片 / 视频批量压缩
 
-![划词翻译与图片压缩](assets/README/ppt-translation-compression-20261014.png)
+![划词翻译与图片压缩](assets/README/ppt-translation-compression-20261016.png)
 
 划词后按 `Ctrl + Alt + Y`，或开启鼠标划选自动翻译。`KitopiaEx` 支持批量压缩 JPG、PNG、WebP，按画质或目标体积处理，并调整图片尺寸。
 
-![视频压缩与格式转换](assets/README/ppt-video-compression-20261014.png)
+![视频压缩与格式转换](assets/README/ppt-video-compression-20261016.png)
 
 视频支持 MP4、WebM、MKV、MOV，以及 H.264、HEVC、VP9、AV1，编码选项随格式变化。可设置目标体积、尺寸比例、最长边、音轨保留和 HDR 转 SDR，也可保持原编码转换文件格式。
 
 ---
 
-### 5. 跨设备局域网极速互传（Kitopia Mobile）
+### 5. 批量文件重命名
 
-![跨设备局域网互传与聊天](assets/README/ppt-device-chat-20261014.png)
+![批量重命名：命名规则、排序编号与冲突预览](assets/README/ppt-batch-rename-20261016.png)
+
+`KitopiaEx` 支持添加文件或文件夹，设置基础名称、前后缀、文本替换与连续编号，并按名称、类型、大小或时间排序。执行前可对照原名与新名，检查重名和无效名称；也可从资源管理器右键菜单打开。开启图片压缩时，会生成重命名后的 WebP、JPEG 或 PNG 副本并保留原图；其他文件按预览结果重命名或移动。
+
+---
+
+### 6. 跨设备局域网极速互传（Kitopia Mobile）
+
+![跨设备局域网互传与聊天](assets/README/ppt-device-chat-20261016.png)
 
 Windows 与 Android 设备可在局域网中自动发现，免登录收发消息和文件。传输采用 TCP/TLS，支持接收确认、进度和速度显示。
 
 ---
 
-### 6. 节点化情景自动化（像搭积木一样定制工作流）
+### 7. 节点化情景自动化（像搭积木一样定制工作流）
 
-![节点化情景编辑器](assets/README/ppt-scenario-20261014.png)
+![节点化情景编辑器](assets/README/ppt-scenario-20261016.png)
 
 连接截图、OCR、翻译和剪贴板等节点，构建自己的工作流。情景可通过搜索、快捷键或配置的触发器运行，也可从情景市场下载导入。
 
 ---
 
-### 7. Windows 系统深度贴心赋能
+### 8. Windows 系统深度贴心赋能
 
-![Windows 系统深度功能](assets/README/ppt-windows-integration-20261014.png)
+![Windows 系统深度功能](assets/README/ppt-windows-integration-20261016.png)
 
 查看占用文件的进程，按需解锁或结束进程；`Ctrl + Alt + T` 切换窗口置顶。资源管理器右键菜单可进入局域网分享、图片压缩和索引等常用功能。
 
 ---
 
-### 8. 插件生态与硬件加速
+### 9. 插件生态与硬件加速
 
-![插件与扩展管理](assets/README/ppt-plugins-20261014.png)
+![插件与扩展管理](assets/README/ppt-plugins-20261016.png)
 
 在插件中心安装、启用和管理扩展。OCR 与语义搜索使用本地 ONNX 模型，可选择 CPU、Windows GPU 或 Intel OpenVINO 后端，具体设备支持取决于插件和运行环境。
 
