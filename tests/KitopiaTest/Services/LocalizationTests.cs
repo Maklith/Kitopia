@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.Loader;
 using System.Text;
 using System.Text.Json;
@@ -50,6 +51,47 @@ public sealed class LocalizationTests
         Assert.AreEqual(expected, lang.Language);
         Assert.AreEqual(cancel, lang["lang.kitopia.cancel"]);
         Assert.AreEqual("Plugin.CustomText", lang["Plugin.CustomText"]);
+    }
+
+    [TestMethod]
+    [DataRow("en-GB", "en-US", "Cancel")]
+    [DataRow("zh-CN", "zh-CN", "取消")]
+    [DataRow("fr-FR", "zh-CN", "取消")]
+    public void UseLanguage_SystemDefault_RestoresStartupUserInterfaceLanguage(string systemLanguage, string expected, string cancel)
+    {
+        var originalCulture = CultureInfo.CurrentUICulture;
+        var originalDefaultCulture = CultureInfo.DefaultThreadCurrentUICulture;
+        // Isolate static initialization to simulate startup with each user's display language.
+        var context = new AssemblyLoadContext("localization-system-language", isCollectible: true);
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(systemLanguage);
+            CultureInfo.DefaultThreadCurrentUICulture = null;
+            var type = context.LoadFromAssemblyPath(typeof(Lang).Assembly.Location).GetType(typeof(Lang).FullName!)!;
+            var lang = type.GetProperty(nameof(Lang.Current))!.GetValue(null)!;
+            var languageProperty = type.GetProperty(nameof(Lang.Language))!;
+            var useLanguage = type.GetMethod(nameof(Lang.UseLanguage))!;
+            var indexer = type.GetProperty("Item")!;
+
+            Assert.AreEqual(expected, languageProperty.GetValue(lang));
+            Assert.AreEqual(expected, CultureInfo.CurrentUICulture.Name);
+            Assert.AreEqual(expected, CultureInfo.DefaultThreadCurrentUICulture?.Name);
+            foreach (var automatic in new[] { null, string.Empty, " " })
+            {
+                useLanguage.Invoke(lang, [expected == "en-US" ? "zh-CN" : "en-US"]);
+                useLanguage.Invoke(lang, [automatic]);
+                Assert.AreEqual(expected, languageProperty.GetValue(lang));
+                Assert.AreEqual(cancel, indexer.GetValue(lang, ["lang.kitopia.cancel"]));
+                Assert.AreEqual(expected, CultureInfo.CurrentUICulture.Name);
+                Assert.AreEqual(expected, CultureInfo.DefaultThreadCurrentUICulture?.Name);
+            }
+        }
+        finally
+        {
+            context.Unload();
+            CultureInfo.DefaultThreadCurrentUICulture = originalDefaultCulture;
+            CultureInfo.CurrentUICulture = originalCulture;
+        }
     }
 
     [TestMethod]

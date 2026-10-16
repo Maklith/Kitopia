@@ -10,6 +10,8 @@ namespace Kitopia.Feature.Localization;
 public sealed class Lang : ObservableObject
 {
     public const string DefaultLanguage = "zh-CN";
+    // Capture the user's UI language before application language overrides change it.
+    private static readonly CultureInfo _systemCulture = CultureInfo.CurrentUICulture;
     private readonly Dictionary<string, Dictionary<string, Dictionary<string, string>>> _sources = new(StringComparer.Ordinal);
     private Dictionary<string, string> _fallback = new(StringComparer.Ordinal);
     private Dictionary<string, string> _translations = new(StringComparer.Ordinal);
@@ -19,7 +21,7 @@ public sealed class Lang : ObservableObject
     public IReadOnlyList<string> Languages => _sources.Values.SelectMany(source => source.Keys)
         .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToArray();
 
-    public string Language { get; private set; } = DefaultLanguage;
+    public string Language { get; private set; } = string.Empty;
     public CultureInfo Culture { get; private set; } = CultureInfo.GetCultureInfo(DefaultLanguage);
     public IEnumerable<string> Keys => _fallback.Keys.Union(_translations.Keys);
     public string this[string key] => _translations.TryGetValue(key, out var value)
@@ -41,7 +43,7 @@ public sealed class Lang : ObservableObject
 
     public void UseLanguage(string? language)
     {
-        var culture = string.IsNullOrWhiteSpace(language) ? CultureInfo.InstalledUICulture : GetCulture(language);
+        var culture = string.IsNullOrWhiteSpace(language) ? _systemCulture : GetCulture(language);
         var selected = Languages.FirstOrDefault(code => string.Equals(code, culture.Name, StringComparison.OrdinalIgnoreCase))
             ?? Languages.FirstOrDefault(code => GetCulture(code).TwoLetterISOLanguageName == culture.TwoLetterISOLanguageName)
             ?? DefaultLanguage;
