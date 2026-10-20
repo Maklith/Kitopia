@@ -403,9 +403,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             try
             {
                 var result = await client.ReceiveAsync(token);
-                DeviceCommunicationDiagnostics.Debug(
-                    LogCategory,
-                    $"UDP datagram received from {result.RemoteEndPoint} on {localEndPoint} bytes={result.Buffer.Length}.");
                 var info = JsonSerializer.Deserialize(
                     result.Buffer.AsSpan(),
                     DeviceCommunicationJsonSerializerContext.Default.DiscoveryInfo);
@@ -435,9 +432,12 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
 
                 var endpointAddress = NormalizeAddress(result.RemoteEndPoint.Address);
                 var messageType = NormalizeMessageType(info.MessageType);
-                DeviceCommunicationDiagnostics.Debug(
-                    LogCategory,
-                    $"Received {messageType} from {endpointAddress} id={ShortId(info.Id)} tcp={info.TcpPort}.");
+                if (messageType != DiscoveryMessageTypeAnnounce)
+                {
+                    DeviceCommunicationDiagnostics.Debug(
+                        LogCategory,
+                        $"Received {messageType} from {endpointAddress} id={ShortId(info.Id)} tcp={info.TcpPort}.");
+                }
 
                 switch (messageType)
                 {
@@ -500,7 +500,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                     var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(
                         info,
                         DeviceCommunicationJsonSerializerContext.Default.DiscoveryInfo));
-                    var sentCount = 0;
 
                     foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
                     {
@@ -538,7 +537,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                                 client.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive,
                                     DiscoveryMulticastHopLimit);
                                 await client.SendAsync(bytes, multicastEndpointV4, token);
-                                sentCount++;
                             }
                             catch (SocketException exception) when (exception.SocketErrorCode is
                                        SocketError.AddressNotAvailable or SocketError.NetworkDown or SocketError.NetworkUnreachable)
@@ -572,7 +570,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                                 DiscoveryMulticastHopLimit);
                             var multicastAddressV6WithScope = new IPAddress(multicastIpV6.GetAddressBytes(), interfaceIndex);
                             await client.SendAsync(bytes, new IPEndPoint(multicastAddressV6WithScope, DiscoveryPort), token);
-                            sentCount++;
                         }
                         catch (NetworkInformationException exception)
                         {
@@ -595,10 +592,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                                 $"IPv6 announce send failed on {networkInterface.Name}: {exception.Message}");
                         }
                     }
-
-                    DeviceCommunicationDiagnostics.Info(
-                        LogCategory,
-                        $"Broadcasted announce. TcpPort={tcpPort} InterfaceSends={sentCount} DeviceId={ShortId(identity.IdHash)}.");
                 }
             }
             catch (OperationCanceledException)
@@ -677,9 +670,6 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             existing.OperatingSystem = NormalizeOperatingSystemName(info.OperatingSystem);
             existing.TcpPort = info.TcpPort;
             AssignDiscoveredAddress(existing, endpointAddress);
-            DeviceCommunicationDiagnostics.Debug(
-                LogCategory,
-                $"Refreshed known device {ShortId(existing.Id)} from announce endpoint={FormatEndpoint(existing)} tcp={existing.TcpPort}.");
             return true;
         }
     }

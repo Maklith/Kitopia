@@ -108,7 +108,7 @@ public sealed class DiscoveryToTransferMatrixTests
     [DataRow("{\"MessageType\":\"probe\",\"Version\":\"0.1\"}", false, "local device identity is unavailable", LogEventLevel.Warning)]
     [DataRow("{\"MessageType\":\"auth.request\",\"Version\":\"0.1\",\"Id\":\"different-device\",\"Nonce\":\"test-nonce\"}", true,
         "does not match local id", LogEventLevel.Debug)]
-    public async Task Discovery_ReceiveLoop_ReportsDatagramBeforeProcessingOutcome(
+    public async Task Discovery_ReceiveLoop_ReportsProcessingOutcomeWithoutRawDatagramLog(
         string payload, bool identityAvailable, string expectedMessage, LogEventLevel expectedLevel)
     {
         var identityStore = new FakeIdentityStore(CreateIdentity()) { IsAvailable = identityAvailable };
@@ -133,8 +133,7 @@ public sealed class DiscoveryToTransferMatrixTests
             var receivedIndex = Array.FindIndex(events, entry =>
                 entry.RenderMessage().StartsWith("UDP datagram received from", StringComparison.Ordinal));
 
-            Assert.IsTrue(receivedIndex >= 0, "The raw receive must be reported even when processing rejects the datagram.");
-            Assert.IsTrue(Array.IndexOf(events, outcome) > receivedIndex);
+            Assert.AreEqual(-1, receivedIndex, "Routine UDP receives must not emit per-datagram logs.");
             Assert.AreEqual(expectedLevel, outcome.Level);
             if (payload == "{") Assert.IsInstanceOfType<JsonException>(outcome.Exception);
             Assert.AreEqual(0, discoveryService.Devices.Count);
