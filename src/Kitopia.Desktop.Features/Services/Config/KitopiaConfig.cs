@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using DeviceDiscoverySignature = Kitopia.Feature.DeviceCommunication.Discovery.DeviceDiscoverySignature;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Ocr;
+using Kitopia.Desktop.Features.Translation;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Config;
@@ -289,6 +290,10 @@ public class KitopiaConfig : ConfigBase
     public bool mouseCapture = true;
 
     [ConfigFieldCategory("lang.kitopia.selection_translation")]
+    [ConfigField<TranslationProvider>("lang.kitopia.translation.provider",
+        "lang.kitopia.translation.provider_description", 0xf834)]
+    public TranslationProvider translationProvider = TranslationProvider.IndexTranslate;
+
     [ConfigField("lang.kitopia.selection_translation_auto_hotkey", "lang.kitopia.selection_translation_auto_hotkey_description", 0xf834,
         ConfigFieldType.快捷键, actionName: "selectionTranslationAutoHotKeyAction")]
     public HotKeyModel selectionTranslationAutoHotKey = new()

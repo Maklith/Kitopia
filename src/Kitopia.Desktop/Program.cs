@@ -169,7 +169,9 @@ internal class Program {
         services.AddSingleton<ISearchItemChooseService, SearchItemChooseService>();
         services.AddSingleton<IFeatureFilePicker, DesktopFeatureFilePicker>();
         services.AddSingleton<IMouseQuickWindowService, MouseQuickWindowService>();
-        services.AddSingleton<ITranslationService, BingTranslationService>();
+        services.AddSingleton<IndexTranslationService>();
+        services.AddSingleton<BingTranslationService>();
+        services.AddSingleton<ITranslationService, TranslationService>();
 #if WINDOWS
         services.AddSingleton<ExplorerFileSelection>();
         services.AddSingleton<SimpleGlobalHook>();
