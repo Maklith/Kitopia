@@ -49,6 +49,20 @@ public class ImageAnalyzer : IInputDataAnalyzer
                 var image = inputData.Data as Mat;
                 if (image == null)
                     continue;
+                yield return new SearchViewItem
+                {
+                    ItemDisplayName = Lang.Get("lang.kitopiaex.save_image_to_file"),
+                    FileType = FileType.自定义,
+                    IconSymbol = 0xE357,
+                    IsVisible = true,
+                    ShowAsMiniApp = true,
+                    Action = (_, _) =>
+                    {
+                        var path = ScreenCaptureExs.SaveImageToFile.GetSavePath();
+                        Kitopia.ServiceProvider.GetRequiredService<IImageTool>().SaveImageAndOpenTheFolder(image, path);
+                        GC.KeepAlive(inputData);
+                    }
+                };
                 if (paths.Length == 0)
                     yield return new SearchViewItem
                     {

@@ -21,6 +21,67 @@ namespace KitopiaTest.CustomScenario;
 public sealed class PluginScenarioNodeTests
 {
     [TestMethod]
+    [DataRow("search", false)]
+    [DataRow("search", true)]
+    [DataRow("capture", false)]
+    [DataRow("capture", true)]
+    [DataRow("scenario", false)]
+    [DataRow("scenario", true)]
+    public void DefaultImageSave_EntryPoint_UsesConfiguredDirectoryAndCreatesIt(string entryPoint, bool customDirectory)
+    {
+        var previousServices = PluginHost.ServiceProvider;
+        var previousConfig = KitopiaEx.Config.INSTANCE;
+        var testDirectory = Path.Combine(Path.GetTempPath(), "Kitopia image save " + Guid.NewGuid().ToString("N"));
+        var directory = customDirectory ? Path.Combine(testDirectory, "images")
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        var imageTool = new RecordingImageTool { Succeeds = true };
+        using var services = new ServiceCollection().AddSingleton<IImageTool>(imageTool).BuildServiceProvider();
+        using var image = new Mat(1, 1, MatType.CV_8UC4, Scalar.All(255));
+        try
+        {
+            PluginHost.ServiceProvider = services;
+            var config = new KitopiaEx.Config();
+            config.AfterLoad();
+            Action save;
+            if (entryPoint == "search")
+            {
+                var action = new KitopiaEx.SearchWindow.InputDataAnalyzer.ImageAnalyzer().AnalyzeInputData([
+                    new PluginCore.SearchWindow.InputData.InputData
+                    {
+                        InputType = PluginCore.SearchWindow.InputData.InputType.图像, Data = image
+                    }
+                ]).Single(item => item.IconSymbol == 0xE357);
+                save = () => action.Action!(action, null);
+            }
+            else if (entryPoint == "capture")
+                save = () => new KitopiaEx.ScreenCaptureExs.SaveImageToFile()
+                    .SaveImageToFileM(new ScreenCaptureResult { Source = image });
+            else
+                save = () =>
+                {
+                    var path = new ScreenCaptureNode().SaveImage(new ScreenCaptureResult { Source = image });
+                    Assert.AreEqual(imageTool.Path, path);
+                };
+
+            config.ImageSaveDirectory = customDirectory ? directory : " ";
+            save();
+
+            Assert.AreEqual(entryPoint == "scenario" ? 1 : 0, imageTool.SaveCalls);
+            Assert.AreEqual(entryPoint == "scenario" ? 0 : 1, imageTool.SaveAndOpenCalls);
+            Assert.AreEqual(directory, Path.GetDirectoryName(imageTool.Path));
+            Assert.IsTrue(Directory.Exists(directory));
+            Assert.AreEqual(".png", Path.GetExtension(imageTool.Path));
+            Assert.IsFalse(image.IsDisposed);
+        }
+        finally
+        {
+            PluginHost.ServiceProvider = previousServices;
+            KitopiaEx.Config.INSTANCE = previousConfig;
+            if (Directory.Exists(testDirectory)) Directory.Delete(testDirectory, true);
+        }
+    }
+
+    [TestMethod]
     [DataRow(false, false)]
     [DataRow(false, true)]
     [DataRow(true, false)]
@@ -226,12 +287,14 @@ public sealed class PluginScenarioNodeTests
     public void DefaultSave_CustomPath_UsesImageServiceAndReturnsAbsolutePath()
     {
         var previousServices = PluginHost.ServiceProvider;
+        var previousConfig = KitopiaEx.Config.INSTANCE;
         var imageTool = new RecordingImageTool { Succeeds = true };
         using var services = new ServiceCollection().AddSingleton<IImageTool>(imageTool).BuildServiceProvider();
         using var image = new Mat(1, 1, MatType.CV_8UC4);
         try
         {
             PluginHost.ServiceProvider = services;
+            new KitopiaEx.Config { ImageSaveDirectory = "ignored-image-save-directory" }.AfterLoad();
             var path = new ScreenCaptureNode().SaveImage(new ScreenCaptureResult { Source = image }, "custom.png");
             Assert.AreEqual(Path.GetFullPath("custom.png"), path);
             Assert.AreEqual(path, imageTool.Path);
@@ -241,6 +304,7 @@ public sealed class PluginScenarioNodeTests
         finally
         {
             PluginHost.ServiceProvider = previousServices;
+            KitopiaEx.Config.INSTANCE = previousConfig;
         }
     }
 

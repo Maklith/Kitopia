@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using KitopiaEx.Translate;
 using PluginCore.Config;
 using PluginCore.CustomScenario.Attribute.ConfigField;
@@ -21,9 +22,16 @@ public class Config : ConfigBase
     [ConfigFieldCategory("lang.kitopiaex.ocr")]
     [ConfigField("lang.kitopiaex.use_server_ocr_model", "lang.kitopiaex.use_the_server_ocr_model_for_improved_recognition", 0xf8cb, ConfigFieldType.布尔)]
     public bool UseServerOcrRecModel = false;
+
+    [ConfigFieldCategory("lang.kitopiaex.image")]
+    [ConfigField("lang.kitopiaex.image_save_directory", "lang.kitopiaex.image_save_directory_description", 0xE357, ConfigFieldType.目录)]
+    public string ImageSaveDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+
     public override void AfterLoad()
     {
         base.AfterLoad();
+        if (string.IsNullOrWhiteSpace(ImageSaveDirectory))
+            ImageSaveDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
         INSTANCE = this;
         ConfigChanged += (sender, args) =>
         {

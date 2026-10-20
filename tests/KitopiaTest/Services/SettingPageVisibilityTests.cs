@@ -5,9 +5,12 @@ using Avalonia.Headless;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
+using CommunityToolkit.Mvvm.Input;
 using Kitopia.Desktop.Features.Services.Config;
+using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Pages;
+using Kitopia.Feature.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Config;
@@ -24,6 +27,124 @@ public sealed class SettingPageVisibilityTests
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<Kitopia.Desktop.App>()
         .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia();
+
+    [TestMethod]
+    public async Task ImageSaveDirectory_PickOrCancel_ShowsCurrentPathAndPersistsSelection()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SettingPageVisibilityTests));
+        await session.Dispatch(async () =>
+        {
+            var originalServices = ServiceManager.Services;
+            var originalConfigs = ConfigManger.Configs;
+            var originalPluginConfig = KitopiaEx.Config.INSTANCE;
+            var assembly = typeof(KitopiaEx.Config).Assembly;
+            var needsRegistration = !Lang.Current.Keys.Contains("lang.kitopiaex.kitopiaex_settings");
+            var picker = new FolderPicker();
+            using var provider = new ServiceCollection().AddSingleton<IFeatureFilePicker>(picker).BuildServiceProvider();
+            ServiceManager.Services = provider;
+            var key = "test-image-save-directory-" + Guid.NewGuid().ToString("N");
+            var config = new KitopiaEx.Config { Name = key, ImageSaveDirectory = " " };
+            config.AfterLoad();
+            ConfigManger.Configs = new Dictionary<string, ConfigBase> { [key] = config };
+            var page = new SettingPage();
+            var window = new Window { Content = page, Width = 900, Height = 850 };
+            var configPath = KitopiaPaths.GetConfigFilePath(key);
+            try
+            {
+                if (needsRegistration) Lang.Current.RegisterAssembly(assembly);
+                page.ChangeConfig(config);
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var row = page.GetLogicalDescendants().OfType<SettingsExpander>().Single(item => item.Footer is Grid);
+                var control = (Grid)row.Footer!;
+                var label = control.Children.OfType<TextBox>().Single();
+                var button = control.Children.OfType<Button>().Single();
+                var command = (IAsyncRelayCommand)button.Command!;
+                Assert.AreEqual(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"), label.Text);
+                Assert.AreEqual(0, Grid.GetColumn(label));
+                Assert.AreEqual(1, Grid.GetColumn(button));
+                Assert.IsTrue(label.IsReadOnly);
+                var changes = 0;
+                config.ConfigChanged += (_, args) =>
+                {
+                    if (args.Name == nameof(config.ImageSaveDirectory)) changes++;
+                };
+
+                await command.ExecuteAsync(null);
+                Assert.AreEqual(0, changes);
+                Assert.AreEqual(config.ImageSaveDirectory, label.Text);
+                Assert.IsFalse(picker.AllowMultiple);
+
+                picker.Paths = [Path.Combine(Path.GetTempPath(), "Kitopia images", new string('x', 100))];
+                await command.ExecuteAsync(null);
+                Assert.AreEqual(picker.Paths[0], config.ImageSaveDirectory);
+                Assert.AreEqual(config.ImageSaveDirectory, label.Text);
+                Assert.AreEqual(label.Text, ToolTip.GetTip(label));
+                await command.ExecuteAsync(null);
+                Assert.AreEqual(1, changes);
+
+                foreach (var displayPath in new[]
+                         {
+                             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
+                             picker.Paths[0]
+                         })
+                foreach (var width in new[] { 900, 640 })
+                {
+                    picker.Paths = [displayPath];
+                    await command.ExecuteAsync(null);
+                    window.Width = width;
+                    Dispatcher.UIThread.RunJobs();
+                    row.BringIntoView();
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.IsGreaterThan(0, label.Bounds.Width);
+                    Assert.IsLessThanOrEqualTo(button.Bounds.X, label.Bounds.Right);
+                    AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                    using var screenshot = window.CaptureRenderedFrame();
+                    Assert.IsNotNull(screenshot);
+                    var length = displayPath.Length > 80 ? "long" : "short";
+                    var screenshotPath = Path.Combine(TestContext.TestRunDirectory!, $"settings-image-directory-{length}-{width}.png");
+                    screenshot.Save(screenshotPath);
+                    TestContext.AddResultFile(screenshotPath);
+                }
+
+                page.ChangeConfig(config);
+                Assert.IsNull(button.Command);
+                var restored = JsonSerializer.Deserialize<KitopiaEx.Config>(File.ReadAllText(configPath), ConfigManger.DefaultOptions)!;
+                Assert.AreEqual(picker.Paths[0], restored.ImageSaveDirectory);
+                var restoredControl = (Grid)page.GetLogicalDescendants().OfType<SettingsExpander>()
+                    .Single(item => item.Footer is Grid).Footer!;
+                Assert.AreEqual(restored.ImageSaveDirectory, restoredControl.Children.OfType<TextBox>().Single().Text);
+            }
+            finally
+            {
+                window.Close();
+                ConfigManger.RemoveConfig(key);
+                ConfigManger.Configs = originalConfigs;
+                ServiceManager.Services = originalServices;
+                KitopiaEx.Config.INSTANCE = originalPluginConfig;
+                if (needsRegistration) Lang.Current.UnregisterAssembly(assembly.GetName().Name!);
+                File.Delete(configPath);
+                File.Delete(configPath + ".bak");
+            }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    private sealed class FolderPicker : IFeatureFilePicker
+    {
+        public IReadOnlyList<string> Paths { get; set; } = [];
+        public bool AllowMultiple { get; private set; }
+
+        public Task<IReadOnlyList<string>> PickFoldersAsync(string title, bool allowMultiple,
+            CancellationToken cancellationToken = default)
+        {
+            AllowMultiple = allowMultiple;
+            return Task.FromResult(Paths);
+        }
+
+        public Task<IReadOnlyList<string>> PickFilesAsync(string title, bool allowMultiple,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
 
     [TestMethod]
     [DataRow(false)]

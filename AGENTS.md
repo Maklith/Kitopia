@@ -50,7 +50,7 @@ The desktop feature catalog is in `src/Kitopia.Desktop.Features/Services/Plugin/
 | Custom scenarios | `src/Kitopia.Desktop.Features/CustomScenario/`: graph, execution, persistence, editor view models, triggers and scenario market. Desktop `Windows/TaskEditor/` owns the editor window. |
 | Plugin host and market | `src/Kitopia.Desktop.Features/PluginHost/`: discovery, dependencies, loading/unloading, packages, downloads, market and plugin settings. |
 | Models and system tools | `Services/Onnx/`, model manager, hotkey manager, file lock UI, LAN share window, shell integration, settings and account services. |
-| KitopiaEx extensions | `plugins/KitopiaEx/`: screenshot OCR/QR/translation/pinning/saving, translation and window search analyzers, image/video compression, batch file renaming and scenario nodes. Batch renaming previews conflicts before moving files; optional image compression creates renamed copies while preserving source images. Image/video compression and batch renaming register Explorer menu entries and SDK startup handlers on plugin enable and remove them on disable; the host routes selected paths after plugins are ready. |
+| KitopiaEx extensions | `plugins/KitopiaEx/`: screenshot OCR/QR/translation/pinning/saving, translation and window search analyzers, image/video compression, batch file renaming and scenario nodes. Search image actions (save, OCR, pin and compress) belong to KitopiaEx; the host only identifies clipboard images. Batch renaming previews conflicts before moving files; optional image compression creates renamed copies while preserving source images. Image/video compression and batch renaming register Explorer menu entries and SDK startup handlers on plugin enable and remove them on disable; the host routes selected paths after plugins are ready. |
 
 ### Defaults and Support Scope
 
@@ -224,6 +224,7 @@ The uninstaller is a separate crate. Check it from its own directory or use `--m
 - Propagate cancellation tokens and avoid `.Result`/`.Wait()` in runtime async code. Use `ValueTask` when the existing contract uses it.
 - Prefer structured Serilog logging through the area's existing logger pattern; avoid noisy logging in hot paths.
 - Avalonia compiled bindings are enabled in the UI projects. Supply `x:DataType` and keep rendering in views, state/behavior in view models.
+- Single-directory settings use the SDK's `ConfigFieldType.目录` on a string field. The desktop settings page displays the current path beside a folder picker and persists the selected directory.
 - Use CommunityToolkit `[ObservableProperty]` and `[RelayCommand]` where the area already does.
 - Put user-facing strings in the owning language resources: shared `src/Kitopia.Feature/lang/` or plugin `lang/`. Follow `docs/i18n.md` when editing localization.
 - MSTest uses `[TestClass]` and `[TestMethod]`; prefer `Method_Condition_Expected` names and deterministic, isolated tests.

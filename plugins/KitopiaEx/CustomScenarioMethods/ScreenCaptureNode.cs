@@ -45,9 +45,7 @@ public class ScreenCaptureNode
         {
             if (string.IsNullOrWhiteSpace(path))
             {
-                var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-                Directory.CreateDirectory(directory);
-                path = Path.Combine(directory, $"Kitopia{Guid.NewGuid():N}.png");
+                path = ScreenCaptureExs.SaveImageToFile.GetSavePath();
             }
             path = Path.GetFullPath(path);
             if (!Kitopia.ServiceProvider.GetRequiredService<IImageTool>().SaveImage(captureResult.Source, path))

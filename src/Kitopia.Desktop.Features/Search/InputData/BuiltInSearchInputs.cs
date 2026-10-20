@@ -34,7 +34,6 @@ internal static class BuiltInSearchInputs
             if (!PluginOverall.SearchWindowInputDataAnalyzers.ContainsKey(Owner))
             {
                 var pathAnalyzer = new PathAnalyzer();
-                var imageAnalyzer = new ImageAnalyzer();
                 var mathAnalyzer = new MathAnalyzer();
                 var knowCommandAnalyzer = new KnowCommandAnalyzer();
                 var urlAnalyzer = new UrlAnalyzer();
@@ -43,7 +42,6 @@ internal static class BuiltInSearchInputs
                 PluginOverall.SearchWindowInputDataAnalyzers[Owner] =
                 [
                     (() => pathAnalyzer.AnalyzeTimeFlags, input => pathAnalyzer.AnalyzeInputData(input)),
-                    (() => imageAnalyzer.AnalyzeTimeFlags, input => imageAnalyzer.AnalyzeInputData(input)),
                     (() => mathAnalyzer.AnalyzeTimeFlags, input => mathAnalyzer.AnalyzeInputData(input)),
                     (() => knowCommandAnalyzer.AnalyzeTimeFlags, input => knowCommandAnalyzer.AnalyzeInputData(input)),
                     (() => urlAnalyzer.AnalyzeTimeFlags, input => urlAnalyzer.AnalyzeInputData(input)),

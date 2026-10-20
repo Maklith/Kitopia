@@ -100,8 +100,8 @@ public sealed class ImageCompressionIntegrationTests
                 new InputData { InputType = InputType.图像, Data = "invalid" },
                 new InputData { InputType = InputType.图像, Data = image }
             ]).ToArray();
-            Assert.AreEqual(3, actions.Length);
-            actions[0].Action!(null, null);
+            Assert.AreEqual(4, actions.Length);
+            actions.Single(action => action.IconSymbol == 0xEA14).Action!(null, null);
             image.Dispose();
             await ImageCompressionWindow.OpenFilesAsync([]);
             var window = (ImageCompressionWindow)typeof(ImageCompressionWindow)

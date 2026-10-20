@@ -318,6 +318,61 @@ public partial class SettingPage : UserControl
                         SettingsExpander.Footer = colorPicker;
                         break;
                     }
+                    case ConfigFieldType.目录:
+                    {
+                        if (fieldInfo.FieldType != typeof(string))
+                            throw new InvalidOperationException($"Directory setting {fieldInfo.Name} must be a string field.");
+                        var pathText = new TextBox
+                        {
+                            Text = selectedValue as string,
+                            IsReadOnly = true,
+                            FontSize = 13,
+                            Height = 32,
+                            CornerRadius = new CornerRadius(6),
+                            VerticalContentAlignment = VerticalAlignment.Center,
+                            Margin = new Thickness(0, 0, 8, 0)
+                        };
+                        disposables.Add(pathText.Bind(ToolTip.TipProperty,
+                            new Binding(nameof(TextBox.Text)) { Source = pathText }));
+                        var folderButton = new Button
+                        {
+                            Content = new FontIcon { Glyph = "\uF419", FontSize = 16 },
+                            Width = 32,
+                            Height = 32,
+                            Padding = new Thickness(0),
+                            CornerRadius = new CornerRadius(6),
+                            HorizontalContentAlignment = HorizontalAlignment.Center,
+                            VerticalContentAlignment = VerticalAlignment.Center,
+                            VerticalAlignment = VerticalAlignment.Center
+                        };
+                        disposables.Add(folderButton.Bind(ToolTip.TipProperty,
+                            new Binding("[lang.kitopia.select_folder]") { Source = Lang.Current }));
+                        folderButton.Command = new AsyncRelayCommand(async () =>
+                        {
+                            var picker = ServiceManager.Services.GetService<IFeatureFilePicker>();
+                            if (picker is null) return;
+                            var paths = await picker.PickFoldersAsync(Lang.Get("lang.kitopia.select_folder"), false);
+                            if (folderButton.Command is null || paths.Count == 0) return;
+                            var path = paths[0];
+                            if (Equals(fieldInfo.GetValue(configBase), path)) return;
+                            fieldInfo.SetValue(configBase, path);
+                            pathText.Text = path;
+                            configBase.OnConfigChanged(this, fieldInfo.Name, path);
+                            ScheduleConfigSave(configBase);
+                        });
+                        disposables.Add(Disposable.Create(() => folderButton.Command = null));
+                        var directoryPicker = new Grid
+                        {
+                            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                            Width = 320,
+                            VerticalAlignment = VerticalAlignment.Center
+                        };
+                        Grid.SetColumn(folderButton, 1);
+                        directoryPicker.Children.Add(pathText);
+                        directoryPicker.Children.Add(folderButton);
+                        SettingsExpander.Footer = directoryPicker;
+                        break;
+                    }
                     case ConfigFieldType.字符串:
                     {
                         var textBox = new TextBox

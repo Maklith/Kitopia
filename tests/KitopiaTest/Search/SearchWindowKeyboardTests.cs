@@ -19,9 +19,14 @@ using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Services;
 using Kitopia.Desktop.Windows;
+using KitopiaEx.SearchWindow.InputDataAnalyzer;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Config;
+using PluginCore.SearchWindow.InputData;
+using PluginCore.SearchWindow.InputDataAnalyzer;
+using Mat = OpenCvSharp.Mat;
+using MatType = OpenCvSharp.MatType;
 
 namespace KitopiaTest.Search;
 
@@ -360,6 +365,52 @@ public sealed class SearchWindowKeyboardTests
             Dispatcher.UIThread.RunJobs();
             Assert.AreEqual("pasted", input.Text);
             Assert.IsTrue(input.IsFocused);
+        });
+    }
+
+    [TestMethod]
+    public async Task ClipboardImage_InputChanges_KeepsSaveShortcutVisibleUntilImageIsRemoved()
+    {
+        await RunAsync((window, model, _) =>
+        {
+            using var image = new Mat(1, 1, MatType.CV_8UC4);
+            var hasImage = true;
+            PluginOverall.SearchWindowInputDataIdentifies["Kitopia"] =
+            [
+                (_, _) => hasImage ? [new InputData { InputType = InputType.图像, Data = image }] : []
+            ];
+            var analyzer = new ImageAnalyzer();
+            PluginOverall.SearchWindowInputDataAnalyzers["KitopiaEx"] =
+            [
+                (() => analyzer.AnalyzeTimeFlags, inputs => analyzer.AnalyzeInputData(inputs))
+            ];
+
+            foreach (var flags in new[]
+                     {
+                         InputDataAnalyzeTimeFlags.WindowShow, InputDataAnalyzeTimeFlags.InputEmpty,
+                         InputDataAnalyzeTimeFlags.InputChanged, InputDataAnalyzeTimeFlags.InputChanged
+                     })
+            {
+                model.ProcessInputData(flags == InputDataAnalyzeTimeFlags.InputChanged ? "query" : null, flags);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.IsTrue(model.InputDatas.Any(input => input.InputType == InputType.图像));
+                Assert.HasCount(4, model.PinnedItems);
+                Assert.IsNotNull(model.PinnedItems.Single(item => item.IconSymbol == 0xE357).Action);
+                Assert.IsTrue(window.FindControl<ListBox>("PinnedList")!.IsEffectivelyVisible);
+            }
+
+            hasImage = false;
+            model.ProcessInputData("query", InputDataAnalyzeTimeFlags.InputChanged);
+            Assert.IsEmpty(model.PinnedItems);
+            Assert.IsFalse(model.ShowPinnedItems);
+
+            hasImage = true;
+            PluginOverall.SearchWindowInputDataAnalyzers.TryRemove("KitopiaEx", out var _);
+            model.ProcessInputData("query", InputDataAnalyzeTimeFlags.InputChanged);
+            Assert.IsTrue(model.ShowInputData);
+            Assert.IsEmpty(model.PinnedItems);
+            return Task.CompletedTask;
         });
     }
 

@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.CustomScenario.Attribute;
@@ -18,18 +19,21 @@ public class SaveImageToFile
     [Capture("lang.kitopiaex.save_image_locally",0xE357)]
     public void SaveImageToFileM(ScreenCaptureResult dResult)
     {
-        var ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0);
-        var timeStamp = Convert.ToInt64(ts.TotalMilliseconds);
-        var f = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) +
-                "\\Downloads\\Kitopia" +
-                timeStamp + ".png";
-        var imageTool = Kitopia.ServiceProvider.GetService<IImageTool>()!;
         if (dResult.Source == null)
         {
             return;
         }
-        imageTool.SaveImageAndOpenTheFolder(dResult.Source, f);
-        
-        return;
+        Kitopia.ServiceProvider.GetRequiredService<IImageTool>()
+            .SaveImageAndOpenTheFolder(dResult.Source, GetSavePath());
+    }
+
+    internal static string GetSavePath()
+    {
+        var directory = Config.INSTANCE?.ImageSaveDirectory;
+        if (string.IsNullOrWhiteSpace(directory))
+            directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        directory = Path.GetFullPath(directory);
+        Directory.CreateDirectory(directory);
+        return Path.Combine(directory, $"Kitopia{Guid.NewGuid():N}.png");
     }
 }
