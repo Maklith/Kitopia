@@ -2,6 +2,7 @@ using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -88,24 +89,24 @@ public sealed class SettingPageVisibilityTests
                              Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
                              picker.Paths[0]
                          })
-                foreach (var width in new[] { 900, 640 })
-                {
-                    picker.Paths = [displayPath];
-                    await command.ExecuteAsync(null);
-                    window.Width = width;
-                    Dispatcher.UIThread.RunJobs();
-                    row.BringIntoView();
-                    Dispatcher.UIThread.RunJobs();
-                    Assert.IsGreaterThan(0, label.Bounds.Width);
-                    Assert.IsLessThanOrEqualTo(button.Bounds.X, label.Bounds.Right);
-                    AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-                    using var screenshot = window.CaptureRenderedFrame();
-                    Assert.IsNotNull(screenshot);
-                    var length = displayPath.Length > 80 ? "long" : "short";
-                    var screenshotPath = Path.Combine(TestContext.TestRunDirectory!, $"settings-image-directory-{length}-{width}.png");
-                    screenshot.Save(screenshotPath);
-                    TestContext.AddResultFile(screenshotPath);
-                }
+                    foreach (var width in new[] { 900, 640 })
+                    {
+                        picker.Paths = [displayPath];
+                        await command.ExecuteAsync(null);
+                        window.Width = width;
+                        Dispatcher.UIThread.RunJobs();
+                        row.BringIntoView();
+                        Dispatcher.UIThread.RunJobs();
+                        Assert.IsGreaterThan(0, label.Bounds.Width);
+                        Assert.IsLessThanOrEqualTo(button.Bounds.X, label.Bounds.Right);
+                        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                        using var screenshot = window.CaptureRenderedFrame();
+                        Assert.IsNotNull(screenshot);
+                        var length = displayPath.Length > 80 ? "long" : "short";
+                        var screenshotPath = Path.Combine(TestContext.TestRunDirectory!, $"settings-image-directory-{length}-{width}.png");
+                        screenshot.Save(screenshotPath);
+                        TestContext.AddResultFile(screenshotPath);
+                    }
 
                 page.ChangeConfig(config);
                 Assert.IsNull(button.Command);
@@ -253,5 +254,85 @@ public sealed class SettingPageVisibilityTests
         public void Run()
         {
         }
+    }
+
+    [TestMethod]
+    public async Task LoadAllConfigs_WithPluginConfigs_CategoryTabShowsPluginSettings()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SettingPageVisibilityTests));
+        await session.Dispatch(async () =>
+        {
+            var originalServices = ServiceManager.Services;
+            var originalConfigs = ConfigManger.Configs;
+            using var provider = new ServiceCollection().BuildServiceProvider();
+            ServiceManager.Services = provider;
+            var pluginKey = "test-plugin-" + Guid.NewGuid().ToString("N");
+            var pluginConfig = new TestPluginConfig { Name = pluginKey };
+            ConfigManger.Configs = new Dictionary<string, ConfigBase>
+            {
+                ["KitopiaConfig"] = new KitopiaConfig { Name = "KitopiaConfig" },
+                [pluginKey] = pluginConfig
+            };
+
+            var page = new SettingPage();
+            var window = new Window { Content = page, Width = 900, Height = 700 };
+            try
+            {
+                page.LoadAllConfigs();
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                var pluginPill = page.GetLogicalDescendants().OfType<Button>()
+                    .FirstOrDefault(btn => Equals(btn.Tag, "Sub Category"));
+                Assert.IsNotNull(pluginPill, "The plugin category pill 'Sub Category' must exist.");
+
+                // Click plugin pill
+                pluginPill.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Dispatcher.UIThread.RunJobs();
+
+                var rows = page.GetLogicalDescendants().OfType<SettingsExpander>().ToDictionary(r => (string)r.Header!);
+                Assert.IsTrue(rows.ContainsKey("Plugin Setting 1"));
+                Assert.IsTrue(rows["Plugin Setting 1"].IsVisible, "Plugin settings must be visible when selecting the plugin category.");
+
+                // Check update should be under 'more' category
+                var morePill = page.GetLogicalDescendants().OfType<Button>()
+                    .FirstOrDefault(btn => Equals(btn.Tag, "lang.kitopia.more"));
+                Assert.IsNotNull(morePill, "The 'More' category pill must exist.");
+                morePill.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(rows.ContainsKey(Lang.Get("lang.kitopia.check_for_updates")));
+                Assert.IsTrue(rows[Lang.Get("lang.kitopia.check_for_updates")].IsVisible, "Check for updates must be visible under 'More' category.");
+
+                // Search filtering
+                var searchBox = page.GetLogicalDescendants().OfType<TextBox>()
+                    .First(tb => tb.Name == "SearchBox");
+                searchBox.Text = "Plugin Setting 1";
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(rows["Plugin Setting 1"].IsVisible);
+
+                searchBox.Text = "NonExistentSettingXYZ";
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsFalse(rows["Plugin Setting 1"].IsVisible);
+
+                searchBox.Text = string.Empty;
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(rows["Plugin Setting 1"].IsVisible);
+            }
+            finally
+            {
+                window.Close();
+                ConfigManger.Configs = originalConfigs;
+                ServiceManager.Services = originalServices;
+            }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [ConfigName("测试插件配置")]
+    public sealed class TestPluginConfig : ConfigBase
+    {
+        [ConfigFieldCategory("Sub Category")]
+        [ConfigField("Plugin Setting 1", "Description for setting 1", fieldType: ConfigFieldType.布尔)]
+        public bool Option1 = true;
     }
 }

@@ -4,14 +4,14 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages;assembly=Kitopia.Desktop.Features"
              xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
              x:DataType="pages:SettingPageViewModel"
              x:Class="Kitopia.Desktop.Pages.SettingPage">
     <UserControl.Resources>
     </UserControl.Resources>
 
-    <Grid RowDefinitions="Auto,Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="16">
-        <!-- 1. Header: Preferences & Configuration + Title + Subtitle -->
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="12">
+        <!-- 1. Header: Preferences & Configuration + Title + Subtitle + Search Filter -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
             <StackPanel Grid.Column="0">
                 <TextBlock Text="{DynamicResource 'lang.kitopia.preferences'}" Theme="{DynamicResource KitopiaPageKickerText}" />
@@ -19,16 +19,54 @@
                 <TextBlock Text="{DynamicResource 'lang.kitopia.configure_behavior_appearance_hotkeys_and_plugins'}"
                            Theme="{DynamicResource KitopiaPageSubtitleText}" />
             </StackPanel>
+
+            <TextBox Grid.Column="1" Name="SearchBox"
+                     Classes="clear-button"
+                     Width="240" Height="34"
+                     CornerRadius="8"
+                     VerticalAlignment="Bottom"
+                     PlaceholderText="{DynamicResource 'lang.kitopia.search_settings'}">
+                <TextBox.InnerLeftContent>
+                    <controls:FontIcon Glyph="&#xe721;"
+                                       FontSize="14"
+                                       Margin="10,0,4,0"
+                                       Foreground="{DynamicResource SemiColorText2}"
+                                       VerticalAlignment="Center" />
+                </TextBox.InnerLeftContent>
+            </TextBox>
         </Grid>
 
         <!-- 2. Account Profile & Login Card -->
         <controls:AccountCardControl Grid.Row="1" />
 
-        <ScrollViewer Grid.Row="2" Name="SettingsScrollViewer">
-            <StackPanel VerticalAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                        Name="StackPanel" />
+        <!-- 3. Category Filter Navigation (Tab / Pill bar) -->
+        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <StackPanel Name="CategoryTabsPanel" Orientation="Horizontal" Spacing="6" />
+        </ScrollViewer>
+
+        <!-- 4. Settings Content List -->
+        <ScrollViewer Grid.Row="3" Name="SettingsScrollViewer">
+            <Panel>
+                <StackPanel VerticalAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                            Name="StackPanel" Spacing="16" />
+
+                <!-- Empty Search Result State -->
+                <StackPanel Name="EmptyResultPanel" IsVisible="False"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Margin="0,48,0,0" Spacing="12">
+                    <controls:FontIcon Glyph="&#xe721;" FontSize="36"
+                                       Foreground="{DynamicResource SemiColorText3}"
+                                       HorizontalAlignment="Center" />
+                    <TextBlock Name="EmptyResultText"
+                               Text="{DynamicResource 'lang.kitopia.no_matching_settings'}"
+                               Foreground="{DynamicResource SemiColorText2}"
+                               FontSize="14" HorizontalAlignment="Center" />
+                    <Button Name="ClearSearchButton"
+                            Content="{DynamicResource 'lang.kitopia.clear_search'}"
+                            Theme="{DynamicResource KitopiaLinkButton}"
+                            HorizontalAlignment="Center" />
+                </StackPanel>
+            </Panel>
         </ScrollViewer>
     </Grid>
-
-
 </UserControl>
