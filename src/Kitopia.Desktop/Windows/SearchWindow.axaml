@@ -45,6 +45,100 @@
         <searchWindow:ItemNameMatchCtr x:Key="ItemNameMatchCtr" />
         <converter1:ControlContentSize x:Key="ControlContentSize" />
         <searchWindow:PreviewModeToGridLengthConverter x:Key="PreviewModeToGridLengthConverter" />
+        <ControlTheme x:Key="SearchSelectionItem" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="FocusAdorner" Value="{x:Null}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Background="{TemplateBinding Background}"
+                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                      CornerRadius="{TemplateBinding CornerRadius}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover">
+                <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+            </Style>
+            <Style Selector="^:selected">
+                <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+            </Style>
+        </ControlTheme>
+        <ControlTheme x:Key="PinnedSelectionItem" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="FocusAdorner" Value="{x:Null}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Background="{TemplateBinding Background}"
+                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                      CornerRadius="{TemplateBinding CornerRadius}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
+                </ControlTemplate>
+            </Setter>
+            <Style Selector="^:pointerover">
+                <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+            </Style>
+            <Style Selector="^:selected">
+                <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+            </Style>
+        </ControlTheme>
+        <ControlTheme x:Key="PinnedItemButton" TargetType="Button">
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Background="Transparent"
+                                      Padding="{TemplateBinding Padding}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+        <ControlTheme x:Key="SearchItemButton" TargetType="Button">
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Background="Transparent"
+                                      Padding="{TemplateBinding Padding}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
     </Window.Resources>
     <Window.Styles>
         <Style Selector="Window.preview > Panel">
@@ -59,7 +153,7 @@
             <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="0,0,0,1" Padding="12,8">
                 <StackPanel Spacing="8">
                     <Border Height="30">
-                        <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto"
+                        <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center"
                                       VerticalAlignment="Center">
                             <ItemsControl ItemsSource="{Binding InputDatas}">
@@ -78,10 +172,10 @@
                         </ScrollViewer>
                     </Border>
 
-                    <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" IsTabStop="False"
+                    <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center"
                              PlaceholderText="{DynamicResource 'lang.kitopia.search'}" AcceptsReturn="False" KeyDown="tx_KeyDown"
                              Name="tx"
-                             AcceptsTab="False" FontSize="24"
+                             AcceptsTab="False" FontSize="24" ClearSelectionOnLostFocus="False"
                              Text="{Binding Search}">
                         <TextBox.InnerLeftContent>
                             <controls1:FontIcon Margin="10,0,0,0" HorizontalAlignment="Center"
@@ -121,7 +215,7 @@
                               CanClose="False" />
 
                     <Border IsVisible="{Binding ShowFileTypeFilter}" Height="40">
-                        <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto"
+                        <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center"
                                       VerticalAlignment="Center">
                             <ItemsControl ItemsSource="{Binding FileTypes}">
@@ -143,51 +237,65 @@
                     </Border>
 
                     <Border IsVisible="{Binding ShowPinnedItems}"
-                            HorizontalAlignment="Stretch" Padding="4">
-                        <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Auto"
-                                      VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center"
-                                      VerticalAlignment="Center">
-                            <ItemsControl ItemsSource="{Binding PinnedItems}" >
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="pluginCore:SearchViewItem">
-                                        <Button Width="56" Height="56" Margin="0,0,8,0"
-                                                Command="{Binding $parent[ItemsControl].((windows:SearchWindowViewModel)DataContext).OpenFileCommand}"
-                                                CommandParameter="{Binding .}"
-                                                ToolTip.Tip="{Binding ItemDisplayName}">
-                                            <Button.ContextFlyout>
-                                                <MenuFlyout>
-                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.open'}"
-                                                              Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFileCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.run_as_administrator'}"
-                                                              Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.open_file_location'}"
-                                                              Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.open_in_terminal'}"
-                                                              Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.pin'}" IsVisible="{Binding !IsPined}"
-                                                              Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).PinCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.unpin'}" IsVisible="{Binding IsPined}"
-                                                              Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).PinCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.favorite'}"
-                                                              Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).StarCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                                    <MenuItem Header="{DynamicResource 'lang.kitopia.ignore'}"
-                                                              Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).IgnoreItemCommand}"
-                                                              CommandParameter="{Binding .}" />
-                                                </MenuFlyout>
-                                            </Button.ContextFlyout>
-                                            <Panel>
-                                                <controls1:FontIcon Width="36" Height="36" FontSize="36"
+                            HorizontalAlignment="Stretch" Padding="0,2">
+                        <ListBox Name="PinnedList" ItemsSource="{Binding PinnedItems}"
+                                 ItemContainerTheme="{StaticResource PinnedSelectionItem}"
+                                 SelectionChanged="SearchItems_OnSelectionChanged"
+                                 PointerWheelChanged="HorizonScroll"
+                                 Background="Transparent" BorderThickness="0" Padding="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0,0,8,0" />
+                                </Style>
+                            </ListBox.Styles>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="pluginCore:SearchViewItem">
+                                    <Button Name="PinnedItem" Height="30" Padding="10,0"
+                                            Focusable="False" IsTabStop="False"
+                                            Theme="{StaticResource PinnedItemButton}"
+                                            Command="{Binding $parent[ItemsControl].((windows:SearchWindowViewModel)DataContext).OpenFileCommand}"
+                                            CommandParameter="{Binding .}"
+                                            ToolTip.Tip="{Binding ItemDisplayName}">
+                                        <Button.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuItem Header="{DynamicResource 'lang.kitopia.open'}"
+                                                          Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFileCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                                <MenuItem Header="{DynamicResource 'lang.kitopia.run_as_administrator'}"
+                                                          Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                                <MenuItem Header="{DynamicResource 'lang.kitopia.open_file_location'}"
+                                                          Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                                <MenuItem Header="{DynamicResource 'lang.kitopia.open_in_terminal'}"
+                                                          Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                                <MenuItem Header="{DynamicResource 'lang.kitopia.pin'}" IsVisible="{Binding !IsPined}"
+                                                          Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).PinCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                                <MenuItem Header="{DynamicResource 'lang.kitopia.unpin'}" IsVisible="{Binding IsPined}"
+                                                          Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).PinCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                                <MenuItem Header="{DynamicResource 'lang.kitopia.favorite'}"
+                                                          Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).StarCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                                <MenuItem Header="{DynamicResource 'lang.kitopia.ignore'}"
+                                                          Command="{Binding $parent[Window].((windows:SearchWindowViewModel)DataContext).IgnoreItemCommand}"
+                                                          CommandParameter="{Binding .}" />
+                                            </MenuFlyout>
+                                        </Button.ContextFlyout>
+                                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                            <Panel Width="18" Height="18" VerticalAlignment="Center">
+                                                <controls1:FontIcon Width="18" Height="18" FontSize="16"
+                                                                    VerticalAlignment="Center" HorizontalAlignment="Center"
                                                                     IsVisible="{Binding IconSymbol, Converter={StaticResource SymbolToVisible}}"
                                                                     FontFamily="{StaticResource FluentFont}"
                                                                     Glyph="{Binding IconSymbol, Converter={StaticResource IntToIconSymbol}}" />
-                                                <Image Width="36" Height="36">
+                                                <Image Width="18" Height="18"
+                                                       VerticalAlignment="Center" HorizontalAlignment="Center">
                                                     <Image.Source>
                                                         <MultiBinding Converter="{StaticResource PathToImageConverter}">
                                                             <Binding Path="Icon" />
@@ -196,16 +304,19 @@
                                                     </Image.Source>
                                                 </Image>
                                             </Panel>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
-                        </ScrollViewer>
+                                            <TextBlock Text="{Binding ItemDisplayName}" FontSize="12"
+                                                       VerticalAlignment="Center" TextAlignment="Left"
+                                                       TextTrimming="CharacterEllipsis" MaxWidth="160" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                        </ListBox>
                     </Border>
                 </StackPanel>
             </Border>
@@ -217,164 +328,161 @@
                     <ColumnDefinition Width="{Binding IsPreviewMode, Converter={StaticResource PreviewModeToGridLengthConverter}, ConverterParameter=Preview}" />
                 </Grid.ColumnDefinitions>
                 <ListBox Grid.Column="0" Name="dataGrid"
+                         ItemContainerTheme="{StaticResource SearchSelectionItem}"
                          ItemsSource="{Binding ItemsViewList,Mode=OneWay }"
                          SelectedItem="{Binding SelectedItem,Mode=TwoWay}"
-                         KeyDown="DataGrid_OnKeyDown"
+                         SelectionChanged="SearchItems_OnSelectionChanged"
                          BorderThickness="0"
                          Background="Transparent"
                          MinHeight="0">
                     <ListBox.Styles>
-                        <Style Selector="ListBoxItem:selected > Button#Item /template/ ContentPresenter#PART_ContentPresenter">
-                            <Setter Property="Background" Value="{DynamicResource SemiColorTertiaryLightPointerover}" />
-                        </Style>
-
                         <Style Selector="ListBoxItem">
                             <Setter Property="Margin" Value="0,2" />
-                            <Setter Property="Template">
-                                <ControlTemplate x:DataType="pluginCore:SearchViewItem">
-                                    <Button HorizontalAlignment="Stretch"
-                                            IsTabStop="True"
-                                            Name="Item"
-                                            Theme="{DynamicResource BorderlessButton}"
-                                            Click="SearchItem_OnClick"
-                                            CommandParameter="{Binding .}">
-                                        <ToolTip.Tip>
-                                            <MultiBinding Converter="{StaticResource SearchItemToInfo}">
-                                                <Binding Path="." />
-                                                <ReflectionBinding Source="{x:Static localization:Lang.Current}" Path="Keys" />
-                                            </MultiBinding>
-                                        </ToolTip.Tip>
-                                        <Button.ContextFlyout>
-                                            <MenuFlyout>
-                                                <MenuItem Header="{DynamicResource 'lang.kitopia.run_as_administrator'}"
-                                                          Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
-                                                          IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='RunAsAdmin'}"
-                                                          CommandParameter="{Binding .}" />
-                                                <MenuItem Header="{DynamicResource 'lang.kitopia.open_file_location'}"
-                                                          Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}"
-                                                          IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Folder'}"
-                                                          CommandParameter="{Binding .}" />
-                                                <MenuItem Header="{DynamicResource 'lang.kitopia.open_in_terminal'}"
-                                                          Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
-                                                          IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Console'}"
-                                                          CommandParameter="{Binding .}" />
-                                                <MenuItem Header="{Binding IsStared,Converter={StaticResource StarBoolToText},ConverterParameter='Star'}"
-                                                          Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).StarCommand}"
-                                                          IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Star'}"
-                                                          CommandParameter="{Binding .}" />
-                                                <MenuItem Header="{DynamicResource 'lang.kitopia.ignore'}"
-                                                          Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IgnoreItemCommand}"
-                                                          IsVisible="{Binding Path=FileType,Converter={StaticResource CanIgnoreCtr}}"
-                                                          CommandParameter="{Binding .}" />
-                                            </MenuFlyout>
-                                        </Button.ContextFlyout>
-                                        <Grid HorizontalAlignment="Stretch"
-                                              ColumnDefinitions="Auto,Auto,* ,Auto">
-                                            <Grid.Width>
-                                                <MultiBinding Converter="{StaticResource ControlContentSize}">
-                                                    <MultiBinding.Bindings>
-                                                        <Binding RelativeSource="{RelativeSource AncestorType=ContentPresenter, Tree=Visual}"
-                                                                 Path="Bounds.Width" />
-                                                        <Binding RelativeSource="{RelativeSource AncestorType=ContentPresenter, Tree=Visual}"
-                                                                 Path="Padding" />
-                                                    </MultiBinding.Bindings>
-                                                </MultiBinding>
-                                            </Grid.Width>
-                                            <Panel Width="28">
-                                                <controls1:PinButton KeyboardNavigation.TabNavigation="None" FontSize="26"
-                                                                     IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Pin'}"
-                                                                     Tag="{Binding IsPined}"
-                                                                     IsChecked="{Binding IsPined,Mode=OneWay}"
-                                                                     Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).PinCommand}"
-                                                                     CommandParameter="{Binding}" Padding="2" />
-                                            </Panel>
-
-                                            <Image Grid.Column="1" HorizontalAlignment="Left" Focusable="False" Width="48"
-                                                   Height="48" ZIndex="1">
-                                                <Image.Source>
-                                                    <MultiBinding Converter="{StaticResource PathToImageConverter}">
-                                                        <Binding Path="Icon" />
-                                                        <Binding Path="." />
-                                                    </MultiBinding>
-                                                </Image.Source>
-                                            </Image>
-                                            <controls1:FontIcon Height="48" Width="48" FontSize="48" Grid.Column="1"
-                                                                IsVisible="{Binding IconSymbol, Converter={StaticResource SymbolToVisible}}"
-                                                                FontFamily="{StaticResource FluentFont}"
-                                                                Glyph="{Binding IconSymbol,Converter={StaticResource IntToIconSymbol}}" />
-
-                                            <StackPanel Grid.Column="2" Margin="8,4" VerticalAlignment="Top"
-                                                        HorizontalAlignment="Stretch">
-                                                <TextBlock VerticalAlignment="Center" Margin="0" Focusable="False"
-                                                           Foreground="{DynamicResource SemiColorText0}"
-                                                           FontWeight="Normal" FontSize="16">
-                                                    <TextBlock.Inlines>
-                                                        <MultiBinding Converter="{StaticResource ItemNameMatchCtr}">
-                                                            <Binding Path="PinyinItem" />
-                                                            <Binding Path="." />
-                                                        </MultiBinding>
-                                                    </TextBlock.Inlines>
-                                                    <Run />
-                                                </TextBlock>
-                                                <TextBlock VerticalAlignment="Top" Margin="0"
-                                                           Foreground="{DynamicResource SemiColorText1}"
-                                                           FontWeight="Normal" FontSize="{DynamicResource SemiFontSizeSmall}"
-                                                           Text="{Binding Path=FileType}" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="3" Orientation="Horizontal" Focusable="False"
-                                                        HorizontalAlignment="Right" Spacing="4"
-                                                        IsVisible="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IsPreviewMode, Converter={x:Static BoolConverters.Not}}">
-                                                <Button KeyboardNavigation.TabNavigation="None"
-                                                        Theme="{DynamicResource BorderlessButton}"
-                                                        ToolTip.Tip="{DynamicResource 'lang.kitopia.run_as_administrator'}"
-                                                        IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='RunAsAdmin'}"
-                                                        Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
-                                                        CommandParameter="{Binding  }">
-                                                    <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
-                                                                        FontWeight="Normal" FontSize="22"
-                                                                        Glyph="&#xF0B2;" />
-                                                </Button>
-                                                <Button KeyboardNavigation.TabNavigation="None"
-                                                        Theme="{DynamicResource BorderlessButton}"
-                                                        ToolTip.Tip="{DynamicResource 'lang.kitopia.open_containing_folder'}"
-                                                        IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Folder'}"
-                                                        Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}"
-                                                        CommandParameter="{Binding}">
-                                                    <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
-                                                                        FontWeight="Normal" FontSize="22"
-                                                                        Glyph="&#xF419;" />
-                                                </Button>
-                                                <Button KeyboardNavigation.TabNavigation="None"
-                                                        Theme="{DynamicResource BorderlessButton}"
-                                                        ToolTip.Tip="{DynamicResource 'lang.kitopia.open_containing_folder_in_terminal'}"
-                                                        IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Console'}"
-                                                        Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
-                                                        CommandParameter="{Binding}">
-                                                    <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
-                                                                        FontSize="22"
-                                                                        FontWeight="Normal"
-                                                                        Glyph="&#xEE6F;" />
-                                                </Button>
-                                                <Button KeyboardNavigation.TabNavigation="None"
-                                                        Theme="{DynamicResource BorderlessButton}"
-                                                        ToolTip.Tip="{Binding IsStared,Converter={StaticResource StarBoolToText},ConverterParameter='Star'}"
-                                                        IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Star'}"
-                                                        Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).StarCommand}"
-                                                        CommandParameter="{Binding}">
-                                                    <Button.Resources>
-                                                        <searchWindow:StarIconCtr x:Key="StarIconCtr" />
-                                                    </Button.Resources>
-                                                    <controls1:FontIcon x:Name="Source" FontWeight="Normal" FontSize="22"
-                                                                        FontFamily="{Binding IsStared,Converter={StaticResource StarIconCtr},ConverterParameter='FM'}"
-                                                                        Glyph="{Binding IsStared,Converter={StaticResource StarIconCtr},ConverterParameter='F'}" />
-                                                </Button>
-                                            </StackPanel>
-                                        </Grid>
-                                    </Button>
-                                </ControlTemplate>
-                            </Setter>
                         </Style>
                     </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="pluginCore:SearchViewItem">
+                            <Button HorizontalAlignment="Stretch"
+                                    Focusable="False" IsTabStop="False"
+                                    Name="Item"
+                                    Theme="{StaticResource SearchItemButton}"
+                                    Click="SearchItem_OnClick"
+                                    CommandParameter="{Binding .}">
+                                <ToolTip.Tip>
+                                    <MultiBinding Converter="{StaticResource SearchItemToInfo}">
+                                        <Binding Path="." />
+                                        <ReflectionBinding Source="{x:Static localization:Lang.Current}" Path="Keys" />
+                                    </MultiBinding>
+                                </ToolTip.Tip>
+                                <Button.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuItem Header="{DynamicResource 'lang.kitopia.run_as_administrator'}"
+                                                  Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
+                                                  IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='RunAsAdmin'}"
+                                                  CommandParameter="{Binding .}" />
+                                        <MenuItem Header="{DynamicResource 'lang.kitopia.open_file_location'}"
+                                                  Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}"
+                                                  IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Folder'}"
+                                                  CommandParameter="{Binding .}" />
+                                        <MenuItem Header="{DynamicResource 'lang.kitopia.open_in_terminal'}"
+                                                  Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
+                                                  IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Console'}"
+                                                  CommandParameter="{Binding .}" />
+                                        <MenuItem Header="{Binding IsStared,Converter={StaticResource StarBoolToText},ConverterParameter='Star'}"
+                                                  Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).StarCommand}"
+                                                  IsVisible="{Binding Path=FileType,Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Star'}"
+                                                  CommandParameter="{Binding .}" />
+                                        <MenuItem Header="{DynamicResource 'lang.kitopia.ignore'}"
+                                                  Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IgnoreItemCommand}"
+                                                  IsVisible="{Binding Path=FileType,Converter={StaticResource CanIgnoreCtr}}"
+                                                  CommandParameter="{Binding .}" />
+                                    </MenuFlyout>
+                                </Button.ContextFlyout>
+                                <Grid HorizontalAlignment="Stretch"
+                                      ColumnDefinitions="Auto,Auto,* ,Auto">
+                                    <Grid.Width>
+                                        <MultiBinding Converter="{StaticResource ControlContentSize}">
+                                            <MultiBinding.Bindings>
+                                                <Binding RelativeSource="{RelativeSource AncestorType=ContentPresenter, Tree=Visual}"
+                                                         Path="Bounds.Width" />
+                                                <Binding RelativeSource="{RelativeSource AncestorType=ContentPresenter, Tree=Visual}"
+                                                         Path="Padding" />
+                                            </MultiBinding.Bindings>
+                                        </MultiBinding>
+                                    </Grid.Width>
+                                    <Panel Width="28">
+                                        <controls1:PinButton KeyboardNavigation.TabNavigation="None" FontSize="26"
+                                                             IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Pin'}"
+                                                             Tag="{Binding IsPined}"
+                                                             IsChecked="{Binding IsPined,Mode=OneWay}"
+                                                             Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).PinCommand}"
+                                                             CommandParameter="{Binding}" Padding="2" />
+                                    </Panel>
+
+                                    <Image Grid.Column="1" HorizontalAlignment="Left" Focusable="False" Width="48"
+                                           Height="48" ZIndex="1">
+                                        <Image.Source>
+                                            <MultiBinding Converter="{StaticResource PathToImageConverter}">
+                                                <Binding Path="Icon" />
+                                                <Binding Path="." />
+                                            </MultiBinding>
+                                        </Image.Source>
+                                    </Image>
+                                    <controls1:FontIcon Height="48" Width="48" FontSize="48" Grid.Column="1"
+                                                        IsVisible="{Binding IconSymbol, Converter={StaticResource SymbolToVisible}}"
+                                                        FontFamily="{StaticResource FluentFont}"
+                                                        Glyph="{Binding IconSymbol,Converter={StaticResource IntToIconSymbol}}" />
+
+                                    <StackPanel Grid.Column="2" Margin="8,4" VerticalAlignment="Top"
+                                                HorizontalAlignment="Stretch">
+                                        <TextBlock VerticalAlignment="Center" Margin="0" Focusable="False"
+                                                   Foreground="{DynamicResource SemiColorText0}"
+                                                   FontWeight="Normal" FontSize="16">
+                                            <TextBlock.Inlines>
+                                                <MultiBinding Converter="{StaticResource ItemNameMatchCtr}">
+                                                    <Binding Path="PinyinItem" />
+                                                    <Binding Path="." />
+                                                </MultiBinding>
+                                            </TextBlock.Inlines>
+                                            <Run />
+                                        </TextBlock>
+                                        <TextBlock VerticalAlignment="Top" Margin="0"
+                                                   Foreground="{DynamicResource SemiColorText1}"
+                                                   FontWeight="Normal" FontSize="{DynamicResource SemiFontSizeSmall}"
+                                                   Text="{Binding Path=FileType}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" Focusable="False"
+                                                HorizontalAlignment="Right" Spacing="4"
+                                                IsVisible="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IsPreviewMode, Converter={x:Static BoolConverters.Not}}">
+                                        <Button KeyboardNavigation.TabNavigation="None"
+                                                Theme="{DynamicResource BorderlessButton}"
+                                                ToolTip.Tip="{DynamicResource 'lang.kitopia.run_as_administrator'}"
+                                                IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='RunAsAdmin'}"
+                                                Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).RunAsAdminCommand}"
+                                                CommandParameter="{Binding  }">
+                                            <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                                FontWeight="Normal" FontSize="22"
+                                                                Glyph="&#xF0B2;" />
+                                        </Button>
+                                        <Button KeyboardNavigation.TabNavigation="None"
+                                                Theme="{DynamicResource BorderlessButton}"
+                                                ToolTip.Tip="{DynamicResource 'lang.kitopia.open_containing_folder'}"
+                                                IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Folder'}"
+                                                Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderCommand}"
+                                                CommandParameter="{Binding}">
+                                            <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                                FontWeight="Normal" FontSize="22"
+                                                                Glyph="&#xF419;" />
+                                        </Button>
+                                        <Button KeyboardNavigation.TabNavigation="None"
+                                                Theme="{DynamicResource BorderlessButton}"
+                                                ToolTip.Tip="{DynamicResource 'lang.kitopia.open_containing_folder_in_terminal'}"
+                                                IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Console'}"
+                                                Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).OpenFolderInTerminalCommand}"
+                                                CommandParameter="{Binding}">
+                                            <controls1:FontIcon FontFamily="{StaticResource FluentFont}"
+                                                                FontSize="22"
+                                                                FontWeight="Normal"
+                                                                Glyph="&#xEE6F;" />
+                                        </Button>
+                                        <Button KeyboardNavigation.TabNavigation="None"
+                                                Theme="{DynamicResource BorderlessButton}"
+                                                ToolTip.Tip="{Binding IsStared,Converter={StaticResource StarBoolToText},ConverterParameter='Star'}"
+                                                IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Star'}"
+                                                Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).StarCommand}"
+                                                CommandParameter="{Binding}">
+                                            <Button.Resources>
+                                                <searchWindow:StarIconCtr x:Key="StarIconCtr" />
+                                            </Button.Resources>
+                                            <controls1:FontIcon x:Name="Source" FontWeight="Normal" FontSize="22"
+                                                                FontFamily="{Binding IsStared,Converter={StaticResource StarIconCtr},ConverterParameter='FM'}"
+                                                                Glyph="{Binding IsStared,Converter={StaticResource StarIconCtr},ConverterParameter='F'}" />
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
                 </ListBox>
 
                 <GridSplitter Grid.Column="1" Width="1" ResizeDirection="Columns"

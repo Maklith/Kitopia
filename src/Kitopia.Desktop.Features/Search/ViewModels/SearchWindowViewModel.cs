@@ -692,14 +692,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
         if (IsPreviewMode)
         {
-            if (SelectedItem is null || !SearchDisplayPolicy.IsPreviewCandidate(SelectedItem))
-            {
-                SelectedItem = Items.FirstOrDefault(SearchDisplayPolicy.IsPreviewCandidate);
-            }
-            else
-            {
-                UpdatePreview(SelectedItem);
-            }
+            UpdatePreview(SelectedItem);
         }
         else
         {

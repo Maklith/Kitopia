@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -8,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.Search.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +19,7 @@ public partial class SearchWindow : Window
 {
     private readonly double _preferredMaxHeight;
     private Screen? _placementScreen;
-    private INotifyCollectionChanged? _currentItemsSource;
+    private SearchViewItem? _lastPinnedItem;
 
     public SearchWindow()
     {
@@ -30,39 +30,22 @@ public partial class SearchWindow : Window
         #if DEBUG
         Topmost = false;
         #endif
-        dataGrid.PropertyChanged += DataGridOnPropertyChanged;
+        tx.GotFocus += (_, e) =>
+        {
+            if (!ReferenceEquals(e.Source, tx)) return;
+            PinnedList.SelectedIndex = -1;
+            dataGrid.SelectedIndex = -1;
+        };
+        PinnedList.AddHandler(KeyDownEvent, SearchItems_OnKeyDown, RoutingStrategies.Tunnel);
+        dataGrid.AddHandler(KeyDownEvent, SearchItems_OnKeyDown, RoutingStrategies.Tunnel);
+        PinnedList.AddHandler(TextInputEvent, SearchItems_OnTextInput, RoutingStrategies.Tunnel);
+        dataGrid.AddHandler(TextInputEvent, SearchItems_OnTextInput, RoutingStrategies.Tunnel);
         FilePreviewSurface.CloseRequested += () =>
             (DataContext as SearchWindowViewModel)?.ClosePreviewMode();
         SizeChanged += (_, _) =>
         {
             if (IsVisible) PositionWindow();
         };
-    }
-
-    private void DataGridOnPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
-    {
-        if (e.Property != ListBox.ItemsSourceProperty) return;
-
-        if (_currentItemsSource is not null)
-            _currentItemsSource.CollectionChanged -= ItemsSourceOnCollectionChanged;
-
-        _currentItemsSource = e.NewValue is INotifyCollectionChanged collectionChanged
-            ? collectionChanged
-            : null;
-
-        if (_currentItemsSource is not null)
-            _currentItemsSource.CollectionChanged += ItemsSourceOnCollectionChanged;
-    }
-
-    private void ItemsSourceOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (e.Action != NotifyCollectionChangedAction.Add) return;
-
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (dataGrid.SelectedItem is null && dataGrid.Items.Count > 0)
-                dataGrid.SelectedItem = dataGrid.Items[0];
-        });
     }
 
     public override void Show()
@@ -79,6 +62,9 @@ public partial class SearchWindow : Window
         windowTool.SetForegroundWindow(TryGetPlatformHandle()!.Handle);
         tx.Focus();
         tx.SelectAll();
+        _lastPinnedItem = null;
+        PinnedList.SelectedIndex = -1;
+        dataGrid.SelectedIndex = -1;
         ((SearchWindowViewModel?)DataContext)?.LoadLast();
     }
 
@@ -116,48 +102,112 @@ public partial class SearchWindow : Window
         {
             if (DataContext is SearchWindowViewModel viewModel)
             {
-                viewModel.ActivateItem((SearchViewItem?)dataGrid.SelectedItem
-                                       ?? dataGrid.Items.Cast<SearchViewItem?>().FirstOrDefault());
+                if (PinnedList.SelectedItem is SearchViewItem pinnedItem)
+                    viewModel.OpenFile(pinnedItem);
+                else
+                    viewModel.ActivateItem((SearchViewItem?)dataGrid.SelectedItem);
             }
 
             e.Handled = true;
         }
-        else if (e.Key == Key.Down)
+        else if (e.Key == Key.Down && e.KeyModifiers == KeyModifiers.None)
         {
-            var realizedContainers = dataGrid.GetRealizedContainers();
-            dataGrid.SelectedItem = (object)((SearchWindowViewModel)DataContext).Items[0];
-            foreach (var realizedContainer in realizedContainers)
-                if (realizedContainer.DataContext == dataGrid.SelectedItem)
-                {
-                    realizedContainer.Focus();
-                    break;
-                }
+            FocusItem(PinnedList.IsEffectivelyVisible && PinnedList.Items.Count > 0 ? PinnedList : dataGrid, 0);
+            e.Handled = true;
         }
     }
 
-    private void DataGrid_OnKeyDown(object? sender, KeyEventArgs e)
+    private void SearchItems_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (e.Key == Key.Up)
-        {
-            var realizedContainers = dataGrid.GetRealizedContainers();
-            if (realizedContainers.First()
-                    .DataContext == dataGrid.SelectedItem)
-                tx.Focus();
+        if (e.AddedItems.Count == 0) return;
 
-            return;
+        if (ReferenceEquals(sender, PinnedList))
+        {
+            _lastPinnedItem = (SearchViewItem?)PinnedList.SelectedItem;
+            dataGrid.SelectedIndex = -1;
         }
+        else
+        {
+            PinnedList.SelectedIndex = -1;
+        }
+    }
+
+    private static void FocusItem(ListBox list, int index)
+    {
+        if (index < 0 || index >= list.Items.Count) return;
+
+        list.SelectedIndex = index;
+        list.ScrollIntoView(index);
+        list.UpdateLayout();
+        (list.ContainerFromIndex(index) ?? (Control)list).Focus(NavigationMethod.Directional);
+    }
+
+    private void SearchItems_OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (sender is not ListBox list || (e.Source is not ListBoxItem && !ReferenceEquals(e.Source, list))) return;
 
         if (e.Key == Key.Enter)
         {
-            var item = (SearchViewItem?)dataGrid.SelectedItem;
-            ((SearchWindowViewModel)DataContext).ActivateItem(item);
+            if (DataContext is SearchWindowViewModel viewModel)
+            {
+                if (ReferenceEquals(list, PinnedList))
+                    viewModel.OpenFile((SearchViewItem?)list.SelectedItem);
+                else
+                    viewModel.ActivateItem((SearchViewItem?)list.SelectedItem);
+            }
             e.Handled = true;
             return;
         }
 
-        if (e.Key != Key.Down && e.Key != Key.Home && e.Key != Key.End &&
-            e.Key != Key.Left && e.Key != Key.Right && e.Key != Key.Tab && e.Key != Key.PageDown && e.Key != Key.PageUp)
-            tx.Focus();
+        if (e.Key == Key.Apps || (e.Key == Key.F10 && e.KeyModifiers == KeyModifiers.Shift))
+        {
+            var button = list.ContainerFromIndex(list.SelectedIndex)?.GetVisualDescendants().OfType<Button>().FirstOrDefault();
+            button?.ContextFlyout?.ShowAt(button);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Up && e.KeyModifiers == KeyModifiers.None
+            && (ReferenceEquals(list, PinnedList) || list.SelectedIndex <= 0))
+        {
+            if (ReferenceEquals(list, dataGrid) && PinnedList.IsEffectivelyVisible && PinnedList.Items.Count > 0)
+                FocusItem(PinnedList, Math.Max(0, PinnedList.Items.IndexOf(_lastPinnedItem)));
+            else
+                tx.Focus();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Down && e.KeyModifiers == KeyModifiers.None && ReferenceEquals(list, PinnedList))
+        {
+            FocusItem(dataGrid, 0);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is Key.Up or Key.Down or Key.Left or Key.Right or Key.Home or Key.End or Key.Tab
+            or Key.PageDown or Key.PageUp or Key.Escape or Key.LeftShift or Key.RightShift
+            or Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin
+            or >= Key.F1 and <= Key.F24) return;
+
+        // The original event route still points at the list after focus changes.
+        tx.Focus();
+        e.Handled = true;
+        tx.RaiseEvent(new KeyEventArgs
+        {
+            RoutedEvent = KeyDownEvent,
+            Key = e.Key,
+            KeyModifiers = e.KeyModifiers,
+            PhysicalKey = e.PhysicalKey,
+            KeySymbol = e.KeySymbol
+        });
+    }
+
+    private void SearchItems_OnTextInput(object? sender, TextInputEventArgs e)
+    {
+        tx.Focus();
+        e.Handled = true;
+        tx.RaiseEvent(new TextInputEventArgs { RoutedEvent = TextInputEvent, Text = e.Text });
     }
 
     private void InputElement_OnKeyDown(object? sender, KeyEventArgs e)
@@ -172,6 +222,7 @@ public partial class SearchWindow : Window
         }
 
         IsVisible = false;
+        e.Handled = true;
     }
 
     private void SearchItem_OnClick(object? sender, RoutedEventArgs e)
@@ -191,7 +242,9 @@ public partial class SearchWindow : Window
 
     private void HorizonScroll(object? sender, PointerWheelEventArgs pointerWheelEventArgs)
     {
-        if (sender is ScrollViewer scrollViewer)
+        var scrollViewer = sender as ScrollViewer
+                           ?? (sender as ListBox)?.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+        if (scrollViewer is not null)
         {
             // 获取滚轮滚动的增量值
             var delta = pointerWheelEventArgs.Delta.Y;

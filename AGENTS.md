@@ -60,6 +60,7 @@ The desktop feature catalog is in `src/Kitopia.Desktop.Features/Services/Plugin/
 - Windows is the primary desktop target. Linux has platform adapters but does not have every Windows feature.
 - Android mobile focuses on device chat and file transfers. The Android project targets API 36 with minimum API 23 and produces APKs. iOS has a host project but is not packaged by the current release pipeline.
 - OCR and semantic matching run locally with models and a usable ONNX backend. Translation and online markets use network services.
+- Desktop translation defaults to the free Index-Translate online API (Index-Translate-35B-A3B); Microsoft Translator remains selectable through `KitopiaConfig.translationProvider`. Selection translation and KitopiaEx translation entries share the selected host service.
 - Desktop update checks exclude prereleases by default. `KitopiaConfig.allowPrereleaseUpdates` enables them; both GitHub's prerelease flag and the NuGet version label are checked, and draft releases are always excluded.
 - Device discovery uses IPv4/IPv6 UDP multicast on port `49526`. Data transport currently supports TCP with TLS and device public-key certificate validation; the current transport enum does not expose QUIC.
 - Device communication is independent of account login. Clipboard sending is handled by the chat UI and platform contracts; do not assume the removed clipboard message API still exists.
