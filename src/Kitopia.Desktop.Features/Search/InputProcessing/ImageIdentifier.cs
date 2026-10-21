@@ -10,7 +10,7 @@ namespace Kitopia.Desktop.Features.Search.InputProcessing;
 
 public class ImageIdentifier : IInputDataIdentifier
 {
-    private static ILogger Logger = LogManager.Logger.ForContext<ImageIdentifier>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext<ImageIdentifier>();
 
     public IEnumerable<PluginCore.SearchWindow.InputData.InputData> IdentifyInputData(
         InputDataAnalyzeTimeFlags analyzeTimeFlags, string? s)
@@ -26,13 +26,11 @@ public class ImageIdentifier : IInputDataIdentifier
                 DisposeAction = e =>
                 {
                     var objData = e.Data as Mat;
-                    objData.Dispose();
+                    objData?.Dispose();
                 }
             };
             yield return identifyInputData;
             
         }
-
-        yield break;
     }
 }
