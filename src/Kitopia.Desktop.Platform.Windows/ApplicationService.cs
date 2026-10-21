@@ -1,3 +1,4 @@
+using System.Globalization;
 using Kitopia.Feature.Localization;
 using Avalonia.Controls.Notifications;
 using Kitopia.Desktop.Features.Services;
@@ -143,7 +144,7 @@ public class ApplicationService : IApplicationService {
             Logger.Information($"发现新版本:{latestVersion}");
             var dialog = new DialogContent {
                 Title = Lang.Format("lang.kitopia.messages.kitopia_update_new_version_value", latestVersion),
-                Content = Lang.Format("lang.kitopia.messages.new_version_value_is_available_download_now_release_notes_value", latestVersion, releaseNotes ?? "无更新说明"),
+                Content = Lang.Format("lang.kitopia.messages.new_version_value_is_available_download_now_release_notes_value", latestVersion, releaseNotes ?? Lang.Get("lang.kitopia.no_release_notes")),
                 PrimaryButtonText = Lang.Get("lang.kitopia.download_and_update"),
                 SecondaryButtonText = Lang.Get("lang.kitopia.cancel"),
                 PrimaryAction = async void () => {
@@ -218,6 +219,110 @@ public class ApplicationService : IApplicationService {
         }
 
         return continueUpdate;
+    }
+
+    internal static async Task<string?> TranslateReleaseNotesAsync(
+        string? releaseNotes,
+        ITranslationService? translationService = null,
+        string? configuredLanguage = null,
+        CultureInfo? fallbackCulture = null)
+    {
+        if (string.IsNullOrWhiteSpace(releaseNotes))
+        {
+            return releaseNotes;
+        }
+
+        translationService ??= ServiceManager.Services?.GetService<ITranslationService>();
+        if (translationService is null)
+        {
+            return releaseNotes;
+        }
+
+        try
+        {
+            var targetLanguage = GetTranslationTargetLanguage(configuredLanguage, fallbackCulture);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var translated = await translationService.TranslateAsync(
+                releaseNotes,
+                TranslationSourceLanguage.Auto,
+                targetLanguage,
+                cts.Token).ConfigureAwait(false);
+
+            return string.IsNullOrWhiteSpace(translated) ? releaseNotes : translated;
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning(ex, "Failed to translate release notes to current language.");
+            return releaseNotes;
+        }
+    }
+
+    internal static Task<string?> TranslateReleaseNotesAsync(
+        string? releaseNotes,
+        ITranslationService? translationService,
+        CultureInfo fallbackCulture)
+        => TranslateReleaseNotesAsync(releaseNotes, translationService, null, fallbackCulture);
+
+    internal static TranslationTargetLanguage GetTranslationTargetLanguage(
+        string? configuredLanguage = null,
+        CultureInfo? fallbackCulture = null)
+    {
+        var lang = configuredLanguage;
+        if (string.IsNullOrWhiteSpace(lang))
+        {
+            lang = ConfigManger.Config?.language;
+        }
+
+        CultureInfo culture;
+        if (!string.IsNullOrWhiteSpace(lang))
+        {
+            try
+            {
+                culture = CultureInfo.GetCultureInfo(lang);
+            }
+            catch (CultureNotFoundException)
+            {
+                culture = fallbackCulture ?? Lang.Current.Culture;
+            }
+        }
+        else
+        {
+            culture = fallbackCulture ?? Lang.Current.Culture;
+        }
+
+        return MapCultureToTargetLanguage(culture);
+    }
+
+    internal static TranslationTargetLanguage GetTranslationTargetLanguage(CultureInfo culture)
+        => MapCultureToTargetLanguage(culture);
+
+    private static TranslationTargetLanguage MapCultureToTargetLanguage(CultureInfo culture)
+    {
+        var name = culture.Name;
+        if (name.StartsWith("zh", StringComparison.OrdinalIgnoreCase))
+        {
+            if (name.Contains("TW", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("HK", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("MO", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("Hant", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("CHT", StringComparison.OrdinalIgnoreCase))
+            {
+                return TranslationTargetLanguage.TraditionalChinese;
+            }
+            return TranslationTargetLanguage.SimplifiedChinese;
+        }
+
+        if (culture.TwoLetterISOLanguageName.Equals("ja", StringComparison.OrdinalIgnoreCase))
+        {
+            return TranslationTargetLanguage.Japanese;
+        }
+
+        if (culture.TwoLetterISOLanguageName.Equals("en", StringComparison.OrdinalIgnoreCase))
+        {
+            return TranslationTargetLanguage.English;
+        }
+
+        return TranslationTargetLanguage.SimplifiedChinese;
     }
 
     private static string ResolveExecutablePath() {
