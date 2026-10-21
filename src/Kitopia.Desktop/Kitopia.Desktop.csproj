@@ -211,4 +211,8 @@
               SkipUnchangedFiles="true" />
     </Target>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="KitopiaTest" />
+    </ItemGroup>
+
 </Project>

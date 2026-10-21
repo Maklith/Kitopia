@@ -799,4 +799,10 @@ public sealed class MouseHotKeyTests
         public bool IsActive(string uuid) => throw new NotSupportedException();
         public IEnumerable<HotKeyModel> GetAllRegistered() => throw new NotSupportedException();
     }
+
+    [TestMethod]
+    public void FormatWindow_ZeroHandle_ReturnsNullString()
+    {
+        Assert.AreEqual("null", SelectionTranslationService.FormatWindow(0));
+    }
 }
