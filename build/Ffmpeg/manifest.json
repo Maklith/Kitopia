@@ -1,12 +1,13 @@
 {
-  "version": "N-127203-ga35c879992",
-  "releaseUrl": "https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-10-05-13-07",
+  "version": "N-127790-g56dbd4cd37",
+  "releaseUrl": "https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest",
   "license": "LGPL-3.0-or-later",
   "runtimes": {
     "win-x64": {
-      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-05-13-07/ffmpeg-N-127203-ga35c879992-win64-lgpl-shared.zip",
-      "sha256": "17c80fdc5c8f59f24c2275b3f33ef9cded8fd789120dbd36d0ca91b30403ed4f",
-      "archiveRoot": "ffmpeg-N-127203-ga35c879992-win64-lgpl-shared"
+      "path": "build/Ffmpeg/ffmpeg-master-latest-win64-lgpl-shared.zip",
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip",
+      "sha256": "4dafaa2b5bf7bd6c6267e5a7c322a4d3ac495886e44e080c4df5810499592275",
+      "archiveRoot": "ffmpeg-master-latest-win64-lgpl-shared"
     },
     "win-arm64": {
       "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-05-13-07/ffmpeg-N-127203-ga35c879992-winarm64-lgpl-shared.zip",

@@ -1,8 +1,9 @@
 # Bundled FFmpeg Tools and Native Libraries
 
 Kitopia uses FFmpeg.AutoGen 9.0.1.1 and unmodified BtbN LGPL shared libraries.
-`manifest.json` pins binary URLs and SHA256 checksums. The build downloads
-only precompiled binary archives into `.fallout/temp/ffmpeg`, verifies them, and extracts
+`manifest.json` pins binary locations, URLs and SHA256 checksums. The build checks
+for local precompiled archives (under `build/Ffmpeg/` or configured via `path` in `manifest.json`)
+first before downloading into `.fallout/temp/ffmpeg`, verifies SHA256 checksums, and extracts
 the matching native DLLs, `ffmpeg.exe` and `ffprobe.exe` into
 `artifacts/ffmpeg/<rid>/tools/ffmpeg`.
 

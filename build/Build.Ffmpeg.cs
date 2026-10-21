@@ -62,15 +62,17 @@ partial class Build
             Log.Information("Reusing existing FFmpeg bundle for {Runtime}", runtime);
         else
         {
-            using var handler = new HttpClientHandler { UseProxy = !IsRelease };
-            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
-            var archivePath = await DownloadFfmpegArchiveAsync(client, binary);
+            var archivePath = await ResolveFfmpegArchiveAsync(binary, runtime);
             using var archive = ZipFile.OpenRead(archivePath);
-            var prefix = binary.GetProperty("archiveRoot").GetString() + "/";
+            var archiveRoot = binary.TryGetProperty("archiveRoot", out var rootProp) && !string.IsNullOrWhiteSpace(rootProp.GetString())
+                ? rootProp.GetString()!
+                : (archive.Entries.FirstOrDefault(e => e.FullName.EndsWith("LICENSE.txt", StringComparison.OrdinalIgnoreCase))?.FullName[..^"LICENSE.txt".Length].TrimEnd('/')
+                   ?? throw new InvalidDataException("Missing FFmpeg license"));
+            var prefix = string.IsNullOrEmpty(archiveRoot) ? "" : archiveRoot + "/";
             var license = archive.GetEntry(prefix + "LICENSE.txt") ?? throw new InvalidDataException("Missing FFmpeg license");
             using (var reader = new StreamReader(license.Open()))
                 if (!(await reader.ReadToEndAsync()).Contains("GNU LESSER GENERAL PUBLIC LICENSE", StringComparison.Ordinal))
-                    throw new InvalidDataException("Downloaded FFmpeg does not carry the LGPL license.");
+                    throw new InvalidDataException("FFmpeg archive does not carry the LGPL license.");
 
             destination.DeleteDirectory();
             Directory.CreateDirectory(destination);
@@ -102,6 +104,50 @@ partial class Build
         File.Copy(RootDirectory / "LICENSE", Path.Combine(destination, "GPL-3.0.txt"), overwrite: true);
         File.Copy(RootDirectory / "build" / "Ffmpeg" / "README.md", Path.Combine(destination, "SOURCE.md"), overwrite: true);
         Log.Information("Bundled LGPL FFmpeg tools and native libraries for {Runtime} in {Directory}", runtime, destination);
+    }
+
+    async Task<string> ResolveFfmpegArchiveAsync(JsonElement asset, string runtime)
+    {
+        var checksum = asset.TryGetProperty("sha256", out var checksumProp) ? checksumProp.GetString() : null;
+
+        string localPath = null;
+        if (asset.TryGetProperty("path", out var pathProp) && !string.IsNullOrWhiteSpace(pathProp.GetString()))
+        {
+            var configured = Path.IsPathRooted(pathProp.GetString())
+                ? (AbsolutePath)pathProp.GetString()!
+                : RootDirectory / pathProp.GetString();
+            if (File.Exists(configured))
+                localPath = configured;
+        }
+
+        if (localPath is null && asset.TryGetProperty("archiveRoot", out var rootProp) && !string.IsNullOrWhiteSpace(rootProp.GetString()))
+        {
+            var conventional = RootDirectory / "build" / "Ffmpeg" / (rootProp.GetString() + ".zip");
+            if (File.Exists(conventional))
+                localPath = conventional;
+        }
+
+        if (localPath is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(checksum))
+            {
+                await using var stream = File.OpenRead(localPath);
+                var actual = Convert.ToHexString(await SHA256.HashDataAsync(stream));
+                if (!actual.Equals(checksum, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException($"FFmpeg SHA256 verification failed for local archive {localPath}. Expected: {checksum}, Actual: {actual}");
+            }
+            Log.Information("Using local FFmpeg archive for {Runtime}: {Path}", runtime, localPath);
+            return localPath;
+        }
+
+        if (asset.TryGetProperty("url", out var urlProp) && !string.IsNullOrWhiteSpace(urlProp.GetString()))
+        {
+            using var handler = new HttpClientHandler { UseProxy = !IsRelease };
+            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
+            return await DownloadFfmpegArchiveAsync(client, asset);
+        }
+
+        throw new FileNotFoundException($"No local FFmpeg archive found and no URL configured for runtime {runtime}.");
     }
 
     async Task<string> DownloadFfmpegArchiveAsync(HttpClient client, JsonElement asset)
