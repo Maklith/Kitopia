@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <KitopiaVersion>1.2.0</KitopiaVersion>
+    <KitopiaVersion>1.2.1</KitopiaVersion>
     <AvaloniaVersion>12.1.2</AvaloniaVersion>
   </PropertyGroup>
 </Project>
