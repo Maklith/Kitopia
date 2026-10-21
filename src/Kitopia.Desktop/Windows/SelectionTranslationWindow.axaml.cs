@@ -5,16 +5,19 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Kitopia.Desktop.ViewModels;
+using PluginCore;
 
 namespace Kitopia.Desktop.Windows;
 
 public partial class SelectionTranslationWindow : Window
 {
+    private readonly IWindowTool _windowTool;
     private PixelPoint? _anchor;
 
-    public SelectionTranslationWindow(SelectionTranslationWindowViewModel viewModel)
+    public SelectionTranslationWindow(SelectionTranslationWindowViewModel viewModel, IWindowTool windowTool)
     {
         InitializeComponent();
+        _windowTool = windowTool;
         ViewModel = viewModel;
         DataContext = viewModel;
         SizeChanged += (_, _) =>
@@ -37,6 +40,9 @@ public partial class SelectionTranslationWindow : Window
         {
             PositionWindow();
         }
+        // Windows can clear WS_EX_TOPMOST while Avalonia still caches Topmost = true.
+        if (TryGetPlatformHandle()?.Handle is { } handle)
+            _windowTool.SetWindowTopMost(handle, true, showOverlay: false);
     }
 
     public void SetAnchor(PixelPoint? anchor)

@@ -203,7 +203,7 @@ public sealed class MouseHotKeyTests
             model.ProcessNames = scope == HotKeyProcessScope.Include ? ["WINWORD.exe", "code"] : ["notepad"];
             service.Register(model, _ => { });
             using var hook = new SimpleGlobalHook();
-            var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!));
+            var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!), new WindowToolServiceWindow());
             var translation = new SelectionTranslationService(hook, service, null!, null!, window);
             typeof(SelectionTranslationService).GetField("_currentSelection", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(translation, new TextSelectionSnapshot("selected text", 1, "WINWORD.EXE", null));
@@ -220,6 +220,30 @@ public sealed class MouseHotKeyTests
         });
 
     [TestMethod]
+    public Task SelectionTranslation_ShowAt_RestoresTopmostThroughWindowService() => RunAsync(_ =>
+    {
+        var windowTool = DispatchProxy.Create<IWindowTool, TranslationWindowToolProxy>();
+        var proxy = (TranslationWindowToolProxy)windowTool;
+        var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!), windowTool);
+        try
+        {
+            for (var index = 0; index < 3; index++)
+            {
+                if (index == 2) window.Hide();
+                window.ShowAt(new PixelPoint(400, 300));
+                Assert.AreEqual(index + 1, proxy.CallCount);
+                Assert.AreEqual(window.TryGetPlatformHandle()!.Handle, proxy.LastHandle);
+                Assert.IsTrue(window.IsVisible);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public Task SelectionTranslation_HiddenWindow_SameSelectionReopens(bool escape) => RunAsync(async hotkeys =>
@@ -228,7 +252,7 @@ public sealed class MouseHotKeyTests
         ConfigManger.Configs["KitopiaConfig"] = config;
         using var hook = new SimpleGlobalHook();
         var backend = new SelectionTranslationBackend();
-        var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!));
+        var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!), new WindowToolServiceWindow());
         var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window);
         service.Start();
         try
@@ -265,7 +289,7 @@ public sealed class MouseHotKeyTests
         ConfigManger.Configs["KitopiaConfig"] = config;
         using var hook = new SimpleGlobalHook();
         var backend = new SelectionTranslationBackend();
-        var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!));
+        var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!), new WindowToolServiceWindow());
         var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window);
         service.Start();
         try
@@ -308,7 +332,7 @@ public sealed class MouseHotKeyTests
                 return completed.Task.WaitAsync(token);
             }
         };
-        var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!));
+        var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!), new WindowToolServiceWindow());
         var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window);
         service.Start();
         try
@@ -756,6 +780,23 @@ public sealed class MouseHotKeyTests
             }
             return true;
         }, CancellationToken.None);
+    }
+
+    private class TranslationWindowToolProxy : DispatchProxy
+    {
+        public int CallCount { get; private set; }
+        public nint LastHandle { get; private set; }
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            Assert.AreEqual(nameof(IWindowTool.SetWindowTopMost), targetMethod!.Name);
+            Assert.HasCount(3, args!);
+            LastHandle = (nint)args[0]!;
+            Assert.IsTrue((bool)args[1]!);
+            Assert.IsFalse((bool)args[2]!, "Selection translation must not create interactive topmost overlays.");
+            CallCount++;
+            return null;
+        }
     }
 
     private sealed class SelectionTranslationBackend : ITextSelectionService, ITranslationService

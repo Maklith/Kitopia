@@ -224,8 +224,8 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
                     !string.IsNullOrWhiteSpace(snapshot.ProcessName);
                 _window.ViewModel.BeginTranslation(snapshot.Text, sourceLanguage, targetLanguage);
                 _window.ShowAt(releasePosition);
-                Logger.Debug("划词翻译显示窗口，进程：{ProcessName}，文本长度：{TextLength}，手动：{Manual}，请求：{RequestVersion}",
-                    snapshot.ProcessName, snapshot.Text.Length, manual, version);
+                Logger.Debug("划词翻译显示窗口，进程：{ProcessName}，文本长度：{TextLength}，手动：{Manual}，请求：{RequestVersion}，位置：{Position}，尺寸：{Bounds}",
+                    snapshot.ProcessName, snapshot.Text.Length, manual, version, _window.Position, _window.Bounds);
             });
 
             var translated = await _translationService.TranslateAsync(

@@ -122,10 +122,16 @@ public class WindowToolServiceWindow : IWindowTool
                 monitorInfo.rcMonitor.Top + monitorInfo.rcMonitor.Height / 4);
     }
 
-    public void SetWindowTopMost(IntPtr hWnd, bool topMost)
+    public void SetWindowTopMost(IntPtr hWnd, bool topMost) =>
+        SetWindowTopMost(hWnd, topMost, showOverlay: true);
+
+    public void SetWindowTopMost(IntPtr hWnd, bool topMost, bool showOverlay)
     {
         var hWndInsertAfter = topMost ? -1 : (HWND)((IntPtr)(-2));
-        User32.SetWindowPos(hWnd, hWndInsertAfter, 0, 0, 0, 0, User32.SetWindowPosFlags.SWP_NOMOVE | User32.SetWindowPosFlags.SWP_NOSIZE);
+        var flags = User32.SetWindowPosFlags.SWP_NOMOVE | User32.SetWindowPosFlags.SWP_NOSIZE;
+        if (!showOverlay) flags |= User32.SetWindowPosFlags.SWP_NOACTIVATE;
+        User32.SetWindowPos(hWnd, hWndInsertAfter, 0, 0, 0, 0, flags);
+        if (!showOverlay) return;
 
         Dispatcher.UIThread.Invoke(() =>
         {
