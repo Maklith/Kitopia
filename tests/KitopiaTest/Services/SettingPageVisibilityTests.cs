@@ -5,11 +5,15 @@ using Avalonia.Headless;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Desktop.Controls;
+using Kitopia.Desktop.Features.Services.Account;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
+using Kitopia.Desktop.Features.ViewModel.Account;
 using Kitopia.Desktop.Pages;
 using Kitopia.Feature.Localization;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +32,108 @@ public sealed class SettingPageVisibilityTests
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<Kitopia.Desktop.App>()
         .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia();
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task Settings_ThemeChanges_UpdateExistingCardsAndTabsAndKeepAccountCompact(bool initiallyDark)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SettingPageVisibilityTests));
+        await session.Dispatch(() =>
+        {
+            var originalServices = ServiceManager.Services;
+            var originalConfigs = ConfigManger.Configs;
+            using var provider = new ServiceCollection().AddSingleton<IAccountService, AccountService>()
+                .AddSingleton<AccountCardViewModel>().BuildServiceProvider();
+            ServiceManager.Services = provider;
+            ConfigManger.Configs = new Dictionary<string, ConfigBase>
+            {
+                ["KitopiaConfig"] = new KitopiaConfig { Name = "KitopiaConfig" }
+            };
+            var page = new SettingPage();
+            var window = new Window
+            {
+                Content = page, Width = 1100, Height = 760,
+                RequestedThemeVariant = initiallyDark ? ThemeVariant.Dark : ThemeVariant.Light
+            };
+            try
+            {
+                page.LoadAllConfigs();
+                window.Show();
+                var tabs = page.FindControl<StackPanel>("CategoryTabsPanel")!.Children.OfType<Button>().ToArray();
+                var card = page.GetLogicalDescendants().OfType<Border>().First(border =>
+                    border.Child is StackPanel stack && stack.Children.Count == 3 &&
+                    stack.Children[1] is Avalonia.Controls.Shapes.Rectangle);
+                var header = card.GetLogicalDescendants().OfType<TextBlock>().First();
+                var icon = card.GetLogicalDescendants().OfType<FontIcon>().First();
+                var iconBorder = (Border)icon.Parent!;
+                var divider = card.GetLogicalDescendants().OfType<Avalonia.Controls.Shapes.Rectangle>().First();
+                var account = page.GetLogicalDescendants().OfType<AccountCardControl>().Single();
+                var vm = provider.GetRequiredService<AccountCardViewModel>();
+
+                foreach (var dark in new[] { initiallyDark, !initiallyDark, initiallyDark })
+                {
+                    window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+                    Dispatcher.UIThread.RunJobs();
+                    foreach (var (key, actual) in new[]
+                             {
+                                 ("KitopiaCardBackgroundBrush", card.Background),
+                                 ("KitopiaCardBorderBrush", card.BorderBrush),
+                                 ("SemiColorText0", header.Foreground),
+                                 ("KitopiaPrimaryBrush", icon.Foreground),
+                                 ("KitopiaAvatarBackground", iconBorder.Background),
+                                 ("SemiColorBorder", divider.Fill),
+                                 ("KitopiaPrimaryLightBrush", tabs[0].Background),
+                                 ("KitopiaPrimaryBrush", tabs[0].Foreground),
+                                 ("SemiColorText0", tabs[1].Foreground)
+                             })
+                    {
+                        var expected = (ISolidColorBrush)page.FindResource(window.ActualThemeVariant, key)!;
+                        Assert.AreEqual(expected.Color, ((ISolidColorBrush)actual!).Color, key);
+                        Assert.AreEqual(expected.Opacity, actual.Opacity, key);
+                    }
+                    Assert.AreEqual(page.FindResource(window.ActualThemeVariant, "KitopiaCardBoxShadow"), card.BoxShadow);
+                    tabs[1].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Assert.AreEqual(((ISolidColorBrush)page.FindResource(window.ActualThemeVariant, "SemiColorFill0")!).Color,
+                        ((ISolidColorBrush)tabs[0].Background!).Color);
+                    Assert.AreEqual(((ISolidColorBrush)page.FindResource(window.ActualThemeVariant, "KitopiaPrimaryBrush")!).Color,
+                        ((ISolidColorBrush)tabs[1].Foreground!).Color);
+                    tabs[0].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+                    foreach (var width in new[] { 1100, 640 })
+                    foreach (var state in new[] { "signed-out", "authorizing", "signed-in" })
+                    {
+                        window.Width = width;
+                        vm.IsLoggedIn = state == "signed-in";
+                        vm.IsLoggingIn = state == "authorizing";
+                        vm.DisplayName = "Kitopia User";
+                        vm.UserName = "kitopia";
+                        vm.Email = "user@example.com";
+                        vm.PrimaryRole = "User";
+                        Dispatcher.UIThread.RunJobs();
+                        Assert.IsLessThanOrEqualTo(64.0, account.Bounds.Height,
+                            $"Account strip must stay compact: {width}/{state}.");
+                        var accountBorder = (Border)account.Content!;
+                        Assert.AreEqual(((ISolidColorBrush)page.FindResource(window.ActualThemeVariant, "KitopiaCardBackgroundBrush")!).Color,
+                            ((ISolidColorBrush)accountBorder.Background!).Color);
+                        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                        using var screenshot = window.CaptureRenderedFrame();
+                        Assert.IsNotNull(screenshot);
+                        var path = Path.Combine(TestContext.TestRunDirectory!, $"settings-theme-{dark}-{width}-{state}.png");
+                        screenshot.Save(path);
+                        TestContext.AddResultFile(path);
+                    }
+                }
+            }
+            finally
+            {
+                window.Close();
+                ConfigManger.Configs = originalConfigs;
+                ServiceManager.Services = originalServices;
+            }
+            return true;
+        }, CancellationToken.None);
+    }
 
     [TestMethod]
     public async Task ImageSaveDirectory_PickOrCancel_ShowsCurrentPathAndPersistsSelection()

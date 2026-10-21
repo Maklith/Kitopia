@@ -23,7 +23,7 @@
             <TextBox Grid.Column="1" Name="SearchBox"
                      Classes="clear-button"
                      Width="240" Height="34"
-                     CornerRadius="8"
+                     CornerRadius="6"
                      VerticalAlignment="Bottom"
                      PlaceholderText="{DynamicResource 'lang.kitopia.search_settings'}">
                 <TextBox.InnerLeftContent>

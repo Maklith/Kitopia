@@ -17,6 +17,7 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
@@ -230,10 +231,10 @@ public partial class SettingPage : UserControl
         var card = new Border
         {
             CornerRadius = new CornerRadius(12),
-            Background = Application.Current?.FindResource("KitopiaCardBackgroundBrush") as IBrush ?? Brushes.White,
-            BorderBrush = Application.Current?.FindResource("KitopiaCardBorderBrush") as IBrush ?? Brushes.LightGray,
+            [!Border.BackgroundProperty] = new DynamicResourceExtension("KitopiaCardBackgroundBrush"),
+            [!Border.BorderBrushProperty] = new DynamicResourceExtension("KitopiaCardBorderBrush"),
             BorderThickness = new Thickness(1),
-            BoxShadow = (BoxShadows)(Application.Current?.FindResource("KitopiaCardBoxShadow") ?? default(BoxShadows)),
+            [!Border.BoxShadowProperty] = new DynamicResourceExtension("KitopiaCardBoxShadow"),
             Padding = new Thickness(18, 16),
             Margin = new Thickness(0, 0, 0, 14)
         };
@@ -251,7 +252,7 @@ public partial class SettingPage : UserControl
             Width = 36,
             Height = 36,
             CornerRadius = new CornerRadius(8),
-            Background = Application.Current?.FindResource("KitopiaAvatarBackground") as IBrush ?? Brushes.LightBlue,
+            [!Border.BackgroundProperty] = new DynamicResourceExtension("KitopiaAvatarBackground"),
             Margin = new Thickness(0, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -259,7 +260,7 @@ public partial class SettingPage : UserControl
         {
             Glyph = symbol != 0 ? Convert.ToChar(symbol).ToString() : "\uF6AA",
             FontSize = 18,
-            Foreground = Application.Current?.FindResource("KitopiaPrimaryBrush") as IBrush ?? Brushes.Blue,
+            [!FontIcon.ForegroundProperty] = new DynamicResourceExtension("KitopiaPrimaryBrush"),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -271,7 +272,7 @@ public partial class SettingPage : UserControl
         {
             FontSize = 15,
             FontWeight = FontWeight.SemiBold,
-            Foreground = Application.Current?.FindResource("SemiColorText0") as IBrush ?? Brushes.Black
+            [!TextBlock.ForegroundProperty] = new DynamicResourceExtension("SemiColorText0")
         };
         disposables.Add(headerBlock.Bind(TextBlock.TextProperty, (BindingBase)new LangExtension(categoryKey).ProvideValue(null!)));
         textStack.Children.Add(headerBlock);
@@ -282,7 +283,7 @@ public partial class SettingPage : UserControl
             var subtitleBlock = new TextBlock
             {
                 FontSize = 12,
-                Foreground = Application.Current?.FindResource("SemiColorText2") as IBrush ?? Brushes.Gray,
+                [!TextBlock.ForegroundProperty] = new DynamicResourceExtension("SemiColorText2"),
                 TextWrapping = TextWrapping.Wrap
             };
             disposables.Add(subtitleBlock.Bind(TextBlock.TextProperty, (BindingBase)new LangExtension(descKey).ProvideValue(null!)));
@@ -293,7 +294,7 @@ public partial class SettingPage : UserControl
             var subtitleBlock = new TextBlock
             {
                 FontSize = 12,
-                Foreground = Application.Current?.FindResource("SemiColorText2") as IBrush ?? Brushes.Gray,
+                [!TextBlock.ForegroundProperty] = new DynamicResourceExtension("SemiColorText2"),
                 TextWrapping = TextWrapping.Wrap
             };
             disposables.Add(subtitleBlock.Bind(TextBlock.TextProperty, (BindingBase)new LangExtension(fallbackSubtitleKey).ProvideValue(null!)));
@@ -307,7 +308,7 @@ public partial class SettingPage : UserControl
         var divider = new Rectangle
         {
             Height = 1,
-            Fill = Application.Current?.FindResource("SemiColorBorder") as IBrush ?? Brushes.LightGray,
+            [!Rectangle.FillProperty] = new DynamicResourceExtension("SemiColorBorder"),
             Margin = new Thickness(0, 2, 0, 4)
         };
 
@@ -403,11 +404,6 @@ public partial class SettingPage : UserControl
 
     private void UpdatePillButtonStyles()
     {
-        var primaryBrush = Application.Current?.FindResource("KitopiaPrimaryBrush") as IBrush ?? Brushes.Blue;
-        var primaryLightBrush = Application.Current?.FindResource("KitopiaPrimaryLightBrush") as IBrush ?? Brushes.LightBlue;
-        var text0Brush = Application.Current?.FindResource("SemiColorText0") as IBrush ?? Brushes.Black;
-        var fill0Brush = Application.Current?.FindResource("SemiColorFill0") as IBrush ?? Brushes.Transparent;
-
         foreach (var btn in _pillButtons)
         {
             var cat = btn.Tag as string;
@@ -415,14 +411,14 @@ public partial class SettingPage : UserControl
 
             if (isSelected)
             {
-                btn.Background = primaryLightBrush;
-                btn.Foreground = primaryBrush;
+                btn[!Button.BackgroundProperty] = new DynamicResourceExtension("KitopiaPrimaryLightBrush");
+                btn[!Button.ForegroundProperty] = new DynamicResourceExtension("KitopiaPrimaryBrush");
                 btn.FontWeight = FontWeight.SemiBold;
             }
             else
             {
-                btn.Background = fill0Brush;
-                btn.Foreground = text0Brush;
+                btn[!Button.BackgroundProperty] = new DynamicResourceExtension("SemiColorFill0");
+                btn[!Button.ForegroundProperty] = new DynamicResourceExtension("SemiColorText0");
                 btn.FontWeight = FontWeight.Normal;
             }
         }
