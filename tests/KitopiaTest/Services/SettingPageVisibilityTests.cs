@@ -7,6 +7,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 using Kitopia.Desktop.Controls;
 using Kitopia.Desktop.Features.Services.Account;
@@ -77,7 +78,7 @@ public sealed class SettingPageVisibilityTests
                     Dispatcher.UIThread.RunJobs();
                     foreach (var (key, actual) in new[]
                              {
-                                 ("KitopiaCardBackgroundBrush", card.Background),
+                                 ("KSemiColorBackground4", card.Background),
                                  ("KitopiaCardBorderBrush", card.BorderBrush),
                                  ("SemiColorText0", header.Foreground),
                                  ("KitopiaPrimaryBrush", icon.Foreground),
@@ -93,6 +94,14 @@ public sealed class SettingPageVisibilityTests
                         Assert.AreEqual(expected.Opacity, actual.Opacity, key);
                     }
                     Assert.AreEqual(page.FindResource(window.ActualThemeVariant, "KitopiaCardBoxShadow"), card.BoxShadow);
+                    Assert.AreEqual(0.35, card.Background!.Opacity);
+                    var rowBackgrounds = card.GetVisualDescendants().OfType<Border>()
+                        .Where(border =>
+                            border.Name == "Root" && border.TemplatedParent is Avalonia.Controls.Primitives.ToggleButton { Name: "ToggleButton" } ||
+                            border.Name == "ExpanderContent" && border.TemplatedParent is Expander { Name: "Expander" }).ToArray();
+                    Assert.IsNotEmpty(rowBackgrounds);
+                    foreach (var rowBackground in rowBackgrounds)
+                        Assert.AreEqual(0.35, rowBackground.Background!.Opacity);
                     tabs[1].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     Assert.AreEqual(((ISolidColorBrush)page.FindResource(window.ActualThemeVariant, "SemiColorFill0")!).Color,
                         ((ISolidColorBrush)tabs[0].Background!).Color);
@@ -114,8 +123,9 @@ public sealed class SettingPageVisibilityTests
                         Assert.IsLessThanOrEqualTo(64.0, account.Bounds.Height,
                             $"Account strip must stay compact: {width}/{state}.");
                         var accountBorder = (Border)account.Content!;
-                        Assert.AreEqual(((ISolidColorBrush)page.FindResource(window.ActualThemeVariant, "KitopiaCardBackgroundBrush")!).Color,
+                        Assert.AreEqual(((ISolidColorBrush)page.FindResource(window.ActualThemeVariant, "KSemiColorBackground4")!).Color,
                             ((ISolidColorBrush)accountBorder.Background!).Color);
+                        Assert.AreEqual(0.35, accountBorder.Background!.Opacity);
                         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
                         using var screenshot = window.CaptureRenderedFrame();
                         Assert.IsNotNull(screenshot);

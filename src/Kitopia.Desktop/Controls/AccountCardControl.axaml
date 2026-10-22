@@ -8,7 +8,7 @@
              x:DataType="vm:AccountCardViewModel"
              x:Class="Kitopia.Desktop.Controls.AccountCardControl">
 
-    <Border Background="{DynamicResource KitopiaCardBackgroundBrush}"
+    <Border Background="{DynamicResource KSemiColorBackground4}"
             BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
             BorderThickness="1"
             CornerRadius="12"

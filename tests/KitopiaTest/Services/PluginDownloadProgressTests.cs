@@ -77,6 +77,7 @@ public sealed class PluginDownloadProgressTests
 
                 var bar = cards.GetVisualDescendants().OfType<ProgressBar>().Single(control => control.IsEffectivelyVisible);
                 var card = bar.GetVisualAncestors().OfType<Border>().First(control => control.Width == 390);
+                Assert.AreEqual(0.35, card.Background!.Opacity);
                 var barBounds = new Rect(bar.TranslatePoint(default, card)!.Value, bar.Bounds.Size);
                 Assert.IsTrue(new Rect(card.Bounds.Size).Contains(barBounds), $"Progress bounds {barBounds} exceed card bounds {card.Bounds.Size}; MinWidth={bar.MinWidth}.");
                 Assert.IsTrue(bar.Bounds.Height <= 4);

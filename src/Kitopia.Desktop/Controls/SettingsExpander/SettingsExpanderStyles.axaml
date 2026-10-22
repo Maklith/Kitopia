@@ -38,7 +38,7 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Name="Root"
-                        Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                        Background="{DynamicResource KSemiColorBackground4}"
                         BorderBrush="{DynamicResource SemiColorBorder}"
                         BorderThickness="1"
                         CornerRadius="{TemplateBinding CornerRadius}"
@@ -120,7 +120,7 @@
 
                         <Border Name="ExpanderContent"
                                 Margin="0,0,0,2"
-                                Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                                Background="{DynamicResource KSemiColorBackground4}"
                                 BorderBrush="{DynamicResource SemiColorBorder}"
                                 BorderThickness="1,0,1,1"
                                 CornerRadius="0,0,8,8"

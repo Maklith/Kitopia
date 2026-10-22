@@ -82,7 +82,7 @@
 
                 <!-- Empty State -->
                 <Border IsVisible="{Binding HasNoPlugins}"
-                        Background="{DynamicResource SemiColorBackground0}"
+                        Background="{DynamicResource KitopiaCardBackgroundBrush}"
                         BorderBrush="{DynamicResource SemiColorBorder}"
                         BorderThickness="1"
                         CornerRadius="8"

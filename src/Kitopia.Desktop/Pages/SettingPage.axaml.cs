@@ -231,7 +231,7 @@ public partial class SettingPage : UserControl
         var card = new Border
         {
             CornerRadius = new CornerRadius(12),
-            [!Border.BackgroundProperty] = new DynamicResourceExtension("KitopiaCardBackgroundBrush"),
+            [!Border.BackgroundProperty] = new DynamicResourceExtension("KSemiColorBackground4"),
             [!Border.BorderBrushProperty] = new DynamicResourceExtension("KitopiaCardBorderBrush"),
             BorderThickness = new Thickness(1),
             [!Border.BoxShadowProperty] = new DynamicResourceExtension("KitopiaCardBoxShadow"),

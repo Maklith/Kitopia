@@ -16,12 +16,10 @@
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="OnnxCanvasBrush" Color="#F5F6F8" />
                     <SolidColorBrush x:Key="OnnxCardBorderBrush" Color="#0F000000" />
                     <SolidColorBrush x:Key="OnnxControlBorderBrush" Color="#D1D5DB" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="OnnxCanvasBrush" Color="#181818" />
                     <SolidColorBrush x:Key="OnnxCardBorderBrush" Color="#14FFFFFF" />
                     <SolidColorBrush x:Key="OnnxControlBorderBrush" Color="#29FFFFFF" />
                 </ResourceDictionary>
@@ -75,7 +73,7 @@
             <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeCurrentForeground}" />
         </Style>
     </UserControl.Styles>
-    <Panel Background="{DynamicResource OnnxCanvasBrush}">
+    <Panel Background="Transparent">
         <ContentPresenter ZIndex="1" x:Name="DialogOvercover" />
         <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <Grid RowDefinitions="Auto,Auto,Auto" Margin="24" RowSpacing="24">
@@ -173,6 +171,7 @@
                 <Border Theme="{DynamicResource KitopiaCard}" Padding="0" ClipToBounds="True"
                         BorderBrush="{DynamicResource OnnxCardBorderBrush}">
                     <DataGrid x:Name="ModelsGrid" ItemsSource="{Binding Models}" MinHeight="200" BorderThickness="0"
+                              Background="Transparent" RowBackground="Transparent"
                               CanUserReorderColumns="True" CanUserResizeColumns="True" CanUserSortColumns="True"
                               HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                               HorizontalGridLinesBrush="{DynamicResource OnnxCardBorderBrush}"
@@ -181,6 +180,11 @@
                         <DataGrid.Resources>
                             <onnxModelManagerPage:PluginStrToPluginName x:Key="PluginStrToPluginName" />
                         </DataGrid.Resources>
+                        <DataGrid.Styles>
+                            <Style Selector="DataGridColumnHeader">
+                                <Setter Property="Background" Value="{DynamicResource KitopiaCardBackgroundBrush}" />
+                            </Style>
+                        </DataGrid.Styles>
                         <DataGrid.Columns>
                             <DataGridTemplateColumn Header="{DynamicResource 'lang.kitopia.model_name'}" Width="*" MinWidth="220"
                                                     SortMemberPath="ModelInfo.Model.Name">
