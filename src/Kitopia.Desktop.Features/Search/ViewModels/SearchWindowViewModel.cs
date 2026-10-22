@@ -131,7 +131,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             return;
         }
 
-        PreviewModeOverride = IsPreviewMode ? false : true;
+        PreviewModeOverride = !IsPreviewMode;
         UpdateDisplayMode();
     }
 
@@ -677,28 +677,20 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                         && !string.IsNullOrWhiteSpace(Search)
                         && Items.Any(SearchDisplayPolicy.IsPreviewCandidate);
 
-        if (!CanUsePreview)
-        {
-            IsPreviewMode = false;
-        }
-        else if (PreviewModeOverride is not null)
-        {
-            IsPreviewMode = PreviewModeOverride.Value;
-        }
-        else
-        {
-            IsPreviewMode = SearchDisplayPolicy.ShouldUsePreview(NowInSelectMode, Search, Items, _resultContexts);
-        }
+        IsPreviewMode = CanUsePreview
+                        && (PreviewModeOverride ?? SearchDisplayPolicy.ShouldUsePreview(NowInSelectMode, Search, Items, _resultContexts));
 
-        if (IsPreviewMode)
-        {
-            UpdatePreview(SelectedItem);
-        }
-        else
+        if (!IsPreviewMode)
         {
             _lastClickedPreviewItem = null;
-            UpdatePreview(null);
         }
+        else if (SelectedItem is null || !SearchDisplayPolicy.IsPreviewCandidate(SelectedItem)
+                                     || !ItemsViewList.Contains(SelectedItem))
+        {
+            SelectedItem = ItemsViewList.FirstOrDefault(SearchDisplayPolicy.IsPreviewCandidate)
+                           ?? ItemsViewList.FirstOrDefault();
+        }
+        UpdatePreview(SelectedItem);
     }
 
     private void UpdatePreview(SearchViewItem? item)
@@ -712,6 +704,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         if (FilePreview.SelectedPath == item.OnlyKey) return;
         _ = FilePreview.SetFilesAsync([item.OnlyKey]);
     }
+
     public void ClickItem(SearchViewItem item)
     {
         if (IsPreviewMode && SearchDisplayPolicy.IsPreviewCandidate(item))
@@ -735,7 +728,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     public void ActivateItem(SearchViewItem? item)
     {
         _lastClickedPreviewItem = null;
-        if (item is not null && IsPreviewMode && SearchDisplayPolicy.IsPreviewCandidate(item))
+        if (item is not null && IsPreviewMode && SearchDisplayPolicy.IsPreviewCandidate(item)
+            && !ReferenceEquals(item, SelectedItem))
         {
             SelectedItem = item;
             return;

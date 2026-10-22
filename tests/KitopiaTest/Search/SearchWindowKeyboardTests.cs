@@ -21,6 +21,7 @@ using Kitopia.Desktop.Services;
 using Kitopia.Desktop.Windows;
 using KitopiaEx.SearchWindow.InputDataAnalyzer;
 using Microsoft.Extensions.DependencyInjection;
+using ObservableCollections;
 using PluginCore;
 using PluginCore.Config;
 using PluginCore.SearchWindow.InputData;
@@ -131,7 +132,7 @@ public sealed class SearchWindowKeyboardTests
     [TestMethod]
     [DataRow(FileType.URL, false)]
     [DataRow(FileType.Word文档, true)]
-    public async Task Search_ResultsArriveAndInputRegainsFocus_LeavesBothListsUnselected(FileType fileType, bool preview)
+    public async Task Search_ResultsArrive_SelectsFirstResultOnlyInPreviewMode(FileType fileType, bool preview)
     {
         await RunAsync(async (window, model, services) =>
         {
@@ -156,33 +157,65 @@ public sealed class SearchWindowKeyboardTests
             Assert.HasCount(3, results.Items);
             Assert.AreEqual(preview, model.IsPreviewMode);
             Assert.IsTrue(input.IsFocused);
-            Assert.AreEqual(-1, results.SelectedIndex);
-            Assert.AreEqual(-1, shortcuts.SelectedIndex);
-            Assert.IsNull(model.SelectedItem);
-            Assert.AreEqual("", model.FilePreview.SelectedPath);
-
-            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
-            Assert.IsTrue(window.IsVisible);
-            Assert.IsNull(model.SelectedItem);
-            Assert.IsFalse(services.Opened.Task.IsCompleted);
-            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
-            Assert.AreEqual(0, results.SelectedIndex);
-            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
-            Dispatcher.UIThread.RunJobs();
-            Assert.IsTrue(input.IsFocused);
-            Assert.AreEqual(-1, results.SelectedIndex);
-            Assert.IsNull(model.SelectedItem);
-            Assert.AreEqual("", model.FilePreview.SelectedPath);
-
-            model.Items.Add(new SearchViewItem { ItemDisplayName = "Later result", IconSymbol = 0xF6EC });
-            Dispatcher.UIThread.RunJobs();
-            Assert.AreEqual(-1, results.SelectedIndex);
-            Assert.IsNull(model.SelectedItem);
             if (preview)
             {
+                Assert.AreEqual(0, results.SelectedIndex);
+                Assert.AreEqual(-1, shortcuts.SelectedIndex);
+                Assert.AreSame(model.Items[0], model.SelectedItem);
+                Assert.AreEqual(model.Items[0].OnlyKey, model.FilePreview.SelectedPath);
+
+                foreach (var showDocument in new[] { true, false })
+                {
+                    model.ItemsView.AttachFilter(item => showDocument && ReferenceEquals(item, model.Items[2]));
+                    Dispatcher.UIThread.RunJobs();
+                    model.TogglePreviewModeCommand.Execute(null);
+                    model.TogglePreviewModeCommand.Execute(null);
+                    Dispatcher.UIThread.RunJobs();
+                    var visible = showDocument ? model.Items[2] : null;
+                    Assert.AreSame(visible, model.SelectedItem);
+                    Assert.AreSame(visible, results.SelectedItem);
+                    Assert.AreEqual(visible?.OnlyKey ?? "", model.FilePreview.SelectedPath);
+                }
+                model.ItemsView.ResetFilter();
+                Dispatcher.UIThread.RunJobs();
                 model.TogglePreviewModeCommand.Execute(null);
+                model.TogglePreviewModeCommand.Execute(null);
+                Assert.AreSame(model.Items[0], model.SelectedItem);
+
+                var expected = model.Items[1];
+                results.SelectedItem = expected;
+                model.TogglePreviewModeCommand.Execute(null);
+                Assert.IsFalse(model.IsPreviewMode);
                 model.TogglePreviewModeCommand.Execute(null);
                 Assert.IsTrue(model.IsPreviewMode);
+                Assert.AreSame(expected, model.SelectedItem);
+
+                window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                Assert.AreSame(expected, await services.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+            }
+            else
+            {
+                Assert.AreEqual(-1, results.SelectedIndex);
+                Assert.AreEqual(-1, shortcuts.SelectedIndex);
+                Assert.IsNull(model.SelectedItem);
+                Assert.AreEqual("", model.FilePreview.SelectedPath);
+
+                window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                Assert.IsTrue(window.IsVisible);
+                Assert.IsNull(model.SelectedItem);
+                Assert.IsFalse(services.Opened.Task.IsCompleted);
+                window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                Assert.AreEqual(0, results.SelectedIndex);
+                window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(input.IsFocused);
+                Assert.AreEqual(-1, results.SelectedIndex);
+                Assert.IsNull(model.SelectedItem);
+                Assert.AreEqual("", model.FilePreview.SelectedPath);
+
+                model.Items.Add(new SearchViewItem { ItemDisplayName = "Later result", IconSymbol = 0xF6EC });
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(-1, results.SelectedIndex);
                 Assert.IsNull(model.SelectedItem);
             }
         });

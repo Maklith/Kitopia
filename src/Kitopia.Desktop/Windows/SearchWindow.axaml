@@ -141,6 +141,39 @@
         </ControlTheme>
     </Window.Resources>
     <Window.Styles>
+        <Style Selector="ListBox#dataGrid Image.search-item-icon">
+            <Setter Property="Width" Value="48" />
+            <Setter Property="Height" Value="48" />
+        </Style>
+        <Style Selector="ListBox#dataGrid controls1|FontIcon.search-item-icon">
+            <Setter Property="Width" Value="48" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="FontSize" Value="48" />
+        </Style>
+        <Style Selector="Window.preview ListBox#dataGrid Image.search-item-icon">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+        </Style>
+        <Style Selector="Window.preview ListBox#dataGrid controls1|FontIcon.search-item-icon">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="FontSize" Value="28" />
+        </Style>
+        <Style Selector="ListBox#dataGrid TextBlock.search-item-title">
+            <Setter Property="FontSize" Value="16" />
+        </Style>
+        <Style Selector="Window.preview ListBox#dataGrid TextBlock.search-item-title">
+            <Setter Property="FontSize" Value="14" />
+        </Style>
+        <Style Selector="ListBox#dataGrid TextBlock.search-item-subtitle">
+            <Setter Property="FontSize" Value="{DynamicResource SemiFontSizeSmall}" />
+        </Style>
+        <Style Selector="Window.preview ListBox#dataGrid TextBlock.search-item-subtitle">
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+        <Style Selector="Window.preview ListBox#dataGrid Button#Item">
+            <Setter Property="Padding" Value="8,4" />
+        </Style>
         <Style Selector="Window.preview > Panel">
             <Setter Property="MinHeight" Value="{Binding $parent[Window].MaxHeight}" />
         </Style>
@@ -333,6 +366,7 @@
                          SelectedItem="{Binding SelectedItem,Mode=TwoWay}"
                          SelectionChanged="SearchItems_OnSelectionChanged"
                          BorderThickness="0"
+                         Padding="6,4,2,4"
                          Background="Transparent"
                          MinHeight="0">
                     <ListBox.Styles>
@@ -390,7 +424,8 @@
                                             </MultiBinding.Bindings>
                                         </MultiBinding>
                                     </Grid.Width>
-                                    <Panel Width="28">
+                                    <Panel Width="28"
+                                           IsVisible="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IsPreviewMode, Converter={x:Static BoolConverters.Not}}">
                                         <controls1:PinButton KeyboardNavigation.TabNavigation="None" FontSize="26"
                                                              IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Pin'}"
                                                              Tag="{Binding IsPined}"
@@ -399,8 +434,8 @@
                                                              CommandParameter="{Binding}" Padding="2" />
                                     </Panel>
 
-                                    <Image Grid.Column="1" HorizontalAlignment="Left" Focusable="False" Width="48"
-                                           Height="48" ZIndex="1">
+                                    <Image Grid.Column="1" HorizontalAlignment="Left" Focusable="False" Classes="search-item-icon"
+                                           ZIndex="1">
                                         <Image.Source>
                                             <MultiBinding Converter="{StaticResource PathToImageConverter}">
                                                 <Binding Path="Icon" />
@@ -408,16 +443,16 @@
                                             </MultiBinding>
                                         </Image.Source>
                                     </Image>
-                                    <controls1:FontIcon Height="48" Width="48" FontSize="48" Grid.Column="1"
+                                    <controls1:FontIcon Grid.Column="1" Classes="search-item-icon"
                                                         IsVisible="{Binding IconSymbol, Converter={StaticResource SymbolToVisible}}"
                                                         FontFamily="{StaticResource FluentFont}"
                                                         Glyph="{Binding IconSymbol,Converter={StaticResource IntToIconSymbol}}" />
 
-                                    <StackPanel Grid.Column="2" Margin="8,4" VerticalAlignment="Top"
+                                    <StackPanel Grid.Column="2" Margin="8,2" VerticalAlignment="Center"
                                                 HorizontalAlignment="Stretch">
-                                        <TextBlock VerticalAlignment="Center" Margin="0" Focusable="False"
+                                        <TextBlock Classes="search-item-title" VerticalAlignment="Center" Margin="0" Focusable="False"
                                                    Foreground="{DynamicResource SemiColorText0}"
-                                                   FontWeight="Normal" FontSize="16">
+                                                   FontWeight="Normal" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ItemDisplayName}">
                                             <TextBlock.Inlines>
                                                 <MultiBinding Converter="{StaticResource ItemNameMatchCtr}">
                                                     <Binding Path="PinyinItem" />
@@ -426,9 +461,9 @@
                                             </TextBlock.Inlines>
                                             <Run />
                                         </TextBlock>
-                                        <TextBlock VerticalAlignment="Top" Margin="0"
+                                        <TextBlock Classes="search-item-subtitle" VerticalAlignment="Top" Margin="0"
                                                    Foreground="{DynamicResource SemiColorText1}"
-                                                   FontWeight="Normal" FontSize="{DynamicResource SemiFontSizeSmall}"
+                                                   FontWeight="Normal" TextTrimming="CharacterEllipsis"
                                                    Text="{Binding Path=FileType}" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" Focusable="False"
@@ -489,7 +524,12 @@
                               IsVisible="{Binding IsPreviewMode}" Background="{DynamicResource SemiColorBorder}" />
 
                 <Border Grid.Column="2" IsVisible="{Binding IsPreviewMode}"
-                        MinHeight="0" ClipToBounds="True" Padding="8">
+                        MinHeight="0" ClipToBounds="True" Margin="2,4,8,6"
+                        Background="{DynamicResource SemiColorBackground0}"
+                        CornerRadius="8"
+                        BorderBrush="{DynamicResource SemiColorBorder}"
+                        BorderThickness="1"
+                        Padding="8">
                     <controls1:FilePreviewControl Name="FilePreviewSurface" DataContext="{Binding FilePreview}" />
                 </Border>
             </Grid>

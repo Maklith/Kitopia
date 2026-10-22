@@ -33,6 +33,7 @@ public partial class SearchWindow : Window
         tx.GotFocus += (_, e) =>
         {
             if (!ReferenceEquals(e.Source, tx)) return;
+            if (DataContext is SearchWindowViewModel { IsPreviewMode: true }) return;
             PinnedList.SelectedIndex = -1;
             dataGrid.SelectedIndex = -1;
         };
