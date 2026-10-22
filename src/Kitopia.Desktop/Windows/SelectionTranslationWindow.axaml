@@ -43,7 +43,7 @@
     <Border Margin="10"
             Padding="16"
             CornerRadius="10"
-            Background="{DynamicResource KitopiaCardBackgroundBrush}"
+            Background="{DynamicResource KitopiaWindowOpaqueBackground}"
             BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
             BorderThickness="1"
             BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
