@@ -142,6 +142,7 @@ public class ApplicationService : IApplicationService {
         var (hasUpdate, latestVersion, downloadUrl, releaseNotes) = await gitHubUpdateService!.CheckForUpdatesAsync();
         if (hasUpdate && !string.IsNullOrEmpty(downloadUrl)) {
             Logger.Information($"发现新版本:{latestVersion}");
+            releaseNotes = await TranslateReleaseNotesAsync(releaseNotes);
             var dialog = new DialogContent {
                 Title = Lang.Format("lang.kitopia.messages.kitopia_update_new_version_value", latestVersion),
                 Content = Lang.Format("lang.kitopia.messages.new_version_value_is_available_download_now_release_notes_value", latestVersion, releaseNotes ?? Lang.Get("lang.kitopia.no_release_notes")),
