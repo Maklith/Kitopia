@@ -402,6 +402,89 @@ public sealed class FilePreviewInteractionTests
         foreach (var screenshot in screenshots) TestContext.AddResultFile(screenshot);
     }
 
+    [TestMethod]
+    public async Task FilePreviewControl_FolderAndZipNavigation_OpensSubfolderAndNavigatesUp()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(FilePreviewInteractionTests));
+        await session.Dispatch(async () =>
+        {
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+            var gb18030 = System.Text.Encoding.GetEncoding("GB18030");
+            var archivePath = Path.Combine(_directory, "B站【大鱼DIY】3D打印机_朱雀V1.04全套资料.zip");
+            using (var archive = System.IO.Compression.ZipFile.Open(archivePath, System.IO.Compression.ZipArchiveMode.Create, gb18030))
+            {
+                using var stream = archive.CreateEntry("B站【大鱼DIY】3D打印机_朱雀V1.04全套资料/打印件/损坏预览图.png").Open();
+                stream.Write([0, 1, 2]);
+            }
+
+            using var model = new MouseQuickWindowViewModel();
+            var control = new FilePreviewControl { DataContext = model };
+            var window = new Window { Content = control, Width = 640, Height = 480 };
+            try
+            {
+                window.Show();
+                await model.SetFilesAsync([archivePath]);
+                Dispatcher.UIThread.RunJobs();
+
+                var navBar = control.FindControl<Border>("NavigationBar")!;
+                var navUpButton = control.FindControl<Button>("NavigateUpButton")!;
+                var openButton = control.FindControl<Button>("OpenUnsupportedFileButton")!;
+                var confirmExtractButton = control.FindControl<Button>("ConfirmArchiveExtractButton")!;
+                var dontAskCheckBox = control.FindControl<CheckBox>("DontAskArchiveExtractCheckBox")!;
+                Assert.IsTrue(navBar.IsEffectivelyVisible);
+                Assert.IsNotNull(model.Entries);
+                Assert.AreEqual("B站【大鱼DIY】3D打印机_朱雀V1.04全套资料", model.Entries[0].Name);
+
+                await model.OpenEntryCommand.ExecuteAsync(model.Entries[0]);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsNotNull(model.Entries);
+                Assert.AreEqual("打印件", model.Entries[0].Name);
+
+                await model.OpenEntryCommand.ExecuteAsync(model.Entries[0]);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsNotNull(model.Entries);
+                Assert.AreEqual("损坏预览图.png", model.Entries[0].Name);
+
+                await model.OpenEntryCommand.ExecuteAsync(model.Entries[0]);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(model.IsArchiveExtractPromptVisible);
+                Assert.IsTrue(confirmExtractButton.IsEffectivelyVisible);
+                Assert.IsTrue(dontAskCheckBox.IsEffectivelyVisible);
+                Assert.IsFalse(openButton.IsEffectivelyVisible);
+
+                await model.ConfirmArchiveExtractCommand.ExecuteAsync(null);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsFalse(model.IsArchiveExtractPromptVisible);
+                Assert.IsNotNull(model.Message);
+                Assert.IsTrue(openButton.IsEffectivelyVisible);
+                Assert.AreSame(model.OpenFileCommand, openButton.Command);
+                Assert.IsTrue(File.Exists(model.SelectedPath));
+
+                await model.NavigateUpCommand.ExecuteAsync(null);
+                await model.NavigateUpCommand.ExecuteAsync(null);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsNotNull(model.Entries);
+                Assert.AreEqual("打印件", model.Entries[0].Name);
+
+                navUpButton.Command!.Execute(null);
+                Dispatcher.UIThread.RunJobs();
+                for (var attempt = 0; attempt < 20 && model.Entries?.FirstOrDefault()?.Name != "B站【大鱼DIY】3D打印机_朱雀V1.04全套资料"; attempt++)
+                {
+                    await Task.Delay(25);
+                    Dispatcher.UIThread.RunJobs();
+                }
+                Assert.IsNotNull(model.Entries);
+                Assert.AreEqual("B站【大鱼DIY】3D打印机_朱雀V1.04全套资料", model.Entries[0].Name);
+            }
+            finally
+            {
+                control.DataContext = null;
+                window.Close();
+            }
+            return true;
+        }, CancellationToken.None);
+    }
+
     private class PreviewWindowServicesProxy : DispatchProxy
     {
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => targetMethod!.Name switch

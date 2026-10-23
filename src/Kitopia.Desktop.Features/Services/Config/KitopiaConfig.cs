@@ -339,6 +339,9 @@ public class KitopiaConfig : ConfigBase
 
     public List<string> mouseQuickItems = new();
 
+    [ConfigField("lang.kitopia.skip_archive_extract_prompt", "lang.kitopia.skip_archive_extract_prompt_description", 0xE5F3, ConfigFieldType.布尔)]
+    public bool skipArchiveExtractPrompt = false;
+
     [ConfigFieldCategory("lang.kitopia.screenshot", 0xF255)]
     [ConfigField("lang.kitopia.screenshot_hotkey", "lang.kitopia.edit_screenshot_hotkey", 0xF255, ConfigFieldType.快捷键, actionName: "screenShotHotKeyAction")]
     public HotKeyModel screenShotHotKey = new()

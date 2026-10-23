@@ -701,7 +701,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             return;
         }
 
-        if (FilePreview.SelectedPath == item.OnlyKey) return;
+        if (FilePreview.CurrentRootPath == item.OnlyKey) return;
         _ = FilePreview.SetFilesAsync([item.OnlyKey]);
     }
 

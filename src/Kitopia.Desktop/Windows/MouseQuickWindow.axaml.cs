@@ -104,6 +104,10 @@ public partial class MouseQuickWindow : Window
                 Close();
                 e.Handled = true;
                 break;
+            case Key.Back when _viewModel?.NavigateUpCommand.CanExecute(null) == true:
+                _viewModel.NavigateUpCommand.Execute(null);
+                e.Handled = true;
+                break;
             case Key.Left when _viewModel?.PreviousCommand.CanExecute(null) == true:
                 _viewModel.PreviousCommand.Execute(null);
                 e.Handled = true;

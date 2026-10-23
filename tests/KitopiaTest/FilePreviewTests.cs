@@ -187,4 +187,134 @@ public sealed class FilePreviewTests
         Assert.IsFalse(model.OpenFileCommand.CanExecute(null));
         Assert.IsFalse(model.NextCommand.CanExecute(null));
     }
+
+    [TestMethod]
+    public async Task LoadAsync_ZipWithGb18030EntryNames_DecodesChineseAndNavigatesHierarchy()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var gb18030 = Encoding.GetEncoding("GB18030");
+        var path = Path.Combine(_directory, "B站【大鱼DIY】3D打印机_朱雀V1.04全套资料.zip");
+        using (var archive = ZipFile.Open(path, ZipArchiveMode.Create, gb18030))
+        {
+            archive.CreateEntry("B站【大鱼DIY】3D打印机_朱雀V1.04全套资料/");
+            archive.CreateEntry("B站【大鱼DIY】3D打印机_朱雀V1.04全套资料/打印件/");
+            using (var writer = new StreamWriter(
+                       archive.CreateEntry("B站【大鱼DIY】3D打印机_朱雀V1.04全套资料/打印件/说明.txt").Open(),
+                       gb18030))
+            {
+                writer.Write("朱雀V1.04组装说明");
+            }
+            using (var writer2 = new StreamWriter(
+                       archive.CreateEntry("B站【大鱼DIY】3D打印机_朱雀V1.04全套资料/打印件/补充.txt").Open(),
+                       gb18030))
+            {
+                writer2.Write("补充说明内容");
+            }
+        }
+
+        using var model = new MouseQuickWindowViewModel();
+        await model.SetFilesAsync([path]);
+        Assert.IsTrue(model.ShowNavigationBar);
+        Assert.IsNotNull(model.Entries);
+        Assert.AreEqual(1, model.Entries.Count);
+        Assert.AreEqual("B站【大鱼DIY】3D打印机_朱雀V1.04全套资料", model.Entries[0].Name);
+        Assert.IsTrue(model.Entries[0].IsDirectory);
+
+        await model.OpenEntryCommand.ExecuteAsync(model.Entries[0]);
+        Assert.IsNotNull(model.Entries);
+        Assert.AreEqual(1, model.Entries.Count);
+        Assert.AreEqual("打印件", model.Entries[0].Name);
+        Assert.IsTrue(model.Entries[0].IsDirectory);
+        Assert.IsTrue(model.CanNavigateUp);
+
+        await model.OpenEntryCommand.ExecuteAsync(model.Entries[0]);
+        Assert.IsNotNull(model.Entries);
+        Assert.AreEqual(2, model.Entries.Count);
+        var firstFile = model.Entries.Single(e => e.Name == "说明.txt");
+        Assert.IsFalse(firstFile.IsDirectory);
+
+        await model.OpenEntryCommand.ExecuteAsync(firstFile);
+        Assert.IsTrue(model.IsArchiveExtractPromptVisible);
+        Assert.IsFalse(model.ShowOpenFileButton);
+        Assert.IsNull(model.PreviewText);
+        Assert.AreEqual(path, model.SelectedPath);
+
+        await model.CancelArchiveExtractCommand.ExecuteAsync(null);
+        Assert.IsFalse(model.IsArchiveExtractPromptVisible);
+        Assert.IsNotNull(model.Entries);
+        Assert.AreEqual(2, model.Entries.Count);
+
+        await model.OpenEntryCommand.ExecuteAsync(model.Entries.Single(e => e.Name == "说明.txt"));
+        Assert.IsTrue(model.IsArchiveExtractPromptVisible);
+        model.DontAskArchiveExtractAgain = true;
+        await model.ConfirmArchiveExtractCommand.ExecuteAsync(null);
+        Assert.IsFalse(model.IsArchiveExtractPromptVisible);
+        Assert.AreEqual("朱雀V1.04组装说明", model.PreviewText);
+        Assert.AreNotEqual(path, model.SelectedPath);
+        Assert.IsTrue(File.Exists(model.SelectedPath));
+        Assert.IsTrue(model.ShowNavigationBar);
+        Assert.IsTrue(model.CanNavigateUp);
+
+        await model.NavigateUpCommand.ExecuteAsync(null);
+        Assert.IsNotNull(model.Entries);
+        var secondFile = model.Entries.Single(e => e.Name == "补充.txt");
+
+        await model.OpenEntryCommand.ExecuteAsync(secondFile);
+        Assert.IsFalse(model.IsArchiveExtractPromptVisible);
+        Assert.AreEqual("补充说明内容", model.PreviewText);
+
+        await model.NavigateUpCommand.ExecuteAsync(null);
+        await model.NavigateUpCommand.ExecuteAsync(null);
+        Assert.IsNotNull(model.Entries);
+        Assert.AreEqual("打印件", model.Entries[0].Name);
+
+        await model.NavigateUpCommand.ExecuteAsync(null);
+        Assert.IsNotNull(model.Entries);
+        Assert.AreEqual("B站【大鱼DIY】3D打印机_朱雀V1.04全套资料", model.Entries[0].Name);
+        Assert.AreEqual(path, model.SelectedPath);
+        Assert.IsFalse(model.CanNavigateUp);
+        Assert.IsFalse(model.NavigateUpCommand.CanExecute(null));
+    }
+
+    [TestMethod]
+    public async Task SetFilesAsync_Directory_NavigatesSubfoldersFilesAndParent()
+    {
+        var subFolder = Path.Combine(_directory, "子文件夹");
+        var nestedFile = Path.Combine(subFolder, "readme.txt");
+        Directory.CreateDirectory(subFolder);
+        await File.WriteAllTextAsync(nestedFile, "子目录文件内容", Encoding.UTF8);
+
+        using var model = new MouseQuickWindowViewModel();
+        await model.SetFilesAsync([_directory]);
+        Assert.IsTrue(model.ShowNavigationBar);
+        Assert.IsFalse(model.CanNavigateUp);
+        Assert.IsFalse(model.NavigateUpCommand.CanExecute(null));
+        Assert.IsNotNull(model.Entries);
+        var folderEntry = model.Entries.Single(entry => entry.Name == "子文件夹");
+        Assert.IsTrue(folderEntry.IsDirectory);
+
+        await model.OpenEntryCommand.ExecuteAsync(folderEntry);
+        Assert.AreEqual(subFolder, model.SelectedPath);
+        Assert.IsTrue(model.CanNavigateUp);
+        Assert.IsNotNull(model.Entries);
+        var fileEntry = model.Entries.Single(entry => entry.Name == "readme.txt");
+        Assert.IsFalse(fileEntry.IsDirectory);
+
+        await model.OpenEntryCommand.ExecuteAsync(fileEntry);
+        Assert.AreEqual(nestedFile, model.SelectedPath);
+        Assert.AreEqual("子目录文件内容", model.PreviewText);
+        Assert.IsTrue(model.ShowNavigationBar);
+        Assert.IsTrue(model.CanNavigateUp);
+
+        await model.NavigateUpCommand.ExecuteAsync(null);
+        Assert.AreEqual(subFolder, model.SelectedPath);
+        Assert.IsTrue(model.CanNavigateUp);
+        Assert.IsNotNull(model.Entries);
+
+        await model.NavigateUpCommand.ExecuteAsync(null);
+        Assert.AreEqual(_directory, model.SelectedPath);
+        Assert.IsFalse(model.CanNavigateUp);
+        Assert.IsFalse(model.NavigateUpCommand.CanExecute(null));
+        Assert.IsNotNull(model.Entries);
+    }
 }

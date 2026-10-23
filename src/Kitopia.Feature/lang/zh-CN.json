@@ -1132,5 +1132,11 @@
   "lang.kitopia.onnx.openvino_gpu_requirements": "需兼容的 Intel 集成或独立 GPU 及 Intel 显卡驱动。插件已包含 OpenVINO 运行库；安装或更新驱动后重启 Kitopia。",
   "lang.kitopia.onnx.openvino_npu_requirements": "需受支持的 Intel NPU（如带 NPU 的 Core Ultra）及 Intel NPU 驱动。插件已包含 OpenVINO 运行库；安装或更新驱动后重启 Kitopia。",
   "lang.kitopia.onnx.plugin_requirements": "环境要求请参阅对应插件的说明。旧版插件无法自动检测，可更新插件后重新检测。",
-  "lang.kitopia.onnx.compatibility_note": "可用表示已通过小型模型推理检测。具体模型还受算子、量化格式及显存限制；运行失败时可切换到 CPU。"
+  "lang.kitopia.onnx.compatibility_note": "可用表示已通过小型模型推理检测。具体模型还受算子、量化格式及显存限制；运行失败时可切换到 CPU。",
+  "lang.kitopia.navigate_up": "返回上一级",
+  "lang.kitopia.skip_archive_extract_prompt": "预览压缩包内文件时不再提示解压",
+  "lang.kitopia.skip_archive_extract_prompt_description": "点击压缩包内的文件时直接解压到临时目录并预览，不再弹出确认提示",
+  "lang.kitopia.messages.archive_extract_prompt": "预览压缩包内的文件需要将其解压到临时目录，是否继续解压并预览？",
+  "lang.kitopia.do_not_ask_again": "不再提醒",
+  "lang.kitopia.extract_and_preview": "解压并预览"
 }

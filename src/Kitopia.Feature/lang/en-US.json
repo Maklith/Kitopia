@@ -1132,5 +1132,11 @@
   "lang.kitopia.onnx.openvino_gpu_requirements": "Requires a supported Intel integrated or discrete GPU and Intel graphics drivers. The plugin includes OpenVINO libraries; restart Kitopia after installing or updating drivers.",
   "lang.kitopia.onnx.openvino_npu_requirements": "Requires a supported Intel NPU (such as an NPU-equipped Core Ultra) and Intel NPU drivers. The plugin includes OpenVINO libraries; restart Kitopia after installing or updating drivers.",
   "lang.kitopia.onnx.plugin_requirements": "See the plugin documentation for requirements. Older plugins cannot run automatic diagnostics; update the plugin and recheck.",
-  "lang.kitopia.onnx.compatibility_note": "Available means a small inference probe passed. Individual models also depend on operators, quantization formats and device memory; switch to CPU if a model fails."
+  "lang.kitopia.onnx.compatibility_note": "Available means a small inference probe passed. Individual models also depend on operators, quantization formats and device memory; switch to CPU if a model fails.",
+  "lang.kitopia.navigate_up": "Up one level",
+  "lang.kitopia.skip_archive_extract_prompt": "Skip extraction prompt when previewing archive files",
+  "lang.kitopia.skip_archive_extract_prompt_description": "Automatically extract archive files to a temporary folder for preview without asking",
+  "lang.kitopia.messages.archive_extract_prompt": "Previewing a file inside an archive requires extracting it to a temporary folder. Extract and preview?",
+  "lang.kitopia.do_not_ask_again": "Don't ask again",
+  "lang.kitopia.extract_and_preview": "Extract and preview"
 }

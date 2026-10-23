@@ -9,6 +9,14 @@ public sealed record FilePreviewContent(
     string? Text = null,
     IReadOnlyList<FilePreviewEntry>? Entries = null,
     string? NativePath = null,
-    string? Notice = null);
+    string? Notice = null,
+    string? CurrentDirectoryPath = null,
+    bool RequiresArchiveExtraction = false,
+    string? ExtractedPath = null);
 
-public sealed record FilePreviewEntry(string Name, string Details, bool IsDirectory);
+public sealed record FilePreviewEntry(
+    string Name,
+    string Details,
+    bool IsDirectory,
+    string? TargetPath = null,
+    string? ArchiveEntryPath = null);
