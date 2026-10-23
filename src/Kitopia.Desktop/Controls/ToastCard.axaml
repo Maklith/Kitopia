@@ -41,7 +41,7 @@
     </UserControl.Styles>
 
     <Border x:Name="ToastCardBorder"
-            Background="{DynamicResource KitopiaCardBackgroundBrush}"
+            Background="{DynamicResource KitopiaToastBackgroundBrush}"
             BorderBrush="{DynamicResource SemiColorBorder}"
             BorderThickness="1"
             CornerRadius="8"

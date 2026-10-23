@@ -17,6 +17,7 @@
 
     <SolidColorBrush x:Key="KitopiaCardBackgroundBrush" Color="#FFFFFF" Opacity="0.35" />
     <SolidColorBrush x:Key="KitopiaCardHoverBackgroundBrush" Color="#F9FAFB" Opacity="0.45" />
+    <SolidColorBrush x:Key="KitopiaToastBackgroundBrush" Color="#FFFFFF" Opacity="0.75" />
     <SolidColorBrush x:Key="KitopiaCardBorderBrush" Color="#0F000000" />
     <SolidColorBrush x:Key="KitopiaCardHoverBorderBrush" Color="#22000000" />
     <BoxShadows x:Key="KitopiaCardBoxShadow">0 1 3 0 #0A000000, 0 2 8 0 #05000000</BoxShadows>

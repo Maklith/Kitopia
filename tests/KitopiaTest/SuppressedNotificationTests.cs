@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -299,6 +300,11 @@ public sealed class SuppressedNotificationTests
                     var icon = card.FindControl<PathIcon>("ToastIcon")!;
                     Assert.AreSame(card.FindResource($"NotificationCard{type}IconPathData"), icon.Data);
                     Assert.AreEqual(45d, card.GetVisualDescendants().OfType<ProgressBar>().Single().Value);
+                    var background = (ISolidColorBrush)card.FindControl<Border>("ToastCardBorder")!.Background!;
+                    Assert.AreEqual(0.65, background.Opacity);
+                    var expectedBackground = (ISolidColorBrush)card.FindResource(
+                        dark ? ThemeVariant.Dark : ThemeVariant.Light, "KitopiaToastBackgroundBrush")!;
+                    Assert.AreEqual(expectedBackground.Color, background.Color);
                     var buttons = card.GetVisualDescendants().OfType<Button>()
                         .Where(button => button.Classes.Contains("toast-action")).ToArray();
                     Assert.HasCount(3, buttons);
