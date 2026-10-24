@@ -8,8 +8,6 @@
   "lang.kitopiaex.minimum_translation_text_length": "翻译功能最短显示字数",
   "lang.kitopiaex.show_translation_when_the_search_text_exceeds_this_length": "如果搜索内容字数超过该值,显示翻译功能",
   "lang.kitopiaex.ocr": "文字识别",
-  "lang.kitopiaex.use_server_ocr_model": "使用服务器版Ocr模型",
-  "lang.kitopiaex.use_the_server_ocr_model_for_improved_recognition": "使用服务器版Ocr模型,提供更好的识别效果",
   "lang.kitopiaex.image_save_directory": "图片保存目录",
   "lang.kitopiaex.image_save_directory_description": "保存图片和截图的目录",
   "lang.kitopiaex.bitmapsource_image": "图像BitmapSource",

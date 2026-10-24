@@ -19,10 +19,6 @@ public class Config : ConfigBase
     [ConfigField("lang.kitopiaex.minimum_translation_text_length", "lang.kitopiaex.show_translation_when_the_search_text_exceeds_this_length", 0xF57E, ConfigFieldType.整数, null, 1000, 5, 5)]
     public int TranslateMinCount =20;
     
-    [ConfigFieldCategory("lang.kitopiaex.ocr", 0xEA72)]
-    [ConfigField("lang.kitopiaex.use_server_ocr_model", "lang.kitopiaex.use_the_server_ocr_model_for_improved_recognition", 0xEA72, ConfigFieldType.布尔)]
-    public bool UseServerOcrRecModel = false;
-
     [ConfigFieldCategory("lang.kitopiaex.image", 0xF489)]
     [ConfigField("lang.kitopiaex.image_save_directory", "lang.kitopiaex.image_save_directory_description", 0xF419, ConfigFieldType.目录)]
     public string ImageSaveDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");

@@ -8,8 +8,6 @@
   "lang.kitopiaex.minimum_translation_text_length": "Minimum translation text length",
   "lang.kitopiaex.show_translation_when_the_search_text_exceeds_this_length": "Show translation when the search text exceeds this length",
   "lang.kitopiaex.ocr": "OCR",
-  "lang.kitopiaex.use_server_ocr_model": "Use server OCR model",
-  "lang.kitopiaex.use_the_server_ocr_model_for_improved_recognition": "Use the server OCR model for improved recognition",
   "lang.kitopiaex.image_save_directory": "Image save directory",
   "lang.kitopiaex.image_save_directory_description": "Directory for saved images and screenshots",
   "lang.kitopiaex.bitmapsource_image": "BitmapSource image",
