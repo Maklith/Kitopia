@@ -61,6 +61,7 @@ The desktop feature catalog is in `src/Kitopia.Desktop.Features/Services/Plugin/
 - Android mobile focuses on device chat and file transfers. The Android project targets API 36 with minimum API 23 and produces APKs. iOS has a host project but is not packaged by the current release pipeline.
 - OCR and semantic matching run locally with models and a usable ONNX backend. Translation and online markets use network services.
 - Desktop translation defaults to the free Index-Translate online API (Index-Translate-35B-A3B); Microsoft Translator remains selectable through `KitopiaConfig.translationProvider`. Selection translation and KitopiaEx translation entries share the selected host service.
+- Selection translation uses the host's `ISelectionTextTranslator` contract. Every Index-Translate selection uses one API request with the same dictionary/translation system instructions and completed examples localized to the target language. The model returns pronunciation, parts of speech, meanings and a bilingual example for words, fixed phrases, idioms and proper names; sentences, truncated clauses, lists and paragraphs receive only a translation. There is no separate classification request or length/word-count mode switch. Ordinary `PluginCore.ITranslationService` calls and Microsoft selection translation keep their normal translation response.
 - Desktop update checks exclude prereleases by default. `KitopiaConfig.allowPrereleaseUpdates` enables them; both GitHub's prerelease flag and the NuGet version label are checked, and draft releases are always excluded.
 - Device discovery uses IPv4/IPv6 UDP multicast on port `49526`. Data transport currently supports TCP with TLS and device public-key certificate validation; the current transport enum does not expose QUIC.
 - Device communication is independent of account login. Clipboard sending is handled by the chat UI and platform contracts; do not assume the removed clipboard message API still exists.
@@ -131,7 +132,7 @@ Consult the source for exact signatures instead of maintaining a duplicate metho
 
 ## 6. Build and Verification
 
-Run commands from the repository root unless stated otherwise. Use .NET 10 SDK. Android requires the Android workload and SDK; iOS requires the corresponding workload, macOS and Xcode. Full solution builds include mobile and Windows packaging projects, so choose a project for routine checks.
+Run commands from the repository root unless stated otherwise. The root `global.json` selects the latest installed stable .NET 10 SDK feature band; use the same SDK in the IDE and CLI so incremental builds agree on generated runtime configuration files. Android requires the Android workload and SDK; iOS requires the corresponding workload, macOS and Xcode. Full solution builds include mobile and Windows packaging projects, so choose a project for routine checks.
 
 ### Targeted .NET Builds
 

@@ -171,7 +171,9 @@ internal class Program {
         services.AddSingleton<IMouseQuickWindowService, MouseQuickWindowService>();
         services.AddSingleton<IndexTranslationService>();
         services.AddSingleton<BingTranslationService>();
-        services.AddSingleton<ITranslationService, TranslationService>();
+        services.AddSingleton<TranslationService>();
+        services.AddSingleton<ITranslationService>(provider => provider.GetRequiredService<TranslationService>());
+        services.AddSingleton<ISelectionTextTranslator>(provider => provider.GetRequiredService<TranslationService>());
 #if WINDOWS
         services.AddSingleton<ExplorerFileSelection>();
         services.AddSingleton<SimpleGlobalHook>();

@@ -47,7 +47,7 @@
             BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
             BorderThickness="1"
             BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="12">
+        <Grid RowDefinitions="Auto,Auto,2*,3*,Auto" RowSpacing="12">
             <Grid ColumnDefinitions="*,Auto" PointerPressed="TitleBar_OnPointerPressed">
                 <StackPanel Spacing="2">
                     <TextBlock Text="{DynamicResource 'lang.kitopia.selection_translation'}"

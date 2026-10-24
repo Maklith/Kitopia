@@ -13,6 +13,54 @@ namespace KitopiaTest.Services;
 public sealed class TranslationServiceTests
 {
     [TestMethod]
+    [DataRow("Models", TranslationSourceLanguage.Auto, TranslationTargetLanguage.SimplifiedChinese, "自动检测", "简体中文")]
+    [DataRow("Hugging Face", TranslationSourceLanguage.Auto, TranslationTargetLanguage.SimplifiedChinese, "自动检测", "简体中文")]
+    [DataRow("Hugging\u00a0Face", TranslationSourceLanguage.English, TranslationTargetLanguage.Japanese, "英语", "日语")]
+    [DataRow("New York Times", TranslationSourceLanguage.Auto, TranslationTargetLanguage.English, "自动检测", "英语")]
+    [DataRow("look forward to", TranslationSourceLanguage.Auto, TranslationTargetLanguage.TraditionalChinese, "自动检测", "繁体中文")]
+    [DataRow("一期一会", TranslationSourceLanguage.Japanese, TranslationTargetLanguage.English, "日语", "英语")]
+    [DataRow("The links below provide 2B, 9B,", TranslationSourceLanguage.English, TranslationTargetLanguage.SimplifiedChinese, "英语", "简体中文")]
+    [DataRow("The links below provide", TranslationSourceLanguage.Auto, TranslationTargetLanguage.SimplifiedChinese, "自动检测", "简体中文")]
+    [DataRow("I love you", TranslationSourceLanguage.English, TranslationTargetLanguage.SimplifiedChinese, "英语", "简体中文")]
+    [DataRow("你好吗？", TranslationSourceLanguage.Auto, TranslationTargetLanguage.English, "自动检测", "英语")]
+    [DataRow("我今天准备去公园", TranslationSourceLanguage.Auto, TranslationTargetLanguage.English, "自动检测", "英语")]
+    [DataRow("hello\nworld", TranslationSourceLanguage.Auto, TranslationTargetLanguage.SimplifiedChinese, "自动检测", "简体中文")]
+    [DataRow("This paragraph is longer than eighty characters and should always receive the same selection instructions", TranslationSourceLanguage.Auto, TranslationTargetLanguage.SimplifiedChinese, "自动检测", "简体中文")]
+    public async Task IndexTranslate_Selection_UsesOneRequestWithDictionaryAndTranslationInstructions(
+        string text, TranslationSourceLanguage source, TranslationTargetLanguage target, string sourceName, string targetName)
+    {
+        const string result = "原词\n/IPA/\n词性和释义\n例句和译文";
+        var requests = 0;
+        using var client = new HttpClient(new TestHandler(async (request, cancellationToken) =>
+        {
+            requests++;
+            using var payload = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
+            Assert.AreEqual(4096, payload.RootElement.GetProperty("max_tokens").GetInt32());
+            var messages = payload.RootElement.GetProperty("messages");
+            Assert.AreEqual("system", messages[0].GetProperty("role").GetString());
+            var instructions = messages[0].GetProperty("content").GetString()!;
+            StringAssert.Contains(instructions, $"原文语言为{sourceName}，目标语言为{targetName}");
+            StringAssert.Contains(instructions, "单词、固定短语、习语和专有名称输出词典条目");
+            StringAssert.Contains(instructions, "英语使用国际音标 IPA");
+            StringAssert.Contains(instructions, "句子、从句、被截断的句子、描述性片段、列表和段落只输出译文");
+            StringAssert.Contains(instructions, "不完整的句子不等于固定短语");
+            Assert.AreEqual("user", messages[messages.GetArrayLength() - 1].GetProperty("role").GetString());
+            Assert.AreEqual(text, messages[messages.GetArrayLength() - 1].GetProperty("content").GetString());
+            Assert.IsTrue(messages.EnumerateArray().Any(message => message.GetProperty("role").GetString() == "assistant" &&
+                message.GetProperty("content").GetString()!.Contains("/bʊks/", StringComparison.Ordinal)));
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(new
+                {
+                    choices = new[] { new { message = new { content = "<think></think>\n" + result } } }
+                }))
+            };
+        }));
+
+        Assert.AreEqual(result, await new IndexTranslationService(client).TranslateSelectionAsync(text, source, target));
+        Assert.AreEqual(1, requests, "Selection translation must never make a separate classification request.");
+    }
+    [TestMethod]
     [DataRow("{}")]
     [DataRow("{\"ConfigVersion\":4}")]
     public void TranslationProvider_MissingFromConfig_DefaultsToIndexTranslate(string json)
@@ -131,18 +179,25 @@ public sealed class TranslationServiceTests
     }
 
     [TestMethod]
-    public async Task IndexTranslate_BlankOrCancelledInput_DoesNotSendRequest()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task IndexTranslate_BlankOrCancelledInput_DoesNotSendRequest(bool selection)
     {
         using var client = new HttpClient(new TestHandler((_, _) => throw new AssertFailedException("Unexpected HTTP request.")));
         var service = new IndexTranslationService(client);
-        Assert.AreEqual(" \n", await service.TranslateAsync(" \n"));
+        Func<string, CancellationToken, Task<string>> translate = selection
+            ? (text, token) => service.TranslateSelectionAsync(text, cancellationToken: token)
+            : (text, token) => service.TranslateAsync(text, cancellationToken: token);
+        Assert.AreEqual(" \n", await translate(" \n", CancellationToken.None));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => service.TranslateAsync("hello", cancellationToken: cancellation.Token));
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => translate("hello", cancellation.Token));
     }
 
     [TestMethod]
-    public async Task IndexTranslate_CancelledDuringRequest_PropagatesCancellation()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task IndexTranslate_CancelledDuringRequest_PropagatesCancellation(bool selection)
     {
         var requested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var client = new HttpClient(new TestHandler(async (_, cancellationToken) =>
@@ -152,7 +207,10 @@ public sealed class TranslationServiceTests
             throw new AssertFailedException("Cancelled requests must not complete.");
         }));
         using var cancellation = new CancellationTokenSource();
-        var task = new IndexTranslationService(client).TranslateAsync("hello", cancellationToken: cancellation.Token);
+        var service = new IndexTranslationService(client);
+        var task = selection
+            ? service.TranslateSelectionAsync("Hugging Face", cancellationToken: cancellation.Token)
+            : service.TranslateAsync("hello", cancellationToken: cancellation.Token);
         await requested.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();
 
@@ -165,13 +223,16 @@ public sealed class TranslationServiceTests
         var config = new TestConfigService();
         var indexRequests = 0;
         var microsoftRequests = 0;
-        using var indexClient = new HttpClient(new TestHandler((_, _) =>
+        using var indexClient = new HttpClient(new TestHandler(async (request, cancellationToken) =>
         {
             indexRequests++;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            using var payload = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
+            var prompt = payload.RootElement.GetProperty("messages")[0].GetProperty("content").GetString()!;
+            Assert.AreEqual(indexRequests == 1, prompt.Contains("词典", StringComparison.Ordinal));
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("""{"choices":[{"message":{"content":"index"}}]}""")
-            });
+            };
         }));
         using var microsoftClient = new HttpClient(new TestHandler(async (request, cancellationToken) =>
         {
@@ -194,9 +255,10 @@ public sealed class TranslationServiceTests
             };
         }));
         var service = new TranslationService(config, new IndexTranslationService(indexClient), new BingTranslationService(microsoftClient));
-        Assert.AreEqual("index", await service.TranslateAsync("hello"));
+        ISelectionTextTranslator selectionTranslator = service;
+        Assert.AreEqual("index", await selectionTranslator.TranslateSelectionAsync("hello"));
         config.Config.translationProvider = TranslationProvider.Microsoft;
-        Assert.AreEqual("microsoft", await service.TranslateAsync("hello", TranslationSourceLanguage.English, TranslationTargetLanguage.TraditionalChinese));
+        Assert.AreEqual("microsoft", await selectionTranslator.TranslateSelectionAsync("hello", TranslationSourceLanguage.English, TranslationTargetLanguage.TraditionalChinese));
         config.Config.translationProvider = TranslationProvider.IndexTranslate;
         Assert.AreEqual("index", await service.TranslateAsync("hello"));
         Assert.AreEqual(2, indexRequests);
@@ -251,6 +313,36 @@ public sealed class TranslationServiceTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(translated));
         Assert.IsTrue(translated.Any(character => character is >= '\u4e00' and <= '\u9fff'));
         Console.WriteLine(translated);
+    }
+
+    [TestMethod]
+    [TestCategory("TranslationNetwork")]
+    [DataRow("Models", true)]
+    [DataRow("Hugging Face", true)]
+    [DataRow("look forward to", true)]
+    [DataRow("The links below provide 2B, 9B,", false)]
+    [DataRow("The links below provide", false)]
+    [DataRow("I love you", false)]
+    public async Task IndexTranslate_LiveSelection_DistinguishesTermsFromSentenceFragments(string text, bool dictionary)
+    {
+        if (Environment.GetEnvironmentVariable("KITOPIA_TRANSLATION_LIVE_TEST") != "1")
+            Assert.Inconclusive("Enable KITOPIA_TRANSLATION_LIVE_TEST to run the network smoke test.");
+
+        var translated = await new IndexTranslationService().TranslateSelectionAsync(text);
+        Console.WriteLine($"{text}:\n{translated}");
+        Assert.IsTrue(translated.Any(character => character is >= '\u4e00' and <= '\u9fff'));
+        if (dictionary)
+        {
+            StringAssert.Contains(translated, text);
+            Assert.IsTrue(translated.Contains('\n'));
+        }
+        else
+        {
+            Assert.IsFalse(translated.Contains("例句", StringComparison.Ordinal));
+            Assert.IsFalse(translated.Contains("音标", StringComparison.Ordinal));
+            Assert.IsFalse(translated.Contains("短语", StringComparison.Ordinal));
+            Assert.IsFalse(translated.Contains('\n'));
+        }
     }
 
     private sealed class TestConfigService : IConfigService

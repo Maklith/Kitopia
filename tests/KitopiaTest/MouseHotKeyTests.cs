@@ -6,11 +6,13 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.ViewModel.Pages;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
+using Kitopia.Desktop.Features.Translation;
 using Kitopia.Desktop.Platform.Windows;
 using Kitopia.Desktop.Controls;
 using Kitopia.Desktop.Abstractions.TextSelection;
@@ -280,6 +282,96 @@ public sealed class MouseHotKeyTests
             Dispatcher.UIThread.RunJobs();
             window.Close();
         }
+    });
+
+    [TestMethod]
+    public Task SelectionTranslation_DictionaryResponse_DisplaysDetailsAfterRetryAndLanguageChange() => RunAsync(async hotkeys =>
+    {
+        var config = new KitopiaConfig();
+        ConfigManger.Configs["KitopiaConfig"] = config;
+        using var hook = new SimpleGlobalHook();
+        const string dictionary = "serendipity\n/ˌserənˈdɪpəti/\n名词：机缘巧合\n例句：It was pure serendipity.\n这纯属机缘巧合。";
+        var backend = new SelectionTranslationBackend { Translate = _ => Task.FromResult(dictionary) };
+        var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!), new WindowToolServiceWindow());
+        var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window);
+        service.Start();
+        try
+        {
+            await service.TriggerAutomaticAsync(config.selectionTranslationAutoHotKey).WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(window.IsVisible);
+            Assert.AreEqual(dictionary, window.ViewModel.TranslatedText);
+
+            window.ViewModel.RetryCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.AreEqual(dictionary, window.ViewModel.TranslatedText);
+            Assert.AreEqual(2, backend.TranslationCount);
+
+            window.ViewModel.TargetLanguage = TranslationTargetLanguage.English;
+            Dispatcher.UIThread.RunJobs();
+            Assert.AreEqual(dictionary, window.ViewModel.TranslatedText);
+            Assert.AreEqual(3, backend.TranslationCount);
+            Assert.IsTrue(window.ViewModel.HasTranslation);
+            Assert.IsFalse(window.ViewModel.IsLoading);
+        }
+        finally
+        {
+            service.Stop();
+            Dispatcher.UIThread.RunJobs();
+            window.Close();
+        }
+    });
+
+    [TestMethod]
+    [DataRow(620)]
+    [DataRow(480)]
+    public Task SelectionTranslation_LongText_KeepsActionsVisibleAndContentScrollable(int maximumHeight) => RunAsync(_ =>
+    {
+        var viewModel = new SelectionTranslationWindowViewModel(null!);
+        var window = new SelectionTranslationWindow(viewModel, new WindowToolServiceWindow())
+        {
+            Width = 360,
+            MaxHeight = maximumHeight
+        };
+        var longText = string.Join('\n', Enumerable.Repeat("A long paragraph with enough text to wrap across multiple lines. 长文本滚动测试。", 40));
+        viewModel.BeginTranslation(longText, TranslationSourceLanguage.Auto, TranslationTargetLanguage.SimplifiedChinese);
+        viewModel.SetTranslatedText(longText);
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var copy = window.GetVisualDescendants().OfType<Button>()
+                .Single(button => button.Command == viewModel.CopyTranslationCommand);
+            var actionBar = (Control)copy.Parent!;
+            var actionPosition = actionBar.TranslatePoint(default, window)!.Value;
+            Assert.IsTrue(actionPosition.Y > 0);
+            Assert.IsTrue(actionPosition.Y + actionBar.Bounds.Height <= window.ClientSize.Height - 10,
+                "The bottom actions must fit inside the window, including its outer margin.");
+
+            var viewers = window.GetVisualDescendants().OfType<ScrollViewer>()
+                .Where(viewer => viewer.Content is TextBlock text && text.Classes.Contains("body")).ToArray();
+            Assert.HasCount(2, viewers);
+            foreach (var viewer in viewers)
+            {
+                Assert.IsTrue(viewer.Viewport.Height > 0);
+                Assert.IsTrue(viewer.Extent.Height > viewer.Viewport.Height);
+                var position = viewer.TranslatePoint(default, window)!.Value;
+                Assert.IsTrue(position.Y + viewer.Bounds.Height <= actionPosition.Y,
+                    "Scrollable text must not overlap the action bar.");
+                viewer.Offset = new Vector(0, viewer.Extent.Height);
+                Assert.IsTrue(viewer.Offset.Y > 0);
+            }
+
+            Dispatcher.UIThread.RunJobs();
+            using var frame = window.CaptureRenderedFrame();
+            frame?.Save(Path.Combine(Path.GetTempPath(), $"kitopia-selection-long-{maximumHeight}.png"));
+        }
+        finally
+        {
+            window.Close();
+        }
+        return Task.CompletedTask;
     });
 
     [TestMethod]
@@ -799,7 +891,7 @@ public sealed class MouseHotKeyTests
         }
     }
 
-    private sealed class SelectionTranslationBackend : ITextSelectionService, ITranslationService
+    private sealed class SelectionTranslationBackend : ITextSelectionService, ISelectionTextTranslator
     {
         public Func<CancellationToken, Task<string>> Translate { get; init; } = _ => Task.FromResult("translated text");
         public int TranslationCount { get; private set; }
@@ -814,7 +906,7 @@ public sealed class MouseHotKeyTests
                 "selected text", (nint)User32.GetForegroundWindow(), "selection-test", null));
         }
 
-        public Task<string> TranslateAsync(string text,
+        public Task<string> TranslateSelectionAsync(string text,
             TranslationSourceLanguage sourceLanguage = TranslationSourceLanguage.Auto,
             TranslationTargetLanguage targetLanguage = TranslationTargetLanguage.SimplifiedChinese,
             CancellationToken cancellationToken = default)

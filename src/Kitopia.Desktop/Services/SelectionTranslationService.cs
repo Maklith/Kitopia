@@ -9,6 +9,7 @@ using Kitopia.Desktop.Abstractions.TextSelection;
 using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
+using Kitopia.Desktop.Features.Translation;
 using Kitopia.Desktop.Windows;
 using Kitopia.Feature.Localization;
 using PluginCore;
@@ -29,7 +30,7 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
     private readonly SimpleGlobalHook _inputHook;
     private readonly IHotKetImpl _hotkeys;
     private readonly ITextSelectionService _selectionService;
-    private readonly ITranslationService _translationService;
+    private readonly ISelectionTextTranslator _translationService;
     private readonly SelectionTranslationWindow _window;
     private readonly SemaphoreSlim _selectionReadGate = new(1, 1);
     private CancellationTokenSource? _requestCancellation;
@@ -41,7 +42,7 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
         SimpleGlobalHook inputHook,
         IHotKetImpl hotkeys,
         ITextSelectionService selectionService,
-        ITranslationService translationService,
+        ISelectionTextTranslator translationService,
         SelectionTranslationWindow window)
     {
         _inputHook = inputHook;
@@ -228,7 +229,7 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
                     snapshot.ProcessName, snapshot.Text.Length, manual, version, _window.Position, _window.Bounds);
             });
 
-            var translated = await _translationService.TranslateAsync(
+            var translated = await _translationService.TranslateSelectionAsync(
                     snapshot.Text, sourceLanguage, targetLanguage, token)
                 .ConfigureAwait(false);
             Dispatcher.UIThread.Post(() =>
@@ -319,7 +320,7 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
         });
         try
         {
-            var translated = await _translationService.TranslateAsync(
+            var translated = await _translationService.TranslateSelectionAsync(
                     snapshot.Text, sourceLanguage, targetLanguage, token)
                 .ConfigureAwait(false);
             Dispatcher.UIThread.Post(() =>
