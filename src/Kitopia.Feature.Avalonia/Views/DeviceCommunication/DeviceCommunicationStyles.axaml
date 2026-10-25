@@ -1,5 +1,17 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Default">
+            <SolidColorBrush x:Key="KitopiaBadgeWarningBackground" Color="#FFF4CE" />
+            <SolidColorBrush x:Key="KitopiaBadgeWarningForeground" Color="#B74700" />
+            <SolidColorBrush x:Key="KitopiaBadgeWarningBorder" Color="#33B74700" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="KitopiaBadgeWarningBackground" Color="#33B74700" />
+            <SolidColorBrush x:Key="KitopiaBadgeWarningForeground" Color="#FFBD7A" />
+            <SolidColorBrush x:Key="KitopiaBadgeWarningBorder" Color="#66FFBD7A" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
     <SolidColorBrush x:Key="KSemiColorBackground4" Opacity="0.35" Color="{DynamicResource SemiBackground4Color}" />
 
     <ControlTheme x:Key="KitopiaCard" TargetType="Border">

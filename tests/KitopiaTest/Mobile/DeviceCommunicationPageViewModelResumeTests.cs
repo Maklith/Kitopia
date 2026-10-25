@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Threading.Channels;
 using Avalonia;
 using Avalonia.Controls;
@@ -32,6 +34,207 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<Kitopia.Desktop.App>()
         .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia();
+
+    [TestMethod]
+    public void LegacyCompatibility_EnableAndExternalSettingChange_UpdateAllConversationWarnings()
+    {
+        using var discovery = new FakeDiscoveryService(
+            new DiscoveredDevice { Id = "peer-1", DiscoveryProtocolVersion = new Version(0, 1) },
+            new DiscoveredDevice { Id = "peer-2", DiscoveryProtocolVersion = new Version(0, 1) });
+        var settings = new FakeDeviceCommunicationSettings { CanEnableLegacyDeviceCompatibility = true };
+        using var viewModel = new DeviceCommunicationPageViewModel(discovery, new FakeMessageAppService(),
+            new FakeChatAttachmentStore(), new FakeChatPlatformService(), settings, new FakeToastService(), postToUi: action => action());
+
+        Assert.IsTrue(viewModel.Conversations.All(item => item.IsLegacyDevice && item.CanEnableLegacyCompatibility));
+        viewModel.Conversations[0].EnableLegacyCompatibilityCommand!.Execute(null);
+        Assert.IsTrue(settings.EnableLegacyDeviceCompatibility);
+        Assert.IsTrue(viewModel.Conversations.All(item => item.IsLegacyCompatibilityEnabled && !item.CanEnableLegacyCompatibility));
+        Assert.IsFalse(viewModel.EnableLegacyCompatibilityCommand.CanExecute(null));
+
+        settings.EnableLegacyDeviceCompatibility = false;
+        viewModel.SyncDisplayContext();
+        Assert.IsTrue(viewModel.Conversations.All(item => !item.IsLegacyCompatibilityEnabled && item.CanEnableLegacyCompatibility));
+        Assert.IsTrue(viewModel.EnableLegacyCompatibilityCommand.CanExecute(null));
+    }
+
+    [TestMethod]
+    [DataRow("zh-CN", false)]
+    [DataRow("en-US", true)]
+    public async Task LegacyDeviceWarning_HoverAndEnable_ShowDetailsAndUpdateCompatibility(string language, bool dark)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(DeviceCommunicationPageViewModelResumeTests));
+        await session.Dispatch(async () =>
+        {
+            var originalLanguage = Lang.Current.Language;
+            Lang.Current.UseLanguage(language);
+            Application.Current!.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+            using var discovery = new FakeDiscoveryService(
+                new DiscoveredDevice { Id = "legacy", Name = "Older Windows PC", OperatingSystem = "Windows", DiscoveryProtocolVersion = new Version(0, 1) },
+                new DiscoveredDevice { Id = "current", Name = "Current Windows PC", OperatingSystem = "Windows", DiscoveryProtocolVersion = new Version(0, 2) },
+                new DiscoveredDevice { Id = "unknown", Name = "Unknown version" });
+            var settings = new FakeDeviceCommunicationSettings { CanEnableLegacyDeviceCompatibility = true };
+            using var viewModel = new DeviceCommunicationPageViewModel(discovery, new FakeMessageAppService(),
+                new FakeChatAttachmentStore(), new FakeChatPlatformService(), settings, new FakeToastService(), postToUi: action => action());
+            var page = new DeviceCommunicationPage { DataContext = viewModel };
+            var window = new Window { Width = 1000, Height = 760, Content = page };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var indicators = page.GetVisualDescendants().OfType<Button>().Where(button => button.Name == "LegacyDeviceWarning").ToArray();
+                Assert.AreEqual(3, indicators.Length);
+                var indicator = indicators.Single(button => button.IsEffectivelyVisible);
+                var openedCount = 0;
+                var closedCount = 0;
+                indicator.Flyout!.Opened += (_, _) => openedCount++;
+                indicator.Flyout.Closed += (_, _) => closedCount++;
+                window.MouseMove(indicator.TranslatePoint(new Point(14, 14), window)!.Value);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(indicator.Flyout!.IsOpen);
+                await Task.Delay(400);
+                Assert.IsTrue(indicator.Flyout.IsOpen, "A stationary pointer over the indicator must keep its card open.");
+                for (var index = 0; index < 5; index++)
+                {
+                    window.MouseMove(indicator.TranslatePoint(new Point(14 + index % 2, 14), window)!.Value);
+                    await Task.Delay(100);
+                }
+                Assert.IsTrue(indicator.IsPointerOver);
+                Assert.IsTrue(indicator.Flyout.IsOpen);
+                Assert.AreEqual(1, openedCount, "Small pointer movements over the indicator must not reopen the card.");
+                Assert.AreEqual(0, closedCount);
+                window.MouseMove(new Point(window.Width - 16, window.Height - 16));
+                await Task.Delay(350);
+                Assert.IsFalse(indicator.Flyout.IsOpen, "Leaving the indicator without entering the card must dismiss it.");
+                window.MouseMove(indicator.TranslatePoint(new Point(14, 14), window)!.Value);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(indicator.Flyout.IsOpen);
+                var content = (Control)((Flyout)indicator.Flyout).Content!;
+                var card = (Border)content;
+                Assert.AreEqual(page.FindResource(window.ActualThemeVariant, "KitopiaBadgeWarningBackground"), card.Background);
+                Assert.AreEqual(page.FindResource(window.ActualThemeVariant, "KitopiaBadgeWarningBorder"), card.BorderBrush);
+                Assert.AreEqual(page.FindResource(window.ActualThemeVariant, "KitopiaBadgeWarningForeground"),
+                    content.GetVisualDescendants().OfType<PathIcon>().Single().Foreground);
+                var enableButton = content.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "EnableLegacyCompatibilityButton");
+                Assert.IsTrue(enableButton.IsEffectivelyVisible);
+                Assert.IsNotNull(enableButton.Command);
+                Assert.AreEqual(StandardCursorType.Arrow.ToString(), card.Cursor?.ToString());
+                Assert.IsTrue(content.GetVisualDescendants().OfType<TextBlock>()
+                    .Where(text => !text.GetVisualAncestors().OfType<Button>().Any()).All(text =>
+                    text.Cursor?.ToString() == StandardCursorType.Arrow.ToString()));
+                Assert.AreEqual(StandardCursorType.Hand.ToString(), enableButton.Cursor?.ToString());
+                Assert.IsTrue(content.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == Lang.Format(
+                    "lang.kitopia.legacy_device_protocol_details", new Version(0, 1), new Version(0, 2))));
+
+                var popup = TopLevel.GetTopLevel(enableButton)!;
+                popup.UpdateLayout();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                var cardPosition = enableButton.TranslatePoint(new Point(10, 10), popup)!.Value;
+                popup.MouseMove(cardPosition);
+                Assert.IsTrue(card.IsPointerOver,
+                    $"Root: {popup.GetType().Name}; Position: {cardPosition}; Hit: {popup.GetVisualAt(cardPosition)}; Open: {indicator.Flyout.IsOpen}");
+                await Task.Delay(350);
+                Assert.IsTrue(indicator.Flyout.IsOpen, "Moving onto the card must keep its button accessible.");
+
+                popup.MouseMove(new Point(-20, -20));
+                window.MouseMove(new Point(window.Width - 16, window.Height - 16));
+                await Task.Delay(350);
+                Assert.IsFalse(indicator.Flyout.IsOpen, "Leaving both the indicator and the card must close it without a click.");
+
+                window.MouseMove(indicator.TranslatePoint(new Point(14, 14), window)!.Value);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(indicator.Flyout.IsOpen, "The card must reopen after automatic dismissal.");
+                popup = TopLevel.GetTopLevel(enableButton)!;
+                var screenshotDirectory = Path.Combine(AppContext.BaseDirectory, "TestResults", "legacy-device-warning");
+                Directory.CreateDirectory(screenshotDirectory);
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                using (var frame = popup.CaptureRenderedFrame())
+                {
+                    Assert.IsNotNull(frame);
+                    var screenshot = Path.Combine(screenshotDirectory, $"warning-{language}-{dark}.png");
+                    frame.Save(screenshot, PngBitmapEncoderOptions.Default);
+                    TestContext.AddResultFile(screenshot);
+                }
+
+                var position = enableButton.TranslatePoint(new Point(enableButton.Bounds.Width / 2, enableButton.Bounds.Height / 2), popup)!.Value;
+                popup.MouseMove(position);
+                popup.MouseDown(position, MouseButton.Left);
+                popup.MouseUp(position, MouseButton.Left);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(settings.EnableLegacyDeviceCompatibility);
+                Assert.IsFalse(enableButton.IsVisible);
+                Assert.IsTrue(content.GetVisualDescendants().OfType<TextBlock>().Any(text => text.IsEffectivelyVisible &&
+                    text.Text == Lang.Get("lang.kitopia.legacy_device_compatibility_enabled")));
+                window.Content = null;
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsFalse(indicator.Flyout.IsOpen, "Removing the page must close its hover card.");
+            }
+            finally
+            {
+                window.Close();
+                Lang.Current.UseLanguage(originalLanguage);
+            }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    [DataRow("eof", false, "zh-CN", "chat_send_connection_closed")]
+    [DataRow("eof", true, "zh-CN", "chat_send_connection_closed")]
+    [DataRow("reset", false, "zh-CN", "chat_send_connection_closed")]
+    [DataRow("reset", true, "zh-CN", "chat_send_connection_closed")]
+    [DataRow("refused", false, "zh-CN", "chat_send_device_unavailable")]
+    [DataRow("unreachable", false, "zh-CN", "chat_send_network_unavailable")]
+    [DataRow("timeout", false, "zh-CN", "chat_send_timed_out")]
+    [DataRow("socket-timeout", false, "zh-CN", "chat_send_timed_out")]
+    [DataRow("authentication", false, "zh-CN", "chat_send_authentication_failed")]
+    [DataRow("unknown", false, "zh-CN", "chat_send_failed_retry")]
+    [DataRow("eof", false, "en-US", "chat_send_connection_closed")]
+    [DataRow("timeout", false, "en-US", "chat_send_timed_out")]
+    public async Task SendMessage_Fails_ShowsLocalizedActionableError(
+        string failure, bool compatibilityEnabled, string language, string expectedKey)
+    {
+        var originalLanguage = Lang.Current.Language;
+        Lang.Current.UseLanguage(language);
+        try
+        {
+            const string rawError = "RAW TRANSPORT ERROR";
+            Exception exception = failure switch
+            {
+                "eof" => new IOException(rawError),
+                "reset" => new IOException(rawError, new SocketException((int)SocketError.ConnectionReset)),
+                "refused" => new SocketException((int)SocketError.ConnectionRefused),
+                "unreachable" => new SocketException((int)SocketError.HostUnreachable),
+                "timeout" => new TimeoutException(rawError),
+                "socket-timeout" => new IOException(rawError, new SocketException((int)SocketError.TimedOut)),
+                "authentication" => new AuthenticationException(rawError, new System.ComponentModel.Win32Exception()),
+                _ => new InvalidOperationException(rawError)
+            };
+            using var discovery = new FakeDiscoveryService();
+            var notifications = new FakeToastService();
+            using var viewModel = new DeviceCommunicationPageViewModel(discovery,
+                new FakeMessageAppService { SendException = exception },
+                new FakeChatAttachmentStore(), new FakeChatPlatformService(),
+                new FakeDeviceCommunicationSettings { EnableLegacyDeviceCompatibility = compatibilityEnabled },
+                notifications, postToUi: action => action());
+            viewModel.SelectedConversation = new DeviceConversationItem("peer-1");
+            viewModel.MessageText = "hello";
+
+            await viewModel.SendMessageCommand.ExecuteAsync(null);
+
+            var notification = await notifications.NotificationShown.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            StringAssert.Contains(notification.Text, Lang.Get("lang.kitopia." + expectedKey));
+            Assert.DoesNotContain(rawError, notification.Text);
+            Assert.AreEqual(!compatibilityEnabled && expectedKey == "chat_send_connection_closed",
+                notification.Text.Contains(Lang.Get("lang.kitopia.chat_send_legacy_compatibility_hint"), StringComparison.Ordinal));
+            var message = (DeviceChatMessageItem)viewModel.SelectedConversation.Messages.Single();
+            Assert.IsTrue(message.IsFailed);
+            Assert.IsFalse(message.IsPending);
+        }
+        finally
+        {
+            Lang.Current.UseLanguage(originalLanguage);
+        }
+    }
 
     [TestMethod]
     public void RefreshCurrentConversationView_NotifiesMessageBindings()
@@ -780,6 +983,7 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
 
     private sealed class FakeMessageAppService : IMessageAppService
     {
+        public Exception? SendException { get; init; }
         public Channel<DeviceMessageEvent> Events { get; } = Channel.CreateUnbounded<DeviceMessageEvent>();
         public Func<ValueTask>? AcceptAction { get; init; }
         public (string DeviceId, Guid TransferId)? CancelledTransfer { get; private set; }
@@ -802,7 +1006,8 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         public TaskCompletionSource<(string DeviceId, FileChatMessage Message, byte[] Content)> FileSent { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public ValueTask SendTextChatAsync(string deviceId, string text, CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
+        public ValueTask SendTextChatAsync(string deviceId, string text, CancellationToken cancellationToken = default) =>
+            SendException is { } exception ? ValueTask.FromException(exception) : ValueTask.CompletedTask;
         public async ValueTask SendFileChatAsync(string deviceId, FileChatMessage message, Stream stream, CancellationToken cancellationToken = default)
         {
             await using var content = new MemoryStream();
@@ -877,6 +1082,9 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
 
     private sealed class FakeDeviceCommunicationSettings : Kitopia.Feature.DeviceCommunication.Discovery.IDeviceCommunicationSettings
     {
+        public bool EnableLegacyDeviceCompatibility { get; set; }
+        public bool CanEnableLegacyDeviceCompatibility { get; init; }
+        public void EnableLegacyCompatibility() => EnableLegacyDeviceCompatibility = true;
         public string BroadcastName => "Fake";
         public string? GetCustomName(string publicKey) => null;
         public void SetCustomName(string publicKey, string name) { }

@@ -21,6 +21,19 @@ public sealed class DesktopDeviceCommunicationSettings : IDeviceCommunicationSet
 
     public string OperatingSystemName => _desktopPlatformInfo.OperatingSystemName;
 
+    public bool EnableLegacyDeviceCompatibility => _configService.Config.enableLegacyDeviceCompatibility;
+
+    public bool CanEnableLegacyDeviceCompatibility => true;
+
+    public void EnableLegacyCompatibility()
+    {
+        var config = _configService.Config;
+        if (config.enableLegacyDeviceCompatibility) return;
+        config.enableLegacyDeviceCompatibility = true;
+        config.OnConfigChanged(this, nameof(config.enableLegacyDeviceCompatibility), true);
+        _configService.Save("KitopiaConfig");
+    }
+
     public string? GetCustomName(string publicKey)
     {
         _configService.Config.deviceCustomNames ??= new();

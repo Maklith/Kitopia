@@ -8,6 +8,27 @@ namespace KitopiaTest.DeviceCommunication;
 public class DeviceCommunicationUiTextTests
 {
     [TestMethod]
+    [DataRow(null, false)]
+    [DataRow("0.1", true)]
+    [DataRow("0.2", false)]
+    [DataRow("0.3", false)]
+    public void DeviceConversationItem_ProtocolVersion_OnlyOlderKnownVersionsShowWarning(string? version, bool expected)
+    {
+        var conversation = new DeviceConversationItem("peer");
+        conversation.ApplyDevice(new DiscoveredDevice
+        {
+            Id = "peer", DiscoveryProtocolVersion = version is null ? null : Version.Parse(version)
+        });
+
+        Assert.AreEqual(expected, conversation.IsLegacyDevice);
+        if (expected)
+        {
+            StringAssert.Contains(conversation.LegacyDeviceDetails, version!);
+            StringAssert.Contains(conversation.LegacyDeviceDetails, DeviceDiscoveryService.CurrentProtocolVersion.ToString());
+        }
+    }
+
+    [TestMethod]
     public void DeviceConversationItem_StatusText_UsesChineseOnlineOffline()
     {
         var conversation = new DeviceConversationItem("device-1");

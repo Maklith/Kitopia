@@ -25,11 +25,60 @@ namespace KitopiaTest.DeviceCommunication;
 public sealed class DiscoveryToTransferMatrixTests
 {
     [TestMethod]
+    public void Discovery_Announcements_IncludeSignedCurrentAndLegacyCompatiblePayloads()
+    {
+        var identityStore = new FakeIdentityStore(CreateIdentity());
+        var identity = identityStore.EnsureIdentity();
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings { EnableLegacyDeviceCompatibility = true },
+            identityStore,
+            new FakeLocalDataEndpointProvider(23001));
+
+        var payloads = InvokePrivateResult<byte[][]>(discoveryService, "CreateAnnouncementPayloads", identity, 23001);
+        var announcements = payloads.Select(payload => JsonSerializer.Deserialize<DiscoveryInfo>(payload)!).ToArray();
+
+        CollectionAssert.AreEqual(new[] { "0.2", "0.1" }, announcements.Select(info => info.Version).ToArray());
+        var current = announcements[0];
+        var legacy = announcements[1];
+        Assert.IsTrue(DeviceDiscoverySignature.VerifyAnnouncement(current, current.TimestampUnixSeconds));
+        Assert.AreEqual(identity.PublicKey, current.PublicKey);
+        Assert.IsTrue(Version.Parse("0.1") >= Version.Parse(legacy.Version),
+            "The unchanged 0.1 version filter must accept the compatibility announcement.");
+        Assert.AreEqual("announce", legacy.MessageType);
+        Assert.AreEqual(identity.IdHash, legacy.Id);
+        Assert.AreEqual(current.Name, legacy.Name);
+        Assert.AreEqual(current.OperatingSystem, legacy.OperatingSystem);
+        Assert.AreEqual(current.TimestampUnixSeconds, legacy.TimestampUnixSeconds);
+        Assert.AreEqual(23001, legacy.TcpPort);
+        Assert.AreEqual(string.Empty, legacy.PublicKey);
+        Assert.AreEqual(string.Empty, legacy.Signature);
+        Assert.AreEqual(string.Empty, legacy.Nonce);
+    }
+
+    [TestMethod]
+    public void Discovery_CompatibilitySettingChanges_AffectNextAnnouncementPass()
+    {
+        var identityStore = new FakeIdentityStore(CreateIdentity());
+        var identity = identityStore.EnsureIdentity();
+        var settings = new FakeDeviceCommunicationSettings();
+        using var discoveryService = new DeviceDiscoveryService(settings, identityStore, new FakeLocalDataEndpointProvider(23001));
+
+        foreach (var enabled in new[] { false, true, false })
+        {
+            settings.EnableLegacyDeviceCompatibility = enabled;
+            var payloads = InvokePrivateResult<byte[][]>(discoveryService, "CreateAnnouncementPayloads", identity, 23001);
+            var versions = payloads.Select(payload => JsonSerializer.Deserialize<DiscoveryInfo>(payload)!.Version).ToArray();
+            CollectionAssert.AreEqual(enabled ? new[] { "0.2", "0.1" } : new[] { "0.2" }, versions);
+        }
+    }
+
+    [TestMethod]
     public void DeviceCommunicationSettings_DefaultOperatingSystemName_IsUnknown()
     {
         IDeviceCommunicationSettings settings = new SettingsWithDefaultOperatingSystemName();
 
         Assert.AreEqual("Unknown", settings.OperatingSystemName);
+        Assert.IsFalse(settings.EnableLegacyDeviceCompatibility);
     }
 
     [TestMethod]
@@ -435,6 +484,46 @@ public sealed class DiscoveryToTransferMatrixTests
     }
 
     [TestMethod]
+    public async Task Discovery_MixedVersionPackets_KeepHighestAuthenticatedVersionUntilListenerChanges()
+    {
+        var localIdentity = CreateIdentity();
+        using var discovery = new DeviceDiscoveryService(new FakeDeviceCommunicationSettings(),
+            new FakeIdentityStore(localIdentity), new FakeLocalDataEndpointProvider(23001));
+        var remoteIdentity = CreateIdentity();
+        var remoteHash = ComputePublicKeyHash(remoteIdentity.PublicKey);
+        var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
+        var legacy = CreateSignedAuthResponse(remoteIdentity, remoteHash, "legacy-nonce", 23002);
+        InvokePrivateVoid(discovery, "RegisterPendingAuthRequest", remoteHash, legacy.Nonce, IPAddress.Loopback);
+        await InvokePrivateTask(discovery, "HandleAuthResponseAsync", legacy, IPAddress.Loopback,
+            localIdentity.PublicKey, localHash, CancellationToken.None);
+        var device = discovery.Devices.Single();
+        Assert.AreEqual(new Version(0, 1), device.DiscoveryProtocolVersion);
+
+        var current = new DiscoveryInfo
+        {
+            MessageType = "announce", Version = "0.2", Id = remoteHash, PublicKey = remoteIdentity.PublicKey,
+            TcpPort = 23002, TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        };
+        Assert.IsTrue(DeviceDiscoverySignature.TrySign(current, remoteIdentity.PrivateKey, out var signature));
+        current.Signature = signature;
+        await InvokePrivateTask(discovery, "HandleAnnouncementAsync", current, IPAddress.Loopback, localHash, CancellationToken.None);
+        Assert.AreEqual(new Version(0, 2), device.DiscoveryProtocolVersion);
+
+        var compatibility = new DiscoveryInfo { MessageType = "announce", Version = "0.1", Id = remoteHash, TcpPort = 23002 };
+        await InvokePrivateTask(discovery, "HandleAnnouncementAsync", compatibility, IPAddress.Loopback, localHash, CancellationToken.None);
+        Assert.AreEqual(new Version(0, 2), device.DiscoveryProtocolVersion);
+
+        foreach (var port in new[] { 23002, 23003 })
+        {
+            var response = CreateSignedAuthResponse(remoteIdentity, remoteHash, Guid.NewGuid().ToString("N"), port);
+            InvokePrivateVoid(discovery, "RegisterPendingAuthRequest", remoteHash, response.Nonce, IPAddress.Loopback);
+            await InvokePrivateTask(discovery, "HandleAuthResponseAsync", response, IPAddress.Loopback,
+                localIdentity.PublicKey, localHash, CancellationToken.None);
+            Assert.AreEqual(port == 23002 ? new Version(0, 2) : new Version(0, 1), device.DiscoveryProtocolVersion);
+        }
+    }
+
+    [TestMethod]
     public async Task Discovery_ResponseFromDifferentAddress_ConsumesChallengeByNonce()
     {
         var localIdentity = CreateIdentity();
@@ -704,6 +793,7 @@ public sealed class DiscoveryToTransferMatrixTests
 
     private sealed class FakeDeviceCommunicationSettings : Kitopia.Feature.DeviceCommunication.Discovery.IDeviceCommunicationSettings
     {
+        public bool EnableLegacyDeviceCompatibility { get; set; }
         public FakeDeviceCommunicationSettings(string operatingSystemName = "Unknown")
         {
             OperatingSystemName = operatingSystemName;

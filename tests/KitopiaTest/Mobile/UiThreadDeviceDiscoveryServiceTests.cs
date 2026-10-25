@@ -8,19 +8,21 @@ namespace KitopiaTest.Mobile;
 public sealed class UiThreadDeviceDiscoveryServiceTests
 {
     [TestMethod]
-    public void Constructor_MirrorsDiscoveredDeviceOperatingSystem()
+    public void Constructor_MirrorsDiscoveredDeviceOperatingSystemAndProtocolVersion()
     {
         using var innerService = new FakeDiscoveryService();
         innerService.AddDevice(new DiscoveredDevice
         {
             Id = "desktop-1",
             Name = "Desktop",
-            OperatingSystem = "Windows"
+            OperatingSystem = "Windows",
+            DiscoveryProtocolVersion = new Version(0, 1)
         });
 
         using var service = new UiThreadDeviceDiscoveryService(innerService);
 
         Assert.AreEqual("Windows", service.Devices[0].OperatingSystem);
+        Assert.AreEqual(new Version(0, 1), service.Devices[0].DiscoveryProtocolVersion);
     }
 
     private sealed class FakeDiscoveryService : IDeviceDiscoveryService

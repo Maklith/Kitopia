@@ -5,6 +5,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
+using System.Security.Authentication;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
@@ -13,6 +15,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Kitopia.Feature.Localization;
 using Kitopia.Feature.DeviceCommunication.Application;
+using Kitopia.Feature.DeviceCommunication.Diagnostics;
 using Kitopia.Feature.DeviceCommunication.Discovery;
 using Kitopia.Feature.DeviceCommunication.Messages.Chat;
 using Serilog;
@@ -40,6 +43,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
     private readonly Dictionary<Guid, CancellationTokenSource> _fileSendCancellations = new();
     private int _messageListVersion;
     private bool _disposed;
+    private bool _legacyCompatibilityEnabled;
 
     public ObservableCollection<DeviceConversationItem> Conversations { get; } = [];
 
@@ -83,6 +87,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         _attachmentStore = attachmentStore;
         _platform = platform;
         _settings = settings;
+        _legacyCompatibilityEnabled = settings.EnableLegacyDeviceCompatibility;
         _clipboardService = clipboardService;
         _notificationSink = notificationSink;
         _autoSelectFirstConversation = autoSelectFirstConversation;
@@ -268,8 +273,10 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         catch (Exception ex) {
             message.IsPending = false;
             message.IsFailed = true;
-            Logger.Warning(ex, "Send chat message failed. DeviceId={DeviceId}", conversation.DeviceId);
-            _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Format("lang.kitopia.message_send_failed_value", ex.Message), ChatNotificationKind.Error);
+            DeviceCommunicationDiagnostics.Error(nameof(DeviceCommunicationPageViewModel),
+                $"Send chat message failed. DeviceId={conversation.DeviceId}", ex);
+            _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"),
+                Lang.Format("lang.kitopia.message_send_failed_value", GetSendFailureMessage(ex)), ChatNotificationKind.Error);
         }
         finally {
             IsSending = false;
@@ -280,6 +287,45 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         return !IsSending &&
                SelectedConversation is not null &&
                !string.IsNullOrWhiteSpace(MessageText);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanEnableLegacyCompatibility))]
+    private void EnableLegacyCompatibility()
+    {
+        _settings.EnableLegacyCompatibility();
+        SyncDisplayContext();
+    }
+
+    private bool CanEnableLegacyCompatibility() =>
+        _settings.CanEnableLegacyDeviceCompatibility && !_settings.EnableLegacyDeviceCompatibility;
+
+    private string GetSendFailureMessage(Exception exception)
+    {
+        for (Exception? cause = exception; cause is not null; cause = cause.InnerException)
+        {
+            switch (cause)
+            {
+                case AuthenticationException:
+                    return Lang.Get("lang.kitopia.chat_send_authentication_failed");
+                case TimeoutException or OperationCanceledException:
+                case SocketException { SocketErrorCode: SocketError.TimedOut }:
+                    return Lang.Get("lang.kitopia.chat_send_timed_out");
+                case SocketException { SocketErrorCode: SocketError.ConnectionRefused }:
+                    return Lang.Get("lang.kitopia.chat_send_device_unavailable");
+                case SocketException { SocketErrorCode: SocketError.NetworkDown or SocketError.NetworkUnreachable or SocketError.HostDown or SocketError.HostUnreachable }:
+                    return Lang.Get("lang.kitopia.chat_send_network_unavailable");
+            }
+        }
+
+        if (exception is IOException || exception.GetBaseException() is SocketException)
+        {
+            var message = Lang.Get("lang.kitopia.chat_send_connection_closed");
+            return _settings.EnableLegacyDeviceCompatibility
+                ? message
+                : message + " " + Lang.Get("lang.kitopia.chat_send_legacy_compatibility_hint");
+        }
+
+        return Lang.Get("lang.kitopia.chat_send_failed_retry");
     }
 
     private bool CanOperateConversation() {
@@ -366,7 +412,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                 catch (Exception ex) {
                     textMessage.IsPending = false;
                     textMessage.IsFailed = true;
-                    errors.Add($"text:{ex.Message}");
+                    DeviceCommunicationDiagnostics.Error(nameof(DeviceCommunicationPageViewModel),
+                        $"Send clipboard text failed. DeviceId={conversation.DeviceId}", ex);
+                    errors.Add(GetSendFailureMessage(ex));
                 }
             }
         }
@@ -398,7 +446,9 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
                     }
             }
             catch (Exception ex) {
-                errors.Add($"image:{ex.Message}");
+                DeviceCommunicationDiagnostics.Error(nameof(DeviceCommunicationPageViewModel),
+                    $"Send clipboard image failed. DeviceId={conversation.DeviceId}", ex);
+                errors.Add(GetSendFailureMessage(ex));
             }
         }
 
@@ -407,7 +457,7 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
 
         if (errors.Count > 0) {
-            _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Format("lang.kitopia.some_listeners_or_senders_failed_value", string.Join(";", errors)),
+            _ = _notificationSink.ShowAsync(Lang.Get("lang.kitopia.device_chat"), Lang.Format("lang.kitopia.some_listeners_or_senders_failed_value", string.Join(Environment.NewLine, errors.Distinct())),
                 ChatNotificationKind.Warning);
         }
     }
@@ -957,6 +1007,18 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
             return;
         }
 
+        var compatibilityEnabled = _settings.EnableLegacyDeviceCompatibility;
+        if (_legacyCompatibilityEnabled != compatibilityEnabled)
+        {
+            _legacyCompatibilityEnabled = compatibilityEnabled;
+            EnableLegacyCompatibilityCommand.NotifyCanExecuteChanged();
+            foreach (var item in Conversations)
+            {
+                item.IsLegacyCompatibilityEnabled = compatibilityEnabled;
+                item.CanEnableLegacyCompatibility = CanEnableLegacyCompatibility();
+            }
+        }
+
         var ctx = _platform.GetDisplayContext(SelectedConversation?.DeviceId);
         _messageAppService.UpdateDisplayContext(ctx.IsMainWindowActive, ctx.IsChatPageOpen,
             SelectedConversation?.DeviceId);
@@ -1024,7 +1086,12 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
 
     private void UpsertConversation(DiscoveredDevice device) {
         if (!_conversationLookup.TryGetValue(device.Id, out var conversation)) {
-            conversation = new DeviceConversationItem(device.Id);
+            conversation = new DeviceConversationItem(device.Id)
+            {
+                EnableLegacyCompatibilityCommand = EnableLegacyCompatibilityCommand,
+                IsLegacyCompatibilityEnabled = _settings.EnableLegacyDeviceCompatibility,
+                CanEnableLegacyCompatibility = CanEnableLegacyCompatibility()
+            };
             _conversationLookup[device.Id] = conversation;
             Conversations.Add(conversation);
         }
@@ -1125,6 +1192,7 @@ public partial class DeviceConversationItem : ObservableObject {
         if (LastMessageAt is null) LastMessagePreview = Lang.Get("lang.kitopia.no_messages");
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(AddressSummaryText));
+        OnPropertyChanged(nameof(LegacyDeviceDetails));
     }
     public DeviceConversationItem(string deviceId) {
         DeviceId = deviceId;
@@ -1134,6 +1202,22 @@ public partial class DeviceConversationItem : ObservableObject {
     public ObservableCollection<object> Messages { get; } = [];
 
     public DiscoveredDevice? Device { get; private set; }
+
+    public IRelayCommand? EnableLegacyCompatibilityCommand { get; init; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLegacyDevice))]
+    [NotifyPropertyChangedFor(nameof(LegacyDeviceDetails))]
+    private Version? _discoveryProtocolVersion;
+
+    [ObservableProperty] private bool _isLegacyCompatibilityEnabled;
+    [ObservableProperty] private bool _canEnableLegacyCompatibility;
+
+    public bool IsLegacyDevice => DiscoveryProtocolVersion is { } version &&
+                                  version < DeviceDiscoveryService.CurrentProtocolVersion;
+
+    public string LegacyDeviceDetails => Lang.Format("lang.kitopia.legacy_device_protocol_details",
+        DiscoveryProtocolVersion, DeviceDiscoveryService.CurrentProtocolVersion);
 
     [ObservableProperty] private string _computerName = Lang.Get("lang.kitopia.unknown_device");
 
@@ -1194,6 +1278,7 @@ public partial class DeviceConversationItem : ObservableObject {
         ComputerName = device.ComputerName;
         CustomName = device.CustomName;
         OperatingSystem = device.OperatingSystemDisplayName;
+        DiscoveryProtocolVersion = device.DiscoveryProtocolVersion;
         Ipv4Address = device.Ipv4Address;
         Ipv6Address = device.Ipv6Address;
         TcpPort = device.TcpPort;

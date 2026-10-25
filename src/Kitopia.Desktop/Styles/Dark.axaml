@@ -22,9 +22,6 @@
     <BoxShadows x:Key="KitopiaCardHoverBoxShadow">0 4 14 0 #50000000, 0 2 4 0 #30000000</BoxShadows>
 
     <!-- Badges & Tags -->
-    <SolidColorBrush x:Key="KitopiaBadgeWarningBackground" Color="#33B74700" />
-    <SolidColorBrush x:Key="KitopiaBadgeWarningForeground" Color="#FFBD7A" />
-    <SolidColorBrush x:Key="KitopiaBadgeWarningBorder" Color="#66FFBD7A" />
     <SolidColorBrush x:Key="KitopiaBadgeSuccessBackground" Color="#40107C41" />
     <SolidColorBrush x:Key="KitopiaBadgeSuccessForeground" Color="#6CE89F" />
     <SolidColorBrush x:Key="KitopiaBadgeCurrentBackground" Color="{DynamicResource KitopiaAccentColor}" Opacity="0.15" />

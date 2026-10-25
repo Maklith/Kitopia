@@ -590,14 +590,45 @@ public sealed class MouseHotKeyTests
             {
                 Assert.IsTrue(warning.Bounds.Height <= 34, "The compact warning must fit in the hotkey row.");
                 var indicator = warning.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "WarningIndicator");
+                var openedCount = 0;
+                var closedCount = 0;
+                indicator.Flyout!.Opened += (_, _) => openedCount++;
+                indicator.Flyout.Closed += (_, _) => closedCount++;
                 var position = indicator.TranslatePoint(new Point(14, 14), window)!.Value;
                 window.MouseMove(position);
                 Dispatcher.UIThread.RunJobs();
                 Assert.IsTrue(indicator.Flyout!.IsOpen);
                 Assert.IsTrue(enableButton.GetVisualAncestors().OfType<FlyoutPresenter>().Any());
+
+                for (var index = 0; index < 8; index++)
+                {
+                    window.MouseMove(position + new Vector(index % 2, 0));
+                    await Task.Delay(100);
+                }
+                Assert.IsTrue(indicator.IsPointerOver, "The flyout overlay must not intercept hover input over its indicator.");
+                Assert.IsTrue(indicator.Flyout.IsOpen, "Hovering over the indicator must keep the card open.");
+                Assert.AreEqual(1, openedCount, "The card must not repeatedly reopen while the pointer stays on its indicator.");
+                Assert.AreEqual(0, closedCount);
+
+                var popup = TopLevel.GetTopLevel(enableButton)!;
+                window.MouseMove(new Point(window.Width - 10, window.Height - 10));
+                popup.MouseMove(enableButton.TranslatePoint(new Point(10, 10), popup)!.Value);
+                await Task.Delay(350);
+                Assert.IsTrue(indicator.Flyout.IsOpen, "Moving onto the warning must keep its button clickable.");
+
+                popup.MouseMove(new Point(-20, -20));
+                window.MouseMove(new Point(window.Width - 10, window.Height - 10));
+                await Task.Delay(350);
+                Assert.IsFalse(indicator.Flyout.IsOpen, "Leaving both warning surfaces must dismiss the card.");
+
+                window.MouseMove(position);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(indicator.Flyout.IsOpen);
             }
 
             Assert.IsTrue(enableButton.IsVisible);
+            Assert.AreEqual(StandardCursorType.Arrow.ToString(), captureWarning.Cursor?.ToString());
+            Assert.AreEqual(StandardCursorType.Hand.ToString(), enableButton.Cursor?.ToString());
             var buttonHost = TopLevel.GetTopLevel(enableButton)!;
             buttonHost.UpdateLayout();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();

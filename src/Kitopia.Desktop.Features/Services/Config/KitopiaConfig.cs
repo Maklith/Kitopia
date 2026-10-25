@@ -389,6 +389,9 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("lang.kitopia.device_display_name", "lang.kitopia.leave_empty_to_use_the_computer_name", 0xF4C4, ConfigFieldType.字符串)]
     public string deviceBroadcastName = string.Empty;
 
+    [ConfigField("lang.kitopia.enable_legacy_device_compatibility", "lang.kitopia.enable_legacy_device_compatibility_description", 0xF5EB, ConfigFieldType.布尔)]
+    public bool enableLegacyDeviceCompatibility = false;
+
     [ConfigFieldCategory("lang.kitopia.more", 0xE825)]
     [ConfigField("lang.kitopia.create_shortcuts_on_update", "lang.kitopia.create_desktop_and_start_menu_shortcuts_when_updating", 0xF4EC, ConfigFieldType.布尔)]
     public bool createShortcutsOnUpdate = false;

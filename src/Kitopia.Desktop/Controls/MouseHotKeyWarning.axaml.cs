@@ -1,7 +1,6 @@
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
@@ -82,11 +81,6 @@ public sealed partial class MouseHotKeyWarning : UserControl
     private void OnConfigChanged(object? sender, ConfigChangedArgs e)
     {
         if (e.Name == nameof(KitopiaConfig.mouseCapture)) UpdateWarning();
-    }
-
-    private void WarningIndicator_OnPointerEntered(object? sender, PointerEventArgs e)
-    {
-        if (sender is Button button) button.Flyout?.ShowAt(button);
     }
 
     private void EnableCaptureButton_OnClick(object? sender, RoutedEventArgs e)

@@ -1,15 +1,15 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Kitopia.Desktop.Controls"
+             xmlns:sharedControls="clr-namespace:Kitopia.Feature.Avalonia.Controls;assembly=Kitopia.Feature.Avalonia"
              x:Class="Kitopia.Desktop.Controls.MouseHotKeyWarning"
              IsVisible="False">
     <UserControl.Styles>
         <Style Selector="controls|MouseHotKeyWarning.compact">
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Button Name="WarningIndicator" Width="28" Height="28" Padding="6" CornerRadius="6"
+                    <sharedControls:HoverFlyoutButton Name="WarningIndicator" Width="28" Height="28" Padding="6" CornerRadius="6"
                             Theme="{DynamicResource BorderlessButton}" Background="Transparent"
-                            PointerEntered="WarningIndicator_OnPointerEntered"
                             AutomationProperties.Name="{DynamicResource lang.kitopia.hotkeys.mouse_unavailable}">
                         <Button.Flyout>
                             <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="Transient">
@@ -26,12 +26,12 @@
                         </Button.Flyout>
                         <PathIcon Data="{DynamicResource NotificationCardWarningIconPathData}"
                                   Foreground="{DynamicResource KitopiaBadgeWarningForeground}" />
-                    </Button>
+                    </sharedControls:HoverFlyoutButton>
                 </ControlTemplate>
             </Setter>
         </Style>
     </UserControl.Styles>
-    <Border Padding="12" CornerRadius="6" BorderThickness="1"
+    <Border Padding="12" CornerRadius="6" BorderThickness="1" Cursor="Arrow"
             Background="{DynamicResource KitopiaBadgeWarningBackground}"
             BorderBrush="{DynamicResource KitopiaBadgeWarningBorder}">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
@@ -49,7 +49,7 @@
                 <Button Name="EnableCaptureButton" Content="{DynamicResource lang.kitopia.hotkeys.enable_mouse_capture_action}"
                         Click="EnableCaptureButton_OnClick" HorizontalAlignment="Left" Margin="0,4,0,0"
                         Classes="Primary" Theme="{DynamicResource SolidButton}"
-                        Height="28" Padding="12,0" CornerRadius="6" FontSize="12" />
+                        Height="28" Padding="12,0" CornerRadius="6" FontSize="12" Cursor="Hand" />
             </StackPanel>
         </Grid>
     </Border>

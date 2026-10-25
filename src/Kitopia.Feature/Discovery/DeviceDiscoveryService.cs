@@ -22,8 +22,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
     private const string DiscoveryMessageTypeAnnounce = "announce";
     private const string DiscoveryMessageTypeAuthRequest = "auth.request";
     private const string DiscoveryMessageTypeAuthResponse = "auth.response";
+    private const string LegacyDiscoveryProtocolVersion = "0.1";
     private const string DiscoveryProtocolVersion = "0.2";
-    private static readonly Version DiscoveryProtocolVersionValue = Version.Parse(DiscoveryProtocolVersion);
+    public static Version CurrentProtocolVersion { get; } = Version.Parse(DiscoveryProtocolVersion);
     private readonly TimeSpan _discoveryBroadcastInterval = TimeSpan.FromSeconds(8);
     private readonly TimeSpan _discoveryCleanupInterval = TimeSpan.FromSeconds(5);
     private readonly TimeSpan _discoveryListenerRefreshInterval = TimeSpan.FromSeconds(10);
@@ -504,28 +505,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                 }
                 else
                 {
-                    var info = new DiscoveryInfo
-                    {
-                        MessageType = DiscoveryMessageTypeAnnounce,
-                        Version = DiscoveryProtocolVersion,
-                        Id = identity.IdHash,
-                        Name = ResolveDisplayName(),
-                        OperatingSystem = ResolveOperatingSystemName(),
-                        TcpPort = tcpPort,
-                        TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                        PublicKey = identity.PublicKey
-                    };
-                    if (!DeviceDiscoverySignature.TrySign(info, identity.PrivateKey, out var signature))
-                    {
-                        DeviceCommunicationDiagnostics.Warning(LogCategory, "Failed to sign discovery announcement.");
-                        await Task.Delay(Scaled(_discoveryBroadcastInterval), token);
-                        continue;
-                    }
-
-                    info.Signature = signature;
-                    var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(
-                        info,
-                        DeviceCommunicationJsonSerializerContext.Default.DiscoveryInfo));
+                    var announcements = CreateAnnouncementPayloads(identity, tcpPort);
 
                     foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
                     {
@@ -562,7 +542,10 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                                     ipv4Address.GetAddressBytes());
                                 client.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive,
                                     DiscoveryMulticastHopLimit);
-                                await client.SendAsync(bytes, multicastEndpointV4, token);
+                                foreach (var announcement in announcements)
+                                {
+                                    await client.SendAsync(announcement, multicastEndpointV4, token);
+                                }
                             }
                             catch (SocketException exception) when (exception.SocketErrorCode is
                                        SocketError.AddressNotAvailable or SocketError.NetworkDown or SocketError.NetworkUnreachable)
@@ -595,7 +578,11 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                             client.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastTimeToLive,
                                 DiscoveryMulticastHopLimit);
                             var multicastAddressV6WithScope = new IPAddress(multicastIpV6.GetAddressBytes(), interfaceIndex);
-                            await client.SendAsync(bytes, new IPEndPoint(multicastAddressV6WithScope, DiscoveryPort), token);
+                            var multicastEndpointV6 = new IPEndPoint(multicastAddressV6WithScope, DiscoveryPort);
+                            foreach (var announcement in announcements)
+                            {
+                                await client.SendAsync(announcement, multicastEndpointV6, token);
+                            }
                         }
                         catch (NetworkInformationException exception)
                         {
@@ -638,6 +625,41 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                 break;
             }
         }
+    }
+
+    private byte[][] CreateAnnouncementPayloads(DeviceIdentity identity, int tcpPort)
+    {
+        var info = new DiscoveryInfo
+        {
+            MessageType = DiscoveryMessageTypeAnnounce,
+            Version = DiscoveryProtocolVersion,
+            Id = identity.IdHash,
+            Name = ResolveDisplayName(),
+            OperatingSystem = ResolveOperatingSystemName(),
+            TcpPort = tcpPort,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            PublicKey = identity.PublicKey
+        };
+        if (!DeviceDiscoverySignature.TrySign(info, identity.PrivateKey, out var signature))
+        {
+            throw new InvalidOperationException("Failed to sign discovery announcement.");
+        }
+
+        info.Signature = signature;
+        var current = JsonSerializer.SerializeToUtf8Bytes(
+            info, DeviceCommunicationJsonSerializerContext.Default.DiscoveryInfo);
+        if (!_settings.EnableLegacyDeviceCompatibility)
+        {
+            return [current];
+        }
+
+        // 0.1 peers reject 0.2 packets and need their nonce challenge before accepting our identity.
+        info.Version = LegacyDiscoveryProtocolVersion;
+        info.PublicKey = string.Empty;
+        info.Signature = string.Empty;
+        var legacy = JsonSerializer.SerializeToUtf8Bytes(
+            info, DeviceCommunicationJsonSerializerContext.Default.DiscoveryInfo);
+        return [current, legacy];
     }
 
     private async Task HandleAnnouncementAsync(
@@ -694,8 +716,8 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         var request = new DiscoveryInfo
         {
             MessageType = DiscoveryMessageTypeAuthRequest,
-            Version = string.Equals(info.Version, "0.1", StringComparison.Ordinal)
-                ? "0.1"
+            Version = string.Equals(info.Version, LegacyDiscoveryProtocolVersion, StringComparison.Ordinal)
+                ? LegacyDiscoveryProtocolVersion
                 : DiscoveryProtocolVersion,
             Id = info.Id,
             TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
@@ -765,8 +787,8 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         var response = new DiscoveryInfo
         {
             MessageType = DiscoveryMessageTypeAuthResponse,
-            Version = string.Equals(info.Version, "0.1", StringComparison.Ordinal)
-                ? "0.1"
+            Version = string.Equals(info.Version, LegacyDiscoveryProtocolVersion, StringComparison.Ordinal)
+                ? LegacyDiscoveryProtocolVersion
                 : DiscoveryProtocolVersion,
             Id = localIdHash,
             Name = ResolveDisplayName(),
@@ -850,6 +872,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                     Id = info.PublicKey,
                     Name = string.IsNullOrWhiteSpace(info.Name) ? "Unknown device" : info.Name.Trim(),
                     OperatingSystem = NormalizeOperatingSystemName(info.OperatingSystem),
+                    DiscoveryProtocolVersion = Version.TryParse(info.Version, out var protocolVersion) ? protocolVersion : null,
                     CustomName = _settings.GetCustomName(info.PublicKey) ?? string.Empty,
                     TcpPort = info.TcpPort,
                     LastSeen = DateTime.UtcNow
@@ -863,15 +886,20 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             }
             else
             {
+                // A current peer also advertises legacy compatibility; keep its highest authenticated version.
+                if (Version.TryParse(info.Version, out var protocolVersion) &&
+                    (existing.TcpPort != info.TcpPort || existing.DiscoveryProtocolVersion is null ||
+                     protocolVersion > existing.DiscoveryProtocolVersion))
+                {
+                    existing.DiscoveryProtocolVersion = protocolVersion;
+                }
+
                 existing.LastSeen = DateTime.UtcNow;
                 existing.Name = string.IsNullOrWhiteSpace(info.Name) ? "Unknown device" : info.Name.Trim();
                 existing.OperatingSystem = NormalizeOperatingSystemName(info.OperatingSystem);
                 existing.TcpPort = info.TcpPort;
                 AssignDiscoveredAddress(existing, endpointAddress);
                 AddVerifiedEndpoint(existing.Id, endpointAddress, existing.LastSeen);
-                DeviceCommunicationDiagnostics.Debug(
-                    LogCategory,
-                    $"Updated device {ShortId(existing.Id)} endpoint={FormatEndpoint(existing)} tcp={existing.TcpPort}.");
             }
         }
     }
@@ -1064,7 +1092,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
     private static bool IsSupportedDiscoveryVersion(string? version)
     {
         return Version.TryParse(version?.Trim(), out var remoteVersion) &&
-               DiscoveryProtocolVersionValue >= remoteVersion;
+               CurrentProtocolVersion >= remoteVersion;
     }
 
     private static string CreateNonce()

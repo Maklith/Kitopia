@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using Kitopia.Feature.DeviceCommunication.Discovery;
 
 namespace KitopiaTest.DeviceCommunication;
@@ -97,6 +99,30 @@ public sealed class SharedDiscoveryTests
             info,
             expectedNonce: info.Nonce,
             nowUnixSeconds: info.TimestampUnixSeconds));
+    }
+
+    [TestMethod]
+    public void TrySign_LegacyAuthResponse_MatchesVersion01WireFormat()
+    {
+        var (publicKey, privateKey) = DeviceDiscoverySignature.CreateKeyPair();
+        var info = CreateSignedInfoSkeleton(publicKey);
+        Assert.IsTrue(DeviceDiscoverySignature.TrySign(info, privateKey, out var signature));
+
+        // Frozen 0.1 signature fields, verified independently of the current serializer.
+        using var payload = new MemoryStream();
+        using (var writer = new BinaryWriter(payload, Encoding.UTF8, leaveOpen: true))
+        {
+            writer.Write(info.Id);
+            writer.Write(info.Name);
+            writer.Write(info.TcpPort);
+            writer.Write(info.TimestampUnixSeconds);
+            writer.Write(info.Nonce);
+        }
+
+        using var rsa = RSA.Create();
+        rsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(publicKey), out _);
+        Assert.IsTrue(rsa.VerifyData(payload.ToArray(), Convert.FromBase64String(signature),
+            HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
     }
 
     [TestMethod]

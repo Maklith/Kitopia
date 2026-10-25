@@ -228,27 +228,60 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
             throw new InvalidOperationException("TCP local certificate is not ready.");
         }
 
+        var remoteEndPoint = client.Client.RemoteEndPoint;
         var stream = new SslStream(client.GetStream(), leaveInnerStreamOpen: false);
-        await stream.AuthenticateAsClientAsync(
-            new SslClientAuthenticationOptions
-            {
-                TargetHost = "Kitopia-Local-Tcp",
-                EnabledSslProtocols = EnabledProtocols,
-                ApplicationProtocols = [ApplicationProtocol],
-                CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
-                ClientCertificates = [localCertificate],
-                RemoteCertificateValidationCallback = (_, remoteCertificate, _, _) =>
-                    _transportSecurity.ValidateRemoteCertificate(remoteCertificate, expectedRemoteIdentity)
-            },
-            token);
-
-        if (!stream.NegotiatedApplicationProtocol.Equals(ApplicationProtocol))
+        try
         {
-            throw new AuthenticationException(
-                $"TCP ALPN negotiation failed. Expected={ApplicationProtocol}, Actual={stream.NegotiatedApplicationProtocol}.");
-        }
+            using var handshakeCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+            handshakeCancellation.CancelAfter(HandshakeTimeout);
+            await stream.AuthenticateAsClientAsync(
+                new SslClientAuthenticationOptions
+                {
+                    TargetHost = "Kitopia-Local-Tcp",
+                    EnabledSslProtocols = EnabledProtocols,
+                    ApplicationProtocols = [ApplicationProtocol],
+                    CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
+                    // Device certificates are pinned by public key, independently of the peer's CA issuer list.
+                    ClientCertificateContext = SslStreamCertificateContext.Create(
+                        localCertificate, additionalCertificates: null, offline: true),
+                    RemoteCertificateValidationCallback = (_, remoteCertificate, _, _) =>
+                    {
+                        var valid = _transportSecurity.ValidateRemoteCertificate(remoteCertificate, expectedRemoteIdentity);
+                        if (!valid)
+                        {
+                            DeviceCommunicationDiagnostics.Warning(LogCategory,
+                                $"Rejected TLS server certificate from {remoteEndPoint}: certificate is missing or does not match the expected device identity.");
+                        }
 
-        return stream;
+                        return valid;
+                    }
+                },
+                handshakeCancellation.Token);
+
+            if (!stream.NegotiatedApplicationProtocol.Equals(ApplicationProtocol))
+            {
+                throw new AuthenticationException(
+                    $"TCP ALPN negotiation failed. Expected={ApplicationProtocol}, Actual={stream.NegotiatedApplicationProtocol}.");
+            }
+
+            return stream;
+        }
+        catch (Exception exception)
+        {
+            if (!token.IsCancellationRequested)
+            {
+                DeviceCommunicationDiagnostics.Error(LogCategory,
+                    $"TCP client TLS handshake failed for {remoteEndPoint}.", exception);
+            }
+
+            await stream.DisposeAsync();
+            if (exception is OperationCanceledException && !token.IsCancellationRequested)
+            {
+                throw new TimeoutException("TCP TLS handshake timed out.", exception);
+            }
+
+            throw;
+        }
     }
 
     private async Task AcceptLoop(TcpListener listener, CancellationToken token)
@@ -296,9 +329,11 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
     {
         using (client)
         {
+            var remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
+            var stage = "identity resolution";
             try
             {
-                if (client.Client.RemoteEndPoint is not IPEndPoint remoteEndPoint)
+                if (remoteEndPoint is null)
                 {
                     return;
                 }
@@ -307,6 +342,8 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
                     _remoteIdentityResolver.ResolveExpectedIdentityPublicKey(remoteEndPoint);
                 if (string.IsNullOrWhiteSpace(expectedRemoteIdentityPublicKey))
                 {
+                    DeviceCommunicationDiagnostics.Warning(LogCategory,
+                        $"Rejected TCP connection from {remoteEndPoint}: no discovered device identity matches the source address.");
                     return;
                 }
 
@@ -321,6 +358,7 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
                     throw new InvalidOperationException("TCP local certificate is not ready.");
                 }
 
+                stage = "TLS handshake";
                 var serverCertificateContext = SslStreamCertificateContext.Create(
                     certificate,
                     additionalCertificates: null,
@@ -337,7 +375,16 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
                         ApplicationProtocols = [ApplicationProtocol],
                         CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
                         RemoteCertificateValidationCallback = (_, remoteCertificate, _, _) =>
-                            _transportSecurity.ValidateRemoteCertificate(remoteCertificate, expectedRemoteIdentityPublicKey)
+                        {
+                            var valid = _transportSecurity.ValidateRemoteCertificate(remoteCertificate, expectedRemoteIdentityPublicKey);
+                            if (!valid)
+                            {
+                                DeviceCommunicationDiagnostics.Warning(LogCategory,
+                                    $"Rejected TLS client certificate from {remoteEndPoint}: certificate is missing or does not match the discovered device identity.");
+                            }
+
+                            return valid;
+                        }
                     },
                     handshakeCancellation.Token);
 
@@ -347,6 +394,7 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
                         $"TCP ALPN negotiation failed. Expected={ApplicationProtocol}, Actual={sslStream.NegotiatedApplicationProtocol}.");
                 }
 
+                stage = "frame receive";
                 var reader = PipeReader.Create(sslStream, InboundPipeReaderOptions);
                 Exception? readerError = null;
                 try
@@ -367,11 +415,12 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
                     await reader.CompleteAsync(readerError);
                 }
 
+                stage = "TLS shutdown";
                 using var closeCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
                 closeCancellation.CancelAfter(CloseTimeout);
                 await CompleteReceiveAsync(sslStream, remoteEndPoint, closeCancellation.Token);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
             }
             catch (ObjectDisposedException)
@@ -381,7 +430,7 @@ public sealed class TcpLocalDataListener : ILocalDataTransport
             {
                 DeviceCommunicationDiagnostics.Error(
                     LogCategory,
-                    $"TCP local listener stream handling failed for {client.Client.RemoteEndPoint}.",
+                    $"TCP local listener stream handling failed for {remoteEndPoint} during {stage}.",
                     exception);
             }
         }

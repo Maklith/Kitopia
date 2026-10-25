@@ -20,6 +20,9 @@ public partial class DiscoveredDevice : ObservableObject
     private string _operatingSystem = string.Empty;
 
     [ObservableProperty]
+    private Version? _discoveryProtocolVersion;
+
+    [ObservableProperty]
     private IPAddress _ipv4Address = IPAddress.None;
 
     [ObservableProperty]
