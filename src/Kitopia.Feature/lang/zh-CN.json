@@ -1142,5 +1142,7 @@
   "lang.kitopia.skip_archive_extract_prompt_description": "点击压缩包内的文件时直接解压到临时目录并预览，不再弹出确认提示",
   "lang.kitopia.messages.archive_extract_prompt": "预览压缩包内的文件需要将其解压到临时目录，是否继续解压并预览？",
   "lang.kitopia.do_not_ask_again": "不再提醒",
-  "lang.kitopia.extract_and_preview": "解压并预览"
+  "lang.kitopia.extract_and_preview": "解压并预览",
+  "lang.kitopia.indexing_in_progress": "索引中",
+  "lang.kitopia.indexing_performance_notice": "索引期间会占用一定系统资源，可能影响性能。"
 }

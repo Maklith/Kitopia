@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kitopia.Desktop.Features.Indexing;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Feature.Localization;
 using Kitopia.Feature.DeviceCommunication.Application;
@@ -24,19 +25,29 @@ public partial class MainWindowViewModel : ObservableRecipient
 {
     private readonly INavigationService _navigationService;
     private readonly IAccountService? _accountService;
+    private readonly IIndexService? _indexService;
 
     [ObservableProperty] private object? _content;
     [ObservableProperty] private bool _settingPage;
+    [ObservableProperty] private bool _isIndexing;
 
     [ObservableProperty] private bool _isUserLoggedIn;
     [ObservableProperty] private string _userAvatarTooltip = Lang.Get("lang.kitopia.sign_in_account");
     [ObservableProperty] private string _userAvatarInitial = "U";
     [ObservableProperty] private Bitmap? _userAvatarBitmap;
 
-    public MainWindowViewModel(INavigationService navigationService, IAccountService? accountService = null)
+    public MainWindowViewModel(INavigationService navigationService, IAccountService? accountService = null,
+        IIndexService? indexService = null)
     {
         _navigationService = navigationService;
         _accountService = accountService;
+        _indexService = indexService;
+        if (_indexService is not null)
+        {
+            _indexService.StatusChanged += OnIndexStatusChanged;
+            var status = _indexService.GetStatus();
+            IsIndexing = status.IsRebuilding;
+        }
         if (_accountService != null)
         {
             _accountService.UserStateChanged += OnUserStateChanged;
@@ -55,6 +66,18 @@ public partial class MainWindowViewModel : ObservableRecipient
             });
         };
         OnPageNavigated(_navigationService.CurrentPageRoute ?? "home");
+    }
+
+    private void OnIndexStatusChanged(object? sender, IndexStatusSnapshot status)
+    {
+        if (IsIndexing == status.IsRebuilding) return;
+
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            // Read the latest state because indexing notifications can arrive concurrently.
+            var currentStatus = _indexService!.GetStatus();
+            IsIndexing = currentStatus.IsRebuilding;
+        });
     }
 
     private void OnUserStateChanged(UserInfo? user)

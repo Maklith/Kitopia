@@ -72,10 +72,10 @@
         
     </u:UrsaWindow.TitleBarContent>
     <Panel Margin="0,40,0,0">
-        <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,*" ColumnSpan="5"
+        <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="Auto,*" ColumnSpan="5"
               Margin="{DynamicResource SemiThicknessExtraTight}">
             <!-- 1. Left Sidebar Navigation Pane -->
-            <Border Grid.Row="1" Grid.Column="0" VerticalAlignment="Stretch"
+            <Border Grid.Row="1" Grid.RowSpan="2" Grid.Column="0" VerticalAlignment="Stretch"
                     Background="Transparent"
                     Margin="6,0,6,0">
 
@@ -304,6 +304,24 @@
             </Border>
 
             <TextBlock Margin="0,0,5,3" Grid.Row="1" Grid.Column="1" Foreground="DarkGray" Text="{x:Static pluginCore:ServiceManager.Version}" HorizontalAlignment="Right" VerticalAlignment="Bottom"></TextBlock>
+            <Border Grid.Row="2" Grid.Column="1"
+                    IsVisible="{Binding IsIndexing}"
+                    Theme="{DynamicResource KitopiaCard}"
+                    Margin="8,8,8,4" Padding="16,12">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                    <controls:FontIcon Glyph="&#xf105;" FontSize="20"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource KitopiaPrimaryBrush}" />
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock Text="{DynamicResource lang.kitopia.indexing_in_progress}"
+                                   FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SemiColorText0}" />
+                        <TextBlock Text="{DynamicResource lang.kitopia.indexing_performance_notice}"
+                                   FontSize="12" FontWeight="Normal" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource SemiColorText1}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
         
     </Panel>

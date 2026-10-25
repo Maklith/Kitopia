@@ -1142,5 +1142,7 @@
   "lang.kitopia.skip_archive_extract_prompt_description": "Automatically extract archive files to a temporary folder for preview without asking",
   "lang.kitopia.messages.archive_extract_prompt": "Previewing a file inside an archive requires extracting it to a temporary folder. Extract and preview?",
   "lang.kitopia.do_not_ask_again": "Don't ask again",
-  "lang.kitopia.extract_and_preview": "Extract and preview"
+  "lang.kitopia.extract_and_preview": "Extract and preview",
+  "lang.kitopia.indexing_in_progress": "Indexing in progress",
+  "lang.kitopia.indexing_performance_notice": "Indexing uses system resources and may affect performance."
 }
