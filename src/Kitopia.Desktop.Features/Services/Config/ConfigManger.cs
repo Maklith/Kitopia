@@ -120,9 +120,11 @@ public class ConfigManger : IConfigService, IConfigProvider
 
     public static void Init()
     {
+        bool hasExistingConfigEntries;
         try
         {
             Directory.CreateDirectory(KitopiaPaths.ConfigsDirectory);
+            hasExistingConfigEntries = Directory.EnumerateFileSystemEntries(KitopiaPaths.ConfigsDirectory).Any();
         }
         catch (Exception exception)
         {
@@ -137,7 +139,8 @@ public class ConfigManger : IConfigService, IConfigProvider
         }
 
         RemoveConfig("KitopiaConfig");
-        LoadConfig("KitopiaConfig", new KitopiaConfig(), useDefaultsOnInvalidJson: true);
+        LoadConfig("KitopiaConfig", new KitopiaConfig(), useDefaultsOnInvalidJson: true,
+            notifyWhenMissing: hasExistingConfigEntries);
         Lang.Current.UseLanguage(Config.language);
         Config.GetType()
             .GetFields(BindingFlags.Instance | BindingFlags.Public)
@@ -236,7 +239,8 @@ public class ConfigManger : IConfigService, IConfigProvider
         };
     }
 
-    internal static ConfigBase LoadConfig(string key, ConfigBase defaults, bool useDefaultsOnInvalidJson = false)
+    internal static ConfigBase LoadConfig(string key, ConfigBase defaults, bool useDefaultsOnInvalidJson = false,
+        bool notifyWhenMissing = true)
     {
         RecoveredConfigKeys.Remove(key);
         BackupLoadedConfigKeys.Remove(key);
@@ -358,7 +362,7 @@ public class ConfigManger : IConfigService, IConfigProvider
                 NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.unable_to_create_default_configuration_check_disk_space_and_directory_permissions"), NotificationType.Error);
                 throw;
             }
-            if (useDefaultsOnInvalidJson)
+            if (useDefaultsOnInvalidJson && notifyWhenMissing)
                 NotifyConfigIssue(key, Lang.Get("lang.kitopia.messages.no_configuration_or_backup_was_found_so_defaults_were_created_check_the_configuration_directory_if_this_is_not_the_first_launch"), NotificationType.Warning);
         }
 

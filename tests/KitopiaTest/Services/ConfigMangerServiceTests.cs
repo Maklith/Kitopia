@@ -338,6 +338,32 @@ public sealed class ConfigMangerServiceTests
     }
 
     [TestMethod]
+    public void LoadConfig_MissingMainAndBackup_CanSuppressDefaultCreationToast()
+    {
+        var key = "test-config-" + Guid.NewGuid().ToString("N");
+        var path = KitopiaPaths.GetConfigFilePath(key);
+        var previousServices = ServiceManager.Services;
+        var toast = new RecordingToast();
+        using var services = new ServiceCollection().AddSingleton<IToastService>(toast).BuildServiceProvider();
+        ServiceManager.Services = services;
+
+        try
+        {
+            var config = (SampleConfig)ConfigManger.LoadConfig(key, new SampleConfig { Value = 7 },
+                useDefaultsOnInvalidJson: true, notifyWhenMissing: false);
+            Assert.AreEqual(7, config.Value);
+            Assert.IsTrue(File.Exists(path));
+            Assert.IsFalse(toast.Requests.Any(request => request.Text.Contains("默认配置")));
+        }
+        finally
+        {
+            ServiceManager.Services = previousServices;
+            ConfigManger.RemoveConfig(key);
+            File.Delete(path);
+        }
+    }
+
+    [TestMethod]
     public void RemoveConfig_PrefixOfAnotherPlugin_RemovesOnlyExactOwner()
     {
         var previous = ConfigManger.Configs;
