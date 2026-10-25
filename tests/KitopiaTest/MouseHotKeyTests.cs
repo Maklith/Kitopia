@@ -24,6 +24,7 @@ using PluginCore;
 using PluginCore.Config;
 using SharpHook;
 using SharpHook.Data;
+using SharpHook.Testing;
 using Vanara.PInvoke;
 using MouseButton = Avalonia.Input.MouseButton;
 using HookMouseButton = SharpHook.Data.MouseButton;
@@ -553,6 +554,116 @@ public sealed class MouseHotKeyTests
     });
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public Task MouseWarning_CaptureAndHookStateChanges_UpdateBothSurfaces(bool editor) => RunAsync(async _ =>
+    {
+        var config = new KitopiaConfig { mouseCapture = false };
+        ConfigManger.Configs["KitopiaConfig"] = config;
+        var originalServices = ServiceManager.Services;
+        using var hook = new SimpleGlobalHook(globalHookProvider: new TestProvider());
+        var configService = new RecordingConfigService();
+        using var services = new ServiceCollection().AddSingleton(hook)
+            .AddSingleton<IConfigService>(configService).BuildServiceProvider();
+        ServiceManager.Services = services;
+        var model = new HotKeyModel { Type = HotKeyType.Mouse, MouseButton = 1, IsEnabled = true };
+        var window = editor
+            ? new HotKeyEditorWindow(model)
+            : new Window { Content = new HotKeyShow { HotKeyModel = model }, Width = 540, Height = 320 };
+        try
+        {
+            window.Show();
+            window.UpdateLayout();
+            var warning = window.GetVisualDescendants().OfType<MouseHotKeyWarning>().Single();
+            var captureWarning = warning.FindControl<TextBlock>("CaptureWarning")!;
+            var hookWarning = warning.FindControl<TextBlock>("HookWarning")!;
+            var enableButton = warning.FindControl<Button>("EnableCaptureButton")!;
+            Assert.IsTrue(warning.IsVisible);
+            Assert.IsTrue(captureWarning.IsVisible);
+            Assert.IsTrue(hookWarning.IsVisible);
+            Assert.IsTrue(model.IsEnabled, "An unavailable mouse hook must preserve the enabled preference.");
+
+            using (var frame = window.CaptureRenderedFrame())
+                frame?.Save(Path.Combine(Path.GetTempPath(), $"kitopia-mouse-hotkey-warning-{editor}.png"));
+
+            if (!editor)
+            {
+                Assert.IsTrue(warning.Bounds.Height <= 34, "The compact warning must fit in the hotkey row.");
+                var indicator = warning.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "WarningIndicator");
+                var position = indicator.TranslatePoint(new Point(14, 14), window)!.Value;
+                window.MouseMove(position);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(indicator.Flyout!.IsOpen);
+                Assert.IsTrue(enableButton.GetVisualAncestors().OfType<FlyoutPresenter>().Any());
+            }
+
+            Assert.IsTrue(enableButton.IsVisible);
+            var buttonHost = TopLevel.GetTopLevel(enableButton)!;
+            buttonHost.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Assert.IsTrue(enableButton.Bounds.Width > 0);
+            var buttonPosition = enableButton.TranslatePoint(new Point(enableButton.Bounds.Width / 2, enableButton.Bounds.Height / 2), buttonHost)!.Value;
+            buttonHost.MouseMove(buttonPosition);
+            if (!editor)
+                Assert.IsTrue(warning.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "WarningIndicator").Flyout!.IsOpen,
+                    $"Host: {buttonHost.GetType().Name}; point: {buttonPosition}; bounds: {enableButton.Bounds}; visible: {enableButton.IsEffectivelyVisible}");
+            using (var frame = buttonHost.CaptureRenderedFrame())
+                frame?.Save(Path.Combine(Path.GetTempPath(), $"kitopia-mouse-hotkey-enable-{editor}.png"));
+            buttonHost.MouseDown(buttonPosition, MouseButton.Left);
+            buttonHost.MouseUp(buttonPosition, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(config.mouseCapture);
+            Assert.AreEqual(nameof(KitopiaConfig), configService.SavedKey);
+            Assert.IsFalse(enableButton.IsVisible);
+            Assert.IsFalse(captureWarning.IsVisible);
+            Assert.IsTrue(warning.IsVisible, "Capture alone is insufficient while the hook is stopped.");
+
+            var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            hook.HookEnabled += (_, _) => started.TrySetResult();
+            var running = hook.RunAsync();
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsFalse(warning.IsVisible);
+
+            config.mouseCapture = false;
+            config.OnConfigChanged(this, nameof(KitopiaConfig.mouseCapture), false);
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(warning.IsVisible);
+            Assert.IsTrue(captureWarning.IsVisible);
+            Assert.IsFalse(hookWarning.IsVisible);
+
+            enableButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsFalse(warning.IsVisible);
+            var stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            hook.HookDisabled += (_, _) => stopped.TrySetResult();
+            hook.Stop();
+            await stopped.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await running.WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(warning.IsVisible);
+            Assert.IsFalse(captureWarning.IsVisible);
+            Assert.IsTrue(hookWarning.IsVisible);
+
+            if (editor)
+            {
+                window.FindControl<RadioButton>("KeyBoard")!.IsChecked = true;
+            }
+            else
+            {
+                model.Type = HotKeyType.Keyboard;
+            }
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsFalse(warning.IsVisible, "Keyboard hotkeys do not require mouse capture.");
+        }
+        finally
+        {
+            window.Close();
+            ServiceManager.Services = originalServices;
+        }
+    });
+
+    [TestMethod]
     public Task CompactControl_EditDisabledShortcut_OpensEditorWithoutEnabling() => RunAsync(_ =>
     {
         var model = new HotKeyModel
@@ -872,6 +983,13 @@ public sealed class MouseHotKeyTests
             }
             return true;
         }, CancellationToken.None);
+    }
+
+    private sealed class RecordingConfigService : IConfigService
+    {
+        public string? SavedKey { get; private set; }
+
+        public void Save(string key) => SavedKey = key;
     }
 
     private class TranslationWindowToolProxy : DispatchProxy

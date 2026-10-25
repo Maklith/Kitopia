@@ -69,6 +69,15 @@ public class HotKeyShow : TemplatedControl
     public static readonly StyledProperty<bool> IsActivatedProperty =
         AvaloniaProperty.Register<HotKeyShow, bool>(nameof(IsActivated));
 
+    public static readonly StyledProperty<bool> IsMouseHotKeyProperty =
+        AvaloniaProperty.Register<HotKeyShow, bool>(nameof(IsMouseHotKey));
+
+    public bool IsMouseHotKey
+    {
+        get => GetValue(IsMouseHotKeyProperty);
+        private set => SetValue(IsMouseHotKeyProperty, value);
+    }
+
     public bool IsActivated
     {
         get => GetValue(IsActivatedProperty);
@@ -190,6 +199,7 @@ public class HotKeyShow : TemplatedControl
 
     private static void HotKeyModelChanged(HotKeyModel? hotKeyModelN, HotKeyShow hotKeyShow)
     {
+        hotKeyShow.IsMouseHotKey = hotKeyModelN?.Type == HotKeyType.Mouse;
         var type = 0000;
         if (hotKeyModelN == null)
         {

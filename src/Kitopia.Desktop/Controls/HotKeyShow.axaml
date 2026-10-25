@@ -40,6 +40,7 @@
 
                     <!-- Right: Secondary Edit Button & Status-Aware Toggle Button -->
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <controls:MouseHotKeyWarning Classes="compact" IsMouseHotKey="{TemplateBinding IsMouseHotKey}" />
                         <Button Name="EditButton" Classes="HotKeyEditBtn" Content="{DynamicResource 'lang.kitopia.modify'}"
                                 Command="{TemplateBinding EditHotKey}" />
                         <Button Name="DisableButton" Classes="HotKeyDisableBtn" Content="{DynamicResource 'lang.kitopia.deactivate'}"

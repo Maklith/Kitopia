@@ -39,6 +39,7 @@
                             <RadioButton Name="KeyBoard" GroupName="InputType" Content="{DynamicResource 'lang.kitopia.keyboard_hotkey'}" Click="KeyBoard_OnClick" />
                             <RadioButton Name="Mouse" GroupName="InputType" Content="{DynamicResource 'lang.kitopia.mouse_hotkey'}" Click="Mouse_OnClick" />
                         </StackPanel>
+                        <controls:MouseHotKeyWarning IsMouseHotKey="{Binding #Mouse.IsChecked}" />
                         <Border Name="MouseCaptureArea" Padding="16" MinHeight="96" CornerRadius="8" Focusable="True"
                                 Background="{DynamicResource SemiColorFill0}" BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
                                 PointerPressed="InputElement_OnPointerPressed">
