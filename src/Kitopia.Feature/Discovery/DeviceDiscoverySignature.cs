@@ -6,6 +6,9 @@ namespace Kitopia.Feature.DeviceCommunication.Discovery;
 public static class DeviceDiscoverySignature
 {
     private const int RsaKeySizeBits = 2048;
+    private const string LegacyDiscoveryProtocolVersion = "0.1";
+    private const string DiscoveryMessageTypeAnnounce = "announce";
+    private const string DiscoveryMessageTypeAuthResponse = "auth.response";
     public const long DefaultSignatureToleranceSeconds = 60;
 
     public static (string PublicKey, string PrivateKey) CreateKeyPair()
@@ -103,8 +106,30 @@ public static class DeviceDiscoverySignature
         long nowUnixSeconds,
         long toleranceSeconds = DefaultSignatureToleranceSeconds)
     {
+        if (!string.Equals(info.MessageType, DiscoveryMessageTypeAuthResponse, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         if (string.IsNullOrWhiteSpace(expectedNonce) ||
             !string.Equals(info.Nonce, expectedNonce, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var skew = nowUnixSeconds >= info.TimestampUnixSeconds
+            ? nowUnixSeconds - info.TimestampUnixSeconds
+            : info.TimestampUnixSeconds - nowUnixSeconds;
+
+        return skew <= toleranceSeconds && Verify(info);
+    }
+
+    public static bool VerifyAnnouncement(
+        DiscoveryInfo info,
+        long nowUnixSeconds,
+        long toleranceSeconds = DefaultSignatureToleranceSeconds)
+    {
+        if (!string.Equals(info.MessageType, DiscoveryMessageTypeAnnounce, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -149,10 +174,34 @@ public static class DeviceDiscoverySignature
 
     private static byte[] BuildPayload(DiscoveryInfo info)
     {
+        return string.Equals(info.Version, LegacyDiscoveryProtocolVersion, StringComparison.Ordinal)
+            ? BuildLegacyPayload(info)
+            : BuildCurrentPayload(info);
+    }
+
+    private static byte[] BuildLegacyPayload(DiscoveryInfo info)
+    {
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream, Encoding.UTF8, true);
         writer.Write(info.Id ?? string.Empty);
         writer.Write(info.Name ?? string.Empty);
+        writer.Write(info.TcpPort);
+        writer.Write(info.TimestampUnixSeconds);
+        writer.Write(info.Nonce ?? string.Empty);
+        writer.Flush();
+        return stream.ToArray();
+    }
+
+    private static byte[] BuildCurrentPayload(DiscoveryInfo info)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream, Encoding.UTF8, true);
+        writer.Write(info.MessageType ?? string.Empty);
+        writer.Write(info.Version ?? string.Empty);
+        writer.Write(info.Id ?? string.Empty);
+        writer.Write(info.PublicKey ?? string.Empty);
+        writer.Write(info.Name ?? string.Empty);
+        writer.Write(info.OperatingSystem ?? string.Empty);
         writer.Write(info.TcpPort);
         writer.Write(info.TimestampUnixSeconds);
         writer.Write(info.Nonce ?? string.Empty);

@@ -22,7 +22,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
     private const string DiscoveryMessageTypeAnnounce = "announce";
     private const string DiscoveryMessageTypeAuthRequest = "auth.request";
     private const string DiscoveryMessageTypeAuthResponse = "auth.response";
-    private const string DiscoveryProtocolVersion = "0.1";
+    private const string DiscoveryProtocolVersion = "0.2";
     private static readonly Version DiscoveryProtocolVersionValue = Version.Parse(DiscoveryProtocolVersion);
     private readonly TimeSpan _discoveryBroadcastInterval = TimeSpan.FromSeconds(8);
     private readonly TimeSpan _discoveryCleanupInterval = TimeSpan.FromSeconds(5);
@@ -39,7 +39,8 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
     }
     private readonly ObservableList<DiscoveredDevice> _devicesSource = [];
     private readonly ISynchronizedView<DiscoveredDevice, DiscoveredDevice> _devicesView;
-    private readonly Dictionary<string, PendingAuthRequest> _pendingAuthRequests = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<PendingAuthRequest>> _pendingAuthRequests = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<VerifiedEndpoint>> _verifiedEndpoints = new(StringComparer.Ordinal);
     private readonly IDeviceCommunicationSettings _settings;
     private readonly IDeviceIdentityStore _identityStore;
     private readonly ILocalDataEndpointProvider _localDataEndpointProvider;
@@ -48,7 +49,15 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
     private UdpClient? _udpClientV4;
     private UdpClient? _udpClientV6;
 
-    private readonly record struct PendingAuthRequest(string Nonce, DateTime ExpiresAtUtc);
+    private readonly record struct PendingAuthRequest(
+        string Nonce,
+        DateTime ExpiresAtUtc,
+        IPAddress RequestedAddress);
+    private sealed class VerifiedEndpoint(IPAddress address, DateTime lastSeenUtc)
+    {
+        public IPAddress Address { get; } = address;
+        public DateTime LastSeenUtc { get; set; } = lastSeenUtc;
+    }
 
     public DeviceDiscoveryService(
         IDeviceCommunicationSettings settings,
@@ -118,6 +127,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         CloseUdpClient(ref _udpClientV4);
         CloseUdpClient(ref _udpClientV6);
         _pendingAuthRequests.Clear();
+        _verifiedEndpoints.Clear();
         _devicesSource.Clear();
     }
 
@@ -163,6 +173,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             lock (_sync)
             {
                 var now = DateTime.UtcNow;
+                CleanupVerifiedEndpoints(now);
                 var staleDevices = _devicesSource
                     .Where(device => now - device.LastSeen > Scaled(_discoveryStaleTimeoutBase))
                     .ToArray();
@@ -171,6 +182,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                     DeviceCommunicationDiagnostics.Info(
                         LogCategory,
                         $"Removing stale device {ShortId(staleDevice.Id)} at {FormatEndpoint(staleDevice)}.");
+                    _verifiedEndpoints.Remove(staleDevice.Id);
                     _devicesSource.Remove(staleDevice);
                 }
             }
@@ -448,7 +460,12 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                         await HandleAuthRequestAsync(info, endpointAddress, localIdentity.IdHash, localIdentity.PublicKey, token);
                         break;
                     case DiscoveryMessageTypeAuthResponse:
-                        HandleAuthResponse(info, endpointAddress, localIdentity.PublicKey, localIdentity.IdHash);
+                        await HandleAuthResponseAsync(
+                            info,
+                            endpointAddress,
+                            localIdentity.PublicKey,
+                            localIdentity.IdHash,
+                            token);
                         break;
                 }
             }
@@ -495,8 +512,17 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                         Name = ResolveDisplayName(),
                         OperatingSystem = ResolveOperatingSystemName(),
                         TcpPort = tcpPort,
-                        TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                        TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                        PublicKey = identity.PublicKey
                     };
+                    if (!DeviceDiscoverySignature.TrySign(info, identity.PrivateKey, out var signature))
+                    {
+                        DeviceCommunicationDiagnostics.Warning(LogCategory, "Failed to sign discovery announcement.");
+                        await Task.Delay(Scaled(_discoveryBroadcastInterval), token);
+                        continue;
+                    }
+
+                    info.Signature = signature;
                     var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(
                         info,
                         DeviceCommunicationJsonSerializerContext.Default.DiscoveryInfo));
@@ -627,7 +653,34 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             return;
         }
 
+        if (!string.IsNullOrWhiteSpace(info.Signature))
+        {
+            if (!DeviceDiscoverySignature.VerifyAnnouncement(
+                    info,
+                    DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                    DiscoverySignatureToleranceSeconds))
+            {
+                DeviceCommunicationDiagnostics.Warning(
+                    LogCategory,
+                    $"Rejected discovery announcement from {endpointAddress}: invalid signature.");
+                return;
+            }
+
+            UpsertAuthenticatedDevice(info, endpointAddress);
+            return;
+        }
+
         if (TryRefreshKnownDeviceFromAnnouncement(info, endpointAddress))
+        {
+            return;
+        }
+
+        if (HasKnownIdentity(info.Id, info.TcpPort))
+        {
+            return;
+        }
+
+        if (HasPendingAuthRequest(info.Id, endpointAddress))
         {
             return;
         }
@@ -641,7 +694,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         var request = new DiscoveryInfo
         {
             MessageType = DiscoveryMessageTypeAuthRequest,
-            Version = DiscoveryProtocolVersion,
+            Version = string.Equals(info.Version, "0.1", StringComparison.Ordinal)
+                ? "0.1"
+                : DiscoveryProtocolVersion,
             Id = info.Id,
             TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             Nonce = nonce
@@ -657,10 +712,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             CleanupPendingAuthRequests(DateTime.UtcNow);
 
             var existing = _devicesSource.FirstOrDefault(device =>
-                IsSameIdentityHash(device, info.Id) &&
-                IsSameEndpoint(device, endpointAddress) &&
-                device.TcpPort == info.TcpPort);
-            if (existing is null)
+                IsSameIdentityHash(device, info.Id));
+            if (existing is null || existing.TcpPort != info.TcpPort ||
+                !TouchVerifiedEndpoint(existing.Id, endpointAddress))
             {
                 return false;
             }
@@ -711,7 +765,9 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         var response = new DiscoveryInfo
         {
             MessageType = DiscoveryMessageTypeAuthResponse,
-            Version = DiscoveryProtocolVersion,
+            Version = string.Equals(info.Version, "0.1", StringComparison.Ordinal)
+                ? "0.1"
+                : DiscoveryProtocolVersion,
             Id = localIdHash,
             Name = ResolveDisplayName(),
             OperatingSystem = ResolveOperatingSystemName(),
@@ -734,11 +790,12 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         await SendUnicastAsync(response, new IPEndPoint(endpointAddress, DiscoveryPort), token);
     }
 
-    private void HandleAuthResponse(
+    private Task HandleAuthResponseAsync(
         DiscoveryInfo info,
         IPAddress endpointAddress,
         string localPublicKey,
-        string localIdHash)
+        string localIdHash,
+        CancellationToken token)
     {
         if (string.IsNullOrWhiteSpace(info.Id) ||
             string.IsNullOrWhiteSpace(info.PublicKey) ||
@@ -747,22 +804,26 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
             string.Equals(info.PublicKey, localPublicKey, StringComparison.Ordinal) ||
             string.Equals(info.Id, localIdHash, StringComparison.Ordinal))
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        var hasPendingNonce = TryTakePendingAuthNonce(info.Id, endpointAddress, out var expectedNonce);
-        if (!hasPendingNonce || !IsAuthenticated(info, expectedNonce))
+        if (!TryGetPendingAuthRequest(info.Id, info.Nonce, out var pending) ||
+            !IsAuthenticated(info, pending.Nonce))
         {
             DeviceCommunicationDiagnostics.Warning(
                 LogCategory,
-                $"Rejected auth response from {endpointAddress} id={ShortId(info.Id)} pending={hasPendingNonce}.");
-            return;
+                $"Rejected auth response from {endpointAddress} id={ShortId(info.Id)} pending=" +
+                $"{HasPendingAuthRequest(info.Id, endpointAddress)}.");
+            return Task.CompletedTask;
         }
 
+        RemovePendingAuthRequest(info.Id, pending.Nonce);
         DeviceCommunicationDiagnostics.Info(
             LogCategory,
-            $"Authenticated device {ShortId(info.PublicKey)} from {endpointAddress}:{info.TcpPort}.");
+            $"Authenticated device {ShortId(info.PublicKey)} from {endpointAddress}:{info.TcpPort} " +
+            $"using nonce={ShortId(pending.Nonce)}.");
         UpsertAuthenticatedDevice(info, endpointAddress);
+        return Task.CompletedTask;
     }
 
     private void UpsertAuthenticatedDevice(DiscoveryInfo info, IPAddress endpointAddress)
@@ -781,6 +842,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                 if (duplicateEndpoint is not null)
                 {
                     _devicesSource.Remove(duplicateEndpoint);
+                    _verifiedEndpoints.Remove(duplicateEndpoint.Id);
                 }
 
                 existing = new DiscoveredDevice
@@ -793,6 +855,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                     LastSeen = DateTime.UtcNow
                 };
                 AssignDiscoveredAddress(existing, endpointAddress);
+                AddVerifiedEndpoint(existing.Id, endpointAddress, existing.LastSeen);
                 _devicesSource.Add(existing);
                 DeviceCommunicationDiagnostics.Info(
                     LogCategory,
@@ -805,6 +868,7 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
                 existing.OperatingSystem = NormalizeOperatingSystemName(info.OperatingSystem);
                 existing.TcpPort = info.TcpPort;
                 AssignDiscoveredAddress(existing, endpointAddress);
+                AddVerifiedEndpoint(existing.Id, endpointAddress, existing.LastSeen);
                 DeviceCommunicationDiagnostics.Debug(
                     LogCategory,
                     $"Updated device {ShortId(existing.Id)} endpoint={FormatEndpoint(existing)} tcp={existing.TcpPort}.");
@@ -812,21 +876,141 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         }
     }
 
-    private bool TryTakePendingAuthNonce(string id, IPAddress endpointAddress, out string nonce)
+    private bool TouchVerifiedEndpoint(string deviceId, IPAddress endpointAddress)
+    {
+        if (!_verifiedEndpoints.TryGetValue(deviceId, out var endpoints))
+        {
+            return false;
+        }
+
+        var endpoint = endpoints.FirstOrDefault(item => item.Address.Equals(endpointAddress));
+        if (endpoint is null)
+        {
+            return false;
+        }
+
+        endpoint.LastSeenUtc = DateTime.UtcNow;
+        return true;
+    }
+
+    private void AddVerifiedEndpoint(string deviceId, IPAddress endpointAddress, DateTime lastSeenUtc)
+    {
+        if (!_verifiedEndpoints.TryGetValue(deviceId, out var endpoints))
+        {
+            endpoints = [];
+            _verifiedEndpoints[deviceId] = endpoints;
+        }
+
+        var existing = endpoints.FirstOrDefault(item => item.Address.Equals(endpointAddress));
+        if (existing is null)
+        {
+            endpoints.Add(new VerifiedEndpoint(endpointAddress, lastSeenUtc));
+        }
+        else
+        {
+            existing.LastSeenUtc = lastSeenUtc;
+        }
+    }
+
+    private void CleanupVerifiedEndpoints(DateTime nowUtc)
+    {
+        var staleTimeout = Scaled(_discoveryStaleTimeoutBase);
+        foreach (var pair in _verifiedEndpoints.ToArray())
+        {
+            pair.Value.RemoveAll(endpoint => nowUtc - endpoint.LastSeenUtc > staleTimeout);
+            if (pair.Value.Count == 0)
+            {
+                _verifiedEndpoints.Remove(pair.Key);
+                if (_devicesSource.FirstOrDefault(device => string.Equals(device.Id, pair.Key, StringComparison.Ordinal)) is { } staleDevice)
+                {
+                    staleDevice.Ipv4Address = IPAddress.None;
+                    staleDevice.Ipv6Address = IPAddress.None;
+                }
+                continue;
+            }
+
+            if (_devicesSource.FirstOrDefault(device => string.Equals(device.Id, pair.Key, StringComparison.Ordinal)) is { } device)
+            {
+                RefreshDeviceAddresses(device, pair.Value);
+            }
+        }
+    }
+
+    private static void RefreshDeviceAddresses(DiscoveredDevice device, IEnumerable<VerifiedEndpoint> endpoints)
+    {
+        var addresses = endpoints
+            .OrderByDescending(endpoint => endpoint.LastSeenUtc)
+            .Select(endpoint => endpoint.Address)
+            .ToArray();
+        device.Ipv4Address = addresses.FirstOrDefault(address => address.AddressFamily == AddressFamily.InterNetwork)
+                             ?? IPAddress.None;
+        device.Ipv6Address = addresses.FirstOrDefault(address => address.AddressFamily == AddressFamily.InterNetworkV6)
+                             ?? IPAddress.None;
+    }
+
+    private bool TryGetPendingAuthRequest(string id, string nonce, out PendingAuthRequest pending)
     {
         lock (_sync)
         {
             CleanupPendingAuthRequests(DateTime.UtcNow);
-            var requestKey = BuildPendingAuthKey(id, endpointAddress);
-            if (!_pendingAuthRequests.TryGetValue(requestKey, out var pending))
+            if (_pendingAuthRequests.TryGetValue(id, out var requests))
             {
-                nonce = string.Empty;
+                var request = requests.FirstOrDefault(item =>
+                    string.Equals(item.Nonce, nonce, StringComparison.Ordinal));
+                if (!string.IsNullOrWhiteSpace(request.Nonce))
+                {
+                    pending = request;
+                    return true;
+                }
+            }
+
+            pending = default;
+            return false;
+        }
+    }
+
+    private void RemovePendingAuthRequest(string id, string nonce)
+    {
+        lock (_sync)
+        {
+            if (!_pendingAuthRequests.TryGetValue(id, out var requests))
+            {
+                return;
+            }
+
+            requests.RemoveAll(item => string.Equals(item.Nonce, nonce, StringComparison.Ordinal));
+            if (requests.Count == 0)
+            {
+                _pendingAuthRequests.Remove(id);
+            }
+        }
+    }
+
+    private bool HasPendingAuthRequest(string id, IPAddress endpointAddress)
+    {
+        lock (_sync)
+        {
+            CleanupPendingAuthRequests(DateTime.UtcNow);
+            return _pendingAuthRequests.TryGetValue(id, out var requests) &&
+                   requests.Any(request => request.RequestedAddress.Equals(endpointAddress));
+        }
+    }
+
+    private bool HasKnownIdentity(string idHash, int tcpPort)
+    {
+        lock (_sync)
+        {
+            var device = _devicesSource.FirstOrDefault(candidate =>
+                candidate.TcpPort == tcpPort && IsSameIdentityHash(candidate, idHash));
+            if (device is null ||
+                !_verifiedEndpoints.TryGetValue(device.Id, out var endpoints) ||
+                endpoints.Count == 0)
+            {
                 return false;
             }
 
-            _pendingAuthRequests.Remove(requestKey);
-            nonce = pending.Nonce;
-            return true;
+            var now = DateTime.UtcNow;
+            return endpoints.Any(endpoint => now - endpoint.LastSeenUtc <= Scaled(_discoveryStaleTimeoutBase));
         }
     }
 
@@ -835,24 +1019,17 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         lock (_sync)
         {
             CleanupPendingAuthRequests(DateTime.UtcNow);
-            var requestKey = BuildPendingAuthKey(id, endpointAddress);
-                _pendingAuthRequests[requestKey] = new PendingAuthRequest(
-                nonce,
-                DateTime.UtcNow + Scaled(_discoveryAuthRequestTimeoutBase));
-        }
-    }
-
-    private static string BuildPendingAuthKey(string id, IPAddress endpointAddress)
-    {
-        return string.Create(
-            id.Length + endpointAddress.ToString().Length + 1,
-            (id, endpointAddress),
-            (buffer, state) =>
+            if (!_pendingAuthRequests.TryGetValue(id, out var requests))
             {
-                state.id.AsSpan().CopyTo(buffer);
-                buffer[state.id.Length] = '|';
-                state.endpointAddress.ToString().AsSpan().CopyTo(buffer[(state.id.Length + 1)..]);
-            });
+                requests = [];
+                _pendingAuthRequests[id] = requests;
+            }
+
+            requests.Add(new PendingAuthRequest(
+                nonce,
+                DateTime.UtcNow + Scaled(_discoveryAuthRequestTimeoutBase),
+                endpointAddress));
+        }
     }
 
     private void CleanupPendingAuthRequests(DateTime nowUtc)
@@ -863,7 +1040,11 @@ public sealed class DeviceDiscoveryService : IDeviceDiscoveryService
         }
 
         var expiredKeys = _pendingAuthRequests
-            .Where(pair => pair.Value.ExpiresAtUtc <= nowUtc)
+            .Where(pair =>
+            {
+                pair.Value.RemoveAll(request => request.ExpiresAtUtc <= nowUtc);
+                return pair.Value.Count == 0;
+            })
             .Select(pair => pair.Key)
             .ToArray();
 

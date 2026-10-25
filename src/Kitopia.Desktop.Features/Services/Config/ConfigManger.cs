@@ -120,11 +120,12 @@ public class ConfigManger : IConfigService, IConfigProvider
 
     public static void Init()
     {
-        bool hasExistingConfigEntries;
+        bool hasExistingConfig;
         try
         {
             Directory.CreateDirectory(KitopiaPaths.ConfigsDirectory);
-            hasExistingConfigEntries = Directory.EnumerateFileSystemEntries(KitopiaPaths.ConfigsDirectory).Any();
+            var configPath = KitopiaPaths.GetConfigFilePath("KitopiaConfig");
+            hasExistingConfig = File.Exists(configPath) || File.Exists(configPath + ".bak");
         }
         catch (Exception exception)
         {
@@ -140,7 +141,7 @@ public class ConfigManger : IConfigService, IConfigProvider
 
         RemoveConfig("KitopiaConfig");
         LoadConfig("KitopiaConfig", new KitopiaConfig(), useDefaultsOnInvalidJson: true,
-            notifyWhenMissing: hasExistingConfigEntries);
+            notifyWhenMissing: hasExistingConfig);
         Lang.Current.UseLanguage(Config.language);
         Config.GetType()
             .GetFields(BindingFlags.Instance | BindingFlags.Public)

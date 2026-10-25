@@ -66,7 +66,7 @@ public sealed class DiscoveryToTransferMatrixTests
     }
 
     [TestMethod]
-    public void Discovery_AuthFailed_DoesNotPublishDevice()
+    public async Task Discovery_AuthFailed_DoesNotPublishDevice()
     {
         var localIdentity = CreateIdentity();
         using var discoveryService = new DeviceDiscoveryService(
@@ -94,7 +94,8 @@ public sealed class DiscoveryToTransferMatrixTests
         };
 
         var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
-        InvokePrivateVoid(discoveryService, "HandleAuthResponse", response, remoteAddress, localIdentity.PublicKey, localHash);
+        await InvokePrivateTask(discoveryService, "HandleAuthResponseAsync", response, remoteAddress,
+            localIdentity.PublicKey, localHash, CancellationToken.None);
 
         Assert.AreEqual(0, discoveryService.Devices.Count);
     }
@@ -162,10 +163,11 @@ public sealed class DiscoveryToTransferMatrixTests
             new FakeLocalDataEndpointProvider(23001));
         var remoteIdentity = CreateIdentity();
         var remoteHash = ComputePublicKeyHash(remoteIdentity.PublicKey);
-        var remoteAddress = IPAddress.Loopback;
+        var requestedAddress = IPAddress.Loopback;
+        var responseAddress = requestedAddress;
         var nonce = Guid.NewGuid().ToString("N");
 
-        InvokePrivateVoid(discoveryService, "RegisterPendingAuthRequest", remoteHash, nonce, remoteAddress);
+        InvokePrivateVoid(discoveryService, "RegisterPendingAuthRequest", remoteHash, nonce, requestedAddress);
         var response = new DiscoveryInfo
         {
             MessageType = "auth.response",
@@ -185,9 +187,27 @@ public sealed class DiscoveryToTransferMatrixTests
         response.Signature = signature;
 
         var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
-        InvokePrivateVoid(discoveryService, "HandleAuthResponse", response, remoteAddress, localIdentity.PublicKey, localHash);
+        await InvokePrivateTask(discoveryService, "HandleAuthResponseAsync", response, responseAddress,
+            localIdentity.PublicKey, localHash, CancellationToken.None);
         Assert.AreEqual(1, discoveryService.Devices.Count);
         var device = discoveryService.Devices[0];
+        var changedAddress = requestedAddress;
+        var samePortAnnouncement = new DiscoveryInfo
+        {
+            MessageType = "announce",
+            Version = "0.1",
+            Id = remoteHash,
+            Name = "peer-renamed",
+            TcpPort = 23001,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        };
+
+        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", samePortAnnouncement, changedAddress,
+            localHash, CancellationToken.None);
+
+        Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
+        Assert.AreEqual(changedAddress, device.Ipv4Address);
+
         device.LastSeen = DateTime.UtcNow - TimeSpan.FromSeconds(10);
         var previousLastSeen = device.LastSeen;
 
@@ -202,7 +222,7 @@ public sealed class DiscoveryToTransferMatrixTests
             TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
         };
 
-        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", announcement, remoteAddress, localHash, CancellationToken.None);
+        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", announcement, changedAddress, localHash, CancellationToken.None);
 
         Assert.AreEqual(1, discoveryService.Devices.Count);
         Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
@@ -213,7 +233,7 @@ public sealed class DiscoveryToTransferMatrixTests
     }
 
     [TestMethod]
-    public void Discovery_AuthenticatedResponse_PublishesDeviceOperatingSystem()
+    public async Task Discovery_AuthenticatedResponse_PublishesDeviceOperatingSystem()
     {
         var localIdentity = CreateIdentity();
         using var discoveryService = new DeviceDiscoveryService(
@@ -245,7 +265,8 @@ public sealed class DiscoveryToTransferMatrixTests
         response.Signature = signature;
 
         var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
-        InvokePrivateVoid(discoveryService, "HandleAuthResponse", response, remoteAddress, localIdentity.PublicKey, localHash);
+        await InvokePrivateTask(discoveryService, "HandleAuthResponseAsync", response, remoteAddress,
+            localIdentity.PublicKey, localHash, CancellationToken.None);
 
         Assert.AreEqual(1, discoveryService.Devices.Count);
         Assert.AreEqual("Android", discoveryService.Devices[0].OperatingSystem);
@@ -283,7 +304,8 @@ public sealed class DiscoveryToTransferMatrixTests
         response.Signature = signature;
 
         var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
-        InvokePrivateVoid(discoveryService, "HandleAuthResponse", response, remoteAddress, localIdentity.PublicKey, localHash);
+        await InvokePrivateTask(discoveryService, "HandleAuthResponseAsync", response, remoteAddress,
+            localIdentity.PublicKey, localHash, CancellationToken.None);
         Assert.AreEqual(1, discoveryService.Devices.Count);
         var device = discoveryService.Devices[0];
         device.LastSeen = DateTime.UtcNow - TimeSpan.FromSeconds(10);
@@ -308,6 +330,208 @@ public sealed class DiscoveryToTransferMatrixTests
         Assert.AreEqual(previousLastSeen, device.LastSeen);
     }
 
+    [TestMethod]
+    public async Task Discovery_UnverifiedAddressDoesNotReplaceVerifiedEndpoint()
+    {
+        var localIdentity = CreateIdentity();
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings(),
+            new FakeIdentityStore(localIdentity),
+            new FakeLocalDataEndpointProvider(23001));
+        var remoteIdentity = CreateIdentity();
+        var remoteHash = ComputePublicKeyHash(remoteIdentity.PublicKey);
+        var verifiedAddress = IPAddress.Loopback;
+        var nonce = Guid.NewGuid().ToString("N");
+
+        InvokePrivateVoid(discoveryService, "RegisterPendingAuthRequest", remoteHash, nonce, verifiedAddress);
+        var response = new DiscoveryInfo
+        {
+            MessageType = "auth.response",
+            Version = "0.1",
+            Id = remoteHash,
+            TcpPort = 23001,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            PublicKey = remoteIdentity.PublicKey,
+            Nonce = nonce
+        };
+        Assert.IsTrue(DeviceDiscoverySignature.TrySign(response, remoteIdentity.PrivateKey, out var signature));
+        response.Signature = signature;
+
+        var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
+        await InvokePrivateTask(discoveryService, "HandleAuthResponseAsync", response, verifiedAddress,
+            localIdentity.PublicKey, localHash, CancellationToken.None);
+
+        var announcement = new DiscoveryInfo
+        {
+            MessageType = "announce",
+            Version = "0.1",
+            Id = remoteHash,
+            TcpPort = 23001,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        };
+        var unverifiedAddress = IPAddress.Parse("127.0.0.2");
+        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", announcement, unverifiedAddress,
+            localHash, CancellationToken.None);
+
+        Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
+        Assert.AreEqual(verifiedAddress, discoveryService.Devices[0].Ipv4Address);
+    }
+
+    [TestMethod]
+    public async Task Discovery_DuplicateAnnouncementsBeforeAuthentication_SendOneAuthRequest()
+    {
+        var localIdentity = CreateIdentity();
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings(),
+            new FakeIdentityStore(localIdentity),
+            new FakeLocalDataEndpointProvider(23001));
+        var remoteIdentity = CreateIdentity();
+        var announcement = new DiscoveryInfo
+        {
+            MessageType = "announce",
+            Version = "0.1",
+            Id = ComputePublicKeyHash(remoteIdentity.PublicKey),
+            TcpPort = 23002,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        };
+        var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
+
+        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", announcement, IPAddress.Loopback,
+            localHash, CancellationToken.None);
+        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", announcement, IPAddress.Loopback,
+            localHash, CancellationToken.None);
+
+        Assert.AreEqual(1, GetPendingAuthRequestCount(discoveryService));
+    }
+
+    [TestMethod]
+    public async Task Discovery_SignedAnnouncement_PublishesDeviceWithoutAuthRequest()
+    {
+        var localIdentity = CreateIdentity();
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings(),
+            new FakeIdentityStore(localIdentity),
+            new FakeLocalDataEndpointProvider(23001));
+        var remoteIdentity = CreateIdentity();
+        var announcement = new DiscoveryInfo
+        {
+            MessageType = "announce",
+            Version = "0.2",
+            Id = ComputePublicKeyHash(remoteIdentity.PublicKey),
+            Name = "peer",
+            TcpPort = 23002,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            PublicKey = remoteIdentity.PublicKey
+        };
+        Assert.IsTrue(DeviceDiscoverySignature.TrySign(announcement, remoteIdentity.PrivateKey, out var signature));
+        announcement.Signature = signature;
+
+        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", announcement, IPAddress.Loopback,
+            ComputePublicKeyHash(localIdentity.PublicKey), CancellationToken.None);
+
+        Assert.AreEqual(1, discoveryService.Devices.Count);
+        Assert.AreEqual(remoteIdentity.PublicKey, discoveryService.Devices[0].Id);
+        Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
+    }
+
+    [TestMethod]
+    public async Task Discovery_ResponseFromDifferentAddress_ConsumesChallengeByNonce()
+    {
+        var localIdentity = CreateIdentity();
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings(),
+            new FakeIdentityStore(localIdentity),
+            new FakeLocalDataEndpointProvider(23001));
+        var remoteIdentity = CreateIdentity();
+        var remoteHash = ComputePublicKeyHash(remoteIdentity.PublicKey);
+        var requestedAddress = IPAddress.Parse("127.0.0.1");
+        var responseAddress = IPAddress.Parse("127.0.0.2");
+        const string requestedNonce = "requested-nonce";
+
+        InvokePrivateVoid(discoveryService, "RegisterPendingAuthRequest", remoteHash, requestedNonce, requestedAddress);
+        var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
+        var response = CreateSignedAuthResponse(remoteIdentity, remoteHash, requestedNonce, 23001);
+        await InvokePrivateTask(discoveryService, "HandleAuthResponseAsync", response, responseAddress,
+            localIdentity.PublicKey, localHash, CancellationToken.None);
+
+        Assert.AreEqual(1, discoveryService.Devices.Count);
+        Assert.AreEqual(responseAddress, discoveryService.Devices[0].Ipv4Address);
+        Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
+
+        var announcement = new DiscoveryInfo
+        {
+            MessageType = "announce",
+            Version = "0.1",
+            Id = remoteHash,
+            TcpPort = 23001,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        };
+        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", announcement, requestedAddress,
+            localHash, CancellationToken.None);
+
+        Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
+        Assert.AreEqual(1, GetVerifiedEndpointCount(discoveryService, remoteIdentity.PublicKey));
+    }
+
+    [TestMethod]
+    public async Task Discovery_ResponseNonceMatchesPendingChallenge_UsesResponseAddress()
+    {
+        var localIdentity = CreateIdentity();
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings(),
+            new FakeIdentityStore(localIdentity),
+            new FakeLocalDataEndpointProvider(23001));
+        var remoteIdentity = CreateIdentity();
+        var remoteHash = ComputePublicKeyHash(remoteIdentity.PublicKey);
+        var requestedAddress = IPAddress.Parse("127.0.0.1");
+        var responseAddress = IPAddress.Parse("127.0.0.2");
+        const string nonce = "pending-nonce";
+
+        InvokePrivateVoid(discoveryService, "RegisterPendingAuthRequest", remoteHash, nonce, requestedAddress);
+
+        var response = CreateSignedAuthResponse(remoteIdentity, remoteHash, nonce, 23001);
+        var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
+        await InvokePrivateTask(discoveryService, "HandleAuthResponseAsync", response, responseAddress,
+            localIdentity.PublicKey, localHash, CancellationToken.None);
+
+        Assert.AreEqual(1, discoveryService.Devices.Count);
+        Assert.AreEqual(responseAddress, discoveryService.Devices[0].Ipv4Address);
+        Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
+    }
+
+    [TestMethod]
+    public async Task Discovery_DualStackResponses_AuthenticateBothEndpoints()
+    {
+        var localIdentity = CreateIdentity();
+        using var discoveryService = new DeviceDiscoveryService(
+            new FakeDeviceCommunicationSettings(),
+            new FakeIdentityStore(localIdentity),
+            new FakeLocalDataEndpointProvider(23001));
+        var remoteIdentity = CreateIdentity();
+        var remoteHash = ComputePublicKeyHash(remoteIdentity.PublicKey);
+        var ipv4Address = IPAddress.Parse("192.0.2.10");
+        var ipv6Address = IPAddress.Parse("2001:db8::10");
+        const string ipv4Nonce = "ipv4-nonce";
+        const string ipv6Nonce = "ipv6-nonce";
+
+        InvokePrivateVoid(discoveryService, "RegisterPendingAuthRequest", remoteHash, ipv4Nonce, ipv4Address);
+        InvokePrivateVoid(discoveryService, "RegisterPendingAuthRequest", remoteHash, ipv6Nonce, ipv6Address);
+        var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
+
+        await InvokePrivateTask(discoveryService, "HandleAuthResponseAsync",
+            CreateSignedAuthResponse(remoteIdentity, remoteHash, ipv4Nonce, 23001), ipv4Address,
+            localIdentity.PublicKey, localHash, CancellationToken.None);
+        await InvokePrivateTask(discoveryService, "HandleAuthResponseAsync",
+            CreateSignedAuthResponse(remoteIdentity, remoteHash, ipv6Nonce, 23001), ipv6Address,
+            localIdentity.PublicKey, localHash, CancellationToken.None);
+
+        Assert.AreEqual(1, discoveryService.Devices.Count);
+        Assert.AreEqual(ipv4Address, discoveryService.Devices[0].Ipv4Address);
+        Assert.AreEqual(ipv6Address, discoveryService.Devices[0].Ipv6Address);
+        Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
+        Assert.AreEqual(2, GetVerifiedEndpointCount(discoveryService, remoteIdentity.PublicKey));
+    }
+
     private static string ComputePublicKeyHash(string publicKey)
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(publicKey.Trim()));
@@ -320,6 +544,27 @@ public sealed class DiscoveryToTransferMatrixTests
         var publicKey = Convert.ToBase64String(rsa.ExportSubjectPublicKeyInfo());
         var privateKey = Convert.ToBase64String(rsa.ExportPkcs8PrivateKey());
         return (publicKey, privateKey);
+    }
+
+    private static DiscoveryInfo CreateSignedAuthResponse(
+        (string PublicKey, string PrivateKey) identity,
+        string id,
+        string nonce,
+        int tcpPort)
+    {
+        var response = new DiscoveryInfo
+        {
+            MessageType = "auth.response",
+            Version = "0.1",
+            Id = id,
+            TcpPort = tcpPort,
+            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            PublicKey = identity.PublicKey,
+            Nonce = nonce
+        };
+        Assert.IsTrue(DeviceDiscoverySignature.TrySign(response, identity.PrivateKey, out var signature));
+        response.Signature = signature;
+        return response;
     }
 
     private static void InvokePrivateVoid(object instance, string methodName, params object[] args)
@@ -371,6 +616,20 @@ public sealed class DiscoveryToTransferMatrixTests
         var value = field.GetValue(instance);
         Assert.IsInstanceOfType<System.Collections.IDictionary>(value);
         return ((System.Collections.IDictionary)value).Count;
+    }
+
+    private static int GetVerifiedEndpointCount(object instance, string deviceId)
+    {
+        var field = instance.GetType().GetField(
+            "_verifiedEndpoints",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+        Assert.IsNotNull(field, "Verified endpoint field not found.");
+        var value = field.GetValue(instance) as System.Collections.IDictionary;
+        Assert.IsNotNull(value, "Verified endpoint dictionary not found.");
+        var endpoints = value[deviceId] as System.Collections.ICollection;
+        Assert.IsNotNull(endpoints, "Verified endpoint list not found.");
+        return endpoints.Count;
     }
 
     private sealed class FakeDeviceDiscoveryService : IDeviceDiscoveryService
