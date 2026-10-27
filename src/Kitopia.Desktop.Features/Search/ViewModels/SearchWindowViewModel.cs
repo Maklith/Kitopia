@@ -13,6 +13,7 @@ using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Features.Search.InputProcessing;
+using Kitopia.Desktop.Features.Search.ProcessUsage;
 using Kitopia.Desktop.Features.Indexing;
 using Microsoft.Extensions.DependencyInjection;
 using ObservableCollections;
@@ -691,6 +692,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                            ?? ItemsViewList.FirstOrDefault();
         }
         UpdatePreview(SelectedItem);
+        RefreshProcessUsageTargets();
     }
 
     private void UpdatePreview(SearchViewItem? item)
@@ -747,6 +749,30 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         }
 
         ShowFileTypeFilter = FileTypes.Count > 0;
+    }
+
+    /// <summary>
+    /// Tells the usage sampler which applications the current results reference. Only rows whose
+    /// key is an executable path map to a process, so unrelated results never trigger sampling.
+    /// </summary>
+    public void RefreshProcessUsageTargets()
+    {
+        var usage = ServiceManager.Services?.GetService<IProcessUsageService>();
+        if (usage is null) return;
+
+        usage.SetTargets(Items
+            .Concat(PinnedItems)
+            .Select(item => ProcessUsageService.TryResolveProcessName(item, out var name) ? name : null)
+            .OfType<string>());
+    }
+
+    public void SetProcessUsageEnabled(bool enabled)
+    {
+        var usage = ServiceManager.Services?.GetService<IProcessUsageService>();
+        if (usage is null) return;
+
+        usage.Enabled = enabled;
+        if (enabled) RefreshProcessUsageTargets();
     }
     
 

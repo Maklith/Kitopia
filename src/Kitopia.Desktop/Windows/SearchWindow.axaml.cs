@@ -47,6 +47,8 @@ public partial class SearchWindow : Window
         {
             if (IsVisible) PositionWindow();
         };
+        this.GetObservable(IsVisibleProperty).Subscribe(visible =>
+            (DataContext as SearchWindowViewModel)?.SetProcessUsageEnabled(visible));
     }
 
     public override void Show()
@@ -67,6 +69,7 @@ public partial class SearchWindow : Window
         PinnedList.SelectedIndex = -1;
         dataGrid.SelectedIndex = -1;
         ((SearchWindowViewModel?)DataContext)?.LoadLast();
+        ((SearchWindowViewModel?)DataContext)?.SetProcessUsageEnabled(IsVisible);
     }
 
     private void PositionWindow()

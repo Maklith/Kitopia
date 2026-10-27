@@ -461,10 +461,12 @@
                                             </TextBlock.Inlines>
                                             <Run />
                                         </TextBlock>
-                                        <TextBlock Classes="search-item-subtitle" VerticalAlignment="Top" Margin="0"
-                                                   Foreground="{DynamicResource SemiColorText1}"
-                                                   FontWeight="Normal" TextTrimming="CharacterEllipsis"
-                                                   Text="{Binding Path=FileType}" />
+                                        <controls1:SearchItemSubtitle Classes="search-item-subtitle"
+                                                                     VerticalAlignment="Top" Margin="0"
+                                                                     Foreground="{DynamicResource SemiColorText1}"
+                                                                     FontWeight="Normal"
+                                                                     TextTrimming="CharacterEllipsis"
+                                                                     DataContext="{Binding .}" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" Focusable="False"
                                                 HorizontalAlignment="Right" Spacing="4"

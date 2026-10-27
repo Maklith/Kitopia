@@ -1,4 +1,3 @@
-using Kitopia.Feature.Localization;
 using System.Buffers;
 using System.Net;
 using System.Text;
@@ -10,8 +9,10 @@ using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.CustomScenario.Services;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Features.Utils;
+using Kitopia.Feature.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using MQTTnet;
+using MQTTnet.Exceptions;
 using MQTTnet.Protocol;
 using MQTTnet.Server;
 using Newtonsoft.Json.Linq;
@@ -32,11 +33,11 @@ public class MqttManager
     /// <summary>
     /// MQTT服务器实例 / MQTT server instance
     /// </summary>
-    public static MqttServer Server;
+    public static MqttServer? Server;
     public static int Port { get; private set; }
     public static TaskCompletionSource PluginsReady { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         
-    private static FileStream fileStream;
+    private static FileStream? _portFile;
     
     /// <summary>
     /// 初始化MQTT服务器
@@ -45,80 +46,120 @@ public class MqttManager
     /// <returns>异步任务 / Asynchronous task. Returns true if startup args were sent to another instance.</returns>
     public static async Task<bool> Init(string[] args)
     {
-        var mqttClientFactoryFactory = new MqttClientFactory();
-        var portFilePath = KitopiaPaths.PortFilePath;
-        if (File.Exists(portFilePath))
-            try
-            {
-                File.Delete(portFilePath);
-            }
-            catch (Exception e)
-            {
-                using (var fs = new FileStream(portFilePath, FileMode.Open,
-                           FileAccess.Read, FileShare.ReadWrite))
-                {
-                    var bt = new byte[fs.Length];
-                    fs.Read(bt, 0, bt.Length);
-                    fs.Close();
-                    var i = int.Parse(Encoding.UTF8.GetString(bt));
-                    var options = new MqttClientOptionsBuilder()
-                        .WithTcpServer("localhost", i) // 指定MQTT代理服务器的地址和端口
-                        .Build();
-                    var mqttClient = mqttClientFactoryFactory.CreateMqttClient();
-                    var mqttClientConnectResult = await mqttClient.ConnectAsync(options);
-                    if (mqttClientConnectResult.ResultCode == MqttClientConnectResultCode.Success)
-                    {
-                        Logger.Debug("MQTT连接成功");
-                        var result = StartupArgumentManager.Parse(args);
-                        var jObject = BuildActionPayload(result);
-                        jObject["type"] = (int)result.Action;
-
-                        await mqttClient.PublishAsync(new MqttApplicationMessage
-                        {
-                            Topic = "test", Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(jObject.ToString())),
-                            QualityOfServiceLevel = MqttQualityOfServiceLevel.ExactlyOnce
-                        });
-                        
-                        // We handled the startup by sending to another instance
-                        return true;
-                    }
-                }
-            }
-
-        var nowPort = 6600;
-        restart:
-        MqttServerFactory mqttServerFactory = new MqttServerFactory();
-        var mqttServerOptions = mqttServerFactory.CreateServerOptionsBuilder()
-            .WithDefaultEndpoint()
-            .WithDefaultEndpointBoundIPAddress(IPAddress.Loopback)
-            .WithDefaultEndpointPort(nowPort).Build();
-        Server = mqttServerFactory.CreateMqttServer(mqttServerOptions);
-        Server.ClientConnectedAsync += Server_ClientConnectedAsync;
-        Server.ClientDisconnectedAsync += Server_ClientDisconnectedAsync;
-        Server.InterceptingPublishAsync += Server_InterceptingPublishAsync;
-
-
+        _portFile = await AcquirePortFileAsync(KitopiaPaths.PortFilePath, args);
+        if (_portFile is null) return true;
         try
         {
-            await Server.StartAsync();
+            _portFile.SetLength(0);
+            var nowPort = 6600;
+            restart:
+            var mqttServerFactory = new MqttServerFactory();
+            var mqttServerOptions = mqttServerFactory.CreateServerOptionsBuilder()
+                .WithDefaultEndpoint()
+                .WithDefaultEndpointBoundIPAddress(IPAddress.Loopback)
+                .WithDefaultEndpointPort(nowPort).Build();
+            Server = mqttServerFactory.CreateMqttServer(mqttServerOptions);
+            Server.ClientConnectedAsync += Server_ClientConnectedAsync;
+            Server.ClientDisconnectedAsync += Server_ClientDisconnectedAsync;
+            Server.InterceptingPublishAsync += Server_InterceptingPublishAsync;
+
+            try
+            {
+                await Server.StartAsync();
+            }
+            catch (Exception e) when (nowPort < IPEndPoint.MaxPort)
+            {
+                Server.ClientConnectedAsync -= Server_ClientConnectedAsync;
+                Server.ClientDisconnectedAsync -= Server_ClientDisconnectedAsync;
+                Server.InterceptingPublishAsync -= Server_InterceptingPublishAsync;
+                Server.Dispose();
+                nowPort++;
+                Logger.Debug(e, "MQTT启动失败,尝试启动端口{Port}", nowPort);
+                goto restart;
+            }
+
+            Port = nowPort;
+            _portFile.Write(Encoding.UTF8.GetBytes(nowPort.ToString()));
+            _portFile.Flush();
+            return false;
         }
-        catch (Exception e)
+        catch
         {
-            Server.ClientConnectedAsync -= Server_ClientConnectedAsync;
-            Server.ClientDisconnectedAsync -= Server_ClientDisconnectedAsync;
-            Server.InterceptingPublishAsync -= Server_InterceptingPublishAsync;
-            nowPort++;
-            Logger.Debug($"MQTT启动失败,尝试启动端口{nowPort}");
-            goto restart;
+            Server?.Dispose();
+            Server = null;
+            _portFile.Dispose();
+            _portFile = null;
+            throw;
         }
+    }
 
+    internal static async Task<FileStream?> AcquirePortFileAsync(string portFilePath, string[] args)
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (true)
+        {
+            try
+            {
+                // Keep one writer for the instance lifetime while allowing other instances to read its port.
+                return new FileStream(portFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                try
+                {
+                    string portText;
+                    using (var stream = new FileStream(portFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (var reader = new StreamReader(stream))
+                        portText = await reader.ReadToEndAsync(deadline.Token);
 
-        Port = nowPort;
-        fileStream = new FileStream(portFilePath, FileMode.CreateNew);
-        fileStream.Write(Encoding.UTF8.GetBytes(nowPort.ToString()));
-        fileStream.Flush();
-        
-        return false;
+                    if (int.TryParse(portText, out var port) && port is > 0 and <= IPEndPoint.MaxPort)
+                    {
+                        using var client = new MqttClientFactory().CreateMqttClient();
+                        var options = new MqttClientOptionsBuilder().WithTcpServer(IPAddress.Loopback.ToString(), port)
+                            .WithTimeout(TimeSpan.FromSeconds(1)).Build();
+                        var connection = await client.ConnectAsync(options, deadline.Token);
+                        if (connection.ResultCode == MqttClientConnectResultCode.Success)
+                        {
+                            var result = StartupArgumentManager.Parse(args);
+                            var payload = BuildActionPayload(result);
+                            payload["type"] = (int)result.Action;
+                            await client.PublishAsync(new MqttApplicationMessage
+                            {
+                                Topic = "test", Payload = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes(payload.ToString())),
+                                QualityOfServiceLevel = MqttQualityOfServiceLevel.ExactlyOnce
+                            }, deadline.Token);
+                            return null;
+                        }
+                    }
+                }
+                catch (Exception forwardingException) when (forwardingException is IOException or
+                    UnauthorizedAccessException or MqttCommunicationException or OperationCanceledException)
+                {
+                    if (deadline.IsCancellationRequested)
+                        Logger.Warning(forwardingException, "无法将启动参数转发到现有实例，端口文件：{PortFilePath}", portFilePath);
+                }
+
+                // The owner may still be starting its broker, or may exit before publishing the port.
+                if (deadline.IsCancellationRequested) throw;
+                await Task.Delay(100);
+            }
+        }
+    }
+
+    public static async Task StopAsync()
+    {
+        try
+        {
+            if (Server is not null) await Server.StopAsync(new MqttServerStopOptions());
+        }
+        finally
+        {
+            Server?.Dispose();
+            Server = null;
+            Port = 0;
+            _portFile?.Dispose();
+            _portFile = null;
+        }
     }
     
     // Static method to handle local args if we are the server

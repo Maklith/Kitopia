@@ -1158,5 +1158,15 @@
   "lang.kitopia.do_not_ask_again": "Don't ask again",
   "lang.kitopia.extract_and_preview": "Extract and preview",
   "lang.kitopia.indexing_in_progress": "Indexing in progress",
-  "lang.kitopia.indexing_performance_notice": "Indexing uses system resources and may affect performance."
+  "lang.kitopia.indexing_performance_notice": "Indexing uses system resources and may affect performance.",
+  "lang.kitopia.show_process_usage_in_search": "Show running status in search results",
+  "lang.kitopia.show_process_usage_in_search_description": "Show CPU and memory usage inside a result row while the application behind it is running",
+  "lang.kitopia.show_process_cpu_usage": "Show CPU usage",
+  "lang.kitopia.show_process_cpu_usage_description": "CPU usage is measured across the whole machine like Task Manager, so multi-threaded applications stay within 100%",
+  "lang.kitopia.show_process_memory_usage": "Show memory usage",
+  "lang.kitopia.show_process_memory_usage_description": "Show the combined working set (physical memory) of every process that belongs to the application",
+  "lang.kitopia.process_usage_refresh_interval": "Refresh interval (ms)",
+  "lang.kitopia.process_usage_refresh_interval_description": "Lower values refresh sooner and use more system resources. Defaults to 1000 ms",
+  "lang.kitopia.process_cpu_usage": "CPU {0}",
+  "lang.kitopia.process_memory_usage": "Memory {0}"
 }

@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -50,6 +51,7 @@ using Kitopia.Desktop.Features.CustomScenario.ViewModels;
 using Kitopia.Desktop.Features.CustomScenario.ViewModels.TaskEditor;
 using Kitopia.Desktop.Features.PluginHost;
 using Kitopia.Desktop.Features.Search;
+using Kitopia.Desktop.Features.Search.ProcessUsage;
 using Kitopia.Desktop.Features.Search.Services;
 using Kitopia.Desktop.Features.Search.ViewModels;
 using Kitopia.Desktop.Features.Indexing;
@@ -125,7 +127,6 @@ internal class Program {
             };
 
             if (MqttManager.Init(args).GetAwaiter().GetResult()) {
-                ExitApplication();
                 return;
             }
 
@@ -136,7 +137,7 @@ internal class Program {
                 }
                 catch (Exception e) {
                     Logger.Fatal(e, "启动失败");
-                    ExitApplication();
+                    ExitApplication(1);
                 }
             });
             BuildAvaloniaApp()
@@ -144,11 +145,16 @@ internal class Program {
         }
         catch (Exception e) {
             Logger.Fatal(e, "");
-            ExitApplication();
+            ExitApplication(1);
         }
     }
 
     private static void ExitApplication(int exitCode = 0) {
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime) {
+            LogManager.Logger.Dispose();
+            Environment.Exit(exitCode);
+            return;
+        }
         ServiceManager.Services.GetService<IApplicationService>()!.ExitAsync(exitCode).GetAwaiter().GetResult();
     }
 
@@ -215,6 +221,7 @@ internal class Program {
         services.AddSingleton<PluginCore.IOcrService>(e => e.GetRequiredService<DesktopOcrService>());
         services.AddSingleton<IIndexService, IndexService>();
         services.AddSingleton<IIndexMaintenanceService, IndexMaintenanceService>();
+        services.AddSingleton<IProcessUsageService, ProcessUsageService>();
         services.AddTransient<IInferenceSessionManager, InferenceSessionManager>();
         services.AddSingleton<IOnnxRuntimeProbe>(_ => new OnnxRuntimeProbe(
             Environment.ProcessPath ?? throw new InvalidOperationException("The application executable path is unavailable."),

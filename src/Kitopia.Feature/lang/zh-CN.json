@@ -1158,5 +1158,15 @@
   "lang.kitopia.do_not_ask_again": "不再提醒",
   "lang.kitopia.extract_and_preview": "解压并预览",
   "lang.kitopia.indexing_in_progress": "索引中",
-  "lang.kitopia.indexing_performance_notice": "索引期间会占用一定系统资源，可能影响性能。"
+  "lang.kitopia.indexing_performance_notice": "索引期间会占用一定系统资源，可能影响性能。",
+  "lang.kitopia.show_process_usage_in_search": "搜索结果显示运行状态",
+  "lang.kitopia.show_process_usage_in_search_description": "当搜索结果对应的应用正在后台运行时，在结果行内显示其 CPU 与内存占用",
+  "lang.kitopia.show_process_cpu_usage": "显示 CPU 占用",
+  "lang.kitopia.show_process_cpu_usage_description": "CPU 占用率按整机口径计算，与任务管理器一致，多线程应用的数值不会超过 100%",
+  "lang.kitopia.show_process_memory_usage": "显示内存占用",
+  "lang.kitopia.show_process_memory_usage_description": "显示该应用所有进程的工作集合（物理内存）合计值",
+  "lang.kitopia.process_usage_refresh_interval": "刷新间隔（毫秒）",
+  "lang.kitopia.process_usage_refresh_interval_description": "数值越小刷新越及时，占用的系统资源也越多；默认 1000 毫秒",
+  "lang.kitopia.process_cpu_usage": "CPU {0}",
+  "lang.kitopia.process_memory_usage": "内存 {0}"
 }

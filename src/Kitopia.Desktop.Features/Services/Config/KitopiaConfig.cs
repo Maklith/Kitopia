@@ -216,6 +216,23 @@ public class KitopiaConfig : ConfigBase
     public ObservableCollection<string> everythingSearchExtensions =
         ["*.docx", "*.doc", "*.xls", "*.xlsx", "*.pdf", "*.ppt", "*.pptx"];
 
+    // Fluent System Icons: F35C developer_board (CPU), F349 data_usage (memory),
+    // F191 arrow_sync (refresh interval), F342 data_histogram (overall toggle).
+    [ConfigField("lang.kitopia.show_process_usage_in_search", "lang.kitopia.show_process_usage_in_search_description", 0xF342, ConfigFieldType.布尔)]
+    public bool showProcessUsageInSearch = true;
+
+    [ConfigField("lang.kitopia.show_process_cpu_usage", "lang.kitopia.show_process_cpu_usage_description", 0xF35C, ConfigFieldType.布尔,
+        VisibleWhen = nameof(showProcessUsageInSearch))]
+    public bool showProcessCpuUsage = true;
+
+    [ConfigField("lang.kitopia.show_process_memory_usage", "lang.kitopia.show_process_memory_usage_description", 0xF349, ConfigFieldType.布尔,
+        VisibleWhen = nameof(showProcessUsageInSearch))]
+    public bool showProcessMemoryUsage = true;
+
+    [ConfigField("lang.kitopia.process_usage_refresh_interval", "lang.kitopia.process_usage_refresh_interval_description", 0xF191, ConfigFieldType.整数滑块, null, 5000, 500, 500,
+        VisibleWhen = nameof(showProcessUsageInSearch))]
+    public int processUsageRefreshMilliseconds = 1000;
+
     [ConfigFieldCategory("lang.kitopia.semantic_search", 0xF83B)]
     [ConfigField("lang.kitopia.enable_local_semantic_search", "lang.kitopia.use_the_built_in_chinese_semantic_model_and_pinyin_search_to_improve_relevance", 0xF83B,
         ConfigFieldType.布尔)]
