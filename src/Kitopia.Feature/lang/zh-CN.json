@@ -145,6 +145,8 @@
   "lang.kitopia.page_value": "第 {0} 页",
   "lang.kitopia.click_here_and_press_a_key_or_mouse_button": "点击此处后按下快捷键；鼠标按键也在此录入",
   "lang.kitopia.everything_search_prefix": "调用Everything直接搜索文件前缀",
+  "lang.kitopia.everything_search_ignore_case": "Everything 联合搜索忽略大小写",
+  "lang.kitopia.everything_search_ignore_case_description": "使用 Everything 联合搜索（默认 @ 前缀）时忽略英文字母大小写；关闭后区分大小写，下一次搜索生效。",
   "lang.kitopia.everything_result_limit": "调用Everything直接搜索文件最大数量",
   "lang.kitopia.configure_themes_screenshots_search_and_integrations_and_check_for_updates": "调整主题、截图、搜索和系统集成设置，并检查更新。",
   "lang.kitopia.port_value": "端口: {0}",

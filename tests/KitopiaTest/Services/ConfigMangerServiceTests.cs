@@ -18,6 +18,21 @@ public sealed class ConfigMangerServiceTests
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
+    public void EverythingSearchIgnoreCase_LegacyAndConfiguredJson_DefaultsToEnabledAndPersistsSelection(bool ignoreCase)
+    {
+        Assert.IsTrue(new KitopiaConfig().everythingSearchIgnoreCase);
+        var config = JsonSerializer.Deserialize<KitopiaConfig>("{}", ConfigManger.DefaultOptions)!;
+        Assert.IsTrue(config.everythingSearchIgnoreCase);
+
+        config.everythingSearchIgnoreCase = ignoreCase;
+        var json = JsonSerializer.Serialize(config, ConfigManger.DefaultOptions);
+        var restored = JsonSerializer.Deserialize<KitopiaConfig>(json, ConfigManger.DefaultOptions)!;
+        Assert.AreEqual(ignoreCase, restored.everythingSearchIgnoreCase);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
     public void PrereleaseUpdates_LegacyAndConfiguredJson_DefaultsToDisabledAndPersistsSelection(bool allowPrereleaseUpdates)
     {
         Assert.IsFalse(new KitopiaConfig().allowPrereleaseUpdates);

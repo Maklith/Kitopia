@@ -456,6 +456,8 @@
   "lang.kitopia.everything_indexed_file_types": "Everything indexed file types",
   "lang.kitopia.add_matching_files_found_by_everything_to_the_local_index_does_not_limit_live_searches": "Add matching files found by Everything to the local index. Does not limit @ live searches.",
   "lang.kitopia.everything_search_prefix": "Everything search prefix",
+  "lang.kitopia.everything_search_ignore_case": "Ignore case in Everything searches",
+  "lang.kitopia.everything_search_ignore_case_description": "Ignore letter case in integrated Everything searches (using the @ prefix by default). Turn off for case-sensitive matching. Applies to the next search.",
   "lang.kitopia.search_everything_when_the_query_starts_with_this_prefix": "Search Everything when the query starts with this prefix",
   "lang.kitopia.everything_result_limit": "Everything result limit",
   "lang.kitopia.maximum_files_returned_by_everything": "Maximum files returned by Everything",

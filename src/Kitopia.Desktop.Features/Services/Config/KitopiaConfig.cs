@@ -209,6 +209,9 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("lang.kitopia.everything_search_prefix", "lang.kitopia.search_everything_when_the_query_starts_with_this_prefix", 0xF7E0, ConfigFieldType.字符串)]
     public string everythingSearchPreString = "@";
 
+    [ConfigField("lang.kitopia.everything_search_ignore_case", "lang.kitopia.everything_search_ignore_case_description", 0xF7E0, ConfigFieldType.布尔)]
+    public bool everythingSearchIgnoreCase = true;
+
     [ConfigField("lang.kitopia.everything_result_limit", "lang.kitopia.maximum_files_returned_by_everything", 0xF57E, ConfigFieldType.整数, null, 1000, 5, 5)]
     public int everythingSearchMaxCount = 50;
 

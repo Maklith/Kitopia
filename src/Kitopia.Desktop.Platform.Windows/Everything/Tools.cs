@@ -90,7 +90,7 @@ public class EverythingTools
     {
         Everything32.Everything_Reset();
         Everything32.Everything_SetSearchW(s);
-        Everything32.Everything_SetMatchCase(true);
+        Everything32.Everything_SetMatchCase(!ConfigManger.Config.everythingSearchIgnoreCase);
         Everything32.Everything_SetMax(limit);
         Everything32.Everything_QueryW(true);
         const int bufsize = 260;
@@ -110,7 +110,7 @@ public class EverythingTools
         Everything64.Everything_Reset();
         Everything64.Everything_SetSearchW(s);
         Everything64.Everything_SetMax(limit);
-        Everything64.Everything_SetMatchCase(false);
+        Everything64.Everything_SetMatchCase(!ConfigManger.Config.everythingSearchIgnoreCase);
         Everything64.Everything_QueryW(true);
         const int bufsize = 260;
         var buf = new StringBuilder(bufsize);
