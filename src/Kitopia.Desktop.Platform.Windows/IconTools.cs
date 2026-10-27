@@ -24,10 +24,6 @@ namespace Kitopia.Desktop.Platform.Windows;
 
 internal partial class IconTools
 {
-    // ReSharper disable once InconsistentNaming
-    private const uint SHGFI_ICON = 0x100;
-    // ReSharper disable once InconsistentNaming
-    private const uint SHGFI_LARGEICON = 0x0;
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IconTools>();
 
     private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
@@ -124,12 +120,10 @@ internal partial class IconTools
         if (hres.Failed || listObj is not ComCtl32.IImageList imgList) return null;
         try 
         {
-            var hIcon = imgList.GetIcon(shfi.iIcon, ComCtl32.IMAGELISTDRAWFLAGS.ILD_TRANSPARENT);
-            if (hIcon == IntPtr.Zero) return null;
-            var icon = (Icon)Icon.FromHandle(hIcon.DangerousGetHandle()).Clone();
-            User32.DestroyIcon(hIcon);
-        
-            return icon;
+            using var hIcon = imgList.GetIcon(shfi.iIcon, ComCtl32.IMAGELISTDRAWFLAGS.ILD_TRANSPARENT);
+            if (hIcon.IsInvalid) return null;
+            using var icon = Icon.FromHandle(hIcon.DangerousGetHandle());
+            return (Icon)icon.Clone();
         }
         catch
         {
@@ -490,36 +484,25 @@ internal partial class IconTools
         {
             await Task.Run(() =>
             {
-                var shinfo = new Shfileinfo();
-                SHGetFileInfo(
-                    path,
-                    0, ref shinfo, (uint)Marshal.SizeOf(shinfo),
-                    SHGFI_ICON | SHGFI_LARGEICON);
-                var clone = ResizeToAvaloniaBitmap(Icon.FromHandle(shinfo.hIcon));
-                Icons.Add(path, clone);
-                User32.DestroyIcon(shinfo.hIcon);
-                item.Icon = clone;
+                for (var attempt = 0; attempt < 2; attempt++)
+                {
+                    var shinfo = new Shell32.SHFILEINFO();
+                    var flags = Shell32.SHGFI.SHGFI_ICON | Shell32.SHGFI.SHGFI_LARGEICON;
+                    // Everything may still list deleted or inaccessible directories.
+                    if (attempt > 0) flags |= Shell32.SHGFI.SHGFI_USEFILEATTRIBUTES;
+                    var result = Shell32.SHGetFileInfo(attempt == 0 ? path : "folder", FileAttributes.Directory,
+                        ref shinfo, Shell32.SHFILEINFO.Size, flags);
+                    using var hIcon = new User32.SafeHICON(shinfo.hIcon, true);
+                    if (result == IntPtr.Zero || hIcon.IsInvalid) continue;
+
+                    using var icon = Icon.FromHandle(hIcon.DangerousGetHandle());
+                    var bitmap = ResizeToAvaloniaBitmap(icon);
+                    Icons.Add(path, bitmap);
+                    Dispatcher.UIThread.Post(() => item.Icon = bitmap);
+                    return;
+                }
             }, e);
         });
-    }
-
-    [DllImport("shell32.dll")]
-    private static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref Shfileinfo psfi,
-        uint cbSizeFileInfo, uint uFlags);
-
-//Struct used by SHGetFileInfo function
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Shfileinfo
-    {
-        internal IntPtr hIcon;
-        internal int iIcon;
-        internal uint dwAttributes;
-
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
-        internal string szDisplayName;
-
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
-        internal string szTypeName;
     }
 
     [GeneratedRegex(@"(.+),(-?\d+)(?:#.*)?")]

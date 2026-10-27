@@ -212,8 +212,6 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("lang.kitopia.everything_search_ignore_case", "lang.kitopia.everything_search_ignore_case_description", 0xF7E0, ConfigFieldType.布尔)]
     public bool everythingSearchIgnoreCase = true;
 
-    [ConfigField("lang.kitopia.everything_result_limit", "lang.kitopia.maximum_files_returned_by_everything", 0xF57E, ConfigFieldType.整数, null, 1000, 5, 5)]
-    public int everythingSearchMaxCount = 50;
 
     [ConfigField("lang.kitopia.everything_indexed_file_types", "lang.kitopia.add_matching_files_found_by_everything_to_the_local_index_does_not_limit_live_searches", 0xF4EE, ConfigFieldType.字符串列表支持添加)]
     public ObservableCollection<string> everythingSearchExtensions =

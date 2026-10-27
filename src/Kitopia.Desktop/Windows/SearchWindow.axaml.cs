@@ -36,6 +36,7 @@ public partial class SearchWindow : Window
             if (DataContext is SearchWindowViewModel { IsPreviewMode: true }) return;
             PinnedList.SelectedIndex = -1;
             dataGrid.SelectedIndex = -1;
+            everythingControl.ClearSelection();
         };
         PinnedList.AddHandler(KeyDownEvent, SearchItems_OnKeyDown, RoutingStrategies.Tunnel);
         dataGrid.AddHandler(KeyDownEvent, SearchItems_OnKeyDown, RoutingStrategies.Tunnel);
@@ -43,6 +44,49 @@ public partial class SearchWindow : Window
         dataGrid.AddHandler(TextInputEvent, SearchItems_OnTextInput, RoutingStrategies.Tunnel);
         FilePreviewSurface.CloseRequested += () =>
             (DataContext as SearchWindowViewModel)?.ClosePreviewMode();
+
+        everythingControl.ItemActivated += (_, item) =>
+        {
+            (DataContext as SearchWindowViewModel)?.ActivateItem(item);
+        };
+        everythingControl.SortChanged += (_, sortOrder) =>
+        {
+            if (DataContext is SearchWindowViewModel model)
+                model.EverythingSortOrder = sortOrder;
+        };
+        everythingControl.NavigateUpRequested += (_, _) =>
+        {
+            if (PinnedList.IsEffectivelyVisible && PinnedList.Items.Count > 0)
+                FocusItem(PinnedList, Math.Max(0, PinnedList.Items.IndexOf(_lastPinnedItem)));
+            else
+                tx.Focus();
+        };
+        everythingControl.KeyDownRedirected += (_, e) =>
+        {
+            tx.Focus();
+            e.Handled = true;
+            tx.RaiseEvent(new KeyEventArgs
+            {
+                RoutedEvent = KeyDownEvent,
+                Key = e.Key,
+                KeyModifiers = e.KeyModifiers,
+                PhysicalKey = e.PhysicalKey,
+                KeySymbol = e.KeySymbol
+            });
+        };
+        everythingControl.TextInputRedirected += (_, e) =>
+        {
+            tx.Focus();
+            e.Handled = true;
+            tx.RaiseEvent(new TextInputEventArgs { RoutedEvent = TextInputEvent, Text = e.Text });
+        };
+        everythingControl.GetObservable(Controls.EverythingFileListControl.SelectedItemProperty).Subscribe(selected =>
+        {
+            if (selected != null)
+                PinnedList.SelectedIndex = -1;
+        });
+
+
         SizeChanged += (_, _) =>
         {
             if (IsVisible) PositionWindow();
@@ -68,6 +112,7 @@ public partial class SearchWindow : Window
         _lastPinnedItem = null;
         PinnedList.SelectedIndex = -1;
         dataGrid.SelectedIndex = -1;
+            everythingControl.ClearSelection();
         ((SearchWindowViewModel?)DataContext)?.LoadLast();
         ((SearchWindowViewModel?)DataContext)?.SetProcessUsageEnabled(IsVisible);
     }
@@ -109,6 +154,9 @@ public partial class SearchWindow : Window
                 if (PinnedList.SelectedItem is SearchViewItem pinnedItem)
                     viewModel.OpenFile(pinnedItem);
                 else
+    if (viewModel.IsEverythingMode)
+                    viewModel.ActivateItem((SearchViewItem?)everythingControl.SelectedItem ?? viewModel.Items.FirstOrDefault());
+                else
                     viewModel.ActivateItem((SearchViewItem?)dataGrid.SelectedItem);
             }
 
@@ -116,7 +164,14 @@ public partial class SearchWindow : Window
         }
         else if (e.Key == Key.Down && e.KeyModifiers == KeyModifiers.None)
         {
-            FocusItem(PinnedList.IsEffectivelyVisible && PinnedList.Items.Count > 0 ? PinnedList : dataGrid, 0);
+            if (DataContext is SearchWindowViewModel { IsEverythingMode: true })
+            {
+                everythingControl.FocusFirstItem();
+            }
+            else
+            {
+                FocusItem(PinnedList.IsEffectivelyVisible && PinnedList.Items.Count > 0 ? PinnedList : dataGrid, 0);
+            }
             e.Handled = true;
         }
     }
@@ -129,6 +184,7 @@ public partial class SearchWindow : Window
         {
             _lastPinnedItem = (SearchViewItem?)PinnedList.SelectedItem;
             dataGrid.SelectedIndex = -1;
+            everythingControl.ClearSelection();
         }
         else
         {
@@ -184,7 +240,10 @@ public partial class SearchWindow : Window
 
         if (e.Key == Key.Down && e.KeyModifiers == KeyModifiers.None && ReferenceEquals(list, PinnedList))
         {
-            FocusItem(dataGrid, 0);
+            if (DataContext is SearchWindowViewModel { IsEverythingMode: true })
+                everythingControl.FocusFirstItem();
+            else
+                FocusItem(dataGrid, 0);
             e.Handled = true;
             return;
         }

@@ -42,9 +42,15 @@ public class AppToolService : IAppToolService
 
     public IEnumerable<string> EnumerateEverythingIndexedFiles() => EverythingTools.EnumerateIndexedFiles();
 
-    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int limit = 50)
+    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int count = 100)
     {
-        return EverythingTools.Search(keyword, limit);
+        return EverythingTools.Search(keyword, 0, count);
+    }
+
+    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int offset, int count,
+        EverythingSortOrder sortOrder = EverythingSortOrder.NameAscending)
+    {
+        return EverythingTools.Search(keyword, offset, count, sortOrder);
     }
 
     public void LoadIcon(SearchViewItem item)

@@ -31,6 +31,12 @@ public static class Everything32
     public static extern void Everything_SetOffset(int dwOffset);
 
     [DllImport("Everything32.dll")]
+    public static extern void Everything_SetSort(uint dwSort);
+
+    [DllImport("Everything32.dll")]
+    public static extern uint Everything_GetSort();
+
+    [DllImport("Everything32.dll")]
     public static extern void Everything_SetReplyWindow(IntPtr hWnd);
 
     [DllImport("Everything32.dll")]
@@ -107,4 +113,26 @@ public static class Everything32
 
     [DllImport("Everything32.dll")]
     public static extern void Everything_Reset();
+
+    public const uint EVERYTHING_REQUEST_FILE_NAME = 0x00000001;
+    public const uint EVERYTHING_REQUEST_PATH = 0x00000002;
+    public const uint EVERYTHING_REQUEST_FULL_PATH_AND_FILE_NAME = 0x00000004;
+    public const uint EVERYTHING_REQUEST_EXTENSION = 0x00000008;
+    public const uint EVERYTHING_REQUEST_SIZE = 0x00000010;
+    public const uint EVERYTHING_REQUEST_DATE_CREATED = 0x00000020;
+    public const uint EVERYTHING_REQUEST_DATE_MODIFIED = 0x00000040;
+    public const uint EVERYTHING_REQUEST_DATE_ACCESSED = 0x00000080;
+    public const uint EVERYTHING_REQUEST_ATTRIBUTES = 0x00000100;
+
+    [DllImport("Everything32.dll")]
+    public static extern void Everything_SetRequestFlags(uint dwRequestFlags);
+
+    [DllImport("Everything32.dll")]
+    public static extern uint Everything_GetRequestFlags();
+
+    [DllImport("Everything32.dll")]
+    public static extern bool Everything_GetResultSize(int nIndex, out long lpFileSize);
+
+    [DllImport("Everything32.dll")]
+    public static extern bool Everything_GetResultDateModified(int nIndex, out long lpFileTime);
 }

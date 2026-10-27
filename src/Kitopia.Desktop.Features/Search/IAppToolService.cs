@@ -55,7 +55,9 @@ public interface IAppToolService
     /// <param name="keyword">搜索关键字 / Search keyword</param>
     /// <param name="limit">结果限制 / Result limit</param>
     /// <returns>搜索结果 / Search results</returns>
-    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int limit = 50);
+    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int count = 100);
+    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int offset, int count,
+        EverythingSortOrder sortOrder = EverythingSortOrder.NameAscending);
     
     /// <summary>
     /// 获取SearchViewItem图标 / Get icon by search item

@@ -37,7 +37,13 @@ public class AppToolLinuxService : IAppToolService
         yield break;
     }
 
-    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int limit = 50)
+    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int count = 100)
+    {
+        return Array.Empty<SearchViewItem>();
+    }
+
+    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int offset, int count,
+        EverythingSortOrder sortOrder = EverythingSortOrder.NameAscending)
     {
         return Array.Empty<SearchViewItem>();
     }

@@ -14,6 +14,9 @@ public readonly record struct SearchEntry
     public string? LaunchPath { get; init; }
     public string? IconPath { get; init; }
     public int IconSymbol { get; init; }
+    public long? FileSize { get; init; }
+    public DateTime? DateModified { get; init; }
+    public bool IsFolder { get; init; }
 
     public SearchViewItem ToSearchViewItem()
     {
@@ -27,6 +30,9 @@ public readonly record struct SearchEntry
             LaunchPath = LaunchPath,
             IconPath = IconPath,
             IconSymbol = IconSymbol,
+            FileSize = FileSize,
+            DateModified = DateModified,
+            IsFolder = IsFolder,
             IsVisible = true
         };
     }

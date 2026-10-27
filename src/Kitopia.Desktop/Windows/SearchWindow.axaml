@@ -361,6 +361,7 @@
                     <ColumnDefinition Width="{Binding IsPreviewMode, Converter={StaticResource PreviewModeToGridLengthConverter}, ConverterParameter=Preview}" />
                 </Grid.ColumnDefinitions>
                 <ListBox Grid.Column="0" Name="dataGrid"
+                         IsVisible="{Binding !IsEverythingMode}"
                          ItemContainerTheme="{StaticResource SearchSelectionItem}"
                          ItemsSource="{Binding ItemsViewList,Mode=OneWay }"
                          SelectedItem="{Binding SelectedItem,Mode=TwoWay}"
@@ -521,6 +522,19 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+
+                <controls1:EverythingFileListControl Grid.Column="0" Name="everythingControl"
+                                                    IsVisible="{Binding IsEverythingMode}"
+                                                    ItemsSource="{Binding ItemsViewList}"
+                                                    SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                                                    OpenFileCommand="{Binding OpenFileCommand}"
+                                                    RunAsAdminCommand="{Binding RunAsAdminCommand}"
+                                                    OpenFolderCommand="{Binding OpenFolderCommand}"
+                                                    OpenFolderInTerminalCommand="{Binding OpenFolderInTerminalCommand}"
+                                                    PinCommand="{Binding PinCommand}"
+                                                    StarCommand="{Binding StarCommand}"
+                                                    IgnoreItemCommand="{Binding IgnoreItemCommand}"
+                                                    LoadMoreCommand="{Binding LoadMoreEverythingCommand}" />
 
                 <GridSplitter Grid.Column="1" Width="1" ResizeDirection="Columns"
                               IsVisible="{Binding IsPreviewMode}" Background="{DynamicResource SemiColorBorder}" />

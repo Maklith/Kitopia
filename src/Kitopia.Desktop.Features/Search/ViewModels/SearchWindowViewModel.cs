@@ -48,6 +48,12 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private IIndexService Index => ServiceManager.Services.GetRequiredService<IIndexService>();
 
     [ObservableProperty] private bool? _everythingIsOk = true;
+    [ObservableProperty] private bool _isEverythingMode;
+    [ObservableProperty] private EverythingSortOrder _everythingSortOrder = EverythingSortOrder.NameAscending;
+    private string _everythingQuery = string.Empty;
+    private int _everythingOffset;
+    private bool _everythingHasMore;
+    private bool _isEverythingLoading;
 
 
     [ObservableProperty] private ObservableCollection<FileTypeFilter> _fileTypes = new();
@@ -106,6 +112,14 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         this.WhenAnyValue(e => e.Search)
             .DistinctUntilChanged()
             .Subscribe(ToSearch, e => { Logger.Error(e, ""); });
+    }
+
+    partial void OnEverythingSortOrderChanged(EverythingSortOrder value)
+    {
+        if (IsEverythingMode)
+        {
+            ToSearch(Search);
+        }
     }
 
     partial void OnSelectedItemChanged(SearchViewItem? value)
@@ -290,6 +304,11 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         PreviewModeOverride = null;
         IsPreviewMode = false;
         SelectedItem = null;
+        IsEverythingMode = false;
+        _everythingQuery = string.Empty;
+        _everythingOffset = 0;
+        _everythingHasMore = false;
+        _isEverythingLoading = false;
 
         var limit = 0;
         //Items.RaiseListChangedEvents = false;
@@ -451,19 +470,32 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
         var originalValue = value;
         value = value.ToLowerInvariant();
-        if (originalValue.StartsWith(ConfigManger.Config.everythingSearchPreString) &&
-            originalValue.Length > ConfigManger.Config.everythingSearchPreString.Length)
+        var everythingPrefix = ConfigManger.Config.everythingSearchPreString;
+        if (!string.IsNullOrEmpty(everythingPrefix) && originalValue.StartsWith(everythingPrefix))
         {
-            Interlocked.Exchange(ref _searchCancellation, null)?.Cancel();
-            var useEverythingSearch = ServiceManager.Services.GetService<IAppToolService>()
-                .SearchWithEverything(originalValue.Remove(0, ConfigManger.Config.everythingSearchPreString.Length),
-                    ConfigManger.Config.everythingSearchMaxCount);
-            Items.AddRange(useEverythingSearch);
+            IsEverythingMode = true;
+            var cancellation = new CancellationTokenSource();
+            Interlocked.Exchange(ref _searchCancellation, cancellation)?.Cancel();
+
+            _everythingQuery = originalValue.Length > everythingPrefix.Length
+                ? originalValue.Substring(everythingPrefix.Length)
+                : string.Empty;
+            _everythingOffset = 0;
+            _everythingHasMore = true;
+            _isEverythingLoading = false;
+            LoadMoreEverythingCommand.NotifyCanExecuteChanged();
+
             RefreshFileTypes();
             UpdateDisplayMode();
+
+            if (!string.IsNullOrEmpty(_everythingQuery))
+            {
+                _ = LoadMoreEverythingAsync();
+            }
         }
         else
         {
+            IsEverythingMode = false;
             var cancellation = new CancellationTokenSource();
             Interlocked.Exchange(ref _searchCancellation, cancellation)?.Cancel();
             _ = Task.Run(async () =>
@@ -491,6 +523,82 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                     });
                 }
             });
+        }
+    }
+
+    private async Task SearchEverythingInBackgroundAsync(
+        string query,
+        int offset,
+        int count,
+        EverythingSortOrder sortOrder,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var appTool = ServiceManager.Services.GetService<IAppToolService>();
+        if (appTool == null) return;
+
+        var results = appTool.SearchWithEverything(query, offset, count, sortOrder).ToList();
+        cancellationToken.ThrowIfCancellationRequested();
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (Volatile.Read(ref _searchVersion) != version) return;
+
+            if (offset == 0)
+            {
+                Items.Clear();
+            }
+
+            if (results.Count > 0)
+            {
+                Items.AddRange(results);
+            }
+
+            _everythingOffset = offset + results.Count;
+            _everythingHasMore = results.Count >= count;
+
+            RefreshFileTypes();
+            UpdateDisplayMode();
+            LoadMoreEverythingCommand.NotifyCanExecuteChanged();
+        });
+    }
+
+    private bool CanLoadMoreEverything => IsEverythingMode && !_isEverythingLoading && _everythingHasMore && !string.IsNullOrEmpty(_everythingQuery);
+
+    [RelayCommand(CanExecute = nameof(CanLoadMoreEverything))]
+    public async Task LoadMoreEverythingAsync()
+    {
+        if (!CanLoadMoreEverything) return;
+
+        var version = Volatile.Read(ref _searchVersion);
+        var query = _everythingQuery;
+        var sortOrder = EverythingSortOrder;
+        var offset = _everythingOffset;
+        var token = _searchCancellation?.Token ?? CancellationToken.None;
+        if (token.IsCancellationRequested) return;
+
+        _isEverythingLoading = true;
+        LoadMoreEverythingCommand.NotifyCanExecuteChanged();
+
+        try
+        {
+            await Task.Run(() => SearchEverythingInBackgroundAsync(query, offset, 100, sortOrder, version, token), token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            Logger.Error(exception, "Failed to load more Everything results");
+        }
+        finally
+        {
+            if (Volatile.Read(ref _searchVersion) == version)
+            {
+                _isEverythingLoading = false;
+                LoadMoreEverythingCommand.NotifyCanExecuteChanged();
+            }
         }
     }
 
@@ -743,9 +851,12 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private void RefreshFileTypes()
     {
         FileTypes.Clear();
-        foreach (var fileType in Items.Select(item => item.FileType).Distinct())
+        if (!IsEverythingMode)
         {
-            FileTypes.Add(new FileTypeFilter { FileType = fileType, IsChecked = false });
+            foreach (var fileType in Items.Select(item => item.FileType).Distinct())
+            {
+                FileTypes.Add(new FileTypeFilter { FileType = fileType, IsChecked = false });
+            }
         }
 
         ShowFileTypeFilter = FileTypes.Count > 0;

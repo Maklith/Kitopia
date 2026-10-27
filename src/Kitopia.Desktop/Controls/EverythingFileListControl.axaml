@@ -1,0 +1,228 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
+             xmlns:pluginCore="clr-namespace:PluginCore;assembly=PluginCore"
+             xmlns:converter="clr-namespace:Kitopia.Desktop.Converter"
+             xmlns:searchWindow="clr-namespace:Kitopia.Desktop.Converter.SearchWindow"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="400"
+             x:Class="Kitopia.Desktop.Controls.EverythingFileListControl"
+             x:Name="RootControl">
+    <UserControl.Resources>
+        <searchWindow:PathToImageConverter x:Key="PathToImageConverter" />
+        <searchWindow:SymbolToVisible x:Key="SymbolToVisible" />
+        <converter:IntToIconSymbol x:Key="IntToIconSymbol" />
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="DataGrid#FileListGrid">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="RowBackground" Value="Transparent" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="CanUserResizeColumns" Value="True" />
+            <Setter Property="CanUserSortColumns" Value="True" />
+            <Setter Property="CanUserReorderColumns" Value="False" />
+            <Setter Property="GridLinesVisibility" Value="None" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="RowHeight" Value="28" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <!-- Column Header Styling according to DESIGN-semi.md -->
+        <Style Selector="DataGrid#FileListGrid DataGridColumnHeader">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText1}" />
+        </Style>
+
+        <!-- Compact Row & Fluent Rounding according to DESIGN-semi.md -->
+        <Style Selector="DataGrid#FileListGrid DataGridRow">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="FocusAdorner" Value="{x:Null}" />
+            <Setter Property="Margin" Value="2,1" />
+        </Style>
+
+        <Style Selector="DataGrid#FileListGrid DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="{DynamicResource SemiColorFill0}" />
+            <Setter Property="RadiusX" Value="6" />
+            <Setter Property="RadiusY" Value="6" />
+        </Style>
+
+        <Style Selector="DataGrid#FileListGrid DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Fill" Value="{DynamicResource SemiColorFill1}" />
+            <Setter Property="RadiusX" Value="6" />
+            <Setter Property="RadiusY" Value="6" />
+        </Style>
+
+        <Style Selector="DataGrid#FileListGrid DataGridRow:selected">
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
+        </Style>
+
+        <Style Selector="DataGrid#FileListGrid DataGridCell">
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FocusAdorner" Value="{x:Null}" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="*,Auto">
+        <DataGrid Name="FileListGrid"
+                  Grid.Row="0"
+                  SelectedItem="{Binding SelectedItem, ElementName=RootControl, Mode=TwoWay}"
+                  DoubleTapped="FileListGrid_OnDoubleTapped">
+            <DataGrid.ContextMenu>
+                <ContextMenu CornerRadius="6">
+                    <MenuItem Header="{DynamicResource 'lang.kitopia.open'}"
+                              Command="{Binding OpenFileCommand, ElementName=RootControl}"
+                              CommandParameter="{Binding SelectedItem, ElementName=RootControl}" />
+                    <MenuItem Header="{DynamicResource 'lang.kitopia.run_as_administrator'}"
+                              Command="{Binding RunAsAdminCommand, ElementName=RootControl}"
+                              CommandParameter="{Binding SelectedItem, ElementName=RootControl}" />
+                    <MenuItem Header="{DynamicResource 'lang.kitopia.open_file_location'}"
+                              Command="{Binding OpenFolderCommand, ElementName=RootControl}"
+                              CommandParameter="{Binding SelectedItem, ElementName=RootControl}" />
+                    <MenuItem Header="{DynamicResource 'lang.kitopia.open_in_terminal'}"
+                              Command="{Binding OpenFolderInTerminalCommand, ElementName=RootControl}"
+                              CommandParameter="{Binding SelectedItem, ElementName=RootControl}" />
+                    <Separator />
+                    <MenuItem Header="{DynamicResource 'lang.kitopia.copy_path'}"
+                              Click="CopyPathMenuItem_OnClick"
+                              CommandParameter="{Binding SelectedItem, ElementName=RootControl}" />
+                    <Separator />
+                    <MenuItem Header="{DynamicResource 'lang.kitopia.pin'}"
+                              Command="{Binding PinCommand, ElementName=RootControl}"
+                              CommandParameter="{Binding SelectedItem, ElementName=RootControl}"
+                              IsVisible="{Binding SelectedItem.IsPined, ElementName=RootControl, Converter={x:Static BoolConverters.Not}}" />
+                    <MenuItem Header="{DynamicResource 'lang.kitopia.unpin'}"
+                              Command="{Binding PinCommand, ElementName=RootControl}"
+                              CommandParameter="{Binding SelectedItem, ElementName=RootControl}"
+                              IsVisible="{Binding SelectedItem.IsPined, ElementName=RootControl}" />
+                    <MenuItem Header="{DynamicResource 'lang.kitopia.favorite'}"
+                              Command="{Binding StarCommand, ElementName=RootControl}"
+                              CommandParameter="{Binding SelectedItem, ElementName=RootControl}" />
+                    <MenuItem Header="{DynamicResource 'lang.kitopia.ignore'}"
+                              Command="{Binding IgnoreItemCommand, ElementName=RootControl}"
+                              CommandParameter="{Binding SelectedItem, ElementName=RootControl}" />
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+
+            <DataGrid.Columns>
+                <!-- 名称 (Name) -->
+                <DataGridTemplateColumn Header="{DynamicResource 'lang.kitopia.name'}"
+                                        SortMemberPath="ItemDisplayName"
+                                        Width="280"
+                                        MinWidth="120">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="pluginCore:SearchViewItem">
+                            <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="2,0,4,0">
+                                <Panel Grid.Column="0" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,6,0">
+                                    <controls:FontIcon Width="16" Height="16" FontSize="15"
+                                                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                       IsVisible="{Binding IconSymbol, Converter={StaticResource SymbolToVisible}}"
+                                                       FontFamily="{StaticResource FluentFont}"
+                                                       Glyph="{Binding IconSymbol, Converter={StaticResource IntToIconSymbol}}" />
+                                    <Image Width="16" Height="16"
+                                           VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <Image.Source>
+                                            <MultiBinding Converter="{StaticResource PathToImageConverter}">
+                                                <Binding Path="Icon" />
+                                                <Binding Path="." />
+                                            </MultiBinding>
+                                        </Image.Source>
+                                    </Image>
+                                </Panel>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding ItemDisplayName}"
+                                           VerticalAlignment="Center"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SemiColorText0}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip.Tip="{Binding ItemDisplayName}" />
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- 路径 (Path) -->
+                <DataGridTemplateColumn Header="{DynamicResource 'lang.kitopia.path'}"
+                                        SortMemberPath="StartDirectory"
+                                        Width="*"
+                                        MinWidth="140">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="pluginCore:SearchViewItem">
+                            <TextBlock Text="{Binding StartDirectory}"
+                                       VerticalAlignment="Center"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SemiColorText2}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding StartDirectory}"
+                                       Margin="4,0" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- 大小 (Size) -->
+                <DataGridTemplateColumn Header="{DynamicResource 'lang.kitopia.size'}"
+                                        SortMemberPath="FileSize"
+                                        Width="100"
+                                        MinWidth="60">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="pluginCore:SearchViewItem">
+                            <TextBlock Text="{Binding FormattedFileSize}"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Right"
+                                       FontSize="12"
+                                       FontFamily="Segoe UI Variable, Segoe UI, Consolas, monospace"
+                                       Foreground="{DynamicResource SemiColorText2}"
+                                       Margin="4,0,8,0" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- 修改时间 (Date Modified) -->
+                <DataGridTemplateColumn Header="{DynamicResource 'lang.kitopia.date_modified'}"
+                                        SortMemberPath="DateModified"
+                                        Width="150"
+                                        MinWidth="120">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="pluginCore:SearchViewItem">
+                            <TextBlock Text="{Binding FormattedDateModified}"
+                                       VerticalAlignment="Center"
+                                       FontSize="12"
+                                       FontFamily="Segoe UI Variable, Segoe UI, Consolas, monospace"
+                                       Foreground="{DynamicResource SemiColorText2}"
+                                       Margin="4,0" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Optional Status Bar (visible when ShowStatusBar is true) -->
+        <Border Grid.Row="1"
+                IsVisible="{Binding ShowStatusBar, ElementName=RootControl}"
+                BorderBrush="{DynamicResource SemiColorBorder}"
+                BorderThickness="0,1,0,0"
+                Padding="10,4"
+                Background="Transparent">
+            <TextBlock Text="{Binding StatusText, ElementName=RootControl}"
+                       FontSize="11"
+                       Foreground="{DynamicResource SemiColorText2}" />
+        </Border>
+    </Grid>
+</UserControl>
