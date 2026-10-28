@@ -201,5 +201,5 @@ dotnet build "src/Kitopia.Desktop/Kitopia.Desktop.csproj" -c Debug
 dotnet test "tests/KitopiaTest/KitopiaTest.csproj"
 ```
 
-For architecture boundaries and guidelines, please refer to `AGENTS.md` in the repository root.
+For architecture boundaries and guidelines, please refer to the [development architecture guide](../development/architecture.md).
 </details>

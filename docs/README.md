@@ -201,5 +201,5 @@ dotnet build "src/Kitopia.Desktop/Kitopia.Desktop.csproj" -c Debug
 dotnet test "tests/KitopiaTest/KitopiaTest.csproj"
 ```
 
-更多开发架构规范与依赖边界请参阅仓库根目录下的 `AGENTS.md`。
+更多开发架构规范与依赖边界请参阅[开发架构指南](development/architecture.md)。
 </details>
