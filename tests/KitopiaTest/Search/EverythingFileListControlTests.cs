@@ -94,6 +94,84 @@ public sealed class EverythingFileListControlTests
     }
 
     [TestMethod]
+    public async Task SearchWindow_EverythingMode_PreviewableResults_RequireManualPreviewAcrossPagesAndSortChanges()
+    {
+        await RunAsync(async (_, model, _) =>
+        {
+            SearchServicesProxy.PagedEverythingResults = (_, offset, count) =>
+                Enumerable.Range(offset, count).Select(i => new SearchViewItem
+                {
+                    ItemDisplayName = $"document_{i}.pdf",
+                    OnlyKey = $"C:\\Files\\document_{i}.pdf",
+                    FileType = FileType.PDF文档
+                }).ToList();
+            model.Search = "@document";
+            await WaitForAsync(() => model.Items.Count == 100 && model.LoadMoreEverythingCommand.CanExecute(null));
+            Assert.IsTrue(model.CanUsePreview);
+            Assert.IsFalse(model.IsPreviewMode);
+            Assert.AreEqual(string.Empty, model.FilePreview.SelectedPath);
+
+            await model.LoadMoreEverythingAsync();
+            Assert.IsFalse(model.IsPreviewMode);
+
+            model.TogglePreviewModeCommand.Execute(null);
+            Assert.IsTrue(model.IsPreviewMode);
+            await model.LoadMoreEverythingAsync();
+            Assert.IsTrue(model.IsPreviewMode);
+
+            model.EverythingSortOrder = EverythingSortOrder.SizeDescending;
+            await WaitForAsync(() => model.Items.Count == 100 && model.LoadMoreEverythingCommand.CanExecute(null));
+            Assert.IsFalse(model.IsPreviewMode);
+
+            model.TogglePreviewModeCommand.Execute(null);
+            Assert.IsTrue(model.IsPreviewMode);
+            model.Search = "@another";
+            await WaitForAsync(() => model.Items.Count == 100 && model.LoadMoreEverythingCommand.CanExecute(null));
+            Assert.IsFalse(model.IsPreviewMode);
+        });
+    }
+
+    [TestMethod]
+    public async Task SearchWindow_PreviewSplitter_DragResizesBothPanesAndToggleRestoresListWidth()
+    {
+        await RunAsync((window, model, _) =>
+        {
+            model.IsPreviewMode = true;
+            Dispatcher.UIThread.RunJobs();
+            var splitter = window.FindControl<GridSplitter>("PreviewSplitter")!;
+            var grid = (Grid)splitter.Parent!;
+            var leftWidth = grid.ColumnDefinitions[0].ActualWidth;
+            var rightWidth = grid.ColumnDefinitions[2].ActualWidth;
+            Assert.IsTrue(splitter.Bounds.Width >= 6);
+            using var frame = window.CaptureRenderedFrame();
+            var start = splitter.TranslatePoint(new Point(splitter.Bounds.Width / 2, splitter.Bounds.Height / 2), window)!.Value;
+            Assert.IsTrue(ReferenceEquals(window.InputHitTest(start), splitter) ||
+                          (window.InputHitTest(start) as Visual)?.FindAncestorOfType<GridSplitter>() == splitter,
+                $"Splitter hit test: {window.InputHitTest(start)}, bounds: {splitter.Bounds}, point: {start}");
+            var started = false;
+            splitter.DragStarted += (_, _) => started = true;
+            window.MouseDown(start, MouseButton.Left);
+            Assert.IsTrue(started, "The splitter should receive pointer presses.");
+            window.MouseMove(start + new Vector(100, 0));
+            window.MouseUp(start + new Vector(100, 0), MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.AreEqual(leftWidth + 100, grid.ColumnDefinitions[0].ActualWidth, 2);
+            Assert.AreEqual(rightWidth - 100, grid.ColumnDefinitions[2].ActualWidth, 2);
+
+            model.IsPreviewMode = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.AreEqual(0, grid.ColumnDefinitions[1].ActualWidth);
+            Assert.AreEqual(0, grid.ColumnDefinitions[2].ActualWidth);
+            Assert.AreEqual(grid.Bounds.Width, grid.ColumnDefinitions[0].ActualWidth, 2);
+
+            model.IsPreviewMode = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(grid.ColumnDefinitions[2].ActualWidth > 0);
+            return Task.CompletedTask;
+        });
+    }
+
+    [TestMethod]
     public async Task SearchWindow_EverythingMode_SwitchesControlVisibility()
     {
         await RunAsync((window, model, _) =>

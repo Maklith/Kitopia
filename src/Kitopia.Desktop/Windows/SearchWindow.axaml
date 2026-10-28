@@ -536,8 +536,18 @@
                                                     IgnoreItemCommand="{Binding IgnoreItemCommand}"
                                                     LoadMoreCommand="{Binding LoadMoreEverythingCommand}" />
 
-                <GridSplitter Grid.Column="1" Width="1" ResizeDirection="Columns"
-                              IsVisible="{Binding IsPreviewMode}" Background="{DynamicResource SemiColorBorder}" />
+                <GridSplitter Name="PreviewSplitter" Grid.Column="1" Width="3" ResizeDirection="Columns"
+                              ResizeBehavior="PreviousAndNext" Cursor="SizeWestEast"
+                              IsVisible="{Binding IsPreviewMode}" Background="Transparent">
+                    <GridSplitter.Template>
+                        <ControlTemplate>
+                            <Border Background="{TemplateBinding Background}">
+                                <Border Width="1" HorizontalAlignment="Center"
+                                        Background="{DynamicResource SemiColorBorder}" />
+                            </Border>
+                        </ControlTemplate>
+                    </GridSplitter.Template>
+                </GridSplitter>
 
                 <Border Grid.Column="2" IsVisible="{Binding IsPreviewMode}"
                         MinHeight="0" ClipToBounds="True" Margin="2,4,8,6"

@@ -787,7 +787,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                         && Items.Any(SearchDisplayPolicy.IsPreviewCandidate);
 
         IsPreviewMode = CanUsePreview
-                        && (PreviewModeOverride ?? SearchDisplayPolicy.ShouldUsePreview(NowInSelectMode, Search, Items, _resultContexts));
+                        && (PreviewModeOverride ?? (!IsEverythingMode &&
+                            SearchDisplayPolicy.ShouldUsePreview(NowInSelectMode, Search, Items, _resultContexts)));
 
         if (!IsPreviewMode)
         {
