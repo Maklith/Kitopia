@@ -11,6 +11,7 @@
         xmlns:windows="clr-namespace:Kitopia.Desktop.Features.Search.ViewModels;assembly=Kitopia.Desktop.Features"
         xmlns:searchWindow="clr-namespace:Kitopia.Desktop.Converter.SearchWindow"
         xmlns:localization="clr-namespace:Kitopia.Feature.Localization;assembly=Kitopia.Feature"
+        xmlns:sharedControls="clr-namespace:Kitopia.Feature.Avalonia.Controls;assembly=Kitopia.Feature.Avalonia"
         mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="540"
         x:Class="Kitopia.Desktop.Windows.SearchWindow"
         x:DataType="windows:SearchWindowViewModel"
@@ -217,6 +218,77 @@
                         </TextBox.InnerLeftContent>
                         <TextBox.InnerRightContent>
                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="8,0">
+                                <sharedControls:HoverFlyoutButton Name="EverythingStatusIndicator"
+                                        IsVisible="{Binding ShowEverythingStatus}"
+                                        Classes.checking="{Binding IsEverythingStatusPending}"
+                                        Classes.unavailable="{Binding IsEverythingUnavailable}"
+                                        Theme="{DynamicResource KitopiaWarningIndicatorButton}"
+                                        AutomationProperties.Name="{DynamicResource lang.kitopia.everything_status}">
+                                    <Button.Flyout>
+                                        <Flyout Placement="BottomEdgeAlignedRight" ShowMode="Transient"
+                                                FlyoutPresenterTheme="{DynamicResource KitopiaWarningFlyoutPresenter}">
+                                            <StackPanel Width="320">
+                                                <HeaderedContentControl Name="EverythingWarningCard"
+                                                        Theme="{DynamicResource KitopiaWarningCard}"
+                                                        Header="{DynamicResource lang.kitopia.everything_unavailable}"
+                                                        IsVisible="{Binding IsEverythingUnavailable}">
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock Name="EverythingUnavailableDescription"
+                                                                   Text="{DynamicResource lang.kitopia.everything_unavailable_description}"
+                                                                   FontSize="12" TextWrapping="Wrap"
+                                                                   Foreground="{DynamicResource SemiColorText1}" />
+                                                        <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                            <Button Name="CheckEverythingAvailabilityButton"
+                                                                    Content="{DynamicResource lang.kitopia.everything_check_again}"
+                                                                    Command="{Binding CheckEverythingAvailabilityCommand}"
+                                                                    Height="28" MinHeight="0" Padding="12,0" CornerRadius="6" FontSize="12" />
+                                                            <Button Name="RetryEverythingSearchButton"
+                                                                    IsVisible="{Binding IsEverythingMode}"
+                                                                    Content="{DynamicResource lang.kitopia.retry}"
+                                                                    Command="{Binding LoadMoreEverythingCommand}"
+                                                                    Classes="Primary" Theme="{DynamicResource KitopiaWarningActionButton}"
+                                                                    Margin="8,0,0,0" />
+                                                        </WrapPanel>
+                                                    </StackPanel>
+                                                </HeaderedContentControl>
+                                                <Border Padding="12" CornerRadius="6" BorderThickness="1"
+                                                        IsVisible="{Binding !IsEverythingUnavailable}"
+                                                        Background="{DynamicResource KitopiaCardBackgroundBrush}"
+                                                        BorderBrush="{DynamicResource KitopiaCardBorderBrush}">
+                                                    <StackPanel Spacing="8">
+                                                        <TextBlock Text="{DynamicResource lang.kitopia.everything_status}"
+                                                                   FontSize="12" Foreground="{DynamicResource SemiColorText2}" />
+                                                        <TextBlock Text="{DynamicResource lang.kitopia.everything_checking}"
+                                                                   IsVisible="{Binding IsEverythingStatusPending}"
+                                                                   FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"
+                                                                   Foreground="{DynamicResource SemiColorText0}" />
+                                                        <TextBlock Text="{DynamicResource lang.kitopia.everything_connected}"
+                                                                   IsVisible="{Binding IsEverythingConnected}"
+                                                                   FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"
+                                                                   Foreground="{DynamicResource SemiColorText0}" />
+                                                        <TextBlock Text="{DynamicResource lang.kitopia.everything_connected_description}"
+                                                                   IsVisible="{Binding IsEverythingConnected}"
+                                                                   FontSize="12" TextWrapping="Wrap"
+                                                                   Foreground="{DynamicResource SemiColorText1}" />
+                                                        <Button Content="{DynamicResource lang.kitopia.everything_check_again}"
+                                                                Command="{Binding CheckEverythingAvailabilityCommand}"
+                                                                HorizontalAlignment="Left"
+                                                                Height="28" MinHeight="0" Padding="12,0" CornerRadius="6" FontSize="12" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </Flyout>
+                                    </Button.Flyout>
+                                    <Panel>
+                                        <ProgressBar Width="14" Height="3" IsVisible="{Binding IsEverythingStatusPending}"
+                                                     Theme="{DynamicResource KitopiaPluginDownloadProgress}"
+                                                     IsIndeterminate="{Binding IsEverythingStatusPending}" VerticalAlignment="Center" />
+                                        <PathIcon Width="16" Height="16" IsVisible="{Binding IsEverythingUnavailable}"
+                                                  Data="{DynamicResource NotificationCardWarningIconPathData}" />
+                                        <Ellipse Width="6" Height="6" IsVisible="{Binding IsEverythingConnected}"
+                                                 Fill="{DynamicResource KitopiaBadgeSuccessForeground}" />
+                                    </Panel>
+                                </sharedControls:HoverFlyoutButton>
                                 <Border Name="SemanticSearchIndicator" IsVisible="{Binding IsSemanticSearching}"
                                         IsHitTestVisible="False" Height="28" Padding="8,0" CornerRadius="9999"
                                         Background="{DynamicResource KitopiaBadgeCurrentBackground}">
@@ -240,9 +312,6 @@
                         </TextBox.InnerRightContent>
                     </TextBox>
 
-                    <u:Banner Focusable="False" Type="Warning" Content="{DynamicResource 'lang.kitopia.everything_is_not_running_document_search_is_unavailable'}"
-                              IsVisible="{Binding !EverythingIsOk}"
-                              CanClose="True" />
                     <u:Banner Focusable="False" Type="Information" Content="{DynamicResource 'lang.kitopia.selection_mode'}"
                               IsVisible="{Binding NowInSelectMode}"
                               CanClose="False" />

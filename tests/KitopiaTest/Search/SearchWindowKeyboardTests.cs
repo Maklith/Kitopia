@@ -514,7 +514,7 @@ public sealed class SearchWindowKeyboardTests
             {
                 ["KitopiaConfig"] = new KitopiaConfig
                 {
-                    useEverything = false, enableSemanticSearch = false, semanticSearchDebounceMilliseconds = 100
+                    useEverythingForIndexing = false, enableSemanticSearch = false, semanticSearchDebounceMilliseconds = 100
                 }
             };
             PluginOverall.SearchWindowInputDataIdentifies.Clear();

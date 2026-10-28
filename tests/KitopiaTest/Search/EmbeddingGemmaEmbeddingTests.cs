@@ -631,7 +631,7 @@ public sealed class EmbeddingGemmaEmbeddingTests
                 path, IndexFileKind.Image, info.Length, info.LastWriteTimeUtc.Ticks, contentHash, true, "old-ocr"), CancellationToken.None);
             store = new IndexVectorStore(Path.Combine(directory, "index.db"));
             typeof(IndexService).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(index, store);
-            embeddingField.SetValue(index, _service);
+            embeddingField.SetValue(index, new Lazy<EmbeddingGemmaEmbeddingService?>(() => _service));
             ConfigManger.Config.enableSemanticSearch = true;
             var method = typeof(IndexService).GetMethod("IndexFileVectorsAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
@@ -670,7 +670,7 @@ public sealed class EmbeddingGemmaEmbeddingTests
         {
             var store = new IndexVectorStore(Path.Combine(directory, "index.db"));
             typeof(IndexService).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(index, store);
-            embeddingField.SetValue(index, _service);
+            embeddingField.SetValue(index, new Lazy<EmbeddingGemmaEmbeddingService?>(() => _service));
             var single = Path.Combine(directory, "single.png");
             var dual = Path.Combine(directory, "dual.png");
             index.TryAdd(new SearchEntry { OnlyKey = single, DisplayName = "sample1", FileType = FileType.文件 }, IndexSource.Image);
@@ -750,7 +750,7 @@ public sealed class EmbeddingGemmaEmbeddingTests
             await store.UpsertTextAsync(document, _service.ModelId, vector, cancellation.Token);
             await store.UpsertImageAsync(image, "1:1", _service.ModelId, vector, cancellation.Token);
             typeof(IndexService).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(index, store);
-            embeddingField.SetValue(index, _service);
+            embeddingField.SetValue(index, new Lazy<EmbeddingGemmaEmbeddingService?>(() => _service));
             typeof(IndexService).GetField("_status", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(index, IndexStatusSnapshot.Empty with { IsRebuilding = true });
             index.SetForegroundPause(paused);

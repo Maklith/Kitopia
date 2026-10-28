@@ -2,16 +2,84 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Default">
+            <SolidColorBrush x:Key="KitopiaWarningSurfaceBackground" Color="#FFFFFF" />
             <SolidColorBrush x:Key="KitopiaBadgeWarningBackground" Color="#FFF4CE" />
             <SolidColorBrush x:Key="KitopiaBadgeWarningForeground" Color="#B74700" />
             <SolidColorBrush x:Key="KitopiaBadgeWarningBorder" Color="#33B74700" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="KitopiaWarningSurfaceBackground" Color="#242424" />
             <SolidColorBrush x:Key="KitopiaBadgeWarningBackground" Color="#33B74700" />
             <SolidColorBrush x:Key="KitopiaBadgeWarningForeground" Color="#FFBD7A" />
             <SolidColorBrush x:Key="KitopiaBadgeWarningBorder" Color="#66FFBD7A" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
+    <ControlTheme x:Key="KitopiaWarningIndicatorButton" TargetType="Button" BasedOn="{StaticResource BorderlessButton}">
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Padding" Value="6" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeWarningForeground}" />
+        <Setter Property="Cursor" Value="Hand" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="KitopiaWarningFlyoutPresenter" TargetType="FlyoutPresenter"
+                  BasedOn="{StaticResource {x:Type FlyoutPresenter}}">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="6" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="KitopiaWarningCard" TargetType="HeaderedContentControl">
+        <Setter Property="Padding" Value="12" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Cursor" Value="Arrow" />
+        <Setter Property="Background" Value="{DynamicResource KitopiaBadgeWarningBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource KitopiaBadgeWarningBorder}" />
+        <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeWarningForeground}" />
+        <Setter Property="HeaderTemplate">
+            <DataTemplate x:DataType="x:String">
+                <TextBlock Text="{Binding}" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
+            </DataTemplate>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{DynamicResource KitopiaWarningSurfaceBackground}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Border Padding="{TemplateBinding Padding}" CornerRadius="{TemplateBinding CornerRadius}"
+                            BorderThickness="{TemplateBinding BorderThickness}" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0"
+                                      Data="{DynamicResource NotificationCardWarningIconPathData}"
+                                      Foreground="{TemplateBinding Foreground}" />
+                            <StackPanel Grid.Column="1" Spacing="4">
+                                <ContentPresenter Name="PART_HeaderPresenter" Content="{TemplateBinding Header}"
+                                                  ContentTemplate="{TemplateBinding HeaderTemplate}" />
+                                <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="KitopiaWarningActionButton" TargetType="Button" BasedOn="{StaticResource SolidButton}">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Cursor" Value="Hand" />
+    </ControlTheme>
+
     <SolidColorBrush x:Key="KSemiColorBackground4" Opacity="0.35" Color="{DynamicResource SemiBackground4Color}" />
 
     <ControlTheme x:Key="KitopiaCard" TargetType="Border">

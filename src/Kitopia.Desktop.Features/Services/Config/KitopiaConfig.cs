@@ -201,20 +201,23 @@ public class KitopiaConfig : ConfigBase
     public int maxHistory = 6;
 
     [ConfigField("lang.kitopia.use_everything_to_index_documents", "lang.kitopia.required_for_document_indexing", 0xF3AF, ConfigFieldType.布尔)]
-    public bool useEverything = true;
+    [JsonPropertyName("useEverything")]
+    public bool useEverythingForIndexing = true;
 
     [ConfigField("lang.kitopia.start_everything_automatically", "lang.kitopia.start_everything_if_it_is_not_running", 0xF606, ConfigFieldType.布尔)]
     public bool autoStartEverything = true;
 
     [ConfigField("lang.kitopia.everything_search_prefix", "lang.kitopia.search_everything_when_the_query_starts_with_this_prefix", 0xF7E0, ConfigFieldType.字符串)]
-    public string everythingSearchPreString = "@";
+    [JsonPropertyName("everythingSearchPreString")]
+    public string everythingSearchPrefix = "@";
 
     [ConfigField("lang.kitopia.everything_search_ignore_case", "lang.kitopia.everything_search_ignore_case_description", 0xF7E0, ConfigFieldType.布尔)]
     public bool everythingSearchIgnoreCase = true;
 
 
     [ConfigField("lang.kitopia.everything_indexed_file_types", "lang.kitopia.add_matching_files_found_by_everything_to_the_local_index_does_not_limit_live_searches", 0xF4EE, ConfigFieldType.字符串列表支持添加)]
-    public ObservableCollection<string> everythingSearchExtensions =
+    [JsonPropertyName("everythingSearchExtensions")]
+    public ObservableCollection<string> everythingIndexIncludePatterns =
         ["*.docx", "*.doc", "*.xls", "*.xlsx", "*.pdf", "*.ppt", "*.pptx"];
 
     // Fluent System Icons: F35C developer_board (CPU), F349 data_usage (memory),

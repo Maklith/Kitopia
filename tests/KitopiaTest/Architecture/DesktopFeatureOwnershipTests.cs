@@ -59,7 +59,7 @@ public sealed class DesktopFeatureOwnershipTests
         Assert.AreSame(featureAssembly, typeof(SearchIndex).Assembly);
         Assert.AreSame(featureAssembly, typeof(SearchItemTool).Assembly);
         Assert.AreSame(featureAssembly, typeof(IAppToolService).Assembly);
-        Assert.AreSame(featureAssembly, typeof(IEverythingService).Assembly);
+        Assert.AreSame(featureAssembly, typeof(IEverythingAvailabilityService).Assembly);
         Assert.AreSame(featureAssembly, typeof(MathIdentifier).Assembly);
         Assert.AreSame(featureAssembly, typeof(SearchMath).Assembly);
     }
@@ -76,6 +76,7 @@ public sealed class DesktopFeatureOwnershipTests
         Assert.IsNull(coreAssembly.GetType("Core.Services.SearchItemTool"));
         Assert.IsNull(coreAssembly.GetType("Core.Services.Interfaces.IAppToolService"));
         Assert.IsNull(coreAssembly.GetType("Core.Services.Interfaces.IEverythingService"));
+        Assert.IsNull(coreAssembly.GetType("Core.Services.Interfaces.IEverythingAvailabilityService"));
         Assert.IsNull(coreAssembly.GetType("Core.UI.SearchWindow.InputData.MathIdentifier"));
         Assert.IsNull(coreAssembly.GetType("Core.Utils.Math"));
     }

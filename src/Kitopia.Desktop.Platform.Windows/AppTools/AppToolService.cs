@@ -7,50 +7,66 @@ using Kitopia.Desktop.Features.Search;
 using Kitopia.Desktop.Features.Indexing;
 using Pinyin.NET;
 using PluginCore;
+using Vanara.Extensions;
+using Vanara.PInvoke;
 
 namespace Kitopia.Desktop.Platform.Windows.AppTools;
 
 public class AppToolService : IAppToolService
 {
+    public static (long StartTimeTicks, TimeSpan ProcessorTime)? ReadProcessTimes(System.Diagnostics.Process process)
+    {
+        using var handle = Kernel32.OpenProcess(
+            (uint)Kernel32.ProcessAccess.PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)process.Id);
+        if (handle.IsInvalid || !Kernel32.GetProcessTimes(handle, out var creation, out _, out var kernel, out var user))
+        {
+            return null;
+        }
+
+        return (DateTime.FromFileTimeUtc((long)creation.ToUInt64()).Ticks,
+            TimeSpan.FromTicks((long)(kernel.ToUInt64() + user.ToUInt64())));
+    }
+
     public void IndexItem(ISearchEntryIndex index, string filePath,
         bool isStarred = false)
     {
-        AppSolver.IndexItem(index, filePath, isStarred);
+        AppIndexer.IndexItem(index, filePath, isStarred);
     }
 
     public void CleanupInvalidItems(IIndexService index)
     {
-        AppSolver.CleanupInvalidItems(index);
+        AppIndexer.CleanupInvalidItems(index);
     }
 
     public void IndexAllApps(IIndexService index, bool logging,
-        bool useEverything = false)
+        bool useEverythingForIndexing = false)
     {
-        AppSolver.IndexAllApps(index, logging, useEverything);
+        AppIndexer.IndexAllApps(index, logging, useEverythingForIndexing);
     }
 
     public void AutoStartEverything(IIndexService index, Action onSuccess)
     {
-        AppSolver.AutoStartEverything(index, onSuccess);
+        AppIndexer.AutoStartEverything(index, onSuccess);
     }
 
     public void VisitEverythingIndexedFiles(Action<string> visitor)
     {
         ArgumentNullException.ThrowIfNull(visitor);
-        EverythingTools.VisitIndexedFiles(visitor);
+        EverythingClient.VisitIndexedFiles(visitor);
     }
 
-    public IEnumerable<string> EnumerateEverythingIndexedFiles() => EverythingTools.EnumerateIndexedFiles();
+    public IEnumerable<string> EnumerateEverythingIndexedFiles() => EverythingClient.EnumerateIndexedFiles();
 
-    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int count = 100)
+    public IReadOnlyList<SearchViewItem> SearchWithEverything(string query, int count = 100)
     {
-        return EverythingTools.Search(keyword, 0, count);
+        return EverythingClient.Search(query, 0, count);
     }
 
-    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int offset, int count,
-        EverythingSortOrder sortOrder = EverythingSortOrder.NameAscending)
+    public IReadOnlyList<SearchViewItem> SearchWithEverything(string query, int offset, int count,
+        EverythingSortOrder sortOrder = EverythingSortOrder.NameAscending,
+        CancellationToken cancellationToken = default)
     {
-        return EverythingTools.Search(keyword, offset, count, sortOrder);
+        return EverythingClient.Search(query, offset, count, sortOrder, cancellationToken);
     }
 
     public void LoadIcon(SearchViewItem item)
@@ -108,6 +124,6 @@ public class AppToolService : IAppToolService
 
     public PinyinItem GetPinyin(string input)
     {
-        return AppSolver.PinyinProcessor.GetPinyin(input);
+        return AppIndexer.PinyinProcessor.GetPinyin(input);
     }
 }

@@ -18,6 +18,34 @@ public sealed class ConfigMangerServiceTests
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
+    public void EverythingSettings_RenamedFields_PreserveLegacyJsonKeys(bool useEverything)
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            useEverything,
+            everythingSearchPreString = "ev:",
+            everythingSearchExtensions = new[] { "*.txt", "path:C:\\Notes" }
+        });
+        var config = JsonSerializer.Deserialize<KitopiaConfig>(json, ConfigManger.DefaultOptions)!;
+        Assert.AreEqual(useEverything, config.useEverythingForIndexing);
+        Assert.AreEqual("ev:", config.everythingSearchPrefix);
+        CollectionAssert.AreEqual(new[] { "*.txt", "path:C:\\Notes" }, config.everythingIndexIncludePatterns.ToArray());
+
+        var saved = JsonSerializer.Serialize(config, ConfigManger.DefaultOptions);
+        using var document = JsonDocument.Parse(saved);
+        Assert.AreEqual(useEverything, document.RootElement.GetProperty("useEverything").GetBoolean());
+        Assert.AreEqual("ev:", document.RootElement.GetProperty("everythingSearchPreString").GetString());
+        Assert.IsTrue(document.RootElement.TryGetProperty("everythingSearchExtensions", out _));
+        Assert.IsFalse(document.RootElement.TryGetProperty(nameof(config.useEverythingForIndexing), out _));
+        Assert.IsFalse(document.RootElement.TryGetProperty(nameof(config.everythingSearchPrefix), out _));
+        Assert.IsFalse(document.RootElement.TryGetProperty(nameof(config.everythingIndexIncludePatterns), out _));
+        var restored = JsonSerializer.Deserialize<KitopiaConfig>(saved, ConfigManger.DefaultOptions)!;
+        CollectionAssert.AreEqual(config.everythingIndexIncludePatterns.ToArray(), restored.everythingIndexIncludePatterns.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
     public void EverythingSearchIgnoreCase_LegacyAndConfiguredJson_DefaultsToEnabledAndPersistsSelection(bool ignoreCase)
     {
         Assert.IsTrue(new KitopiaConfig().everythingSearchIgnoreCase);

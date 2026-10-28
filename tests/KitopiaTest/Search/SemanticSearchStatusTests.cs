@@ -97,6 +97,75 @@ public sealed class SemanticSearchStatusTests
     }
 
     [TestMethod]
+    [DataRow(0)]
+    [DataRow(1)]
+    [DataRow(9)]
+    [DataRow(12)]
+    public async Task ToSearch_LexicalMatches_ApplicationsAndFilesAppearBeforeSemanticResults(int applicationCount)
+    {
+        await RunSearchTestAsync(async (model, index, view) =>
+        {
+            index.PinyinResults = [.. Enumerable.Range(0, applicationCount).Select(number =>
+                new SearchIndexResult(new SearchEntry
+                {
+                    OnlyKey = $@"C:\Apps\Application{number}.exe",
+                    DisplayName = $"Application {number}",
+                    FileType = FileType.应用程序
+                }, 1, null)), new(new SearchEntry
+                {
+                    OnlyKey = @"C:\Reports\application.txt", DisplayName = "Application report", FileType = FileType.文件
+                }, 0.5, null)];
+            var result = new TaskCompletionSource<IReadOnlyList<SearchIndexResult>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            index.Search = (_, _) => result.Task;
+            var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var lexicalPublished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            model.ItemsViewList.CollectionChanged += (_, _) =>
+            {
+                if (model.Items.Count == applicationCount + 1)
+                    lexicalPublished.TrySetResult();
+                if (model.Items.Count == applicationCount + 2)
+                    completed.TrySetResult();
+            };
+
+            model.Search = "application";
+            try
+            {
+                await lexicalPublished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsFalse(result.Task.IsCompleted);
+                Assert.HasCount(applicationCount + 1, model.Items);
+                Assert.IsTrue(model.Items.Any(item => item.OnlyKey == @"C:\Reports\application.txt"));
+                var list = view.FindControl<ListBox>("dataGrid")!;
+                Assert.HasCount(applicationCount + 1, list.Items);
+                Assert.IsFalse(model.IsPreviewMode);
+                list.SelectedItem = model.Items[0];
+                Assert.AreSame(model.Items[0], model.SelectedItem);
+
+                if (applicationCount + 1 >= 10)
+                {
+                    Assert.IsFalse(model.IsSemanticSearching);
+                    Assert.IsFalse(index.Started.Reader.TryRead(out _));
+                    return;
+                }
+                await index.Started.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.AreSame(index.PinyinResults, index.PreparedPinyinResults);
+
+                result.SetResult([.. index.PinyinResults, new(new SearchEntry
+                {
+                    OnlyKey = "https://example.com/later", DisplayName = "Later result", FileType = FileType.URL
+                }, 0.1, null)]);
+                await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Dispatcher.UIThread.RunJobs();
+                Assert.HasCount(applicationCount + 2, model.Items);
+            }
+            finally
+            {
+                result.TrySetCanceled();
+            }
+        });
+    }
+
+    [TestMethod]
     public async Task ToSearch_QueryReplaced_OldCompletionDoesNotHideNewIndicatorOrRestoreClearedResults()
     {
         await RunSearchTestAsync(async (model, index, view) =>
@@ -150,7 +219,7 @@ public sealed class SemanticSearchStatusTests
             var analyzers = PluginOverall.SearchWindowInputDataAnalyzers.ToArray();
             ConfigManger.Configs = new Dictionary<string, ConfigBase>
             {
-                ["KitopiaConfig"] = new KitopiaConfig { useEverything = false, semanticSearchDebounceMilliseconds = 100 }
+                ["KitopiaConfig"] = new KitopiaConfig { useEverythingForIndexing = false, semanticSearchDebounceMilliseconds = 100 }
             };
             PluginOverall.SearchWindowInputDataIdentifies.Clear();
             PluginOverall.SearchWindowInputDataAnalyzers.Clear();
@@ -192,8 +261,10 @@ public sealed class SemanticSearchStatusTests
 
     private class SearchServiceProxy : DispatchProxy
     {
-        public IReadOnlyList<SearchIndexResult> PinyinResults { get; } =
+        public IReadOnlyList<SearchIndexResult> PinyinResults { get; set; } =
         [new(new SearchEntry { OnlyKey = "https://example.com", DisplayName = "Lexical result", FileType = FileType.URL }, 1, null)];
+
+        public IReadOnlyList<SearchIndexResult>? PreparedPinyinResults { get; private set; }
 
         public Channel<(string Query, CancellationToken Token)> Started { get; } = Channel.CreateUnbounded<(string, CancellationToken)>();
         public Func<string, CancellationToken, Task<IReadOnlyList<SearchIndexResult>>> Search { get; set; } = null!;
@@ -201,10 +272,14 @@ public sealed class SemanticSearchStatusTests
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
             if (targetMethod!.Name == nameof(IAppToolService.LoadIcon)) return null;
-            if (targetMethod.Name == nameof(IIndexService.SearchPinyin)) return PinyinResults;
+            if (targetMethod.Name == nameof(IIndexService.SearchPinyin))
+            {
+                return PinyinResults;
+            }
             if (targetMethod.Name != nameof(IIndexService.SearchAsync)) throw new NotSupportedException(targetMethod.Name);
             var query = (string)args![0]!;
             var token = (CancellationToken)args[2]!;
+            PreparedPinyinResults = (IReadOnlyList<SearchIndexResult>?)args[3];
             Started.Writer.TryWrite((query, token));
             return Search(query, token);
         }

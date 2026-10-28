@@ -25,6 +25,8 @@ using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Services;
 using Kitopia.Desktop.Windows;
+using Kitopia.Feature.Avalonia.Controls;
+using Kitopia.Feature.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ObservableCollections;
@@ -481,6 +483,287 @@ public sealed class EverythingFileListControlTests
         });
     }
 
+    [TestMethod]
+    [DataRow(0)]
+    [DataRow(100)]
+    public async Task SearchWindow_EverythingQueryFailure_ShowsWarningAndRetriesSamePage(int offset)
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            var indicator = window.FindControl<HoverFlyoutButton>("EverythingStatusIndicator")!;
+            Assert.IsNull(model.IsEverythingAvailable);
+            Assert.IsFalse(indicator.IsVisible);
+            if (offset > 0)
+            {
+                SearchServicesProxy.PagedEverythingResults = (_, _, count) => Enumerable.Range(0, count)
+                    .Select(i => new SearchViewItem { OnlyKey = $"file-{i}", ItemDisplayName = $"file-{i}" }).ToList();
+                model.Search = "@missing";
+                await WaitForAsync(() => model.Items.Count == offset && model.LoadMoreEverythingCommand.CanExecute(null));
+            }
+            SearchServicesProxy.PagedEverythingResults = (_, _, _) => throw new InvalidOperationException("Everything IPC failed");
+            if (offset == 0) model.Search = "@missing";
+            else await model.LoadMoreEverythingAsync();
+            await WaitForAsync(() => model.IsEverythingAvailable is false && model.LoadMoreEverythingCommand.CanExecute(null));
+            Assert.IsTrue(indicator.IsVisible);
+            Assert.IsTrue(indicator.Classes.Contains("unavailable"));
+            Assert.AreEqual(offset, model.Items.Count);
+
+            indicator.Flyout!.ShowAt(indicator);
+            Dispatcher.UIThread.RunJobs();
+            SearchServicesProxy.PagedEverythingResults = (_, _, _) => [];
+            var retry = window.FindControl<Button>("RetryEverythingSearchButton")!;
+            Assert.AreSame(model.LoadMoreEverythingCommand, retry.Command);
+            await model.LoadMoreEverythingCommand.ExecuteAsync(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.AreEqual(true, model.IsEverythingAvailable);
+            Assert.IsTrue(model.IsEverythingConnected);
+            Assert.IsFalse(indicator.Classes.Contains("unavailable"));
+            Assert.IsFalse(model.LoadMoreEverythingCommand.CanExecute(null));
+            Assert.AreEqual(offset, model.Items.Count);
+            Assert.AreEqual(offset, SearchServicesProxy.EverythingCalls.Last().Offset);
+        });
+    }
+
+    [TestMethod]
+    public async Task SearchWindow_NewQuery_CancelsPlatformTokenAndIgnoresOldFailure()
+    {
+        await RunAsync(async (_, model, _) =>
+        {
+            var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var release = new ManualResetEventSlim();
+            SearchServicesProxy.PagedEverythingResults = (query, offset, _) =>
+            {
+                if (query == "old" && offset == 100)
+                {
+                    started.SetResult();
+                    Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(5)));
+                    throw new InvalidOperationException("Old query failed");
+                }
+                if (query == "old")
+                {
+                    return Enumerable.Range(0, 100).Select(i => new SearchViewItem
+                    {
+                        OnlyKey = $"old-{i}", ItemDisplayName = $"old-{i}"
+                    }).ToList();
+                }
+                return [new SearchViewItem { OnlyKey = "new", ItemDisplayName = "new" }];
+            };
+            Task? oldPage = null;
+            try
+            {
+                model.Search = "@old";
+                await WaitForAsync(() => model.Items.Count == 100 && model.LoadMoreEverythingCommand.CanExecute(null));
+                oldPage = model.LoadMoreEverythingAsync();
+                await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                var token = SearchServicesProxy.EverythingCalls.Last().CancellationToken;
+                Assert.IsTrue(token.CanBeCanceled);
+                model.Search = "@new";
+                await WaitForAsync(() => model.Items.Count == 1 && model.LoadMoreEverythingCommand.CanExecute(null) == false);
+                Assert.IsTrue(token.IsCancellationRequested);
+                release.Set();
+                await oldPage.WaitAsync(TimeSpan.FromSeconds(5));
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(true, model.IsEverythingAvailable);
+                Assert.AreEqual("new", model.Items.Single().OnlyKey);
+            }
+            finally
+            {
+                release.Set();
+                if (oldPage is not null) await oldPage;
+            }
+        });
+    }
+
+    [TestMethod]
+    [DataRow("available")]
+    [DataRow("unavailable")]
+    [DataRow("failure")]
+    public async Task SearchWindow_Opens_ChecksEverythingOffUiThreadAndRefreshesOnReopen(string outcome)
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        var calls = 0;
+        try
+        {
+            await RunAsync(async (window, model, _) =>
+            {
+                await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                var indicator = window.FindControl<HoverFlyoutButton>("EverythingStatusIndicator")!;
+                Assert.IsTrue(model.IsCheckingEverything);
+                Assert.IsTrue(indicator.IsVisible);
+                Assert.IsTrue(indicator.Classes.Contains("checking"));
+                Assert.IsTrue(window.FindControl<TextBox>("tx")!.IsEnabled);
+                Assert.IsFalse(model.CheckEverythingAvailabilityCommand.CanExecute(null));
+                await model.CheckEverythingAvailabilityAsync();
+                Assert.AreEqual(1, Volatile.Read(ref calls));
+
+                release.Set();
+                await WaitForAsync(() => !model.IsCheckingEverything);
+                Assert.AreEqual(outcome == "available", model.IsEverythingAvailable);
+                Assert.AreEqual(outcome != "available", indicator.IsVisible);
+                Assert.IsFalse(model.IsEverythingMode);
+                Assert.AreEqual(0, SearchServicesProxy.EverythingCalls.Count);
+
+                window.Hide();
+                window.Show();
+                await WaitForAsync(() => Volatile.Read(ref calls) == 2 && !model.IsCheckingEverything);
+            }, token =>
+            {
+                Assert.IsFalse(Dispatcher.UIThread.CheckAccess());
+                Interlocked.Increment(ref calls);
+                started.TrySetResult();
+                Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(5), token));
+                if (outcome == "failure") throw new InvalidOperationException("Probe failed");
+                return outcome == "available";
+            });
+        }
+        finally { release.Set(); }
+    }
+
+    [TestMethod]
+    public async Task SearchWindow_EmptyEverythingPrefix_ProbesAndAllowsCheckingAgainWithoutSearching()
+    {
+        var calls = 0;
+        await RunAsync(async (window, model, _) =>
+        {
+            await WaitForAsync(() => model.IsEverythingAvailable is true && !model.IsCheckingEverything);
+            model.Search = "@";
+            await WaitForAsync(() => model.IsEverythingUnavailable);
+            Assert.AreEqual(2, Volatile.Read(ref calls));
+            Assert.AreEqual(0, SearchServicesProxy.EverythingCalls.Count);
+            Assert.IsFalse(model.LoadMoreEverythingCommand.CanExecute(null));
+
+            var indicator = window.FindControl<HoverFlyoutButton>("EverythingStatusIndicator")!;
+            indicator.Flyout!.ShowAt(indicator);
+            Dispatcher.UIThread.RunJobs();
+            var check = window.FindControl<Button>("CheckEverythingAvailabilityButton")!;
+            Assert.AreSame(model.CheckEverythingAvailabilityCommand, check.Command);
+            await model.CheckEverythingAvailabilityCommand.ExecuteAsync(null);
+            Assert.IsTrue(model.IsEverythingConnected);
+            Assert.IsTrue(indicator.IsVisible);
+            Assert.IsFalse(indicator.Classes.Contains("unavailable"));
+            Assert.AreEqual(0, SearchServicesProxy.EverythingCalls.Count);
+            window.Hide();
+            Assert.IsFalse(indicator.Flyout.IsOpen);
+        }, _ => Interlocked.Increment(ref calls) != 2);
+    }
+
+    [TestMethod]
+    [DataRow(true, false)]
+    [DataRow(false, false)]
+    [DataRow(true, true)]
+    public async Task SearchWindow_NewQuery_DiscardsCanceledAvailabilityResult(bool searchSucceeds, bool probeThrows)
+    {
+        var calls = 0;
+        var started = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        await RunAsync(async (_, model, _) =>
+        {
+            await WaitForAsync(() => model.IsEverythingAvailable is true && !model.IsCheckingEverything);
+            var oldCheck = model.CheckEverythingAvailabilityAsync();
+            try
+            {
+                var token = await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                SearchServicesProxy.PagedEverythingResults = (_, _, _) => searchSucceeds
+                    ? [new SearchViewItem { OnlyKey = "new", ItemDisplayName = "new" }]
+                    : throw new InvalidOperationException("New query failed");
+                model.Search = "@new";
+                await WaitForAsync(() => !model.IsCheckingEverything && model.IsEverythingAvailable == searchSucceeds
+                                         && (searchSucceeds ? model.Items.Count == 1 : model.LoadMoreEverythingCommand.CanExecute(null)));
+                Assert.IsTrue(token.IsCancellationRequested);
+                release.Set();
+                await oldCheck.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.AreEqual(searchSucceeds, model.IsEverythingAvailable);
+                Assert.AreEqual(searchSucceeds ? 1 : 0, model.Items.Count);
+            }
+            finally
+            {
+                release.Set();
+                await oldCheck;
+            }
+        }, _ =>
+        {
+            if (Interlocked.Increment(ref calls) == 1) return true;
+            started.TrySetResult(_);
+            Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(5)));
+            if (probeThrows) throw new InvalidOperationException("Old probe failed");
+            return !searchSucceeds;
+        });
+    }
+
+    [TestMethod]
+    [DataRow("zh-CN", false)]
+    [DataRow("zh-CN", true)]
+    [DataRow("en-US", false)]
+    [DataRow("en-US", true)]
+    public async Task SearchWindow_EverythingStatusCard_UsesThemeAndKeepsRetryReachable(string language, bool dark)
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            Lang.Current.UseLanguage(language);
+            var theme = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+            Application.Current!.RequestedThemeVariant = theme;
+            window.RequestedThemeVariant = theme;
+            // Headless hosts popups inside the window instead of native surfaces outside it.
+            window.SizeToContent = SizeToContent.Manual;
+            window.Height = 420;
+            SearchServicesProxy.PagedEverythingResults = (_, _, _) => throw new InvalidOperationException("Everything unavailable");
+            model.Search = "@Kitopia";
+            await WaitForAsync(() => model.IsEverythingUnavailable && model.LoadMoreEverythingCommand.CanExecute(null));
+            window.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            var indicator = window.FindControl<HoverFlyoutButton>("EverythingStatusIndicator")!;
+            Assert.IsTrue(indicator.Bounds.Height <= 28);
+            Assert.AreEqual(28, indicator.Bounds.Width);
+            var point = indicator.TranslatePoint(new Point(indicator.Bounds.Width / 2, indicator.Bounds.Height / 2), window)!.Value;
+            window.MouseMove(point);
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(indicator.Flyout!.IsOpen);
+
+            var retry = window.FindControl<Button>("RetryEverythingSearchButton")!;
+            var card = window.FindControl<HeaderedContentControl>("EverythingWarningCard")!;
+            Assert.AreEqual(window.FindResource("KitopiaWarningIndicatorButton"), indicator.Theme);
+            Assert.AreEqual(window.FindResource("KitopiaWarningCard"), card.Theme);
+            Assert.AreEqual(Avalonia.Media.Color.Parse(dark ? "#33B74700" : "#FFF4CE"),
+                ((Avalonia.Media.ISolidColorBrush)card.Background!).Color);
+            Assert.AreEqual((byte)255, ((Avalonia.Media.ISolidColorBrush)card.GetVisualDescendants()
+                .OfType<Border>().First().Background!).Color.A, "Popup text must not overlap content behind the warning.");
+            var description = window.FindControl<TextBlock>("EverythingUnavailableDescription")!;
+            Assert.AreEqual(Lang.Get("lang.kitopia.everything_unavailable_description"), description.Text);
+            Assert.AreEqual(Avalonia.Media.TextWrapping.Wrap, description.TextWrapping);
+            var popup = TopLevel.GetTopLevel(retry)!;
+            popup.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Assert.IsTrue(retry.Bounds.Width > 0);
+            var screenshotDirectory = Path.Combine(AppContext.BaseDirectory, "TestResults", "everything-status");
+            Directory.CreateDirectory(screenshotDirectory);
+            foreach (var (surface, name) in new[] { ((TopLevel)window, "search"), (popup, "details") })
+            {
+                using var frame = surface.CaptureRenderedFrame();
+                Assert.IsNotNull(frame);
+                var path = Path.Combine(screenshotDirectory, $"everything-status-{language}-{theme}-{name}.png");
+                frame.Save(path, PngBitmapEncoderOptions.Default);
+                TestContext.AddResultFile(path);
+            }
+
+            var retryPoint = retry.TranslatePoint(new Point(retry.Bounds.Width / 2, retry.Bounds.Height / 2), popup)!.Value;
+            Assert.IsNotNull(popup.InputHitTest(retryPoint),
+                $"Retry must fit inside popup host. Window: {window.Bounds}; client: {window.ClientSize}; max: {window.MaxHeight}; popup: {popup.Bounds}; retry: {retryPoint}");
+            window.MouseMove(new Point(window.Width - 10, window.Height - 10));
+            popup.MouseMove(retryPoint);
+            await Task.Delay(250);
+            Assert.IsTrue(indicator.Flyout.IsOpen,
+                $"Window visible: {window.IsVisible}; retry pointer: {retry.IsPointerOver}; content pointer: {((Flyout)indicator.Flyout).Content is Control content && content.IsPointerOver}; hit: {popup.InputHitTest(retryPoint)}; point: {retryPoint}; retry bounds: {retry.Bounds}");
+            SearchServicesProxy.PagedEverythingResults = (_, _, _) => [];
+            popup.MouseDown(retryPoint, MouseButton.Left);
+            popup.MouseUp(retryPoint, MouseButton.Left);
+            await WaitForAsync(() => model.IsEverythingConnected);
+            Assert.IsFalse(indicator.Classes.Contains("unavailable"));
+            window.Hide();
+            Assert.IsFalse(indicator.Flyout.IsOpen);
+        });
+    }
+
     private static async Task WaitForAsync(Func<bool> condition)
     {
         for (var i = 0; i < 100; i++)
@@ -492,7 +775,8 @@ public sealed class EverythingFileListControlTests
         Assert.Fail("Timed out waiting for Everything search results.");
     }
 
-    private static async Task RunAsync(Func<SearchWindow, SearchWindowViewModel, SearchServicesProxy, Task> test)
+    private static async Task RunAsync(Func<SearchWindow, SearchWindowViewModel, SearchServicesProxy, Task> test,
+        Func<CancellationToken, bool>? availability = null)
     {
         ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithPlatformServices().BuildApp();
         await using var session = HeadlessUnitTestSession.StartNew(typeof(EverythingFileListControlTests));
@@ -502,16 +786,17 @@ public sealed class EverythingFileListControlTests
             var originalConfigs = ConfigManger.Configs;
             var originalServices = ServiceManager.Services;
             var originalTheme = Application.Current!.RequestedThemeVariant;
+            var originalLanguage = Lang.Current.Language;
             var identifiers = PluginOverall.SearchWindowInputDataIdentifies.ToArray();
             var analyzers = PluginOverall.SearchWindowInputDataAnalyzers.ToArray();
             ConfigManger.Configs = new Dictionary<string, ConfigBase>
             {
                 ["KitopiaConfig"] = new KitopiaConfig
                 {
-                    useEverything = false,
+                    useEverythingForIndexing = false,
                     enableSemanticSearch = false,
                     semanticSearchDebounceMilliseconds = 100,
-                    everythingSearchPreString = "@"
+                    everythingSearchPrefix = "@"
                 }
             };
             PluginOverall.SearchWindowInputDataIdentifies.Clear();
@@ -519,11 +804,18 @@ public sealed class EverythingFileListControlTests
             PluginOverall.SearchWindowInputDataIdentifies["Kitopia"] = [];
             PluginOverall.SearchWindowInputDataAnalyzers["Kitopia"] = [];
             var itemTool = DispatchProxy.Create<ISearchItemTool, SearchServicesProxy>();
-            using var services = new ServiceCollection()
+            var registrations = new ServiceCollection()
                 .AddSingleton(DispatchProxy.Create<IWindowTool, SearchServicesProxy>())
                 .AddSingleton(DispatchProxy.Create<IAppToolService, SearchServicesProxy>())
                 .AddSingleton(DispatchProxy.Create<IIndexService, SearchServicesProxy>())
-                .AddSingleton(itemTool).BuildServiceProvider();
+                .AddSingleton(itemTool);
+            if (availability is not null)
+            {
+                var probe = DispatchProxy.Create<IEverythingAvailabilityService, SearchServicesProxy>();
+                ((SearchServicesProxy)probe).AvailabilityProbe = availability;
+                registrations.AddSingleton(probe);
+            }
+            using var services = registrations.BuildServiceProvider();
             ServiceManager.Services = services;
             var model = new SearchWindowViewModel();
             var window = new SearchWindow { DataContext = model };
@@ -546,6 +838,7 @@ public sealed class EverythingFileListControlTests
                 WeakReferenceMessenger.Default.UnregisterAll(window);
                 model.FilePreview.Dispose();
                 Application.Current!.RequestedThemeVariant = originalTheme;
+                Lang.Current.UseLanguage(originalLanguage);
                 ServiceManager.Services = originalServices;
                 ConfigManger.Configs = originalConfigs;
                 PluginOverall.SearchWindowInputDataIdentifies.Clear();
@@ -561,9 +854,10 @@ public sealed class EverythingFileListControlTests
     {
         public static List<SearchViewItem> EverythingResults { get; set; } = [];
         public static Func<string, int, int, List<SearchViewItem>>? PagedEverythingResults { get; set; }
-        public static List<(string Keyword, int Offset, int Count, EverythingSortOrder SortOrder)> EverythingCalls { get; set; } = [];
+        public static List<(string Keyword, int Offset, int Count, EverythingSortOrder SortOrder, CancellationToken CancellationToken)> EverythingCalls { get; set; } = [];
         public TaskCompletionSource<SearchViewItem> Opened { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public IReadOnlyList<SearchIndexResult> Results { get; set; } = [];
+        public Func<CancellationToken, bool>? AvailabilityProbe { get; set; }
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => targetMethod!.Name switch
         {
@@ -572,6 +866,7 @@ public sealed class EverythingFileListControlTests
             nameof(IIndexService.SearchPinyin) => Results,
             nameof(IIndexService.SearchAsync) => Task.FromResult(Results),
             nameof(IAppToolService.SearchWithEverything) => HandleEverythingSearch(args),
+            nameof(IEverythingAvailabilityService.IsAvailable) => AvailabilityProbe!.Invoke((CancellationToken)args![0]!),
             nameof(ISearchItemTool.OpenFile) => Opened.TrySetResult((SearchViewItem)args![0]!),
             _ => throw new NotSupportedException(targetMethod.Name)
         };
@@ -591,7 +886,8 @@ public sealed class EverythingFileListControlTests
                 count = (int)args[2]!;
             }
             var sortOrder = args.Length >= 4 ? (EverythingSortOrder)args[3]! : EverythingSortOrder.NameAscending;
-            EverythingCalls.Add((kw, offset, count, sortOrder));
+            var token = args.Length >= 5 ? (CancellationToken)args[4]! : CancellationToken.None;
+            EverythingCalls.Add((kw, offset, count, sortOrder, token));
             if (PagedEverythingResults != null)
             {
                 return PagedEverythingResults(kw, offset, count);

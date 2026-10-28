@@ -200,12 +200,6 @@ public class ConfigManger : IConfigService, IConfigProvider
 
                     break;
                 }
-                case "autoStartEverything":
-                {
-                    ServiceManager.Services.GetService<ISearchFeatureService>()?
-                        .SetEverythingAvailability(!(bool)args.Value);
-                    break;
-                }
                 case "themeChoice":
                 {
                     switch ((ThemeEnum)args.Value)

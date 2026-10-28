@@ -8,8 +8,6 @@ namespace Kitopia.Desktop.Features.Services.Interfaces;
 /// </summary>
 public interface ISearchFeatureService
 {
-    void SetEverythingAvailability(bool? isAvailable);
-
     void AddToIndex(string path);
 
     void RemoveFromIndex(string path);

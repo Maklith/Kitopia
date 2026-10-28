@@ -1,6 +1,9 @@
 using System.Reflection;
 using Kitopia.Desktop.Features.Indexing;
+using Kitopia.Desktop.Features.Search;
+using Kitopia.Desktop.Features.Search.Semantic;
 using Kitopia.Desktop.Features.Services.Config;
+using PluginCore;
 using PluginCore.Config;
 
 namespace KitopiaTest.Indexing;
@@ -25,6 +28,66 @@ public sealed class IndexServiceTests
     public void Cleanup()
     {
         ConfigManger.Configs = _originalConfigs!;
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_PreparedLexicalResults_DoesNotRepeatFileDatabaseScan()
+    {
+        using var index = new IndexService();
+        var store = (IndexVectorStore)typeof(IndexService).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(index)!;
+        var gate = (SemaphoreSlim)typeof(IndexVectorStore).GetField("_gate", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(store)!;
+        IReadOnlyList<SearchIndexResult> lexicalResults = Enumerable.Range(0, 10).Select(number =>
+            new SearchIndexResult(new SearchEntry
+            {
+                OnlyKey = $"report{number}.txt", DisplayName = $"Report {number}", FileType = FileType.文件
+            }, 1d / (61 + number), null)).ToArray();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await gate.WaitAsync(cancellation.Token);
+        try
+        {
+            var results = await index.SearchAsync("report", 100, cancellation.Token, lexicalResults)
+                .WaitAsync(cancellation.Token);
+            CollectionAssert.AreEqual(lexicalResults.ToArray(), results.ToArray());
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    [TestMethod]
+    public async Task GetEntriesSnapshot_EmbeddingInitializationInProgress_DoesNotHoldApplicationIndexLock()
+    {
+        using var index = new IndexService();
+        using var resume = new ManualResetEventSlim();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var field = typeof(IndexService).GetField("_embeddingService", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        field.SetValue(index, new Lazy<EmbeddingGemmaEmbeddingService?>(() =>
+        {
+            started.SetResult();
+            resume.Wait(cancellation.Token);
+            return null;
+        }));
+        var initialize = Task.Run(() =>
+        {
+            object?[] arguments = [null];
+            return (bool)typeof(IndexService).GetMethod("TryGetEmbeddingService", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(index, arguments)!;
+        });
+        try
+        {
+            await started.Task.WaitAsync(cancellation.Token);
+            var results = await Task.Run(index.GetEntriesSnapshot).WaitAsync(cancellation.Token);
+            Assert.HasCount(0, results);
+            Assert.IsFalse(initialize.IsCompleted);
+        }
+        finally
+        {
+            resume.Set();
+            Assert.IsFalse(await initialize.WaitAsync(TimeSpan.FromSeconds(5)));
+        }
+        Assert.IsNull(field.GetValue(index), "An unavailable model must be retried after it is downloaded.");
     }
 
     [TestMethod]

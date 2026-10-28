@@ -1225,7 +1225,7 @@ public partial class SettingPage : UserControl
         }
 
         var maintenanceService = ServiceManager.Services.GetService<IIndexMaintenanceService>();
-        if (fieldName == nameof(KitopiaConfig.everythingSearchExtensions))
+        if (fieldName == nameof(KitopiaConfig.everythingIndexIncludePatterns))
         {
             _ = maintenanceService?.RefreshEverythingFilesAsync();
         }

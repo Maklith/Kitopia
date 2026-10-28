@@ -86,7 +86,7 @@ public partial class IndexStatusPageViewModel : ObservableObject, IDisposable
         : Lang.Get("lang.kitopia.start_indexing");
 
     [RelayCommand]
-    private void OpenEverythingSettings() => _navigationService.Navigate("settings/field/useEverything");
+    private void OpenEverythingSettings() => _navigationService.Navigate("settings/field/useEverythingForIndexing");
 
     [RelayCommand]
     private void OpenManagedIndexSettings() => _navigationService.Navigate("settings/field/managedIndexDirectories");

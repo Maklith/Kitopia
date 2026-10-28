@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.ComponentModel;
 using System.Diagnostics;
 using Avalonia.Threading;
 using Kitopia.Desktop.Features.Services.Config;
@@ -27,6 +28,7 @@ public sealed class ProcessUsageService : IProcessUsageService, IDisposable
     // Keyed by process id; the start time guards against a recycled id. Only the sampling loop
     // touches this dictionary, so it needs no lock.
     private readonly Dictionary<int, ProcessBaseline> _baselines = new();
+    private readonly Func<Process, (long StartTimeTicks, TimeSpan ProcessorTime)?> _readProcessTimes;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly object _lock = new();
     private Task? _loop;
@@ -40,6 +42,11 @@ public sealed class ProcessUsageService : IProcessUsageService, IDisposable
     private int _generation;
 
     public event Action? Updated;
+
+    public ProcessUsageService(Func<Process, (long StartTimeTicks, TimeSpan ProcessorTime)?>? readProcessTimes = null)
+    {
+        _readProcessTimes = readProcessTimes ?? ReadProcessTimes;
+    }
 
     public bool Enabled
     {
@@ -243,8 +250,14 @@ public sealed class ProcessUsageService : IProcessUsageService, IDisposable
                     alive.Add(process.Id);
                     memory[name] = memory.GetValueOrDefault(name) + process.WorkingSet64;
 
-                    var startTime = TryReadStartTime(process);
-                    var processorTime = process.TotalProcessorTime;
+                    var times = _readProcessTimes(process);
+                    if (times is not { } reading)
+                    {
+                        _baselines.Remove(process.Id);
+                        continue;
+                    }
+                    var startTime = reading.StartTimeTicks;
+                    var processorTime = reading.ProcessorTime;
                     var isKnown = _baselines.TryGetValue(process.Id, out var baseline)
                                   && baseline.StartTime == startTime;
                     _baselines[process.Id] = new ProcessBaseline(startTime, processorTime);
@@ -260,7 +273,8 @@ public sealed class ProcessUsageService : IProcessUsageService, IDisposable
                 }
                 catch (Exception exception) when (exception is not OutOfMemoryException)
                 {
-                    // Elevated or exiting processes cannot be read; they keep their previous value.
+                    // Do not carry a CPU interval across an unreadable or exited process.
+                    _baselines.Remove(process.Id);
                 }
                 finally
                 {
@@ -303,15 +317,15 @@ public sealed class ProcessUsageService : IProcessUsageService, IDisposable
         if (changed) NotifyUpdated();
     }
 
-    private static long TryReadStartTime(Process process)
+    private static (long StartTimeTicks, TimeSpan ProcessorTime)? ReadProcessTimes(Process process)
     {
         try
         {
-            return process.StartTime.Ticks;
+            return (process.StartTime.ToUniversalTime().Ticks, process.TotalProcessorTime);
         }
-        catch (Exception exception) when (exception is not OutOfMemoryException)
+        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException or NotSupportedException)
         {
-            return 0L;
+            return null;
         }
     }
 

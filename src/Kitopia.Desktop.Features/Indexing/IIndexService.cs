@@ -50,10 +50,15 @@ public interface IIndexService : ISearchEntryIndex
         int maximumResults,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Adds semantic fallback to lexical matches. Prepared pinyin results must belong to the
+    /// same query; passing them reuses the already published application and file matches.
+    /// </summary>
     Task<IReadOnlyList<SearchIndexResult>> SearchAsync(
         string query,
         int maximumResults,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        IReadOnlyList<SearchIndexResult>? pinyinResults = null);
 
     /// <summary>
     /// Updates file-backed document and image vectors without clearing the existing index.

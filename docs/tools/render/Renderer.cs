@@ -117,7 +117,7 @@ public static class Renderer
             Application.Current!.RequestedThemeVariant = ThemeVariant.Light;
             PluginOverall.Features.Clear();
             typeof(ConfigManger).GetProperty("Configs", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null,
-                new Dictionary<string, ConfigBase> { ["KitopiaConfig"] = new KitopiaConfig { useEverything = false } });
+                new Dictionary<string, ConfigBase> { ["KitopiaConfig"] = new KitopiaConfig { useEverythingForIndexing = false } });
             using var provider = new ServiceCollection()
                 .AddSingleton<INavigationService, NavigationService>()
                 .AddSingleton(System.Reflection.DispatchProxy.Create<IWindowTool, RenderProxy>())

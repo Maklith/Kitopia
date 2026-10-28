@@ -4,6 +4,7 @@ using System.Security.Authentication;
 using System.Threading.Channels;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
@@ -109,7 +110,9 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
                 Dispatcher.UIThread.RunJobs();
                 Assert.IsTrue(indicator.Flyout.IsOpen);
                 var content = (Control)((Flyout)indicator.Flyout).Content!;
-                var card = (Border)content;
+                var card = (HeaderedContentControl)content;
+                Assert.AreEqual(page.FindResource("KitopiaWarningCard"), card.Theme);
+                Assert.AreEqual(page.FindResource("KitopiaWarningIndicatorButton"), indicator.Theme);
                 Assert.AreEqual(page.FindResource(window.ActualThemeVariant, "KitopiaBadgeWarningBackground"), card.Background);
                 Assert.AreEqual(page.FindResource(window.ActualThemeVariant, "KitopiaBadgeWarningBorder"), card.BorderBrush);
                 Assert.AreEqual(page.FindResource(window.ActualThemeVariant, "KitopiaBadgeWarningForeground"),

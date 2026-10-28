@@ -2,7 +2,6 @@
 
 using System.Collections.ObjectModel;
 using System.Reactive.Linq;
-using System.Runtime.InteropServices;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -47,8 +46,27 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private static readonly ILogger Logger = LogManager.Logger.ForContext<SearchWindowViewModel>();
     private IIndexService Index => ServiceManager.Services.GetRequiredService<IIndexService>();
 
-    [ObservableProperty] private bool? _everythingIsOk = true;
-    [ObservableProperty] private bool _isEverythingMode;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEverythingUnavailable))]
+    [NotifyPropertyChangedFor(nameof(IsEverythingConnected))]
+    [NotifyPropertyChangedFor(nameof(IsEverythingStatusPending))]
+    [NotifyPropertyChangedFor(nameof(ShowEverythingStatus))]
+    private bool? _isEverythingAvailable;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEverythingUnavailable))]
+    [NotifyPropertyChangedFor(nameof(IsEverythingConnected))]
+    [NotifyPropertyChangedFor(nameof(IsEverythingStatusPending))]
+    [NotifyPropertyChangedFor(nameof(ShowEverythingStatus))]
+    [NotifyCanExecuteChangedFor(nameof(CheckEverythingAvailabilityCommand))]
+    private bool _isCheckingEverything;
+    public bool IsEverythingUnavailable => !IsCheckingEverything && IsEverythingAvailable is false;
+    public bool IsEverythingConnected => !IsCheckingEverything && IsEverythingAvailable is true;
+    public bool IsEverythingStatusPending => IsCheckingEverything || IsEverythingAvailable is null;
+    public bool ShowEverythingStatus => IsEverythingMode || IsCheckingEverything || IsEverythingAvailable is false;
+    private CancellationTokenSource? _everythingAvailabilityCancellation;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowEverythingStatus))]
+    private bool _isEverythingMode;
     [ObservableProperty] private EverythingSortOrder _everythingSortOrder = EverythingSortOrder.NameAscending;
     private string _everythingQuery = string.Empty;
     private int _everythingOffset;
@@ -122,6 +140,56 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         }
     }
 
+    private bool CanCheckEverythingAvailability => !IsCheckingEverything && !_isEverythingLoading;
+
+    public void CancelEverythingAvailabilityCheck()
+    {
+        var cancellation = _everythingAvailabilityCancellation;
+        _everythingAvailabilityCancellation = null;
+        cancellation?.Cancel();
+        IsCheckingEverything = false;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCheckEverythingAvailability))]
+    public async Task CheckEverythingAvailabilityAsync()
+    {
+        if (!CanCheckEverythingAvailability) return;
+        var service = ServiceManager.Services.GetService<IEverythingAvailabilityService>();
+        if (service is null)
+        {
+            if (IsEverythingMode) IsEverythingAvailable = false;
+            return;
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        _everythingAvailabilityCancellation = cancellation;
+        IsCheckingEverything = true;
+        try
+        {
+            var available = await Task.Run(() => service.IsAvailable(cancellation.Token), cancellation.Token);
+            if (ReferenceEquals(_everythingAvailabilityCancellation, cancellation) && !cancellation.IsCancellationRequested)
+            {
+                IsEverythingAvailable = available;
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            Logger.Warning(exception, "Everything availability check failed");
+            if (ReferenceEquals(_everythingAvailabilityCancellation, cancellation)) IsEverythingAvailable = false;
+        }
+        finally
+        {
+            if (ReferenceEquals(_everythingAvailabilityCancellation, cancellation))
+            {
+                _everythingAvailabilityCancellation = null;
+                IsCheckingEverything = false;
+            }
+        }
+    }
+
     partial void OnSelectedItemChanged(SearchViewItem? value)
     {
         _lastClickedPreviewItem = null;
@@ -158,11 +226,6 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
 
     private readonly Dictionary<object, List<string>> _analyzerIndexedKeys = new();
-
-    public void SetEverythingAvailability(bool? isAvailable)
-    {
-        RunOnUiThread(() => EverythingIsOk = isAvailable);
-    }
 
     public void AddPluginItems(IEnumerable<SearchViewItem> items)
     {
@@ -237,26 +300,6 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     
     public void UpdateIndexOnWindowOpen() =>
         ServiceManager.Services.GetRequiredService<IIndexMaintenanceService>().RefreshWindowOpenEntries();
-
-    private void CheckEverything()
-    {
-        if (ConfigManger.Config.useEverything && RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            Logger.Debug("everything检测");
-
-
-            var service = ServiceManager.Services.GetService<IEverythingService>()!;
-            RunOnUiThread(() => { EverythingIsOk = service.IsRun(); });
-
-            if (!EverythingIsOk.Value)
-                ServiceManager.Services.GetService<IAppToolService>()!.AutoStartEverything(Index, () =>
-                {
-                    Thread.Sleep(1500);
-                    var everythingService = ServiceManager.Services.GetService<IEverythingService>()!;
-                    RunOnUiThread(() => { EverythingIsOk = everythingService.IsRun(); });
-                });
-        }
-    }
 
 
     public void LoadLast()
@@ -448,6 +491,10 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
         var version = Interlocked.Increment(ref _searchVersion);
         IsSemanticSearching = false;
+        CancelEverythingAvailabilityCheck();
+        _isEverythingLoading = false;
+        LoadMoreEverythingCommand.NotifyCanExecuteChanged();
+        CheckEverythingAvailabilityCommand.NotifyCanExecuteChanged();
 
         if (string.IsNullOrEmpty(value))
         {
@@ -470,7 +517,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
         var originalValue = value;
         value = value.ToLowerInvariant();
-        var everythingPrefix = ConfigManger.Config.everythingSearchPreString;
+        var everythingPrefix = ConfigManger.Config.everythingSearchPrefix;
         if (!string.IsNullOrEmpty(everythingPrefix) && originalValue.StartsWith(everythingPrefix))
         {
             IsEverythingMode = true;
@@ -482,7 +529,6 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 : string.Empty;
             _everythingOffset = 0;
             _everythingHasMore = true;
-            _isEverythingLoading = false;
             LoadMoreEverythingCommand.NotifyCanExecuteChanged();
 
             RefreshFileTypes();
@@ -491,6 +537,10 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             if (!string.IsNullOrEmpty(_everythingQuery))
             {
                 _ = LoadMoreEverythingAsync();
+            }
+            else
+            {
+                _ = CheckEverythingAvailabilityAsync();
             }
         }
         else
@@ -535,15 +585,16 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var appTool = ServiceManager.Services.GetService<IAppToolService>();
-        if (appTool == null) return;
+        var appTool = ServiceManager.Services.GetRequiredService<IAppToolService>();
 
-        var results = appTool.SearchWithEverything(query, offset, count, sortOrder).ToList();
+        var results = appTool.SearchWithEverything(query, offset, count, sortOrder, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (Volatile.Read(ref _searchVersion) != version) return;
+
+            IsEverythingAvailable = true;
 
             if (offset == 0)
             {
@@ -570,6 +621,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     public async Task LoadMoreEverythingAsync()
     {
         if (!CanLoadMoreEverything) return;
+        CancelEverythingAvailabilityCheck();
 
         var version = Volatile.Read(ref _searchVersion);
         var query = _everythingQuery;
@@ -580,6 +632,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
         _isEverythingLoading = true;
         LoadMoreEverythingCommand.NotifyCanExecuteChanged();
+        CheckEverythingAvailabilityCommand.NotifyCanExecuteChanged();
 
         try
         {
@@ -591,6 +644,10 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         catch (Exception exception)
         {
             Logger.Error(exception, "Failed to load more Everything results");
+            if (Volatile.Read(ref _searchVersion) == version)
+            {
+                IsEverythingAvailable = false;
+            }
         }
         finally
         {
@@ -598,6 +655,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             {
                 _isEverythingLoading = false;
                 LoadMoreEverythingCommand.NotifyCanExecuteChanged();
+                CheckEverythingAvailabilityCommand.NotifyCanExecuteChanged();
             }
         }
     }
@@ -614,27 +672,17 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         var pinyinItems = CreateSearchItems(pinyinResults);
         if (pinyinItems.Count > 0)
         {
-            Dispatcher.UIThread.Post(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (Volatile.Read(ref _searchVersion) != version) return;
+                if (Volatile.Read(ref _searchVersion) != version || cancellationToken.IsCancellationRequested) return;
                 Items.AddRange(pinyinItems);
                 RefreshFileTypes();
+                UpdateDisplayMode();
             });
         }
 
         var shouldSearchSemantically = pinyinResults.Count < 10 && value.Trim().Length >= 2;
-        if (!shouldSearchSemantically && pinyinResults.Count > 0)
-        {
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (Volatile.Read(ref _searchVersion) == version)
-                {
-                    UpdateDisplayMode();
-                }
-            });
-            return;
-        }
-
+        if (!shouldSearchSemantically && pinyinResults.Count > 0) return;
         if (shouldSearchSemantically)
         {
             await Task.Delay(
@@ -652,7 +700,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 }
             });
         }
-        var rawResults = await Index.SearchAsync(value, 100, cancellationToken);
+        var rawResults = await Index.SearchAsync(value, 100, cancellationToken, pinyinResults);
         cancellationToken.ThrowIfCancellationRequested();
 
         if (rawResults.Count == 0)

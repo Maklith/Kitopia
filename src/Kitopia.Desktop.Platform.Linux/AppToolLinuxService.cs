@@ -19,7 +19,7 @@ public class AppToolLinuxService : IAppToolService
     }
 
     public void IndexAllApps(IIndexService index, bool logging,
-        bool useEverything = false)
+        bool useEverythingForIndexing = false)
     {
     }
 
@@ -37,14 +37,16 @@ public class AppToolLinuxService : IAppToolService
         yield break;
     }
 
-    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int count = 100)
+    public IReadOnlyList<SearchViewItem> SearchWithEverything(string query, int count = 100)
     {
         return Array.Empty<SearchViewItem>();
     }
 
-    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int offset, int count,
-        EverythingSortOrder sortOrder = EverythingSortOrder.NameAscending)
+    public IReadOnlyList<SearchViewItem> SearchWithEverything(string query, int offset, int count,
+        EverythingSortOrder sortOrder = EverythingSortOrder.NameAscending,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         return Array.Empty<SearchViewItem>();
     }
 

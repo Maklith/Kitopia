@@ -177,7 +177,7 @@ public sealed class FilePreviewInteractionTests
             var analyzers = PluginOverall.SearchWindowInputDataAnalyzers.ToArray();
             ConfigManger.Configs = new Dictionary<string, ConfigBase>
             {
-                ["KitopiaConfig"] = new KitopiaConfig { useEverything = false, enableSemanticSearch = false }
+                ["KitopiaConfig"] = new KitopiaConfig { useEverythingForIndexing = false, enableSemanticSearch = false }
             };
             PluginOverall.SearchWindowInputDataIdentifies.Clear();
             PluginOverall.SearchWindowInputDataAnalyzers.Clear();
@@ -288,7 +288,7 @@ public sealed class FilePreviewInteractionTests
                 var analyzers = PluginOverall.SearchWindowInputDataAnalyzers.ToArray();
                 ConfigManger.Configs = new Dictionary<string, ConfigBase>
                 {
-                    ["KitopiaConfig"] = new KitopiaConfig { useEverything = false }
+                    ["KitopiaConfig"] = new KitopiaConfig { useEverythingForIndexing = false }
                 };
                 PluginOverall.SearchWindowInputDataIdentifies.Clear();
                 PluginOverall.SearchWindowInputDataAnalyzers.Clear();

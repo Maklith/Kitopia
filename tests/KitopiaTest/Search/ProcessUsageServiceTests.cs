@@ -1,11 +1,12 @@
 using System.Diagnostics;
 using Kitopia.Desktop.Features.Search.ProcessUsage;
+using Kitopia.Desktop.Platform.Windows.AppTools;
 using PluginCore;
 
 namespace KitopiaTest.Search;
 
 [TestClass]
-public sealed class ProcessUsageTests
+public sealed class ProcessUsageServiceTests
 {
     [TestMethod]
     [DataRow(0d, "0.0%")]
@@ -101,6 +102,61 @@ public sealed class ProcessUsageTests
     }
 
     [TestMethod]
+    public void ReadProcessTimes_CurrentWindowsProcess_ReadsCreationTimeAndCpuUsingLimitedAccess()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Inconclusive("The native process reader requires Windows.");
+            return;
+        }
+
+        using var process = Process.GetCurrentProcess();
+        var times = AppToolService.ReadProcessTimes(process);
+        Assert.IsNotNull(times);
+        Assert.AreEqual(process.StartTime.ToUniversalTime().Ticks, times.Value.StartTimeTicks);
+        Assert.IsTrue(times.Value.ProcessorTime >= TimeSpan.Zero);
+    }
+
+    [TestMethod]
+    public void ReadProcessTimes_SystemIdleProcess_ReturnsUnavailableWithoutThrowing()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Inconclusive("The native process reader requires Windows.");
+            return;
+        }
+
+        using var process = Process.GetProcessById(0);
+        Assert.IsNull(AppToolService.ReadProcessTimes(process));
+    }
+
+    [TestMethod]
+    public async Task Sampling_UnreadableProcessTimes_KeepsMemoryAndDoesNotReportZeroCpu()
+    {
+        using var current = Process.GetCurrentProcess();
+        var reads = 0;
+        using var service = new ProcessUsageService(_ =>
+        {
+            Interlocked.Increment(ref reads);
+            return null;
+        });
+        service.SetTargets([current.ProcessName]);
+        service.Enabled = true;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (!timeout.IsCancellationRequested)
+        {
+            if (Volatile.Read(ref reads) >= 2 && service.TryGet(current.ProcessName, out var snapshot))
+            {
+                Assert.IsGreaterThan(0L, snapshot.WorkingSetBytes);
+                Assert.IsNull(snapshot.CpuPercent);
+                return;
+            }
+            await Task.Delay(50);
+        }
+        Assert.Fail("An unreadable CPU identity must keep memory available without a fabricated zero CPU reading.");
+    }
+
+    [TestMethod]
     public async Task Sampling_IdleProcess_ReportsZeroCpuAfterFirstSample()
     {
         if (!OperatingSystem.IsWindows())
@@ -128,7 +184,7 @@ public sealed class ProcessUsageTests
             {
                 using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
                 Assert.AreEqual("ready", await process.StandardOutput.ReadLineAsync(timeout.Token));
-                using var service = new ProcessUsageService();
+                using var service = new ProcessUsageService(AppToolService.ReadProcessTimes);
                 var name = process.ProcessName;
                 service.SetTargets([name]);
                 service.Enabled = true;

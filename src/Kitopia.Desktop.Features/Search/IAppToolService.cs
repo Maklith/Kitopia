@@ -29,9 +29,9 @@ public interface IAppToolService
     /// </summary>
     /// <param name="index">搜索索引 / Search index</param>
     /// <param name="logging">是否记录日志 / Whether to enable logging</param>
-    /// <param name="useEverything">是否使用Everything / Whether to use Everything search</param>
+    /// <param name="useEverythingForIndexing">是否使用Everything / Whether to use Everything search</param>
     public void IndexAllApps(IIndexService index, bool logging,
-        bool useEverything = false);
+        bool useEverythingForIndexing = false);
 
     /// <summary>
     /// 自动启动Everything / Auto start Everything search engine via scheduled task
@@ -52,12 +52,13 @@ public interface IAppToolService
     /// <summary>
     /// 使用Everything搜索 / Use Everything search
     /// </summary>
-    /// <param name="keyword">搜索关键字 / Search keyword</param>
-    /// <param name="limit">结果限制 / Result limit</param>
+    /// <param name="query">Everything 查询表达式 / Everything query expression</param>
+    /// <param name="count">结果限制 / Result limit</param>
     /// <returns>搜索结果 / Search results</returns>
-    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int count = 100);
-    public IEnumerable<SearchViewItem> SearchWithEverything(string keyword, int offset, int count,
-        EverythingSortOrder sortOrder = EverythingSortOrder.NameAscending);
+    public IReadOnlyList<SearchViewItem> SearchWithEverything(string query, int count = 100);
+    public IReadOnlyList<SearchViewItem> SearchWithEverything(string query, int offset, int count,
+        EverythingSortOrder sortOrder = EverythingSortOrder.NameAscending,
+        CancellationToken cancellationToken = default);
     
     /// <summary>
     /// 获取SearchViewItem图标 / Get icon by search item

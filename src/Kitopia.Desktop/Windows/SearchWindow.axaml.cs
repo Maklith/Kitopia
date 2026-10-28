@@ -92,7 +92,15 @@ public partial class SearchWindow : Window
             if (IsVisible) PositionWindow();
         };
         this.GetObservable(IsVisibleProperty).Subscribe(visible =>
-            (DataContext as SearchWindowViewModel)?.SetProcessUsageEnabled(visible));
+        {
+            if (DataContext is SearchWindowViewModel model)
+            {
+                model.SetProcessUsageEnabled(visible);
+                if (visible) _ = model.CheckEverythingAvailabilityAsync();
+                else model.CancelEverythingAvailabilityCheck();
+            }
+            if (!visible) EverythingStatusIndicator.Flyout?.Hide();
+        });
     }
 
     public override void Show()

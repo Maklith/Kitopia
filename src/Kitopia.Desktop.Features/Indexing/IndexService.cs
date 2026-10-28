@@ -38,7 +38,7 @@ public sealed class IndexService : IIndexService, IDisposable
     private int _pinyinRebuildQueued;
     private int _statusPublishQueued;
     private int _statusPublishVersion;
-    private EmbeddingGemmaEmbeddingService? _embeddingService;
+    private Lazy<EmbeddingGemmaEmbeddingService?>? _embeddingService;
     private IndexStatusSnapshot _status = IndexStatusSnapshot.Empty;
     private readonly object _operationStateLock = new();
     private CancellationTokenSource? _activeOperationCancellation;
@@ -453,12 +453,13 @@ public sealed class IndexService : IIndexService, IDisposable
     public async Task<IReadOnlyList<SearchIndexResult>> SearchAsync(
         string query,
         int maximumResults,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyList<SearchIndexResult>? pinyinResults = null)
     {
         if (string.IsNullOrWhiteSpace(query) || maximumResults <= 0) return [];
         cancellationToken.ThrowIfCancellationRequested();
         var ignoredPaths = GetIgnoredPathSnapshot();
-        var pinyinResults = SearchPinyinResults(query, PinyinResultLimit, cancellationToken);
+        pinyinResults ??= SearchPinyinResults(query, PinyinResultLimit, cancellationToken);
         var merged = new Dictionary<string, SearchIndexResult>(EntryKeyComparer);
         for (var index = 0; index < pinyinResults.Count; index++)
         {
@@ -1239,7 +1240,8 @@ public sealed class IndexService : IIndexService, IDisposable
 
     public void Dispose()
     {
-        _embeddingService?.Dispose();
+        if (_embeddingService is { IsValueCreated: true } initialized)
+            initialized.Value?.Dispose();
         _rebuildGate.Dispose();
         _pinyinBuildGate.Dispose();
     }
@@ -1248,7 +1250,7 @@ public sealed class IndexService : IIndexService, IDisposable
     {
         try
         {
-            if (_embeddingService is { } embeddingService)
+            if (_embeddingService is { IsValueCreated: true, Value: { } embeddingService })
                 await embeddingService.ReleaseSessionsAsync();
         }
         catch (Exception exception)
@@ -1427,18 +1429,15 @@ public sealed class IndexService : IIndexService, IDisposable
 
     private bool TryGetEmbeddingService([NotNullWhen(true)] out EmbeddingGemmaEmbeddingService? service)
     {
-        service = _embeddingService;
+        var initialization = LazyInitializer.EnsureInitialized(ref _embeddingService,
+            () => new Lazy<EmbeddingGemmaEmbeddingService?>(
+                () => EmbeddingGemmaEmbeddingService.TryCreate(out var created) ? created : null));
+        service = initialization.Value;
         if (service is not null) return true;
-        lock (_entriesLock)
-        {
-            if (_embeddingService is null && EmbeddingGemmaEmbeddingService.TryCreate(out var created))
-            {
-                _embeddingService = created;
-            }
 
-            service = _embeddingService;
-            return service is not null;
-        }
+        // Missing model files can become available after a download; retry on the next request.
+        Interlocked.CompareExchange(ref _embeddingService, null, initialization);
+        return false;
     }
 
     private void PublishStatus()

@@ -52,28 +52,28 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
         await _everythingRefreshGate.WaitAsync(cancellationToken);
         try
         {
-            if (!ConfigManger.Config.useEverything || !OperatingSystem.IsWindows())
+            if (!ConfigManger.Config.useEverythingForIndexing || !OperatingSystem.IsWindows())
             {
                 await SynchronizeEverythingFilesAsync([], cancellationToken);
                 return;
             }
 
-            var everything = ServiceManager.Services.GetService<IEverythingService>();
+            var everything = ServiceManager.Services.GetService<IEverythingAvailabilityService>();
             if (everything is null)
             {
                 UpdateDiscoveryStatus("Everything service is unavailable; keeping the previous managed file manifest.");
                 return;
             }
 
-            if (!everything.IsRun())
+            if (!everything.IsAvailable())
             {
                 StartEverythingWhenConfigured();
-                for (var attempt = 0; attempt < 12 && !everything.IsRun(); attempt++)
+                for (var attempt = 0; attempt < 12 && !everything.IsAvailable(); attempt++)
                 {
                     await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
                 }
 
-                if (!everything.IsRun())
+                if (!everything.IsAvailable())
                 {
                     UpdateDiscoveryStatus("Everything is not running; managed file discovery is waiting for it to start.");
                     return;
@@ -338,7 +338,7 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
         try
         {
             _appTools.CleanupInvalidItems(_index);
-            _appTools.IndexAllApps(_index, logging: false, ConfigManger.Config.useEverything);
+            _appTools.IndexAllApps(_index, logging: false, ConfigManger.Config.useEverythingForIndexing);
         }
         catch (Exception exception)
         {
@@ -436,13 +436,13 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
 
     private void StartEverythingWhenConfigured()
     {
-        if (!ConfigManger.Config.useEverything || !OperatingSystem.IsWindows())
+        if (!ConfigManger.Config.useEverythingForIndexing || !OperatingSystem.IsWindows())
         {
             return;
         }
 
-        var everything = ServiceManager.Services.GetService<IEverythingService>();
-        if (everything is not null && !everything.IsRun())
+        var everything = ServiceManager.Services.GetService<IEverythingAvailabilityService>();
+        if (everything is not null && !everything.IsAvailable())
         {
             _appTools.AutoStartEverything(_index, () => { });
         }

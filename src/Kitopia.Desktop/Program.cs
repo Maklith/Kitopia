@@ -221,7 +221,11 @@ internal class Program {
         services.AddSingleton<PluginCore.IOcrService>(e => e.GetRequiredService<DesktopOcrService>());
         services.AddSingleton<IIndexService, IndexService>();
         services.AddSingleton<IIndexMaintenanceService, IndexMaintenanceService>();
+        #if WINDOWS
+        services.AddSingleton<IProcessUsageService>(_ => new ProcessUsageService(AppToolService.ReadProcessTimes));
+        #else
         services.AddSingleton<IProcessUsageService, ProcessUsageService>();
+        #endif
         services.AddTransient<IInferenceSessionManager, InferenceSessionManager>();
         services.AddSingleton<IOnnxRuntimeProbe>(_ => new OnnxRuntimeProbe(
             Environment.ProcessPath ?? throw new InvalidOperationException("The application executable path is unavailable."),
@@ -231,7 +235,7 @@ internal class Program {
         services.AddTransient<IScreenCaptureManager, ScreenCaptureManager>();
         services.AddTransient<IScreenCapture, ScreenCaptureByWgc>();
 
-        services.AddTransient<IEverythingService, EverythingService>();
+        services.AddTransient<IEverythingAvailabilityService, EverythingAvailabilityService>();
         services.AddTransient<IAppToolService, AppToolService>();
         services.AddSingleton<ISearchItemTool, SearchItemTool>();
         services.AddSingleton<IDesktopPlatformInfo, WindowsDesktopPlatformInfo>();

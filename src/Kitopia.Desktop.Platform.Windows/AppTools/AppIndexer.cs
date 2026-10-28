@@ -23,9 +23,9 @@ using File = System.IO.File;
 
 namespace Kitopia.Desktop.Platform.Windows.AppTools;
 
-public class AppSolver
+public static class AppIndexer
 {
-    private static readonly ILogger Logger = LogManager.Logger.ForContext<AppSolver>();
+    private static readonly ILogger Logger = LogManager.Logger.ForContext(typeof(AppIndexer));
     private static readonly List<string> ErrorLnkList = new();
     public static readonly PinyinProcessor PinyinProcessor = new();
 
@@ -44,8 +44,8 @@ public class AppSolver
 
             if (index.TryGetValue(ConfigManger.Config.everythingOnlyKey, out var entry))
             {
-                var isRun = ServiceManager.Services.GetService<IEverythingService>()!
-                    .IsRun();
+                var isRun = ServiceManager.Services.GetService<IEverythingAvailabilityService>()!
+                    .IsAvailable();
 
 
                 if (!isRun)
@@ -121,7 +121,7 @@ public class AppSolver
     }
 
     internal static void IndexAllApps(IIndexService index,
-        bool logging = false, bool useEverything = false)
+        bool logging = false, bool useEverythingForIndexing = false)
     {
         Logger.Debug("索引全部软件及收藏项目");
 

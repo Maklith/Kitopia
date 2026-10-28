@@ -70,50 +70,32 @@
                                                    TextTrimming="CharacterEllipsis"
                                                    ToolTip.Tip="{Binding DisplayName}"
                                                    VerticalAlignment="Center" />
-                                        <sharedControls:HoverFlyoutButton Grid.Column="3" Name="LegacyDeviceWarning" Width="28" Height="28"
-                                                MinWidth="0" MinHeight="0" Padding="6" CornerRadius="6"
-                                                Theme="{DynamicResource BorderlessButton}" Background="Transparent"
+                                        <sharedControls:HoverFlyoutButton Grid.Column="3" Name="LegacyDeviceWarning"
+                                                Theme="{DynamicResource KitopiaWarningIndicatorButton}"
                                                 IsVisible="{Binding IsLegacyDevice}"
                                                 AutomationProperties.Name="{DynamicResource lang.kitopia.legacy_device}">
                                             <Button.Flyout>
-                                                <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="Transient">
-                                                    <Flyout.FlyoutPresenterTheme>
-                                                        <ControlTheme TargetType="FlyoutPresenter" BasedOn="{StaticResource {x:Type FlyoutPresenter}}">
-                                                            <Setter Property="Padding" Value="0" />
-                                                            <Setter Property="Background" Value="Transparent" />
-                                                            <Setter Property="BorderThickness" Value="0" />
-                                                            <Setter Property="CornerRadius" Value="6" />
-                                                        </ControlTheme>
-                                                    </Flyout.FlyoutPresenterTheme>
-                                                    <Border MaxWidth="360" Padding="12" CornerRadius="6" BorderThickness="1" Cursor="Arrow"
-                                                            Background="{DynamicResource KitopiaBadgeWarningBackground}"
-                                                            BorderBrush="{DynamicResource KitopiaBadgeWarningBorder}">
-                                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                                                            <PathIcon Width="16" Height="16" VerticalAlignment="Top" Margin="0,2,0,0"
-                                                                      Data="{DynamicResource NotificationCardWarningIconPathData}"
-                                                                      Foreground="{DynamicResource KitopiaBadgeWarningForeground}" />
-                                                            <StackPanel Grid.Column="1" Spacing="4">
-                                                                <TextBlock Text="{DynamicResource lang.kitopia.legacy_device}"
-                                                                           FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"
-                                                                           Foreground="{DynamicResource KitopiaBadgeWarningForeground}" />
-                                                                <TextBlock Text="{Binding LegacyDeviceDetails}" TextWrapping="Wrap"
-                                                                           FontSize="12" Foreground="{DynamicResource SemiColorText1}" />
-                                                                <TextBlock Text="{DynamicResource lang.kitopia.legacy_device_compatibility_required}"
-                                                                           IsVisible="{Binding !IsLegacyCompatibilityEnabled}" TextWrapping="Wrap"
-                                                                           FontSize="12" Foreground="{DynamicResource SemiColorText1}" />
-                                                                <TextBlock Text="{DynamicResource lang.kitopia.legacy_device_compatibility_enabled}"
-                                                                           IsVisible="{Binding IsLegacyCompatibilityEnabled}" TextWrapping="Wrap"
-                                                                           FontSize="12" Foreground="{DynamicResource SemiColorText1}" />
-                                                                <Button Name="EnableLegacyCompatibilityButton"
-                                                                        Content="{DynamicResource lang.kitopia.enable_legacy_device_compatibility_action}"
-                                                                        Command="{Binding EnableLegacyCompatibilityCommand}"
-                                                                        IsVisible="{Binding CanEnableLegacyCompatibility}"
-                                                                        HorizontalAlignment="Left" Margin="0,4,0,0"
-                                                                        Classes="Primary" Theme="{DynamicResource SolidButton}"
-                                                                        Height="28" Padding="12,0" CornerRadius="6" FontSize="12" Cursor="Hand" />
-                                                            </StackPanel>
-                                                        </Grid>
-                                                    </Border>
+                                                <Flyout Placement="BottomEdgeAlignedLeft" ShowMode="Transient"
+                                                        FlyoutPresenterTheme="{DynamicResource KitopiaWarningFlyoutPresenter}">
+                                                    <HeaderedContentControl MaxWidth="360" Theme="{DynamicResource KitopiaWarningCard}"
+                                                                            Header="{DynamicResource lang.kitopia.legacy_device}">
+                                                        <StackPanel Spacing="4">
+                                                            <TextBlock Text="{Binding LegacyDeviceDetails}" TextWrapping="Wrap"
+                                                                       FontSize="12" Foreground="{DynamicResource SemiColorText1}" />
+                                                            <TextBlock Text="{DynamicResource lang.kitopia.legacy_device_compatibility_required}"
+                                                                       IsVisible="{Binding !IsLegacyCompatibilityEnabled}" TextWrapping="Wrap"
+                                                                       FontSize="12" Foreground="{DynamicResource SemiColorText1}" />
+                                                            <TextBlock Text="{DynamicResource lang.kitopia.legacy_device_compatibility_enabled}"
+                                                                       IsVisible="{Binding IsLegacyCompatibilityEnabled}" TextWrapping="Wrap"
+                                                                       FontSize="12" Foreground="{DynamicResource SemiColorText1}" />
+                                                            <Button Name="EnableLegacyCompatibilityButton"
+                                                                    Content="{DynamicResource lang.kitopia.enable_legacy_device_compatibility_action}"
+                                                                    Command="{Binding EnableLegacyCompatibilityCommand}"
+                                                                    IsVisible="{Binding CanEnableLegacyCompatibility}"
+                                                                    HorizontalAlignment="Left" Margin="0,4,0,0"
+                                                                    Classes="Primary" Theme="{DynamicResource KitopiaWarningActionButton}" />
+                                                        </StackPanel>
+                                                    </HeaderedContentControl>
                                                 </Flyout>
                                             </Button.Flyout>
                                             <PathIcon Data="{DynamicResource NotificationCardWarningIconPathData}"
