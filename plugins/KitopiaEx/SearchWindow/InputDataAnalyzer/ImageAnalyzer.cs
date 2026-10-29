@@ -14,7 +14,6 @@ using KitopiaEx.ImageCompression;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using PluginCore;
-using PluginCore.Localization;
 using PluginCore.SearchWindow.InputData;
 using PluginCore.SearchWindow.InputDataAnalyzer;
 
@@ -36,7 +35,7 @@ public class ImageAnalyzer : IInputDataAnalyzer
         if (paths.Length > 0)
             yield return new SearchViewItem
             {
-                ItemDisplayName = Lang.Get("lang.kitopiaex.compression.title"),
+                ItemDisplayName = "lang.kitopiaex.compression.title",
                 FileType = FileType.自定义,
                 IconSymbol = 0xEA14,
                 IsVisible = true,
@@ -51,7 +50,7 @@ public class ImageAnalyzer : IInputDataAnalyzer
                     continue;
                 yield return new SearchViewItem
                 {
-                    ItemDisplayName = Lang.Get("lang.kitopiaex.save_image_to_file"),
+                    ItemDisplayName = "lang.kitopiaex.save_image_to_file",
                     FileType = FileType.自定义,
                     IconSymbol = 0xE357,
                     IsVisible = true,
@@ -66,7 +65,7 @@ public class ImageAnalyzer : IInputDataAnalyzer
                 if (paths.Length == 0)
                     yield return new SearchViewItem
                     {
-                        ItemDisplayName = Lang.Get("lang.kitopiaex.compression.title"),
+                        ItemDisplayName = "lang.kitopiaex.compression.title",
                         FileType = FileType.自定义,
                         IconSymbol = 0xEA14,
                         IsVisible = true,
@@ -82,7 +81,7 @@ public class ImageAnalyzer : IInputDataAnalyzer
                 //Pin
                 yield return new SearchViewItem
                 {
-                    ItemDisplayName = Lang.Get("lang.kitopiaex.pin_captured_image"),
+                    ItemDisplayName = "lang.kitopiaex.pin_captured_image",
                     FileType = FileType.自定义,
                     IconSymbol = 0xf602,
                     Icon = null,
@@ -96,7 +95,7 @@ public class ImageAnalyzer : IInputDataAnalyzer
                //Ocr
                yield return new SearchViewItem
                {
-                   ItemDisplayName = Lang.Get("lang.kitopiaex.extract_text"),
+                   ItemDisplayName = "lang.kitopiaex.extract_text",
                    FileType = FileType.自定义,
                    IconSymbol = 0xEA72,
                    Icon = null,

@@ -95,6 +95,32 @@ public sealed class LocalizationTests
     }
 
     [TestMethod]
+    public void SearchTypes_AllMembers_HaveTranslationsInEveryLanguage()
+    {
+        var originalLanguage = Lang.Current.Language;
+        try
+        {
+            foreach (var language in Lang.Current.Languages)
+            {
+                Lang.Current.UseLanguage(language);
+                foreach (var value in Enum.GetValues<FileType>().Cast<Enum>()
+                             .Concat(Enum.GetValues<PluginCore.SearchWindow.InputData.InputType>().Cast<Enum>()))
+                {
+                    var key = value.GetType().GetField(value.ToString())!
+                        .GetCustomAttributes(typeof(System.ComponentModel.DescriptionAttribute), false)
+                        .Cast<System.ComponentModel.DescriptionAttribute>().Single().Description;
+                    Assert.IsTrue(Lang.Current.Keys.Contains(key), $"{language}: {value}");
+                    Assert.AreNotEqual(key, Lang.Get(value), $"{language}: {value}");
+                }
+            }
+        }
+        finally
+        {
+            Lang.Current.UseLanguage(originalLanguage);
+        }
+    }
+
+    [TestMethod]
     public void Dictionaries_KeysAndFormatArguments_AreConsistent()
     {
         var assembly = typeof(Lang).Assembly;

@@ -1,6 +1,7 @@
 using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Input;
@@ -14,12 +15,15 @@ using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.Indexing;
 using Kitopia.Desktop.Features.Search;
+using Kitopia.Desktop.Features.Search.ProcessUsage;
 using Kitopia.Desktop.Features.Search.ViewModels;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Plugin;
 using Kitopia.Desktop.Services;
+using Kitopia.Desktop.Controls;
 using Kitopia.Desktop.Windows;
 using KitopiaEx.SearchWindow.InputDataAnalyzer;
+using Kitopia.Feature.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using ObservableCollections;
 using PluginCore;
@@ -39,6 +43,112 @@ public sealed class SearchWindowKeyboardTests
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<Kitopia.Desktop.App>()
         .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia();
+
+    [TestMethod]
+    [DataRow("Light")]
+    [DataRow("Dark")]
+    public async Task SearchHeader_LanguageChanges_RefreshesBadgesAndPreservesFilters(string themeName)
+    {
+        var screenshots = new List<string>();
+        await RunAsync(async (window, model, _) =>
+        {
+            var originalLanguage = Lang.Current.Language;
+            try
+            {
+                var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+                Application.Current!.RequestedThemeVariant = theme;
+                window.RequestedThemeVariant = theme;
+                model.InputDatas.Add(new InputData { InputType = InputType.文本, Data = "design" });
+                var types = new[] { FileType.应用程序, FileType.PDF文档, FileType.Word文档, FileType.PPT文档,
+                    FileType.文件, FileType.图像, FileType.窗口, FileType.Excel文档 };
+                foreach (var type in types)
+                {
+                    model.FileTypes.Add(new FileTypeFilter { FileType = type });
+                    model.Items.Add(new SearchViewItem { ItemDisplayName = type.ToString(), FileType = type, IconSymbol = 0xF6EC });
+                }
+                model.ShowFileTypeFilter = true;
+                Dispatcher.UIThread.RunJobs();
+                var badges = window.FindControl<ItemsControl>("InputTypeBadges")!;
+                var filters = window.FindControl<ItemsControl>("FileTypeFilters")!;
+                var buttons = filters.GetVisualDescendants().OfType<ToggleButton>().ToArray();
+                var badge = badges.GetVisualDescendants().OfType<TextBlock>().Single();
+                Assert.AreEqual(12, badge.FontSize);
+                Assert.AreEqual(FontWeight.Normal, badge.FontWeight);
+                Assert.HasCount(types.Length, buttons);
+                Assert.IsTrue(buttons.All(button => button.FontWeight == FontWeight.Normal && button.Height == 28));
+                Assert.IsTrue(buttons.All(button => ((ISolidColorBrush)button.Background!).Color == Colors.Transparent));
+
+                var point = buttons[0].TranslatePoint(new Point(12, 12), window)!.Value;
+                window.MouseMove(point);
+                window.MouseDown(point, MouseButton.Left);
+                window.MouseUp(point, MouseButton.Left);
+                var deadline = DateTime.UtcNow.AddSeconds(5);
+                while (model.ItemsView.Count != 1 && DateTime.UtcNow < deadline)
+                {
+                    await Task.Delay(10);
+                    Dispatcher.UIThread.RunJobs();
+                }
+                Assert.AreEqual(true, buttons[0].IsChecked);
+                Assert.IsTrue(model.FileTypes[0].IsChecked);
+                Assert.HasCount(1, model.ItemsView);
+                window.MouseMove(default);
+
+                foreach (var language in new[] { "zh-CN", "en-US", "zh-CN" })
+                {
+                    Lang.Current.UseLanguage(language);
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.AreEqual(language == "en-US" ? "Text" : "文本", badge.Text);
+                    Assert.AreEqual(language == "en-US" ? "Applications" : "应用程序", buttons[0].Content);
+                    Assert.AreEqual(true, buttons[0].IsChecked);
+                    for (var i = 0; i < types.Length; i++)
+                        Assert.AreEqual(Lang.Get(types[i]), buttons[i].Content);
+                    var surface = buttons[0].GetVisualDescendants().OfType<ContentPresenter>().First();
+                    var selected = (ISolidColorBrush)window.FindResource(theme, "KitopiaBadgeCurrentForeground")!;
+                    Assert.AreEqual(selected.Color, ((ISolidColorBrush)surface.Foreground!).Color);
+
+                    AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                    using var frame = window.CaptureRenderedFrame();
+                    Assert.IsNotNull(frame);
+                    var directory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts/search-keyboard"));
+                    Directory.CreateDirectory(directory);
+                    var path = Path.Combine(directory, $"search-header-{themeName}-{language}.png");
+                    frame.Save(path, PngBitmapEncoderOptions.Default);
+                    if (!screenshots.Contains(path)) screenshots.Add(path);
+                }
+
+                foreach (var type in Enum.GetValues<InputType>().Where(type => type != InputType.文本))
+                    model.InputDatas.Add(new InputData { InputType = type });
+                foreach (var type in Enum.GetValues<FileType>().Except(types))
+                    model.FileTypes.Add(new FileTypeFilter { FileType = type });
+                Lang.Current.UseLanguage("en-US");
+                Dispatcher.UIThread.RunJobs();
+                CollectionAssert.AreEquivalent(Enum.GetValues<InputType>().Select(type => Lang.Get(type)).ToArray(),
+                    badges.GetVisualDescendants().OfType<TextBlock>().Select(label => label.Text).ToArray());
+                CollectionAssert.AreEquivalent(Enum.GetValues<FileType>().Select(type => Lang.Get(type)).ToArray(),
+                    filters.GetVisualDescendants().OfType<ToggleButton>().Select(button => (string)button.Content!).ToArray());
+                var scroll = filters.GetVisualAncestors().OfType<ScrollViewer>().First();
+                Assert.IsGreaterThan(scroll.Viewport.Width, scroll.Extent.Width);
+                Assert.AreEqual(28, filters.Bounds.Height);
+                scroll.Offset = new Vector(scroll.Extent.Width, 0);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsGreaterThan(0, scroll.Offset.X);
+                var badgeScroll = badges.GetVisualAncestors().OfType<ScrollViewer>().First();
+                Assert.IsLessThanOrEqualTo(240, badgeScroll.Bounds.Width);
+                Assert.IsGreaterThan(badgeScroll.Viewport.Width, badgeScroll.Extent.Width);
+                badgeScroll.Offset = new Vector(badgeScroll.Extent.Width, 0);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsGreaterThan(0, badgeScroll.Offset.X);
+                model.DirectorySearchPath = "C:\\Documents";
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsFalse(badges.IsEffectivelyVisible);
+            }
+            finally
+            {
+                Lang.Current.UseLanguage(originalLanguage);
+            }
+        });
+        foreach (var screenshot in screenshots) TestContext.AddResultFile(screenshot);
+    }
 
     [TestMethod]
     [DataRow("Light")]
@@ -402,6 +512,133 @@ public sealed class SearchWindowKeyboardTests
     }
 
     [TestMethod]
+    [DataRow("Light")]
+    [DataRow("Dark")]
+    public async Task SearchLabels_LanguageChanges_RefreshesImageActionsAndResultTypes(string themeName)
+    {
+        var screenshots = new List<string>();
+        await RunAsync((window, model, _) =>
+        {
+            var previousLanguage = Lang.Current.Language;
+            var assembly = typeof(ImageAnalyzer).Assembly;
+            var needsRegistration = !Lang.Current.Keys.Contains("lang.kitopiaex.extract_text");
+            try
+            {
+                if (needsRegistration) Lang.Current.RegisterAssembly(assembly);
+                Lang.Current.UseLanguage("zh-CN");
+                var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+                Application.Current!.RequestedThemeVariant = theme;
+                window.RequestedThemeVariant = theme;
+                using var image = new Mat(1, 1, MatType.CV_8UC4);
+                var analyzer = new ImageAnalyzer();
+                foreach (var item in analyzer.AnalyzeInputData([new InputData { InputType = InputType.图像, Data = image }]))
+                    model.PinnedItems.Add(item);
+                var shortcuts = model.PinnedItems.ToArray();
+                model.PinnedItems.Add(new SearchViewItem { ItemDisplayName = "My 文档", IconSymbol = 0xF6EC });
+                model.ShowPinnedItems = true;
+                var types = new[] { FileType.数学运算, FileType.PDF文档, FileType.Word文档, FileType.图像 };
+                var names = new[] { "=103", "English document.pdf", "我的文档.docx", "Photo.png" };
+                for (var i = 0; i < types.Length; i++)
+                    model.Items.Add(new SearchViewItem { ItemDisplayName = names[i], FileType = types[i], IconSymbol = 0xF6EC });
+                Dispatcher.UIThread.RunJobs();
+                var buttons = window.FindControl<ListBox>("PinnedList")!.GetVisualDescendants()
+                    .OfType<Button>().Where(button => button.Name == "PinnedItem").ToArray();
+                var labels = buttons.Select(button => button.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(label => label.FontSize == 12)).ToArray();
+                var subtitles = window.FindControl<ListBox>("dataGrid")!.GetVisualDescendants()
+                    .OfType<SearchItemSubtitle>().ToArray();
+                Assert.HasCount(5, labels);
+                Assert.HasCount(4, subtitles);
+                foreach (var language in new[] { "zh-CN", "en-US", "zh-CN" })
+                {
+                    Lang.Current.UseLanguage(language);
+                    Dispatcher.UIThread.RunJobs();
+                    for (var i = 0; i < shortcuts.Length; i++)
+                    {
+                        Assert.AreSame(shortcuts[i], model.PinnedItems[i]);
+                        Assert.AreEqual(Lang.Get(shortcuts[i].ItemDisplayName), labels[i].Text);
+                        Assert.AreEqual(labels[i].Text, ToolTip.GetTip(buttons[i]));
+                        Assert.IsNotNull(shortcuts[i].Action);
+                    }
+                    Assert.AreEqual(language == "en-US" ? "Save image" : "保存图片", labels[0].Text);
+                    Assert.AreEqual("My 文档", labels[4].Text);
+                    Assert.AreEqual(language == "en-US" ? "Calculations" : "数学运算", subtitles[0].Text);
+                    for (var i = 0; i < types.Length; i++) Assert.AreEqual(Lang.Get(types[i]), subtitles[i].Text);
+                    CollectionAssert.AreEqual(names, model.Items.Select(item => item.ItemDisplayName).ToArray());
+                    AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                    using var frame = window.CaptureRenderedFrame();
+                    Assert.IsNotNull(frame);
+                    var directory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts/search-keyboard"));
+                    Directory.CreateDirectory(directory);
+                    var path = Path.Combine(directory, $"search-labels-{themeName}-{language}.png");
+                    frame.Save(path, PngBitmapEncoderOptions.Default);
+                    if (!screenshots.Contains(path)) screenshots.Add(path);
+                }
+            }
+            finally
+            {
+                if (needsRegistration) Lang.Current.UnregisterAssembly(assembly.GetName().Name!);
+                Lang.Current.UseLanguage(previousLanguage);
+            }
+            return Task.CompletedTask;
+        });
+        foreach (var screenshot in screenshots) TestContext.AddResultFile(screenshot);
+    }
+
+    [TestMethod]
+    public async Task SearchItemSubtitle_RecyclingAndLanguageChanges_PreservesUsageAndReleasesSubscriptions()
+    {
+        await RunAsync((_, _, _) =>
+        {
+            var previousLanguage = Lang.Current.Language;
+            var previousServices = ServiceManager.Services;
+            var usage = new SubtitleUsageService();
+            using var services = new ServiceCollection().AddSingleton<IProcessUsageService>(usage).BuildServiceProvider();
+            ServiceManager.Services = services;
+            ConfigManger.Config!.showProcessUsageInSearch = true;
+            ConfigManger.Config.showProcessCpuUsage = true;
+            ConfigManger.Config.showProcessMemoryUsage = true;
+            var item = new SearchViewItem { ItemDisplayName = "My app", OnlyKey = @"C:\sample.exe", FileType = FileType.应用程序 };
+            var label = new SearchItemSubtitle { DataContext = item };
+            var host = new Window { Content = label };
+            try
+            {
+                Lang.Current.UseLanguage("en-US");
+                host.Show();
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(1, usage.SubscriberCount);
+                Assert.AreEqual("Applications · CPU 12.5% · Memory 64 MB", label.Text);
+                Lang.Current.UseLanguage("zh-CN");
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual("应用程序 · CPU 12.5% · 内存 64 MB", label.Text);
+                label.DataContext = new SearchViewItem { ItemDisplayName = "Document.pdf", FileType = FileType.PDF文档 };
+                Assert.AreEqual("PDF 文档", label.Text);
+                label.DataContext = null;
+                Assert.AreEqual(string.Empty, label.Text);
+                label.DataContext = item;
+                Assert.AreEqual(1, usage.SubscriberCount);
+                host.Content = null;
+                Assert.AreEqual(0, usage.SubscriberCount);
+                Lang.Current.UseLanguage("en-US");
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual("应用程序 · CPU 12.5% · 内存 64 MB", label.Text);
+                host.Content = label;
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(1, usage.SubscriberCount);
+                Assert.AreEqual("Applications · CPU 12.5% · Memory 64 MB", label.Text);
+            }
+            finally
+            {
+                host.Close();
+                ServiceManager.Services = previousServices;
+                Lang.Current.UseLanguage(previousLanguage);
+                Assert.AreEqual(0, usage.SubscriberCount);
+            }
+            return Task.CompletedTask;
+        });
+    }
+
+    [TestMethod]
     public async Task ClipboardImage_InputChanges_KeepsSaveShortcutVisibleUntilImageIsRemoved()
     {
         await RunAsync((window, model, _) =>
@@ -555,6 +792,19 @@ public sealed class SearchWindowKeyboardTests
             }
             return true;
         }, CancellationToken.None);
+    }
+
+    private sealed class SubtitleUsageService : IProcessUsageService
+    {
+        public bool Enabled { get; set; }
+        public event Action? Updated;
+        public int SubscriberCount => Updated?.GetInvocationList().Length ?? 0;
+        public void SetTargets(IEnumerable<string> processNames) { }
+        public bool TryGet(string processName, out ProcessUsageSnapshot snapshot)
+        {
+            snapshot = new ProcessUsageSnapshot(processName, 12.5, 64 * 1024 * 1024);
+            return true;
+        }
     }
 
     private class SearchServicesProxy : DispatchProxy

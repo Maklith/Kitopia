@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Kitopia.Desktop.Features.Search.ProcessUsage;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Feature.Localization;
@@ -21,7 +23,6 @@ public class SearchItemSubtitle : TextBlock
         new([FontFeature.Parse("tnum")]);
 
     private IProcessUsageService? _usage;
-    private string _typeLabel = string.Empty;
     private string _processName = string.Empty;
 
     public SearchItemSubtitle()
@@ -34,52 +35,51 @@ public class SearchItemSubtitle : TextBlock
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        Detach();
+        _processName = DataContext is SearchViewItem item
+            && ProcessUsageService.TryResolveProcessName(item, out var processName) ? processName : string.Empty;
+        UpdateSubtitle();
+    }
 
-        if (DataContext is not SearchViewItem item) return;
-
-        _typeLabel = item.FileType.ToString();
-        if (ProcessUsageService.TryResolveProcessName(item, out var processName)) _processName = processName;
-
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Lang.Current.PropertyChanged += OnLanguageChanged;
         _usage = ServiceManager.Services?.GetService<IProcessUsageService>();
-        if (_usage is null)
-        {
-            Text = _typeLabel;
-            return;
-        }
-
-        _usage.Updated += OnUsageUpdated;
+        if (_usage is not null) _usage.Updated += OnUsageUpdated;
         UpdateSubtitle();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        base.OnDetachedFromVisualTree(e);
         // ListBox virtualization recycles containers; stop listening as soon as the row leaves the tree.
-        Detach();
-    }
-
-    private void Detach()
-    {
+        Lang.Current.PropertyChanged -= OnLanguageChanged;
         if (_usage is not null) _usage.Updated -= OnUsageUpdated;
         _usage = null;
-        _processName = string.Empty;
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(Lang.Keys)) return;
+        if (Dispatcher.UIThread.CheckAccess()) UpdateSubtitle();
+        else Dispatcher.UIThread.Post(UpdateSubtitle);
     }
 
     private void OnUsageUpdated() => UpdateSubtitle();
 
     private void UpdateSubtitle()
     {
+        var typeLabel = DataContext is SearchViewItem item ? Lang.Get(item.FileType) : string.Empty;
         if (ConfigManger.Config?.showProcessUsageInSearch is not true
             || _processName.Length == 0
             || _usage is null
             || !_usage.TryGet(_processName, out var snapshot))
         {
-            Text = _typeLabel;
+            Text = typeLabel;
             return;
         }
 
-        var parts = new List<string>(3) { _typeLabel };
+        var parts = new List<string>(3) { typeLabel };
         if (ConfigManger.Config.showProcessCpuUsage)
             parts.Add(Lang.Format("lang.kitopia.process_cpu_usage",
                 ProcessUsageService.FormatCpu(snapshot.CpuPercent)));

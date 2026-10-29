@@ -11,6 +11,7 @@
         xmlns:windows="clr-namespace:Kitopia.Desktop.Features.Search.ViewModels;assembly=Kitopia.Desktop.Features"
         xmlns:searchWindow="clr-namespace:Kitopia.Desktop.Converter.SearchWindow"
         xmlns:localization="clr-namespace:Kitopia.Feature.Localization;assembly=Kitopia.Feature"
+        xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
         xmlns:sharedControls="clr-namespace:Kitopia.Feature.Avalonia.Controls;assembly=Kitopia.Feature.Avalonia"
         mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="540"
         x:Class="Kitopia.Desktop.Windows.SearchWindow"
@@ -46,6 +47,34 @@
         <searchWindow:ItemNameMatchCtr x:Key="ItemNameMatchCtr" />
         <converter1:ControlContentSize x:Key="ControlContentSize" />
         <searchWindow:PreviewModeToGridLengthConverter x:Key="PreviewModeToGridLengthConverter" />
+        <ControlTheme x:Key="SearchTypeFilter" TargetType="ToggleButton"
+                      BasedOn="{StaticResource {x:Type ToggleButton}}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiColorText2}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Style Selector="^:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource KitopiaCardHoverBackgroundBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource SemiColorText1}" />
+            </Style>
+            <Style Selector="^:pressed /template/ ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource KitopiaBadgeNeutralBackground}" />
+                <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeNeutralForeground}" />
+            </Style>
+            <Style Selector="^:checked /template/ ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource KitopiaBadgeCurrentBackground}" />
+                <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeCurrentForeground}" />
+            </Style>
+            <Style Selector="^:checked:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource KitopiaBadgeTagHoverBackground}" />
+                <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeCurrentForeground}" />
+            </Style>
+        </ControlTheme>
         <ControlTheme x:Key="SearchSelectionItem" TargetType="ListBoxItem">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
@@ -142,16 +171,6 @@
         </ControlTheme>
     </Window.Resources>
     <Window.Styles>
-        <Style Selector="Border#SearchHeader">
-            <Setter Property="Padding" Value="12,8" />
-        </Style>
-        <Style Selector="Border#SearchHeader.directorySearch">
-            <Setter Property="Padding" Value="0" />
-        </Style>
-        <Style Selector="Border#SearchHeader.directorySearch TextBox#tx">
-            <Setter Property="CornerRadius" Value="0" />
-            <Setter Property="Padding" Value="12,8" />
-        </Style>
         <Style Selector="ListBox#dataGrid Image.search-item-icon">
             <Setter Property="Width" Value="48" />
             <Setter Property="Height" Value="48" />
@@ -194,39 +213,42 @@
             <DynamicResource ResourceKey="KitopiaWindowBackground" />
         </Panel.Background>
         <Grid RowDefinitions="Auto,*,Auto" VerticalAlignment="Stretch">
-            <Border Name="SearchHeader" Classes.directorySearch="{Binding IsDirectorySearch}"
+            <Border Name="SearchHeader"
                     BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="0,0,0,1">
                 <StackPanel Spacing="8">
-                    <Border Height="30" IsVisible="{Binding !IsDirectorySearch}">
-                        <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Hidden"
-                                      VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center"
-                                      VerticalAlignment="Center">
-                            <ItemsControl ItemsSource="{Binding InputDatas}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="inputData:InputData">
-                                        <Button Classes="Small" Margin="4,0" VerticalAlignment="Center"
-                                                Content="{Binding  InputType}" Height="22" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </Border>
-
                     <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center"
                              PlaceholderText="{DynamicResource 'lang.kitopia.search'}" AcceptsReturn="False" KeyDown="tx_KeyDown"
                              Name="tx"
+                             MinHeight="52" Padding="12,8" CornerRadius="0"
                              BorderThickness="0" Background="Transparent" FocusAdorner="{x:Null}"
                              AcceptsTab="False" FontSize="24" ClearSelectionOnLostFocus="False"
                              Text="{Binding Search}">
                         <TextBox.InnerLeftContent>
-                            <controls1:FontIcon Margin="10,0,0,0" HorizontalAlignment="Center"
-                                                FontFamily="{StaticResource FluentFont}"
-                                                Glyph="&#xf691;" />
+                            <StackPanel Orientation="Horizontal" Margin="10,0,8,0" VerticalAlignment="Center">
+                                <controls1:FontIcon VerticalAlignment="Center"
+                                                    FontFamily="{StaticResource FluentFont}" Glyph="&#xf691;" />
+                                <ScrollViewer MaxWidth="240" IsVisible="{Binding !IsDirectorySearch}"
+                                              PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Hidden"
+                                              VerticalScrollBarVisibility="Disabled" VerticalAlignment="Center">
+                                    <ItemsControl Name="InputTypeBadges" ItemsSource="{Binding InputDatas}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="inputData:InputData">
+                                                <Border Margin="8,0,0,0" Padding="8,3" CornerRadius="4"
+                                                        Background="{DynamicResource KitopiaBadgeNeutralBackground}">
+                                                    <TextBlock Text="{lang:Lang Value={Binding InputType}}"
+                                                               FontSize="12" FontWeight="Normal"
+                                                               Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
                         </TextBox.InnerLeftContent>
                         <TextBox.InnerRightContent>
                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="8,0">
@@ -326,26 +348,27 @@
                         </TextBox.InnerRightContent>
                     </TextBox>
 
-                    <u:Banner Focusable="False" Type="Information" Content="{DynamicResource 'lang.kitopia.selection_mode'}"
+                    <u:Banner Margin="12,0,12,8" Focusable="False" Type="Information" Content="{DynamicResource 'lang.kitopia.selection_mode'}"
                               IsVisible="{Binding NowInSelectMode}"
                               CanClose="False" />
 
-                    <Border IsVisible="{Binding ShowFileTypeFilter}" Height="40">
+                    <Border IsVisible="{Binding ShowFileTypeFilter}" Margin="12,0,12,8">
                         <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center"
                                       VerticalAlignment="Center">
-                            <ItemsControl ItemsSource="{Binding FileTypes}">
+                            <ItemsControl Name="FileTypeFilters" ItemsSource="{Binding FileTypes}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="windows:FileTypeFilter">
-                                        <ToggleButton Margin="4,0" ClickMode="Press"
+                                        <ToggleButton Margin="0,0,4,0" ClickMode="Press"
+                                                      Theme="{StaticResource SearchTypeFilter}"
                                                       IsCheckedChanged="ToggleButton_OnIsCheckedChanged"
-                                                      VerticalAlignment="Center" Content="{Binding  FileType}" Height="32"
+                                                      VerticalAlignment="Center" Content="{lang:Lang Value={Binding FileType}}"
                                                       IsChecked="{Binding IsChecked}" />
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
+                                        <StackPanel Orientation="Horizontal" />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                             </ItemsControl>
@@ -353,7 +376,7 @@
                     </Border>
 
                     <Border IsVisible="{Binding ShowPinnedItems}"
-                            HorizontalAlignment="Stretch" Padding="0,2">
+                            HorizontalAlignment="Stretch" Margin="12,0,12,8" Padding="0,2">
                         <ListBox Name="PinnedList" ItemsSource="{Binding PinnedItems}"
                                  ItemContainerTheme="{StaticResource PinnedSelectionItem}"
                                  SelectionChanged="SearchItems_OnSelectionChanged"
@@ -374,7 +397,7 @@
                                             Theme="{StaticResource PinnedItemButton}"
                                             Command="{Binding $parent[ItemsControl].((windows:SearchWindowViewModel)DataContext).OpenFileCommand}"
                                             CommandParameter="{Binding .}"
-                                            ToolTip.Tip="{Binding ItemDisplayName}">
+                                            ToolTip.Tip="{lang:Lang Value={Binding ItemDisplayName}}">
                                         <Button.ContextFlyout>
                                             <MenuFlyout>
                                                 <MenuItem Header="{DynamicResource 'lang.kitopia.open'}"
@@ -420,7 +443,7 @@
                                                     </Image.Source>
                                                 </Image>
                                             </Panel>
-                                            <TextBlock Text="{Binding ItemDisplayName}" FontSize="12"
+                                            <TextBlock Text="{lang:Lang Value={Binding ItemDisplayName}}" FontSize="12"
                                                        VerticalAlignment="Center" TextAlignment="Left"
                                                        TextTrimming="CharacterEllipsis" MaxWidth="160" />
                                         </StackPanel>
