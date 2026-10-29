@@ -35,6 +35,15 @@ A short method or adapter may serve boundary validation, compatibility, resource
 - Deliver once substantiated issues within scope are resolved and verification is adequate. If a requirement conflict, behavior tradeoff or concrete blocker remains, surface it explicitly and ask the user only for the decision needed to proceed. Report unresolved verification gaps rather than describing them as a pass.
 - If sub-agents are unavailable, perform and report a self-review using these checks and disclose that independent review could not be run. Never describe self-review as independent review.
 
+After the final review, the reviewer returns a concise plain-text report to the implementing agent containing:
+
+- Scope reviewed and acceptance criteria.
+- Final verdict and actionable findings, or an explicit statement that no actionable findings remain.
+- The disposition of each finding: fixed and rechecked, rejected with evidence, or unresolved for the user.
+- Verification actually run, failed or unavailable checks, and material limitations.
+
+The implementing agent presents this report, along with a brief description of the delivered behavior, in the final response after the reviewer has finished. Keep it readable and self-contained. Do not create a per-task report file unless the user requests a file; do not claim independent review when only self-review was possible.
+
 ## Public guidance used
 
 | Source | Practice adopted here |

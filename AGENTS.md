@@ -15,7 +15,7 @@
 3. Implement through the owning layers, fix the cause and add useful regression coverage. Do not weaken tests or bypass architecture rules.
 4. Run proportionate checks and inspect the final diff and `git diff --check`.
 5. Have one reviewer sub-agent with fresh, task-focused context assess the result using the [review guide](docs/development/review.md). Resolve substantiated findings, rerun affected checks and have the same reviewer recheck fixes before delivery.
-6. Report behavior, verification and review results, plus remaining limitations. Continue until complete or concretely blocked; involve the user when a requirement or behavior tradeoff needs their decision.
+6. After the reviewer finishes its final assessment, present a plain-text review report in the final response. Include scope, verdict, findings and dispositions, verification, and limitations; also summarize the delivered behavior. Continue until complete or concretely blocked; involve the user when a requirement or behavior tradeoff needs their decision.
 
 ## Read only when needed
 

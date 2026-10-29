@@ -138,7 +138,7 @@ public static class Renderer
                 return true;
             }
             if(args.Contains("transparent")) {
-                var window=new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(provider.GetRequiredService<IClipboardService>()) { SourceText="Build your own workflow with visual nodes.",TranslatedText="使用可视化节点构建自己的工作流。",SourceLanguage=TranslationSourceLanguage.English });
+                var window=new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(provider.GetRequiredService<IClipboardService>()) { SourceText="Build your own workflow with visual nodes.",TranslatedText="使用可视化节点构建自己的工作流。",SourceLanguage=TranslationSourceLanguage.English }, provider.GetRequiredService<IWindowTool>());
                 Capture(window,"selection-translation"); window.Close();
                 using var vm=new MouseQuickWindowViewModel();
                 await vm.SetFilesAsync([Path.Combine(Program.Root, "media", "misakamikoto.jpg")]);
@@ -176,7 +176,7 @@ public static class Renderer
                 TranslatedText = english ? "Build your own workflow." : "使用可视化节点构建自己的工作流。",
                 SourceLanguage = english ? TranslationSourceLanguage.Auto : TranslationSourceLanguage.English,
                 TargetLanguage = english ? TranslationTargetLanguage.English : TranslationTargetLanguage.SimplifiedChinese
-            });
+            }, provider.GetRequiredService<IWindowTool>());
             Capture(translation, "selection-translation");
             translation.Close();
             var work = Path.Combine(Path.GetTempPath(), "kitopia-doc-screenshots", english ? "en" : "zh");

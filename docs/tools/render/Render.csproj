@@ -6,9 +6,11 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>KitopiaDocumentationRender</AssemblyName>
+    <ApplicationManifest>$(MSBuildProjectDirectory)\..\..\..\src\Kitopia.Desktop\app.manifest</ApplicationManifest>
     <KitopiaTestOutput>$(MSBuildProjectDirectory)\..\..\..\tests\KitopiaTest\bin\Debug\net10.0-windows10.0.19041.0</KitopiaTestOutput>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="10.0.9" />
     <Content Include="$(KitopiaTestOutput)\tools\ffmpeg\*" Link="tools\ffmpeg\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Reference Include="$(KitopiaTestOutput)\*.dll" Exclude="**/Everything32.dll;**/Everything64.dll;**/sqlite3.dll;**/e_sqlite3.dll;**/sqlite-vec.dll;**/vec0.dll;**/onnxruntime.dll;**/onnxruntime_providers_shared.dll">
       <Private>false</Private>
