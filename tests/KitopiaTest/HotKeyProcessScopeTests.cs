@@ -74,6 +74,21 @@ public sealed class HotKeyProcessScopeTests
     }
 
     [TestMethod]
+    public void Serialization_AnyCharacterShortcut_RoundTripsWithoutTriggerText()
+    {
+        var model = new KitopiaConfig().explorerSearchHotKey;
+        model.TriggerText = "A";
+        var json = JsonSerializer.Serialize(model, ConfigManger.DefaultOptions);
+        var restored = JsonSerializer.Deserialize<HotKeyModel>(json, ConfigManger.DefaultOptions)!;
+        Assert.AreEqual(EKey.任意键, restored.SelectKey);
+        Assert.IsTrue(restored.CanExecuteInProcess("explorer"));
+        Assert.IsFalse(restored.CanExecuteInProcess("notepad"));
+        Assert.IsTrue(restored.IgnoreTextInput);
+        Assert.IsNull(restored.TriggerText);
+        Assert.IsFalse(json.Contains(nameof(HotKeyModel.TriggerText)));
+    }
+
+    [TestMethod]
     public void Config_PreviewUsesNormalScopedHotkey()
     {
         var model = new KitopiaConfig().mouseHotkey;

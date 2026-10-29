@@ -501,6 +501,75 @@ public sealed class MouseHotKeyTests
     });
 
     [TestMethod]
+    [DataRow((ushort)0x41, EventMask.None, true)]
+    [DataRow((ushort)0x41, EventMask.Shift, true)]
+    [DataRow((ushort)0x41, EventMask.CapsLock, true)]
+    [DataRow((ushort)0x41, EventMask.Ctrl, false)]
+    [DataRow((ushort)0x41, EventMask.Alt, false)]
+    [DataRow((ushort)0x41, EventMask.Meta, false)]
+    [DataRow((ushort)0x41, EventMask.SimulatedEvent, false)]
+    [DataRow((ushort)0x25, EventMask.None, false)]
+    [DataRow((ushort)0x0D, EventMask.None, false)]
+    [DataRow((ushort)0x08, EventMask.None, false)]
+    [DataRow((ushort)0x2E, EventMask.None, false)]
+    [DataRow((ushort)0x70, EventMask.None, false)]
+    public Task KeyboardHook_AnyCharacter_OnlySuppressesTextAndPreservesFirstCharacter(
+        ushort key, EventMask mask, bool expected) => RunAsync(service =>
+    {
+        string? text = null;
+        var model = new HotKeyModel { IsEnabled = true, SelectKey = EKey.任意键 };
+        Assert.IsTrue(service.Register(model, hotkey => text = hotkey.TriggerText));
+        Assert.AreEqual(0, GetHotkey(model.UUID).Id);
+        var pressed = typeof(HotKeyImpl).GetMethod("OnKeyPressed", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var released = typeof(HotKeyImpl).GetMethod("OnKeyReleased", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var input = new UioHookEvent { Mask = mask, Keyboard = new KeyboardEventData { RawCode = key } };
+        var args = new KeyboardHookEventArgs(input);
+        try
+        {
+            pressed.Invoke(null, [null, args]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.AreEqual(expected, args.SuppressEvent);
+            Assert.AreEqual(expected, !string.IsNullOrEmpty(text));
+            if (expected && mask is EventMask.Shift or EventMask.CapsLock)
+                Assert.AreEqual(text!.ToUpperInvariant(), text);
+        }
+        finally
+        {
+            released.Invoke(null, [null, new KeyboardHookEventArgs(input)]);
+        }
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    public Task ExplorerSearch_NoFilesystemContext_ReturnsSuppressedTextThroughSimulator() => RunAsync(_ =>
+    {
+        var originalServices = ServiceManager.Services;
+        var simulator = new TestGlobalHook();
+        using var services = new ServiceCollection()
+            .AddSingleton<ExplorerFileSelection>()
+            .AddSingleton<IEventSimulator>(simulator)
+            .BuildServiceProvider();
+        try
+        {
+            ServiceManager.Services = services;
+            // The headless window has no native Explorer folder; no real keyboard input is emitted.
+            new SearchWindowService().ShowExplorerSearch(new HotKeyModel
+            {
+                SelectKey = EKey.任意键, TriggerText = "A"
+            });
+            CollectionAssert.AreEqual(new[] { "A" }, simulator.SimulatedText.ToArray());
+            new SearchWindowService().ShowExplorerSearch(new HotKeyModel { SelectKey = EKey.K });
+            Assert.HasCount(1, simulator.SimulatedText);
+        }
+        finally
+        {
+            ServiceManager.Services = originalServices;
+            simulator.Dispose();
+        }
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
     public Task KeyboardHook_ExcludedProcess_PassesThroughAndIncludedRuleTriggersOnce() => RunAsync(service =>
     {
         var invoked = 0;
@@ -721,6 +790,48 @@ public sealed class MouseHotKeyTests
             Assert.IsFalse(control.ScopeDescription.Contains("已停用"));
         }
         finally { ServiceManager.Services = originalServices; }
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    public Task Editor_AnyCharacter_CanSelectSaveAndReplaceWithFixedKey() => RunAsync(_ =>
+    {
+        var recorder = new RecordingHotkeys();
+        var originalServices = ServiceManager.Services;
+        using var services = new ServiceCollection().AddSingleton<IHotKetImpl>(recorder).BuildServiceProvider();
+        var model = new HotKeyModel { IsEnabled = false, SelectKey = EKey.K, IsSelectAlt = true };
+        var window = new HotKeyEditorWindow(model);
+        try
+        {
+            ServiceManager.Services = services;
+            window.Show();
+            var anyKey = window.FindControl<CheckBox>("AnyKey")!;
+            anyKey.IsChecked = true;
+            window.FindControl<Button>("SaveButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.IsNotNull(recorder.Modified);
+            Assert.AreEqual(EKey.任意键, recorder.Modified.SelectKey);
+            Assert.IsFalse(recorder.Modified.IsSelectAlt);
+            Assert.IsFalse(recorder.Modified.IsEnabled);
+        }
+        finally
+        {
+            window.Close();
+            ServiceManager.Services = originalServices;
+        }
+        window = new HotKeyEditorWindow(new HotKeyModel { SelectKey = EKey.任意键 });
+        try
+        {
+            window.Show();
+            window.FindControl<CheckBox>("AnyKey")!.IsChecked = false;
+            Assert.AreEqual(Kitopia.Feature.Localization.Lang.Get(EKey.未设置),
+                window.FindControl<HotKeyShowItme>("KeyName")!.Content);
+            window.FindControl<Border>("MouseCaptureArea")!.Focus();
+            window.KeyPress(Key.K, RawInputModifiers.None, PhysicalKey.K, "k");
+            Assert.IsFalse(window.FindControl<CheckBox>("AnyKey")!.IsChecked);
+            Assert.AreEqual(Kitopia.Feature.Localization.Lang.Get(EKey.K),
+                window.FindControl<HotKeyShowItme>("KeyName")!.Content);
+        }
+        finally { window.Close(); }
         return Task.CompletedTask;
     });
 

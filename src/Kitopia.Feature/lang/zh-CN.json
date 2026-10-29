@@ -1180,5 +1180,8 @@
   "lang.kitopia.process_usage_refresh_interval": "刷新间隔（毫秒）",
   "lang.kitopia.process_usage_refresh_interval_description": "数值越小刷新越及时，占用的系统资源也越多；默认 1000 毫秒",
   "lang.kitopia.process_cpu_usage": "CPU {0}",
-  "lang.kitopia.process_memory_usage": "内存 {0}"
+  "lang.kitopia.process_memory_usage": "内存 {0}",
+  "lang.kitopia.keys.any_character": "任意字符键",
+  "lang.kitopia.explorer_search": "资源管理器目录搜索",
+  "lang.kitopia.explorer_search_description": "在资源管理器文件列表中输入任意字符，搜索当前目录及子目录；地址栏和重命名时不触发。"
 }

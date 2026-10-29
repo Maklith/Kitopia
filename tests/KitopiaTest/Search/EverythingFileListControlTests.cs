@@ -96,6 +96,109 @@ public sealed class EverythingFileListControlTests
     }
 
     [TestMethod]
+    [DataRow(@"C:\Work Files", "report|notes", "\"C:\\Work Files\\\" <report|notes>")]
+    [DataRow(@"C:\", "@document", "\"C:\\\" <@document>")]
+    [DataRow(@"\\server\share\", "report", "\"\\\\server\\share\\\" <report>")]
+    [DataRow(@"C:\scope", "foo> | <bar", "\"C:\\scope\\\" <<foo> | <bar>>")]
+    [DataRow(@"C:\scope", "<foo|bar>", "\"C:\\scope\\\" <<foo|bar>>")]
+    [DataRow(@"C:\scope", "\"foo>", "\"C:\\scope\\\" <\"foo>\">")]
+    public async Task SearchWindow_DirectorySearch_PreservesScopeThroughPagingSortingAndClearing(
+        string directory, string text, string expectedQuery)
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            SearchServicesProxy.PagedEverythingResults = (_, offset, count) =>
+                Enumerable.Range(offset, count).Select(i => new SearchViewItem
+                {
+                    ItemDisplayName = $"document_{i}.txt",
+                    OnlyKey = $"C:\\Files\\document_{i}.txt",
+                    FileType = FileType.文件
+                }).ToList();
+            model.SetSelectMode(true, _ => Assert.Fail("Folder search must open files instead of selecting for a previous caller."));
+            window.ShowDirectorySearch(directory, text, new PixelRect(0, 0, 1000, 800));
+            await WaitForAsync(() => model.Items.Count == 100 && model.LoadMoreEverythingCommand.CanExecute(null));
+            Assert.IsTrue(model.IsEverythingMode);
+            Assert.IsTrue(model.IsDirectorySearch);
+            Assert.IsFalse(model.NowInSelectMode);
+            Assert.AreEqual(text, window.FindControl<TextBox>("tx")!.Text);
+            Assert.AreEqual(expectedQuery, SearchServicesProxy.EverythingCalls.Last().Keyword);
+            Assert.IsFalse(model.ShowPinnedItems);
+            Assert.IsFalse(model.IsPreviewMode);
+            Assert.AreEqual(720, window.Width);
+
+            await model.LoadMoreEverythingAsync();
+            Assert.AreEqual(100, SearchServicesProxy.EverythingCalls.Last().Offset);
+            Assert.AreEqual(expectedQuery, SearchServicesProxy.EverythingCalls.Last().Keyword);
+            model.EverythingSortOrder = EverythingSortOrder.SizeDescending;
+            await WaitForAsync(() => model.Items.Count == 100 && model.LoadMoreEverythingCommand.CanExecute(null));
+            Assert.AreEqual(expectedQuery, SearchServicesProxy.EverythingCalls.Last().Keyword);
+            Assert.AreEqual(0, SearchServicesProxy.EverythingCalls.Last().Offset);
+            Assert.AreEqual(EverythingSortOrder.SizeDescending, SearchServicesProxy.EverythingCalls.Last().SortOrder);
+
+            model.Search = string.Empty;
+            await WaitForAsync(() => model.Items.Count == 100 && model.LoadMoreEverythingCommand.CanExecute(null));
+            Assert.IsTrue(model.IsEverythingMode);
+            Assert.AreEqual($"\"{directory.TrimEnd('\\')}\\\"", SearchServicesProxy.EverythingCalls.Last().Keyword);
+            Assert.IsTrue(model.CanUsePreview);
+            model.TogglePreviewModeCommand.Execute(null);
+            Assert.IsTrue(model.IsPreviewMode);
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsFalse(model.IsDirectorySearch);
+            Assert.IsFalse(model.IsEverythingMode);
+            Assert.AreEqual(960, window.Width);
+        });
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task SearchWindow_DirectorySearch_RenderAndContinueTyping(bool dark)
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            Application.Current!.RequestedThemeVariant = window.RequestedThemeVariant =
+                dark ? ThemeVariant.Dark : ThemeVariant.Light;
+            SearchServicesProxy.EverythingResults =
+            [
+                new() { ItemDisplayName = "Design notes.docx", OnlyKey = @"C:\Projects\Kitopia\Design notes.docx", FileSize = 24576 },
+                new() { ItemDisplayName = "Desktop", OnlyKey = @"C:\Projects\Kitopia\Desktop", IsFolder = true },
+                new() { ItemDisplayName = "DESIGN-semi.md", OnlyKey = @"C:\Projects\Kitopia\DESIGN-semi.md", FileSize = 8192 }
+            ];
+            window.ShowDirectorySearch(@"C:\Projects\Kitopia", "d", new PixelRect(0, 0, 1000, 800));
+            await WaitForAsync(() => model.Items.Count == 3);
+            Dispatcher.UIThread.RunJobs();
+            var textBox = window.FindControl<TextBox>("tx")!;
+            var header = (StackPanel)textBox.Parent!;
+            var headerSurface = window.FindControl<Border>("SearchHeader")!;
+            Assert.AreEqual(new Point(0, 0), textBox.TranslatePoint(default, headerSurface));
+            Assert.AreEqual(headerSurface.Bounds.Width, textBox.Bounds.Width);
+            Assert.AreEqual(headerSurface.Bounds.Height - headerSurface.BorderThickness.Bottom, textBox.Bounds.Height);
+            Assert.AreEqual(new CornerRadius(0), textBox.CornerRadius);
+            Assert.AreSame(textBox, header.Children.First(child => child.IsVisible),
+                "Directory search must start with the input, without a title, path or empty tag row.");
+            Assert.AreEqual(new Thickness(0), textBox.BorderThickness);
+            var inputBorders = textBox.GetVisualDescendants().OfType<Border>()
+                .Where(border => ReferenceEquals(border.TemplatedParent, textBox)).ToArray();
+            Assert.IsNotEmpty(inputBorders);
+            foreach (var border in inputBorders)
+            {
+                Assert.AreEqual(new Thickness(0), border.BorderThickness, $"Input border: {border.Name}");
+                Assert.AreEqual(0, border.BoxShadow.Count, $"Input border: {border.Name}");
+            }
+            Assert.AreEqual(1, textBox.CaretIndex);
+            Assert.AreEqual(textBox.SelectionStart, textBox.SelectionEnd);
+            window.KeyTextInput("esign");
+            await WaitForAsync(() => model.Search == "design" && model.Items.Count == 3);
+            Assert.AreEqual("\"C:\\Projects\\Kitopia\\\" <design>", SearchServicesProxy.EverythingCalls.Last().Keyword);
+            using var frame = window.CaptureRenderedFrame();
+            var path = Path.Combine(Path.GetTempPath(), $"kitopia-explorer-search-{(dark ? "dark" : "light")}.png");
+            frame!.Save(path);
+            TestContext.WriteLine(path);
+        });
+    }
+
+    [TestMethod]
     public async Task SearchWindow_EverythingMode_PreviewableResults_RequireManualPreviewAcrossPagesAndSortChanges()
     {
         await RunAsync(async (_, model, _) =>
@@ -831,6 +934,7 @@ public sealed class EverythingFileListControlTests
             {
                 SearchServicesProxy.EverythingResults = [];
                 SearchServicesProxy.PagedEverythingResults = null;
+                model.DirectorySearchPath = null;
                 SearchServicesProxy.EverythingCalls.Clear();
                 model.Search = string.Empty;
                 Dispatcher.UIThread.RunJobs();

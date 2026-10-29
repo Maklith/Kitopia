@@ -61,6 +61,9 @@
                                            Foreground="{DynamicResource SemiColorText2}" />
                             </StackPanel>
                         </Border>
+                        <CheckBox Name="AnyKey" IsVisible="{Binding #KeyBoard.IsChecked}"
+                                  Content="{DynamicResource 'lang.kitopia.keys.any_character'}"
+                                  IsCheckedChanged="AnyKey_OnIsCheckedChanged" />
                         <Grid IsVisible="{Binding #Mouse.IsChecked}" ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <TextBlock Text="{DynamicResource 'lang.kitopia.hotkeys.mouse_trigger'}" VerticalAlignment="Center" FontSize="12" />
                             <ComboBox Grid.Column="1" Name="MouseTrigger" Width="180" SelectionChanged="MouseTrigger_OnSelectionChanged">

@@ -9,9 +9,22 @@ namespace Kitopia.Desktop.Platform.Windows;
 
 public sealed class ExplorerFileSelection
 {
-    public (IReadOnlyList<string> Paths, PixelRect? Bounds) GetSelection()
+    internal static bool IsFileListFocused(HWND window)
+    {
+        var name = new StringBuilder(128);
+        User32.GetClassName(window, name, name.Capacity);
+        if (name.ToString() is not ("CabinetWClass" or "ExploreWClass")) return false;
+        var info = new User32.GUITHREADINFO { cbSize = (uint)Marshal.SizeOf<User32.GUITHREADINFO>() };
+        var thread = User32.GetWindowThreadProcessId(window, out _);
+        if (!User32.GetGUIThreadInfo(thread, ref info)) return false;
+        User32.GetClassName(info.hwndFocus, name.Clear(), name.Capacity);
+        return name.ToString() is "DirectUIHWND" or "SysListView32";
+    }
+
+    public (IReadOnlyList<string> Paths, PixelRect? Bounds) GetSelection(bool directoryOnly = false)
     {
         var foreground = User32.GetForegroundWindow();
+        if (directoryOnly && !IsFileListFocused(foreground)) return (Array.Empty<string>(), null);
         var name = new StringBuilder(128);
         User32.GetClassName(foreground, name, name.Capacity);
         if (name.ToString() is not ("CabinetWClass" or "ExploreWClass" or "Progman" or "WorkerW"))
@@ -36,7 +49,7 @@ public sealed class ExplorerFileSelection
                 try
                 {
                     if ((nint)(long)((dynamic)window).HWND != (nint)foreground) continue;
-                    var selection = ReadSelection(window);
+                    var selection = ReadSelection(window, directoryOnly);
                     if (selection.Paths.Count > 0) return selection;
                 }
                 catch (COMException) { }
@@ -52,7 +65,7 @@ public sealed class ExplorerFileSelection
         finally { Marshal.ReleaseComObject(windows); }
     }
 
-    private static (IReadOnlyList<string> Paths, PixelRect? Bounds) ReadSelection(object window)
+    private static (IReadOnlyList<string> Paths, PixelRect? Bounds) ReadSelection(object window, bool directoryOnly = false)
     {
         var browserService = new Guid("4C96BE40-915C-11CF-99D3-00AA004AE837");
         var browserId = typeof(IShellBrowser).GUID;
@@ -66,6 +79,13 @@ public sealed class ExplorerFileSelection
             browser.QueryActiveShellView(out view).ThrowIfFailed();
             view.GetWindow(out var viewWindow).ThrowIfFailed();
             if (!User32.IsWindowVisible(viewWindow)) return (Array.Empty<string>(), null);
+            if (directoryOnly)
+            {
+                var path = ReadDirectory((IFolderView2)view);
+                if (path is null) return (Array.Empty<string>(), null);
+                User32.GetWindowRect((HWND)(nint)(long)((dynamic)window).HWND, out var bounds);
+                return ([path], new PixelRect(bounds.left, bounds.top, bounds.Width, bounds.Height));
+            }
             ((IFolderView2)view).GetSelection(false, out selection).ThrowIfFailed();
             var files = new List<string>();
             for (uint index = 0; index < selection.GetCount(); index++)
@@ -87,6 +107,23 @@ public sealed class ExplorerFileSelection
             if (view is not null) Marshal.ReleaseComObject(view);
             Marshal.ReleaseComObject(browser);
         }
+    }
+
+    private static string? ReadDirectory(IFolderView2 view)
+    {
+        var folder = view.GetFolder<IPersistFolder2>();
+        try
+        {
+            // GetCurFolder takes a ref SafeHandle and cannot marshal a null PIDL.
+            SHGetIDListFromObject(folder, out var pidl).ThrowIfFailed();
+            using (pidl)
+            {
+                if (pidl is null || pidl.IsInvalid ||
+                    SHGetNameFromIDList(pidl, SIGDN.SIGDN_FILESYSPATH, out var path).Failed) return null;
+                return Directory.Exists(path) ? path : null;
+            }
+        }
+        finally { Marshal.ReleaseComObject(folder); }
     }
 
     private static PixelRect? GetSelectedBounds(IFolderView2 view, HWND viewWindow)

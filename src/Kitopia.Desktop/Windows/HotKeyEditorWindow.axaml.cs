@@ -38,6 +38,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
         Name.Text = Converter.HotKeySignNameToStringCtr.FormatFriendlyName(hotKeyModel.SignName);
         _type = hotKeyModel.Type;
         _selectedKey = hotKeyModel.SelectKey;
+        AnyKey.IsChecked = _selectedKey == EKey.任意键;
         _selectedMouseButton = hotKeyModel.MouseButton;
         KeyBoard.IsChecked = _type == HotKeyType.Keyboard;
         Mouse.IsChecked = _type == HotKeyType.Mouse;
@@ -104,14 +105,15 @@ public partial class HotKeyEditorWindow : UrsaWindow
     private void HotKeyEditorWindow_OnKeyDown(object sender, KeyEventArgs e)
     {
         if (_type != HotKeyType.Keyboard || !MouseCaptureArea.IsKeyboardFocusWithin) return;
+        var key = e.Key == Key.System ? e.PhysicalKey.ToQwertyKey() : e.Key;
+        if (key is Key.LeftShift or Key.RightShift or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin
+            or Key.LeftCtrl or Key.RightCtrl or Key.None) return;
         Ctrl.IsVisible = e.KeyModifiers.HasFlag(KeyModifiers.Control);
         Alt.IsVisible = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
         Shift.IsVisible = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         Win.IsVisible = e.KeyModifiers.HasFlag(KeyModifiers.Meta);
-        var key = e.Key == Key.System ? e.PhysicalKey.ToQwertyKey() : e.Key;
-        if (key is Key.LeftShift or Key.RightShift or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin
-            or Key.LeftCtrl or Key.RightCtrl or Key.None) return;
         _selectedKey = (EKey)KeyInterop.VirtualKeyFromKey(key);
+        AnyKey.IsChecked = false;
         KeyName.Content = Lang.Get(_selectedKey.Value);
         KeyName.IsVisible = true;
         e.Handled = true;
@@ -165,6 +167,22 @@ public partial class HotKeyEditorWindow : UrsaWindow
     }
 
     private void ButtonCancle_OnClick(object sender, RoutedEventArgs e) => Close();
+
+    private void AnyKey_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
+    {
+        if (AnyKey.IsChecked != true)
+        {
+            if (_selectedKey == EKey.任意键)
+            {
+                _selectedKey = EKey.未设置;
+                KeyName.Content = Lang.Get(EKey.未设置);
+            }
+            return;
+        }
+        _selectedKey = EKey.任意键;
+        Ctrl.IsVisible = Alt.IsVisible = Shift.IsVisible = Win.IsVisible = false;
+        KeyName.Content = Lang.Get(EKey.任意键);
+    }
 
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {

@@ -142,6 +142,16 @@
         </ControlTheme>
     </Window.Resources>
     <Window.Styles>
+        <Style Selector="Border#SearchHeader">
+            <Setter Property="Padding" Value="12,8" />
+        </Style>
+        <Style Selector="Border#SearchHeader.directorySearch">
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="Border#SearchHeader.directorySearch TextBox#tx">
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="12,8" />
+        </Style>
         <Style Selector="ListBox#dataGrid Image.search-item-icon">
             <Setter Property="Width" Value="48" />
             <Setter Property="Height" Value="48" />
@@ -184,9 +194,10 @@
             <DynamicResource ResourceKey="KitopiaWindowBackground" />
         </Panel.Background>
         <Grid RowDefinitions="Auto,*,Auto" VerticalAlignment="Stretch">
-            <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="0,0,0,1" Padding="12,8">
+            <Border Name="SearchHeader" Classes.directorySearch="{Binding IsDirectorySearch}"
+                    BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="0,0,0,1">
                 <StackPanel Spacing="8">
-                    <Border Height="30">
+                    <Border Height="30" IsVisible="{Binding !IsDirectorySearch}">
                         <ScrollViewer PointerWheelChanged="HorizonScroll" HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center"
                                       VerticalAlignment="Center">
@@ -209,6 +220,7 @@
                     <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center"
                              PlaceholderText="{DynamicResource 'lang.kitopia.search'}" AcceptsReturn="False" KeyDown="tx_KeyDown"
                              Name="tx"
+                             BorderThickness="0" Background="Transparent" FocusAdorner="{x:Null}"
                              AcceptsTab="False" FontSize="24" ClearSelectionOnLostFocus="False"
                              Text="{Binding Search}">
                         <TextBox.InnerLeftContent>
@@ -253,8 +265,10 @@
                                                 </HeaderedContentControl>
                                                 <Border Padding="12" CornerRadius="6" BorderThickness="1"
                                                         IsVisible="{Binding !IsEverythingUnavailable}"
-                                                        Background="{DynamicResource KitopiaCardBackgroundBrush}"
                                                         BorderBrush="{DynamicResource KitopiaCardBorderBrush}">
+                                                    <Border.Background>
+                                                        <SolidColorBrush Color="{DynamicResource SemiBackground0Color}" Opacity="0.95" />
+                                                    </Border.Background>
                                                     <StackPanel Spacing="8">
                                                         <TextBlock Text="{DynamicResource lang.kitopia.everything_status}"
                                                                    FontSize="12" Foreground="{DynamicResource SemiColorText2}" />

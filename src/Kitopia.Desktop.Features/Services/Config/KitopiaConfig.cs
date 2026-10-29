@@ -195,6 +195,19 @@ public class KitopiaConfig : ConfigBase
         SelectKey = EKey.空格
     };
 
+    [ConfigField("lang.kitopia.explorer_search", "lang.kitopia.explorer_search_description", 0xF691,
+        ConfigFieldType.快捷键, actionName: "explorerSearchHotKeyAction")]
+    public HotKeyModel explorerSearchHotKey = new()
+    {
+        IsEnabled = true,
+        MainName = "Kitopia",
+        Name = "资源管理器目录搜索",
+        SelectKey = EKey.任意键,
+        ProcessScope = HotKeyProcessScope.Include,
+        ProcessNames = ["explorer"],
+        IgnoreTextInput = true
+    };
+
     public Dictionary<string, HistoryItem> lastOpens = new();
 
     [ConfigField("lang.kitopia.history_limit", "lang.kitopia.maximum_history_entries", 0xF47F, ConfigFieldType.整数列表, null, 10, 1, 1)]
@@ -471,6 +484,10 @@ public class KitopiaConfig : ConfigBase
         invokes.Add("searchHotKeyAction", new Action<HotKeyModel>(e =>
         {
             ServiceManager.Services.GetService<ISearchWindowService>()!.ShowOrHiddenSearchWindow();
+        }));
+        invokes.Add("explorerSearchHotKeyAction", new Action<HotKeyModel>(e =>
+        {
+            ServiceManager.Services.GetRequiredService<ISearchWindowService>().ShowExplorerSearch(e);
         }));
         invokes.Add("topMostWindowHotKeyAction", new Action<HotKeyModel>(e =>
         {

@@ -28,6 +28,7 @@ public class HotKeySignNameToDescriptionCtr : IMultiValueConverter
             "置顶窗口快捷键" or "置顶当前窗口" => Lang.Get("lang.kitopia.keep_the_current_window_on_top"),
             "显示搜索框" or "唤出快速搜索" => Lang.Get("lang.kitopia.quickly_find_apps_files_and_actions"),
             "文件速览" => Lang.Get("lang.kitopia.press_space_to_preview_selected_files"),
+            "资源管理器目录搜索" => Lang.Get("lang.kitopia.explorer_search_description"),
             "截图" or "屏幕区域截图" => Lang.Get("lang.kitopia.screen_capture_scrolling_screenshots_and_annotations"),
             "激活鼠标快捷菜单" or "鼠标快捷菜单" => Lang.Get("lang.kitopia.open_the_mouse_quick_tools_panel"),
             _ => Lang.Get("lang.kitopia.global_hotkey")

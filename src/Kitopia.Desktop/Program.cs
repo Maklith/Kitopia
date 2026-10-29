@@ -183,6 +183,7 @@ internal class Program {
 #if WINDOWS
         services.AddSingleton<ExplorerFileSelection>();
         services.AddSingleton<SimpleGlobalHook>();
+        services.AddSingleton<SharpHook.IEventSimulator, SharpHook.EventSimulator>();
 #endif
         services.AddTransient<ISearchWindowService, SearchWindowService>();
         services.AddTransient<IScreenCaptureWindow, ScreenCaptureWindow>();

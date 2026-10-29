@@ -1180,5 +1180,8 @@
   "lang.kitopia.process_usage_refresh_interval": "Refresh interval (ms)",
   "lang.kitopia.process_usage_refresh_interval_description": "Lower values refresh sooner and use more system resources. Defaults to 1000 ms",
   "lang.kitopia.process_cpu_usage": "CPU {0}",
-  "lang.kitopia.process_memory_usage": "Memory {0}"
+  "lang.kitopia.process_memory_usage": "Memory {0}",
+  "lang.kitopia.keys.any_character": "Any character key",
+  "lang.kitopia.explorer_search": "Search Explorer folder",
+  "lang.kitopia.explorer_search_description": "Type a character in the Explorer file list to search the current folder and its subfolders. Does not trigger in the address bar or while renaming."
 }

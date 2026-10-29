@@ -33,7 +33,7 @@ public sealed class SearchWindowPlacementTests
         var method = typeof(SearchWindow).GetMethod("GetSearchWindowPosition", BindingFlags.Static | BindingFlags.NonPublic)!;
         var area = new PixelRect(areaX, areaY, areaWidth, areaHeight);
         var size = new Size(960, height);
-        var position = (PixelPoint)method.Invoke(null, [area, scaling, size])!;
+        var position = (PixelPoint)method.Invoke(null, [area, scaling, size, false])!;
 
         Assert.AreEqual(new PixelPoint(expectedX, expectedY), position);
         Assert.IsTrue(area.Contains(new PixelRect(position, PixelSize.FromSize(size, scaling))),
@@ -103,6 +103,84 @@ public sealed class SearchWindowPlacementTests
 
             return true;
         }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    [DataRow(1d, 100, 100, 1000, 700)]
+    [DataRow(1.5d, 100, 100, 1000, 700)]
+    [DataRow(2d, 100, 100, 1000, 700)]
+    [DataRow(1.5d, -300, -200, 1000, 700)]
+    [DataRow(2d, 1600, 800, 600, 400)]
+    public async Task ShowDirectorySearch_ExplorerBounds_KeepsPopupInsideWindowAndWorkArea(
+        double scaling, int x, int y, int width, int height)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SearchWindowPlacementTests));
+        await session.Dispatch(() =>
+        {
+            var originalServices = ServiceManager.Services;
+            using var services = new ServiceCollection()
+                .AddSingleton(DispatchProxy.Create<IWindowTool, WindowToolProxy>()).BuildServiceProvider();
+            ServiceManager.Services = services;
+            var window = new SearchWindow { SizeToContent = SizeToContent.Manual, Height = 400 };
+            var screen = window.Screens.Primary!;
+            var originalScaling = screen.Scaling;
+            var originalWorkingArea = screen.WorkingArea;
+            var scalingProperty = typeof(Screen).GetProperty(nameof(Screen.Scaling))!;
+            var workingAreaProperty = typeof(Screen).GetProperty(nameof(Screen.WorkingArea))!;
+            var workArea = new PixelRect(0, 40, 1920, 1000);
+            var explorer = new PixelRect(x, y, width, height);
+            window.Closing -= typeof(SearchWindow).GetMethod("Window_OnClosing", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .CreateDelegate<EventHandler<WindowClosingEventArgs>>(window);
+            try
+            {
+                scalingProperty.SetValue(screen, scaling);
+                workingAreaProperty.SetValue(screen, workArea);
+                window.SetRenderScaling(scaling);
+                window.ShowDirectorySearch(@"C:\Projects", "a", explorer);
+                Dispatcher.UIThread.RunJobs();
+                var area = explorer.Intersect(workArea);
+                var bounds = new PixelRect(window.Position, PixelSize.FromSize(window.Bounds.Size, scaling));
+                Assert.IsTrue(area.Contains(bounds), $"Popup {bounds} must stay inside Explorer/work area {area}.");
+                Assert.AreEqual((int)Math.Ceiling(16 * scaling), area.Right - bounds.Right);
+                Assert.AreEqual((int)Math.Ceiling(16 * scaling), area.Bottom - bounds.Bottom);
+
+                window.Height = window.MaxHeight;
+                Dispatcher.UIThread.RunJobs();
+                bounds = new PixelRect(window.Position, PixelSize.FromSize(window.Bounds.Size, scaling));
+                Assert.IsTrue(area.Contains(bounds), "Growing results must stay inside Explorer.");
+                window.Hide();
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(960, window.Width);
+                Assert.AreEqual(180, window.MinHeight);
+                Assert.AreEqual(Math.Min(768, workArea.Height / scaling), window.MaxHeight);
+            }
+            finally
+            {
+                window.Close();
+                scalingProperty.SetValue(screen, originalScaling);
+                workingAreaProperty.SetValue(screen, originalWorkingArea);
+                ServiceManager.Services = originalServices;
+            }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    [DataRow(0, 0, 1920, 1040, 1d)]
+    [DataRow(-1920, -1080, 1920, 1040, 1.5d)]
+    [DataRow(1920, 40, 2560, 1400, 2d)]
+    public void GetSearchWindowPosition_DirectorySearch_AnchorsToBottomRight(
+        int x, int y, int width, int height, double scaling)
+    {
+        var method = typeof(SearchWindow).GetMethod("GetSearchWindowPosition", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var area = new PixelRect(x, y, width, height);
+        var size = new Size(720, 300);
+        var result = (PixelPoint)method.Invoke(null, [area, scaling, size, true])!;
+        var bounds = new PixelRect(result, PixelSize.FromSize(size, scaling));
+        Assert.IsTrue(area.Contains(bounds));
+        Assert.AreEqual((int)Math.Ceiling(16 * scaling), area.Right - bounds.Right);
+        Assert.AreEqual((int)Math.Ceiling(16 * scaling), area.Bottom - bounds.Bottom);
     }
 
     private class WindowToolProxy : DispatchProxy

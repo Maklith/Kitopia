@@ -102,6 +102,10 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
 
     [ObservableProperty] private string _search=string.Empty;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDirectorySearch))]
+    private string? _directorySearchPath;
+    public bool IsDirectorySearch => !string.IsNullOrEmpty(DirectorySearchPath);
     private Action<SearchViewItem?>? _selectAction;
 
 
@@ -335,7 +339,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
     private void LoadLastCore()
     {
-        if (!string.IsNullOrEmpty(Search)) return;
+        if (!string.IsNullOrEmpty(Search) || IsDirectorySearch) return;
         
         
         Logger.Debug("加载历史记录");
@@ -496,7 +500,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         LoadMoreEverythingCommand.NotifyCanExecuteChanged();
         CheckEverythingAvailabilityCommand.NotifyCanExecuteChanged();
 
-        if (string.IsNullOrEmpty(value))
+        if (string.IsNullOrEmpty(value) && !IsDirectorySearch)
         {
             Interlocked.Exchange(ref _searchCancellation, null)?.Cancel();
             LoadLast();
@@ -513,20 +517,41 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         IsPreviewMode = false;
         SelectedItem = null;
 
-        ProcessInputData(value, InputDataAnalyzeTimeFlags.InputChanged);
+        value ??= string.Empty;
+        if (!IsDirectorySearch) ProcessInputData(value, InputDataAnalyzeTimeFlags.InputChanged);
+        else InputDatas.Clear();
 
         var originalValue = value;
         value = value.ToLowerInvariant();
         var everythingPrefix = ConfigManger.Config.everythingSearchPrefix;
-        if (!string.IsNullOrEmpty(everythingPrefix) && originalValue.StartsWith(everythingPrefix))
+        if (IsDirectorySearch || (!string.IsNullOrEmpty(everythingPrefix) && originalValue.StartsWith(everythingPrefix)))
         {
             IsEverythingMode = true;
             var cancellation = new CancellationTokenSource();
             Interlocked.Exchange(ref _searchCancellation, cancellation)?.Cancel();
 
-            _everythingQuery = originalValue.Length > everythingPrefix.Length
-                ? originalValue.Substring(everythingPrefix.Length)
-                : string.Empty;
+            if (IsDirectorySearch)
+            {
+                // Balance user groups inside the fixed scope, including partially typed queries.
+                var openGroups = 0;
+                var missingOpenGroups = 0;
+                var quoted = false;
+                foreach (var character in originalValue)
+                {
+                    if (character == '"') quoted = !quoted;
+                    else if (!quoted && character == '<') openGroups++;
+                    else if (!quoted && character == '>')
+                    {
+                        if (openGroups > 0) openGroups--;
+                        else missingOpenGroups++;
+                    }
+                }
+                var query = new string('<', missingOpenGroups) + originalValue +
+                            (quoted ? "\"" : string.Empty) + new string('>', openGroups);
+                _everythingQuery = $"\"{DirectorySearchPath!.TrimEnd('\\', '/')}\\\"" +
+                                   (string.IsNullOrWhiteSpace(query) ? string.Empty : $" <{query}>");
+            }
+            else _everythingQuery = originalValue[everythingPrefix.Length..];
             _everythingOffset = 0;
             _everythingHasMore = true;
             LoadMoreEverythingCommand.NotifyCanExecuteChanged();
@@ -784,7 +809,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private void UpdateDisplayMode(bool preserveSelection = false)
     {
         CanUsePreview = !NowInSelectMode
-                        && !string.IsNullOrWhiteSpace(Search)
+                        && (IsDirectorySearch || !string.IsNullOrWhiteSpace(Search))
                         && Items.Any(SearchDisplayPolicy.IsPreviewCandidate);
 
         var usePreview = preserveSelection && SelectedItem is not null && ItemsViewList.Contains(SelectedItem)

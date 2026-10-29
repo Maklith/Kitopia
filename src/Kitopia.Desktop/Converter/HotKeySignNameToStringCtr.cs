@@ -39,6 +39,7 @@ public class HotKeySignNameToStringCtr : IMultiValueConverter
         {
             "置顶窗口快捷键" => Lang.Get("lang.kitopia.pin_current_window"),
             "显示搜索框" => Lang.Get("lang.kitopia.open_quick_search"),
+            "资源管理器目录搜索" => Lang.Get("lang.kitopia.explorer_search"),
             "激活鼠标快捷菜单" => Lang.Get("lang.kitopia.mouse_quick_menu"),
             "截图" => Lang.Get("lang.kitopia.capture_screen_area"),
             "文件速览" => Lang.Get("lang.kitopia.file_preview"),

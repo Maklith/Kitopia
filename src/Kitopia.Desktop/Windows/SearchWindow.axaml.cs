@@ -21,6 +21,7 @@ public partial class SearchWindow : Window
     private Screen? _placementScreen;
     private SearchViewItem? _lastPinnedItem;
     private SearchViewItem? _focusedSearchItem;
+    private PixelRect? _directorySearchArea;
 
     public SearchWindow()
     {
@@ -122,6 +123,15 @@ public partial class SearchWindow : Window
 
     public override void Show()
     {
+        _directorySearchArea = null;
+        MinHeight = 180;
+        MinWidth = MaxWidth = Width = 960;
+        if (DataContext is SearchWindowViewModel { IsDirectorySearch: true } model)
+        {
+            model.DirectorySearchPath = null;
+            if (model.Search.Length == 0) model.ToSearch(string.Empty);
+            else model.Search = string.Empty;
+        }
         _placementScreen = null;
         if (!IsLoaded) base.Show();
         var windowTool = ServiceManager.Services.GetRequiredService<IWindowTool>();
@@ -142,17 +152,52 @@ public partial class SearchWindow : Window
         ((SearchWindowViewModel?)DataContext)?.SetProcessUsageEnabled(IsVisible);
     }
 
+    public void ShowDirectorySearch(string directory, string text, PixelRect explorerBounds)
+    {
+        _placementScreen = Screens.ScreenFromPoint(explorerBounds.Center) ?? Screens.Primary;
+        if (_placementScreen is { } screen)
+        {
+            var area = explorerBounds.Intersect(screen.WorkingArea);
+            if (area.Width <= 0 || area.Height <= 0) area = screen.WorkingArea;
+            _directorySearchArea = area;
+            MinHeight = 0;
+            MaxHeight = Math.Max(1, Math.Min(540, area.Height / screen.Scaling - 32));
+            MinWidth = 0;
+            MaxWidth = Width = Math.Max(1, Math.Min(720, area.Width / screen.Scaling - 32));
+        }
+        if (DataContext is SearchWindowViewModel model)
+        {
+            model.NowInSelectMode = false;
+            model.DirectorySearchPath = directory;
+            if (model.Search == text) model.ToSearch(text);
+            else model.Search = text;
+        }
+        base.Show();
+        PositionWindow();
+        ServiceManager.Services.GetRequiredService<IWindowTool>().SetForegroundWindow(TryGetPlatformHandle()!.Handle);
+        tx.Focus();
+        tx.CaretIndex = tx.Text?.Length ?? 0;
+        tx.SelectionStart = tx.SelectionEnd = tx.CaretIndex;
+    }
+
     private void PositionWindow()
     {
         if (_placementScreen is not { } screen) return;
 
-        Position = GetSearchWindowPosition(screen.WorkingArea, screen.Scaling, Bounds.Size);
+        Position = GetSearchWindowPosition(_directorySearchArea ?? screen.WorkingArea,
+            screen.Scaling, Bounds.Size, _directorySearchArea.HasValue);
     }
 
-    internal static PixelPoint GetSearchWindowPosition(PixelRect area, double scaling, Size size)
+    internal static PixelPoint GetSearchWindowPosition(PixelRect area, double scaling, Size size, bool bottomRight = false)
     {
         var width = (int)Math.Ceiling(size.Width * scaling);
         var height = (int)Math.Ceiling(size.Height * scaling);
+        if (bottomRight)
+        {
+            var margin = (int)Math.Ceiling(16 * scaling);
+            return new PixelPoint(Math.Max(area.X, area.Right - width - margin),
+                Math.Max(area.Y, area.Bottom - height - margin));
+        }
         return new PixelPoint(
             area.X + Math.Max(0, (area.Width - width) / 2),
             Math.Clamp(area.Y + area.Height / 4, area.Y, Math.Max(area.Y, area.Bottom - height)));

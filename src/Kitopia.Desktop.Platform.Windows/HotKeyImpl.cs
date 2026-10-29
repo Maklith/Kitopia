@@ -101,20 +101,28 @@ public class HotKeyImpl : IHotKetImpl
         foreach (var (_, hotkey) in HotKeys)
         {
             var model = hotkey.HotKeyModel;
+            var anyKey = model.SelectKey == EKey.任意键;
             if (hotkey.Id != 0 || !model.IsEnabled || model.Type != HotKeyType.Keyboard ||
-                (int)model.SelectKey != key ||
+                (anyKey && e.IsEventSimulated) ||
+                (!anyKey && (int)model.SelectKey != key) ||
                 model.IsSelectCtrl != ((mask & EventMask.Ctrl) != 0) ||
                 model.IsSelectAlt != ((mask & EventMask.Alt) != 0) ||
-                model.IsSelectShift != ((mask & EventMask.Shift) != 0) ||
+                (!anyKey && model.IsSelectShift != ((mask & EventMask.Shift) != 0)) ||
                 model.IsSelectWin != ((mask & EventMask.Meta) != 0)) continue;
             var foreground = User32.GetForegroundWindow();
             if (!CanExecuteInWindow(model, foreground)) continue;
+            var text = anyKey ? GetCharacter(key, mask, foreground) : null;
+            if (anyKey && string.IsNullOrEmpty(text)) continue;
             PressedKeys.Add(key);
             e.SuppressEvent = true;
             Dispatcher.UIThread.Post(() =>
             {
                 if (hotkey.Id == 0 && model.IsEnabled && User32.GetForegroundWindow() == foreground &&
-                    CanExecuteInWindow(model, foreground)) InvokeHotkey(hotkey);
+                    CanExecuteInWindow(model, foreground))
+                {
+                    model.TriggerText = text;
+                    InvokeHotkey(hotkey);
+                }
             });
             return;
         }
@@ -125,8 +133,26 @@ public class HotKeyImpl : IHotKetImpl
         if (PressedKeys.Remove(e.Data.RawCode)) e.SuppressEvent = true;
     }
 
+    internal static string? GetCharacter(ushort key, EventMask mask, HWND window)
+    {
+        if ((mask & (EventMask.Ctrl | EventMask.Alt | EventMask.Meta)) != 0) return null;
+        var state = new byte[256];
+        if ((mask & EventMask.Shift) != 0) state[0x10] = 0x80;
+        if ((mask & EventMask.CapsLock) != 0) state[0x14] = 1;
+        if ((mask & EventMask.NumLock) != 0) state[0x90] = 1;
+        var thread = User32.GetWindowThreadProcessId(window, out _);
+        var layout = User32.GetKeyboardLayout(thread);
+        var scanCode = User32.MapVirtualKeyEx(key, User32.MAPVK.MAPVK_VK_TO_VSC, layout);
+        var text = new StringBuilder(8);
+        // Flag 4 preserves the layout's dead-key buffer while probing the character.
+        var length = User32.ToUnicodeEx(key, scanCode, state, text, text.Capacity, 4, layout);
+        return length > 0 && !char.IsControl(text[0]) ? text.ToString(0, length) : null;
+    }
+
     private static bool CanExecuteInWindow(HotKeyModel model, HWND window)
     {
+        if (model.UUID == ConfigManger.Config?.explorerSearchHotKey.UUID &&
+            !ExplorerFileSelection.IsFileListFocused(window)) return false;
         if (model.ProcessScope != HotKeyProcessScope.All)
         {
             User32.GetWindowThreadProcessId(window, out var processId);
@@ -301,7 +327,8 @@ public class HotKeyImpl : IHotKetImpl
             return true;
         }
         if (model.SelectKey is EKey.未设置 or 0) return false;
-        if (model.ProcessScope != HotKeyProcessScope.All || model.IgnoreTextInput)
+        if (model.SelectKey == EKey.任意键 || model.ProcessScope != HotKeyProcessScope.All || model.IgnoreTextInput ||
+            model.UUID == ConfigManger.Config?.explorerSearchHotKey.UUID)
         {
             id = 0;
             return true;
