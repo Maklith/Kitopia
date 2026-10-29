@@ -670,138 +670,91 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         var pinyinResults = Index.SearchPinyin(value, 100, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         var pinyinItems = CreateSearchItems(pinyinResults);
-        if (pinyinItems.Count > 0)
+        if (pinyinItems.Count == 0)
         {
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (Volatile.Read(ref _searchVersion) != version || cancellationToken.IsCancellationRequested) return;
-                Items.AddRange(pinyinItems);
-                RefreshFileTypes();
-                UpdateDisplayMode();
-            });
-        }
-
-        var shouldSearchSemantically = pinyinResults.Count < 10 && value.Trim().Length >= 2;
-        if (!shouldSearchSemantically && pinyinResults.Count > 0) return;
-        if (shouldSearchSemantically)
-        {
-            await Task.Delay(
-                TimeSpan.FromMilliseconds(Math.Max(100, ConfigManger.Config.semanticSearchDebounceMilliseconds)),
-                cancellationToken);
-        }
-        cancellationToken.ThrowIfCancellationRequested();
-        if (shouldSearchSemantically)
-        {
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (Volatile.Read(ref _searchVersion) == version && !cancellationToken.IsCancellationRequested)
+            pinyinItems.AddRange([
+                new SearchViewItem
                 {
-                    IsSemanticSearching = true;
+                    ItemDisplayName = Lang.Get("lang.kitopia.add_to_note") + originalValue,
+                    FileType = FileType.便签,
+                    OnlyKey = originalValue,
+                    IconSymbol = 0xF6EC,
+                    IsVisible = true
+                },
+                new SearchViewItem
+                {
+                    ItemDisplayName = Lang.Get("lang.kitopia.search_the_web") + originalValue,
+                    FileType = FileType.URL,
+                    OnlyKey = "https://www.bing.com/search?q=" + originalValue,
+                    IconSymbol = 62555,
+                    IsVisible = true
                 }
-            });
+            ]);
         }
-        var rawResults = await Index.SearchAsync(value, 100, cancellationToken, pinyinResults);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (rawResults.Count == 0)
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (Volatile.Read(ref _searchVersion) != version) return;
-                if (Items.Count <= 0)
-                {
-                    Items.AddRange(new[]
-                    {
-                        new SearchViewItem
-                        {
-                            ItemDisplayName = Lang.Get("lang.kitopia.add_to_note") + originalValue,
-                            FileType = FileType.便签,
-                            OnlyKey = originalValue,
-                            Icon = null,
-                            IconSymbol = 0xF6EC,
-                            IsVisible = true
-                        },
-                        new SearchViewItem
-                        {
-                            ItemDisplayName = Lang.Get("lang.kitopia.search_the_web") + originalValue,
-                            FileType = FileType.URL,
-                            OnlyKey = "https://www.bing.com/search?q=" + originalValue,
-                            Icon = null,
-                            IconSymbol = 62555,
-                            IsVisible = true
-                        }
-                    });
-                    RefreshFileTypes();
-                }
-
-                UpdateDisplayMode();
-            });
-            return;
-        }
-
-        var resultsToAdd = CreateSearchItems(rawResults);
-        var shouldReplacePinyinResults = !pinyinItems.Select(item => item.OnlyKey)
-            .SequenceEqual(resultsToAdd.Select(item => item.OnlyKey), StringComparer.Ordinal);
-        if (!shouldReplacePinyinResults)
-        {
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (Volatile.Read(ref _searchVersion) != version) return;
-                UpdateResultContexts(rawResults);
-                UpdateDisplayMode();
-            });
-            return;
-        }
-
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (Volatile.Read(ref _searchVersion) != version) return;
-            foreach (var item in pinyinItems)
-            {
-                Items.Remove(item);
-            }
-            Items.AddRange(resultsToAdd);
-            UpdateResultContexts(rawResults);
-
-            if (Items.Count <= 0)
-            {
-                Logger.Debug("无搜索项目,添加网页搜索");
-                Items.AddRange(new[]
-                {
-                    new SearchViewItem
-                    {
-                        ItemDisplayName = Lang.Get("lang.kitopia.add_to_note") + originalValue,
-                        FileType = FileType.便签,
-                        OnlyKey = originalValue,
-                        Icon = null,
-                        IconSymbol = 0xF6EC,
-                        IsVisible = true
-                    },
-                    new SearchViewItem
-                    {
-                        ItemDisplayName = Lang.Get("lang.kitopia.search_the_web") + originalValue,
-                        FileType = FileType.URL,
-                        OnlyKey = "https://www.bing.com/search?q=" + originalValue,
-                        Icon = null,
-                        IconSymbol = 62555,
-                        IsVisible = true
-                    }
-                });
-            }
-
+            if (Volatile.Read(ref _searchVersion) != version || cancellationToken.IsCancellationRequested) return;
+            Items.AddRange(pinyinItems);
             RefreshFileTypes();
             UpdateDisplayMode();
         });
+
+        if (!SearchIndex.ShouldSearchSemantically(value, pinyinResults.Count)) return;
+        await Task.Delay(
+            TimeSpan.FromMilliseconds(Math.Max(100, ConfigManger.Config.semanticSearchDebounceMilliseconds)),
+            cancellationToken);
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (Volatile.Read(ref _searchVersion) == version && !cancellationToken.IsCancellationRequested)
+                IsSemanticSearching = true;
+        });
+        var rawResults = await Index.SearchAsync(value, 100, cancellationToken, pinyinResults);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (rawResults.Count == 0) return;
+
+        var existingItems = pinyinResults.Count == 0
+            ? null
+            : pinyinItems.ToDictionary(item => item.OnlyKey, StringComparer.Ordinal);
+        var resultsToAdd = CreateSearchItems(rawResults, existingItems);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (Volatile.Read(ref _searchVersion) != version) return;
+            var selectedItem = SelectedItem;
+            var insertionIndex = Items.TakeWhile(item => !pinyinItems.Contains(item)).Count();
+            foreach (var item in pinyinItems)
+            {
+                if (!resultsToAdd.Contains(item)) Items.Remove(item);
+            }
+            for (var index = 0; index < resultsToAdd.Count; index++)
+            {
+                var item = resultsToAdd[index];
+                var currentIndex = Items.IndexOf(item);
+                if (currentIndex < 0)
+                    Items.Insert(insertionIndex + index, item);
+                else if (currentIndex != insertionIndex + index)
+                    Items.Move(currentIndex, insertionIndex + index);
+            }
+            UpdateResultContexts(rawResults);
+            if (selectedItem is not null && ItemsViewList.Contains(selectedItem)) SelectedItem = selectedItem;
+
+            if (Items.Any(item => !FileTypes.Any(filter => filter.FileType == item.FileType))
+                || FileTypes.Any(filter => !Items.Any(item => item.FileType == filter.FileType)))
+                RefreshFileTypes();
+            UpdateDisplayMode(preserveSelection: true);
+        });
     }
 
-    private List<SearchViewItem> CreateSearchItems(IReadOnlyList<SearchIndexResult> results)
+    private List<SearchViewItem> CreateSearchItems(IReadOnlyList<SearchIndexResult> results,
+        IReadOnlyDictionary<string, SearchViewItem>? existingItems = null)
     {
         const int limit = 100;
         var resultItems = new List<SearchViewItem>(Math.Min(results.Count, limit));
 
         foreach (var result in SearchResultRanker.Rank(results, ConfigManger.Config.lastOpens, DateTime.Now))
         {
-            resultItems.Add(ToSearchViewItem(result));
+            resultItems.Add(existingItems is not null && existingItems.TryGetValue(result.Source.OnlyKey, out var item)
+                ? item
+                : ToSearchViewItem(result));
             if (resultItems.Count >= limit) return resultItems;
         }
 
@@ -828,15 +781,17 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         }
     }
 
-    private void UpdateDisplayMode()
+    private void UpdateDisplayMode(bool preserveSelection = false)
     {
         CanUsePreview = !NowInSelectMode
                         && !string.IsNullOrWhiteSpace(Search)
                         && Items.Any(SearchDisplayPolicy.IsPreviewCandidate);
 
-        IsPreviewMode = CanUsePreview
-                        && (PreviewModeOverride ?? (!IsEverythingMode &&
-                            SearchDisplayPolicy.ShouldUsePreview(NowInSelectMode, Search, Items, _resultContexts)));
+        var usePreview = preserveSelection && SelectedItem is not null && ItemsViewList.Contains(SelectedItem)
+            ? IsPreviewMode
+            : PreviewModeOverride ?? (!IsEverythingMode &&
+                SearchDisplayPolicy.ShouldUsePreview(NowInSelectMode, Search, Items, _resultContexts));
+        IsPreviewMode = CanUsePreview && usePreview;
 
         if (!IsPreviewMode)
         {

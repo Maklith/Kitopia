@@ -20,6 +20,7 @@ public partial class SearchWindow : Window
     private readonly double _preferredMaxHeight;
     private Screen? _placementScreen;
     private SearchViewItem? _lastPinnedItem;
+    private SearchViewItem? _focusedSearchItem;
 
     public SearchWindow()
     {
@@ -33,6 +34,7 @@ public partial class SearchWindow : Window
         tx.GotFocus += (_, e) =>
         {
             if (!ReferenceEquals(e.Source, tx)) return;
+            _focusedSearchItem = null;
             if (DataContext is SearchWindowViewModel { IsPreviewMode: true }) return;
             PinnedList.SelectedIndex = -1;
             dataGrid.SelectedIndex = -1;
@@ -42,6 +44,21 @@ public partial class SearchWindow : Window
         dataGrid.AddHandler(KeyDownEvent, SearchItems_OnKeyDown, RoutingStrategies.Tunnel);
         PinnedList.AddHandler(TextInputEvent, SearchItems_OnTextInput, RoutingStrategies.Tunnel);
         dataGrid.AddHandler(TextInputEvent, SearchItems_OnTextInput, RoutingStrategies.Tunnel);
+        dataGrid.GotFocus += (_, e) =>
+        {
+            if (e.Source is ListBoxItem { DataContext: SearchViewItem item }) _focusedSearchItem = item;
+        };
+        dataGrid.GetObservable(ListBox.SelectedItemProperty).Subscribe(selected =>
+        {
+            if (selected is null || !ReferenceEquals(selected, _focusedSearchItem)) return;
+            Dispatcher.UIThread.Post(() =>
+            {
+                var topLevel = TopLevel.GetTopLevel(dataGrid);
+                if (dataGrid.IsEffectivelyVisible && topLevel is Window { IsActive: true }
+                    && topLevel.FocusManager?.GetFocusedElement() is null && ReferenceEquals(dataGrid.SelectedItem, selected))
+                    FocusItem(dataGrid, dataGrid.SelectedIndex);
+            }, DispatcherPriority.Loaded);
+        });
         FilePreviewSurface.CloseRequested += () =>
             (DataContext as SearchWindowViewModel)?.ClosePreviewMode();
 

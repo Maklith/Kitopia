@@ -43,6 +43,9 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
         // potentially long Everything, document, image, and OCR passes are queued.
         await Task.Run(ReloadApplications, cancellationToken);
         await Task.Run(() => RefreshWindowOpenEntries(rebuildPinyin: false), cancellationToken);
+        // AppIndexer inserts the application batch through TryAdd, which does not rebuild by
+        // itself. Publish that batch before the managed-file and semantic indexing passes begin.
+        await _index.RebuildPinyinSearcherAsync(cancellationToken);
         await RefreshManagedFilesAsync(cancellationToken);
         QueueBackgroundIndexing();
     }

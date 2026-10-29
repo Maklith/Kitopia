@@ -17,8 +17,6 @@ namespace Kitopia.Desktop.Features.Indexing;
 public sealed class IndexService : IIndexService, IDisposable
 {
     private const int PinyinResultLimit = 100;
-    private const int SemanticFallbackPinyinResultLimit = 10;
-    private const int MinimumSemanticQueryLength = 2;
     private const int ManagedFileSearchBatchSize = 256;
     private const int ImageInferenceBatchSize = 8;
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IndexService>();
@@ -467,7 +465,7 @@ public sealed class IndexService : IIndexService, IDisposable
             merged[result.Source.OnlyKey] = result with { Weight = 1d / (60 + index + 1) };
         }
 
-        if (!ShouldSearchSemantically(query, pinyinResults.Count))
+        if (!SearchIndex.ShouldSearchSemantically(query, pinyinResults.Count))
         {
             return merged.Values.OrderByDescending(result => result.Weight).Take(maximumResults).ToList();
         }
@@ -1940,9 +1938,6 @@ public sealed class IndexService : IIndexService, IDisposable
 
         return TryCreateFileEntry(path, out entry);
     }
-
-    private static bool ShouldSearchSemantically(string query, int pinyinResultCount) =>
-        query.Trim().Length >= MinimumSemanticQueryLength && pinyinResultCount < SemanticFallbackPinyinResultLimit;
 
     private static string CreateTextContent(SearchEntry entry) => string.Join('\n', entry.DisplayName, entry.FileType, entry.OnlyKey);
 

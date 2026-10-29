@@ -3,6 +3,7 @@ using Kitopia.Desktop.Features.Indexing;
 using Kitopia.Desktop.Features.Search;
 using Kitopia.Desktop.Features.Search.Semantic;
 using Kitopia.Desktop.Features.Services.Config;
+using Microsoft.Data.Sqlite;
 using PluginCore;
 using PluginCore.Config;
 
@@ -28,6 +29,31 @@ public sealed class IndexServiceTests
     public void Cleanup()
     {
         ConfigManger.Configs = _originalConfigs!;
+    }
+
+    [TestMethod]
+    public async Task SearchPinyin_EverythingApplication_AppearsAfterOrdinaryIndexBuild()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"kitopia-ordinary-search-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var index = new IndexService();
+        typeof(IndexService).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(index, new IndexVectorStore(Path.Combine(directory, "index.db")));
+        try
+        {
+            index.TryAdd(new SearchEntry { OnlyKey = @"C:\Apps\Everything.exe", DisplayName = "Everything", FileType = FileType.应用程序 });
+            Assert.IsFalse(index.SearchPinyin("every", 100, CancellationToken.None)
+                .Any(result => result.Source.DisplayName == "Everything"));
+            await index.RebuildPinyinSearcherAsync();
+            var results = index.SearchPinyin("every", 100, CancellationToken.None);
+            Assert.IsTrue(results.Any(result => result.Source.DisplayName == "Everything"));
+        }
+        finally
+        {
+            index.Dispose();
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     [TestMethod]

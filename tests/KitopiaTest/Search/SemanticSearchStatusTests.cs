@@ -97,6 +97,59 @@ public sealed class SemanticSearchStatusTests
     }
 
     [TestMethod]
+    [DataRow("complete")]
+    [DataRow("fail")]
+    [DataRow("cancel")]
+    [DataRow("match")]
+    public async Task ToSearch_NoLexicalMatches_ShowsOrdinaryActionsWhileSemanticSearchIsPending(string outcome)
+    {
+        await RunSearchTestAsync(async (model, index, view) =>
+        {
+            index.PinyinResults = [];
+            var result = new TaskCompletionSource<IReadOnlyList<SearchIndexResult>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            index.Search = (_, _) => result.Task;
+            var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            model.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(model.IsSemanticSearching) && !model.IsSemanticSearching)
+                    completed.TrySetResult();
+            };
+
+            model.Search = "unmatched query";
+            try
+            {
+                await index.Started.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsFalse(result.Task.IsCompleted);
+                Assert.HasCount(2, model.Items);
+                Assert.IsTrue(model.Items.Any(item => item.FileType == FileType.便签));
+                Assert.IsTrue(model.Items.Any(item => item.FileType == FileType.URL));
+                Assert.HasCount(2, view.FindControl<ListBox>("dataGrid")!.Items);
+
+                if (outcome == "complete") result.SetResult([]);
+                else if (outcome == "match") result.SetResult([new(new SearchEntry
+                {
+                    OnlyKey = "unmatched query", DisplayName = "Semantic match", FileType = FileType.文件
+                }, 1, null)]);
+                else if (outcome == "fail") result.SetException(new InvalidOperationException("Search failure"));
+                else result.SetCanceled();
+                await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Dispatcher.UIThread.RunJobs();
+                if (outcome == "match")
+                {
+                    Assert.AreEqual("Semantic match", model.Items.Single().ItemDisplayName);
+                    Assert.AreEqual(FileType.文件, model.Items.Single().FileType);
+                }
+                else Assert.HasCount(2, model.Items);
+            }
+            finally
+            {
+                result.TrySetCanceled();
+            }
+        });
+    }
+
+    [TestMethod]
     [DataRow(0)]
     [DataRow(1)]
     [DataRow(9)]
@@ -157,6 +210,191 @@ public sealed class SemanticSearchStatusTests
                 await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
                 Dispatcher.UIThread.RunJobs();
                 Assert.HasCount(applicationCount + 2, model.Items);
+            }
+            finally
+            {
+                result.TrySetCanceled();
+            }
+        });
+    }
+
+    [TestMethod]
+    [DataRow(FileType.应用程序, false, true)]
+    [DataRow(FileType.文件, false, true)]
+    [DataRow(FileType.文件, true, true)]
+    [DataRow(FileType.URL, false, true)]
+    [DataRow(FileType.应用程序, false, false)]
+    [DataRow(FileType.文件, true, false)]
+    public async Task ToSearch_SemanticResultsReorderMatches_PreservesSelectedRowAndDisplayMode(FileType selectedType, bool preview, bool focusRow)
+    {
+        await RunSearchTestAsync(async (model, index, view) =>
+        {
+            index.PinyinResults =
+            [
+                new(new SearchEntry { OnlyKey = @"C:\Apps\app.exe", DisplayName = "App", FileType = FileType.应用程序 }, 1, null),
+                new(new SearchEntry { OnlyKey = @"C:\Reports\first.txt", DisplayName = "First file", FileType = FileType.文件 }, 0.9, null),
+                new(new SearchEntry { OnlyKey = @"C:\Reports\chosen.txt", DisplayName = "Chosen file", FileType = FileType.文件 }, 0.8, null)
+            ];
+            var result = new TaskCompletionSource<IReadOnlyList<SearchIndexResult>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            index.Search = (_, _) => result.Task;
+            var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            model.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(model.IsSemanticSearching) && !model.IsSemanticSearching)
+                    completed.TrySetResult();
+            };
+
+            model.Search = "report";
+            try
+            {
+                await index.Started.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                Dispatcher.UIThread.RunJobs();
+                if (preview) model.TogglePreviewModeCommand.Execute(null);
+                var list = view.FindControl<ListBox>("dataGrid")!;
+                SearchViewItem? inputAction = null;
+                if (selectedType == FileType.URL)
+                {
+                    inputAction = new SearchViewItem { OnlyKey = "https://example.com/action", ItemDisplayName = "Input action", FileType = FileType.URL };
+                    model.Items.Insert(0, inputAction);
+                }
+                var selected = model.Items.Last(item => item.FileType == selectedType);
+                list.SelectedItem = selected;
+                Assert.AreSame(selected, model.SelectedItem);
+                Assert.AreEqual(preview, model.IsPreviewMode);
+                Dispatcher.UIThread.RunJobs();
+                var selectedContainer = (ListBoxItem)list.ContainerFromIndex(model.Items.IndexOf(selected))!;
+                Assert.IsNotNull(selectedContainer);
+                Assert.IsTrue(selectedContainer.Focus());
+                var input = view.FindControl<TextBox>("tx")!;
+                if (!focusRow)
+                {
+                    Assert.IsTrue(input.Focus());
+                    list.SelectedItem = selected;
+                }
+                var selectionChanges = new List<SearchViewItem?>();
+                model.PropertyChanged += (_, args) =>
+                {
+                    if (args.PropertyName == nameof(model.SelectedItem)) selectionChanges.Add(model.SelectedItem);
+                };
+
+                result.SetResult([.. Enumerable.Range(0, 3).Select(number =>
+                    new SearchIndexResult(new SearchEntry
+                    {
+                        OnlyKey = $@"C:\Reports\semantic{number}.txt", DisplayName = $"Semantic {number}", FileType = FileType.文件
+                    }, 2, null)), .. index.PinyinResults.Reverse().Select((match, position) => match with { Weight = 1.5 - position * 0.1 })]);
+                await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.HasCount(inputAction is null ? 6 : 7, model.Items);
+                Assert.AreEqual("Semantic 0", model.Items[inputAction is null ? 0 : 1].ItemDisplayName);
+                CollectionAssert.AreEqual(index.PinyinResults.Reverse().Select(match => match.Source.OnlyKey).ToArray(),
+                    model.Items.Skip(inputAction is null ? 3 : 4).Select(item => item.OnlyKey).ToArray());
+                if (inputAction is not null) Assert.AreSame(inputAction, model.Items[0]);
+                Assert.AreSame(selected, model.SelectedItem);
+                Assert.AreSame(selected, list.SelectedItem);
+                Assert.IsTrue(selectionChanges.All(item => item is null || ReferenceEquals(item, selected)));
+                Assert.AreEqual(preview, model.IsPreviewMode);
+                if (focusRow)
+                {
+                    var currentContainer = (ListBoxItem?)list.ContainerFromIndex(model.Items.IndexOf(selected));
+                    Assert.IsNotNull(currentContainer);
+                    Assert.IsTrue(currentContainer.IsFocused);
+                }
+                else Assert.IsTrue(input.IsFocused);
+            }
+            finally
+            {
+                result.TrySetCanceled();
+            }
+        });
+    }
+
+    [TestMethod]
+    public async Task ToSearch_SemanticContextChangesWithoutReordering_PreservesSelectedRowAndListMode()
+    {
+        await RunSearchTestAsync(async (model, index, view) =>
+        {
+            index.PinyinResults = [new(new SearchEntry
+            {
+                OnlyKey = @"C:\Reports\chosen.txt", DisplayName = "Chosen file", FileType = FileType.文件
+            }, 1, null)];
+            var result = new TaskCompletionSource<IReadOnlyList<SearchIndexResult>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            index.Search = (_, _) => result.Task;
+            var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            model.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(model.IsSemanticSearching) && !model.IsSemanticSearching)
+                    completed.TrySetResult();
+            };
+
+            model.Search = "report";
+            try
+            {
+                await index.Started.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                Dispatcher.UIThread.RunJobs();
+                var selected = model.Items.Single();
+                var list = view.FindControl<ListBox>("dataGrid")!;
+                list.SelectedItem = selected;
+                Assert.IsFalse(model.IsPreviewMode);
+
+                result.SetResult([index.PinyinResults[0] with { SemanticContentChunkIndex = 3 }]);
+                await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.AreSame(selected, model.Items.Single());
+                Assert.AreSame(selected, model.SelectedItem);
+                Assert.AreSame(selected, list.SelectedItem);
+                Assert.IsFalse(model.IsPreviewMode);
+            }
+            finally
+            {
+                result.TrySetCanceled();
+            }
+        });
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ToSearch_SemanticResultsWithSameTypes_PreservesTypeFilterAndSelection(bool additionalFile)
+    {
+        await RunSearchTestAsync(async (model, index, view) =>
+        {
+            index.PinyinResults =
+            [
+                new(new SearchEntry { OnlyKey = @"C:\Apps\app.exe", DisplayName = "App", FileType = FileType.应用程序 }, 1, null),
+                new(new SearchEntry { OnlyKey = @"C:\Reports\chosen.txt", DisplayName = "Chosen file", FileType = FileType.文件 }, 0.9, null)
+            ];
+            var result = new TaskCompletionSource<IReadOnlyList<SearchIndexResult>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            index.Search = (_, _) => result.Task;
+            var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            model.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(model.IsSemanticSearching) && !model.IsSemanticSearching)
+                    completed.TrySetResult();
+            };
+            model.Search = "report";
+            try
+            {
+                await index.Started.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                Dispatcher.UIThread.RunJobs();
+                var filter = model.FileTypes.Single(item => item.FileType == FileType.文件);
+                filter.IsChecked = true;
+                model.UpdateFilter();
+                var selected = model.Items.Single(item => item.FileType == FileType.文件);
+                view.FindControl<ListBox>("dataGrid")!.SelectedItem = selected;
+                Assert.HasCount(1, model.ItemsViewList);
+
+                result.SetResult(additionalFile
+                    ? [new(new SearchEntry { OnlyKey = @"C:\Reports\other.txt", DisplayName = "Other file", FileType = FileType.文件 }, 2, null), .. index.PinyinResults]
+                    : [index.PinyinResults[0], index.PinyinResults[1] with { SemanticContentChunkIndex = 2 }]);
+                await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreSame(filter, model.FileTypes.Single(item => item.FileType == FileType.文件));
+                Assert.IsTrue(filter.IsChecked);
+                Assert.HasCount(additionalFile ? 2 : 1, model.ItemsViewList);
+                Assert.IsTrue(model.ItemsViewList.All(item => item.FileType == FileType.文件));
+                Assert.AreSame(selected, model.SelectedItem);
             }
             finally
             {
