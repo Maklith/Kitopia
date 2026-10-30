@@ -1,7 +1,7 @@
 # Kitopia - Your Next-Gen All-in-One Desktop Productivity Suite
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Maklith/Kitopia)
-> [中文](/README.md)
+> [中文](/zh-cn/README.md)
 
 [![GitHub stars](https://img.shields.io/github/stars/Maklith/Kitopia?style=flat-square&logo=github)](https://github.com/Maklith/Kitopia)
 [![GitHub Release](https://img.shields.io/github/v/release/Maklith/Kitopia?include_prereleases)](https://github.com/Maklith/Kitopia/releases)

@@ -52,4 +52,4 @@ Initialize missing submodules with `git submodule update --init --recursive`. In
 | `tests/KitopiaBenchmark/` | BenchmarkDotNet benchmarks. |
 | `build/` | Fallout targets, FFmpeg bundling and installer input preparation. |
 | `installer/ModernInstallerR/`, `installer/ModernInstallerR/modern_uninstaller_r/` | Rust installer and uninstaller crates; `scripts/build_release.ps1` produces installer artifacts. |
-| `docs/` | Docsify documentation. `README.md` is the Chinese feature overview; `en-us/README.md` is the separate English version. |
+| `docs/` | Docsify documentation. `README.md` is the English feature overview; `zh-cn/README.md` is the Chinese version. |
