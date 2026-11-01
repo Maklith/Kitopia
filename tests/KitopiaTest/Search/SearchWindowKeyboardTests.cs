@@ -9,6 +9,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Input.Raw;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -680,6 +681,59 @@ public sealed class SearchWindowKeyboardTests
             model.ProcessInputData("query", InputDataAnalyzeTimeFlags.InputChanged);
             Assert.IsTrue(model.ShowInputData);
             Assert.IsEmpty(model.PinnedItems);
+            return Task.CompletedTask;
+        });
+    }
+
+    [TestMethod]
+    public async Task Search_LaptopWithManyResults_ScrollsWithinScreenLimit()
+    {
+        await RunAsync((window, model, _) =>
+        {
+            var screen = window.Screens.Primary!;
+            var originalScaling = screen.Scaling;
+            var originalArea = screen.WorkingArea;
+            var scalingProperty = typeof(Screen).GetProperty(nameof(Screen.Scaling))!;
+            var areaProperty = typeof(Screen).GetProperty(nameof(Screen.WorkingArea))!;
+            const double scaling = 1.5;
+            try
+            {
+                window.Hide();
+                scalingProperty.SetValue(screen, scaling);
+                areaProperty.SetValue(screen, new PixelRect(0, 0, 1920, 1040));
+                window.SetRenderScaling(scaling);
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                for (var i = 0; i < 60; i++)
+                    model.Items.Add(new SearchViewItem { ItemDisplayName = $"搜索结果 {i + 1}", IconSymbol = 0xF6EC });
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(SizeToContent.Height, window.SizeToContent);
+                Assert.IsTrue(window.Bounds.Height * scaling <= 1040 * 0.6 + 1);
+                var results = window.FindControl<ListBox>("dataGrid")!;
+                var scroll = results.GetVisualDescendants().OfType<ScrollViewer>().First();
+                Assert.IsTrue(scroll.Extent.Height > scroll.Viewport.Height);
+                window.FindControl<TextBox>("tx")!.Focus();
+                window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                window.KeyPress(Key.End, RawInputModifiers.None, PhysicalKey.End, null);
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(59, results.SelectedIndex);
+                Assert.IsTrue(scroll.Offset.Y > 0, "Results beyond the height limit must remain reachable.");
+
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                using var frame = window.CaptureRenderedFrame();
+                Assert.IsNotNull(frame);
+                var directory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts/search-keyboard"));
+                Directory.CreateDirectory(directory);
+                var path = Path.Combine(directory, "search-laptop-150-percent.png");
+                frame.Save(path, PngBitmapEncoderOptions.Default);
+                TestContext.AddResultFile(path);
+            }
+            finally
+            {
+                scalingProperty.SetValue(screen, originalScaling);
+                areaProperty.SetValue(screen, originalArea);
+                window.SetRenderScaling(originalScaling);
+            }
             return Task.CompletedTask;
         });
     }

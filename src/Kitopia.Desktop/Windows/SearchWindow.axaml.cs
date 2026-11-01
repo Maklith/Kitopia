@@ -124,8 +124,6 @@ public partial class SearchWindow : Window
     public override void Show()
     {
         _directorySearchArea = null;
-        MinHeight = 180;
-        MinWidth = MaxWidth = Width = 960;
         if (DataContext is SearchWindowViewModel { IsDirectorySearch: true } model)
         {
             model.DirectorySearchPath = null;
@@ -138,7 +136,11 @@ public partial class SearchWindow : Window
         windowTool.MoveWindowToMouseScreenCenter(this);
         _placementScreen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
         if (_placementScreen is { } screen)
-            MaxHeight = Math.Min(_preferredMaxHeight, screen.WorkingArea.Height / screen.Scaling);
+        {
+            MaxHeight = Math.Min(_preferredMaxHeight, screen.WorkingArea.Height / screen.Scaling * 0.6);
+            MinHeight = Math.Min(180, MaxHeight);
+            MinWidth = MaxWidth = Width = Math.Min(960, screen.WorkingArea.Width / screen.Scaling * 0.9);
+        }
         base.Show();
         PositionWindow();
         windowTool.SetForegroundWindow(TryGetPlatformHandle()!.Handle);
@@ -200,7 +202,7 @@ public partial class SearchWindow : Window
         }
         return new PixelPoint(
             area.X + Math.Max(0, (area.Width - width) / 2),
-            Math.Clamp(area.Y + area.Height / 4, area.Y, Math.Max(area.Y, area.Bottom - height)));
+            area.Y + Math.Min(area.Height / 4, Math.Max(0, (area.Height - height) / 2)));
     }
 
     private void w_Deactivated(object? sender, EventArgs eventArgs)

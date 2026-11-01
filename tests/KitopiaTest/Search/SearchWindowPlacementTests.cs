@@ -19,13 +19,13 @@ public sealed class SearchWindowPlacementTests
 
     [TestMethod]
     [DataRow(0, 0, 1920, 1040, 1d, 180d, 480, 260)]
-    [DataRow(0, 0, 1920, 1040, 1d, 768d, 480, 260)]
-    [DataRow(0, 0, 1920, 1040, 1.25d, 768d, 360, 80)]
+    [DataRow(0, 0, 1920, 1040, 1d, 768d, 480, 136)]
+    [DataRow(0, 0, 1920, 1040, 1.25d, 768d, 360, 40)]
     [DataRow(0, 0, 1920, 1040, 1.5d, 1040 / 1.5d, 240, 0)]
-    [DataRow(0, 40, 1920, 1040, 1.25d, 768d, 360, 120)]
-    [DataRow(-1920, -1080, 1920, 1040, 1.25d, 768d, -1560, -1000)]
+    [DataRow(0, 40, 1920, 1040, 1.25d, 768d, 360, 80)]
+    [DataRow(-1920, -1080, 1920, 1040, 1.25d, 768d, -1560, -1040)]
     [DataRow(1920, 200, 2560, 1400, 2d, 700d, 2240, 200)]
-    [DataRow(0, 0, 1920, 1040, 1.25d, 767.5d, 360, 80)]
+    [DataRow(0, 0, 1920, 1040, 1.25d, 767.5d, 360, 40)]
     public void GetSearchWindowPosition_ScaledWindow_StaysWithinWorkingArea(
         int areaX, int areaY, int areaWidth, int areaHeight, double scaling, double height,
         int expectedX, int expectedY)
@@ -70,7 +70,7 @@ public sealed class SearchWindowPlacementTests
                 Dispatcher.UIThread.RunJobs();
                 Assert.IsTrue(screen.WorkingArea.Contains(new PixelRect(window.Position,
                     PixelSize.FromSize(window.Bounds.Size, scaling))));
-                Assert.IsTrue(window.Bounds.Height <= screen.WorkingArea.Height / scaling);
+                Assert.IsTrue(window.Bounds.Height * scaling <= screen.WorkingArea.Height * 0.6 + 1);
 
                 window.Height = 180;
                 Dispatcher.UIThread.RunJobs();
@@ -80,9 +80,14 @@ public sealed class SearchWindowPlacementTests
                 Assert.IsTrue(screen.WorkingArea.Contains(new PixelRect(window.Position,
                     PixelSize.FromSize(window.Bounds.Size, scaling))),
                     "Growing the visible window must keep it inside the work area.");
+                Assert.IsTrue(window.Bounds.Height * scaling <= screen.WorkingArea.Height * 0.6 + 1);
+                var bottomGap = screen.WorkingArea.Bottom - window.Position.Y - window.Bounds.Height * scaling;
+                Assert.AreEqual(window.Position.Y - screen.WorkingArea.Y, bottomGap, 1,
+                    "Tall results must be centered vertically.");
 
                 window.Hide();
                 scalingProperty.SetValue(screen, 1d);
+                workingAreaProperty.SetValue(screen, new PixelRect(-2560, -100, 2560, 1400));
                 window.SetRenderScaling(1);
                 window.Show();
                 Dispatcher.UIThread.RunJobs();
@@ -101,6 +106,54 @@ public sealed class SearchWindowPlacementTests
                 ServiceManager.Services = originalServices;
             }
 
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    [DataRow(1366, 728, 1d)]
+    [DataRow(1920, 1040, 1.25d)]
+    [DataRow(1920, 1040, 1.5d)]
+    [DataRow(1920, 1040, 2d)]
+    [DataRow(2560, 1560, 2d)]
+    public async Task Show_LaptopWorkingArea_LimitsScreenCoverage(int width, int height, double scaling)
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SearchWindowPlacementTests));
+        await session.Dispatch(() =>
+        {
+            var originalServices = ServiceManager.Services;
+            using var services = new ServiceCollection()
+                .AddSingleton(DispatchProxy.Create<IWindowTool, WindowToolProxy>()).BuildServiceProvider();
+            ServiceManager.Services = services;
+            var window = new SearchWindow { SizeToContent = SizeToContent.Manual, Height = 768 };
+            var screen = window.Screens.Primary!;
+            var originalScaling = screen.Scaling;
+            var originalWorkingArea = screen.WorkingArea;
+            var scalingProperty = typeof(Screen).GetProperty(nameof(Screen.Scaling))!;
+            var workingAreaProperty = typeof(Screen).GetProperty(nameof(Screen.WorkingArea))!;
+            var area = new PixelRect(-width, 40, width, height);
+            window.Closing -= typeof(SearchWindow).GetMethod("Window_OnClosing", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .CreateDelegate<EventHandler<WindowClosingEventArgs>>(window);
+            try
+            {
+                scalingProperty.SetValue(screen, scaling);
+                workingAreaProperty.SetValue(screen, area);
+                window.SetRenderScaling(scaling);
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var bounds = new PixelRect(window.Position, PixelSize.FromSize(window.Bounds.Size, scaling));
+                Assert.IsTrue(area.Contains(bounds));
+                Assert.IsTrue(bounds.Height <= height * 0.6 + 1, "Results must leave space above and below on laptops.");
+                Assert.IsTrue(bounds.Width <= width * 0.9 + 1, "The fixed desktop width must shrink on narrow logical displays.");
+                Assert.AreEqual(bounds.Y - area.Y, area.Bottom - bounds.Bottom, 1);
+            }
+            finally
+            {
+                window.Close();
+                scalingProperty.SetValue(screen, originalScaling);
+                workingAreaProperty.SetValue(screen, originalWorkingArea);
+                ServiceManager.Services = originalServices;
+            }
             return true;
         }, CancellationToken.None);
     }
@@ -151,9 +204,9 @@ public sealed class SearchWindowPlacementTests
                 window.Hide();
                 window.Show();
                 Dispatcher.UIThread.RunJobs();
-                Assert.AreEqual(960, window.Width);
+                Assert.AreEqual(Math.Min(960, workArea.Width / scaling * 0.9), window.Width);
                 Assert.AreEqual(180, window.MinHeight);
-                Assert.AreEqual(Math.Min(768, workArea.Height / scaling), window.MaxHeight);
+                Assert.AreEqual(Math.Min(768, workArea.Height / scaling * 0.6), window.MaxHeight);
             }
             finally
             {
