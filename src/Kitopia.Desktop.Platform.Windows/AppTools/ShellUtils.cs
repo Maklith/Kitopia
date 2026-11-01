@@ -18,7 +18,7 @@ public sealed class ShellUtils : IDesktopShell
         {
             var info = new Shell32.SHELLEXECUTEINFO(path, arguments)
             {
-                lpVerb = "open",
+                lpVerb =  null,
                 lpDirectory = workingDirectory,
                 nShellExecuteShow = ShowWindowCommand.SW_NORMAL,
                 fMask = Shell32.ShellExecuteMaskFlags.SEE_MASK_NOASYNC

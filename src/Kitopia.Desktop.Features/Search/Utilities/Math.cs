@@ -30,7 +30,26 @@ public static class Math
             var left = decimal.Parse(match.Groups[1].Value);
             var right = decimal.Parse(match.Groups[3].Value);
             // 计算幂运算结果
-            var subResult = (decimal)System.Math.Pow((double)left, (double)right);
+            decimal subResult;
+            if (right == decimal.Truncate(right))
+            {
+                // 整数指数使用 decimal 快速幂，避免 double 转换丢失精度。
+                var factor = right < 0 ? 1m / left : left;
+                var exponent = decimal.Abs(right);
+                subResult = 1m;
+                while (exponent > 0)
+                {
+                    var remainder = exponent % 2m;
+                    if (remainder != 0) subResult *= factor;
+                    exponent = (exponent - remainder) / 2m;
+                    if (exponent > 0) factor *= factor;
+                }
+            }
+            else
+            {
+                // .NET 没有 decimal 小数幂 API，保留原有的 double 近似计算。
+                subResult = (decimal)System.Math.Pow((double)left, (double)right);
+            }
             // 用幂运算结果替换原来的子表达式
             expression = expression.Remove(match.Index, match.Length).Insert(match.Index, subResult.ToString());
         }
