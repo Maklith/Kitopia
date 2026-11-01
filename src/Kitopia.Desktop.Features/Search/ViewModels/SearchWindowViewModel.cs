@@ -821,6 +821,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         if (!IsPreviewMode)
         {
             _lastClickedPreviewItem = null;
+            if (SelectedItem is null || !ItemsViewList.Contains(SelectedItem))
+                SelectedItem = ItemsViewList.FirstOrDefault();
         }
         else if (SelectedItem is null || !SearchDisplayPolicy.IsPreviewCandidate(SelectedItem)
                                      || !ItemsViewList.Contains(SelectedItem))
@@ -1014,6 +1016,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         else
             ItemsView.AttachFilter(e => FileTypes.Any(fileTypeFilter =>
                 fileTypeFilter.FileType == e.FileType && fileTypeFilter.IsChecked));
+        if (SelectedItem is null || !ItemsViewList.Contains(SelectedItem))
+            SelectedItem = ItemsViewList.FirstOrDefault();
     }
 
     public bool IsIndexed(string path)

@@ -125,12 +125,17 @@ public sealed class EverythingFileListControlTests
             Assert.IsFalse(model.ShowPinnedItems);
             Assert.IsFalse(model.IsPreviewMode);
             Assert.AreEqual(720, window.Width);
+            Assert.AreSame(model.Items[0], model.SelectedItem);
+            var selected = model.Items[1];
+            model.SelectedItem = selected;
 
             await model.LoadMoreEverythingAsync();
+            Assert.AreSame(selected, model.SelectedItem);
             Assert.AreEqual(100, SearchServicesProxy.EverythingCalls.Last().Offset);
             Assert.AreEqual(expectedQuery, SearchServicesProxy.EverythingCalls.Last().Keyword);
             model.EverythingSortOrder = EverythingSortOrder.SizeDescending;
             await WaitForAsync(() => model.Items.Count == 100 && model.LoadMoreEverythingCommand.CanExecute(null));
+            Assert.AreSame(model.Items[0], model.SelectedItem);
             Assert.AreEqual(expectedQuery, SearchServicesProxy.EverythingCalls.Last().Keyword);
             Assert.AreEqual(0, SearchServicesProxy.EverythingCalls.Last().Offset);
             Assert.AreEqual(EverythingSortOrder.SizeDescending, SearchServicesProxy.EverythingCalls.Last().SortOrder);
@@ -147,6 +152,35 @@ public sealed class EverythingFileListControlTests
             Assert.IsFalse(model.IsDirectorySearch);
             Assert.IsFalse(model.IsEverythingMode);
             Assert.AreEqual(960, window.Width);
+        });
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task SearchWindow_EverythingResults_SelectsFirstWithoutMovingFocusAndEnterOpensIt(bool directorySearch)
+    {
+        await RunAsync(async (window, model, itemTool) =>
+        {
+            var first = new SearchViewItem { ItemDisplayName = "First.txt", OnlyKey = @"C:\Projects\First.txt" };
+            var second = new SearchViewItem { ItemDisplayName = "Second.txt", OnlyKey = @"C:\Projects\Second.txt" };
+            SearchServicesProxy.EverythingResults = [first, second];
+            if (directorySearch) window.ShowDirectorySearch(@"C:\Projects", "f", new PixelRect(0, 0, 1000, 800));
+            else model.Search = "@f";
+            await WaitForAsync(() => model.IsEverythingConnected && model.Items.Count == 2);
+            var input = window.FindControl<TextBox>("tx")!;
+            var control = window.FindControl<EverythingFileListControl>("everythingControl")!;
+            Assert.IsTrue(input.IsFocused);
+            Assert.AreSame(first, model.SelectedItem);
+            Assert.AreSame(first, control.SelectedItem);
+
+            control.SelectedItem = second;
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Assert.IsTrue(input.IsFocused);
+            Assert.AreSame(first, model.SelectedItem);
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            Assert.AreSame(first, await itemTool.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
         });
     }
 
@@ -412,11 +446,11 @@ public sealed class EverythingFileListControlTests
 
             SearchServicesProxy.EverythingResults = [item1, item2];
             model.Search = "@report";
-            Dispatcher.UIThread.RunJobs();
+            await WaitForAsync(() => model.Items.Count == 2);
 
             input.Focus();
             Assert.IsTrue(input.IsFocused);
-            Assert.IsNull(model.SelectedItem);
+            Assert.AreSame(item1, model.SelectedItem);
 
             // Press Down arrow to navigate into everythingControl
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);

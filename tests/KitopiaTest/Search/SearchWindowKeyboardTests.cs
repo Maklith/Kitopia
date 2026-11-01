@@ -243,7 +243,7 @@ public sealed class SearchWindowKeyboardTests
     [TestMethod]
     [DataRow(FileType.URL, false)]
     [DataRow(FileType.Word文档, true)]
-    public async Task Search_ResultsArrive_SelectsFirstResultOnlyInPreviewMode(FileType fileType, bool preview)
+    public async Task Search_ResultsArrive_SelectsFirstResultAndEnterOpensIt(FileType fileType, bool preview)
     {
         await RunAsync(async (window, model, services) =>
         {
@@ -306,29 +306,64 @@ public sealed class SearchWindowKeyboardTests
             }
             else
             {
-                Assert.AreEqual(-1, results.SelectedIndex);
+                Assert.AreEqual(0, results.SelectedIndex);
                 Assert.AreEqual(-1, shortcuts.SelectedIndex);
-                Assert.IsNull(model.SelectedItem);
+                Assert.AreSame(model.Items[0], model.SelectedItem);
                 Assert.AreEqual("", model.FilePreview.SelectedPath);
 
-                window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
-                Assert.IsTrue(window.IsVisible);
-                Assert.IsNull(model.SelectedItem);
-                Assert.IsFalse(services.Opened.Task.IsCompleted);
                 window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
                 Assert.AreEqual(0, results.SelectedIndex);
                 window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
                 Dispatcher.UIThread.RunJobs();
                 Assert.IsTrue(input.IsFocused);
-                Assert.AreEqual(-1, results.SelectedIndex);
-                Assert.IsNull(model.SelectedItem);
+                Assert.AreEqual(0, results.SelectedIndex);
+                Assert.AreSame(model.Items[0], model.SelectedItem);
                 Assert.AreEqual("", model.FilePreview.SelectedPath);
 
                 model.Items.Add(new SearchViewItem { ItemDisplayName = "Later result", IconSymbol = 0xF6EC });
                 Dispatcher.UIThread.RunJobs();
-                Assert.AreEqual(-1, results.SelectedIndex);
-                Assert.IsNull(model.SelectedItem);
+                Assert.AreEqual(0, results.SelectedIndex);
+                var expected = model.Items[0];
+                window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+                Assert.AreSame(expected, await services.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
             }
+        });
+    }
+
+    [TestMethod]
+    public async Task Search_FilterChanges_SelectsFirstVisibleAndEmptyResultsDoNotOpen()
+    {
+        await RunAsync(async (window, model, services) =>
+        {
+            var index = (SearchServicesProxy)ServiceManager.Services.GetRequiredService<IIndexService>();
+            index.Results = new[] { FileType.URL, FileType.数学运算 }.Select((type, i) =>
+                new SearchIndexResult(new SearchEntry
+                {
+                    OnlyKey = $"result-{i}", DisplayName = $"Result {i}", FileType = type
+                }, 1, null)).ToArray();
+            model.Search = "q";
+            for (var i = 0; i < 100 && model.Items.Count != 2; i++)
+            {
+                await Task.Delay(20);
+                Dispatcher.UIThread.RunJobs();
+            }
+            Assert.HasCount(2, model.Items);
+            var expected = model.Items[1];
+            model.FileTypes.Add(new FileTypeFilter { FileType = FileType.图像, IsChecked = true });
+            model.UpdateFilter();
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsNull(model.SelectedItem);
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            Assert.IsFalse(services.Opened.Task.IsCompleted);
+
+            foreach (var filter in model.FileTypes) filter.IsChecked = filter.FileType == expected.FileType;
+            model.UpdateFilter();
+            Dispatcher.UIThread.RunJobs();
+            Assert.AreSame(expected, model.SelectedItem);
+            Assert.AreSame(expected, window.FindControl<ListBox>("dataGrid")!.SelectedItem);
+            Assert.IsTrue(window.FindControl<TextBox>("tx")!.IsFocused);
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            Assert.AreSame(expected, await services.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
         });
     }
 

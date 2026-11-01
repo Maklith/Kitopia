@@ -38,6 +38,11 @@ public partial class SearchWindow : Window
             _focusedSearchItem = null;
             if (DataContext is SearchWindowViewModel { IsPreviewMode: true }) return;
             PinnedList.SelectedIndex = -1;
+            if (DataContext is SearchWindowViewModel model && (model.Search.Length > 0 || model.IsDirectorySearch))
+            {
+                model.SelectedItem = model.ItemsViewList.FirstOrDefault();
+                return;
+            }
             dataGrid.SelectedIndex = -1;
             everythingControl.ClearSelection();
         };
