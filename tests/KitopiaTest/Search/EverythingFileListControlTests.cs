@@ -153,6 +153,78 @@ public sealed class EverythingFileListControlTests
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
+    public async Task SearchWindow_TransientDeactivationWhileShowing_KeepsModeAndInput(bool directorySearch)
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            window.Hide();
+            Dispatcher.UIThread.RunJobs();
+            var foreground = (SearchServicesProxy)ServiceManager.Services.GetRequiredService<IWindowTool>();
+            foreground.OnSetForegroundWindow = () =>
+            {
+                typeof(WindowBase).GetMethod("HandleDeactivated", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .Invoke(window, null);
+                Assert.IsTrue(window.IsVisible, "Transient deactivation must not hide the window during native activation.");
+                typeof(WindowBase).GetMethod("HandleActivated", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .Invoke(window, null);
+            };
+            if (directorySearch) window.ShowDirectorySearch(@"C:\Projects", "d", new PixelRect(0, 0, 1000, 800));
+            else window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(window.IsVisible);
+            Assert.AreEqual(directorySearch, model.IsDirectorySearch);
+            var input = window.FindControl<TextBox>("tx")!;
+            Assert.AreSame(input, window.FocusManager!.GetFocusedElement());
+            window.KeyTextInput("esign");
+            Assert.AreEqual(directorySearch ? "design" : "esign", model.Search);
+            if (directorySearch)
+                await WaitForAsync(() => model.IsEverythingConnected);
+
+            typeof(WindowBase).GetMethod("HandleDeactivated", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(window, null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsFalse(window.IsVisible, "Leaving search must still dismiss the popup.");
+        });
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task SearchWindow_DirectorySearch_FromHiddenWindow_PreservesModeAndAcceptsTyping(bool previouslyShown)
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            if (previouslyShown)
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                window.Hide();
+                Dispatcher.UIThread.RunJobs();
+            }
+            const string directory = @"C:\Projects\Kitopia";
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                window.ShowDirectorySearch(directory, "d", new PixelRect(0, 0, 1000, 800));
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsTrue(window.IsVisible);
+                Assert.AreEqual(directory, model.DirectorySearchPath);
+                Assert.IsTrue(model.IsEverythingMode);
+                Assert.AreEqual(720, window.Width);
+                var input = window.FindControl<TextBox>("tx")!;
+                Assert.AreSame(input, window.FocusManager!.GetFocusedElement());
+                Assert.AreEqual("d", input.Text);
+                window.KeyTextInput("esign");
+                await WaitForAsync(() => model.Search == "design" && model.IsEverythingConnected);
+                Assert.AreEqual("\"C:\\Projects\\Kitopia\\\" <design>", SearchServicesProxy.EverythingCalls.Last().Keyword);
+                window.Hide();
+                Dispatcher.UIThread.RunJobs();
+            }
+        }, showWindow: false);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
     public async Task SearchWindow_DirectorySearch_RenderAndContinueTyping(bool dark)
     {
         await RunAsync(async (window, model, _) =>
@@ -879,7 +951,7 @@ public sealed class EverythingFileListControlTests
     }
 
     private static async Task RunAsync(Func<SearchWindow, SearchWindowViewModel, SearchServicesProxy, Task> test,
-        Func<CancellationToken, bool>? availability = null)
+        Func<CancellationToken, bool>? availability = null, bool showWindow = true)
     {
         ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithPlatformServices().BuildApp();
         await using var session = HeadlessUnitTestSession.StartNew(typeof(EverythingFileListControlTests));
@@ -926,8 +998,11 @@ public sealed class EverythingFileListControlTests
                 .CreateDelegate<EventHandler<WindowClosingEventArgs>>(window);
             try
             {
-                window.Show();
-                Dispatcher.UIThread.RunJobs();
+                if (showWindow)
+                {
+                    window.Show();
+                    Dispatcher.UIThread.RunJobs();
+                }
                 await test(window, model, (SearchServicesProxy)itemTool);
             }
             finally
@@ -962,18 +1037,26 @@ public sealed class EverythingFileListControlTests
         public TaskCompletionSource<SearchViewItem> Opened { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public IReadOnlyList<SearchIndexResult> Results { get; set; } = [];
         public Func<CancellationToken, bool>? AvailabilityProbe { get; set; }
+        public Action? OnSetForegroundWindow { get; set; }
 
-        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => targetMethod!.Name switch
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            nameof(IWindowTool.MoveWindowToMouseScreenCenter) or nameof(IWindowTool.SetForegroundWindow)
-                or nameof(IAppToolService.LoadIcon) => null,
-            nameof(IIndexService.SearchPinyin) => Results,
-            nameof(IIndexService.SearchAsync) => Task.FromResult(Results),
-            nameof(IAppToolService.SearchWithEverything) => HandleEverythingSearch(args),
-            nameof(IEverythingAvailabilityService.IsAvailable) => AvailabilityProbe!.Invoke((CancellationToken)args![0]!),
-            nameof(ISearchItemTool.OpenFile) => Opened.TrySetResult((SearchViewItem)args![0]!),
-            _ => throw new NotSupportedException(targetMethod.Name)
-        };
+            if (targetMethod!.Name == nameof(IWindowTool.SetForegroundWindow))
+            {
+                OnSetForegroundWindow?.Invoke();
+                return null;
+            }
+            return targetMethod.Name switch
+            {
+                nameof(IWindowTool.MoveWindowToMouseScreenCenter) or nameof(IAppToolService.LoadIcon) => null,
+                nameof(IIndexService.SearchPinyin) => Results,
+                nameof(IIndexService.SearchAsync) => Task.FromResult(Results),
+                nameof(IAppToolService.SearchWithEverything) => HandleEverythingSearch(args),
+                nameof(IEverythingAvailabilityService.IsAvailable) => AvailabilityProbe!.Invoke((CancellationToken)args![0]!),
+                nameof(ISearchItemTool.OpenFile) => Opened.TrySetResult((SearchViewItem)args![0]!),
+                _ => throw new NotSupportedException(targetMethod.Name)
+            };
+        }
 
         private static object HandleEverythingSearch(object?[]? args)
         {

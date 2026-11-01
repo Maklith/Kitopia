@@ -207,7 +207,11 @@ public partial class SearchWindow : Window
 
     private void w_Deactivated(object? sender, EventArgs eventArgs)
     {
-        IsVisible = false;
+        // Native foreground activation can briefly deactivate the window before activating it again.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsActive) Hide();
+        }, DispatcherPriority.Background);
     }
 
 
