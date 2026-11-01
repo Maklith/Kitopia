@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Abstractions.Shell;
 using Serilog;
@@ -15,7 +16,15 @@ public sealed class ShellUtils : IDesktopShell
 
         try 
         {
-            Shell32.ShellExecute(IntPtr.Zero, "open", path, arguments, workingDirectory, ShowWindowCommand.SW_NORMAL);
+            var info = new Shell32.SHELLEXECUTEINFO(path, arguments)
+            {
+                lpVerb = "open",
+                lpDirectory = workingDirectory,
+                nShellExecuteShow = ShowWindowCommand.SW_NORMAL,
+                fMask = Shell32.ShellExecuteMaskFlags.SEE_MASK_NOASYNC
+            };
+            if (!Shell32.ShellExecuteEx(ref info))
+                Logger.Error("Failed to open {Path}: Win32 error {ErrorCode}", path, Marshal.GetLastWin32Error());
         }
         catch (Exception e)
         {
@@ -29,7 +38,15 @@ public sealed class ShellUtils : IDesktopShell
 
         try
         {
-            Shell32.ShellExecute(IntPtr.Zero, "runas", path, arguments, "", ShowWindowCommand.SW_NORMAL);
+            var info = new Shell32.SHELLEXECUTEINFO(path, arguments)
+            {
+                lpVerb = "runas",
+                lpDirectory = "",
+                nShellExecuteShow = ShowWindowCommand.SW_NORMAL,
+                fMask = Shell32.ShellExecuteMaskFlags.SEE_MASK_NOASYNC
+            };
+            if (!Shell32.ShellExecuteEx(ref info))
+                Logger.Error("Failed to run {Path} as admin: Win32 error {ErrorCode}", path, Marshal.GetLastWin32Error());
         }
         catch (Exception e)
         {
@@ -44,7 +61,15 @@ public sealed class ShellUtils : IDesktopShell
         var parentDir = Path.GetDirectoryName(filepath);
         if (string.IsNullOrEmpty(parentDir))
         {
-             Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + filepath, "", ShowWindowCommand.SW_SHOW);
+             var info = new Shell32.SHELLEXECUTEINFO("explorer.exe", "/select," + filepath)
+             {
+                 lpVerb = "open",
+                 lpDirectory = "",
+                 nShellExecuteShow = ShowWindowCommand.SW_SHOW,
+                 fMask = Shell32.ShellExecuteMaskFlags.SEE_MASK_NOASYNC
+             };
+             if (!Shell32.ShellExecuteEx(ref info))
+                 Logger.Error("Failed to select {Path} in Explorer: Win32 error {ErrorCode}", filepath, Marshal.GetLastWin32Error());
              return;
         }
         
@@ -63,8 +88,16 @@ public sealed class ShellUtils : IDesktopShell
         }
         catch (Exception e)
         {
-            Logger.Error(e, "Vanara SHOpenFolderAndSelectItems failed, falling back to ShellExecute.");
-            Shell32.ShellExecute(IntPtr.Zero, "open", "explorer.exe", "/select," + filepath, "", ShowWindowCommand.SW_SHOW);
+            Logger.Error(e, "Vanara SHOpenFolderAndSelectItems failed, falling back to ShellExecuteEx.");
+            var info = new Shell32.SHELLEXECUTEINFO("explorer.exe", "/select," + filepath)
+            {
+                lpVerb = "open",
+                lpDirectory = "",
+                nShellExecuteShow = ShowWindowCommand.SW_SHOW,
+                fMask = Shell32.ShellExecuteMaskFlags.SEE_MASK_NOASYNC
+            };
+            if (!Shell32.ShellExecuteEx(ref info))
+                Logger.Error("Failed to select {Path} in Explorer: Win32 error {ErrorCode}", filepath, Marshal.GetLastWin32Error());
         }
     }
 }
