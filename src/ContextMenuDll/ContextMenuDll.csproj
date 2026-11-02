@@ -35,6 +35,8 @@
 
     <Target Name="CopyClsidMap" AfterTargets="Build" Condition="'$(Configuration)'=='Debug'">
         <Copy SourceFiles="$(IntermediateOutputPath)$(TargetName).clsidmap" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+        <!-- Embedding a new CLSID can preserve the comhost template's size and timestamp. -->
+        <Copy SourceFiles="$(IntermediateOutputPath)$(TargetName).comhost.dll" DestinationFolder="$(OutDir)" SkipUnchangedFiles="false" />
     </Target>
 
     <ItemGroup><!-- Replacing Vanara with standard interop -->

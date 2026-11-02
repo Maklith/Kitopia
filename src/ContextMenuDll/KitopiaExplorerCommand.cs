@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using System.Text;
 using System.Text.Json;
 using ContextMenuDll.Interop;
@@ -92,8 +93,23 @@ public partial class KitopiaExplorerCommand : IExplorerCommand, IShellExtInit, I
             
             try 
             {
-                // Verify we are in a package context
-                var localFolder = Windows.Storage.ApplicationData.Current.LocalFolder.Path;
+                string localFolder;
+                try
+                {
+                    localFolder = Windows.Storage.ApplicationData.Current.LocalFolder.Path;
+                }
+                catch (InvalidOperationException)
+                {
+                    // Explorer has no package identity when it loads this DLL in process.
+                    var packageFullName = System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(_dllDirectory));
+                    var familyName = new StringBuilder(128);
+                    uint length = (uint)familyName.Capacity;
+                    var error = PackageFamilyNameFromFullName(packageFullName, ref length, familyName);
+                    if (error != 0) throw new System.ComponentModel.Win32Exception(error);
+                    localFolder = System.IO.Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "Packages", familyName.ToString(), "LocalState");
+                }
                 var settingsPath = System.IO.Path.Combine(localFolder, "ContextMenuSettings.json");
                 if (System.IO.File.Exists(settingsPath))
                 {
@@ -192,6 +208,9 @@ public partial class KitopiaExplorerCommand : IExplorerCommand, IShellExtInit, I
         return System.IO.Path.Combine(configDirectory, ConfigFileName);
     }
 
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern int PackageFamilyNameFromFullName(string? packageFullName, ref uint length, StringBuilder familyName);
+
     // Implement IExplorerCommand (not Shell32.IExplorerCommand)
     public void GetTitle(IShellItemArray? psiItemArray, out string ppszName)
     {
@@ -268,7 +287,7 @@ public partial class KitopiaExplorerCommand : IExplorerCommand, IShellExtInit, I
         LogStatic($"DllGetClassObject called. CLSID: {clsid}, IID: {iid}");
 
         // 60DA6757-67FE-B7CE-8195-3EFD30746B23
-        if (clsid == Guid.Parse("60DA6757-67FE-B7CE-8195-3EFD30746B23"))
+        if (clsid == typeof(KitopiaExplorerCommand).GUID || clsid == typeof(KitopiaClassicContextMenu).GUID)
         {
             try 
             {
@@ -302,7 +321,8 @@ public partial class KitopiaExplorerCommand : IExplorerCommand, IShellExtInit, I
     [UnmanagedCallersOnly(EntryPoint = "DllCanUnloadNow")]
     public static int DllCanUnloadNow()
     {
-        return 0; // S_OK
+        // NativeAOT's runtime cannot be unloaded from an in-process COM host.
+        return 1; // S_FALSE
     }
 #endif
 

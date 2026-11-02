@@ -6,8 +6,9 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
   xmlns:desktop5="http://schemas.microsoft.com/appx/manifest/desktop/windows10/5"
+  xmlns:desktop9="http://schemas.microsoft.com/appx/manifest/desktop/windows10/9"
   xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
-  IgnorableNamespaces="uap uap10 rescap desktop4 desktop5 com">
+  IgnorableNamespaces="uap uap10 rescap desktop4 desktop5 desktop9 com">
 
   <Identity
     Name="Maklith.KitopiaCompanion"
@@ -57,10 +58,19 @@
           </desktop4:FileExplorerContextMenus>
         </desktop4:Extension>
 
+        <desktop9:Extension Category="windows.fileExplorerClassicContextMenuHandler">
+          <desktop9:FileExplorerClassicContextMenuHandler>
+            <desktop9:ExtensionHandler Type="*" Clsid="CF88EA19-88F4-4C8A-9F8C-F593CE61D52D" />
+            <desktop9:ExtensionHandler Type="Directory" Clsid="CF88EA19-88F4-4C8A-9F8C-F593CE61D52D" />
+            <desktop9:ExtensionHandler Type="Directory\Background" Clsid="CF88EA19-88F4-4C8A-9F8C-F593CE61D52D" />
+          </desktop9:FileExplorerClassicContextMenuHandler>
+        </desktop9:Extension>
+
         <com:Extension Category="windows.comServer">
           <com:ComServer>
             <com:SurrogateServer DisplayName="Kitopia Context Menu">
               <com:Class Id="60DA6757-67FE-B7CE-8195-3EFD30746B23" Path="ContextMenuDll\ContextMenuDll.dll" ThreadingModel="STA"/>
+              <com:Class Id="CF88EA19-88F4-4C8A-9F8C-F593CE61D52D" Path="ContextMenuDll\ContextMenuDll.dll" ThreadingModel="STA"/>
             </com:SurrogateServer>
           </com:ComServer>
         </com:Extension>

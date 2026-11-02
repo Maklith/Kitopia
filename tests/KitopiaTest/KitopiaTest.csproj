@@ -35,6 +35,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\src\Kitopia.Desktop.Platform.Windows\Kitopia.Desktop.Platform.Windows.csproj" />
+      <ProjectReference Include="..\..\src\ContextMenuDll\ContextMenuDll.csproj" Condition="'$(OS)' == 'Windows_NT'" />
       <ProjectReference Include="..\..\src\Kitopia.Desktop.Platform.Linux\Kitopia.Desktop.Platform.Linux.csproj" />
       <ProjectReference Include="..\..\src\Kitopia.Desktop.Features\Kitopia.Desktop.Features.csproj" />
       <ProjectReference Include="..\..\plugins\OnnxRuntime.CPU\OnnxRuntime.CPU.csproj" AdditionalProperties="OnnxRuntimeOutputPath=bin\$(Configuration)\" />
