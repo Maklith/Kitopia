@@ -19,13 +19,13 @@ public sealed class SearchWindowPlacementTests
 
     [TestMethod]
     [DataRow(0, 0, 1920, 1040, 1d, 180d, 480, 260)]
-    [DataRow(0, 0, 1920, 1040, 1d, 768d, 480, 136)]
-    [DataRow(0, 0, 1920, 1040, 1.25d, 768d, 360, 40)]
+    [DataRow(0, 0, 1920, 1040, 1d, 768d, 480, 260)]
+    [DataRow(0, 0, 1920, 1040, 1.25d, 768d, 360, 80)]
     [DataRow(0, 0, 1920, 1040, 1.5d, 1040 / 1.5d, 240, 0)]
-    [DataRow(0, 40, 1920, 1040, 1.25d, 768d, 360, 80)]
-    [DataRow(-1920, -1080, 1920, 1040, 1.25d, 768d, -1560, -1040)]
+    [DataRow(0, 40, 1920, 1040, 1.25d, 768d, 360, 120)]
+    [DataRow(-1920, -1080, 1920, 1040, 1.25d, 768d, -1560, -1000)]
     [DataRow(1920, 200, 2560, 1400, 2d, 700d, 2240, 200)]
-    [DataRow(0, 0, 1920, 1040, 1.25d, 767.5d, 360, 40)]
+    [DataRow(0, 0, 1920, 1040, 1.25d, 767.5d, 360, 80)]
     public void GetSearchWindowPosition_ScaledWindow_StaysWithinWorkingArea(
         int areaX, int areaY, int areaWidth, int areaHeight, double scaling, double height,
         int expectedX, int expectedY)
@@ -82,8 +82,7 @@ public sealed class SearchWindowPlacementTests
                     "Growing the visible window must keep it inside the work area.");
                 Assert.IsTrue(window.Bounds.Height * scaling <= screen.WorkingArea.Height * 0.6 + 1);
                 var bottomGap = screen.WorkingArea.Bottom - window.Position.Y - window.Bounds.Height * scaling;
-                Assert.AreEqual(window.Position.Y - screen.WorkingArea.Y, bottomGap, 1,
-                    "Tall results must be centered vertically.");
+                Assert.AreEqual(290, window.Position.Y, "Growing results must keep search box position stable without jitter.");
 
                 window.Hide();
                 scalingProperty.SetValue(screen, 1d);
@@ -145,7 +144,7 @@ public sealed class SearchWindowPlacementTests
                 Assert.IsTrue(area.Contains(bounds));
                 Assert.IsTrue(bounds.Height <= height * 0.6 + 1, "Results must leave space above and below on laptops.");
                 Assert.IsTrue(bounds.Width <= width * 0.9 + 1, "The fixed desktop width must shrink on narrow logical displays.");
-                Assert.AreEqual(bounds.Y - area.Y, area.Bottom - bounds.Bottom, 1);
+                Assert.AreEqual(area.Y + area.Height / 4, bounds.Y, 1, "Window top must remain anchored at quarter-height.");
             }
             finally
             {

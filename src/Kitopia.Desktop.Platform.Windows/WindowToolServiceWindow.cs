@@ -111,15 +111,16 @@ public class WindowToolServiceWindow : IWindowTool
     public void MoveWindowToMouseScreenCenter(Avalonia.Controls.Window window)
     {
         User32.GetCursorPos(out var pos);
-        var hmonitor = User32.MonitorFromPoint(pos, User32.MonitorFlags.MONITOR_DEFAULTTOPRIMARY);
-        var monitorInfo = new User32.MONITORINFO();
-        monitorInfo.cbSize = 40;
-        User32.GetMonitorInfo(hmonitor, ref monitorInfo);
-        User32.GetWindowRect(window.TryGetPlatformHandle()!.Handle, out var windowRect);
-        window.Position =
-            new PixelPoint(
-                monitorInfo.rcMonitor.Left + (monitorInfo.rcMonitor.Width - windowRect.Width) / 2,
-                monitorInfo.rcMonitor.Top + monitorInfo.rcMonitor.Height / 4);
+        var screen = window.Screens.ScreenFromPoint(new PixelPoint(pos.X, pos.Y)) ?? window.Screens.Primary;
+        if (screen is not null)
+        {
+            var area = screen.WorkingArea;
+            var width = (int)Math.Ceiling((window.Bounds.Width > 0 ? window.Bounds.Width : (window.Width > 0 ? window.Width : 960)) * screen.Scaling);
+            var height = (int)Math.Ceiling((window.Bounds.Height > 0 ? window.Bounds.Height : (window.MinHeight > 0 ? window.MinHeight : 180)) * screen.Scaling);
+            window.Position = new PixelPoint(
+                area.X + Math.Max(0, (area.Width - width) / 2),
+                Math.Clamp(area.Y + area.Height / 4, area.Y, Math.Max(area.Y, area.Bottom - height)));
+        }
     }
 
     public void SetWindowTopMost(IntPtr hWnd, bool topMost) =>
