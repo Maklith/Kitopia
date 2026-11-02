@@ -71,6 +71,12 @@ Package targets depend on `CreateRelease`, which requires `GitHubToken` and crea
 
 The default entrypoint selects `Clean` when a GitHub token is supplied and `LocalTest` otherwise. ONNX publication uses configured API keys and defaults to a local API for local runs. Treat default/package targets as publishing workflows; use `dotnet build` and `dotnet test` for ordinary verification.
 
+### Companion Store package version
+
+`src/Kitopia.StoreCompanionPacking/Kitopia.StoreCompanionPacking.wapproj` selects `Package.debug.appxmanifest` for Debug and `Package.appxmanifest` for Release and other configurations. Set `Identity/@Version` in the release manifest when publishing a Companion update; editing only the debug manifest does not change the Store package version. Use the four-part MSIX version (for example `1.2.0.0`). This version is independent of the desktop client's `KitopiaVersion.props`; `AppxAutoIncrementPackageRevision` is currently disabled.
+
+Each configuration must evaluate to exactly one `AppxManifest` item. Do not add an unconditional manifest include alongside the existing conditional entries: signing tasks such as `GenerateDisposableSigningCertificate` accept a single manifest, and duplicate entries fail even when they name the same file.
+
 ### Rust Installer
 
 Run inside `installer/ModernInstallerR/`:
