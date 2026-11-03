@@ -301,6 +301,12 @@ public sealed class SearchWindowKeyboardTests
                 Assert.IsTrue(model.IsPreviewMode);
                 Assert.AreSame(expected, model.SelectedItem);
 
+                window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                Assert.AreSame(model.Items[2], model.SelectedItem);
+                Assert.IsTrue(results.IsKeyboardFocusWithin);
+                window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+                Assert.AreSame(expected, model.SelectedItem);
+
                 window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
                 Assert.AreSame(expected, await services.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
             }
@@ -312,6 +318,9 @@ public sealed class SearchWindowKeyboardTests
                 Assert.AreEqual("", model.FilePreview.SelectedPath);
 
                 window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                Assert.AreEqual(1, results.SelectedIndex);
+                Assert.IsTrue(results.IsKeyboardFocusWithin);
+                window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
                 Assert.AreEqual(0, results.SelectedIndex);
                 window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
                 Dispatcher.UIThread.RunJobs();
@@ -370,9 +379,9 @@ public sealed class SearchWindowKeyboardTests
     [TestMethod]
     [DataRow(true)]
     [DataRow(false)]
-    public async Task InputRegainsFocus_ShortcutOrResultSelected_ClearsSelectionAndDoesNotOpenOnEnter(bool fromShortcuts)
+    public async Task InputRegainsFocus_ShortcutOrResultSelected_RestoresDefaultAndEnterOpensIt(bool fromShortcuts)
     {
-        await RunAsync((window, model, services) =>
+        await RunAsync(async (window, model, services) =>
         {
             var input = window.FindControl<TextBox>("tx")!;
             var results = window.FindControl<ListBox>("dataGrid")!;
@@ -386,13 +395,149 @@ public sealed class SearchWindowKeyboardTests
             Assert.AreEqual(0, (fromShortcuts ? shortcuts : results).SelectedIndex);
             window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
             Assert.IsTrue(input.IsFocused);
-            Assert.AreEqual(-1, results.SelectedIndex);
-            Assert.AreEqual(-1, shortcuts.SelectedIndex);
-            Assert.IsNull(model.SelectedItem);
+            Assert.AreEqual(fromShortcuts ? -1 : 0, results.SelectedIndex);
+            Assert.AreEqual(fromShortcuts ? 0 : -1, shortcuts.SelectedIndex);
+            var expected = fromShortcuts ? model.PinnedItems[0] : model.ItemsViewList[0];
+            Assert.AreSame(expected, model.SelectedPinnedItem ?? model.SelectedItem);
             window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
-            Assert.IsTrue(window.IsVisible);
-            Assert.IsFalse(services.Opened.Task.IsCompleted);
-            return Task.CompletedTask;
+            Assert.AreSame(expected, await services.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        });
+    }
+
+    [TestMethod]
+    [DataRow("empty", false)]
+    [DataRow("empty", true)]
+    [DataRow("ordinary", false)]
+    [DataRow("ordinary", true)]
+    [DataRow("preview", false)]
+    [DataRow("preview", true)]
+    public async Task InputRegainsFocus_AllListModes_UseSameDefaultAndAdvanceOnDown(string mode, bool hasPinnedItems)
+    {
+        await RunAsync(async (window, model, services) =>
+        {
+            var pinned1 = new SearchViewItem { ItemDisplayName = "Pinned 1", IconSymbol = 0xF6EC, ShowAsMiniApp = true };
+            var pinned2 = new SearchViewItem { ItemDisplayName = "Pinned 2", IconSymbol = 0xF6EC, ShowAsMiniApp = true };
+            var first = new SearchViewItem { ItemDisplayName = "First", IconSymbol = 0xF6EC };
+            var second = new SearchViewItem { ItemDisplayName = "Second", IconSymbol = 0xF6EC };
+            PluginOverall.SearchWindowInputDataAnalyzers["Kitopia"] =
+            [
+                (() => InputDataAnalyzeTimeFlags.InputEmpty | InputDataAnalyzeTimeFlags.InputChanged,
+                    _ => mode == "empty"
+                        ? (hasPinnedItems ? [pinned2, pinned1, second, first] : [second, first])
+                        : (hasPinnedItems ? [pinned2, pinned1] : []))
+            ];
+            if (mode == "empty")
+                model.LoadLast();
+            else
+            {
+                var index = (SearchServicesProxy)ServiceManager.Services.GetRequiredService<IIndexService>();
+                index.Results = Enumerable.Range(0, 2).Select(i => new SearchIndexResult(new SearchEntry
+                {
+                    OnlyKey = $"result-{i}", DisplayName = $"Result {i}",
+                    FileType = mode == "preview" ? FileType.Word文档 : FileType.URL
+                }, 1, null)).ToArray();
+                model.Search = "query";
+                for (var i = 0; i < 100 && model.Items.Count != 2; i++)
+                {
+                    await Task.Delay(20);
+                    Dispatcher.UIThread.RunJobs();
+                }
+                if (mode == "preview") model.TogglePreviewModeCommand.Execute(null);
+            }
+            Dispatcher.UIThread.RunJobs();
+            Assert.HasCount(2, model.ItemsViewList);
+            Assert.AreEqual(mode == "preview", model.IsPreviewMode);
+            var input = window.FindControl<TextBox>("tx")!;
+            var results = window.FindControl<ListBox>("dataGrid")!;
+            var shortcuts = window.FindControl<ListBox>("PinnedList")!;
+            var defaultItem = hasPinnedItems ? pinned1 : model.ItemsViewList[0];
+            Assert.IsTrue(input.IsFocused);
+            Assert.AreSame(defaultItem, model.SelectedPinnedItem ?? model.SelectedItem);
+
+            // Returning by either input focus or Up uses the same default in every mode.
+            results.SelectedIndex = 1;
+            results.ContainerFromIndex(1)!.Focus();
+            input.Focus();
+            Assert.IsTrue(input.IsFocused);
+            Assert.AreSame(defaultItem, model.SelectedPinnedItem ?? model.SelectedItem);
+            Assert.AreEqual(hasPinnedItems ? -1 : 0, results.SelectedIndex);
+            Assert.AreEqual(hasPinnedItems ? 0 : -1, shortcuts.SelectedIndex);
+
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreSame(hasPinnedItems ? pinned2 : model.ItemsViewList[1], model.SelectedPinnedItem ?? model.SelectedItem);
+            Assert.IsTrue((hasPinnedItems ? shortcuts : results).IsKeyboardFocusWithin);
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Assert.IsTrue(input.IsFocused);
+            Assert.AreSame(defaultItem, model.SelectedPinnedItem ?? model.SelectedItem);
+
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            Assert.AreSame(defaultItem, await services.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        });
+    }
+
+    [TestMethod]
+    public async Task Selection_ViewAndFilterChanges_PreserveValidItemAndUseSameDefaultWhenInvalid()
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            var index = (SearchServicesProxy)ServiceManager.Services.GetRequiredService<IIndexService>();
+            index.Results = new[] { FileType.URL, FileType.Word文档, FileType.Word文档 }.Select((type, i) =>
+                new SearchIndexResult(new SearchEntry { OnlyKey = $"result-{i}", DisplayName = $"Result {i}", FileType = type }, 1, null)).ToArray();
+            model.Search = "query";
+            for (var i = 0; i < 100 && model.Items.Count != 3; i++)
+            {
+                await Task.Delay(20);
+                Dispatcher.UIThread.RunJobs();
+            }
+            Assert.HasCount(3, model.ItemsViewList);
+            var first = model.ItemsViewList[0];
+            var selected = model.ItemsViewList[2];
+            model.TogglePreviewModeCommand.Execute(null);
+            Assert.IsTrue(model.IsPreviewMode);
+            Assert.AreSame(first, model.SelectedItem);
+            model.SelectedItem = selected;
+            model.TogglePreviewModeCommand.Execute(null);
+            model.TogglePreviewModeCommand.Execute(null);
+            Assert.AreSame(selected, model.SelectedItem);
+
+            var input = window.FindControl<TextBox>("tx")!;
+            var results = window.FindControl<ListBox>("dataGrid")!;
+            results.ContainerFromIndex(2)!.Focus();
+            input.Focus();
+            Assert.AreSame(first, model.SelectedItem);
+            Assert.AreEqual("", model.FilePreview.SelectedPath);
+
+            model.SelectedItem = selected;
+            foreach (var filter in model.FileTypes) filter.IsChecked = filter.FileType == FileType.Word文档;
+            model.UpdateFilter();
+            Assert.AreSame(selected, model.SelectedItem);
+            model.UpdateSelection(resetToDefault: true);
+            Assert.AreSame(model.ItemsViewList[0], model.SelectedItem);
+            Assert.AreNotSame(first, model.SelectedItem);
+
+            var pinned1 = new SearchViewItem { ItemDisplayName = "Pinned 1", IconSymbol = 0xF6EC };
+            var pinned2 = new SearchViewItem { ItemDisplayName = "Pinned 2", IconSymbol = 0xF6EC };
+            model.PinnedItems.Add(pinned1);
+            model.PinnedItems.Add(pinned2);
+            model.ShowPinnedItems = true;
+            model.UpdateSelection(resetToDefault: true);
+            Assert.AreSame(pinned1, model.SelectedPinnedItem);
+            model.SelectedPinnedItem = pinned2;
+            model.UpdateFilter();
+            Assert.AreSame(pinned2, model.SelectedPinnedItem);
+            model.PinnedItems.Remove(pinned2);
+            model.UpdateSelection();
+            Assert.AreSame(pinned1, model.SelectedPinnedItem);
+            model.ShowPinnedItems = false;
+            model.UpdateSelection();
+            Assert.IsNull(model.SelectedPinnedItem);
+            Assert.AreSame(model.ItemsViewList[0], model.SelectedItem);
+
+            model.ItemsView.AttachFilter(_ => false);
+            model.UpdateSelection(resetToDefault: true);
+            Assert.IsNull(model.SelectedItem);
+            Assert.IsNull(model.SelectedPinnedItem);
         });
     }
 
@@ -431,9 +576,215 @@ public sealed class SearchWindowKeyboardTests
             Assert.AreEqual(0, shortcuts.SelectedIndex);
             window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
             Assert.IsTrue(input.IsFocused);
-            Assert.AreEqual(-1, shortcuts.SelectedIndex);
+            Assert.AreEqual(0, shortcuts.SelectedIndex);
             Assert.AreEqual(-1, results.SelectedIndex);
             Assert.IsNull(model.SelectedItem);
+            return Task.CompletedTask;
+        });
+    }
+
+    [TestMethod]
+    public async Task ArrowKeys_PinnedHistoryItems_AllowNavigationWithUpDownAndLeftRight()
+    {
+        await RunAsync((window, model, _) =>
+        {
+            var input = window.FindControl<TextBox>("tx")!;
+            var shortcuts = window.FindControl<ListBox>("PinnedList")!;
+            var results = window.FindControl<ListBox>("dataGrid")!;
+            model.PinnedItems.Add(new SearchViewItem { ItemDisplayName = "History 1", IconSymbol = 0xF6EC });
+            model.PinnedItems.Add(new SearchViewItem { ItemDisplayName = "History 2", IconSymbol = 0xF6EC });
+            model.PinnedItems.Add(new SearchViewItem { ItemDisplayName = "History 3", IconSymbol = 0xF6EC });
+            model.ShowPinnedItems = true;
+            Dispatcher.UIThread.RunJobs();
+            input.Focus();
+
+            // Down from input enters PinnedList at index 0
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(0, shortcuts.SelectedIndex);
+            Assert.IsTrue(shortcuts.IsKeyboardFocusWithin);
+
+            // Down navigates forward through history items
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(1, shortcuts.SelectedIndex);
+            Assert.IsTrue(shortcuts.IsKeyboardFocusWithin);
+
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(2, shortcuts.SelectedIndex);
+            Assert.IsTrue(shortcuts.IsKeyboardFocusWithin);
+
+            // At the last history item with no results below, Down loops back to the first history item
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(0, shortcuts.SelectedIndex);
+            Assert.IsTrue(shortcuts.IsKeyboardFocusWithin);
+
+            // Up from index 0 returns focus to input
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Assert.IsTrue(input.IsFocused);
+            Assert.AreEqual(0, shortcuts.SelectedIndex);
+
+            // Left and Right keys still switch items
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(1, shortcuts.SelectedIndex);
+
+            window.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
+            Assert.AreEqual(2, shortcuts.SelectedIndex);
+
+            window.KeyPress(Key.Left, RawInputModifiers.None, PhysicalKey.ArrowLeft, null);
+            Assert.AreEqual(1, shortcuts.SelectedIndex);
+
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(2, shortcuts.SelectedIndex);
+
+            window.KeyPress(Key.Left, RawInputModifiers.None, PhysicalKey.ArrowLeft, null);
+            Assert.AreEqual(1, shortcuts.SelectedIndex);
+
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Assert.AreEqual(0, shortcuts.SelectedIndex);
+
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Assert.IsTrue(input.IsFocused);
+
+            // Test cyclical navigation: input -> history list -> results list -> history list -> results list
+            model.Items.Add(new SearchViewItem { ItemDisplayName = "Result 1", IconSymbol = 0xF6EC });
+            model.Items.Add(new SearchViewItem { ItemDisplayName = "Result 2", IconSymbol = 0xF6EC });
+            Dispatcher.UIThread.RunJobs();
+
+            // 1. From input down to history list
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(1, shortcuts.SelectedIndex);
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(2, shortcuts.SelectedIndex);
+
+            // 2. From last history item down to results list
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(0, results.SelectedIndex);
+            Assert.IsTrue(results.IsKeyboardFocusWithin);
+            Assert.AreEqual(-1, shortcuts.SelectedIndex);
+
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(1, results.SelectedIndex);
+            Assert.IsTrue(results.IsKeyboardFocusWithin);
+
+            // 3. Cycle: from last result item down loops back to history list
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(0, shortcuts.SelectedIndex);
+            Assert.IsTrue(shortcuts.IsKeyboardFocusWithin);
+            Assert.AreEqual(-1, results.SelectedIndex);
+
+            // 4. Continue cycle through history and back to results
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(1, shortcuts.SelectedIndex);
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(2, shortcuts.SelectedIndex);
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreEqual(0, results.SelectedIndex);
+            Assert.IsTrue(results.IsKeyboardFocusWithin);
+
+            // Up from results index 0 moves back to history list last item
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Assert.AreEqual(2, shortcuts.SelectedIndex);
+            Assert.IsTrue(shortcuts.IsKeyboardFocusWithin);
+            Assert.AreEqual(-1, results.SelectedIndex);
+
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Assert.AreEqual(1, shortcuts.SelectedIndex);
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Assert.AreEqual(0, shortcuts.SelectedIndex);
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Assert.IsTrue(input.IsFocused);
+            Assert.AreEqual(0, shortcuts.SelectedIndex);
+            Assert.AreEqual(-1, results.SelectedIndex);
+
+            return Task.CompletedTask;
+        });
+    }
+
+    [TestMethod]
+    [DataRow(true, true)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    [DataRow(false, false)]
+    public async Task DefaultSelection_LoadLast_PrefersPinnedThenResultsAndEnterOpensIt(bool hasPinnedItems, bool navigateBeforeEnter)
+    {
+        await RunAsync(async (window, model, services) =>
+        {
+            var input = window.FindControl<TextBox>("tx")!;
+            var shortcuts = window.FindControl<ListBox>("PinnedList")!;
+            var results = window.FindControl<ListBox>("dataGrid")!;
+            var pinned1 = new SearchViewItem { ItemDisplayName = "Pinned 1", OnlyKey = "key1", IconSymbol = 0xF6EC, ShowAsMiniApp = true };
+            var pinned2 = new SearchViewItem { ItemDisplayName = "Pinned 2", OnlyKey = "key2", IconSymbol = 0xF6EC, ShowAsMiniApp = true };
+            var result = new SearchViewItem { ItemDisplayName = "Result 1", OnlyKey = "result1", IconSymbol = 0xF6EC };
+            var secondResult = new SearchViewItem { ItemDisplayName = "Result 2", OnlyKey = "result2", IconSymbol = 0xF6EC };
+            PluginOverall.SearchWindowInputDataAnalyzers["Kitopia"] =
+            [
+                (() => InputDataAnalyzeTimeFlags.InputEmpty, _ => hasPinnedItems ? [pinned2, pinned1, secondResult, result] : [secondResult, result])
+            ];
+            model.LoadLast();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.IsTrue(input.IsFocused);
+            Assert.AreSame(hasPinnedItems ? pinned1 : null, model.SelectedPinnedItem);
+            Assert.AreSame(hasPinnedItems ? pinned1 : null, shortcuts.SelectedItem);
+            Assert.AreEqual(hasPinnedItems ? 0 : -1, shortcuts.SelectedIndex);
+            Assert.AreSame(hasPinnedItems ? null : result, model.SelectedItem);
+            Assert.AreEqual(hasPinnedItems ? -1 : 0, results.SelectedIndex);
+
+            if (navigateBeforeEnter)
+            {
+                window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                var list = hasPinnedItems ? shortcuts : results;
+                Assert.AreEqual(1, list.SelectedIndex);
+                Assert.IsTrue(list.IsKeyboardFocusWithin);
+                if (hasPinnedItems)
+                {
+                    Assert.AreSame(pinned2, shortcuts.SelectedItem);
+                    window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                    Assert.AreSame(result, results.SelectedItem);
+                    window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+                    Assert.AreSame(pinned2, shortcuts.SelectedItem);
+                }
+            }
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            Assert.AreSame(hasPinnedItems ? (navigateBeforeEnter ? pinned2 : pinned1) : (navigateBeforeEnter ? secondResult : result),
+                await services.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        });
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task DefaultSelection_SingleItem_DownUsesListBoundary(bool hasPinnedItem)
+    {
+        await RunAsync((window, model, _) =>
+        {
+            var pinned = new SearchViewItem { ItemDisplayName = "Pinned", IconSymbol = 0xF6EC, ShowAsMiniApp = true };
+            var result = new SearchViewItem { ItemDisplayName = "Result", IconSymbol = 0xF6EC };
+            PluginOverall.SearchWindowInputDataAnalyzers["Kitopia"] =
+            [
+                (() => InputDataAnalyzeTimeFlags.InputEmpty, _ => hasPinnedItem ? [pinned, result] : [result])
+            ];
+            model.LoadLast();
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(window.FindControl<TextBox>("tx")!.IsFocused);
+
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            var results = window.FindControl<ListBox>("dataGrid")!;
+            Assert.AreSame(result, results.SelectedItem);
+            Assert.IsTrue(results.IsKeyboardFocusWithin);
+
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            if (hasPinnedItem)
+            {
+                var shortcuts = window.FindControl<ListBox>("PinnedList")!;
+                Assert.AreSame(pinned, shortcuts.SelectedItem);
+                Assert.IsTrue(shortcuts.IsKeyboardFocusWithin);
+                Assert.IsNull(model.SelectedItem);
+            }
+            else
+            {
+                Assert.AreSame(result, results.SelectedItem);
+                Assert.IsTrue(results.IsKeyboardFocusWithin);
+            }
             return Task.CompletedTask;
         });
     }
@@ -472,8 +823,8 @@ public sealed class SearchWindowKeyboardTests
             Assert.IsTrue(results.IsKeyboardFocusWithin);
             window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
             Assert.IsTrue(input.IsFocused);
-            Assert.AreEqual(-1, results.SelectedIndex);
-            Assert.IsNull(model.SelectedItem);
+            Assert.AreEqual(0, results.SelectedIndex);
+            Assert.AreSame(visible, model.SelectedItem);
             return Task.CompletedTask;
         });
     }

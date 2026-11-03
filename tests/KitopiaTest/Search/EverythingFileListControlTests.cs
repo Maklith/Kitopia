@@ -156,31 +156,102 @@ public sealed class EverythingFileListControlTests
     }
 
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public async Task SearchWindow_EverythingResults_SelectsFirstWithoutMovingFocusAndEnterOpensIt(bool directorySearch)
+    [DataRow(false, false, false)]
+    [DataRow(false, true, false)]
+    [DataRow(false, false, true)]
+    [DataRow(false, true, true)]
+    [DataRow(true, false, false)]
+    [DataRow(true, true, false)]
+    public async Task SearchWindow_EverythingResults_InputFocusUsesSameDefaultAndDownAdvances(
+        bool directorySearch, bool preview, bool hasPinnedItems)
     {
         await RunAsync(async (window, model, itemTool) =>
         {
-            var first = new SearchViewItem { ItemDisplayName = "First.txt", OnlyKey = @"C:\Projects\First.txt" };
-            var second = new SearchViewItem { ItemDisplayName = "Second.txt", OnlyKey = @"C:\Projects\Second.txt" };
+            var first = new SearchViewItem { ItemDisplayName = "First.txt", OnlyKey = @"C:\Projects\First.txt", FileType = FileType.文件 };
+            var second = new SearchViewItem { ItemDisplayName = "Second.txt", OnlyKey = @"C:\Projects\Second.txt", FileType = FileType.文件 };
             SearchServicesProxy.EverythingResults = [first, second];
             if (directorySearch) window.ShowDirectorySearch(@"C:\Projects", "f", new PixelRect(0, 0, 1000, 800));
             else model.Search = "@f";
             await WaitForAsync(() => model.IsEverythingConnected && model.Items.Count == 2);
             var input = window.FindControl<TextBox>("tx")!;
             var control = window.FindControl<EverythingFileListControl>("everythingControl")!;
+            var pinned1 = new SearchViewItem { ItemDisplayName = "Pinned 1", IconSymbol = 0xF6EC };
+            var pinned2 = new SearchViewItem { ItemDisplayName = "Pinned 2", IconSymbol = 0xF6EC };
+            if (hasPinnedItems)
+            {
+                model.PinnedItems.Add(pinned1);
+                model.PinnedItems.Add(pinned2);
+                model.ShowPinnedItems = true;
+                model.UpdateSelection(resetToDefault: true);
+            }
+            if (preview) model.TogglePreviewModeCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.AreEqual(preview, model.IsPreviewMode);
+            var expected = hasPinnedItems ? pinned1 : first;
             Assert.IsTrue(input.IsFocused);
-            Assert.AreSame(first, model.SelectedItem);
-            Assert.AreSame(first, control.SelectedItem);
+            Assert.AreSame(expected, model.SelectedPinnedItem ?? model.SelectedItem);
 
-            control.SelectedItem = second;
+            control.FocusItem(second);
+            Assert.AreSame(second, model.SelectedItem);
+            input.Focus();
+            Assert.IsTrue(input.IsFocused);
+            Assert.AreSame(expected, model.SelectedPinnedItem ?? model.SelectedItem);
+            Assert.AreSame(hasPinnedItems ? null : first, control.SelectedItem);
+
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            Assert.AreSame(hasPinnedItems ? pinned2 : second, model.SelectedPinnedItem ?? model.SelectedItem);
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
             window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
             Assert.IsTrue(input.IsFocused);
-            Assert.AreSame(first, model.SelectedItem);
+            Assert.AreSame(expected, model.SelectedPinnedItem ?? model.SelectedItem);
             window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
-            Assert.AreSame(first, await itemTool.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.AreSame(expected, await itemTool.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        });
+    }
+
+    [TestMethod]
+    [DataRow(1, false)]
+    [DataRow(2, false)]
+    [DataRow(1, true)]
+    [DataRow(2, true)]
+    public async Task SearchWindow_EverythingWithoutVisibleResults_PinnedItemsCycleAndInputRestoresDefault(
+        int pinnedCount, bool filterResults)
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            SearchServicesProxy.EverythingResults = filterResults
+                ? [new SearchViewItem { ItemDisplayName = "Excluded", FileType = FileType.URL }]
+                : [];
+            model.Search = "@sample";
+            await WaitForAsync(() => model.IsEverythingConnected
+                                     && SearchServicesProxy.EverythingCalls.Count > 0
+                                     && model.Items.Count == (filterResults ? 1 : 0));
+            for (var i = 0; i < pinnedCount; i++)
+                model.PinnedItems.Add(new SearchViewItem { ItemDisplayName = $"Pinned {i}", IconSymbol = 0xF6EC });
+            model.ShowPinnedItems = true;
+            if (filterResults)
+            {
+                model.FileTypes.Add(new FileTypeFilter { FileType = FileType.图像, IsChecked = true });
+                model.UpdateFilter();
+            }
+            model.UpdateSelection(resetToDefault: true);
+            Dispatcher.UIThread.RunJobs();
+            var input = window.FindControl<TextBox>("tx")!;
+            var pinned = window.FindControl<ListBox>("PinnedList")!;
+            Assert.IsTrue(input.IsFocused);
+            Assert.AreEqual(0, pinned.SelectedIndex);
+            Assert.IsEmpty(model.ItemsViewList);
+
+            for (var press = 1; press <= pinnedCount; press++)
+            {
+                window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                Assert.AreEqual(press % pinnedCount, pinned.SelectedIndex);
+                Assert.IsTrue(pinned.IsKeyboardFocusWithin);
+                Assert.IsNull(model.SelectedItem);
+            }
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Assert.IsTrue(input.IsFocused);
+            Assert.AreSame(model.PinnedItems[0], model.SelectedPinnedItem);
         });
     }
 
@@ -452,18 +523,18 @@ public sealed class EverythingFileListControlTests
             Assert.IsTrue(input.IsFocused);
             Assert.AreSame(item1, model.SelectedItem);
 
-            // Press Down arrow to navigate into everythingControl
+            // Down advances the default selection immediately.
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.AreEqual(item1, model.SelectedItem);
-            Assert.AreEqual(0, internalGrid.SelectedIndex);
+            Assert.AreEqual(item2, model.SelectedItem);
+            Assert.AreEqual(1, internalGrid.SelectedIndex);
 
-            // Press Enter activates item1
+            // Press Enter activates item2
             window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.AreSame(item1, await itemTool.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.AreSame(item2, await itemTool.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
         });
     }
 
@@ -489,7 +560,7 @@ public sealed class EverythingFileListControlTests
             Dispatcher.UIThread.RunJobs();
 
             // Select first item and focus grid
-            everythingControl.FocusFirstItem();
+            everythingControl.FocusItem();
             Dispatcher.UIThread.RunJobs();
 
             Assert.AreEqual(0, internalGrid.SelectedIndex);
@@ -581,6 +652,59 @@ public sealed class EverythingFileListControlTests
             grid.ScrollIntoView(model.Items.Last(), null);
             Dispatcher.UIThread.RunJobs();
             Assert.AreEqual(2, SearchServicesProxy.EverythingCalls.Count);
+        });
+    }
+
+    [TestMethod]
+    public async Task SearchWindow_EverythingMode_DownAtPageEnd_WaitsForNextPageBeforeCycling()
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            var pageStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var releasePage = new ManualResetEventSlim();
+            SearchServicesProxy.PagedEverythingResults = (_, offset, count) =>
+            {
+                if (offset == 100)
+                {
+                    pageStarted.TrySetResult();
+                    Assert.IsTrue(releasePage.Wait(TimeSpan.FromSeconds(5)));
+                }
+                return Enumerable.Range(offset, Math.Min(count, 150 - offset)).Select(i => new SearchViewItem
+                {
+                    ItemDisplayName = $"file_{i}.txt", OnlyKey = $"C:\\Files\\file_{i}.txt"
+                }).ToList();
+            };
+
+            try
+            {
+                model.Search = "@sample";
+                await WaitForAsync(() => model.Items.Count == 100 && model.LoadMoreEverythingCommand.CanExecute(null));
+                var grid = window.FindControl<EverythingFileListControl>("everythingControl")!
+                    .FindControl<DataGrid>("FileListGrid")!;
+                grid.SelectedIndex = 99;
+                grid.Focus();
+                window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                await pageStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.IsTrue(model.LoadMoreEverythingCommand.IsRunning);
+                Assert.AreEqual(99, grid.SelectedIndex);
+
+                window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                Assert.AreEqual(99, grid.SelectedIndex);
+                Assert.IsTrue(grid.IsKeyboardFocusWithin);
+
+                releasePage.Set();
+                await WaitForAsync(() => model.Items.Count == 150 && !model.LoadMoreEverythingCommand.IsRunning);
+                window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                Assert.AreEqual(100, grid.SelectedIndex);
+
+                grid.SelectedIndex = 149;
+                window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                Assert.AreEqual(0, grid.SelectedIndex);
+            }
+            finally
+            {
+                releasePage.Set();
+            }
         });
     }
 

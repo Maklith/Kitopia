@@ -19,7 +19,6 @@ public partial class SearchWindow : Window
 {
     private readonly double _preferredMaxHeight;
     private Screen? _placementScreen;
-    private SearchViewItem? _lastPinnedItem;
     private SearchViewItem? _focusedSearchItem;
     private PixelRect? _directorySearchArea;
 
@@ -36,15 +35,7 @@ public partial class SearchWindow : Window
         {
             if (!ReferenceEquals(e.Source, tx)) return;
             _focusedSearchItem = null;
-            if (DataContext is SearchWindowViewModel { IsPreviewMode: true }) return;
-            PinnedList.SelectedIndex = -1;
-            if (DataContext is SearchWindowViewModel model && (model.Search.Length > 0 || model.IsDirectorySearch))
-            {
-                model.SelectedItem = model.ItemsViewList.FirstOrDefault();
-                return;
-            }
-            dataGrid.SelectedIndex = -1;
-            everythingControl.ClearSelection();
+            (DataContext as SearchWindowViewModel)?.UpdateSelection(resetToDefault: true);
         };
         PinnedList.AddHandler(KeyDownEvent, SearchItems_OnKeyDown, RoutingStrategies.Tunnel);
         dataGrid.AddHandler(KeyDownEvent, SearchItems_OnKeyDown, RoutingStrategies.Tunnel);
@@ -61,7 +52,7 @@ public partial class SearchWindow : Window
             {
                 var topLevel = TopLevel.GetTopLevel(dataGrid);
                 if (dataGrid.IsEffectivelyVisible && topLevel is Window { IsActive: true }
-                    && topLevel.FocusManager?.GetFocusedElement() is null && ReferenceEquals(dataGrid.SelectedItem, selected))
+                                                  && topLevel.FocusManager?.GetFocusedElement() is null && ReferenceEquals(dataGrid.SelectedItem, selected))
                     FocusItem(dataGrid, dataGrid.SelectedIndex);
             }, DispatcherPriority.Loaded);
         });
@@ -80,9 +71,16 @@ public partial class SearchWindow : Window
         everythingControl.NavigateUpRequested += (_, _) =>
         {
             if (PinnedList.IsEffectivelyVisible && PinnedList.Items.Count > 0)
-                FocusItem(PinnedList, Math.Max(0, PinnedList.Items.IndexOf(_lastPinnedItem)));
+                FocusItem(PinnedList, PinnedList.Items.Count - 1);
             else
                 tx.Focus();
+        };
+        everythingControl.NavigateDownRequested += (_, _) =>
+        {
+            if (PinnedList.IsEffectivelyVisible && PinnedList.Items.Count > 0)
+                FocusItem(PinnedList, 0);
+            else
+                everythingControl.FocusItem();
         };
         everythingControl.KeyDownRedirected += (_, e) =>
         {
@@ -103,11 +101,6 @@ public partial class SearchWindow : Window
             e.Handled = true;
             tx.RaiseEvent(new TextInputEventArgs { RoutedEvent = TextInputEvent, Text = e.Text });
         };
-        everythingControl.GetObservable(Controls.EverythingFileListControl.SelectedItemProperty).Subscribe(selected =>
-        {
-            if (selected != null)
-                PinnedList.SelectedIndex = -1;
-        });
 
 
         SizeChanged += (_, _) =>
@@ -150,10 +143,7 @@ public partial class SearchWindow : Window
         windowTool.SetForegroundWindow(TryGetPlatformHandle()!.Handle);
         tx.Focus();
         tx.SelectAll();
-        _lastPinnedItem = null;
-        PinnedList.SelectedIndex = -1;
-        dataGrid.SelectedIndex = -1;
-        everythingControl.ClearSelection();
+        ((SearchWindowViewModel?)DataContext)?.UpdateSelection(resetToDefault: true);
         ((SearchWindowViewModel?)DataContext)?.LoadLast();
         ((SearchWindowViewModel?)DataContext)?.SetProcessUsageEnabled(IsVisible);
     }
@@ -241,44 +231,42 @@ public partial class SearchWindow : Window
         {
             if (DataContext is SearchWindowViewModel viewModel)
             {
-                if (PinnedList.SelectedItem is SearchViewItem pinnedItem)
+                if (viewModel.SelectedPinnedItem is { } pinnedItem)
                     viewModel.OpenFile(pinnedItem);
                 else
-    if (viewModel.IsEverythingMode)
-                    viewModel.ActivateItem((SearchViewItem?)everythingControl.SelectedItem ?? viewModel.Items.FirstOrDefault());
-                else
-                    viewModel.ActivateItem((SearchViewItem?)dataGrid.SelectedItem);
+                    viewModel.ActivateItem(viewModel.SelectedItem);
             }
 
             e.Handled = true;
         }
         else if (e.Key == Key.Down && e.KeyModifiers == KeyModifiers.None)
         {
-            if (DataContext is SearchWindowViewModel { IsEverythingMode: true })
+            var advanceSelection = false;
+            if (PinnedList.IsEffectivelyVisible && PinnedList.Items.Count > 0)
             {
-                everythingControl.FocusFirstItem();
+                advanceSelection = PinnedList.SelectedIndex >= 0;
+                FocusItem(PinnedList, Math.Max(0, PinnedList.SelectedIndex));
             }
-            else
+            else if (DataContext is SearchWindowViewModel { IsEverythingMode: true })
             {
-                FocusItem(PinnedList.IsEffectivelyVisible && PinnedList.Items.Count > 0 ? PinnedList : dataGrid, 0);
+                advanceSelection = everythingControl.SelectedItem is not null;
+                everythingControl.FocusItem(everythingControl.SelectedItem);
+            }
+            else if (dataGrid.Items.Count > 0)
+            {
+                advanceSelection = dataGrid.SelectedIndex >= 0;
+                FocusItem(dataGrid, Math.Max(0, dataGrid.SelectedIndex));
             }
             e.Handled = true;
-        }
-    }
-
-    private void SearchItems_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (e.AddedItems.Count == 0) return;
-
-        if (ReferenceEquals(sender, PinnedList))
-        {
-            _lastPinnedItem = (SearchViewItem?)PinnedList.SelectedItem;
-            dataGrid.SelectedIndex = -1;
-            everythingControl.ClearSelection();
-        }
-        else
-        {
-            PinnedList.SelectedIndex = -1;
+            if (advanceSelection && FocusManager?.GetFocusedElement() is InputElement target)
+                target.RaiseEvent(new KeyEventArgs
+                {
+                    RoutedEvent = KeyDownEvent,
+                    Key = e.Key,
+                    KeyModifiers = e.KeyModifiers,
+                    PhysicalKey = e.PhysicalKey,
+                    KeySymbol = e.KeySymbol
+                });
         }
     }
 
@@ -317,27 +305,67 @@ public partial class SearchWindow : Window
             return;
         }
 
-        if (e.Key == Key.Up && e.KeyModifiers == KeyModifiers.None
-            && (ReferenceEquals(list, PinnedList) || list.SelectedIndex <= 0))
+        if (e.Key == Key.Up && e.KeyModifiers == KeyModifiers.None)
         {
-            if (ReferenceEquals(list, dataGrid) && PinnedList.IsEffectivelyVisible && PinnedList.Items.Count > 0)
-                FocusItem(PinnedList, Math.Max(0, PinnedList.Items.IndexOf(_lastPinnedItem)));
-            else
-                tx.Focus();
-            e.Handled = true;
-            return;
+            if (ReferenceEquals(list, PinnedList))
+            {
+                if (list.SelectedIndex > 0)
+                    FocusItem(list, list.SelectedIndex - 1);
+                else
+                    tx.Focus();
+                e.Handled = true;
+                return;
+            }
+
+            if (list.SelectedIndex <= 0)
+            {
+                if (ReferenceEquals(list, dataGrid) && PinnedList.IsEffectivelyVisible && PinnedList.Items.Count > 0)
+                {
+                    FocusItem(PinnedList, PinnedList.Items.Count - 1);
+                }
+                else
+                    tx.Focus();
+                e.Handled = true;
+                return;
+            }
         }
 
-        if (e.Key == Key.Down && e.KeyModifiers == KeyModifiers.None && ReferenceEquals(list, PinnedList))
+        if (e.Key == Key.Down && e.KeyModifiers == KeyModifiers.None)
         {
-            if (DataContext is SearchWindowViewModel { IsEverythingMode: true })
-                everythingControl.FocusFirstItem();
-            else
-                FocusItem(dataGrid, 0);
-            e.Handled = true;
-            return;
-        }
+            if (ReferenceEquals(list, PinnedList))
+            {
+                if (list.SelectedIndex < list.Items.Count - 1)
+                {
+                    FocusItem(list, Math.Max(0, list.SelectedIndex + 1));
+                }
+                else if (DataContext is SearchWindowViewModel { IsEverythingMode: true, ItemsViewList.Count: > 0 })
+                {
+                    everythingControl.FocusItem();
+                }
+                else if (dataGrid.Items.Count > 0)
+                {
+                    FocusItem(dataGrid, 0);
+                }
+                else
+                {
+                    FocusItem(PinnedList, 0);
+                }
 
+                e.Handled = true;
+                return;
+            }
+
+            if (ReferenceEquals(list, dataGrid) && list.SelectedIndex >= list.Items.Count - 1)
+            {
+                if (PinnedList.IsEffectivelyVisible && PinnedList.Items.Count > 0)
+                    FocusItem(PinnedList, 0);
+                else
+                    FocusItem(dataGrid, 0);
+
+                e.Handled = true;
+                return;
+            }
+        }
         if (e.Key is Key.Up or Key.Down or Key.Left or Key.Right or Key.Home or Key.End or Key.Tab
             or Key.PageDown or Key.PageUp or Key.Escape or Key.LeftShift or Key.RightShift
             or Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin
@@ -381,7 +409,7 @@ public partial class SearchWindow : Window
     private void SearchItem_OnClick(object? sender, RoutedEventArgs e)
     {
         if (ReferenceEquals(sender, e.Source) && sender is Button { DataContext: SearchViewItem item }
-            && DataContext is SearchWindowViewModel viewModel)
+                                              && DataContext is SearchWindowViewModel viewModel)
         {
             viewModel.ClickItem(item);
         }

@@ -13,6 +13,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using Kitopia.Desktop.Features.Search;
 using PluginCore;
 
@@ -134,6 +135,7 @@ public partial class EverythingFileListControl : UserControl
 
     public event EventHandler<SearchViewItem>? ItemActivated;
     public event EventHandler? NavigateUpRequested;
+    public event EventHandler? NavigateDownRequested;
     public event EventHandler? LoadMoreRequested;
     public event EventHandler<EverythingSortOrder>? SortChanged;
     public event EventHandler<KeyEventArgs>? KeyDownRedirected;
@@ -188,19 +190,14 @@ public partial class EverythingFileListControl : UserControl
         }
     }
 
-    public void FocusFirstItem()
+    public void FocusItem(SearchViewItem? item = null)
     {
         if (FileListGrid.ItemsSource is IEnumerable items && items.Cast<object>().Any())
         {
-            FileListGrid.SelectedIndex = 0;
+            FileListGrid.SelectedItem = item ?? items.Cast<object>().First();
             FileListGrid.ScrollIntoView(FileListGrid.SelectedItem, null);
             FileListGrid.Focus();
         }
-    }
-
-    public void ClearSelection()
-    {
-        FileListGrid.SelectedIndex = -1;
     }
 
     private void FileListGrid_OnDoubleTapped(object? sender, TappedEventArgs e)
@@ -249,6 +246,19 @@ public partial class EverythingFileListControl : UserControl
             if (count > 0 && FileListGrid.SelectedIndex >= count - 5)
             {
                 TriggerLoadMore();
+            }
+        }
+
+        if (e.Key == Key.Down && e.KeyModifiers == KeyModifiers.None)
+        {
+            var count = GetItemCount();
+            if (count > 0 && FileListGrid.SelectedIndex >= count - 1
+                && LoadMoreCommand is not IAsyncRelayCommand { IsRunning: true }
+                && LoadMoreCommand?.CanExecute(null) != true)
+            {
+                NavigateDownRequested?.Invoke(this, EventArgs.Empty);
+                e.Handled = true;
+                return;
             }
         }
 

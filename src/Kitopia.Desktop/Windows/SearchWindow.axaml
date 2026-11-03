@@ -377,9 +377,8 @@
 
                     <Border IsVisible="{Binding ShowPinnedItems}"
                             HorizontalAlignment="Stretch" Margin="12,0,12,8" Padding="0,2">
-                        <ListBox Name="PinnedList" ItemsSource="{Binding PinnedItems}"
+                        <ListBox Name="PinnedList" ItemsSource="{Binding PinnedItems}" SelectedItem="{Binding SelectedPinnedItem, Mode=TwoWay}"
                                  ItemContainerTheme="{StaticResource PinnedSelectionItem}"
-                                 SelectionChanged="SearchItems_OnSelectionChanged"
                                  PointerWheelChanged="HorizonScroll"
                                  Background="Transparent" BorderThickness="0" Padding="0"
                                  ScrollViewer.HorizontalScrollBarVisibility="Hidden"
@@ -471,7 +470,6 @@
                          ItemContainerTheme="{StaticResource SearchSelectionItem}"
                          ItemsSource="{Binding ItemsViewList,Mode=OneWay }"
                          SelectedItem="{Binding SelectedItem,Mode=TwoWay}"
-                         SelectionChanged="SearchItems_OnSelectionChanged"
                          BorderThickness="0"
                          Padding="6,4,2,4"
                          Background="Transparent"

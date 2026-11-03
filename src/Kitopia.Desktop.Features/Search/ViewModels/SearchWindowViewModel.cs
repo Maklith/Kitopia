@@ -82,6 +82,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     [ObservableProperty] private ISynchronizedView<SearchViewItem, SearchViewItem> _itemsView;
     [ObservableProperty] private NotifyCollectionChangedSynchronizedViewList<SearchViewItem> _itemsViewList;
     [ObservableProperty] private SearchViewItem? _selectedItem;
+    [ObservableProperty] private SearchViewItem? _selectedPinnedItem;
     [ObservableProperty] private bool _isPreviewMode;
     [ObservableProperty] private bool _canUsePreview;
     [ObservableProperty] private bool _isSemanticSearching;
@@ -194,8 +195,15 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         }
     }
 
+    partial void OnSelectedPinnedItemChanged(SearchViewItem? value)
+    {
+        if (value is not null)
+            SelectedItem = null;
+    }
+
     partial void OnSelectedItemChanged(SearchViewItem? value)
     {
+        if (value is not null) SelectedPinnedItem = null;
         _lastClickedPreviewItem = null;
         UpdatePreview(value);
     }
@@ -259,6 +267,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 {
                     PinnedItems.Remove(pinnedItem);
                 }
+                UpdateSelection();
             });
         }
 
@@ -294,6 +303,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                         if (svItem is not null) Items.Remove(svItem);
                         svItem = PinnedItems.FirstOrDefault(e => e.OnlyKey == key);
                         if (svItem is not null) PinnedItems.Remove(svItem);
+                        UpdateSelection();
                     });
                 }
             }
@@ -351,6 +361,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         PreviewModeOverride = null;
         IsPreviewMode = false;
         SelectedItem = null;
+        SelectedPinnedItem = null;
         IsEverythingMode = false;
         _everythingQuery = string.Empty;
         _everythingOffset = 0;
@@ -483,6 +494,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             }
         }
         ShowPinnedItems = PinnedItems.Count > 0;
+        UpdateSelection();
     }
 
     public void ToSearch(string? value)
@@ -507,6 +519,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             return;
         }
         ShowPinnedItems = false;
+        SelectedPinnedItem = null;
 
         Logger.Debug("搜索变更:" + value);
 
@@ -765,7 +778,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             if (Items.Any(item => !FileTypes.Any(filter => filter.FileType == item.FileType))
                 || FileTypes.Any(filter => !Items.Any(item => item.FileType == filter.FileType)))
                 RefreshFileTypes();
-            UpdateDisplayMode(preserveSelection: true);
+            UpdateDisplayMode(preserveDisplayMode: true);
         });
     }
 
@@ -806,30 +819,31 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         }
     }
 
-    private void UpdateDisplayMode(bool preserveSelection = false)
+    public void UpdateSelection(bool resetToDefault = false)
+    {
+        if (!resetToDefault
+            && ((ShowPinnedItems && SelectedPinnedItem is not null && PinnedItems.Contains(SelectedPinnedItem))
+                || (SelectedItem is not null && ItemsViewList.Contains(SelectedItem))))
+            return;
+
+        SelectedPinnedItem = ShowPinnedItems ? PinnedItems.FirstOrDefault() : null;
+        SelectedItem = SelectedPinnedItem is null ? ItemsViewList.FirstOrDefault() : null;
+    }
+
+    private void UpdateDisplayMode(bool preserveDisplayMode = false)
     {
         CanUsePreview = !NowInSelectMode
                         && (IsDirectorySearch || !string.IsNullOrWhiteSpace(Search))
                         && Items.Any(SearchDisplayPolicy.IsPreviewCandidate);
 
-        var usePreview = preserveSelection && SelectedItem is not null && ItemsViewList.Contains(SelectedItem)
+        var usePreview = preserveDisplayMode && SelectedItem is not null && ItemsViewList.Contains(SelectedItem)
             ? IsPreviewMode
             : PreviewModeOverride ?? (!IsEverythingMode &&
                 SearchDisplayPolicy.ShouldUsePreview(NowInSelectMode, Search, Items, _resultContexts));
         IsPreviewMode = CanUsePreview && usePreview;
 
-        if (!IsPreviewMode)
-        {
-            _lastClickedPreviewItem = null;
-            if (SelectedItem is null || !ItemsViewList.Contains(SelectedItem))
-                SelectedItem = ItemsViewList.FirstOrDefault();
-        }
-        else if (SelectedItem is null || !SearchDisplayPolicy.IsPreviewCandidate(SelectedItem)
-                                     || !ItemsViewList.Contains(SelectedItem))
-        {
-            SelectedItem = ItemsViewList.FirstOrDefault(SearchDisplayPolicy.IsPreviewCandidate)
-                           ?? ItemsViewList.FirstOrDefault();
-        }
+        if (!IsPreviewMode) _lastClickedPreviewItem = null;
+        UpdateSelection();
         UpdatePreview(SelectedItem);
         RefreshProcessUsageTargets();
     }
@@ -954,7 +968,11 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     [RelayCommand]
     private void IgnoreItem(SearchViewItem searchViewItem)
     {
-        Dispatcher.UIThread.InvokeAsync(() => { Items.Remove(searchViewItem); });
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            Items.Remove(searchViewItem);
+            UpdateSelection();
+        });
         ServiceManager.Services.GetService<ISearchItemTool>()!.IgnoreItem(searchViewItem);
     }
 
@@ -998,6 +1016,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         }
 
         if (string.IsNullOrEmpty(Search)) ShowPinnedItems = PinnedItems.Count > 0;
+        UpdateSelection();
     }
 
     [RelayCommand]
@@ -1016,8 +1035,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         else
             ItemsView.AttachFilter(e => FileTypes.Any(fileTypeFilter =>
                 fileTypeFilter.FileType == e.FileType && fileTypeFilter.IsChecked));
-        if (SelectedItem is null || !ItemsViewList.Contains(SelectedItem))
-            SelectedItem = ItemsViewList.FirstOrDefault();
+        UpdateDisplayMode(preserveDisplayMode: true);
     }
 
     public bool IsIndexed(string path)
@@ -1110,6 +1128,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             if (indexedItem is not null) indexedItem.IsPined = pinned;
 
             if (string.IsNullOrEmpty(Search)) ShowPinnedItems = PinnedItems.Count > 0;
+            UpdateSelection();
         });
     }
 }
