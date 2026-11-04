@@ -154,6 +154,7 @@ public partial class EverythingFileListControl : UserControl
                 if (row?.DataContext is SearchViewItem item)
                 {
                     FileListGrid.SelectedItem = item;
+                    FileListGrid.Focus();
                 }
             }
         }, RoutingStrategies.Tunnel);
@@ -232,12 +233,9 @@ public partial class EverythingFileListControl : UserControl
 
         if (e.Key == Key.Apps || (e.Key == Key.F10 && e.KeyModifiers == KeyModifiers.Shift))
         {
-            if (FileListGrid.ContextMenu != null && SelectedItem != null)
-            {
-                FileListGrid.ContextMenu.Open(FileListGrid);
-                e.Handled = true;
-                return;
-            }
+            FileListGrid.RaiseEvent(new ContextRequestedEventArgs());
+            e.Handled = true;
+            return;
         }
 
         if (e.Key is Key.Down or Key.PageDown)

@@ -1,14 +1,92 @@
 using System.Runtime.InteropServices;
-using Kitopia.Desktop.Features.Services;
-using Kitopia.Desktop.Abstractions.Shell;
+using Avalonia;
+using Avalonia.Controls;
 using Serilog;
 using Vanara.PInvoke;
+using Kitopia.Desktop.Abstractions.Shell;
+using Kitopia.Desktop.Features.Services;
+using static Vanara.PInvoke.Shell32;
 
 namespace Kitopia.Desktop.Platform.Windows.AppTools;
 
 public sealed class ShellUtils : IDesktopShell
 {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<ShellUtils>();
+
+    // Both menus and keyboard verbs use the file's Shell handler, including registered extensions.
+    public static void InvokeFileContextMenu(Window owner, string path, PixelPoint? position = null, string? verb = null)
+    {
+        IShellItem? item = null;
+        IContextMenu? context = null;
+        try
+        {
+            var hwnd = owner.TryGetPlatformHandle()!.Handle;
+            item = SHCreateItemFromParsingName<IShellItem>(path);
+            context = item.BindToHandler<IContextMenu>(null, BHID.BHID_SFUIObject);
+            using var menu = User32.CreatePopupMenu();
+            var flags = CMF.CMF_NORMAL;
+            if ((User32.GetKeyState((int)User32.VK.VK_SHIFT) & 0x8000) != 0) flags |= CMF.CMF_EXTENDEDVERBS;
+            context.QueryContextMenu(menu, 0, 1, 0x7FFF, flags).ThrowIfFailed();
+
+            nint MenuMessage(nint window, uint message, nint wparam, nint lparam, ref bool handled)
+            {
+                if (message is not ((uint)User32.WindowMessage.WM_INITMENUPOPUP or
+                    (uint)User32.WindowMessage.WM_MENUCHAR or (uint)User32.WindowMessage.WM_DRAWITEM or
+                    (uint)User32.WindowMessage.WM_MEASUREITEM)) return 0;
+                if (context is IContextMenu3 menu3)
+                {
+                    if (menu3.HandleMenuMsg2(message, wparam, lparam, out var result).Succeeded)
+                    {
+                        handled = true;
+                        return result;
+                    }
+                }
+                else if (context is IContextMenu2 menu2 && menu2.HandleMenuMsg(message, wparam, lparam).Succeeded)
+                    handled = true;
+                return 0;
+            }
+
+            if (verb is null)
+            {
+                if (position is not { } point) return;
+                Win32Properties.AddWndProcHookCallback(owner, MenuMessage);
+                uint command;
+                try
+                {
+                    command = (uint)User32.TrackPopupMenuEx(menu,
+                        User32.TrackPopupMenuFlags.TPM_RETURNCMD | User32.TrackPopupMenuFlags.TPM_RIGHTBUTTON,
+                        point.X, point.Y, hwnd);
+                }
+                finally { Win32Properties.RemoveWndProcHookCallback(owner, MenuMessage); }
+                if (command == 0) return;
+                var nativeInfo = new CMINVOKECOMMANDINFOEX
+                {
+                    hwnd = hwnd,
+                    nShow = ShowWindowCommand.SW_SHOWNORMAL,
+                    fMask = CMIC.CMIC_MASK_NOASYNC,
+                    lpVerb = (nint)(command - 1)
+                };
+                context.InvokeCommand(nativeInfo).ThrowIfFailed();
+                return;
+            }
+            var info = new CMINVOKECOMMANDINFO(verb)
+            {
+                hwnd = hwnd,
+                nShow = ShowWindowCommand.SW_SHOWNORMAL,
+                fMask = CMIC.CMIC_MASK_NOASYNC
+            };
+            context.InvokeCommand(info).ThrowIfFailed();
+        }
+        catch (Exception exception)
+        {
+            Logger.Warning(exception, "Failed to invoke Shell operation {Verb} for {Path}", verb ?? "context menu", path);
+        }
+        finally
+        {
+            if (context is not null) Marshal.ReleaseComObject(context);
+            if (item is not null) Marshal.ReleaseComObject(item);
+        }
+    }
 
     public void Open(string path, string? arguments = "", string? workingDirectory = "")
     {

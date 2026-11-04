@@ -103,7 +103,6 @@ public class HotKeyImpl : IHotKetImpl
             var model = hotkey.HotKeyModel;
             var anyKey = model.SelectKey == EKey.任意键;
             if (hotkey.Id != 0 || !model.IsEnabled || model.Type != HotKeyType.Keyboard ||
-                (anyKey && e.IsEventSimulated) ||
                 (!anyKey && (int)model.SelectKey != key) ||
                 model.IsSelectCtrl != ((mask & EventMask.Ctrl) != 0) ||
                 model.IsSelectAlt != ((mask & EventMask.Alt) != 0) ||
@@ -135,6 +134,8 @@ public class HotKeyImpl : IHotKetImpl
 
     internal static string? GetCharacter(ushort key, EventMask mask, HWND window)
     {
+        // SimulateTextEntry sends Unicode packets, not virtual keys to translate again.
+        if (key == (ushort)User32.VK.VK_PACKET) return null;
         if ((mask & (EventMask.Ctrl | EventMask.Alt | EventMask.Meta)) != 0) return null;
         var state = new byte[256];
         if ((mask & EventMask.Shift) != 0) state[0x10] = 0x80;

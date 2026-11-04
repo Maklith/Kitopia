@@ -12,6 +12,9 @@ using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.Search.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+#if WINDOWS
+using Kitopia.Desktop.Platform.Windows.AppTools;
+#endif
 
 namespace Kitopia.Desktop.Windows;
 
@@ -21,6 +24,7 @@ public partial class SearchWindow : Window
     private Screen? _placementScreen;
     private SearchViewItem? _focusedSearchItem;
     private PixelRect? _directorySearchArea;
+    private bool _isShellOperationActive;
 
     public SearchWindow()
     {
@@ -101,6 +105,43 @@ public partial class SearchWindow : Window
             e.Handled = true;
             tx.RaiseEvent(new TextInputEventArgs { RoutedEvent = TextInputEvent, Text = e.Text });
         };
+#if WINDOWS
+        everythingControl.AddHandler(ContextRequestedEvent, (_, e) =>
+        {
+            if (DataContext is not SearchWindowViewModel { IsDirectorySearch: true }) return;
+            e.Handled = true;
+            // A pointer request on empty space must not act on a previously selected result.
+            var hasPosition = e.TryGetPosition(everythingControl, out var point);
+            if (hasPosition && everythingControl.InputHitTest(point) is Visual visual &&
+                visual.FindAncestorOfType<DataGridRow>() is null) return;
+            if (everythingControl.SelectedItem is not { OnlyKey.Length: > 0 } item) return;
+            var position = hasPosition ? everythingControl.PointToScreen(point) :
+                everythingControl.PointToScreen(new Point(16, 40));
+            _isShellOperationActive = true;
+            try { ShellUtils.InvokeFileContextMenu(this, item.OnlyKey, position); }
+            finally { _isShellOperationActive = false; }
+        }, RoutingStrategies.Tunnel);
+        everythingControl.AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (DataContext is not SearchWindowViewModel { IsDirectorySearch: true } model) return;
+            var verb = (e.Key, e.KeyModifiers) switch
+            {
+                (Key.C, KeyModifiers.Control) => "copy",
+                (Key.X, KeyModifiers.Control) => "cut",
+                (Key.V, KeyModifiers.Control) => "paste",
+                (Key.Delete, KeyModifiers.None) => "delete",
+                (Key.Enter, KeyModifiers.Alt) => "properties",
+                _ => null
+            };
+            if (verb is null) return;
+            e.Handled = true;
+            var path = verb == "paste" ? model.DirectorySearchPath : everythingControl.SelectedItem?.OnlyKey;
+            if (string.IsNullOrEmpty(path)) return;
+            _isShellOperationActive = true;
+            try { ShellUtils.InvokeFileContextMenu(this, path, verb: verb); }
+            finally { _isShellOperationActive = false; }
+        }, RoutingStrategies.Tunnel);
+#endif
 
 
         SizeChanged += (_, _) =>
@@ -214,13 +255,14 @@ public partial class SearchWindow : Window
         // Native foreground activation can briefly deactivate the window before activating it again.
         Dispatcher.UIThread.Post(() =>
         {
-            if (!IsActive) Hide();
+            if (!IsActive && !_isShellOperationActive) Hide();
         }, DispatcherPriority.Background);
     }
 
 
     private void w_Activated(object sender, EventArgs e)
     {
+        if (_isShellOperationActive) return;
         Focus();
         tx.Focus();
     }

@@ -12,6 +12,7 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Input.Raw;
+using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -93,6 +94,94 @@ public sealed class EverythingFileListControlTests
         Assert.AreEqual("1.5 KB", SearchViewItem.FormatBytes(1536));
         Assert.AreEqual("1.00 GB", SearchViewItem.FormatBytes(1073741824));
         Assert.AreEqual("1.00 TB", SearchViewItem.FormatBytes(1099511627776));
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task SearchWindow_FileShortcuts_OnlyDirectoryResultsKeepFocusAndSearch(bool directorySearch)
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            // Empty paths avoid native operations; this test exercises input ownership.
+            SearchServicesProxy.EverythingResults = [new SearchViewItem { ItemDisplayName = "result.txt" }];
+            if (directorySearch) window.ShowDirectorySearch(@"C:\Kitopia Missing Test Directory", "result", new PixelRect(0, 0, 1000, 800));
+            else model.Search = "@result";
+            await WaitForAsync(() => model.Items.Count == 1);
+            var control = window.FindControl<EverythingFileListControl>("everythingControl")!;
+            var input = window.FindControl<TextBox>("tx")!;
+            foreach (var key in new[] { Key.C, Key.X, Key.V })
+            {
+                control.FocusItem(model.Items[0]);
+                var grid = control.FindControl<DataGrid>("FileListGrid")!;
+                var args = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = KeyModifiers.Control };
+                grid.RaiseEvent(args);
+                Assert.IsTrue(args.Handled);
+                Assert.AreEqual(directorySearch, grid.IsKeyboardFocusWithin);
+                Assert.AreEqual(!directorySearch, input.IsKeyboardFocusWithin);
+            }
+            if (directorySearch)
+            {
+                Assert.AreEqual("result", model.Search);
+                input.Focus();
+                input.SelectAll();
+                window.KeyTextInput("edited");
+                Assert.AreEqual("edited", model.Search, "Search input retains normal text editing.");
+            }
+        });
+    }
+
+    [TestMethod]
+    [DataRow(Key.Apps, KeyModifiers.None, true)]
+    [DataRow(Key.F10, KeyModifiers.Shift, true)]
+    [DataRow(Key.Apps, KeyModifiers.None, false)]
+    [DataRow(Key.F10, KeyModifiers.Shift, false)]
+    public async Task EverythingFileList_KeyboardContextRequest_CanReplaceKitopiaMenu(Key key, KeyModifiers modifiers, bool replaceMenu)
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            SearchServicesProxy.EverythingResults = [new SearchViewItem { ItemDisplayName = "file.txt", OnlyKey = @"C:\file.txt" }];
+            model.Search = "@file";
+            await WaitForAsync(() => model.Items.Count == 1);
+            var control = window.FindControl<EverythingFileListControl>("everythingControl")!;
+            var grid = control.FindControl<DataGrid>("FileListGrid")!;
+            control.FocusItem(model.Items[0]);
+            var requests = 0;
+            control.AddHandler(Control.ContextRequestedEvent, (_, e) => { requests++; e.Handled = replaceMenu; }, RoutingStrategies.Tunnel);
+            grid.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = modifiers });
+            Assert.AreEqual(1, requests);
+            Assert.AreEqual(!replaceMenu, grid.ContextMenu!.IsOpen);
+            if (replaceMenu) Assert.IsTrue(grid.IsKeyboardFocusWithin);
+            grid.ContextMenu.Close();
+        });
+    }
+
+    [TestMethod]
+    public async Task EverythingFileList_RightClick_SelectsTargetBeforeContextRequest()
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            SearchServicesProxy.EverythingResults =
+            [
+                new SearchViewItem { ItemDisplayName = "first.txt", OnlyKey = @"C:\first.txt" },
+                new SearchViewItem { ItemDisplayName = "second.txt", OnlyKey = @"C:\second.txt" }
+            ];
+            model.Search = "@file";
+            await WaitForAsync(() => model.Items.Count == 2);
+            var control = window.FindControl<EverythingFileListControl>("everythingControl")!;
+            var grid = control.FindControl<DataGrid>("FileListGrid")!;
+            window.UpdateLayout();
+            var row = grid.GetVisualDescendants().OfType<DataGridRow>().Single(r => ReferenceEquals(r.DataContext, model.Items[1]));
+            SearchViewItem? target = null;
+            control.AddHandler(Control.ContextRequestedEvent, (_, e) => { target = control.SelectedItem; e.Handled = true; }, RoutingStrategies.Tunnel);
+            var point = row.TranslatePoint(new Point(60, row.Bounds.Height / 2), window)!.Value;
+            window.MouseDown(point, MouseButton.Right);
+            window.MouseUp(point, MouseButton.Right);
+            Assert.AreSame(model.Items[1], target);
+            Assert.AreSame(target, model.SelectedItem);
+            Assert.IsTrue(grid.IsKeyboardFocusWithin);
+            Assert.IsFalse(grid.ContextMenu!.IsOpen);
+        });
     }
 
     [TestMethod]
