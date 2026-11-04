@@ -15,6 +15,35 @@ namespace KitopiaTest.DeviceCommunication;
 public sealed class SharedMessageAppServiceTests
 {
     [TestMethod]
+    public async Task ReceiveAsync_ChatOpenedAfterProgressBurst_PreservesEventsWithoutBlockingProducer()
+    {
+        using var discovery = new FakeDeviceDiscoveryService();
+        var incoming = new IncomingMessageBuffer();
+        var service = new MessageAppService(new MessageCodecRegistry(),
+            new DeviceTransportService(new RecordingLocalDataListener(), discovery), incoming,
+            new FileTransferSessionStore());
+        var transferId = Guid.NewGuid();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var expected = Enumerable.Range(1, 32).Select(bytes => new FileTransferUpdatedEvent(
+            "peer-1", transferId, FileTransferDirection.Download, FileTransferStatus.InProgress,
+            "archive.zip", bytes, 32, null, DateTimeOffset.UtcNow)).ToList();
+        expected.Add(expected[^1] with { Status = FileTransferStatus.Completed });
+
+        // No chat consumer exists until all progress and completion events have been published.
+        foreach (var message in expected)
+        {
+            await incoming.PublishEventAsync(message, cancellation.Token);
+        }
+
+        await using var events = service.ReceiveAsync(cancellation.Token).GetAsyncEnumerator();
+        foreach (var message in expected)
+        {
+            Assert.IsTrue(await events.MoveNextAsync());
+            Assert.AreEqual(message, events.Current);
+        }
+    }
+
+    [TestMethod]
     public async Task AcceptFileAsync_WithWriteStreamFactory_RegistersNonLocalSaveTarget()
     {
         var listener = new RecordingLocalDataListener();

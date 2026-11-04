@@ -15,7 +15,8 @@ public sealed class MessageAppService : IMessageAppService
     private readonly DeviceTransportService _transportService;
     private readonly IncomingMessageBuffer _incomingMessageBuffer;
     private readonly IFileTransferSessionStore _fileTransferSessionStore;
-    private readonly Channel<DeviceMessageEvent> _receiveChannel = Channel.CreateBounded<DeviceMessageEvent>(8);
+    // The chat page can be unopened; its backlog must not block transfers and desktop notifications.
+    private readonly Channel<DeviceMessageEvent> _receiveChannel = Channel.CreateUnbounded<DeviceMessageEvent>();
     private readonly object _stateSync = new();
     private bool _isMainWindowActive;
     private bool _isDeviceChatPageOpen;

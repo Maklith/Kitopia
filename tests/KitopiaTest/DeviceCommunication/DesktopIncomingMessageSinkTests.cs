@@ -3,10 +3,13 @@ using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Headless;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Kitopia.Desktop.Services;
 using Kitopia.Feature.DeviceCommunication.Application;
+using Kitopia.Feature.DeviceCommunication.Codecs;
 using Kitopia.Feature.DeviceCommunication.Discovery;
 using Kitopia.Feature.DeviceCommunication.Messages.Chat;
+using Kitopia.Feature.DeviceCommunication.Sessions;
 using Microsoft.Extensions.DependencyInjection;
 using ObservableCollections;
 using PluginCore;
@@ -19,6 +22,51 @@ public sealed class DesktopIncomingMessageSinkTests
 {
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<Kitopia.Desktop.App>()
         .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia();
+
+    [TestMethod]
+    public async Task TransferToast_ChatNotOpened_ProgressBurstUpdatesVisibleBarAndCompletes()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(DesktopIncomingMessageSinkTests));
+        await session.Dispatch(async () =>
+        {
+            using var discovery = new FakeDiscoveryService();
+            var buffer = new IncomingMessageBuffer();
+            var messages = new MessageAppService(new MessageCodecRegistry(), null!, buffer, new FileTransferSessionStore());
+            var toasts = new ToastService();
+            using var services = new ServiceCollection().AddSingleton<IMessageAppService>(messages).BuildServiceProvider();
+            var sink = new DesktopIncomingMessageSink(buffer, discovery, toasts, null!, null!, services);
+            var transferId = Guid.NewGuid();
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try
+            {
+                await Task.Run(async () =>
+                {
+                    for (var bytes = 1; bytes <= 32; bytes++)
+                    {
+                        await sink.PublishEventAsync(TransferEvent("peer-1", transferId, FileTransferStatus.InProgress, bytes),
+                            cancellation.Token);
+                    }
+                });
+                Dispatcher.UIThread.RunJobs();
+                var window = (ToastShowWindow)typeof(ToastService).GetField("_toastShowWindow",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(toasts)!;
+                var progress = window.GetVisualDescendants().OfType<ProgressBar>().Single();
+                Assert.AreEqual(32d, progress.Value);
+                Assert.IsFalse(progress.IsIndeterminate);
+
+                await Task.Run(async () => await sink.PublishEventAsync(
+                    TransferEvent("peer-1", transferId, FileTransferStatus.Completed, 100), cancellation.Token));
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(100d, progress.Value);
+                Assert.HasCount(1, window.GetVisualDescendants().OfType<ProgressBar>().ToArray());
+            }
+            finally
+            {
+                toasts.Unregister();
+            }
+            return true;
+        }, CancellationToken.None);
+    }
 
     [TestMethod]
     public async Task TransferToast_ReturnToConversationWithoutProgress_ClosesAndCanReappearInBackground()
