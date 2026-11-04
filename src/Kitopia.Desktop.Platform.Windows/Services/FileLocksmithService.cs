@@ -1,8 +1,11 @@
 using System.Collections.Concurrent;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
+using System.Security.Principal;
 using System.Text;
 using Kitopia.Desktop.Abstractions.FileSystem;
 using Microsoft.Win32;
@@ -67,9 +70,10 @@ public sealed class FileLocksmithService : IFileLockService
             throw new ArgumentException("Process IDs must be positive.", nameof(processIds));
         }
 
-        return Task.Run(() =>
+        return Task.Run(async () =>
         {
             var allSuccess = true;
+            var restrictedProcessIds = new List<int>();
             int selfPid = Environment.ProcessId;
 
             foreach (var pid in processIds.Distinct())
@@ -83,12 +87,77 @@ public sealed class FileLocksmithService : IFileLockService
                 try
                 {
                     using var process = Process.GetProcessById(pid);
-                    process.Kill(entireProcessTree: true);
+                    try
+                    {
+                        process.Kill(entireProcessTree: true);
+                    }
+                    catch (AggregateException ex) when (ex.Flatten().InnerExceptions.Any(
+                               error => error is Win32Exception { NativeErrorCode: 5 }) && !process.HasExited)
+                    {
+                        // Tree termination also wraps access denied for the root process.
+                        // Only retry a living root; an exited parent's PID cannot target orphaned children.
+                        restrictedProcessIds.Add(pid);
+                    }
+                }
+                catch (Win32Exception ex) when (ex.NativeErrorCode == 5)
+                {
+                    restrictedProcessIds.Add(pid);
+                }
+                catch (ArgumentException)
+                {
+                    // The process has already exited.
                 }
                 catch (Exception)
                 {
                     allSuccess = false;
                 }
+            }
+
+            if (restrictedProcessIds.Count == 0)
+            {
+                return allSuccess;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            using var identity = WindowsIdentity.GetCurrent();
+            if (new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator))
+            {
+                return false;
+            }
+
+            var startInfo = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "taskkill.exe"))
+            {
+                UseShellExecute = true,
+                Verb = "runas",
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+            startInfo.ArgumentList.Add("/F");
+            startInfo.ArgumentList.Add("/T");
+            foreach (var pid in restrictedProcessIds)
+            {
+                startInfo.ArgumentList.Add("/PID");
+                startInfo.ArgumentList.Add(pid.ToString(CultureInfo.InvariantCulture));
+            }
+
+            try
+            {
+                using var elevatedProcess = Process.Start(startInfo);
+                if (elevatedProcess == null)
+                {
+                    return false;
+                }
+
+                await elevatedProcess.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                allSuccess &= elevatedProcess.ExitCode == 0;
+            }
+            catch (Win32Exception)
+            {
+                // Includes cancellation of the UAC prompt (ERROR_CANCELLED).
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
             }
 
             return allSuccess;
@@ -226,12 +295,12 @@ public sealed class FileLocksmithService : IFileLockService
 
             AddLoadedDrivers(rawResults, seen, normalizedRoot, includeSubDirs, targetSet);
 
+            var rawList = rawResults.ToList();
             if (targetPaths != null && targetPaths.Count > 0)
             {
-                QueryRestartManagerForFiles(targetPaths, rawResults, seen, cancellationToken);
+                QueryRestartManagerForFiles(targetPaths, rawList, seen, cancellationToken);
             }
 
-            var rawList = rawResults.ToList();
             var distinctPaths = rawList.Select(r => r.FilePath).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             var states = ProbeFileStates(distinctPaths, cancellationToken);
 
@@ -245,9 +314,27 @@ public sealed class FileLocksmithService : IFileLockService
                 AddTargetPaths(rawList, seen, states, targetPaths, includeSubDirs, cancellationToken);
             }
 
+            // Directory enumeration can find a locked file whose handles we cannot duplicate.
+            var unknownLockedPaths = rawList
+                .Where(r => r.Pid == 0 && states.GetValueOrDefault(r.FilePath) == StateLocked)
+                .Select(r => r.FilePath)
+                .ToArray();
+            if (unknownLockedPaths.Length > 0)
+            {
+                QueryRestartManagerForFiles(unknownLockedPaths, rawList, seen, cancellationToken);
+                var identifiedPaths = rawList.Where(r => r.Pid > 0)
+                    .Select(r => r.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                rawList.RemoveAll(r => r.Pid == 0 && identifiedPaths.Contains(r.FilePath));
+            }
+
             var finalResults = new List<FileLockInfo>(rawList.Count);
             foreach (var r in rawList)
             {
+                if (states.GetValueOrDefault(r.FilePath) == StateGone)
+                {
+                    continue;
+                }
+
                 string state;
                 if (r.IsDriver)
                 {
@@ -666,7 +753,7 @@ public sealed class FileLocksmithService : IFileLockService
 
     private static void QueryRestartManagerForFiles(
         IEnumerable<string> filePaths,
-        ConcurrentBag<(int Pid, string ProcessName, string FilePath, bool IsDriver)> results,
+        List<(int Pid, string ProcessName, string FilePath, bool IsDriver)> results,
         ConcurrentDictionary<(int, string), byte> seen,
         CancellationToken cancellationToken)
     {

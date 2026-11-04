@@ -14,6 +14,7 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
     private readonly Dictionary<string, bool> _expansionStateCache = new(StringComparer.OrdinalIgnoreCase);
     private DispatcherTimer? _timer;
     private bool _isLoaded;
+    private bool _rescanRequested;
 
     [ObservableProperty]
     private ObservableCollection<FileLockInfo> _allRecords = [];
@@ -176,37 +177,52 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
     [RelayCommand]
     public async Task ScanAsync()
     {
-        if (IsScanning) return;
+        if (IsScanning)
+        {
+            _rescanRequested = true;
+            return;
+        }
         IsScanning = true;
-        StatusMessage = Lang.Get("lang.kitopia.scanning_file_handles_and_drivers");
 
         try
         {
-            var sw = Stopwatch.StartNew();
-            var results = await _fileLockService.ScanLocksAsync(
-                rootDir: RootDir,
-                includeSubDirs: IncludeSubDirs,
-                targetPaths: TargetPaths);
-
-            int lockedCount = results.Count(r => r.IsLocked);
-
-            // Fast path: if scan results are identical to previous records, avoid rebuilding UI collections/tree
-            if (_isLoaded && AllRecords.Count > 0 && AreRecordsEquivalent(results, AllRecords))
+            do
             {
-                int currentShown = FilteredRecords.Count;
-                StatusMessage = Lang.Format("lang.kitopia.messages.locked_value_showing_value_of_value_value_ms_last_refresh_value", lockedCount, currentShown, results.Count, sw.ElapsedMilliseconds, DateTime.Now);
-                return;
+                _rescanRequested = false;
+                StatusMessage = Lang.Get("lang.kitopia.scanning_file_handles_and_drivers");
+                try
+                {
+                    var sw = Stopwatch.StartNew();
+                    var results = await _fileLockService.ScanLocksAsync(
+                        rootDir: RootDir,
+                        includeSubDirs: IncludeSubDirs,
+                        targetPaths: TargetPaths);
+
+                    // A mutation or scope change requested a newer snapshot while this scan was running.
+                    if (_rescanRequested) continue;
+
+                    int lockedCount = results.Count(r => r.IsLocked);
+
+                    // Fast path: if scan results are identical to previous records, avoid rebuilding UI collections/tree
+                    if (_isLoaded && AllRecords.Count > 0 && AreRecordsEquivalent(results, AllRecords))
+                    {
+                        int currentShown = FilteredRecords.Count;
+                        StatusMessage = Lang.Format("lang.kitopia.messages.locked_value_showing_value_of_value_value_ms_last_refresh_value", lockedCount, currentShown, results.Count, sw.ElapsedMilliseconds, DateTime.Now);
+                        continue;
+                    }
+
+                    AllRecords = new ObservableCollection<FileLockInfo>(results);
+                    ApplyFilter();
+
+                    int shownCount = FilteredRecords.Count;
+                    StatusMessage = Lang.Format("lang.kitopia.messages.locked_value_showing_value_of_value_value_ms_last_refresh_value", lockedCount, shownCount, results.Count, sw.ElapsedMilliseconds, DateTime.Now);
+                }
+                catch (Exception ex)
+                {
+                    StatusMessage = Lang.Format("lang.kitopia.messages.scan_failed_value", ex.Message);
+                }
             }
-
-            AllRecords = new ObservableCollection<FileLockInfo>(results);
-            ApplyFilter();
-
-            int shownCount = FilteredRecords.Count;
-            StatusMessage = Lang.Format("lang.kitopia.messages.locked_value_showing_value_of_value_value_ms_last_refresh_value", lockedCount, shownCount, results.Count, sw.ElapsedMilliseconds, DateTime.Now);
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = Lang.Format("lang.kitopia.messages.scan_failed_value", ex.Message);
+            while (_rescanRequested);
         }
         finally
         {
@@ -769,16 +785,22 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
         if (target.IsDriverModule)
         {
             var err = await _fileLockService.StopDriverForFileAsync(target.FilePath);
-            StatusMessage = err == null ? Lang.Format("lang.kitopia.messages.stopped_driver_value", target.FilePath) : err;
             await ScanAsync();
+            StatusMessage = err == null ? Lang.Format("lang.kitopia.messages.stopped_driver_value", target.FilePath) : err;
+            return;
+        }
+
+        if (target.IsLocked && target.ProcessId == 0)
+        {
+            await KillAllForFileAsync(target.FilePath);
             return;
         }
 
         if (target.ProcessId > 4)
         {
             var success = await _fileLockService.UnlockFileAsync([target.ProcessId]);
-            StatusMessage = success ? Lang.Format("lang.kitopia.messages.terminated_process_pid_value", target.ProcessId) : Lang.Format("lang.kitopia.messages.some_processes_could_not_be_terminated_for_pid_value", target.ProcessId);
             await ScanAsync();
+            StatusMessage = success ? Lang.Format("lang.kitopia.messages.terminated_process_pid_value", target.ProcessId) : Lang.Format("lang.kitopia.messages.some_processes_could_not_be_terminated_for_pid_value", target.ProcessId);
         }
     }
 
@@ -790,17 +812,19 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
 
         if (target.IsProcess)
         {
+            string? message = null;
             if (target.IsDriverModule)
             {
                 var err = await _fileLockService.StopDriverForFileAsync(target.FilePath);
-                StatusMessage = err == null ? Lang.Format("lang.kitopia.messages.stopped_driver_value", target.FilePath) : err;
+                message = err == null ? Lang.Format("lang.kitopia.messages.stopped_driver_value", target.FilePath) : err;
             }
             else if (target.ProcessId > 4)
             {
                 var success = await _fileLockService.UnlockFileAsync([target.ProcessId]);
-                StatusMessage = success ? Lang.Format("lang.kitopia.messages.terminated_process_pid_value", target.ProcessId) : Lang.Format("lang.kitopia.messages.unable_to_terminate_process_pid_value", target.ProcessId);
+                message = success ? Lang.Format("lang.kitopia.messages.terminated_process_pid_value", target.ProcessId) : Lang.Format("lang.kitopia.messages.unable_to_terminate_process_pid_value", target.ProcessId);
             }
             await ScanAsync();
+            if (message != null) StatusMessage = message;
             return;
         }
 
@@ -848,30 +872,17 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
             .Where(r => string.Equals(r.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        if (matching.Any(r => r.IsDriverModule))
-        {
-            await _fileLockService.StopDriverForFileAsync(filePath);
-        }
-
-        var pids = matching
-            .Where(r => !r.IsDriverModule && r.ProcessId > 4)
-            .Select(r => r.ProcessId)
-            .Distinct()
-            .ToList();
-
-        if (pids.Count > 0)
-        {
-            await _fileLockService.UnlockFileAsync(pids);
-        }
-
-        StatusMessage = Lang.Format("lang.kitopia.messages.attempted_to_release_all_file_locks_value", Path.GetFileName(filePath));
+        var success = await UnlockRecordsAsync(matching);
         await ScanAsync();
+        StatusMessage = Lang.Format(success
+            ? "lang.kitopia.messages.released_locks_value"
+            : "lang.kitopia.messages.unable_to_release_locks_value", filePath);
     }
 
     private async Task KillAllForDirectoryAsync(FileLockTreeNodeViewModel dirNode)
     {
         var filePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        CollectFilePaths(dirNode, filePaths);
+        CollectPaths(dirNode, filePaths);
 
         if (filePaths.Count == 0) return;
 
@@ -879,35 +890,53 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
             .Where(r => filePaths.Contains(r.FilePath))
             .ToList();
 
-        foreach (var drv in matching.Where(r => r.IsDriverModule))
-        {
-            await _fileLockService.StopDriverForFileAsync(drv.FilePath);
-        }
-
-        var pids = matching
-            .Where(r => !r.IsDriverModule && r.ProcessId > 4)
-            .Select(r => r.ProcessId)
-            .Distinct()
-            .ToList();
-
-        if (pids.Count > 0)
-        {
-            await _fileLockService.UnlockFileAsync(pids);
-        }
-
-        StatusMessage = Lang.Format("lang.kitopia.messages.attempted_to_release_all_locks_in_directory_value", dirNode.Title);
+        var success = await UnlockRecordsAsync(matching);
         await ScanAsync();
+        StatusMessage = Lang.Format(success
+            ? "lang.kitopia.messages.released_locks_value"
+            : "lang.kitopia.messages.unable_to_release_locks_value", dirNode.FilePath);
     }
 
-    private static void CollectFilePaths(FileLockTreeNodeViewModel node, HashSet<string> set)
+    private async Task<bool> UnlockRecordsAsync(List<FileLockInfo> records)
     {
-        if (node.IsFile && !string.IsNullOrEmpty(node.FilePath))
+        var unknownPaths = records
+            .Where(r => r.IsLocked && !r.IsDriverModule && r.ProcessId <= 4)
+            .Select(r => r.FilePath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var success = true;
+        if (unknownPaths.Count > 0)
+        {
+            var resolved = await _fileLockService.CheckFileLocksAsync(unknownPaths.ToArray());
+            success = unknownPaths.All(path => resolved.Any(r =>
+                string.Equals(r.FilePath, path, StringComparison.OrdinalIgnoreCase) &&
+                (!r.IsLocked || r.IsDriverModule || r.ProcessId > 4)));
+            records.AddRange(resolved);
+        }
+
+        foreach (var driver in records.Where(r => r.IsDriverModule)
+                     .DistinctBy(r => r.FilePath, StringComparer.OrdinalIgnoreCase))
+        {
+            success &= await _fileLockService.StopDriverForFileAsync(driver.FilePath) == null;
+        }
+
+        var pids = records.Where(r => !r.IsDriverModule && r.ProcessId > 4)
+            .Select(r => r.ProcessId).Distinct().ToList();
+        if (pids.Count > 0)
+        {
+            success &= await _fileLockService.UnlockFileAsync(pids);
+        }
+        return success;
+    }
+
+    private static void CollectPaths(FileLockTreeNodeViewModel node, HashSet<string> set)
+    {
+        if ((node.IsFile || node.IsDirectory) && !string.IsNullOrEmpty(node.FilePath))
         {
             set.Add(node.FilePath);
         }
         foreach (var child in node.Children)
         {
-            CollectFilePaths(child, set);
+            CollectPaths(child, set);
         }
     }
 
@@ -942,13 +971,26 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
         var err = await _fileLockService.UnlockAndDeleteFileAsync(filePath);
         if (err == null)
         {
+            for (var i = AllRecords.Count - 1; i >= 0; i--)
+            {
+                if (string.Equals(AllRecords[i].FilePath, filePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    AllRecords.RemoveAt(i);
+                }
+            }
+            if (string.Equals(SelectedRecord?.FilePath, filePath, StringComparison.OrdinalIgnoreCase)) SelectedRecord = null;
+            if (string.Equals(SelectedNode?.FilePath, filePath, StringComparison.OrdinalIgnoreCase)) SelectedNode = null;
+            ApplyFilter();
+        }
+        await ScanAsync();
+        if (err == null)
+        {
             StatusMessage = Lang.Format("lang.kitopia.messages.unlocked_and_deleted_value", Path.GetFileName(filePath));
         }
         else
         {
             StatusMessage = Lang.Format("lang.kitopia.messages.delete_failed_value", err);
         }
-        await ScanAsync();
     }
 
     [RelayCommand]
@@ -1011,17 +1053,11 @@ public partial class FileLocksmithWindowViewModel : ObservableObject
     [RelayCommand]
     public async Task UnlockAll()
     {
-        var pids = FilteredRecords
-            .Where(r => r.ProcessId > 4)
-            .Select(p => p.ProcessId)
-            .Distinct()
-            .ToList();
-
-        if (pids.Count > 0)
-        {
-            await _fileLockService.UnlockFileAsync(pids);
-            await ScanAsync();
-        }
+        var success = await UnlockRecordsAsync(FilteredRecords.Where(r => r.IsLocked).ToList());
+        await ScanAsync();
+        StatusMessage = Lang.Format(success
+            ? "lang.kitopia.messages.released_locks_value"
+            : "lang.kitopia.messages.unable_to_release_locks_value", ScopeTitle);
     }
 
     public void OnWindowClosing()

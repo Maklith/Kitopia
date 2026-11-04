@@ -1030,6 +1030,8 @@
   "lang.kitopia.messages.unable_to_terminate_process_pid_value": "Unable to terminate process PID={0}",
   "lang.kitopia.messages.some_processes_could_not_be_terminated_for_pid_value": "Some processes could not be terminated for PID={0}",
   "lang.kitopia.messages.terminated_process_pid_value": "Terminated process PID={0}",
+  "lang.kitopia.messages.released_locks_value": "Released locks: {0}",
+  "lang.kitopia.messages.unable_to_release_locks_value": "Unable to release locks; some processes could not be identified or terminated: {0}",
   "lang.kitopia.messages.attempted_to_release_all_locks_in_directory_value": "Attempted to release all locks in directory: {0}",
   "lang.kitopia.messages.attempted_to_release_all_file_locks_value": "Attempted to release all file locks: {0}",
   "lang.kitopia.messages.unlocked_and_deleted_value": "Unlocked and deleted: {0}",
