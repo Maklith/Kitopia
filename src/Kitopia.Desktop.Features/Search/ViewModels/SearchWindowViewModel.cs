@@ -102,11 +102,16 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private readonly Dictionary<string, SearchResultContext> _resultContexts = new(StringComparer.Ordinal);
 
 
-    [ObservableProperty] private string _search=string.Empty;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsVerticalEmptySearch))]
+    private string _search=string.Empty;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDirectorySearch))]
+    [NotifyPropertyChangedFor(nameof(IsVerticalEmptySearch))]
     private string? _directorySearchPath;
     public bool IsDirectorySearch => !string.IsNullOrEmpty(DirectorySearchPath);
+    public bool IsVerticalEmptySearch => ConfigManger.Config.verticalEmptySearchResults
+                                         && string.IsNullOrEmpty(Search) && !IsDirectorySearch;
     private Action<SearchViewItem?>? _selectAction;
 
 
@@ -350,6 +355,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private void LoadLastCore()
     {
         if (!string.IsNullOrEmpty(Search) || IsDirectorySearch) return;
+        OnPropertyChanged(nameof(IsVerticalEmptySearch));
         
         
         Logger.Debug("加载历史记录");
@@ -382,7 +388,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
 
                     item.IsPined = true;
-                    PinnedItems.Add(item);
+                    if (IsVerticalEmptySearch) Items.Add(item);
+                    else PinnedItems.Add(item);
 
 
                     limit++;
@@ -423,7 +430,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                     {
                         if (PinnedItems.All(e => e.OnlyKey != item.OnlyKey))
                         {
-                            PinnedItems.Add(item);
+                            if (IsVerticalEmptySearch) Items.Add(item);
+                            else PinnedItems.Add(item);
                             limit++;
                         }
 
@@ -434,6 +442,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         ProcessInputData(null, InputDataAnalyzeTimeFlags.InputEmpty);
         ShowPinnedItems = PinnedItems.Count > 0;
         FileTypes.Clear();
+        ItemsView.ResetFilter();
         ShowFileTypeFilter = FileTypes.Count > 0;
         foreach (var searchViewItem in Items)
         {
@@ -486,7 +495,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
             _lastSearchItems.AddRange(enumerable);
             foreach (var searchViewItem in enumerable)
             {
-                if (searchViewItem.ShowAsMiniApp)
+                if (searchViewItem.ShowAsMiniApp && !IsVerticalEmptySearch)
                 {
                     PinnedItems.Insert(0, searchViewItem);
                 }else
@@ -1002,10 +1011,16 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     private void Pin(object searchViewItem)
     {
         var item = (SearchViewItem)searchViewItem;
+        if (string.IsNullOrEmpty(item.OnlyKey)) return;
         Logger.Debug("添加常驻" + item.OnlyKey);
         //Items.ResetItem(index);
 
         ServiceManager.Services.GetService<ISearchItemTool>()!.Pin(item);
+        if (IsVerticalEmptySearch)
+        {
+            LoadLast();
+            return;
+        }
         if (item.IsPined)
         {
             if (!PinnedItems.Contains(item)) PinnedItems.Insert(0, item);
@@ -1111,6 +1126,11 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         if (configChanged) ConfigManger.Save();
         RunOnUiThread(() =>
         {
+            if (IsVerticalEmptySearch)
+            {
+                LoadLast();
+                return;
+            }
             var item = PinnedItems.FirstOrDefault(e => e.OnlyKey == path);
             if (pinned)
             {

@@ -4,6 +4,7 @@ using System.Globalization;
 using Avalonia.Controls.Documents;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
+using Kitopia.Feature.Localization;
 using PluginCore;
 
 namespace Kitopia.Desktop.Converter.SearchWindow;
@@ -18,7 +19,7 @@ public class ItemNameMatchCtr : IMultiValueConverter
         InlineCollection list = new();
         if (str.PinyinItem == null|| str.PinyinItem.Length!= str.ItemDisplayName?.Length)
         {
-            list.Add(new Run(str.ItemDisplayName));
+            list.Add(new Run(Lang.Get(str.ItemDisplayName)));
             return list;
         }
 

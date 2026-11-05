@@ -193,13 +193,6 @@ public class ConfigManger : IConfigService, IConfigProvider
                         ServiceManager.Services.GetService<ISelectionTranslationService>()?.Refresh());
                     break;
                 }
-                case "autoStart":
-                {
-                    ServiceManager.Services.GetService<IApplicationService>()!
-                        .ChangeAutoStart(args.Value as bool? ?? false);
-
-                    break;
-                }
                 case "themeChoice":
                 {
                     switch ((ThemeEnum)args.Value)

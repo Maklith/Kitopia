@@ -178,10 +178,20 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("lang.kitopia.start_automatically", "lang.kitopia.may_be_blocked_by_antivirus_software", 0xF678, ConfigFieldType.布尔)]
     public bool autoStart = true;
 
+    [ConfigField("lang.kitopia.prefer_early_startup", "lang.kitopia.prefer_early_startup_description", 0xF678,
+        ConfigFieldType.布尔, VisibleWhen = nameof(autoStart))]
+    public bool preferEarlyStartup = false;
+
     [ConfigField("lang.kitopia.allow_clipboard_access", "lang.kitopia.required_for_reading_clipboard_paths_and_saving_clipboard_images", 0xF2CA, ConfigFieldType.布尔)]
     public bool canReadClipboard = true;
 
     [ConfigFieldCategory("lang.kitopia.search_window", 0xF690)]
+    [ConfigField("lang.kitopia.hide_search_window_border", "lang.kitopia.hide_search_window_border_description", 0xF690, ConfigFieldType.布尔)]
+    public bool hideSearchWindowBorder = false;
+
+    [ConfigField("lang.kitopia.vertical_empty_search_results", "lang.kitopia.vertical_empty_search_results_description", 0xF47F, ConfigFieldType.布尔)]
+    public bool verticalEmptySearchResults = false;
+
     [ConfigField("lang.kitopia.search_window_hotkey", "lang.kitopia.hotkey_to_show_the_search_window", 0xF4B9, ConfigFieldType.快捷键, actionName: "searchHotKeyAction")]
     public HotKeyModel searchHotKey = new()
     {
