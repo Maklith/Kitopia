@@ -1,4 +1,11 @@
 {
+  "lang.kitopia.prefer_early_startup": "优先启动",
+  "lang.kitopia.prefer_early_startup_description": "通过无延迟的登录计划任务尽早启动。配置时可能需要管理员授权，Kitopia 仍以普通权限运行；不保证先于所有其他软件启动。",
+  "lang.kitopia.hide_search_window_border": "隐藏窗口外框",
+  "lang.kitopia.hide_search_window_border_description": "仅隐藏搜索窗口的系统外框，立即生效。",
+  "lang.kitopia.vertical_empty_search_results": "空输入时纵向展示",
+  "lang.kitopia.vertical_empty_search_results_description": "未输入内容时，将历史记录和内联建议在搜索框下方逐行展示，支持向下滚动，立即生效。",
+  "lang.kitopia.startup_setting_repair_required": "无法更新自启动入口，请在设置中重新切换自动启动进行配置。",
   "lang.kitopia.selection_translation": "划词翻译",
   "lang.kitopia.selection_translation_source": "原文",
   "lang.kitopia.selection_translation_result": "译文",

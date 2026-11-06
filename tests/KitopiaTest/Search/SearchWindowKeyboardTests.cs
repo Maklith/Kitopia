@@ -1,6 +1,7 @@
 using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
@@ -44,6 +45,31 @@ public sealed class SearchWindowKeyboardTests
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<Kitopia.Desktop.App>()
         .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia();
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task SearchWindow_BorderSetting_AppliesAtCreationAndDuringUseWithoutChangingInternalBorders(bool initiallyHidden)
+    {
+        await RunAsync((window, _, _) =>
+        {
+            var config = ConfigManger.Config;
+            Assert.AreEqual(initiallyHidden ? WindowDecorations.None : WindowDecorations.BorderOnly, window.WindowDecorations);
+            var header = window.FindControl<Border>("SearchHeader")!;
+            var input = window.FindControl<TextBox>("tx")!;
+            var headerThickness = header.BorderThickness;
+            var inputThickness = input.BorderThickness;
+            foreach (var hidden in new[] { !initiallyHidden, initiallyHidden })
+            {
+                config.hideSearchWindowBorder = hidden;
+                config.OnConfigChanged(this, nameof(KitopiaConfig.hideSearchWindowBorder), hidden);
+                Assert.AreEqual(hidden ? WindowDecorations.None : WindowDecorations.BorderOnly, window.WindowDecorations);
+                Assert.AreEqual(headerThickness, header.BorderThickness);
+                Assert.AreEqual(inputThickness, input.BorderThickness);
+            }
+            return Task.CompletedTask;
+        }, initiallyHidden);
+    }
 
     [TestMethod]
     [DataRow("Light")]
@@ -1174,7 +1200,241 @@ public sealed class SearchWindowKeyboardTests
         foreach (var screenshot in screenshots) TestContext.AddResultFile(screenshot);
     }
 
-    private static async Task RunAsync(Func<SearchWindow, SearchWindowViewModel, SearchServicesProxy, Task> test)
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task EmptySearchLayout_HistoryAndSuggestions_UsesConfiguredLayoutAndSelection(bool vertical)
+    {
+        Assert.IsFalse(new KitopiaConfig().verticalEmptySearchResults);
+        await RunAsync(async (window, model, services) =>
+        {
+            var config = ConfigManger.Config!;
+            var index = (SearchServicesProxy)ServiceManager.Services.GetRequiredService<IIndexService>();
+            var paths = new[] { @"C:\Apps\Pinned.exe", @"C:\Documents\Recent.pdf", @"C:\Documents\Older.docx" };
+            index.Results = paths.Select((path, i) => new SearchIndexResult(new SearchEntry
+            {
+                OnlyKey = path, DisplayName = $"History {i}", FileType = FileType.文件, IconSymbol = 0xF6EC
+            }, 1, null)).ToArray();
+            config.alwayShows.Add(paths[0]);
+            config.maxHistory = 3;
+            for (var i = 0; i < paths.Length; i++)
+                config.lastOpens[paths[i]] = new HistoryItem { AccessTimes = [DateTime.Now.AddDays(-i)] };
+            var mini = new SearchViewItem
+            {
+                ItemDisplayName = "Clipboard shortcut", OnlyKey = "mini-action", ShowAsMiniApp = true, IconSymbol = 0xF6EC
+            };
+            var suggestion = new SearchViewItem
+            {
+                ItemDisplayName = "Clipboard suggestion", OnlyKey = "row-action", IconSymbol = 0xF6EC
+            };
+            PluginOverall.SearchWindowInputDataAnalyzers["Kitopia"] =
+            [
+                (() => InputDataAnalyzeTimeFlags.InputEmpty, _ => [suggestion, mini])
+            ];
+
+            model.LoadLast();
+            Dispatcher.UIThread.RunJobs();
+            var input = window.FindControl<TextBox>("tx")!;
+            var results = window.FindControl<ListBox>("dataGrid")!;
+            var shortcuts = window.FindControl<ListBox>("PinnedList")!;
+            CollectionAssert.AreEqual(vertical ? new[] { "mini-action", "row-action", paths[0], paths[1], paths[2] } : new[] { "row-action" },
+                model.Items.Select(item => item.OnlyKey).ToArray());
+            CollectionAssert.AreEqual(vertical ? Array.Empty<string>() : new[] { "mini-action", paths[0], paths[1], paths[2] },
+                model.PinnedItems.Select(item => item.OnlyKey).ToArray());
+            Assert.AreEqual(!vertical, shortcuts.IsEffectivelyVisible);
+            Assert.IsTrue(input.IsFocused);
+            Assert.AreSame(mini, model.SelectedPinnedItem ?? model.SelectedItem);
+            Assert.AreEqual(vertical ? 0 : -1, results.SelectedIndex);
+            Assert.AreEqual(vertical ? -1 : 0, shortcuts.SelectedIndex);
+
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            var list = vertical ? results : shortcuts;
+            Assert.AreEqual(1, list.SelectedIndex);
+            Assert.IsTrue(list.IsKeyboardFocusWithin);
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Assert.AreEqual(0, list.SelectedIndex);
+            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Assert.IsTrue(input.IsFocused);
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            var selected = (SearchViewItem)list.SelectedItem!;
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+            Assert.AreSame(selected, await services.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        }, initiallyVerticalEmptyResults: vertical);
+    }
+
+    [TestMethod]
+    public async Task EmptySearchLayout_SettingQueryAndPinChanges_KeepsOneVisibleCopy()
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            var config = ConfigManger.Config!;
+            var index = (SearchServicesProxy)ServiceManager.Services.GetRequiredService<IIndexService>();
+            const string path = @"C:\Documents\History.pdf";
+            index.Results = [new SearchIndexResult(new SearchEntry
+            {
+                OnlyKey = path, DisplayName = "History document", FileType = FileType.文件, IconSymbol = 0xF6EC
+            }, 1, null)];
+            config.lastOpens[path] = new HistoryItem { AccessTimes = [DateTime.Now] };
+            var mini = new SearchViewItem { ItemDisplayName = "Clipboard shortcut", ShowAsMiniApp = true, IconSymbol = 0xF6EC };
+            PluginOverall.SearchWindowInputDataAnalyzers["Kitopia"] =
+            [
+                (() => InputDataAnalyzeTimeFlags.InputEmpty | InputDataAnalyzeTimeFlags.InputChanged, _ => [mini])
+            ];
+            model.LoadLast();
+            Dispatcher.UIThread.RunJobs();
+            var shortcuts = window.FindControl<ListBox>("PinnedList")!;
+            Assert.HasCount(2, model.PinnedItems);
+            Assert.IsEmpty(model.Items);
+
+            config.verticalEmptySearchResults = true;
+            config.OnConfigChanged(this, nameof(KitopiaConfig.verticalEmptySearchResults), true);
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsEmpty(model.PinnedItems);
+            Assert.IsFalse(shortcuts.IsEffectivelyVisible);
+            Assert.HasCount(2, model.Items);
+
+            foreach (var pinned in new[] { true, false })
+            {
+                model.PinCommand.Execute(model.Items.Single(item => item.OnlyKey == path));
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(pinned, config.alwayShows.Contains(path));
+                Assert.AreEqual(pinned, model.Items.Single(item => item.OnlyKey == path).IsPined);
+                Assert.HasCount(2, model.Items);
+                Assert.IsEmpty(model.PinnedItems);
+                Assert.IsFalse(shortcuts.IsEffectivelyVisible);
+            }
+
+            var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            model.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(model.IsSemanticSearching) && !model.IsSemanticSearching)
+                    completed.TrySetResult();
+            };
+            model.Search = "history";
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+            CollectionAssert.AreEqual(new[] { mini }, model.PinnedItems.ToArray());
+            Assert.IsTrue(shortcuts.IsEffectivelyVisible);
+            Assert.AreEqual(path, model.Items.Single().OnlyKey);
+
+            model.Search = string.Empty;
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsEmpty(model.PinnedItems);
+            Assert.IsFalse(shortcuts.IsEffectivelyVisible);
+            Assert.HasCount(2, model.Items);
+            Assert.AreSame(mini, model.SelectedItem);
+
+            config.verticalEmptySearchResults = false;
+            config.OnConfigChanged(this, nameof(KitopiaConfig.verticalEmptySearchResults), false);
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsEmpty(model.Items);
+            Assert.HasCount(2, model.PinnedItems);
+            Assert.IsTrue(shortcuts.IsEffectivelyVisible);
+            Assert.AreSame(mini, model.SelectedPinnedItem);
+        });
+    }
+
+    [TestMethod]
+    [DataRow("Light")]
+    [DataRow("Dark")]
+    public async Task EmptySearchLayout_OverflowAndLanguageChanges_ScrollsLocalizedRows(string themeName)
+    {
+        var screenshots = new List<string>();
+        await RunAsync((window, model, _) =>
+        {
+            var previousLanguage = Lang.Current.Language;
+            var assembly = typeof(ImageAnalyzer).Assembly;
+            var needsRegistration = !Lang.Current.Keys.Contains("lang.kitopiaex.extract_text");
+            try
+            {
+                if (needsRegistration) Lang.Current.RegisterAssembly(assembly);
+                var theme = themeName == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
+                Application.Current!.RequestedThemeVariant = theme;
+                window.RequestedThemeVariant = theme;
+                var config = ConfigManger.Config!;
+                var index = (SearchServicesProxy)ServiceManager.Services.GetRequiredService<IIndexService>();
+                config.maxHistory = 30;
+                index.Results = Enumerable.Range(0, 30).Select(i => new SearchIndexResult(new SearchEntry
+                {
+                    OnlyKey = $@"C:\Documents\Projects\A long directory name for search layout verification\History document {i}.pdf",
+                    DisplayName = $"History document {i}.pdf", FileType = FileType.PDF文档, IconSymbol = 0xF6EC
+                }, 1, null)).ToArray();
+                for (var i = 0; i < index.Results.Count; i++)
+                    config.lastOpens[index.Results[i].Source.OnlyKey] = new HistoryItem { AccessTimes = [DateTime.Now.AddDays(-i)] };
+                using var image = new Mat(1, 1, MatType.CV_8UC4);
+                PluginOverall.SearchWindowInputDataIdentifies["Kitopia"] =
+                [
+                    (_, _) => [new InputData { InputType = InputType.图像, Data = image }]
+                ];
+                var analyzer = new ImageAnalyzer();
+                PluginOverall.SearchWindowInputDataAnalyzers["KitopiaEx"] =
+                [
+                    (() => analyzer.AnalyzeTimeFlags, inputs => analyzer.AnalyzeInputData(inputs))
+                ];
+                model.LoadLast();
+                Dispatcher.UIThread.RunJobs();
+                var results = window.FindControl<ListBox>("dataGrid")!;
+                var scroll = results.GetVisualDescendants().OfType<ScrollViewer>().First();
+                Assert.HasCount(34, model.Items);
+                Assert.IsEmpty(model.PinnedItems);
+                Assert.IsFalse(window.FindControl<ListBox>("PinnedList")!.IsEffectivelyVisible);
+                Assert.IsTrue(scroll.Extent.Height > scroll.Viewport.Height);
+                Assert.IsTrue(scroll.Extent.Width <= scroll.Viewport.Width + 1);
+                var first = results.ContainerFromIndex(0)!;
+                var second = results.ContainerFromIndex(1)!;
+                Assert.IsTrue(second.Bounds.Y >= first.Bounds.Bottom);
+                Assert.IsTrue(model.Items.Take(4).All(item => item.OnlyKey.Length == 0));
+                for (var i = 0; i < 4; i++)
+                {
+                    var action = results.ContainerFromIndex(i)!;
+                    Assert.IsFalse(action.GetVisualDescendants().OfType<PinButton>().Single().IsVisible);
+                    model.PinCommand.Execute(model.Items[i]);
+                }
+                Assert.IsEmpty(config.alwayShows, "Inline actions without a stable key cannot be pinned.");
+                Assert.IsTrue(results.ContainerFromIndex(4)!.GetVisualDescendants().OfType<PinButton>().Single().IsVisible);
+
+                foreach (var language in new[] { "zh-CN", "en-US" })
+                {
+                    Lang.Current.UseLanguage(language);
+                    Dispatcher.UIThread.RunJobs();
+                    var title = first.GetVisualDescendants().OfType<TextBlock>()
+                        .Single(label => label.Classes.Contains("search-item-title"));
+                    Assert.AreEqual(Lang.Get(model.Items[0].ItemDisplayName),
+                        string.Concat(title.Inlines!.OfType<Run>().Select(run => run.Text)));
+                    AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                    using var frame = window.CaptureRenderedFrame();
+                    Assert.IsNotNull(frame);
+                    var directory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts/search-keyboard"));
+                    Directory.CreateDirectory(directory);
+                    var screenshot = Path.Combine(directory, $"search-empty-vertical-{themeName}-{language}.png");
+                    frame.Save(screenshot, PngBitmapEncoderOptions.Default);
+                    screenshots.Add(screenshot);
+                }
+
+                window.FindControl<TextBox>("tx")!.Focus();
+                window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+                window.KeyPress(Key.End, RawInputModifiers.None, PhysicalKey.End, null);
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(model.Items.Count - 1, results.SelectedIndex);
+                Assert.IsTrue(scroll.Offset.Y > 0);
+                var last = results.ContainerFromIndex(results.SelectedIndex)!;
+                var path = last.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(label => label.Classes.Contains("search-item-path"));
+                Assert.AreEqual(model.Items[^1].OnlyKey, path.Text);
+                Assert.IsTrue(path.Bounds.Width > 0);
+            }
+            finally
+            {
+                if (needsRegistration) Lang.Current.UnregisterAssembly(assembly.GetName().Name!);
+                Lang.Current.UseLanguage(previousLanguage);
+            }
+            return Task.CompletedTask;
+        }, initiallyVerticalEmptyResults: true);
+        foreach (var screenshot in screenshots) TestContext.AddResultFile(screenshot);
+    }
+
+    private static async Task RunAsync(Func<SearchWindow, SearchWindowViewModel, SearchServicesProxy, Task> test,
+        bool initiallyBorderless = false, bool initiallyVerticalEmptyResults = false)
     {
         ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithPlatformServices().BuildApp();
         await using var session = HeadlessUnitTestSession.StartNew(typeof(SearchWindowKeyboardTests));
@@ -1191,7 +1451,8 @@ public sealed class SearchWindowKeyboardTests
             {
                 ["KitopiaConfig"] = new KitopiaConfig
                 {
-                    useEverythingForIndexing = false, enableSemanticSearch = false, semanticSearchDebounceMilliseconds = 100
+                    useEverythingForIndexing = false, enableSemanticSearch = false, semanticSearchDebounceMilliseconds = 100,
+                    hideSearchWindowBorder = initiallyBorderless, verticalEmptySearchResults = initiallyVerticalEmptyResults
                 }
             };
             PluginOverall.SearchWindowInputDataIdentifies.Clear();
@@ -1252,14 +1513,31 @@ public sealed class SearchWindowKeyboardTests
         public TaskCompletionSource<SearchViewItem> Opened { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public IReadOnlyList<SearchIndexResult> Results { get; set; } = [];
 
-        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => targetMethod!.Name switch
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            nameof(IWindowTool.MoveWindowToMouseScreenCenter) or nameof(IWindowTool.SetForegroundWindow)
-                or nameof(IAppToolService.LoadIcon) => null,
-            nameof(IIndexService.SearchPinyin) => Results,
-            nameof(IIndexService.SearchAsync) => Task.FromResult(Results),
-            nameof(ISearchItemTool.OpenFile) => Opened.TrySetResult((SearchViewItem)args![0]!),
-            _ => throw new NotSupportedException(targetMethod.Name)
-        };
+            if (targetMethod!.Name == nameof(IIndexService.TryGetValue))
+            {
+                var entry = Results.Select(result => result.Source).FirstOrDefault(entry => entry.OnlyKey == (string)args![0]!);
+                args![1] = entry;
+                return entry.OnlyKey is not null;
+            }
+            if (targetMethod.Name == nameof(ISearchItemTool.Pin))
+            {
+                var item = (SearchViewItem)args![0]!;
+                item.IsPined = !ConfigManger.Config!.alwayShows.Contains(item.OnlyKey);
+                if (item.IsPined) ConfigManger.Config.alwayShows.Insert(0, item.OnlyKey);
+                else ConfigManger.Config.alwayShows.Remove(item.OnlyKey);
+                return null;
+            }
+            return targetMethod.Name switch
+            {
+                nameof(IWindowTool.MoveWindowToMouseScreenCenter) or nameof(IWindowTool.SetForegroundWindow)
+                    or nameof(IAppToolService.LoadIcon) => null,
+                nameof(IIndexService.SearchPinyin) => Results,
+                nameof(IIndexService.SearchAsync) => Task.FromResult(Results),
+                nameof(ISearchItemTool.OpenFile) => Opened.TrySetResult((SearchViewItem)args![0]!),
+                _ => throw new NotSupportedException(targetMethod.Name)
+            };
+        }
     }
 }

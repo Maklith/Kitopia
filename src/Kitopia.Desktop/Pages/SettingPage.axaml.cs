@@ -45,6 +45,7 @@ public partial class SettingPage : UserControl
     private readonly Dictionary<string, int> _pendingConfigSaves = new(StringComparer.Ordinal);
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(300) };
     private int _saveVersion;
+    private bool _startupChangePending;
     private string? _requestedFieldName;
     private Control? _requestedFieldContainer;
 
@@ -882,6 +883,8 @@ public partial class SettingPage : UserControl
                         }
                     case ConfigFieldType.布尔:
                         {
+                            var isStartupSetting = configBase is KitopiaConfig && fieldInfo.Name is
+                                nameof(KitopiaConfig.autoStart) or nameof(KitopiaConfig.preferEarlyStartup);
                             var toggleSwitch = new ToggleSwitch
                             {
                                 IsChecked = (bool)selectedValue,
@@ -889,12 +892,63 @@ public partial class SettingPage : UserControl
                                 OffContent = null,
                                 VerticalAlignment = VerticalAlignment.Center
                             };
+                            if (isStartupSetting)
+                            {
+                                SettingsExpander.IsEnabled = !_startupChangePending;
+                                EventHandler<ConfigChangedArgs> updateToggle = (_, args) =>
+                                {
+                                    if (args.Name == fieldInfo.Name)
+                                        toggleSwitch.IsChecked = (bool)fieldInfo.GetValue(configBase)!;
+                                };
+                                configBase.ConfigChanged += updateToggle;
+                                disposables.Add(Disposable.Create(() => configBase.ConfigChanged -= updateToggle));
+                            }
                             disposables.Add(
                                 toggleSwitch.GetObservable(ToggleSwitch.IsCheckedProperty)
                                     .Skip(1)
-                                    .Subscribe((d) =>
+                                    .Subscribe(async (d) =>
                                     {
                                         if (d is null || Equals(fieldInfo.GetValue(configBase), d)) return;
+                                        if (isStartupSetting && configBase is KitopiaConfig startupConfig)
+                                        {
+                                            if (_startupChangePending)
+                                            {
+                                                toggleSwitch.IsChecked = (bool)fieldInfo.GetValue(configBase)!;
+                                                return;
+                                            }
+                                            _startupChangePending = true;
+                                            var startupRows = new[] { nameof(KitopiaConfig.autoStart), nameof(KitopiaConfig.preferEarlyStartup) }
+                                                .Where(_fieldControls.ContainsKey).Select(name => _fieldControls[name]).ToArray();
+                                            foreach (var row in startupRows) row.IsEnabled = false;
+                                            try
+                                            {
+                                                var autoStart = fieldInfo.Name == nameof(KitopiaConfig.autoStart) ? d.Value : startupConfig.autoStart;
+                                                var earlyStartup = fieldInfo.Name == nameof(KitopiaConfig.preferEarlyStartup) ? d.Value : startupConfig.preferEarlyStartup;
+                                                if (!await ServiceManager.Services.GetRequiredService<IApplicationService>()
+                                                        .ChangeAutoStartAsync(autoStart, earlyStartup, allowElevation: true))
+                                                {
+                                                    toggleSwitch.IsChecked = (bool)fieldInfo.GetValue(configBase)!;
+                                                    _ = ServiceManager.Services.GetRequiredService<IToastService>()
+                                                        .Show(Lang.Get("lang.kitopia.start_at_login"), Lang.Get("lang.kitopia.startup_setting_failed"));
+                                                    return;
+                                                }
+                                            }
+                                            catch (Exception exception)
+                                            {
+                                                toggleSwitch.IsChecked = (bool)fieldInfo.GetValue(configBase)!;
+                                                Serilog.Log.Error(exception, "Failed to update startup registration");
+                                                _ = ServiceManager.Services.GetRequiredService<IToastService>()
+                                                    .Show(Lang.Get("lang.kitopia.start_at_login"), Lang.Get("lang.kitopia.startup_setting_failed"));
+                                                return;
+                                            }
+                                            finally
+                                            {
+                                                _startupChangePending = false;
+                                                foreach (var row in startupRows) row.IsEnabled = true;
+                                                foreach (var name in new[] { nameof(KitopiaConfig.autoStart), nameof(KitopiaConfig.preferEarlyStartup) })
+                                                    if (_fieldControls.TryGetValue(name, out var row)) row.IsEnabled = true;
+                                            }
+                                        }
                                         fieldInfo.SetValue(configBase, d);
                                         configBase.OnConfigChanged(this, fieldInfo.Name, d);
                                         ScheduleConfigSave(configBase);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -15,10 +16,19 @@ namespace Kitopia.Desktop.Controls;
 
 /// <summary>
 /// Subtitle of a search result row. Shows the result type and, while the application behind the
-/// row is running, its live CPU and memory usage.
+/// row is running, its live CPU and memory usage. Empty-input rows can show the file path instead.
 /// </summary>
 public class SearchItemSubtitle : TextBlock
 {
+    public static readonly StyledProperty<bool> ShowPathProperty =
+        AvaloniaProperty.Register<SearchItemSubtitle, bool>(nameof(ShowPath));
+
+    public bool ShowPath
+    {
+        get => GetValue(ShowPathProperty);
+        set => SetValue(ShowPathProperty, value);
+    }
+
     private static readonly FontFeatureCollection TabularFigures =
         new([FontFeature.Parse("tnum")]);
 
@@ -30,6 +40,12 @@ public class SearchItemSubtitle : TextBlock
         FontFeatures = TabularFigures;
         IsHitTestVisible = false;
         Text = string.Empty;
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == ShowPathProperty) UpdateSubtitle();
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -69,7 +85,9 @@ public class SearchItemSubtitle : TextBlock
 
     private void UpdateSubtitle()
     {
-        var typeLabel = DataContext is SearchViewItem item ? Lang.Get(item.FileType) : string.Empty;
+        var typeLabel = DataContext is SearchViewItem item
+            ? ShowPath && Path.IsPathFullyQualified(item.OnlyKey) ? item.OnlyKey : Lang.Get(item.FileType)
+            : string.Empty;
         if (ConfigManger.Config?.showProcessUsageInSearch is not true
             || _processName.Length == 0
             || _usage is null
