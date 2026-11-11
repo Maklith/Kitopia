@@ -49,7 +49,7 @@ public sealed class BatchRenameWindowTests
                 PluginCore.Localization.Lang.Lookup = HostLang.Get;
                 PluginCore.Localization.Lang.BindingSource = HostLang.Current;
                 Application.Current.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
-                using var vm = new BatchRenameViewModel(new Ffmpeg());
+                using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory));
                 await vm.AddPathsAsync(paths);
                 var window = new BatchRenameWindow { DataContext = vm, Width = width, Height = height };
                 try

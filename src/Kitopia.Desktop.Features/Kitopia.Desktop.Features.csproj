@@ -86,11 +86,6 @@
     <ItemGroup>
         <AvaloniaResource Include="Assets\FluentSystemIcons-Filled.ttf" />
         <AvaloniaResource Include="Assets\FluentSystemIcons-Regular.ttf" />
-        <Content Include="Assets\EmbeddingGemma2\**\*" Exclude="Assets\EmbeddingGemma2\onnx\*.onnx_data">
-            <Link>EmbeddingGemma2\%(RecursiveDir)%(Filename)%(Extension)</Link>
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-        </Content>
         <Content Include="Assets\Ocr\**\*">
             <Link>Ocr\%(RecursiveDir)%(Filename)%(Extension)</Link>
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

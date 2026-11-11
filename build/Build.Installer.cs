@@ -77,12 +77,6 @@ partial class Build
             compressionLevel: CompressionLevel.NoCompression, fileMode: FileMode.Create);
         (staging / "plugins").DeleteDirectory();
 
-        var embeddingModelArchive = installerAssets / "EmbeddingGemma2.zip";
-        embeddingModelArchive.DeleteFile();
-        (staging / "EmbeddingGemma2").ZipTo(embeddingModelArchive,
-            compressionLevel: CompressionLevel.NoCompression, fileMode: FileMode.Create);
-        (staging / "EmbeddingGemma2").DeleteDirectory();
-
         var ocrModelArchive = installerAssets / "Ocr.zip";
         ocrModelArchive.DeleteFile();
         (staging / "Ocr").ZipTo(ocrModelArchive,
@@ -117,7 +111,7 @@ partial class Build
         File.WriteAllText(infoPath, info.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 
-    static void CopyDirectory(AbsolutePath source, AbsolutePath destination)
+    internal static void CopyDirectory(AbsolutePath source, AbsolutePath destination)
     {
         Directory.CreateDirectory(destination);
         foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))

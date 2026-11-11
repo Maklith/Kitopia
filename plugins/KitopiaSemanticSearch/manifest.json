@@ -1,0 +1,10 @@
+{
+  "Name": "Kitopia语义搜索",
+  "NameSign": "kitopiasemanticsearch",
+  "Version": "1.0.0",
+  "Description": "EmbeddingGemma 2 Q4 模型包（用于本地语义搜索）",
+  "Main": "KitopiaSemanticSearch.dll",
+  "Dependencies": {
+    "Kitopia": "*-*"
+  }
+}

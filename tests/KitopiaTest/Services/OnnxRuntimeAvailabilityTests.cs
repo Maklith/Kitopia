@@ -10,6 +10,7 @@ using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Onnx;
 using Kitopia.Desktop.Features.Services.Plugin;
+using Kitopia.Desktop.Features.UI.UiControls.Plugin;
 using Kitopia.Desktop.Features.ViewModel.Pages;
 using Kitopia.Desktop.Pages;
 using Kitopia.Feature.Localization;
@@ -33,6 +34,20 @@ public sealed class OnnxRuntimeAvailabilityTests
     {
         PluginOverall.OnnxRuntimes.Remove(Source);
         PluginOverall.OnnxModelInfos.Remove(Source);
+    }
+
+    [TestMethod]
+    [DataRow("Kitopia", true, false)]
+    [DataRow("kitopiasemanticsearch", false, true)]
+    public void BundledModel_Provider_DistinguishesApplicationAndPlugin(string provider, bool appBundled, bool pluginBundled)
+    {
+        var selection = new OnnxModelRuntimeSelection(new OnnxModelInfoWrapper
+        {
+            PluginStr = provider,
+            Model = new OnnxModelInfo { SignName = "bundle-origin", IsBundled = true }
+        }, [], new TestConfigService());
+        Assert.AreEqual(appBundled, selection.IsAppBundled);
+        Assert.AreEqual(pluginBundled, selection.IsPluginBundled);
     }
 
     [TestMethod]
@@ -250,6 +265,7 @@ public sealed class OnnxRuntimeAvailabilityTests
                 await viewModel.RefreshCommand.ExecutionTask!;
                 Assert.AreEqual(true, page.FindControl<Button>("RecheckRuntimesButton")!.CommandParameter);
                 Dispatcher.UIThread.RunJobs();
+                Assert.IsFalse(page.GetVisualDescendants().OfType<PluginDependencyView>().Any());
                 var row = viewModel.Models.Single(model => model.ModelInfo.Model.SignName == "test-ui");
                 var grid = page.FindControl<DataGrid>("ModelsGrid")!;
                 grid.ScrollIntoView(row, grid.Columns[3]);

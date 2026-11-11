@@ -285,6 +285,8 @@ public class KitopiaConfig : ConfigBase
             AuthorId = 1,
             NameSign = "kitopiaex"
         },
+        new PluginBaseInfo { NameSign = "kitopiaffmpeg" },
+        new PluginBaseInfo { NameSign = "kitopiasemanticsearch" },
         new PluginBaseInfo
         {
             Id = 2,

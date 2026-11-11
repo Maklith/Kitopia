@@ -9,6 +9,7 @@ using PluginCore;
 using Polly;
 using Polly.Retry;
 using Serilog;
+using Kitopia.Desktop.Features.ViewModel.Pages.plugin;
 
 namespace Kitopia.Desktop.Features.Services.Plugin;
 
@@ -77,6 +78,8 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
 
     private CancellationTokenSource _cancellationTokenSource = new();
     private PluginBaseInfo _pluginBaseInfo;
+    public IReadOnlyList<PluginDependencyViewModel> OptionalDependencies { get; private set; } = [];
+    public bool HasOptionalDependencies => OptionalDependencies.Count > 0;
     public PluginBaseInfo PluginBaseInfo
     {
         get => _pluginBaseInfo;
@@ -84,6 +87,18 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
         {
             // PluginBaseInfo equality compares only NameSign, not updated metadata.
             _pluginBaseInfo = value;
+            var dependencies = value.OptionalDependencies ?? [];
+            if (OptionalDependencies.Count != dependencies.Count || OptionalDependencies.Any(item =>
+                    !dependencies.TryGetValue(item.NameSign, out var range) || range != item.VersionRange ||
+                    (value.OptionalDependencyDescriptions?.GetValueOrDefault(item.NameSign) ?? "lang.kitopia.plugins.optional_dependency_description") != item.Description))
+            {
+                foreach (var item in OptionalDependencies) item.Dispose();
+                OptionalDependencies = dependencies.Select(dependency => new PluginDependencyViewModel(
+                    dependency.Key, dependency.Value,
+                    value.OptionalDependencyDescriptions?.GetValueOrDefault(dependency.Key) ?? "lang.kitopia.plugins.optional_dependency_description")).ToArray();
+                OnPropertyChanged(nameof(OptionalDependencies));
+                OnPropertyChanged(nameof(HasOptionalDependencies));
+            }
             OnPropertyChanged();
         }
     }
@@ -479,6 +494,7 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
         if (_disposed) return;
         _disposed = true;
         WeakReferenceMessenger.Default.UnregisterAll(this);
+        foreach (var item in OptionalDependencies) item.Dispose();
         _cancellationTokenSource.Cancel();
         _icon?.Dispose();
         _authorAvatar?.Dispose();

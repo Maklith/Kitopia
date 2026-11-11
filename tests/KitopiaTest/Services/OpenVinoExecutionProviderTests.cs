@@ -217,7 +217,7 @@ public sealed class OpenVinoExecutionProviderTests
         typeof(OnnxRuntimeGpuWin).GetMethod("AppendExecutionProvider", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(runtime, [options, OrtHardwareDeviceType.NPU, 0, true]);
         using var session = new InferenceSession(Path.Combine(root.FullName,
-            "src", "Kitopia.Desktop.Features", "Assets", "EmbeddingGemma2", "onnx", "model_q4.onnx"), options);
+            "plugins", "KitopiaSemanticSearch", "EmbeddingGemma2", "onnx", "model_q4.onnx"), options);
         Parallel.For(0, 4, iteration =>
         {
             using var outputs = session.Run([

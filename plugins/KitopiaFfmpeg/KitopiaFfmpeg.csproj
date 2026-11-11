@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Version>1.0.0</Version>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <AssemblyName>KitopiaFfmpeg</AssemblyName>
+    <RootNamespace>KitopiaFfmpeg</RootNamespace>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and ('$(PlatformTarget)' == 'ARM64' or '$(Platform)' == 'ARM64')">win-arm64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and ('$(PlatformTarget)' == 'x64' or '$(Platform)' == 'x64')">win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'win-x64'">
+    <FfmpegBundleDirectory>$(MSBuildProjectDirectory)\..\..\artifacts\ffmpeg\win-x64\tools\ffmpeg</FfmpegBundleDirectory>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'win-arm64'">
+    <FfmpegBundleDirectory>$(MSBuildProjectDirectory)\..\..\artifacts\ffmpeg\win-arm64\tools\ffmpeg</FfmpegBundleDirectory>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FfmpegBundleDirectory)' == ''">
+    <FfmpegBundleDirectory>$(MSBuildProjectDirectory)\..\..\artifacts\ffmpeg\win-x64\tools\ffmpeg</FfmpegBundleDirectory>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug' and '$(RuntimeIdentifier)' == ''">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <OutputPath>$(LocalAppData)\Kitopia\plugins\kitopiaffmpeg\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug' and '$(RuntimeIdentifier)' != ''">
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <OutputPath>$(LocalAppData)\Kitopia\plugins\kitopiaffmpeg\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-x64' or '$(RuntimeIdentifier)' == 'win-arm64'">
+    <_RequiredFfmpegFile Include="$(FfmpegBundleDirectory)\avutil-61.dll;$(FfmpegBundleDirectory)\swresample-7.dll;$(FfmpegBundleDirectory)\swscale-10.dll;$(FfmpegBundleDirectory)\avcodec-63.dll;$(FfmpegBundleDirectory)\avformat-63.dll;$(FfmpegBundleDirectory)\avfilter-12.dll;$(FfmpegBundleDirectory)\avdevice-63.dll;$(FfmpegBundleDirectory)\ffmpeg.exe;$(FfmpegBundleDirectory)\ffprobe.exe;$(FfmpegBundleDirectory)\LICENSE.txt;$(FfmpegBundleDirectory)\GPL-3.0.txt;$(FfmpegBundleDirectory)\bundle.json;$(FfmpegBundleDirectory)\SOURCE.md" />
+    <_MissingFfmpegFile Include="@(_RequiredFfmpegFile)" />
+    <_MissingFfmpegFile Remove="@(_RequiredFfmpegFile->Exists())" />
+  </ItemGroup>
+  <Target Name="PrepareFfmpegForDebug"
+          Condition="'$(Configuration)' == 'Debug' and '$(DesignTimeBuild)' != 'true' and '$(OS)' == 'Windows_NT' and ('$(RuntimeIdentifier)' == 'win-x64' or '$(RuntimeIdentifier)' == 'win-arm64')"
+          Inputs="$(MSBuildProjectDirectory)\..\..\build\Build.Ffmpeg.cs;$(MSBuildProjectDirectory)\..\..\build\Ffmpeg\manifest.json;$(MSBuildProjectDirectory)\..\..\build\Ffmpeg\README.md;$(MSBuildProjectDirectory)\..\..\LICENSE"
+          Outputs="$(FfmpegBundleDirectory)\..\..\.debug-prepared;@(_MissingFfmpegFile)">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\..\.." Command="dotnet run --project &quot;$(MSBuildProjectDirectory)\..\..\build\kitopia.csproj&quot; --configuration Release -- BundleFfmpeg --ffmpeg-runtime $(RuntimeIdentifier)" />
+    <Touch Files="$(FfmpegBundleDirectory)\..\..\.debug-prepared" AlwaysCreate="true" />
+  </Target>
+  <Target Name="IncludeFfmpegPluginContent" BeforeTargets="AssignTargetPaths" DependsOnTargets="PrepareFfmpegForDebug"
+          Condition="'$(RuntimeIdentifier)' == 'win-x64' or '$(RuntimeIdentifier)' == 'win-arm64'">
+    <ItemGroup>
+      <_FfmpegContent Include="$(FfmpegBundleDirectory)\*" />
+      <Content Include="@(_FfmpegContent)">
+        <Link>tools\ffmpeg\%(_FfmpegContent.Filename)%(_FfmpegContent.Extension)</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </Content>
+    </ItemGroup>
+  </Target>
+  <Target Name="CopyFfmpegForDebug" AfterTargets="Build" DependsOnTargets="PrepareFfmpegForDebug"
+          Condition="'$(Configuration)' == 'Debug' and '$(OS)' == 'Windows_NT' and ('$(RuntimeIdentifier)' == 'win-x64' or '$(RuntimeIdentifier)' == 'win-arm64')">
+    <ItemGroup>
+      <_DebugFfmpegContent Include="$(FfmpegBundleDirectory)\*" />
+    </ItemGroup>
+    <MakeDir Directories="$(OutputPath)tools\ffmpeg" />
+    <Copy SourceFiles="@(_DebugFfmpegContent)" DestinationFolder="$(OutputPath)tools\ffmpeg" SkipUnchangedFiles="true" />
+  </Target>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Kitopia.Desktop.PluginSdk\Kitopia.Desktop.PluginSdk.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime;native</ExcludeAssets>
+    </ProjectReference>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+    <None Update="manifest.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+  </ItemGroup>
+</Project>

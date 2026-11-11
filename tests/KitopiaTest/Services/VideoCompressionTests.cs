@@ -16,7 +16,8 @@ public sealed class VideoCompressionTests
 {
     private string _directory = null!;
     private string _source = null!;
-    private readonly VideoCompressor _compressor = new();
+    private readonly VideoCompressor _compressor = new(FfmpegToolDirectory);
+    private static readonly string FfmpegToolDirectory = FfmpegTestAssets.ToolDirectory;
 
     [TestInitialize]
     public async Task Initialize()
@@ -350,7 +351,7 @@ public sealed class VideoCompressionTests
         await using var session = HeadlessUnitTestSession.StartNew(typeof(ImageCompressionWindowTests));
         await session.Dispatch(async () =>
         {
-            using var viewModel = new VideoCompressionViewModel(new Ffmpeg())
+            using var viewModel = new VideoCompressionViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory))
             {
                 Format = VideoCompressionFormat.KeepOriginal,
                 Codec = VideoCompressionCodec.KeepOriginal,
@@ -518,7 +519,7 @@ public sealed class VideoCompressionTests
         await using var session = HeadlessUnitTestSession.StartNew(typeof(ImageCompressionWindowTests));
         await session.Dispatch(async () =>
         {
-            using var viewModel = new VideoCompressionViewModel(new Ffmpeg())
+            using var viewModel = new VideoCompressionViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory))
             {
                 Mode = mode,
                 Format = VideoCompressionFormat.MKV,
@@ -556,7 +557,7 @@ public sealed class VideoCompressionTests
         await using var session = HeadlessUnitTestSession.StartNew(typeof(ImageCompressionWindowTests));
         await session.Dispatch(async () =>
         {
-            using var viewModel = new VideoCompressionViewModel(new Ffmpeg()) { SkipLarger = false };
+            using var viewModel = new VideoCompressionViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { SkipLarger = false };
             await viewModel.AddPathsAsync([_source, next]);
             var running = viewModel.StartCommand.ExecuteAsync(null);
             var import = viewModel.AddPathsAsync([queued]);
@@ -587,8 +588,13 @@ public sealed class VideoCompressionTests
 
     private static async Task<string> RunToolAsync(string tool, params string[] arguments)
     {
-        var startInfo = new ProcessStartInfo(Path.Combine(VideoCompressor.ToolDirectory, tool + ".exe"))
-        { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        var startInfo = new ProcessStartInfo(Path.Combine(FfmpegToolDirectory, tool + ".exe"))
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
         foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
         using var process = Process.Start(startInfo)!;
         var output = process.StandardOutput.ReadToEndAsync();

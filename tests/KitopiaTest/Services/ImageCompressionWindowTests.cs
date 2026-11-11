@@ -38,7 +38,7 @@ public sealed class ImageCompressionWindowTests
             PluginCore.Localization.Lang.Lookup = HostLang.Get;
             PluginCore.Localization.Lang.BindingSource = HostLang.Current;
             Application.Current!.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
-            var viewModel = new ImageCompressionViewModel(new Ffmpeg());
+            var viewModel = new ImageCompressionViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory));
             Assert.AreEqual(ImageCompressionFormat.Original, viewModel.Format);
             Assert.AreEqual(ImageCompressionFormat.Original, viewModel.Formats[0]);
             using var pixelImage = new SKBitmap(96, 64);

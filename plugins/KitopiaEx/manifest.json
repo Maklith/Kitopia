@@ -6,5 +6,11 @@
   "Main": "KitopiaEx.dll",
   "Dependencies": {
     "Kitopia": "*-*"
+  },
+  "OptionalDependencies": {
+    "kitopiaffmpeg": "[1.0.0,2.0.0)"
+  },
+  "OptionalDependencyDescriptions": {
+    "kitopiaffmpeg": "lang.kitopia.plugins.ffmpeg_features"
   }
 }

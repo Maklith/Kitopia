@@ -7,7 +7,7 @@ first before downloading into `.fallout/temp/ffmpeg`, verifies SHA256 checksums,
 the matching native DLLs, `ffmpeg.exe` and `ffprobe.exe` into
 `artifacts/ffmpeg/<rid>/tools/ffmpeg`.
 
-Debug builds, including Rider F5, prepare the matching bundle automatically
+Debug builds of the `KitopiaFfmpeg` plugin prepare the matching bundle automatically
 before MSBuild collects files for copying. Subsequent builds skip preparation
 until the bundle inputs change or a required file is missing. IDE design-time
 builds do not download. Preparation reuses a complete extracted bundle when its
@@ -18,7 +18,11 @@ Missing native files or a changed binary manifest require a verified cached ZIP
 or a download. Windows publishing prepares the bundle automatically
 as well. Image compression uses AutoGen directly; video compression uses the
 bundled tools for probing, transcoding and lossless container conversion.
-The installed app does not download FFmpeg or use an executable from PATH.
+The standalone Windows plugin packages both architectures under `tools/ffmpeg/win-x64`
+and `tools/ffmpeg/win-arm64`, selecting by process architecture. Debug outputs can
+still use the flat `tools/ffmpeg` layout. Installation and updates use the plugin
+market. Client builds do not prepare this optional plugin. Compression uses the
+plugin's tools and libraries rather than an executable from PATH.
 HEVC SDR uses the bundled Kvazaar software encoder. Preserving HDR with HEVC
 uses Main10 through NVIDIA NVENC, Intel QSV or AMD AMF after a one-frame encoding
 probe; it requires a compatible GPU and driver. An unavailable Main10 encoder
@@ -28,7 +32,8 @@ the codec unchanged copies the existing HEVC HDR stream without an encoder.
 To prepare libraries manually, run `./build/build.cmd BundleFfmpeg`. Add
 `--ffmpeg-runtime win-x64` or `--ffmpeg-runtime win-arm64` to prepare just one
 architecture. Release builds outside the publishing script still require a
-prepared bundle, including compression tests run in Release configuration.
+prepared bundle. Compression tests in either configuration read that prepared
+bundle directly without building the optional plugin.
 
 Windows x64 and ARM64 are supported. Kitopia no longer builds x86 releases.
 GPL builds must not be used as a fallback.

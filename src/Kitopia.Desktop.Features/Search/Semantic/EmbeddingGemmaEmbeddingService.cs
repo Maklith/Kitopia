@@ -47,8 +47,8 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
         service = null;
         try
         {
-            if (!EmbeddingGemmaModelPackage.IsComplete()) return false;
-            service = new EmbeddingGemmaEmbeddingService(EmbeddingGemmaModelPackage.DirectoryPath);
+            if (EmbeddingGemmaModelPackage.DirectoryPath is not { } directory || !EmbeddingGemmaModelPackage.IsComplete(directory)) return false;
+            service = new EmbeddingGemmaEmbeddingService(directory);
             return true;
         }
         catch (Exception exception)
@@ -146,14 +146,14 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
                                 ["u0"] = MaximumImageTokens
                             };
                             _visionSession = CreateSession(target,
-                                "vision_encoder_q4.onnx",
+                                Path.Combine(_directoryPath, "onnx", "vision_encoder_q4.onnx"),
                                 target == "NPU(OpenVino)" ? visionDimensions : null);
                         }
                         catch (Exception exception) when (isNpu && PluginOverall.GetOnnxRuntime("CPU") is not null)
                         {
                             // A failed NPU compile must not be retried for every image in the same batch.
                             Log.Warning(exception, "NPU vision session initialization failed; using one CPU fallback session for this service instance.");
-                            _visionSession = CreateSession("CPU", "vision_encoder_q4.onnx");
+                            _visionSession = CreateSession("CPU", Path.Combine(_directoryPath, "onnx", "vision_encoder_q4.onnx"));
                         }
                     }
                     _visionDevice = target;
@@ -256,7 +256,7 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
                         {
                             try
                             {
-                                session = CreateSession(runtimeTarget, "model_q4.onnx",
+                                session = CreateSession(runtimeTarget, Path.Combine(_directoryPath, "onnx", "model_q4.onnx"),
                                     isNpu ? new Dictionary<string, long>
                                     {
                                         ["batch_size"] = runtimeBatchSize,
@@ -273,7 +273,7 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
                                 // Keep a compiler failure from causing one retry per pending item.
                                 Log.Warning(exception, "NPU text session initialization failed; using one CPU fallback session for this service instance.");
                                 runtimeTarget = "CPU";
-                                session = CreateSession(runtimeTarget, "model_q4.onnx");
+                                session = CreateSession(runtimeTarget, Path.Combine(_directoryPath, "onnx", "model_q4.onnx"));
                                 _textSession = session;
                             }
                         }
@@ -374,7 +374,7 @@ internal sealed class EmbeddingGemmaEmbeddingService : IDisposable
             if (target == "NPU(OpenVino)")
                 Log.Information("Initializing {Model} for NPU with dimensions {@Dimensions}; compiled graphs are cached on disk.",
                     fileName, freeDimensionOverrides);
-            session.InitSession(Path.Combine(_directoryPath, "onnx", fileName), useCpuMemoryArena: true, threads,
+            session.InitSession(fileName, useCpuMemoryArena: true, threads,
                 gpuMemoryLimit, freeDimensionOverrides);
             if (target == "NPU(OpenVino)")
                 Log.Information("NPU session initialization for {Model} completed in {ElapsedSeconds:F1} seconds.",

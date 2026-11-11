@@ -32,6 +32,34 @@ public sealed class IndexServiceTests
     }
 
     [TestMethod]
+    public async Task RebuildFiles_WithoutSemanticPlugin_PreservesVectorsAndReportsDownloadGuidance()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"kitopia-missing-semantic-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var store = new IndexVectorStore(Path.Combine(directory, "index.db"));
+        var index = new IndexService();
+        typeof(IndexService).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(index, store);
+        try
+        {
+            Assert.IsFalse(EmbeddingGemmaModelPackage.IsComplete());
+            await store.UpsertTextChunksAsync("document.txt", "test-model", [new float[EmbeddingGemmaEmbeddingService.VectorDimensions]], CancellationToken.None);
+            await store.UpsertImageAsync("image.png", "fingerprint", "test-model", new float[EmbeddingGemmaEmbeddingService.VectorDimensions], CancellationToken.None);
+            await index.RebuildAsync(IndexRebuildScope.Files);
+            var status = index.GetStatus();
+            Assert.IsFalse(status.IsRebuilding);
+            Assert.AreEqual("lang.kitopia.semantic_model_missing", status.LastError);
+            Assert.AreEqual(0, status.FailedImages);
+            Assert.AreEqual((1, 1), await store.GetCountsAsync(CancellationToken.None));
+        }
+        finally
+        {
+            index.Dispose();
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [TestMethod]
     public async Task SearchPinyin_EverythingApplication_AppearsAfterOrdinaryIndexBuild()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"kitopia-ordinary-search-{Guid.NewGuid():N}");

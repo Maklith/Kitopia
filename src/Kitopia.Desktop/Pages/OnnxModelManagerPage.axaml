@@ -205,9 +205,15 @@
                                                TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxLines="3" />
                                 </DataTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn x:DataType="pages:OnnxModelRuntimeSelection" Width="128" MinWidth="128"
-                                                Binding="{Binding ModelInfo.PluginStr,Converter={StaticResource PluginStrToPluginName},Mode=OneWay}"
-                                                Header="{DynamicResource 'lang.kitopia.model_source'}" />
+                            <DataGridTemplateColumn x:DataType="pages:OnnxModelRuntimeSelection"
+                                                    Header="{DynamicResource 'lang.kitopia.model_source'}" Width="180" MinWidth="160">
+                                <DataTemplate x:DataType="pages:OnnxModelRuntimeSelection">
+                                    <TextBlock Text="{Binding ModelInfo.PluginStr,Converter={StaticResource PluginStrToPluginName},Mode=OneWay}"
+                                               ToolTip.Tip="{Binding ModelInfo.PluginStr,Converter={StaticResource PluginStrToPluginName},Mode=OneWay}"
+                                               Margin="12,8" VerticalAlignment="Center"
+                                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTemplateColumn Header="{DynamicResource 'lang.kitopia.inference_backend'}" Width="200" MinWidth="200"
                                                     SortMemberPath="CurrentDevice">
                                 <DataTemplate x:DataType="pages:OnnxModelRuntimeSelection">
@@ -244,8 +250,16 @@
                             <DataGridTemplateColumn x:DataType="pages:OnnxModelRuntimeSelection" Header="{DynamicResource 'lang.kitopia.download_model'}" Width="160" MinWidth="160">
                                 <DataTemplate x:DataType="pages:OnnxModelRuntimeSelection">
                                     <Panel Margin="12,8" VerticalAlignment="Center">
-                                        <TextBlock Text="{DynamicResource 'lang.kitopia.bundled'}" IsVisible="{Binding ModelInfo.Model.IsBundled}"
-                                                   FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Panel IsVisible="{Binding ModelInfo.Model.IsBundled}">
+                                            <Panel IsVisible="{Binding !ModelInfo.Model.NeedDownload}">
+                                                <TextBlock Text="{DynamicResource 'lang.kitopia.bundled'}" IsVisible="{Binding IsAppBundled}"
+                                                           FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                <TextBlock Text="{DynamicResource 'lang.kitopia.plugin_bundled'}" IsVisible="{Binding IsPluginBundled}"
+                                                           FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Panel>
+                                            <TextBlock Text="{DynamicResource 'lang.kitopia.model_files_missing'}" IsVisible="{Binding ModelInfo.Model.NeedDownload}"
+                                                       FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Panel>
                                         <controls:DownloadButton DataContext="{Binding ModelInfo.Model, DataType={x:Type pages:OnnxModelRuntimeSelection}}"
                                                                  x:DataType="onnx:OnnxModelInfo"
                                                                  IsVisible="{Binding !IsBundled}"

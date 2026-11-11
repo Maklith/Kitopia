@@ -7,6 +7,7 @@
              xmlns:plugin="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages.plugin;assembly=Kitopia.Desktop.Features"
              xmlns:plugin11="clr-namespace:Kitopia.Desktop.Features.Services.Plugin"
              xmlns:u="https://irihi.tech/ursa"
+             xmlns:dependency="clr-namespace:Kitopia.Desktop.Features.UI.UiControls.Plugin"
              mc:Ignorable="d" d:DesignWidth="950" d:DesignHeight="590"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch"
@@ -106,6 +107,7 @@
                                                    FontSize="12" FontWeight="Medium"
                                                    Foreground="#047857" />
                                     </Border>
+                                    <dependency:PluginOptionalDependenciesButton DataContext="{Binding PluginInfo}" />
                                 </StackPanel>
 
                                 <!-- NameSign -->

@@ -8,7 +8,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
-using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Localization;
 using PluginCore.Media;
@@ -19,7 +18,7 @@ namespace KitopiaEx.BatchRename;
 public partial class BatchRenameWindow : UrsaWindow
 {
     internal static BatchRenameWindow? Current { get; private set; }
-    private BatchRenameViewModel ViewModel => (BatchRenameViewModel)DataContext!;
+    internal BatchRenameViewModel ViewModel => (BatchRenameViewModel)DataContext!;
 
     public BatchRenameWindow() => InitializeComponent();
 
@@ -37,7 +36,7 @@ public partial class BatchRenameWindow : UrsaWindow
                 {
                     Current = new BatchRenameWindow
                     {
-                        DataContext = new BatchRenameViewModel(Kitopia.ServiceProvider.GetRequiredService<Ffmpeg>())
+                        DataContext = new BatchRenameViewModel(KitopiaEx.Ffmpeg)
                     };
                     Current.Show();
                 }

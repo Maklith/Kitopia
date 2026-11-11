@@ -212,7 +212,11 @@ public class Plugin
                     var value = propertyInfo.GetValue(ServiceProvider!.GetService(propertyInfo.DeclaringType!));
                     if (value is OnnxModelInfo onnxModelInfo)
                     {
-                        onnxModelInfo.ModelPath = $"{pluginInfo.Path}{onnxModelInfo.ModelPath}";
+                        if (!Path.IsPathRooted(onnxModelInfo.ModelPath))
+                            onnxModelInfo.ModelPath = Path.GetFullPath(Path.Combine(pluginInfo.Path, onnxModelInfo.ModelPath));
+                        onnxModelInfo.RequiredFiles = onnxModelInfo.RequiredFiles
+                            .Select(path => Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(pluginInfo.Path, path)))
+                            .ToArray();
                         onnxModelInfos.Add(new OnnxModelInfoWrapper
                         {
                             Model = onnxModelInfo,
@@ -273,9 +277,32 @@ public class Plugin
             }
         }
 
+        foreach (var dependency in PluginInfo.PluginBaseInfo.OptionalDependencies ?? [])
+            if (PluginManager.GetEnablePlugins().TryGetValue(dependency.Key, out var plugin) &&
+                PluginDependencyService.VersionInRange(plugin.PluginInfo.PluginBaseInfo.Version, dependency.Value) &&
+                plugin.ServiceProvider != null)
+                dependencyServiceProviders[dependency.Key] = plugin.ServiceProvider;
+
         // Treat a partially completed callback as enabled so the unload path can still clean it up.
         _enabled = true;
         _pluginService!.OnEnabled(ServiceProvider!, dependencyServiceProviders);
+    }
+
+    internal void RefreshOptionalDependencies(string changedDependency, bool removing = false)
+    {
+        if (!_enabled || PluginInfo.PluginBaseInfo.OptionalDependencies is not { Count: > 0 } dependencies ||
+            !dependencies.ContainsKey(changedDependency)) return;
+        var providers = new Dictionary<string, IServiceProvider>();
+        foreach (var dependency in dependencies)
+            if ((!removing || dependency.Key != changedDependency) && PluginManager.GetEnablePlugins().TryGetValue(dependency.Key, out var plugin) &&
+                PluginDependencyService.VersionInRange(plugin.PluginInfo.PluginBaseInfo.Version, dependency.Value) &&
+                plugin.ServiceProvider != null)
+                providers[dependency.Key] = plugin.ServiceProvider;
+        try { _pluginService!.OnOptionalDependenciesChanged(providers); }
+        catch (Exception exception)
+        {
+            Logger.Error(exception, "插件 {Plugin} 的可选依赖变化回调失败", PluginInfo.ToPlgString());
+        }
     }
 
     private Assembly _dll => _plugin!.Assembly;

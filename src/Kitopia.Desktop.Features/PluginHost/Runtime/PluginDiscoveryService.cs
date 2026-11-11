@@ -113,7 +113,11 @@ public class PluginDiscoveryService
             throw new InvalidDataException($"插件入口无效：{manifest.Main}");
         _ = System.Reflection.AssemblyName.GetAssemblyName(main);
         if (manifest.Dependencies is null) throw new InvalidDataException("插件依赖不能为空。");
-        foreach (var (dependency, requirement) in manifest.Dependencies)
+        if (manifest.OptionalDependencies is null) throw new InvalidDataException("插件可选依赖不能为空。");
+        if (manifest.OptionalDependencies.Keys.Any(manifest.Dependencies.ContainsKey))
+            throw new InvalidDataException("插件依赖不能同时声明为必需和可选。");
+        foreach (var dependencies in new[] { manifest.Dependencies, manifest.OptionalDependencies })
+        foreach (var (dependency, requirement) in dependencies)
         {
             var range = requirement?.Trim();
             // Convert unambiguous legacy caret declarations at the manifest boundary.
@@ -126,7 +130,7 @@ public class PluginDiscoveryService
                 range = dependency == "Kitopia" && range == "^0.0.0"
                     ? "*"
                     : new VersionRange(minimum, true, upper, false).ToNormalizedString();
-                manifest.Dependencies[dependency] = range;
+                dependencies[dependency] = range;
             }
             if (!VersionRange.TryParse(range, out _))
                 throw new InvalidDataException($"插件 {manifest.NameSign} 的依赖 {dependency} 版本范围无效：{requirement}。请使用 NuGet 语法，例如 [1.0.0,2.0.0)。");

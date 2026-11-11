@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
              xmlns:pages="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages;assembly=Kitopia.Desktop.Features"
+             xmlns:dependency="clr-namespace:Kitopia.Desktop.Features.UI.UiControls.Plugin;assembly=Kitopia.Desktop.Features"
              mc:Ignorable="d"
              d:DesignWidth="900"
              d:DesignHeight="620"
@@ -22,7 +23,7 @@
 
         <!-- 2. Progress Card -->
         <Border Grid.Row="1" Theme="{DynamicResource KitopiaCard}" Padding="18">
-            <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="12">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="12">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                     <TextBlock Text="{DynamicResource 'lang.kitopia.file_indexing_progress'}" FontSize="15" FontWeight="SemiBold"
                                Foreground="{DynamicResource SemiColorText0}" />
@@ -60,6 +61,10 @@
                                TextWrapping="Wrap"
                                ToolTip.Tip="{Binding CurrentItemText}" />
                 </Grid>
+                <StackPanel Grid.Row="4" IsVisible="{Binding SemanticModelMissing}" Spacing="6">
+                    <TextBlock Text="{DynamicResource 'lang.kitopia.semantic_model_missing'}" TextWrapping="Wrap" />
+                    <dependency:PluginDependencyView DataContext="{Binding SemanticDependency}" />
+                </StackPanel>
             </Grid>
         </Border>
 

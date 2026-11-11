@@ -59,7 +59,9 @@ public sealed class PluginContractTests
               "Version": "1.2.0",
               "Description": "Example plugin",
               "Main": "Example.dll",
-              "Dependencies": { "Kitopia": "[1.0.0,2.0.0)" }
+              "Dependencies": { "Kitopia": "[1.0.0,2.0.0)" },
+              "OptionalDependencies": { "codec": "[1.0.0,2.0.0)" },
+              "OptionalDependencyDescriptions": { "codec": "Compression features" }
             }
             """;
 
@@ -71,8 +73,22 @@ public sealed class PluginContractTests
         Assert.AreEqual("1.2.0", plugin.Version);
         Assert.AreEqual("Example.dll", plugin.Main);
         Assert.AreEqual("[1.0.0,2.0.0)", plugin.Dependencies["Kitopia"]);
+        Assert.AreEqual("[1.0.0,2.0.0)", plugin.OptionalDependencies!["codec"]);
+        Assert.AreEqual("Compression features", plugin.OptionalDependencyDescriptions!["codec"]);
         Assert.AreEqual(0, plugin.Id);
         Assert.AreEqual(0, plugin.VersionId);
+    }
+
+    [TestMethod]
+    public void PluginManifest_LegacyManifest_HasNoOptionalDependencies()
+    {
+        const string json = """
+            { "Name": "Legacy", "NameSign": "legacy", "Version": "1.0.0",
+              "Description": "Legacy plugin", "Main": "Legacy.dll" }
+            """;
+        var plugin = System.Text.Json.JsonSerializer.Deserialize<PluginManifest>(json)!.ToPluginBaseInfo();
+        Assert.IsEmpty(plugin.OptionalDependencies!);
+        Assert.IsEmpty(plugin.OptionalDependencyDescriptions!);
     }
 
     [TestMethod]

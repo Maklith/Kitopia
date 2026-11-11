@@ -1,6 +1,5 @@
 using System;
 using System.IO.Compression;
-using System.Threading.Tasks;
 using Fallout.Common;
 using Fallout.Common.IO;
 using Fallout.Solutions;
@@ -23,12 +22,12 @@ partial class Build
     Target PackWindowsX64 => _ => _
         .DependsOn(CreateRelease, RestoreWindows)
         .OnlyWhenDynamic(() => Release is not null)
-        .Executes(() => PublishWindowsAsync("win-x64"));
+        .Executes(() => PublishWindows("win-x64"));
 
     Target PackWindowsArm64 => _ => _
         .DependsOn(CreateRelease, RestoreWindows)
         .OnlyWhenDynamic(() => Release is not null)
-        .Executes(() => PublishWindowsAsync("win-arm64"));
+        .Executes(() => PublishWindows("win-arm64"));
 
     Target PackWindows => _ => _
         .DependsOn(PackWindowsX64, PackWindowsArm64)
@@ -39,12 +38,11 @@ partial class Build
         .DependsOn(PackWindowsX64)
         .OnlyWhenDynamic(() => Release is not null);
 
-    async Task PublishWindowsAsync(string runtime)
+    void PublishWindows(string runtime)
     {
         var output = ArtifactsDirectory / "windows" / runtime;
         var platformTarget = GetWindowsPlatformTarget(runtime);
         output.DeleteDirectory();
-        await BundleFfmpegAsync(runtime);
 
         DotNetPublish(c => c
             .SetProject(AvaloniaProject.Path)
@@ -71,7 +69,7 @@ partial class Build
 
     void PublishPlugin(AbsolutePath project, string runtime, AbsolutePath output)
     {
-        var platformTarget = GetWindowsPlatformTarget(runtime);
+        var platformTarget = runtime is null ? "AnyCPU" : GetWindowsPlatformTarget(runtime);
         DotNetPublish(c => c
             .SetProject(project)
             .SetOutput(output)

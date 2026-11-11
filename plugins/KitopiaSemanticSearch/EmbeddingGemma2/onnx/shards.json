@@ -1,0 +1,66 @@
+{
+  "upstream_revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+  "models": {
+    "model_q4.onnx": {
+      "upstream_graph_sha256": "f9eeba97acddf139b8ee2ddf04bc30dceafa88de93fadf74d7644e0d61a477a9",
+      "upstream_data_sha256": "c3975f2d1ab7a1878ae31a7d7a9b7804a827aff3800b60dfceafce21cac3df49",
+      "graph_sha256": "773e1c544e3b30057bd1fa1122c29572dc5f2fe8ab59d5bed3392e050da1530c",
+      "verified_external_tensors": 590,
+      "shards": [
+        {
+          "file": "model_q4.onnx_data.part001",
+          "bytes": 33447936,
+          "sha256": "81fad1ab096014193186f19630359ce04bb8c4244c6084875ff08e97521b18e5"
+        },
+        {
+          "file": "model_q4.onnx_data.part002",
+          "bytes": 67108864,
+          "sha256": "46beb83115e06a298dd7e709f2342f1d04b6842b98c192b1e9befe5abc9e8442"
+        },
+        {
+          "file": "model_q4.onnx_data.part003",
+          "bytes": 32579584,
+          "sha256": "c45051cc0fd8368cb2df187d5a510a10bd0af925af1a184585e3890fcdecf542"
+        },
+        {
+          "file": "model_q4.onnx_data.part004",
+          "bytes": 33251328,
+          "sha256": "a5307bad71c36494a6de90b960f53367c988fdf3518b17bb70a74fa3bdcd2306"
+        },
+        {
+          "file": "model_q4.onnx_data.part005",
+          "bytes": 7641088,
+          "sha256": "14f15c0831acde34ebc0728abc5f6e4ce08a3e93366f6b33b659862c700930d3"
+        }
+      ]
+    },
+    "vision_encoder_q4.onnx": {
+      "upstream_graph_sha256": "7ea284226d4938f0ad921ab091f1d80a9ca699aa802984ef5cd5eec4f4761d96",
+      "upstream_data_sha256": "0a9d6c927334f152a33dd90874f65d6ea5228999abe6a450d3f7813677fa704c",
+      "graph_sha256": "780938d6d869fdacfe71d5dd4140f741ee546f0418f532deea135e98690d7164",
+      "verified_external_tensors": 411,
+      "shards": [
+        {
+          "file": "vision_encoder_q4.onnx_data.part001",
+          "bytes": 33386496,
+          "sha256": "632d2c7c6ceb1ff89963d46d23ca30af60abbc01bfa104e186e049bb050cd415"
+        },
+        {
+          "file": "vision_encoder_q4.onnx_data.part002",
+          "bytes": 33546240,
+          "sha256": "f8c4bb4a6d366c39552a1d9f5ef30df5258b3c4acf311cbc26ad1a08f69c1a21"
+        },
+        {
+          "file": "vision_encoder_q4.onnx_data.part003",
+          "bytes": 32956416,
+          "sha256": "b9e05ee0118c9791af2e712b4e629015dea620314a16b3d67e58d3b38f534f4e"
+        },
+        {
+          "file": "vision_encoder_q4.onnx_data.part004",
+          "bytes": 9068544,
+          "sha256": "06ec498de3550944f20da7cf604f121801a86360033d203bdaeefa2f6e94e418"
+        }
+      ]
+    }
+  }
+}

@@ -8,7 +8,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
-using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Localization;
 using PluginCore.Media;
@@ -39,12 +38,16 @@ public partial class ImageCompressionWindow : UrsaWindow
         {
             try
             {
+                if (KitopiaEx.Ffmpeg is null)
+                {
+                    await Kitopia.IToastService.Show(Lang.Get("lang.kitopiaex.compression.title"), Lang.Get("lang.kitopiaex.compression.ffmpeg_missing"));
+                    return;
+                }
                 if (Current == null)
                 {
-                    var host = Kitopia.ServiceProvider;
                     Current = new ImageCompressionWindow
                     {
-                        DataContext = new ImageCompressionViewModel(host.GetRequiredService<Ffmpeg>())
+                        DataContext = new ImageCompressionViewModel(KitopiaEx.Ffmpeg!)
                     };
                     Current.Show();
                 }

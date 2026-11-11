@@ -38,43 +38,6 @@
         <Platforms>AnyCPU;x64</Platforms>
     </PropertyGroup>
 
-    <PropertyGroup>
-        <FfmpegRuntimeIdentifier>$(RuntimeIdentifier)</FfmpegRuntimeIdentifier>
-        <FfmpegRuntimeIdentifier Condition="'$(FfmpegRuntimeIdentifier)' == '' and ('$(PlatformTarget)' == 'ARM64' or '$(Platform)' == 'ARM64')">win-arm64</FfmpegRuntimeIdentifier>
-        <FfmpegRuntimeIdentifier Condition="'$(FfmpegRuntimeIdentifier)' == '' and ('$(PlatformTarget)' == 'x64' or '$(Platform)' == 'x64')">win-x64</FfmpegRuntimeIdentifier>
-        <FfmpegRuntimeIdentifier Condition="'$(FfmpegRuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</FfmpegRuntimeIdentifier>
-        <FfmpegBundleDirectory>$(MSBuildProjectDirectory)\..\..\artifacts\ffmpeg\$(FfmpegRuntimeIdentifier)\tools\ffmpeg</FfmpegBundleDirectory>
-    </PropertyGroup>
-    <ItemGroup Condition="'$(FfmpegRuntimeIdentifier)' == 'win-x64' or '$(FfmpegRuntimeIdentifier)' == 'win-arm64'">
-        <_RequiredFfmpegFile Include="$(FfmpegBundleDirectory)\avutil-61.dll;$(FfmpegBundleDirectory)\swresample-7.dll;$(FfmpegBundleDirectory)\swscale-10.dll;$(FfmpegBundleDirectory)\avcodec-63.dll;$(FfmpegBundleDirectory)\avformat-63.dll;$(FfmpegBundleDirectory)\avfilter-12.dll;$(FfmpegBundleDirectory)\avdevice-63.dll" />
-        <_RequiredFfmpegFile Include="$(FfmpegBundleDirectory)\ffmpeg.exe;$(FfmpegBundleDirectory)\ffprobe.exe" />
-        <_RequiredFfmpegFile Include="$(FfmpegBundleDirectory)\LICENSE.txt;$(FfmpegBundleDirectory)\GPL-3.0.txt;$(FfmpegBundleDirectory)\bundle.json;$(FfmpegBundleDirectory)\SOURCE.md" />
-        <_MissingFfmpegFile Include="@(_RequiredFfmpegFile)" />
-        <_MissingFfmpegFile Remove="@(_RequiredFfmpegFile->Exists())" />
-    </ItemGroup>
-    <Target Name="PrepareFfmpegForDebug"
-            Condition="'$(Configuration)' == 'Debug' and '$(DesignTimeBuild)' != 'true' and '$(OS)' == 'Windows_NT' and ('$(FfmpegRuntimeIdentifier)' == 'win-x64' or '$(FfmpegRuntimeIdentifier)' == 'win-arm64')"
-            Inputs="$(MSBuildProjectDirectory)\..\..\build\Build.Ffmpeg.cs;$(MSBuildProjectDirectory)\..\..\build\Ffmpeg\manifest.json;$(MSBuildProjectDirectory)\..\..\build\Ffmpeg\README.md;$(MSBuildProjectDirectory)\..\..\LICENSE"
-            Outputs="$(FfmpegBundleDirectory)\..\..\.debug-prepared;@(_MissingFfmpegFile)">
-        <Exec WorkingDirectory="$(MSBuildProjectDirectory)\..\.."
-              Command="dotnet run --project &quot;$(MSBuildProjectDirectory)\..\..\build\kitopia.csproj&quot; --configuration Release -- BundleFfmpeg --ffmpeg-runtime $(FfmpegRuntimeIdentifier)" />
-        <Touch Files="$(FfmpegBundleDirectory)\..\..\.debug-prepared" AlwaysCreate="true" />
-    </Target>
-    <Target Name="IncludeFfmpegContent" BeforeTargets="AssignTargetPaths" DependsOnTargets="PrepareFfmpegForDebug"
-            Condition="'$(FfmpegRuntimeIdentifier)' == 'win-x64' or '$(FfmpegRuntimeIdentifier)' == 'win-arm64'">
-        <ItemGroup>
-            <_FfmpegContent Include="$(FfmpegBundleDirectory)\*" />
-        </ItemGroup>
-        <ItemGroup>
-            <Content Include="@(_FfmpegContent)">
-                <Link>tools\ffmpeg\%(_FfmpegContent.RecursiveDir)%(_FfmpegContent.Filename)%(_FfmpegContent.Extension)</Link>
-                <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-                <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-            </Content>
-        </ItemGroup>
-    </Target>
-
-
     <ItemGroup>
         <AvaloniaResource Include="Assets\HarmonyOS_Sans_SC_Regular.ttf"/>
         <AvaloniaResource Include="Assets\icon.png" />
@@ -87,11 +50,6 @@
     
         <Content Include="Assets\icon.png">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
-        <Content Include="..\Kitopia.Desktop.Features\Assets\EmbeddingGemma2\**\*" Exclude="..\Kitopia.Desktop.Features\Assets\EmbeddingGemma2\onnx\*.onnx_data">
-            <Link>EmbeddingGemma2\%(RecursiveDir)%(Filename)%(Extension)</Link>
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         </Content>
         <Content Include="..\Kitopia.Desktop.Features\Assets\Ocr\**\*">
             <Link>Ocr\%(RecursiveDir)%(Filename)%(Extension)</Link>
@@ -187,18 +145,6 @@
         <Folder Include="Converter\PluginManagerPage\"/>
         <Folder Include="Tools\"/>
     </ItemGroup>
-
-    <Target Name="CopyEmbeddingGemmaModelForDebug" AfterTargets="Build"
-            Condition="'$(Configuration)' == 'Debug' And '$(LOCALAPPDATA)' != ''">
-        <ItemGroup>
-            <EmbeddingGemmaModelFiles Include="$(MSBuildProjectDirectory)\..\Kitopia.Desktop.Features\Assets\EmbeddingGemma2\**\*"
-                                     Exclude="$(MSBuildProjectDirectory)\..\Kitopia.Desktop.Features\Assets\EmbeddingGemma2\onnx\*.onnx_data" />
-        </ItemGroup>
-        <MakeDir Directories="@(EmbeddingGemmaModelFiles->'$(LOCALAPPDATA)\Kitopia\EmbeddingGemma2\%(RecursiveDir)')" />
-        <Copy SourceFiles="@(EmbeddingGemmaModelFiles)"
-              DestinationFiles="@(EmbeddingGemmaModelFiles->'$(LOCALAPPDATA)\Kitopia\EmbeddingGemma2\%(RecursiveDir)%(Filename)%(Extension)')"
-              SkipUnchangedFiles="true" />
-    </Target>
 
     <Target Name="CopyOcrModelForDebug" AfterTargets="Build"
             Condition="'$(Configuration)' == 'Debug' And '$(LOCALAPPDATA)' != ''">

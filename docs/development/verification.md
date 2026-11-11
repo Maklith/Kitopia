@@ -16,7 +16,9 @@ dotnet build "src/Mobile/Kitopia.Mobile/Kitopia.Mobile.csproj" -c Debug
 dotnet build "src/Mobile/Kitopia.Mobile.Android/Kitopia.Mobile.Android.csproj" -c Debug -r android-arm64
 ```
 
-Windows desktop Debug builds automatically prepare the FFmpeg bundle through `BundleFfmpeg`; the first build can download dependencies. See `build/Ffmpeg/README.md`. Debug builds also copy EmbeddingGemma 2 and OCR assets into the local application data directory. EmbeddingGemma 2 uses native ONNX external-data shards up to 32 MiB, except one intact 64 MiB embedding tensor. Git LFS and runtime merging are not required.
+Windows desktop Debug builds keep optional large assets in separate plugins. The `KitopiaFfmpeg` plugin project prepares its LGPL bundle through `BundleFfmpeg`; the first build can download dependencies. The `KitopiaSemanticSearch` plugin project publishes EmbeddingGemma 2, including its native ONNX external-data shards. The client continues to copy OCR assets into local application data. EmbeddingGemma 2 shards remain below GitHub's 100 MiB file limit, with one intact 64 MiB embedding tensor. Git LFS and runtime merging are not required.
+
+Compression tests resolve the prepared FFmpeg bundle from `artifacts/ffmpeg/<rid>/tools/ffmpeg` through `tests/KitopiaTest/Services/FfmpegTestAssets.cs`. Prepare that bundle explicitly before running native compression tests; client and test builds do not build the optional asset plugins automatically.
 
 When all platform prerequisites are available:
 
@@ -63,13 +65,22 @@ Use `./build/build.cmd --help` to inspect targets. Shell equivalents are `./buil
 | `PackAndroidX64`, `PackAndroidArm64`, `PackAndroid` | Publishes APKs and uploads release assets. |
 | `PackInstallerX64`, `PackInstallerArm64`, `PackInstaller` | Prepares archives, invokes the Rust release script and uploads installers. |
 | `PackOnnxRuntimeCpu`, `PackOnnxRuntimeGpuWin`, `PackOnnxRuntimeOpenVino`, `PackOnnxPlugins` | Publishes ONNX plugin packages to the configured plugin API; requires API keys. |
-| `LocalTest` | Publishes Windows x64, publishes ONNX plugins and builds an installer. This is not a unit-test target. |
-| `Clean` | Full Windows, ONNX plugin, Android and installer packaging/publishing dependency chain. This is not a cleanup command. |
+| `PackFfmpegPlugin`, `PackSemanticSearchPlugin`, `PackAssetPlugins` | Publishes FFmpeg and semantic-search ZIPs separately to the plugin API; requires their own API keys. |
+| `LocalTest` | Publishes Windows x64, publishes ONNX and asset plugins and builds an installer. This is not a unit-test target. |
+| `Clean` | Full Windows, ONNX/asset plugin, Android and installer packaging/publishing dependency chain. This is not a cleanup command. |
 | `CompileWindowsX64`, `BuildNativeInstaller` | Compatibility aliases for `PackWindowsX64` and `PackInstallerX64`; not standalone local compile commands. |
 
 Package targets depend on `CreateRelease`, which requires `GitHubToken` and creates a public release/tag when the version does not already exist. The release is marked as a prerelease only when its NuGet version has a prerelease label, such as `-beta.1` or `-rc.1`. An existing tag causes those release package targets to be skipped.
 
-The default entrypoint selects `Clean` when a GitHub token is supplied and `LocalTest` otherwise. ONNX publication uses configured API keys and defaults to a local API for local runs. Treat default/package targets as publishing workflows; use `dotnet build` and `dotnet test` for ordinary verification.
+The default entrypoint selects `Clean` when a GitHub token is supplied and `LocalTest` otherwise. Standalone plugin publication uses configured API keys and defaults to a local API for local runs. Treat default/package targets as publishing workflows; use `dotnet build` and `dotnet test` for ordinary verification.
+
+### Asset plugin publication
+
+`Clean` and `LocalTest` publish `kitopiaffmpeg` and `kitopiasemanticsearch` independently through the same version check, archive creation and upload API as ONNX plugins. `PackAssetPlugins` publishes both; `PackFfmpegPlugin` and `PackSemanticSearchPlugin` publish just one. Already-published versions are skipped; bump each plugin project and manifest together to release an update. These versions are independent of the desktop version.
+
+GitHub Actions reads `PLUGINAPIKEYFFMPEG` and `PLUGINAPIKEYSEMANTICSEARCH` secrets into `PluginApiKeyFfmpeg` and `PluginApiKeySemanticSearch`. Register both plugins on the server before publishing. Server upload/storage quotas remain an administrator setting, including the larger model package and retained revisions.
+
+Windows desktop ZIPs and installers include KitopiaEx and the CPU backend; FFmpeg and semantic models are installed from the plugin market. The market exposes one artifact per OS, so each asset plugin publishes a single `win-universal` archive with an AnyCPU entry assembly. FFmpeg carries both `tools/ffmpeg/win-x64` and `tools/ffmpeg/win-arm64`; its entry point selects by process architecture, with support for the previous flat Debug layout. The semantic model files are shared across architectures. `Build.PublishStandalonePlugin` is the shared publication entry point; `Build.AssetPlugins.cs` supplies FFmpeg bundle preparation without duplicating upload logic.
 
 ### Companion Store package version
 

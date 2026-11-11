@@ -45,6 +45,11 @@ public sealed class LifecyclePlugin(FixtureConfig config) : IPlugin
     }
 
     public void OnDisabled() => throw new InvalidOperationException("The host must await OnDisabledAsync.");
+    public void OnOptionalDependenciesChanged(Dictionary<string, IServiceProvider> dependencies)
+    {
+        config.Record("optional:" + string.Join(",", dependencies.Keys.Order()));
+        if (config.FailureStage == "optional") throw new InvalidOperationException("optional callback failure");
+    }
     public async ValueTask OnDisabledAsync(CancellationToken cancellationToken = default)
     {
         await Task.Yield();

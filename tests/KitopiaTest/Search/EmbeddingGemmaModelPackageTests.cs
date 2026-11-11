@@ -32,47 +32,15 @@ public sealed class EmbeddingGemmaModelPackageTests
     }
 
     [TestMethod]
-    public void CreateModelInfos_UsesModelSpecificGraphAndShardFiles()
+    public void DirectoryPath_UsesRegisteredSemanticPluginModel()
     {
-        var models = EmbeddingGemmaModelPackage.CreateModelInfos().Select(info => info.Model).ToArray();
-        Assert.HasCount(2, models);
-        Assert.IsTrue(models.All(model => model.IsBundled && !model.CanDownload));
-        Assert.AreEqual(EmbeddingGemmaModelPackage.TextModelSignName, models[0].SignName);
-        Assert.AreEqual(EmbeddingGemmaModelPackage.VisionModelSignName, models[1].SignName);
-        Assert.AreEqual(EmbeddingGemmaModelPackage.TextModelPath, models[0].ModelPath);
-        Assert.AreEqual(EmbeddingGemmaModelPackage.VisionModelPath, models[1].ModelPath);
-        CollectionAssert.AreEqual(
-            EmbeddingGemmaModelPackage.TextModelFiles.Select(file => Path.Combine(EmbeddingGemmaModelPackage.DirectoryPath, file)).ToArray(),
-            models[0].RequiredFiles.ToArray());
-        CollectionAssert.AreEqual(
-            EmbeddingGemmaModelPackage.VisionModelFiles.Select(file => Path.Combine(EmbeddingGemmaModelPackage.DirectoryPath, file)).ToArray(),
-            models[1].RequiredFiles.ToArray());
-        CollectionAssert.DoesNotContain(models[0].RequiredFiles.ToArray(), EmbeddingGemmaModelPackage.VisionModelPath);
-        CollectionAssert.DoesNotContain(models[1].RequiredFiles.ToArray(), EmbeddingGemmaModelPackage.TextModelPath);
+        Assert.IsNull(EmbeddingGemmaModelPackage.DirectoryPath);
     }
 
     [TestMethod]
-    public void ResolveDirectory_PortablePackage_FallsBackWhenInstalledAssetsAreIncomplete()
+    public void CreateWithoutSemanticPlugin_ReturnsFalse()
     {
-        var root = Path.Combine(Path.GetTempPath(), $"KitopiaTest_{Guid.NewGuid():N}");
-        var installed = Path.Combine(root, "installed");
-        var bundled = Path.Combine(root, "bundled");
-        try
-        {
-            Assert.AreEqual(installed, EmbeddingGemmaModelPackage.ResolveDirectory(installed, bundled));
-            Directory.CreateDirectory(Path.Combine(bundled, "onnx"));
-            foreach (var file in EmbeddingGemmaModelPackage.RequiredFiles)
-                File.WriteAllText(Path.Combine(bundled, file), "asset");
-            Assert.AreEqual(bundled, EmbeddingGemmaModelPackage.ResolveDirectory(installed, bundled));
-            Directory.CreateDirectory(Path.Combine(installed, "onnx"));
-            foreach (var file in EmbeddingGemmaModelPackage.RequiredFiles)
-                File.WriteAllText(Path.Combine(installed, file), "asset");
-            Assert.AreEqual(installed, EmbeddingGemmaModelPackage.ResolveDirectory(installed, bundled));
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        Assert.IsFalse(EmbeddingGemmaModelPackage.IsComplete());
     }
 
     [TestMethod]
@@ -81,7 +49,7 @@ public sealed class EmbeddingGemmaModelPackageTests
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "Kitopia.sln"))) root = root.Parent;
         Assert.IsNotNull(root);
-        var directory = Path.Combine(root.FullName, "src", "Kitopia.Desktop.Features", "Assets", "EmbeddingGemma2", "onnx");
+        var directory = Path.Combine(root.FullName, "plugins", "KitopiaSemanticSearch", "EmbeddingGemma2", "onnx");
         using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "shards.json")));
         Assert.AreEqual(EmbeddingGemmaModelPackage.Revision, manifest.RootElement.GetProperty("upstream_revision").GetString());
         var largeShards = 0;

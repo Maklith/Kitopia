@@ -1,14 +1,39 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using Avalonia.Threading;
 using Kitopia.Desktop.Abstractions.Shell;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Services.Plugin;
 
 namespace Kitopia.Desktop.Features.ViewModel.Pages;
 
-public sealed partial class OnnxModelManagerPageViewModel(
-    IConfigService configService, IDesktopShell shell, IOnnxRuntimeProbe runtimeProbe) : ObservableObject
+public sealed partial class OnnxModelManagerPageViewModel : ObservableObject
 {
+    private readonly IConfigService _configService;
+    private readonly IDesktopShell _shell;
+    private readonly IOnnxRuntimeProbe _runtimeProbe;
+
+    public OnnxModelManagerPageViewModel(IConfigService configService, IDesktopShell shell, IOnnxRuntimeProbe runtimeProbe)
+    {
+        _configService = configService;
+        _shell = shell;
+        _runtimeProbe = runtimeProbe;
+        WeakReferenceMessenger.Default.Register<PluginsReloaded>(this, static (recipient, _) =>
+        {
+            var viewModel = (OnnxModelManagerPageViewModel)recipient;
+            Dispatcher.UIThread.Post(async () =>
+            {
+                if (viewModel.RefreshCommand.IsRunning)
+                {
+                    viewModel.RefreshCommand.Cancel();
+                    await viewModel.RefreshCommand.ExecutionTask!;
+                }
+                await viewModel.RefreshCommand.ExecuteAsync(false);
+            });
+        });
+    }
+
     [ObservableProperty] private IReadOnlyList<OnnxRuntimeStatus> _runtimes = [];
     [ObservableProperty] private IReadOnlyList<OnnxModelRuntimeSelection> _models = [];
 
@@ -16,14 +41,14 @@ public sealed partial class OnnxModelManagerPageViewModel(
     private async Task RefreshAsync(bool forceRefresh, CancellationToken cancellationToken)
     {
         Runtimes = PluginOverall.AllTargetDevices
-            .Concat(configService.Config.OnnxTargetDevices.Values)
+            .Concat(_configService.Config.OnnxTargetDevices.Values)
             .Append("CPU")
             .Distinct(StringComparer.Ordinal)
             .OrderBy(device => device != "CPU")
             .Select(device => new OnnxRuntimeStatus(device))
             .ToArray();
         Models = PluginOverall.AllOnnxModelInfos
-            .Select(model => new OnnxModelRuntimeSelection(model, Runtimes, configService)).ToArray();
+            .Select(model => new OnnxModelRuntimeSelection(model, Runtimes, _configService)).ToArray();
 
         foreach (var status in Runtimes)
         {
@@ -38,7 +63,7 @@ public sealed partial class OnnxModelManagerPageViewModel(
                 }
                 else
                 {
-                    status.IsAvailable = await runtimeProbe.CheckAsync(status.Device, cancellationToken, forceRefresh);
+                    status.IsAvailable = await _runtimeProbe.CheckAsync(status.Device, cancellationToken, forceRefresh);
                     if (cancellationToken.IsCancellationRequested) return;
                 }
             }
@@ -60,8 +85,8 @@ public sealed partial class OnnxModelManagerPageViewModel(
     }
 
     [RelayCommand]
-    private void OpenDocumentation(OnnxRuntimeStatus runtime) => shell.Open(runtime.DocumentationUrl);
+    private void OpenDocumentation(OnnxRuntimeStatus runtime) => _shell.Open(runtime.DocumentationUrl);
 
     [RelayCommand]
-    private void OpenDrivers(OnnxRuntimeStatus runtime) => shell.Open(runtime.DriverUrl!);
+    private void OpenDrivers(OnnxRuntimeStatus runtime) => _shell.Open(runtime.DriverUrl!);
 }

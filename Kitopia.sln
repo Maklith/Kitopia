@@ -68,6 +68,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Mobile.Android", "s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kitopia.Desktop.Abstractions", "src\Kitopia.Desktop.Abstractions\Kitopia.Desktop.Abstractions.csproj", "{6BABBA9D-0E2C-41B3-829E-70952643F997}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KitopiaFfmpeg", "plugins\KitopiaFfmpeg\KitopiaFfmpeg.csproj", "{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KitopiaSemanticSearch", "plugins\KitopiaSemanticSearch\KitopiaSemanticSearch.csproj", "{0DC66348-5042-409D-AB14-7432FCB5159A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -603,6 +607,28 @@ Global
 		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|x64.Build.0 = Release|Any CPU
 		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|x86.ActiveCfg = Release|Any CPU
 		{6BABBA9D-0E2C-41B3-829E-70952643F997}.Release|x86.Build.0 = Release|Any CPU
+		{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC}.Debug|arm64.ActiveCfg = Debug|Any CPU
+		{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC}.Release|ARM.ActiveCfg = Release|Any CPU
+		{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC}.Release|arm64.ActiveCfg = Release|Any CPU
+		{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC}.Release|x64.ActiveCfg = Release|Any CPU
+		{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC}.Release|x86.ActiveCfg = Release|Any CPU
+		{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC}.Debug|x64.Build.0 = Debug|Any CPU
+		{0DC66348-5042-409D-AB14-7432FCB5159A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0DC66348-5042-409D-AB14-7432FCB5159A}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{0DC66348-5042-409D-AB14-7432FCB5159A}.Debug|arm64.ActiveCfg = Debug|Any CPU
+		{0DC66348-5042-409D-AB14-7432FCB5159A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0DC66348-5042-409D-AB14-7432FCB5159A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0DC66348-5042-409D-AB14-7432FCB5159A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0DC66348-5042-409D-AB14-7432FCB5159A}.Release|ARM.ActiveCfg = Release|Any CPU
+		{0DC66348-5042-409D-AB14-7432FCB5159A}.Release|arm64.ActiveCfg = Release|Any CPU
+		{0DC66348-5042-409D-AB14-7432FCB5159A}.Release|x64.ActiveCfg = Release|Any CPU
+		{0DC66348-5042-409D-AB14-7432FCB5159A}.Release|x86.ActiveCfg = Release|Any CPU
+		{0DC66348-5042-409D-AB14-7432FCB5159A}.Debug|x64.Build.0 = Debug|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -624,6 +650,8 @@ Global
 		{E93B49F8-15A2-4638-B240-8F6EE57B61DA} = {E0FC68D3-40F2-542A-6A90-38B94336C1AE}
 		{57B851CB-55E0-437C-B2B4-130053B3B998} = {E0FC68D3-40F2-542A-6A90-38B94336C1AE}
 		{8AB44E60-0EF4-4304-9981-F5859DA57E21} = {FD87C257-A026-4588-A815-3EF0D85333BA}
+		{DF7F2EC1-00D4-4CA2-AD90-BBC2F08FEDAC} = {5F2D85BA-2357-44E1-89E1-93D131B4FC0D}
+		{0DC66348-5042-409D-AB14-7432FCB5159A} = {5F2D85BA-2357-44E1-89E1-93D131B4FC0D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C1AD2B23-E1E5-4764-9502-A6C2BBD90633}

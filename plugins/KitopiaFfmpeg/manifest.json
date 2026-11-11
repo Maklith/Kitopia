@@ -1,0 +1,10 @@
+{
+  "Name": "Kitopia FFmpeg",
+  "NameSign": "kitopiaffmpeg",
+  "Version": "1.0.0",
+  "Description": "FFmpeg LGPL 媒体库和工具",
+  "Main": "KitopiaFfmpeg.dll",
+  "Dependencies": {
+    "Kitopia": "*-*"
+  }
+}

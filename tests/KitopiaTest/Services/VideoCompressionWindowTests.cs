@@ -34,7 +34,7 @@ public sealed class VideoCompressionWindowTests
             PluginCore.Localization.Lang.Lookup = HostLang.Get;
             PluginCore.Localization.Lang.BindingSource = HostLang.Current;
             Application.Current!.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
-            using var viewModel = new VideoCompressionViewModel(new Ffmpeg());
+            using var viewModel = new VideoCompressionViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory));
             foreach (var status in Enum.GetValues<ImageCompressionStatus>())
                 viewModel.Items.Add(new ImageCompressionItem(@"C:\Videos\long-video-name-" + status + ".mp4", 12000000, null)
                 {

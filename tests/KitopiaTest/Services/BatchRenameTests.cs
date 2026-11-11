@@ -25,11 +25,44 @@ public sealed class BatchRenameTests
     public void Cleanup() => Directory.Delete(_directory, recursive: true);
 
     [TestMethod]
+    public async Task UpdateFfmpeg_EnabledAfterOpening_RestoresCompressionWithoutLosingInputs()
+    {
+        var source = CreateImage("photo.png");
+        using var vm = new BatchRenameViewModel(null) { BaseName = "renamed", CompressImages = true, ResizePercent = 50 };
+        await vm.AddPathsAsync([source]);
+        Assert.IsFalse(vm.CanStart);
+        vm.UpdateFfmpeg(new Ffmpeg(FfmpegTestAssets.ToolDirectory));
+        Assert.IsTrue(vm.FfmpegAvailable, vm.Message);
+        Assert.IsTrue(vm.CanStart);
+        Assert.AreEqual("renamed", vm.BaseName);
+        Assert.HasCount(1, vm.Items);
+        await vm.StartCommand.ExecuteAsync(null);
+        Assert.AreEqual(BatchRenameStatus.Completed, vm.Items[0].Status, vm.Items[0].Error);
+        Assert.IsTrue(File.Exists(source));
+        using var image = SKBitmap.Decode(vm.Items[0].OutputPath!);
+        Assert.AreEqual(32, image.Width);
+    }
+
+    [TestMethod]
+    public async Task UpdateFfmpeg_Removed_KeepsOrdinaryRenameAvailable()
+    {
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { CompressImages = true };
+        await vm.AddPathsAsync([CreateFile("notes.txt")]);
+        vm.UpdateFfmpeg(null);
+        Assert.IsFalse(vm.FfmpegAvailable);
+        Assert.IsFalse(vm.CanStart);
+        vm.CompressImages = false;
+        Assert.IsTrue(vm.CanStart);
+        await vm.StartCommand.ExecuteAsync(null);
+        Assert.AreEqual(BatchRenameStatus.Completed, vm.Items[0].Status);
+    }
+
+    [TestMethod]
     public async Task StartAsync_NamingRules_PreviewsAndMovesFilesWithoutChangingContent()
     {
         var first = CreateFile("old report.txt", "first");
         var second = CreateFile("old photo.JPG", "second");
-        using var vm = new BatchRenameViewModel(new Ffmpeg())
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory))
         {
             Prefix = "pre-", FindText = "old ", ReplaceText = "new-", Suffix = "-done",
             StartNumber = 7, NumberDigits = 2
@@ -54,7 +87,7 @@ public sealed class BatchRenameTests
     {
         var first = CreateFile("1_003.html", "first");
         var second = CreateFile("1_004.HTML", "second");
-        using var vm = new BatchRenameViewModel(new Ffmpeg())
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory))
         {
             KeepOriginalName = false, StartNumber = start, NumberDigits = digits
         };
@@ -76,7 +109,7 @@ public sealed class BatchRenameTests
     public async Task StartAsync_WithoutOriginalName_PreservesAffixesAndNumberingChoice(bool addNumber, string expectedName)
     {
         var source = CreateFile("source.txt", "content");
-        using var vm = new BatchRenameViewModel(new Ffmpeg())
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory))
         {
             KeepOriginalName = false, Prefix = "pre-", Suffix = "-done", AddNumber = addNumber
         };
@@ -92,7 +125,7 @@ public sealed class BatchRenameTests
     [TestMethod]
     public async Task RefreshPreview_KeepOriginalNameToggle_PreservesOtherRules()
     {
-        using var vm = new BatchRenameViewModel(new Ffmpeg()) { Prefix = "pre-", Suffix = "-done" };
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { Prefix = "pre-", Suffix = "-done" };
         await vm.AddPathsAsync([CreateFile("source.txt")]);
         Assert.IsTrue(vm.KeepOriginalName);
         Assert.AreEqual("pre-source_001-done.txt", vm.Items[0].NewName);
@@ -120,7 +153,7 @@ public sealed class BatchRenameTests
     [TestMethod]
     public async Task RefreshPreview_WithoutAnyNameComponents_DisablesStart()
     {
-        using var vm = new BatchRenameViewModel(new Ffmpeg()) { KeepOriginalName = false, AddNumber = false };
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { KeepOriginalName = false, AddNumber = false };
         await vm.AddPathsAsync([CreateFile("source.txt")]);
         Assert.IsTrue(vm.Items[0].HasError);
         Assert.IsFalse(vm.CanStart);
@@ -135,7 +168,7 @@ public sealed class BatchRenameTests
     {
         var first = CreateFile("first.txt");
         var second = CreateFile("second.txt");
-        using var vm = new BatchRenameViewModel(new Ffmpeg()) { BaseName = "same", AddNumber = false };
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { BaseName = "same", AddNumber = false };
         await vm.AddPathsAsync([first, second]);
         Assert.IsTrue(vm.Items.All(item => item.HasError));
         Assert.IsFalse(vm.CanStart);
@@ -156,7 +189,7 @@ public sealed class BatchRenameTests
     [DataRow("LPT1")]
     public async Task RefreshPreview_InvalidName_DisablesStart(string name)
     {
-        using var vm = new BatchRenameViewModel(new Ffmpeg()) { BaseName = name, AddNumber = false };
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { BaseName = name, AddNumber = false };
         await vm.AddPathsAsync([CreateFile("first.txt")]);
         Assert.IsTrue(vm.Items.Single().HasError);
         Assert.IsFalse(vm.StartCommand.CanExecute(null));
@@ -170,7 +203,7 @@ public sealed class BatchRenameTests
         var first = CreateFile("a.txt");
         var second = CreateFile("b.txt");
         Directory.CreateDirectory(Path.Combine(_directory, "nested"));
-        using var vm = new BatchRenameViewModel(new Ffmpeg());
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory));
         await Task.WhenAll(vm.AddPathsAsync([_directory, first]), vm.AddPathsAsync([second]));
         Assert.AreEqual(2, vm.Items.Count);
         vm.SelectedItem = vm.Items[0];
@@ -190,7 +223,7 @@ public sealed class BatchRenameTests
         var first = CreateFile("first.txt", "first");
         var second = CreateFile("second.txt", "second");
         var third = CreateFile("third.txt", "third");
-        using var vm = new BatchRenameViewModel(new Ffmpeg()) { KeepOriginalName = false };
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { KeepOriginalName = false };
         await vm.AddPathsAsync([first, second, third]);
         Assert.IsFalse(vm.MoveUpCommand.CanExecute(null));
         Assert.IsFalse(vm.MoveDownCommand.CanExecute(null));
@@ -240,7 +273,7 @@ public sealed class BatchRenameTests
         File.SetLastWriteTimeUtc(first, date.AddDays(2));
         File.SetLastWriteTimeUtc(second, date);
         File.SetLastWriteTimeUtc(third, date.AddDays(1));
-        using var vm = new BatchRenameViewModel(new Ffmpeg()) { KeepOriginalName = false };
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { KeepOriginalName = false };
         await vm.AddPathsAsync([first, second, third]);
         var selected = vm.Items[1];
         vm.SelectedItem = selected;
@@ -260,7 +293,7 @@ public sealed class BatchRenameTests
     {
         var first = CreateFile("photo10.txt");
         var second = CreateFile("photo2.txt");
-        using var vm = new BatchRenameViewModel(new Ffmpeg()) { SortMode = BatchRenameSortMode.Name };
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { SortMode = BatchRenameSortMode.Name };
         await vm.AddPathsAsync([first, second]);
         CollectionAssert.AreEqual(new[] { second, first }, vm.Items.Select(item => item.SourcePath).ToArray());
         var third = CreateFile("photo1.txt");
@@ -280,7 +313,7 @@ public sealed class BatchRenameTests
     {
         var first = CreateFile("first.txt");
         var second = CreateFile("second.txt");
-        using var vm = new BatchRenameViewModel(new Ffmpeg());
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory));
         await vm.AddPathsAsync([first, second]);
         File.Delete(second);
         vm.SortMode = BatchRenameSortMode.Size;
@@ -293,7 +326,7 @@ public sealed class BatchRenameTests
     {
         var first = CreateFile("first.txt", "long content");
         var second = CreateFile("second.txt", "short");
-        using var vm = new BatchRenameViewModel(new Ffmpeg()) { KeepOriginalName = false };
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { KeepOriginalName = false };
         await vm.AddPathsAsync([first, second]);
         vm.SelectedItem = vm.Items[1];
         vm.Items[0].PropertyChanged += (_, e) =>
@@ -321,7 +354,7 @@ public sealed class BatchRenameTests
     public async Task StartAsync_UnchangedAndCaseOnlyNames_PreservesFiles()
     {
         var source = CreateFile("source.txt", "content");
-        using var vm = new BatchRenameViewModel(new Ffmpeg()) { AddNumber = false };
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { AddNumber = false };
         await vm.AddPathsAsync([source]);
         await vm.StartCommand.ExecuteAsync(null);
         Assert.AreEqual(BatchRenameStatus.Unchanged, vm.Items.Single().Status);
@@ -339,7 +372,7 @@ public sealed class BatchRenameTests
     {
         var first = CreateFile("a.txt");
         var second = CreateFile("b.txt");
-        using var vm = new BatchRenameViewModel(new Ffmpeg());
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory));
         await vm.AddPathsAsync([first, second]);
         vm.Items[0].PropertyChanged += (_, e) =>
         {
@@ -359,7 +392,7 @@ public sealed class BatchRenameTests
     [TestMethod]
     public async Task StartAsync_ImportDuringRun_WaitsAndKeepsCompletedItems()
     {
-        using var vm = new BatchRenameViewModel(new Ffmpeg());
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory));
         await vm.AddPathsAsync([CreateFile("a.txt")]);
         var run = vm.StartCommand.ExecuteAsync(null);
         var import = vm.AddPathsAsync([CreateFile("b.txt")]);
@@ -381,7 +414,7 @@ public sealed class BatchRenameTests
         var source = CreateImage("photo.png");
         var original = SHA256.HashData(File.ReadAllBytes(source));
         var text = CreateFile("notes.txt", "notes");
-        using var vm = new BatchRenameViewModel(new Ffmpeg())
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory))
         {
             Prefix = "pre-", Suffix = "-done", KeepOriginalName = keepOriginalName,
             CompressImages = true, Format = format, Lossless = false,
@@ -408,7 +441,7 @@ public sealed class BatchRenameTests
     public async Task StartAsync_CompressionOutputMatchesIntermediateName_DoesNotDeleteResult()
     {
         var source = CreateImage("photo.png");
-        using var vm = new BatchRenameViewModel(new Ffmpeg())
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory))
         {
             Suffix = "_compressed", AddNumber = false, CompressImages = true, ResizePercent = 50
         };
@@ -423,7 +456,7 @@ public sealed class BatchRenameTests
     public async Task StartAsync_TinyImageConvertsToAnotherFormat_DoesNotCopyWrongEncoding()
     {
         var source = CreateImage("tiny.png", 1, 1);
-        using var vm = new BatchRenameViewModel(new Ffmpeg()) { CompressImages = true, Format = ImageCompressionFormat.JPEG };
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { CompressImages = true, Format = ImageCompressionFormat.JPEG };
         await vm.AddPathsAsync([source]);
         await vm.StartCommand.ExecuteAsync(null);
         Assert.AreEqual(BatchRenameStatus.Completed, vm.Items[0].Status, vm.Items[0].Error);
@@ -435,7 +468,7 @@ public sealed class BatchRenameTests
     public async Task StartAsync_InvalidImage_ContinuesAndRetriesAfterRefresh()
     {
         var source = CreateFile("broken.png");
-        using var vm = new BatchRenameViewModel(new Ffmpeg()) { CompressImages = true };
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory)) { CompressImages = true };
         await vm.AddPathsAsync([source, CreateFile("notes.txt")]);
         await vm.StartCommand.ExecuteAsync(null);
         Assert.AreEqual(BatchRenameStatus.Failed, vm.Items[0].Status);
@@ -454,7 +487,7 @@ public sealed class BatchRenameTests
     {
         var source = CreateImage("photo.png");
         var original = SHA256.HashData(File.ReadAllBytes(source));
-        using var vm = new BatchRenameViewModel(new Ffmpeg())
+        using var vm = new BatchRenameViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory))
         {
             BaseName = "result", CompressImages = true, ResizePercent = 50
         };

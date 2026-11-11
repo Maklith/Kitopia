@@ -163,7 +163,6 @@ internal class Program {
         DeviceCommunicationDiagnostics.Current = new DesktopDeviceCommunicationDiagnostics(LogManager.Logger);
         var services = new ServiceCollection();
         services.AddDesktopPluginHost();
-        services.AddSingleton<Ffmpeg>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<Kitopia.Feature.DeviceCommunication.Application.IChatNotificationSink,
             DesktopChatNotificationSink>();

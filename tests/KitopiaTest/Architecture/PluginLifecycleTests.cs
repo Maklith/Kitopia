@@ -25,6 +25,68 @@ namespace KitopiaTest.Architecture;
 public sealed class PluginLifecycleTests
 {
     [TestMethod]
+    public async Task OptionalConsumer_ThrowingCallback_DoesNotInterruptProviderEnableOrUnload()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(MouseHotKeyTests));
+        await session.Dispatch(async () =>
+        {
+            var name = "test-optional-" + Guid.NewGuid().ToString("N");
+            var directory = Path.Combine(Path.GetTempPath(), name);
+            Directory.CreateDirectory(directory);
+            var events = Path.Combine(directory, "events.txt");
+            var configPath = KitopiaPaths.GetConfigFilePath(name + "#PluginLifecycle.FixtureConfig");
+            File.WriteAllText(configPath, JsonSerializer.Serialize(new { FailureStage = "optional", EventsFile = events }));
+            var previousServices = ServiceManager.Services;
+            var previousPluginServices = PluginCore.Kitopia.ServiceProvider;
+            using var services = new ServiceCollection().AddSingleton<IHotKetImpl>(new HotKeyImpl())
+                .AddSingleton<IConfigProvider, ConfigManger>().BuildServiceProvider();
+            ServiceManager.Services = services;
+            PluginCore.Kitopia.ServiceProvider = services;
+            var provider = new PluginLocalInfo
+            {
+                PluginBaseInfo = new PluginBaseInfo
+                {
+                    Name = "Provider", NameSign = name + "-provider", Version = "1.0.0", Main = "PluginUnload.dll", Dependencies = []
+                },
+                Path = Path.Combine(AppContext.BaseDirectory, "PluginFixture") + Path.DirectorySeparatorChar,
+                FullPath = Path.Combine(AppContext.BaseDirectory, "PluginFixture", "PluginUnload.dll")
+            };
+            var consumer = new PluginLocalInfo
+            {
+                PluginBaseInfo = new PluginBaseInfo
+                {
+                    Name = "Consumer", NameSign = name, Version = "1.0.0", Main = "PluginLifecycle.dll", Dependencies = [],
+                    OptionalDependencies = new() { [provider.ToPlgString()] = "[1.0.0,2.0.0)" }
+                },
+                Path = provider.Path, FullPath = Path.Combine(provider.Path, "PluginLifecycle.dll")
+            };
+            try
+            {
+                await PluginManager.EnableOneAsync(consumer);
+                await PluginManager.EnableOneAsync(provider);
+                Assert.IsTrue(PluginManager.GetEnablePlugins().ContainsKey(provider.ToPlgString()));
+                CollectionAssert.Contains(File.ReadAllLines(events), "optional:" + provider.ToPlgString());
+                Assert.IsTrue(await PluginManager.UnloadCoreAsync(provider));
+                Assert.IsFalse(PluginManager.GetEnablePlugins().ContainsKey(provider.ToPlgString()));
+                Assert.IsTrue(PluginManager.GetEnablePlugins().ContainsKey(consumer.ToPlgString()));
+                CollectionAssert.Contains(File.ReadAllLines(events), "optional:");
+            }
+            finally
+            {
+                await PluginManager.UnloadCoreAsync(consumer);
+                await PluginManager.UnloadCoreAsync(provider);
+                ConfigManger.RemoveConfig(name);
+                ServiceManager.Services = previousServices;
+                PluginCore.Kitopia.ServiceProvider = previousPluginServices;
+                File.Delete(configPath);
+                File.Delete(configPath + ".bak");
+                Directory.Delete(directory, true);
+            }
+            return true;
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
     public async Task SettingPage_Unloaded_ReleasesConfigWithoutSavingChanges()
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(MouseHotKeyTests));

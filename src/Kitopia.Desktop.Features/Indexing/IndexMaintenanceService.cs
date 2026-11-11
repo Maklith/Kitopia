@@ -30,6 +30,7 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
     private int _reloading;
     private CancellationTokenSource? _backgroundIndexingCancellation;
     private Task? _backgroundIndexingTask;
+    private bool _backgroundIndexingRequested;
 
     public IndexMaintenanceService(IIndexService index, IAppToolService appTools)
     {
@@ -392,12 +393,13 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
         return !string.IsNullOrEmpty(name) && transientDirectoryNames.Contains(name);
     }
 
-    private void QueueBackgroundIndexing()
+    public void QueueBackgroundIndexing()
     {
         lock (_backgroundIndexingLock)
         {
             if (_backgroundIndexingTask is { IsCompleted: false })
             {
+                _backgroundIndexingRequested = true;
                 return;
             }
 
@@ -411,8 +413,21 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
     {
         try
         {
-            await RefreshEverythingFilesAsync(cancellation.Token);
-            await _index.IndexIncrementalAsync(IndexRebuildScope.Files, cancellation.Token);
+            while (true)
+            {
+                await RefreshEverythingFilesAsync(cancellation.Token);
+                await _index.IndexIncrementalAsync(IndexRebuildScope.Files, cancellation.Token);
+                lock (_backgroundIndexingLock)
+                {
+                    if (!_backgroundIndexingRequested)
+                    {
+                        _backgroundIndexingCancellation = null;
+                        _backgroundIndexingTask = null;
+                        break;
+                    }
+                    _backgroundIndexingRequested = false;
+                }
+            }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -430,6 +445,7 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
                 {
                     _backgroundIndexingCancellation = null;
                     _backgroundIndexingTask = null;
+                    _backgroundIndexingRequested = false;
                 }
             }
 

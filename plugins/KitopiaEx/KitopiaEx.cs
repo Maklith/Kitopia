@@ -14,12 +14,14 @@ using KitopiaEx.Translate;
 using KitopiaEx.VideoCompression;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using PluginCore.Media;
 
 namespace KitopiaEx;
 
 public class KitopiaEx : IPlugin
 {
     public static IServiceProvider ServiceProvider;
+    public static Ffmpeg? Ffmpeg { get; private set; }
 
     private IPlugin _pluginImplementation;
     private readonly List<ContextMenuItem> _fileToolMenuItems = [];
@@ -36,6 +38,7 @@ public class KitopiaEx : IPlugin
         Kitopia.TypeNames.TryAdd(typeof(ImagePin.ImagePin).FullName!, "lang.kitopiaex.pinned_image_window");
         Kitopia.TypeNames.TryAdd(typeof(OcrResultShowWindow).FullName!, "lang.kitopiaex.ocr_result_window");
         ServiceProvider = serviceProvider;
+        OnOptionalDependenciesChanged(dependencyServiceProviders);
         Kitopia.ToolTipConverters.TryAdd(typeof(ScreenCaptureInfo), info =>
         {
             var screenCaptureInfo = (ScreenCaptureInfo)info;
@@ -96,6 +99,7 @@ public class KitopiaEx : IPlugin
 
     public void OnDisabled()
     {
+        Ffmpeg = null;
         StartupArgumentManager.Handlers.TryRemove(StartupAction.ImageCompression, out _);
         StartupArgumentManager.Handlers.TryRemove(StartupAction.VideoCompression, out _);
         StartupArgumentManager.Handlers.TryRemove(StartupAction.BatchRename, out _);
@@ -111,6 +115,19 @@ public class KitopiaEx : IPlugin
         Kitopia.JsonConverters.Remove(typeof(ScreenCaptureInfo));
         Kitopia.ToolTipConverters.Remove(typeof(ScreenCaptureInfo));
         Kitopia.ToolTipConverters.Remove(typeof(ScreenCaptureResult));
+    }
+
+    public void OnOptionalDependenciesChanged(Dictionary<string, IServiceProvider> dependencyServiceProviders)
+    {
+        var previous = Ffmpeg;
+        Ffmpeg = dependencyServiceProviders.TryGetValue("kitopiaffmpeg", out var provider)
+            ? provider.GetService<Ffmpeg>() : null;
+        BatchRenameWindow.Current?.ViewModel.UpdateFfmpeg(Ffmpeg);
+        if (previous != null && Ffmpeg != previous)
+        {
+            ImageCompressionWindow.Current?.Close();
+            VideoCompressionWindow.Current?.Close();
+        }
     }
 
     public static IServiceProvider GetServiceProvider()

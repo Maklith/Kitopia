@@ -29,7 +29,7 @@ public sealed class EmbeddingGemmaEmbeddingTests
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "Kitopia.sln"))) root = root.Parent;
         Assert.IsNotNull(root);
-        var models = Path.Combine(root.FullName, "src", "Kitopia.Desktop.Features", "Assets", "EmbeddingGemma2");
+        var models = Path.Combine(root.FullName, "plugins", "KitopiaSemanticSearch", "EmbeddingGemma2");
         Assert.IsTrue(EmbeddingGemmaModelPackage.IsComplete(models), "The bundled Q4 graphs and external weight shards must be present.");
         _referenceDirectory = Path.Combine(root.FullName, "tests", "KitopiaTest", "Search", "EmbeddingGemmaReference");
         _reference = JsonDocument.Parse(File.ReadAllText(Path.Combine(_referenceDirectory, "reference.json")));

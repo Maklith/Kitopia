@@ -19,13 +19,14 @@ public sealed partial class VideoCompressionViewModel : ObservableObject, IDispo
         VideoCompressionCodec.HEVC, VideoCompressionCodec.VP9, VideoCompressionCodec.AV1];
     private static readonly VideoCompressionCodec[] WebMCodecs = [VideoCompressionCodec.KeepOriginal, VideoCompressionCodec.VP9, VideoCompressionCodec.AV1];
     private static readonly VideoCompressionCodec[] MovCodecs = [VideoCompressionCodec.KeepOriginal, VideoCompressionCodec.H264, VideoCompressionCodec.HEVC];
-    private readonly VideoCompressor _compressor = new();
+    private readonly VideoCompressor _compressor;
     private readonly HashSet<string> _paths = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
     private Task _pendingImport = Task.CompletedTask;
     private bool _disposed;
 
     public VideoCompressionViewModel(Ffmpeg ffmpeg)
     {
+        _compressor = new VideoCompressor(ffmpeg.ToolDirectory);
         Items.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(IsEmpty));
@@ -36,8 +37,8 @@ public sealed partial class VideoCompressionViewModel : ObservableObject, IDispo
         try
         {
             _ = ffmpeg.Version;
-            ToolsAvailable = File.Exists(Path.Combine(VideoCompressor.ToolDirectory, "ffmpeg.exe")) &&
-                File.Exists(Path.Combine(VideoCompressor.ToolDirectory, "ffprobe.exe"));
+            ToolsAvailable = File.Exists(Path.Combine(ffmpeg.ToolDirectory, "ffmpeg.exe")) &&
+                File.Exists(Path.Combine(ffmpeg.ToolDirectory, "ffprobe.exe"));
         }
         catch (Exception) { ToolsAvailable = false; }
         if (!ToolsAvailable) Message = Lang.Get("lang.kitopiaex.video_compression.ffmpeg_missing");

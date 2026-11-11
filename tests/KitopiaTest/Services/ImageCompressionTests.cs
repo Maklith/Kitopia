@@ -18,7 +18,7 @@ public sealed class ImageCompressionTests
     {
         _directory = Path.Combine(Path.GetTempPath(), "Kitopia compression tests " + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_directory);
-        _ffmpeg = new Ffmpeg();
+        _ffmpeg = new Ffmpeg(FfmpegTestAssets.ToolDirectory);
         _ = _ffmpeg.Version;
         _compressor = new ImageCompressor(_ffmpeg);
     }

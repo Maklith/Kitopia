@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Fallout.Common;
 using Fallout.Common.CI.GitHubActions;
 using Fallout.Common.IO;
@@ -23,7 +25,9 @@ using Project = Fallout.Solutions.Project;
         nameof(Build.GitHubToken),
         nameof(Build.PluginApiKeyCpu),
         nameof(Build.PluginApiKeyGpu),
-        nameof(Build.PluginApiKeyOpenVino)
+        nameof(Build.PluginApiKeyOpenVino),
+        nameof(Build.PluginApiKeyFfmpeg),
+        nameof(Build.PluginApiKeySemanticSearch)
     },
     InvokedTargets = new[] { nameof(Build.Clean) },
     AutoGenerate = false)]
@@ -34,7 +38,7 @@ partial class Build : FalloutBuild
     [Secret]
     internal readonly string GitHubToken;
 
-    [Parameter("API base URL used to publish ONNX plugins (defaults to localhost)")]
+    [Parameter("API base URL used to publish plugins (defaults to localhost for local runs)")]
     internal readonly string PluginApiUrl;
 
     [Parameter("Fallback API key for local plugin publishing")]
@@ -52,6 +56,14 @@ partial class Build : FalloutBuild
     [Parameter("API key for the ONNX OpenVINO plugin")]
     [Secret]
     internal readonly string PluginApiKeyOpenVino;
+
+    [Parameter("API key for the FFmpeg plugin")]
+    [Secret]
+    internal readonly string PluginApiKeyFfmpeg;
+
+    [Parameter("API key for the semantic search model plugin")]
+    [Secret]
+    internal readonly string PluginApiKeySemanticSearch;
 
     [Solution]
     internal readonly Solution Solution;
@@ -75,21 +87,24 @@ partial class Build : FalloutBuild
         .DependsOn(RestoreWindows, RestoreAndroid);
 
     Target Clean => _ => _
-        .DependsOn(PackWindows, PackOnnxPlugins, PackAndroid, PackInstaller)
+        .DependsOn(PackWindows, PackOnnxPlugins, PackAssetPlugins, PackAndroid, PackInstaller)
         .Executes(() => { });
 
     Target LocalTest => _ => _
         .DependsOn(RestoreWindows)
         .Executes(async () =>
         {
-            await PublishWindowsAsync("win-x64");
-            PublishOnnxPlugins();
+            PublishWindows("win-x64");
+            await PublishOnnxPlugins();
+            await PublishAssetPlugins();
             BuildInstaller("win-x64", "x86_64-pc-windows-msvc");
         });
 
     internal IEnumerable<AbsolutePath> PluginProjects()
     {
         yield return RootDirectory / "plugins" / "KitopiaEx" / "KitopiaEx.csproj";
+        yield return RootDirectory / "plugins" / "KitopiaFfmpeg" / "KitopiaFfmpeg.csproj";
+        yield return RootDirectory / "plugins" / "KitopiaSemanticSearch" / "KitopiaSemanticSearch.csproj";
         yield return RootDirectory / "plugins" / "OnnxRuntime.CPU" / "OnnxRuntime.CPU.csproj";
         yield return RootDirectory / "plugins" / "OnnxRuntime.Gpu.Win" / "OnnxRuntime.Gpu.Win.csproj";
         yield return RootDirectory / "plugins" / "OnnxRuntime.OpenVino" / "OnnxRuntime.OpenVino.csproj";
@@ -121,6 +136,8 @@ partial class Build : FalloutBuild
         "kitopiaonnxruntimecpu" => PluginApiKeyCpu ?? PluginApiKey,
         "kitopiaonnxruntimecuda" => PluginApiKeyGpu ?? PluginApiKey,
         "kitopiaonnxruntimeopenvino" => PluginApiKeyOpenVino ?? PluginApiKey,
+        "kitopiaffmpeg" => PluginApiKeyFfmpeg ?? PluginApiKey,
+        "kitopiasemanticsearch" => PluginApiKeySemanticSearch ?? PluginApiKey,
         _ => PluginApiKey
     };
 
@@ -188,6 +205,42 @@ partial class Build : FalloutBuild
         if (Uri.TryCreate(PluginPublishApiUrl, UriKind.Absolute, out var apiUri) && apiUri.IsLoopback)
             handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
         return new HttpClient(handler);
+    }
+
+    async Task PublishStandalonePlugin(Project project, string nameSign, string apiKey,
+        string runtime = "win-x64", Func<AbsolutePath, Task> prepareOutput = null)
+    {
+        var version = project.GetProperty("Version");
+        if (string.IsNullOrWhiteSpace(version))
+            throw new InvalidOperationException($"{project} must define its own Version.");
+        ValidatePluginManifestVersion(project.Path, nameSign, version);
+        if (!IsLocalPluginPublish && string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException($"No API key configured for {nameSign}.");
+        var shouldUpload = true;
+        try
+        {
+            if (!ShouldUploadPlugin(nameSign, version, apiKey)) return;
+        }
+        catch (Exception exception) when (IsLocalPluginPublish &&
+            exception is HttpRequestException { StatusCode: null } or OperationCanceledException)
+        {
+            shouldUpload = false;
+            Log.Warning("Skipping upload of {Plugin} {Version}: local plugin server {ApiUrl} is unavailable. {Error}",
+                nameSign, version, PluginPublishApiUrl, exception.Message);
+        }
+
+        var output = ArtifactsDirectory / "plugins" / nameSign / (runtime ?? "win-universal");
+        output.DeleteDirectory();
+        PublishPlugin(project.Path, runtime, output);
+        if (prepareOutput is not null) await prepareOutput(output);
+        RemoveSymbolsAndDocs(output);
+
+        var archive = RootDirectory /
+                      $"{nameSign}_{version}_{runtime ?? "win-universal"}.zip";
+        archive.DeleteFile();
+        output.ZipTo(archive, compressionLevel: CompressionLevel.SmallestSize);
+        if (shouldUpload)
+            UploadPluginArchive(archive, nameSign, version, apiKey);
     }
 
     internal void UploadPluginArchive(AbsolutePath archiveFile, string nameSign, string version, string apiKey)

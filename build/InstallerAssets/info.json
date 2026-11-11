@@ -28,10 +28,6 @@
       "Target": "{localUserData}\\Kitopia\\plugins"
     },
     {
-      "Package": "EmbeddingGemma2.zip",
-      "Target": "{localUserData}\\Kitopia\\EmbeddingGemma2"
-    },
-    {
       "Package": "Ocr.zip",
       "Target": "{localUserData}\\Kitopia\\Ocr"
     }

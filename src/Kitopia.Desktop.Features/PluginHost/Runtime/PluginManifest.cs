@@ -11,6 +11,8 @@ public sealed class PluginManifest
     public required string Main { get; init; }
     /// <summary>NuGet dependency ranges, for example [1.0.0,2.0.0), [1.2.3], or *.</summary>
     public Dictionary<string, string> Dependencies { get; init; } = [];
+    public Dictionary<string, string> OptionalDependencies { get; init; } = [];
+    public Dictionary<string, string> OptionalDependencyDescriptions { get; init; } = [];
 
     public PluginBaseInfo ToPluginBaseInfo() => new()
     {
@@ -19,6 +21,8 @@ public sealed class PluginManifest
         Version = Version,
         Description = Description,
         Main = Main,
-        Dependencies = Dependencies
+        Dependencies = Dependencies,
+        OptionalDependencies = OptionalDependencies,
+        OptionalDependencyDescriptions = OptionalDependencyDescriptions
     };
 }

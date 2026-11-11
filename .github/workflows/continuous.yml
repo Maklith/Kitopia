@@ -76,3 +76,5 @@ jobs:
           PluginApiKeyCpu: ${{ secrets.PLUGINAPIKEYCPU }}
           PluginApiKeyGpu: ${{ secrets.PLUGINAPIKEYGPU }}
           PluginApiKeyOpenVino: ${{ secrets.PLUGINAPIKEYOPENVINO }}
+          PluginApiKeyFfmpeg: ${{ secrets.PLUGINAPIKEYFFMPEG }}
+          PluginApiKeySemanticSearch: ${{ secrets.PLUGINAPIKEYSEMANTICSEARCH }}

@@ -15,16 +15,28 @@ using PluginCore.Media;
 
 namespace KitopiaEx.BatchRename;
 
-public sealed partial class BatchRenameViewModel(Ffmpeg ffmpeg) : ObservableObject, IDisposable
+public sealed partial class BatchRenameViewModel : ObservableObject, IDisposable
 {
     private static readonly StringComparer PathComparer = OperatingSystem.IsWindows()
         ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
     private static readonly StringComparer NameComparer = StringComparer.Create(CultureInfo.InvariantCulture,
         CompareOptions.IgnoreCase | CompareOptions.NumericOrdering);
     private readonly HashSet<string> _paths = new(PathComparer);
-    private readonly ImageCompressor _compressor = new(ffmpeg);
+    private Ffmpeg? _ffmpeg;
+    private ImageCompressor? _compressor;
     private Task _pendingImport = Task.CompletedTask;
     private bool _disposed;
+
+    public BatchRenameViewModel(Ffmpeg? ffmpeg) => UpdateFfmpeg(ffmpeg);
+
+    public void UpdateFfmpeg(Ffmpeg? ffmpeg)
+    {
+        if (_disposed || ReferenceEquals(_ffmpeg, ffmpeg)) return;
+        if (CompressImages) StartCommand.Cancel();
+        _ffmpeg = ffmpeg;
+        _compressor = ffmpeg is null ? null : new ImageCompressor(ffmpeg);
+        OnCompressImagesChanged(CompressImages);
+    }
 
     public ObservableCollection<BatchRenameItem> Items { get; } = [];
     public ImageCompressionFormat[] Formats { get; } =
@@ -76,6 +88,7 @@ public sealed partial class BatchRenameViewModel(Ffmpeg ffmpeg) : ObservableObje
     [ObservableProperty] private int _quality = 80;
     [ObservableProperty] private int _resizePercent = 100;
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanStart))]
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
     private bool _ffmpegAvailable;
     [ObservableProperty] private int _processedCount;
@@ -107,8 +120,9 @@ public sealed partial class BatchRenameViewModel(Ffmpeg ffmpeg) : ObservableObje
     partial void OnCompressImagesChanged(bool value)
     {
         Message = "";
+        FfmpegAvailable = false;
         if (!value) return;
-        try { _ = ffmpeg.Version; FfmpegAvailable = true; }
+        try { _ = (_ffmpeg ?? throw new InvalidOperationException()).Version; FfmpegAvailable = true; }
         catch (Exception)
         {
             FfmpegAvailable = false;
@@ -310,6 +324,7 @@ public sealed partial class BatchRenameViewModel(Ffmpeg ffmpeg) : ObservableObje
         if (!CanStart) return;
         var pending = Items.Where(item => item.OutputPath == null).ToArray();
         var compressImages = CompressImages;
+        var compressor = _compressor;
         var options = new ImageCompressionOptions
         {
             Format = Format, Lossless = Lossless, Quality = Quality, ResizePercent = ResizePercent
@@ -337,7 +352,7 @@ public sealed partial class BatchRenameViewModel(Ffmpeg ffmpeg) : ObservableObje
                         Directory.CreateDirectory(directory);
                         if (compress)
                         {
-                            var result = await _compressor.CompressAsync(item.SourcePath,
+                            var result = await compressor!.CompressAsync(item.SourcePath,
                                 options with
                                 {
                                     OutputDirectory = directory,

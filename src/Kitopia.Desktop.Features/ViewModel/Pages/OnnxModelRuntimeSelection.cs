@@ -20,6 +20,8 @@ public sealed partial class OnnxModelRuntimeSelection : ObservableObject
 
     public OnnxModelInfoWrapper ModelInfo { get; }
     public IReadOnlyList<OnnxRuntimeStatus> Runtimes { get; }
+    public bool IsAppBundled => ModelInfo.Model.IsBundled && ModelInfo.PluginStr == "Kitopia";
+    public bool IsPluginBundled => ModelInfo.Model.IsBundled && !IsAppBundled;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectedRuntime))]

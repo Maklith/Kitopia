@@ -1,0 +1,29 @@
+<Button xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:plugin="clr-namespace:Kitopia.Desktop.Features.Services.Plugin"
+        xmlns:vm="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages.plugin"
+        xmlns:views="clr-namespace:Kitopia.Desktop.Features.UI.UiControls.Plugin"
+        x:Class="Kitopia.Desktop.Features.UI.UiControls.Plugin.PluginOptionalDependenciesButton"
+        x:DataType="plugin:PluginInfoUiHelper"
+        Theme="{DynamicResource KitopiaBadgeTagButton}"
+        Content="{DynamicResource lang.kitopia.plugins.optional_dependencies}"
+        IsVisible="{Binding HasOptionalDependencies}">
+    <Button.Flyout>
+        <Flyout Placement="BottomEdgeAlignedRight">
+            <ScrollViewer MaxHeight="420" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Width="340" Spacing="8" TextElement.FontSize="13" TextElement.FontWeight="Normal">
+                    <TextBlock Text="{DynamicResource lang.kitopia.plugins.optional_dependencies}" FontWeight="SemiBold" FontSize="15" />
+                    <TextBlock Text="{DynamicResource lang.kitopia.plugins.optional_dependencies_hint}" TextWrapping="Wrap" FontSize="12"
+                               Foreground="{DynamicResource SemiColorText2}" />
+                    <ItemsControl ItemsSource="{Binding OptionalDependencies}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PluginDependencyViewModel">
+                                <views:PluginDependencyView />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Flyout>
+    </Button.Flyout>
+</Button>

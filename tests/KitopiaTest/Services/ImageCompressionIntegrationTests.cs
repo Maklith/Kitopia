@@ -26,6 +26,7 @@ public sealed class ImageCompressionIntegrationTests
     private ServiceProvider _services = null!;
     private IServiceProvider _originalHost = null!;
     private IServiceProvider _originalServices = null!;
+    private Ffmpeg? _originalFfmpeg;
 
     [TestInitialize]
     public void Initialize()
@@ -34,8 +35,10 @@ public sealed class ImageCompressionIntegrationTests
         Directory.CreateDirectory(_directory);
         _originalHost = HostKitopia.ServiceProvider;
         _originalServices = ServiceManager.Services;
-        _services = new ServiceCollection().AddSingleton<Ffmpeg>()
+        _services = new ServiceCollection().AddSingleton(new Ffmpeg(FfmpegTestAssets.ToolDirectory))
             .AddSingleton<IExplorerContextMenuConfiger>(new MemoryContextMenu()).BuildServiceProvider();
+        _originalFfmpeg = global::KitopiaEx.KitopiaEx.Ffmpeg;
+        new global::KitopiaEx.KitopiaEx().OnOptionalDependenciesChanged(new() { ["kitopiaffmpeg"] = _services });
         HostKitopia.ServiceProvider = _services;
         ServiceManager.Services = _services;
     }
@@ -45,6 +48,7 @@ public sealed class ImageCompressionIntegrationTests
     {
         HostKitopia.ServiceProvider = _originalHost;
         ServiceManager.Services = _originalServices;
+        typeof(global::KitopiaEx.KitopiaEx).GetProperty(nameof(global::KitopiaEx.KitopiaEx.Ffmpeg))!.SetValue(null, _originalFfmpeg);
         _services.Dispose();
         Directory.Delete(_directory, true);
     }
@@ -141,7 +145,7 @@ public sealed class ImageCompressionIntegrationTests
         await using var session = HeadlessUnitTestSession.StartNew(typeof(ImageCompressionWindowTests));
         await session.Dispatch(async () =>
         {
-            using var viewModel = new ImageCompressionViewModel(new Ffmpeg());
+            using var viewModel = new ImageCompressionViewModel(new Ffmpeg(FfmpegTestAssets.ToolDirectory));
             var first = CreateImage("first.png");
             var second = CreateImage("second.png");
             await Task.WhenAll(viewModel.AddPathsAsync([first]), viewModel.AddPathsAsync([second, first]));
@@ -195,7 +199,7 @@ public sealed class ImageCompressionIntegrationTests
             });
             try
             {
-                plugin.OnEnabled(_services, new Dictionary<string, IServiceProvider>());
+                plugin.OnEnabled(_services, new() { ["kitopiaffmpeg"] = _services });
                 var entry = menu.GetAllMenuItems().Single(item => item.Arguments ==
                     StartupArgumentManager.GenerateCmd(StartupAction.ImageCompression, "{all}"));
                 Assert.AreEqual(4, menu.GetAllMenuItems().Count);

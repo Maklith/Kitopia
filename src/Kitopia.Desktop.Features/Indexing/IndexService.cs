@@ -765,6 +765,13 @@ public sealed class IndexService : IIndexService, IDisposable
                 await RunPausableStepAsync(RebuildPinyinSearcherAsync, operationToken);
             }
 
+            // Keep existing vectors intact when the optional model plugin is unavailable.
+            if ((indexDocuments || indexImages) && !TryGetEmbeddingService(out _))
+            {
+                UpdateStatus(status => status with { LastError = "lang.kitopia.semantic_model_missing" });
+                return;
+            }
+
             if (rebuild && indexDocuments)
             {
                 await WaitIfPausedAsync(operationToken);

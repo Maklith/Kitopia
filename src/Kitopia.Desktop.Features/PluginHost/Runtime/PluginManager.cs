@@ -5,6 +5,8 @@ using System.Reflection;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.CustomScenario;
+using Kitopia.Desktop.Features.Indexing;
+using Kitopia.Desktop.Features.Search.Semantic;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -151,6 +153,7 @@ public static class PluginManager
             return false;
         }
         _operationInProgress = true;
+        var semanticWasAvailable = EmbeddingGemmaModelPackage.IsComplete();
         try { return await operation(); }
         catch (OperationCanceledException) { return false; }
         catch (Exception exception)
@@ -168,6 +171,8 @@ public static class PluginManager
                 foreach (var info in AllPluginInfos) info.NotifyStatusChanged();
                 WeakReferenceMessenger.Default.Send(new PluginsReloaded());
                 if (refreshScenarios) CustomScenarioManger.ReCheck(true);
+                if (refreshScenarios && !semanticWasAvailable && EmbeddingGemmaModelPackage.IsComplete())
+                    ServiceManager.Services.GetService<IIndexMaintenanceService>()?.QueueBackgroundIndexing();
             }
             catch (Exception exception) { Logger.Error(exception, "刷新插件界面或情景失败"); }
             finally { _operationInProgress = false; }
@@ -209,6 +214,8 @@ public static class PluginManager
             plugin.Load();
             EnablePlugins[name] = plugin;
             plugin.Enable();
+            foreach (var enabled in EnablePlugins.Values)
+                if (enabled != plugin) enabled.RefreshOptionalDependencies(name);
             info.LoadFailed = false;
             info.LoadFailedReason = null;
         }
@@ -240,6 +247,8 @@ public static class PluginManager
         var name = info.ToPlgString();
         if (EnablePlugins.TryGetValue(name, out var plugin))
         {
+            foreach (var enabled in EnablePlugins.Values)
+                if (enabled != plugin) enabled.RefreshOptionalDependencies(name, removing: true);
             var cleanup = await plugin.UnloadAsync();
             EnablePlugins.TryRemove(name, out _);
             PendingUnloads[name] = cleanup;
@@ -479,6 +488,25 @@ public static class PluginManager
     public static Task<bool> DownloadPluginAndEnable(string pluginSign, string? targetVersion = null,
         CancellationToken cancellationToken = default) =>
         RunOperationAsync(() => DownloadAndApplyAsync(pluginSign, targetVersion, true, cancellationToken));
+
+    public static Task<bool> InstallDependencyAsync(string pluginSign, string versionRange, bool reinstall = false,
+        CancellationToken cancellationToken = default) => RunOperationAsync(async () =>
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        RefreshInstalled();
+        if (!reinstall && GetPluginLocalInfoByPlgStr(pluginSign) is { } installed &&
+            PluginDependencyService.VersionInRange(installed.PluginBaseInfo.Version, versionRange))
+            return await ApplyAsync(pluginSign, null, true, cancellationToken);
+
+        var versions = await PluginNetworkService.GetVersionDetailsAsync(pluginSign, null, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        var version = PluginDependencyService.SelectDependencyVersion(versions?
+            .Where(item => item.CanDownload && PluginNetworkService.SupportsCurrentPlatform(item.AvailablePlatforms))
+            .Select(item => item.Version) ?? [], versionRange);
+        if (version is null)
+            throw new InvalidOperationException(Lang.Format("lang.kitopia.plugins.no_compatible_dependency", pluginSign, versionRange));
+        return await DownloadAndApplyAsync(pluginSign, version, true, cancellationToken);
+    });
 
     public static Task<bool> Update(string pluginSign, string? targetVersion = null,
         CancellationToken cancellationToken = default) => RunOperationAsync(async () =>

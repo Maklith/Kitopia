@@ -14,7 +14,9 @@ namespace KitopiaEx.VideoCompression;
 
 public sealed class VideoCompressor
 {
-    public static string ToolDirectory => Path.Combine(AppContext.BaseDirectory, "tools", "ffmpeg");
+    private readonly string _toolDirectory;
+
+    public VideoCompressor(string toolDirectory) => _toolDirectory = toolDirectory;
 
     public static bool IsSupported(string path) => Path.GetExtension(path).ToLowerInvariant() is
         ".mp4" or ".mkv" or ".mov" or ".avi" or ".webm" or ".m4v" or ".wmv" or ".flv" or ".ts" or ".mts" or ".m2ts";
@@ -301,11 +303,11 @@ public sealed class VideoCompressor
         finally { File.Delete(temporary); }
     }
 
-    private static async Task<string> RunToolAsync(string tool, IReadOnlyList<string> arguments,
+    internal async Task<string> RunToolAsync(string tool, IReadOnlyList<string> arguments,
         Action<string>? onOutput, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var startInfo = new ProcessStartInfo(Path.Combine(ToolDirectory, tool + ".exe"))
+        var startInfo = new ProcessStartInfo(Path.Combine(_toolDirectory, tool + ".exe"))
         {
             UseShellExecute = false,
             CreateNoWindow = true,

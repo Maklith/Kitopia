@@ -3,9 +3,13 @@ using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.Indexing;
+using Kitopia.Desktop.Features.Search.Semantic;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
+using Kitopia.Desktop.Features.Services.Plugin;
+using Kitopia.Desktop.Features.ViewModel.Pages.plugin;
 using Kitopia.Feature.Localization;
 using PluginCore;
 
@@ -36,9 +40,15 @@ public partial class IndexStatusPageViewModel : ObservableObject, IDisposable
         Status = indexService.GetStatus();
         indexService.StatusChanged += OnIndexStatusChanged;
         Lang.Current.PropertyChanged += OnLanguageChanged;
+        WeakReferenceMessenger.Default.Register<PluginsReloaded>(this, static (recipient, _) =>
+            ((IndexStatusPageViewModel)recipient).OnPropertyChanged(nameof(SemanticModelMissing)));
     }
 
     public bool IsIndexingActive => _operationCancellation is not null || Status.IsRebuilding;
+    public PluginDependencyViewModel SemanticDependency { get; } = new(
+        PluginReleaseRules.HostBundledSemanticSearchPluginNameSign, "[1.0.0,2.0.0)",
+        "lang.kitopia.plugins.semantic_features", EmbeddingGemmaModelPackage.DisplayName);
+    public bool SemanticModelMissing => !SemanticDependency.IsAvailable;
 
     private void OnLanguageChanged(object? sender, PropertyChangedEventArgs args)
     {
@@ -276,6 +286,7 @@ public partial class IndexStatusPageViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ActiveOperationText));
         OnPropertyChanged(nameof(CurrentItemText));
         OnPropertyChanged(nameof(LatestErrorText));
+        OnPropertyChanged(nameof(SemanticModelMissing));
         OnPropertyChanged(nameof(IndexControlGlyph));
         OnPropertyChanged(nameof(IndexControlToolTip));
         ToggleIndexingCommand.NotifyCanExecuteChanged();
@@ -292,6 +303,8 @@ public partial class IndexStatusPageViewModel : ObservableObject, IDisposable
 
         _indexService.StatusChanged -= OnIndexStatusChanged;
         Lang.Current.PropertyChanged -= OnLanguageChanged;
+        WeakReferenceMessenger.Default.UnregisterAll(this);
+        SemanticDependency.Dispose();
         _disposed = true;
     }
 }

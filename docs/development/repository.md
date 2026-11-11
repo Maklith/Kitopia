@@ -41,6 +41,7 @@ Initialize missing submodules with `git submodule update --init --recursive`. In
 | `src/Mobile/Kitopia.Mobile.Android/` | Android entrypoint, permissions, native notifications and foreground service. |
 | `src/Mobile/Kitopia.Mobile.iOS/` | iOS entrypoint and native runtime integration. |
 | `plugins/KitopiaEx/` | Dynamically loaded desktop plugin with image/video compression, screenshot extensions, translation, analyzers, nodes and custom connectors. |
+| `plugins/KitopiaFfmpeg/`, `plugins/KitopiaSemanticSearch/` | Separate asset plugins for FFmpeg media libraries/tools and the EmbeddingGemma 2 semantic-search model package. |
 | `plugins/OnnxRuntime.CPU/`, `plugins/OnnxRuntime.Gpu.Win/`, `plugins/OnnxRuntime.OpenVino/` | ONNX inference backend plugins. Standalone plugin publication currently targets `win-x64`. |
 | `samples/HasDependencyPluginBase/`, `samples/HasDependencyPlugin/` | Plugin dependency examples and verification. |
 | `src/ContextMenuDll/` | Windows Explorer COM extension with Debug COM hosting and Release AOT behavior. |

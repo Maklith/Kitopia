@@ -35,7 +35,6 @@ These chunk boundaries and overlap settings are application choices, not prescri
 by the model card. Previously averaged document vectors are invalidated on database
 migration and rebuilt during the next indexing update; other vectors and file sources survive.
 
-The app bundles these files under `%LOCALAPPDATA%\Kitopia\EmbeddingGemma2`.
-Portable and Linux builds can also load the complete `EmbeddingGemma2` directory
-beside the executable. Image decoding is bounded to 64 megapixels.
+The Kitopia Semantic Search plugin supplies these files in its `EmbeddingGemma2`
+directory. Image decoding is bounded to 64 megapixels.
 Old BGE/Chinese-CLIP vectors are rebuilt in the new shared space.

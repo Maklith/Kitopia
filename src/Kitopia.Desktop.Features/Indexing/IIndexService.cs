@@ -95,6 +95,8 @@ public interface IIndexMaintenanceService
 
     Task StopBackgroundIndexingAsync();
 
+    void QueueBackgroundIndexing();
+
     void RefreshWindowOpenEntries();
 }
 

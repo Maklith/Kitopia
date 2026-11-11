@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
+             xmlns:vm="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages.plugin"
+             x:Class="Kitopia.Desktop.Features.UI.UiControls.Plugin.PluginDependencyView"
+             x:DataType="vm:PluginDependencyViewModel">
+    <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,4">
+        <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding VersionRange}" FontSize="11" Foreground="{DynamicResource SemiColorText2}" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{lang:Lang Value={Binding StatusKey}}" FontSize="12" VerticalAlignment="Center" />
+            </Grid>
+            <TextBlock Text="{lang:Lang Value={Binding Description}}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SemiColorText1}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="{lang:Lang Value={Binding ActionKey}}" Command="{Binding InstallCommand}" IsVisible="{Binding !IsAvailable}" />
+                <Button Content="{DynamicResource lang.kitopia.cancel}" Command="{Binding InstallCancelCommand}" IsVisible="{Binding IsInstalling}" />
+            </StackPanel>
+            <StackPanel Spacing="4" IsVisible="{Binding IsDownloading}">
+                <TextBlock Text="{Binding Download.StatusText}" FontSize="12" />
+                <ProgressBar Minimum="0" Maximum="100" Height="5" Value="{Binding Download.Percentage}" IsIndeterminate="{Binding Download.IsIndeterminate}" />
+            </StackPanel>
+            <TextBlock Text="{lang:Lang Value={Binding Error}}" IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource KitopiaBadgeDangerForeground}" />
+        </StackPanel>
+    </Border>
+</UserControl>

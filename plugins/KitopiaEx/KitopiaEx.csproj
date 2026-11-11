@@ -25,6 +25,7 @@
             <Private>false</Private>
             <ExcludeAssets>runtime;native</ExcludeAssets>
         </ProjectReference>
+        <None Update="manifest.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
 
     </ItemGroup>
 
@@ -34,12 +35,6 @@
         <PackageReference Include="SharpHook" Version="7.1.2" />
     </ItemGroup>
 
-
-    <ItemGroup>
-        <None Update="manifest.json">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
-    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />

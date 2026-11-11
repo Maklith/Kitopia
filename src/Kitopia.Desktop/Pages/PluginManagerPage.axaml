@@ -5,6 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:plugin="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages.plugin;assembly=Kitopia.Desktop.Features"
              xmlns:pluginHelper="clr-namespace:Kitopia.Desktop.Features.Services.Plugin;assembly=Kitopia.Desktop.Features"
+             xmlns:dependency="clr-namespace:Kitopia.Desktop.Features.UI.UiControls.Plugin;assembly=Kitopia.Desktop.Features"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="plugin:PluginManagerPageViewModel"
              x:Class="Kitopia.Desktop.Pages.PluginManagerPage">
@@ -90,28 +91,31 @@
                                             </StackPanel>
 
                                             <!-- Top-Right: Status Badge (Enabled / Disabled) -->
-                                            <Panel Grid.Column="2" VerticalAlignment="Top">
-                                                <Border CornerRadius="4" Padding="6,2"
-                                                        Background="{DynamicResource KitopiaBadgeTagBackground}"
-                                                        IsVisible="{Binding IsDownloading}">
-                                                    <TextBlock Text="{Binding Download.StatusText}" FontSize="11" FontWeight="Medium"
-                                                               Foreground="{DynamicResource KitopiaBadgeTagForeground}" />
-                                                </Border>
-                                                <Panel IsVisible="{Binding !IsDownloading}">
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+                                                <dependency:PluginOptionalDependenciesButton />
+                                                <Panel>
                                                     <Border CornerRadius="4" Padding="6,2"
-                                                            Background="{DynamicResource KitopiaBadgeSuccessBackground}"
-                                                            IsVisible="{Binding PluginLocalInfo.IsEnabled}">
-                                                        <TextBlock Text="{DynamicResource 'lang.kitopia.enabled'}" FontSize="11" FontWeight="Medium"
-                                                                   Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" />
+                                                            Background="{DynamicResource KitopiaBadgeTagBackground}"
+                                                            IsVisible="{Binding IsDownloading}">
+                                                        <TextBlock Text="{Binding Download.StatusText}" FontSize="11" FontWeight="Medium"
+                                                                   Foreground="{DynamicResource KitopiaBadgeTagForeground}" />
                                                     </Border>
-                                                    <Border CornerRadius="4" Padding="6,2"
-                                                            Background="{DynamicResource KitopiaBadgeNeutralBackground}"
-                                                            IsVisible="{Binding !PluginLocalInfo.IsEnabled}">
-                                                        <TextBlock Text="{DynamicResource 'lang.kitopia.disabled'}" FontSize="11" FontWeight="Medium"
-                                                                   Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
-                                                    </Border>
+                                                    <Panel IsVisible="{Binding !IsDownloading}">
+                                                        <Border CornerRadius="4" Padding="6,2"
+                                                                Background="{DynamicResource KitopiaBadgeSuccessBackground}"
+                                                                IsVisible="{Binding PluginLocalInfo.IsEnabled}">
+                                                            <TextBlock Text="{DynamicResource 'lang.kitopia.enabled'}" FontSize="11" FontWeight="Medium"
+                                                                       Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" />
+                                                        </Border>
+                                                        <Border CornerRadius="4" Padding="6,2"
+                                                                Background="{DynamicResource KitopiaBadgeNeutralBackground}"
+                                                                IsVisible="{Binding !PluginLocalInfo.IsEnabled}">
+                                                            <TextBlock Text="{DynamicResource 'lang.kitopia.disabled'}" FontSize="11" FontWeight="Medium"
+                                                                       Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
+                                                        </Border>
+                                                    </Panel>
                                                 </Panel>
-                                            </Panel>
+                                            </StackPanel>
                                         </Grid>
 
                                         <!-- 2. Middle: Description & Badges & Rating -->
