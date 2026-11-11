@@ -116,7 +116,7 @@
                     <TextBlock Text="{DynamicResource 'lang.kitopia.selection_translation_source'}"
                                FontSize="11" Foreground="{DynamicResource SemiColorText2}" />
                     <ScrollViewer Grid.Row="1" MaxHeight="150" HorizontalScrollBarVisibility="Disabled">
-                        <TextBlock Classes="body" Text="{Binding SourceText}" />
+                        <SelectableTextBlock Classes="body" Text="{Binding SourceText}" TextWrapping="Wrap"/>
                     </ScrollViewer>
                 </Grid>
             </Border>
@@ -132,7 +132,7 @@
                                      IsVisible="{Binding IsLoading}" />
                     </Grid>
                     <ScrollViewer Grid.Row="1" MaxHeight="240" HorizontalScrollBarVisibility="Disabled">
-                        <TextBlock Classes="body" Text="{Binding TranslatedText}"
+                        <SelectableTextBlock Classes="body" Text="{Binding TranslatedText}" TextWrapping="Wrap"
                                    IsVisible="{Binding HasTranslation}" />
                     </ScrollViewer>
                     <TextBlock Grid.Row="1" Classes="body"
