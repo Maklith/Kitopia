@@ -14,7 +14,7 @@ using Serilog;
 
 namespace Kitopia.Desktop.Platform.Windows;
 
-public class ApplicationService : IApplicationService {
+public partial class ApplicationService : IApplicationService {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<ApplicationService>();
     private static readonly HttpClient HttpClient = new();
 
@@ -77,63 +77,6 @@ public class ApplicationService : IApplicationService {
         catch (Exception ex) {
             Logger.Error(ex, "定义URL Protocol失败");
         }
-    }
-
-    public bool ChangeAutoStart(bool autoStart) {
-        try {
-            if (autoStart) {
-                var strName = ResolveExecutablePath(); //获取要自动运行的应用程序名
-                if (!File.Exists(strName)) //判断要自动运行的应用程序文件是否存在
-                    return false;
-
-                var registry =
-                    Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-                        true); //检索指定的子项
-                if (registry == null) //若指定的子项不存在
-                {
-                    registry = Registry.CurrentUser.CreateSubKey(
-                        "Software\\Microsoft\\Windows\\CurrentVersion\\Run"); //则创建指定的子项
-                }
-                else {
-                    if (Equals(registry.GetValue("Kitopia"), $"\"{strName}\"")) {
-                        Logger.Information("开机自启配置已存在");
-                        return true;
-                    }
-                }
-
-                Logger.Information("用户确认启用开机自启");
-                try {
-                    registry.SetValue("Kitopia", $"\"{strName}\""); //设置该子项的新的“键值对”
-
-                    ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.start_at_login"),
-                        Lang.Get("lang.kitopia.startup_setting_updated"));
-                }
-                catch (Exception exception) {
-                    Logger.Error(exception, "开机自启设置失败");
-                    ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.start_at_login"),
-                        Lang.Get("lang.kitopia.startup_setting_failed"));
-                    return false;
-                }
-            }
-            else {
-                try {
-                    var registry =
-                        Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-                            true); //检索指定的子项
-                    registry?.DeleteValue("Kitopia");
-                }
-                catch (Exception) {
-                    return false;
-                }
-            }
-        }
-        catch (Exception e) {
-            Logger.Error(e, "开机自启设置失败");
-            ServiceManager.Services.GetService<IToastService>()!.Show(Lang.Get("lang.kitopia.start_at_login"), Lang.Get("lang.kitopia.startup_setting_failed"));
-            return false;
-        }
-
-        return true;
     }
 
     public async Task<bool> CheckUpdate(bool toastIfNoUpdate) {

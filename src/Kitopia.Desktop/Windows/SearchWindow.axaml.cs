@@ -10,8 +10,10 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Messaging;
 using Kitopia.Desktop.Features.Search.ViewModels;
+using Kitopia.Desktop.Features.Services.Config;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
+using PluginCore.Config;
 #if WINDOWS
 using Kitopia.Desktop.Platform.Windows.AppTools;
 #endif
@@ -29,6 +31,22 @@ public partial class SearchWindow : Window
     public SearchWindow()
     {
         InitializeComponent();
+        var config = ConfigManger.Config;
+        if (config is not null)
+        {
+            void ApplyWindowBorder() => WindowDecorations = config.hideSearchWindowBorder
+                ? WindowDecorations.None : WindowDecorations.BorderOnly;
+            EventHandler<ConfigChangedArgs> searchSettingsChanged = (_, args) =>
+            {
+                if (args.Name == nameof(KitopiaConfig.hideSearchWindowBorder))
+                    Dispatcher.UIThread.Invoke(ApplyWindowBorder);
+                else if (args.Name == nameof(KitopiaConfig.verticalEmptySearchResults))
+                    Dispatcher.UIThread.Invoke(() => (DataContext as SearchWindowViewModel)?.LoadLast());
+            };
+            ApplyWindowBorder();
+            config.ConfigChanged += searchSettingsChanged;
+            Closed += (_, _) => config.ConfigChanged -= searchSettingsChanged;
+        }
         _preferredMaxHeight = MaxHeight;
         WeakReferenceMessenger.Default.Register<string, string>(this, "SearchWindowClose",
             (_, _) => { Dispatcher.UIThread.Invoke(() => { IsVisible = false; }); });

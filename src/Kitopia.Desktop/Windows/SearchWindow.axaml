@@ -532,11 +532,17 @@
                                     <Panel Width="28"
                                            IsVisible="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IsPreviewMode, Converter={x:Static BoolConverters.Not}}">
                                         <controls1:PinButton KeyboardNavigation.TabNavigation="None" FontSize="26"
-                                                             IsVisible="{Binding Path=FileType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter='Pin'}"
                                                              Tag="{Binding IsPined}"
                                                              IsChecked="{Binding IsPined,Mode=OneWay}"
                                                              Command="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).PinCommand}"
-                                                             CommandParameter="{Binding}" Padding="2" />
+                                                             CommandParameter="{Binding}" Padding="2">
+                                            <controls1:PinButton.IsVisible>
+                                                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                    <Binding Path="FileType" Converter="{StaticResource EnumToVisibilityConverter}" ConverterParameter="Pin" />
+                                                    <Binding Path="OnlyKey" Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+                                                </MultiBinding>
+                                            </controls1:PinButton.IsVisible>
+                                        </controls1:PinButton>
                                     </Panel>
 
                                     <Image Grid.Column="1" HorizontalAlignment="Left" Focusable="False" Classes="search-item-icon"
@@ -557,16 +563,19 @@
                                                 HorizontalAlignment="Stretch">
                                         <TextBlock Classes="search-item-title" VerticalAlignment="Center" Margin="0" Focusable="False"
                                                    Foreground="{DynamicResource SemiColorText0}"
-                                                   FontWeight="Normal" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ItemDisplayName}">
+                                                   FontWeight="Normal" TextTrimming="CharacterEllipsis" ToolTip.Tip="{lang:Lang Value={Binding ItemDisplayName}}">
                                             <TextBlock.Inlines>
                                                 <MultiBinding Converter="{StaticResource ItemNameMatchCtr}">
                                                     <Binding Path="PinyinItem" />
                                                     <Binding Path="." />
+                                                    <ReflectionBinding Source="{x:Static localization:Lang.Current}" Path="Keys" />
                                                 </MultiBinding>
                                             </TextBlock.Inlines>
                                             <Run />
                                         </TextBlock>
                                         <controls1:SearchItemSubtitle Classes="search-item-subtitle"
+                                                                     Classes.search-item-path="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IsVerticalEmptySearch}"
+                                                                     ShowPath="{Binding $parent[ListBox].((windows:SearchWindowViewModel)DataContext).IsVerticalEmptySearch}"
                                                                      VerticalAlignment="Top" Margin="0"
                                                                      Foreground="{DynamicResource SemiColorText1}"
                                                                      FontWeight="Normal"

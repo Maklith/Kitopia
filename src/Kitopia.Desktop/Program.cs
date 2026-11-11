@@ -456,10 +456,11 @@ internal class Program {
         ServiceManager.Services.GetService<SharedDeviceCommunication.IDeviceCommunicationRuntime>()!
             .StartAsync().GetAwaiter().GetResult();
 
-        if (ConfigManger.Config.autoStart) {
-            Logger.Information("设置开机自启");
-            ServiceManager.Services.GetService<IApplicationService>()!
-                .ChangeAutoStart(true);
+        if (!await ServiceManager.Services.GetRequiredService<IApplicationService>()
+                .ChangeAutoStartAsync(ConfigManger.Config.autoStart, ConfigManger.Config.preferEarlyStartup,
+                    allowElevation: false)) {
+            _ = ServiceManager.Services.GetRequiredService<IToastService>()
+                .Show(Lang.Get("lang.kitopia.start_at_login"), Lang.Get("lang.kitopia.startup_setting_repair_required"));
         }
 
         ServiceManager.Services.GetService<IApplicationService>()!.Init();

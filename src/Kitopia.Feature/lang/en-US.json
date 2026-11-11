@@ -1,4 +1,11 @@
 {
+  "lang.kitopia.prefer_early_startup": "Prefer early startup",
+  "lang.kitopia.prefer_early_startup_description": "Start at sign-in using a scheduled task without a delay. Administrator approval may be needed to configure it; Kitopia runs with normal permissions. Starting before all other apps is not guaranteed.",
+  "lang.kitopia.hide_search_window_border": "Hide search window border",
+  "lang.kitopia.hide_search_window_border_description": "Hide only the system border of the search window. Applies immediately.",
+  "lang.kitopia.vertical_empty_search_results": "Vertical layout for empty input",
+  "lang.kitopia.vertical_empty_search_results_description": "Show history and inline suggestions as a scrolling list below the search box when it is empty. Applies immediately.",
+  "lang.kitopia.startup_setting_repair_required": "Startup registration could not be updated. Open Settings and toggle automatic startup to configure it again.",
   "lang.kitopia.selection_translation": "Selection translation",
   "lang.kitopia.selection_translation_source": "Source",
   "lang.kitopia.selection_translation_result": "Translation",

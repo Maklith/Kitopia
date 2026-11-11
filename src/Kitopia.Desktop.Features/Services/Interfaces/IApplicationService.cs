@@ -4,7 +4,7 @@ public interface IApplicationService
 {
     public void Init();
     public void InitUrlProtocol();
-    public bool ChangeAutoStart(bool autoStart);
+    public Task<bool> ChangeAutoStartAsync(bool autoStart, bool preferEarlyStartup, bool allowElevation);
     public Task ExitAsync(int exitCode = 0);
     public Task RestartAsync();
     public Task StopAsync();
