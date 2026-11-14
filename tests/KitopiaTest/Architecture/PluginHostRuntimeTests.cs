@@ -220,18 +220,24 @@ public sealed class PluginHostRuntimeTests
         Assert.AreEqual("公开", helper.PublicationStatusText);
         Assert.AreEqual("v1.0.0 · 8月28日", helper.VersionAndDateText);
         Assert.AreEqual("6 下载", helper.DownloadCountText);
-        CollectionAssert.AreEqual(new[] { "Windows" }, (System.Collections.ICollection)helper.DisplayPlatforms);
+        CollectionAssert.AreEqual(new[] { "Windows x64" }, (System.Collections.ICollection)helper.DisplayPlatforms);
     }
 
     [TestMethod]
     public void MarketPageViewModel_PaginationAndPlatformOptions_InitializeCorrectly()
     {
         var vm = new Kitopia.Desktop.Features.ViewModel.Pages.MarketPageViewModel();
-        Assert.AreEqual(4, vm.PlatformOptions.Count);
+        var currentRid = PluginNetworkService.GetCurrentRuntimeIdentifier();
+        Assert.AreEqual(11, vm.PlatformOptions.Count);
         Assert.AreEqual("全部平台", vm.PlatformOptions[0].Label);
         Assert.AreEqual("", vm.PlatformOptions[0].Value);
-        Assert.AreEqual("Windows", vm.PlatformOptions[1].Label);
-        Assert.AreEqual("windows", vm.PlatformOptions[1].Value);
+        Assert.AreEqual($"当前设备 ({PluginInfoUiHelper.FormatPlatformName(currentRid)})", vm.PlatformOptions[1].Label);
+        Assert.AreEqual(currentRid, vm.PlatformOptions[1].Value);
+        Assert.AreEqual("windows", vm.PlatformOptions[2].Value);
+        Assert.AreEqual("osx", vm.PlatformOptions[3].Value);
+        Assert.AreEqual("linux", vm.PlatformOptions[4].Value);
+        Assert.AreEqual("win-x64", vm.PlatformOptions[5].Value);
+        Assert.AreEqual("linux-arm64", vm.PlatformOptions[10].Value);
 
         Assert.AreEqual(1, vm.CurrentPage);
         Assert.IsFalse(vm.CanPreviousPage);

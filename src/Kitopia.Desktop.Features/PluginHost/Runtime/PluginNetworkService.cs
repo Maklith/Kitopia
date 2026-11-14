@@ -157,7 +157,7 @@ public class PluginNetworkService
         HttpClient client, Action<long, long?>? reportProgress, CancellationToken cancellationToken)
     {
         using var request = CreateAuthorizedGetRequest(
-            $"download/{GetCurrentPlatformType()}/{Uri.EscapeDataString(pluginSignName)}/{Uri.EscapeDataString(version)}");
+            $"download/{Uri.EscapeDataString(GetCurrentRuntimeIdentifier())}/{Uri.EscapeDataString(pluginSignName)}/{Uri.EscapeDataString(version)}");
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         HandlePossibleUnauthorized(response.StatusCode);
         response.EnsureSuccessStatusCode();
@@ -293,20 +293,68 @@ public class PluginNetworkService
         }
     }
 
-    public static async Task<string?> GetLatestVersionAsync(
+    public static Task<string?> GetLatestVersionAsync(
         string pluginSignName,
+        CancellationToken cancellationToken = default) =>
+        GetLatestCompatibleVersionAsync(pluginSignName, GetCurrentRuntimeIdentifier(), HttpClient, cancellationToken);
+
+    internal static async Task<string?> GetLatestCompatibleVersionAsync(
+        string pluginSignName,
+        string runtimeIdentifier,
+        HttpClient client,
         CancellationToken cancellationToken = default)
     {
-        var plugin = await GetOnlinePluginInfo(pluginSignName, cancellationToken);
-        return plugin?.LastVersion;
+        var versions = await GetAvailableVersionsForRuntimeAsync(
+            pluginSignName, runtimeIdentifier, client, cancellationToken);
+        return SelectLatestCompatibleVersion(versions, runtimeIdentifier);
+    }
+
+    internal static string? SelectLatestCompatibleVersion(
+        IEnumerable<VersionDetail>? versions,
+        string? currentRuntimeIdentifier = null)
+    {
+        if (versions is null)
+        {
+            return null;
+        }
+
+        var rid = string.IsNullOrWhiteSpace(currentRuntimeIdentifier)
+            ? GetCurrentRuntimeIdentifier()
+            : currentRuntimeIdentifier;
+
+        string? latest = null;
+        foreach (var item in versions)
+        {
+            if (!item.CanDownload ||
+                string.IsNullOrWhiteSpace(item.Version) ||
+                !SupportsRuntimeIdentifier(item.AvailablePlatforms, rid))
+            {
+                continue;
+            }
+
+            if (latest is null || PluginDependencyService.IsVersionNewer(item.Version, latest))
+            {
+                latest = item.Version;
+            }
+        }
+
+        return latest;
     }
 
     public static Task<List<VersionDetail>?> GetAvailableVersionsAsync(
         string pluginSignName,
         CancellationToken cancellationToken = default) =>
+        GetAvailableVersionsForRuntimeAsync(pluginSignName, GetCurrentRuntimeIdentifier(), HttpClient, cancellationToken);
+
+    private static Task<List<VersionDetail>?> GetAvailableVersionsForRuntimeAsync(
+        string pluginSignName,
+        string runtimeIdentifier,
+        HttpClient client,
+        CancellationToken cancellationToken) =>
         GetPluginDataAsync<List<VersionDetail>>(
-            $"versions/{GetCurrentPlatformType()}/{Uri.EscapeDataString(pluginSignName)}",
-            cancellationToken);
+            $"versions/{Uri.EscapeDataString(runtimeIdentifier)}/{Uri.EscapeDataString(pluginSignName)}",
+            cancellationToken,
+            client);
 
     public static async Task<List<VersionDetail>?> GetVersionDetailsAsync(
         string pluginSignName,
@@ -342,12 +390,15 @@ public class PluginNetworkService
         }
     }
 
-    private static async Task<T?> GetPluginDataAsync<T>(string path, CancellationToken cancellationToken)
+    private static async Task<T?> GetPluginDataAsync<T>(
+        string path,
+        CancellationToken cancellationToken,
+        HttpClient? client = null)
     {
         try
         {
             using var request = CreateAuthorizedGetRequest(path);
-            using var response = await HttpClient.SendAsync(request, cancellationToken);
+            using var response = await (client ?? HttpClient).SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 HandlePossibleUnauthorized(response.StatusCode);
@@ -385,21 +436,82 @@ public class PluginNetworkService
 
     private readonly record struct CacheEntry<T>(T Value, DateTimeOffset ExpiresAt);
 
-    public static bool SupportsCurrentPlatform(IReadOnlyCollection<string> availablePlatforms)
+    public static bool SupportsCurrentPlatform(IReadOnlyCollection<string>? availablePlatforms, bool allowEmpty = false) =>
+        SupportsRuntimeIdentifier(availablePlatforms, GetCurrentRuntimeIdentifier(), allowEmpty);
+
+    public static string GetCurrentRuntimeIdentifier() => GetRuntimeIdentifier(
+        OperatingSystem.IsWindows(),
+        OperatingSystem.IsMacOS(),
+        OperatingSystem.IsLinux(),
+        System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture);
+
+    internal static string GetRuntimeIdentifier(
+        bool isWindows,
+        bool isMacOS,
+        bool isLinux,
+        System.Runtime.InteropServices.Architecture architecture)
     {
-        return availablePlatforms.Count > 0 && availablePlatforms.Any(platform =>
-            string.Equals(platform, GetCurrentPlatformName(), StringComparison.OrdinalIgnoreCase));
+        var arch = architecture == System.Runtime.InteropServices.Architecture.Arm64 ? "arm64" : "x64";
+        if (isWindows)
+        {
+            return $"win-{arch}";
+        }
+
+        if (isMacOS)
+        {
+            return $"osx-{arch}";
+        }
+
+        return isLinux ? $"linux-{arch}" : $"linux-{arch}";
     }
 
-    private static int GetCurrentPlatformType() => OperatingSystem.IsWindows()
-        ? 1
-        : OperatingSystem.IsMacOS()
-            ? 2
-            : 3;
+    internal static string? NormalizePlatformIdentifier(string? platform)
+    {
+        if (string.IsNullOrWhiteSpace(platform))
+        {
+            return null;
+        }
 
-    private static string GetCurrentPlatformName() => OperatingSystem.IsWindows()
-        ? "windows"
-        : OperatingSystem.IsMacOS()
-            ? "macos"
-            : "linux";
+        return platform.Trim().ToLowerInvariant() switch
+        {
+            "1" or "win" or "windows" or "win-x64" or "windows-x64" => "win-x64",
+            "4" or "win-arm64" or "windows-arm64" => "win-arm64",
+            "2" or "osx" or "mac" or "macos" or "osx-x64" or "macos-x64" => "osx-x64",
+            "5" or "osx-arm64" or "macos-arm64" => "osx-arm64",
+            "3" or "linux" or "linux-x64" => "linux-x64",
+            "6" or "linux-arm64" => "linux-arm64",
+            var other => other
+        };
+    }
+
+    internal static bool SupportsRuntimeIdentifier(
+        IReadOnlyCollection<string>? platforms,
+        string currentRuntimeIdentifier,
+        bool allowEmpty = false)
+    {
+        if (platforms is null || platforms.Count == 0)
+        {
+            return allowEmpty;
+        }
+
+        var normalizedCurrent = NormalizePlatformIdentifier(currentRuntimeIdentifier)
+            ?? currentRuntimeIdentifier.Trim().ToLowerInvariant();
+        var hasEntries = false;
+        foreach (var platform in platforms)
+        {
+            var normalized = NormalizePlatformIdentifier(platform);
+            if (normalized is null)
+            {
+                continue;
+            }
+
+            hasEntries = true;
+            if (string.Equals(normalized, normalizedCurrent, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return !hasEntries && allowEmpty;
+    }
 }

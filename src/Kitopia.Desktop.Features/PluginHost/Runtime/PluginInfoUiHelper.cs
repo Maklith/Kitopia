@@ -305,17 +305,21 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
                 return list.Select(FormatPlatformName).Distinct().ToList();
             }
 
-            return ["Windows"];
+            return [];
         }
     }
 
     public static string FormatPlatformName(string platform) =>
-        platform.ToLowerInvariant() switch
+        PluginNetworkService.NormalizePlatformIdentifier(platform) switch
         {
-            "windows" => "Windows",
-            "macos" => "macOS",
-            "linux" => "Linux",
-            _ => platform
+            "win-x64" => "Windows x64",
+            "win-arm64" => "Windows ARM64",
+            "osx-x64" => "macOS x64",
+            "osx-arm64" => "macOS ARM64",
+            "linux-x64" => "Linux x64",
+            "linux-arm64" => "Linux ARM64",
+            null => string.Empty,
+            _ => platform.Trim()
         };
 
     public string AuthorHandle =>
@@ -479,11 +483,12 @@ public partial class PluginInfoUiHelper : ObservableObject, IDisposable
         if (!string.IsNullOrWhiteSpace(latestVersion))
         {
             CanUpdate = PluginDependencyService.IsVersionNewer(latestVersion, PluginLocalInfo.PluginBaseInfo.Version);
-            CanUpdateVersion = latestVersion;
+            CanUpdateVersion = CanUpdate == true ? latestVersion : null;
         }
         else
         {
             CanUpdate = false;
+            CanUpdateVersion = null;
         }
     }
 

@@ -59,7 +59,7 @@
 
                     <ComboBox Grid.Column="1"
                               IsVisible="{Binding IsPluginMarket}"
-                              Width="140"
+                              MinWidth="200"
                               CornerRadius="6"
                               ItemsSource="{Binding PlatformOptions}"
                               SelectedItem="{Binding SelectedPlatform, Mode=TwoWay}">

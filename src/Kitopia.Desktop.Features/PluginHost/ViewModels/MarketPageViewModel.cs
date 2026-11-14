@@ -50,13 +50,26 @@ public partial class MarketPageViewModel : ObservableObject
     private CancellationTokenSource? _searchCts;
     private readonly IAccountService? _accountService;
 
-    public IReadOnlyList<PlatformOption> PlatformOptions { get; } =
-    [
-        new(Lang.Get("lang.kitopia.all_platforms"), ""),
-        new("Windows", "windows"),
-        new("macOS", "macos"),
-        new("Linux", "linux")
-    ];
+    private static IReadOnlyList<PlatformOption> CreatePlatformOptions()
+    {
+        var currentRid = PluginNetworkService.GetCurrentRuntimeIdentifier();
+        return
+        [
+            new(Lang.Get("lang.kitopia.all_platforms"), ""),
+            new(Lang.Format("lang.kitopia.current_device_format", PluginInfoUiHelper.FormatPlatformName(currentRid)), currentRid),
+            new("Windows (x64 / ARM64)", "windows"),
+            new("macOS (x64 / ARM64)", "osx"),
+            new("Linux (x64 / ARM64)", "linux"),
+            new("Windows x64", "win-x64"),
+            new("Windows ARM64", "win-arm64"),
+            new("macOS x64", "osx-x64"),
+            new("macOS ARM64", "osx-arm64"),
+            new("Linux x64", "linux-x64"),
+            new("Linux ARM64", "linux-arm64")
+        ];
+    }
+
+    public IReadOnlyList<PlatformOption> PlatformOptions { get; } = CreatePlatformOptions();
 
     public bool CanPreviousPage => CurrentPage > 1;
     public bool CanNextPage => CurrentPage < TotalPages;
@@ -418,7 +431,7 @@ public partial class MarketPageViewModel : ObservableObject
 
         var versionOptions = versions
             .Where(version => !string.IsNullOrWhiteSpace(version.Version) &&
-                              PluginNetworkService.SupportsCurrentPlatform(version.AvailablePlatforms))
+                              version.CanDownloadOnCurrentPlatform)
             .Select(version => version.Version)
             .Distinct(StringComparer.Ordinal)
             .ToList();

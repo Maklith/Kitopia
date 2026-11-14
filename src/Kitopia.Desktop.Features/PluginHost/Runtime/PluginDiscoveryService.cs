@@ -1,3 +1,4 @@
+using Kitopia.Feature.Localization;
 using NuGet.Versioning;
 using Serilog;
 using JsonSerializer = System.Text.Json.JsonSerializer;
@@ -135,7 +136,34 @@ public class PluginDiscoveryService
             if (!VersionRange.TryParse(range, out _))
                 throw new InvalidDataException($"插件 {manifest.NameSign} 的依赖 {dependency} 版本范围无效：{requirement}。请使用 NuGet 语法，例如 [1.0.0,2.0.0)。");
         }
-        return new PluginLocalInfo { PluginBaseInfo = manifest.ToPluginBaseInfo(), Path = root, FullPath = main };
+        var supportedPlatforms = (manifest.SupportedPlatforms ?? [])
+            .Select(PluginNetworkService.NormalizePlatformIdentifier)
+            .Where(static item => !string.IsNullOrWhiteSpace(item))
+            .Select(static item => item!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var isPlatformCompatible = PluginNetworkService.SupportsCurrentPlatform(supportedPlatforms, allowEmpty: true);
+
+        return new PluginLocalInfo
+        {
+            PluginBaseInfo = manifest.ToPluginBaseInfo(),
+            Path = root,
+            FullPath = main,
+            SupportedPlatforms = supportedPlatforms,
+            IsPlatformCompatible = isPlatformCompatible,
+            LoadFailed = !isPlatformCompatible,
+            LoadFailedReason = isPlatformCompatible
+                ? null
+                : CreateUnsupportedPlatformMessage(supportedPlatforms)
+        };
+    }
+
+    internal static string CreateUnsupportedPlatformMessage(IReadOnlyList<string> supportedPlatforms)
+    {
+        var current = PluginInfoUiHelper.FormatPlatformName(PluginNetworkService.GetCurrentRuntimeIdentifier());
+        var supported = string.Join(", ",
+            supportedPlatforms.Select(PluginInfoUiHelper.FormatPlatformName).Distinct(StringComparer.Ordinal));
+        return Lang.Format("lang.kitopia.plugins.unsupported_platform_reason", current, supported);
     }
 
     internal static void ValidatePluginSign(string sign)

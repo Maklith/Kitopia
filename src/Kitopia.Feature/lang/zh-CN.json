@@ -1232,5 +1232,7 @@
   "lang.kitopia.plugins.dependency_incomplete": "文件不完整",
   "lang.kitopia.plugins.reinstall_dependency": "重新安装",
   "lang.kitopia.plugins.enable_dependency": "启用依赖",
-  "lang.kitopia.plugins.install_dependency": "下载并启用"
+  "lang.kitopia.plugins.install_dependency": "下载并启用",
+  "lang.kitopia.current_device_format": "当前设备 ({0})",
+  "lang.kitopia.plugins.unsupported_platform_reason": "此插件仅支持 {1}，不适用于当前架构 ({0})。"
 }

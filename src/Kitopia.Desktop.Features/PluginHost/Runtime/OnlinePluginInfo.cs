@@ -39,6 +39,8 @@ public sealed class VersionDetail
     public DateTime? ReviewedAt { get; set; }
     public bool IsCurrent { get; set; }
     public bool CanDownload { get; set; }
+    public bool CanDownloadOnCurrentPlatform =>
+        CanDownload && PluginNetworkService.SupportsCurrentPlatform(AvailablePlatforms);
     public bool CanEdit { get; set; }
     public bool CanWithdraw { get; set; }
     public bool CanCancelReview { get; set; }
@@ -88,7 +90,7 @@ public sealed class VersionDetail
     public IReadOnlyList<string> DisplayPlatforms =>
         (CandidatePlatforms is { Count: > 0 } ? CandidatePlatforms : AvailablePlatforms) is { Count: > 0 } platforms
             ? platforms.Select(PluginInfoUiHelper.FormatPlatformName).Distinct().ToList()
-            : ["Windows"];
+            : [];
 }
 
 public sealed class UserBaseInfo

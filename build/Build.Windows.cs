@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO.Compression;
 using Fallout.Common;
 using Fallout.Common.IO;
@@ -67,9 +68,9 @@ partial class Build
         UploadReleaseAsset(archive);
     }
 
-    void PublishPlugin(AbsolutePath project, string runtime, AbsolutePath output)
+    void PublishPlugin(AbsolutePath project, string runtime, AbsolutePath output, IReadOnlyList<string> supportedPlatforms = null)
     {
-        var platformTarget = runtime is null ? "AnyCPU" : GetWindowsPlatformTarget(runtime);
+        var platformTarget = GetPluginPlatformTarget(runtime);
         DotNetPublish(c => c
             .SetProject(project)
             .SetOutput(output)
@@ -80,7 +81,19 @@ partial class Build
             .SetProperty("Platform", platformTarget)
             .SetProperty("PlatformTarget", platformTarget)
             .SetProperty("PublishTrimmed", false));
+        StampPublishedManifestPlatforms(
+            output / "manifest.json",
+            supportedPlatforms ?? (string.IsNullOrWhiteSpace(runtime) ? null : [runtime]));
     }
+
+    static string GetPluginPlatformTarget(string runtime) => runtime switch
+    {
+        null or "" => "AnyCPU",
+        "win-x64" => "x64",
+        "win-arm64" => "ARM64",
+        "osx-x64" or "osx-arm64" or "linux-x64" or "linux-arm64" => "AnyCPU",
+        _ => throw new ArgumentOutOfRangeException(nameof(runtime), runtime, "Unsupported plugin runtime")
+    };
 
     static string GetWindowsPlatformTarget(string runtime) => runtime switch
     {

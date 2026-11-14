@@ -316,4 +316,44 @@ public sealed class PluginDependencyTests
             return true;
         }, CancellationToken.None);
     }
+
+    [TestMethod]
+    public async Task DependencyState_IncompatiblePlatform_ReportsIncompatibleAndInstallAction()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(MouseHotKeyTests));
+        await session.Dispatch(() =>
+        {
+            var installed = new PluginLocalInfo
+            {
+                PluginBaseInfo = new PluginBaseInfo
+                {
+                    Name = "Dependency fixture",
+                    NameSign = "incompatible_arch_" + Guid.NewGuid().ToString("N"),
+                    Version = "1.0.0",
+                    Main = "PluginUnload.dll",
+                    Dependencies = []
+                },
+                Path = Path.Combine(AppContext.BaseDirectory, "PluginFixture") + Path.DirectorySeparatorChar,
+                FullPath = Path.Combine(AppContext.BaseDirectory, "PluginFixture", "PluginUnload.dll"),
+                IsPlatformCompatible = false
+            };
+            var installedField = typeof(PluginManager).GetField("AllPluginInfos", BindingFlags.NonPublic | BindingFlags.Static)!;
+            var previousInstalled = installedField.GetValue(null);
+            installedField.SetValue(null, new[] { installed });
+            using var item = new PluginDependencyViewModel(installed.ToPlgString(), "[1.0.0,2.0.0)", "Description");
+            try
+            {
+                Assert.IsFalse(item.IsCompatible);
+                Assert.IsFalse(item.IsEnabled);
+                Assert.IsTrue(item.CanInstall);
+                Assert.AreEqual("lang.kitopia.plugins.dependency_incompatible", item.StatusKey);
+                Assert.AreEqual("lang.kitopia.plugins.install_dependency", item.ActionKey);
+            }
+            finally
+            {
+                installedField.SetValue(null, previousInstalled);
+            }
+            return true;
+        }, CancellationToken.None);
+    }
 }

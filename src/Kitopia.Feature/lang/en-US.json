@@ -1232,5 +1232,7 @@
   "lang.kitopia.plugins.dependency_incomplete": "Incomplete files",
   "lang.kitopia.plugins.reinstall_dependency": "Reinstall",
   "lang.kitopia.plugins.enable_dependency": "Enable dependency",
-  "lang.kitopia.plugins.install_dependency": "Download and enable"
+  "lang.kitopia.plugins.install_dependency": "Download and enable",
+  "lang.kitopia.current_device_format": "Current device ({0})",
+  "lang.kitopia.plugins.unsupported_platform_reason": "This plugin only supports {1} and is incompatible with the current architecture ({0})."
 }

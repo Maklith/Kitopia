@@ -4,6 +4,9 @@
   "Version": "1.0.10",
   "Description": "官方拓展插件,提供OpenVino推理环境",
   "Main": "OnnxRuntime.OpenVino.dll",
+  "SupportedPlatforms": [
+    "win-x64"
+  ],
   "Dependencies": {
     "Kitopia": "*-*"
   }

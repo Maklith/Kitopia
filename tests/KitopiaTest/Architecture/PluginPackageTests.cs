@@ -291,13 +291,81 @@ public sealed class PluginPackageTests
         finally { Directory.Delete(root, true); }
     }
 
-    private static void PreparePackage(string directory, Dictionary<string, string>? dependencies = null)
+    [TestMethod]
+    public void ReadPlugin_LegacyManifestWithoutSupportedPlatforms_IsCompatible()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "kitopia-package-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            PreparePackage(Path.Combine(root, "legacy"), nameSign: "legacy");
+            var discovered = PluginDiscoveryService.DiscoverPlugins(root);
+            var plugin = discovered.Single();
+            Assert.IsTrue(plugin.IsPlatformCompatible);
+            Assert.IsFalse(plugin.LoadFailed);
+            Assert.IsEmpty(plugin.SupportedPlatforms);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
+    public void ReadPlugin_MatchingAndMismatchedSupportedPlatforms_EnforceArchitectureCompatibility()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "kitopia-package-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var currentRid = PluginNetworkService.GetCurrentRuntimeIdentifier();
+            var incompatibleRid = currentRid == "win-arm64" ? "win-x64" : "win-arm64";
+            var matchingDir = Path.Combine(root, "matching");
+            var mismatchDir = Path.Combine(root, "mismatch");
+            PreparePackage(matchingDir, nameSign: "matching", supportedPlatforms: [currentRid]);
+            PreparePackage(mismatchDir, nameSign: "mismatch", supportedPlatforms: [incompatibleRid]);
+
+            var discovered = PluginDiscoveryService.DiscoverPlugins(root).ToDictionary(item => item.ToPlgString());
+            var matching = discovered["matching"];
+            var mismatch = discovered["mismatch"];
+
+            Assert.IsTrue(matching.IsPlatformCompatible);
+            Assert.IsFalse(matching.LoadFailed);
+            CollectionAssert.AreEqual(new[] { currentRid }, matching.SupportedPlatforms.ToArray());
+
+            Assert.IsFalse(mismatch.IsPlatformCompatible);
+            Assert.IsTrue(mismatch.LoadFailed);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(mismatch.LoadFailedReason));
+
+            Assert.ThrowsExactly<InvalidOperationException>(() => new PluginPackage(mismatchDir, "mismatch", "1.0.0"));
+
+            var dependent = new PluginLocalInfo
+            {
+                PluginBaseInfo = new PluginCore.PluginBaseInfo
+                {
+                    Name = "Dependent",
+                    NameSign = "dependent",
+                    Version = "1.0.0",
+                    Dependencies = new() { ["mismatch"] = "[1.0.0,2.0.0)" }
+                }
+            };
+            Assert.ThrowsExactly<InvalidOperationException>(() =>
+                PluginManager.ValidateDependencies(dependent, [mismatch], []));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    private static void PreparePackage(
+        string directory,
+        Dictionary<string, string>? dependencies = null,
+        string nameSign = "test",
+        IReadOnlyList<string>? supportedPlatforms = null)
     {
         Directory.CreateDirectory(directory);
         File.Copy(Path.Combine(AppContext.BaseDirectory, "PluginFixture", "PluginLifecycle.dll"), Path.Combine(directory, "entry.dll"));
         File.WriteAllText(Path.Combine(directory, "manifest.json"), JsonSerializer.Serialize(new PluginManifest
         {
-            Name = "Test", NameSign = "test", Version = "1.0.0", Description = "Test", Main = "entry.dll",
+            Name = nameSign,
+            NameSign = nameSign,
+            Version = "1.0.0",
+            Description = "Test",
+            Main = "entry.dll",
+            SupportedPlatforms = supportedPlatforms?.ToList(),
             Dependencies = dependencies ?? []
         }));
     }

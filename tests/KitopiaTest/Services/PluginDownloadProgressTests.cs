@@ -248,7 +248,16 @@ public sealed class PluginDownloadProgressTests
                 item.PluginLocalInfo = null;
 
                 item.Description = "Download test";
-                item.VersionDetails = [new VersionDetail { Id = 1, Version = info.Version, CanDownload = true }];
+                item.VersionDetails =
+                [
+                    new VersionDetail
+                    {
+                        Id = 1,
+                        Version = info.Version,
+                        AvailablePlatforms = [PluginNetworkService.GetCurrentRuntimeIdentifier()],
+                        CanDownload = true
+                    }
+                ];
                 var detail = new PluginDetail { DataContext = new PluginDetailViewModel(item) };
                 window.Content = detail;
                 Dispatcher.UIThread.RunJobs();
@@ -273,6 +282,71 @@ public sealed class PluginDownloadProgressTests
                 WeakReferenceMessenger.Default.UnregisterAll(viewModel);
                 foreach (var existing in viewModel.Items) existing.Dispose();
             }
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task PluginDetail_IncompatibleRelease_HidesInstallButtonAndBlocksInstall()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(MouseHotKeyTests));
+        await session.Dispatch(async () =>
+        {
+            var currentRid = PluginNetworkService.GetCurrentRuntimeIdentifier();
+            var incompatibleRid = currentRid == "win-arm64" ? "win-x64" : "win-arm64";
+            var info = new PluginBaseInfo
+            {
+                NameSign = "arch_" + Guid.NewGuid().ToString("N"),
+                Name = "Architecture test",
+                Version = "1.0.0",
+                Description = "Architecture compatibility test"
+            };
+            var incompatibleRelease = new VersionDetail
+            {
+                Id = 1,
+                Version = "1.0.0",
+                AvailablePlatforms = [incompatibleRid],
+                CanDownload = true
+            };
+            var compatibleRelease = new VersionDetail
+            {
+                Id = 2,
+                Version = "0.9.0",
+                AvailablePlatforms = [currentRid],
+                CanDownload = true
+            };
+            using var item = new PluginInfoUiHelper
+            {
+                PluginBaseInfo = info,
+                VersionDetails = [incompatibleRelease, compatibleRelease]
+            };
+            var detailViewModel = new PluginDetailViewModel(item);
+            var detail = new PluginDetail { DataContext = detailViewModel };
+            var marketPage = new MarketPage();
+            var window = new Window { Width = 900, Height = 640, Content = detail };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var installButtons = detail.GetVisualDescendants().OfType<Button>()
+                    .Where(control => control.IsEffectivelyVisible && control.Content is "一键安装到 Kitopia")
+                    .ToList();
+                Assert.HasCount(1, installButtons);
+                Assert.AreSame(compatibleRelease, installButtons[0].CommandParameter);
+
+                await detailViewModel.InstallVersionCommand.ExecuteAsync(incompatibleRelease);
+                Assert.IsFalse(detailViewModel.IsInstalling);
+
+                window.Content = marketPage;
+                Dispatcher.UIThread.RunJobs();
+                var platformComboBox = marketPage.GetVisualDescendants().OfType<ComboBox>().Single();
+                Assert.IsGreaterThanOrEqualTo(200d, platformComboBox.MinWidth);
+                Assert.IsTrue(double.IsNaN(platformComboBox.Width));
+            }
+            finally
+            {
+                window.Close();
+            }
+            return true;
         }, CancellationToken.None);
     }
 }
