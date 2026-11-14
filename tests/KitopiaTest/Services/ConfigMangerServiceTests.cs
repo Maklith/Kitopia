@@ -16,17 +16,26 @@ namespace KitopiaTest.Services;
 public sealed class ConfigMangerServiceTests
 {
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public void FullScreenSearchHotkey_LegacyAndConfiguredJson_DefaultsToEnabledAndPersistsSelection(bool disabledInFullScreen)
+    [DataRow("{}", true)]
+    [DataRow("{\"searchHotKey\":{}}", true)]
+    [DataRow("{\"ConfigVersion\":4,\"disableSearchHotKeyInFullScreen\":false,\"searchHotKey\":{}}", false)]
+    [DataRow("{\"ConfigVersion\":4,\"disableSearchHotKeyInFullScreen\":true,\"searchHotKey\":{}}", true)]
+    [DataRow("{\"ConfigVersion\":4,\"disableSearchHotKeyInFullScreen\":true,\"searchHotKey\":{\"DisableInFullScreen\":false}}", false)]
+    [DataRow("{\"ConfigVersion\":4,\"disableSearchHotKeyInFullScreen\":false,\"searchHotKey\":{\"DisableInFullScreen\":true}}", true)]
+    [DataRow("{\"ConfigVersion\":5,\"searchHotKey\":{\"DisableInFullScreen\":false}}", false)]
+    public void MigrateConfig_FullScreenScope_PreservesSearchChoiceAndRemovesGlobalField(string json, bool expected)
     {
-        Assert.IsTrue(new KitopiaConfig().disableSearchHotKeyInFullScreen);
-        var config = JsonSerializer.Deserialize<KitopiaConfig>("{}", ConfigManger.DefaultOptions)!;
-        Assert.IsTrue(config.disableSearchHotKeyInFullScreen);
-        config.disableSearchHotKeyInFullScreen = disabledInFullScreen;
-        var json = JsonSerializer.Serialize(config, ConfigManger.DefaultOptions);
-        var restored = JsonSerializer.Deserialize<KitopiaConfig>(json, ConfigManger.DefaultOptions)!;
-        Assert.AreEqual(disabledInFullScreen, restored.disableSearchHotKeyInFullScreen);
+        using var document = JsonDocument.Parse(json);
+        var config = document.RootElement.Deserialize<KitopiaConfig>(ConfigManger.DefaultOptions)!;
+        ConfigManger.MigrateConfig(document.RootElement, config);
+        ConfigManger.MigrateConfig(document.RootElement, config);
+        Assert.AreEqual(expected, config.searchHotKey.DisableInFullScreen);
+        Assert.IsFalse(config.screenShotHotKey.DisableInFullScreen);
+        Assert.AreEqual(config.CurrentConfigVersion, config.ConfigVersion);
+        var saved = JsonSerializer.Serialize(config, ConfigManger.DefaultOptions);
+        Assert.IsFalse(saved.Contains("disableSearchHotKeyInFullScreen"));
+        var restored = JsonSerializer.Deserialize<KitopiaConfig>(saved, ConfigManger.DefaultOptions)!;
+        Assert.AreEqual(expected, restored.searchHotKey.DisableInFullScreen);
     }
 
     [TestMethod]

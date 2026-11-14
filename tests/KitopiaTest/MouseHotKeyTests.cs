@@ -22,6 +22,7 @@ using Kitopia.Desktop.Abstractions.TextSelection;
 using Kitopia.Desktop.Services;
 using Kitopia.Desktop.ViewModels;
 using Kitopia.Desktop.Windows;
+using Kitopia.Feature.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using PluginCore;
 using PluginCore.Config;
@@ -614,9 +615,9 @@ public sealed class MouseHotKeyTests
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
-    public Task KeyboardHook_SearchShortcut_DefaultAndCustomizedUseHookWithoutLosingEnabledIntent(bool customized) => RunAsync(service =>
+    public Task KeyboardHook_FullScreenScope_DefaultAndCustomizedUseHookWithoutLosingEnabledIntent(bool customized) => RunAsync(service =>
     {
-        var config = new KitopiaConfig { disableSearchHotKeyInFullScreen = false };
+        var config = new KitopiaConfig();
         ConfigManger.Configs["KitopiaConfig"] = config;
         var model = config.searchHotKey;
         if (customized)
@@ -647,8 +648,6 @@ public sealed class MouseHotKeyTests
             released.Invoke(null, [null, release]);
             Assert.IsTrue(release.SuppressEvent);
             Assert.IsTrue(model.IsEnabled);
-            config.disableSearchHotKeyInFullScreen = true;
-            Assert.AreEqual(0, GetHotkey(model.UUID).Id, "Changing the setting must not need re-registration.");
             model.IsEnabled = false;
             Assert.IsTrue(service.Modify(model));
             var disabledPress = Key();
@@ -899,9 +898,11 @@ public sealed class MouseHotKeyTests
     });
 
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public Task Editor_FullScreenChoice_OnlySearchShortcutAndDefaultsToChecked(bool dark) => RunAsync(_ =>
+    [DataRow(false, "zh-CN")]
+    [DataRow(true, "zh-CN")]
+    [DataRow(false, "en-US")]
+    [DataRow(true, "en-US")]
+    public Task Editor_FullScreenChoice_AllShortcutsShowTheirOwnChoice(bool dark, string language) => RunAsync(_ =>
     {
         var config = new KitopiaConfig();
         ConfigManger.Configs["KitopiaConfig"] = config;
@@ -909,11 +910,14 @@ public sealed class MouseHotKeyTests
         try
         {
             other.Show();
-            Assert.IsFalse(other.FindControl<CheckBox>("DisableInFullScreen")!.IsVisible,
-                "Shortcut identity must be checked by UUID, not display name.");
+            var checkbox = other.FindControl<CheckBox>("DisableInFullScreen")!;
+            Assert.IsTrue(checkbox.IsVisible);
+            Assert.IsFalse(checkbox.IsChecked, "Other shortcuts keep their existing full-screen behavior by default.");
         }
         finally { other.Close(); }
 
+        var originalLanguage = Lang.Current.Language;
+        Lang.Current.UseLanguage(language);
         var window = new HotKeyEditorWindow(config.searchHotKey)
         {
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
@@ -924,6 +928,7 @@ public sealed class MouseHotKeyTests
             var checkbox = window.FindControl<CheckBox>("DisableInFullScreen")!;
             Assert.IsTrue(checkbox.IsVisible);
             Assert.IsTrue(checkbox.IsChecked);
+            Assert.AreEqual(Lang.Get("lang.kitopia.hotkeys.disable_in_full_screen"), checkbox.Content);
             Assert.AreSame(window.FindControl<CheckBox>("IgnoreTextInput")!.Parent, checkbox.Parent);
             checkbox.Focus();
             Dispatcher.UIThread.RunJobs();
@@ -932,13 +937,17 @@ public sealed class MouseHotKeyTests
             Assert.IsNotNull(frame);
             var directory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts/hotkeys"));
             Directory.CreateDirectory(directory);
-            frame.Save(Path.Combine(directory, $"search-fullscreen-scope-{(dark ? "dark" : "light")}.png"), PngBitmapEncoderOptions.Default);
+            frame.Save(Path.Combine(directory, $"search-fullscreen-scope-{language}-{(dark ? "dark" : "light")}.png"), PngBitmapEncoderOptions.Default);
             window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
             window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
             Assert.IsFalse(checkbox.IsChecked);
-            Assert.IsTrue(config.disableSearchHotKeyInFullScreen, "Editing the checkbox must remain pending until Save.");
+            Assert.IsTrue(config.searchHotKey.DisableInFullScreen, "Editing the checkbox must remain pending until Save.");
         }
-        finally { window.Close(); }
+        finally
+        {
+            window.Close();
+            Lang.Current.UseLanguage(originalLanguage);
+        }
         return Task.CompletedTask;
     });
 
@@ -951,19 +960,14 @@ public sealed class MouseHotKeyTests
     [DataRow(false, "registration-failed")]
     [DataRow(true, "validation-failed")]
     [DataRow(true, "unchanged")]
-    public Task Editor_SearchFullScreenChoice_OnlySuccessfulSaveAppliesAndPersists(bool initial, string action) => RunAsync(_ =>
+    public Task Editor_FullScreenChoice_OnlySuccessfulModifyApplies(bool initial, string action) => RunAsync(_ =>
     {
-        var config = new KitopiaConfig { disableSearchHotKeyInFullScreen = initial };
-        ConfigManger.Configs["KitopiaConfig"] = config;
-        var model = config.searchHotKey;
-        model.IsEnabled = false;
+        var model = new HotKeyModel { DisableInFullScreen = initial, IsSelectAlt = true, SelectKey = EKey.空格 };
         var recorder = new RecordingHotkeys { Existing = model, ModifyResult = action != "registration-failed" };
         var configService = new RecordingConfigService();
         var originalServices = ServiceManager.Services;
         using var services = new ServiceCollection().AddSingleton<IHotKetImpl>(recorder)
             .AddSingleton<IConfigService>(configService).BuildServiceProvider();
-        var changes = 0;
-        config.ConfigChanged += (_, args) => { if (args.Name == nameof(KitopiaConfig.disableSearchHotKeyInFullScreen)) changes++; };
         var window = new HotKeyEditorWindow(model);
         try
         {
@@ -977,9 +981,8 @@ public sealed class MouseHotKeyTests
             window.FindControl<Button>(action == "cancel" ? "CancelButton" : "SaveButton")!
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             var changed = action == "save";
-            Assert.AreEqual(changed ? !initial : initial, config.disableSearchHotKeyInFullScreen);
-            Assert.AreEqual(changed ? config.Name : null, configService.SavedKey);
-            Assert.AreEqual(changed ? 1 : 0, changes);
+            Assert.AreEqual(changed ? !initial : initial, model.DisableInFullScreen);
+            Assert.IsNull(configService.SavedKey, "The editor must leave persistence to the existing Modify path.");
             Assert.IsFalse(model.IsEnabled);
             if (action is "save" or "unchanged")
             {
@@ -990,8 +993,7 @@ public sealed class MouseHotKeyTests
             }
             if (changed)
             {
-                var restored = JsonSerializer.Deserialize<KitopiaConfig>(configService.SavedJson!, ConfigManger.DefaultOptions)!;
-                Assert.AreEqual(!initial, restored.disableSearchHotKeyInFullScreen);
+                Assert.AreEqual(!initial, recorder.Modified!.DisableInFullScreen);
                 var reopened = new HotKeyEditorWindow(model);
                 try
                 {
@@ -1005,6 +1007,41 @@ public sealed class MouseHotKeyTests
         {
             window.Close();
             ServiceManager.Services = originalServices;
+        }
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    public Task Editor_FullScreenChoice_BuiltInPluginAndScenarioUseSameSavePath() => RunAsync(_ =>
+    {
+        var config = new KitopiaConfig();
+        using var scenario = new Kitopia.Desktop.Features.CustomScenario.CustomScenario();
+        scenario.InitHotKey();
+        var originalServices = ServiceManager.Services;
+        foreach (var model in new[] { config.screenShotHotKey, config.selectionTranslationAutoHotKey,
+                     new HotKeyModel { MainName = "TestPlugin", SelectKey = EKey.K }, scenario.RunHotKey! })
+        {
+            model.SelectKey = EKey.K;
+            var recorder = new RecordingHotkeys { Existing = model };
+            using var services = new ServiceCollection().AddSingleton<IHotKetImpl>(recorder).BuildServiceProvider();
+            var window = new HotKeyEditorWindow(model);
+            try
+            {
+                ServiceManager.Services = services;
+                window.Show();
+                var checkbox = window.FindControl<CheckBox>("DisableInFullScreen")!;
+                Assert.IsTrue(checkbox.IsVisible);
+                Assert.IsFalse(checkbox.IsChecked);
+                checkbox.IsChecked = true;
+                window.FindControl<Button>("SaveButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.IsTrue(model.DisableInFullScreen);
+                Assert.IsTrue(recorder.Modified!.DisableInFullScreen);
+            }
+            finally
+            {
+                window.Close();
+                ServiceManager.Services = originalServices;
+            }
         }
         return Task.CompletedTask;
     });
@@ -1240,6 +1277,43 @@ public sealed class MouseHotKeyTests
     });
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public Task Modify_FullScreenScope_PersistsThroughExistingHotkeyOwner(bool disabled) => RunAsync(service =>
+    {
+        var key = "test-hotkey-scope-" + Guid.NewGuid().ToString("N");
+        var path = Kitopia.Desktop.Features.Utils.KitopiaPaths.GetConfigFilePath(key);
+        var config = (KitopiaConfig)ConfigManger.LoadConfig(key, new KitopiaConfig { Name = key }, notifyWhenMissing: false);
+        try
+        {
+            var model = config.selectionTranslationAutoHotKey;
+            model.DisableInFullScreen = !disabled;
+            Assert.IsTrue(service.Register(model, _ => { }));
+            var changes = 0;
+            config.ConfigChanged += (_, args) =>
+            {
+                Assert.AreEqual(nameof(config.selectionTranslationAutoHotKey), args.Name);
+                Assert.AreSame(model, args.Value);
+                changes++;
+            };
+            Assert.IsTrue(service.Modify(new HotKeyModel(model) { DisableInFullScreen = disabled }));
+            Assert.AreSame(model, service.GetByUuid(model.UUID));
+            Assert.AreEqual(disabled, model.DisableInFullScreen);
+            Assert.AreEqual(1, changes);
+            var restored = JsonSerializer.Deserialize<KitopiaConfig>(File.ReadAllText(path), ConfigManger.DefaultOptions)!;
+            Assert.AreEqual(disabled, restored.selectionTranslationAutoHotKey.DisableInFullScreen);
+            Assert.IsFalse(restored.screenShotHotKey.DisableInFullScreen);
+        }
+        finally
+        {
+            ConfigManger.RemoveConfig(key);
+            File.Delete(path);
+            File.Delete(path + ".bak");
+        }
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
     public Task RegisterAndRemove_OpenPage_UpdatesExistingCollectionAndPreservesEnabledIntent() => RunAsync(service =>
     {
         var previousServices = ServiceManager.Services;
@@ -1304,13 +1378,7 @@ public sealed class MouseHotKeyTests
     private sealed class RecordingConfigService : IConfigService
     {
         public string? SavedKey { get; private set; }
-        public string? SavedJson { get; private set; }
-
-        public void Save(string key)
-        {
-            SavedKey = key;
-            SavedJson = JsonSerializer.Serialize(ConfigManger.Config, ConfigManger.DefaultOptions);
-        }
+        public void Save(string key) => SavedKey = key;
     }
 
     private class TranslationWindowToolProxy : DispatchProxy

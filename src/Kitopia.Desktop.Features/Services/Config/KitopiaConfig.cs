@@ -35,7 +35,7 @@ public enum ThemeEnum
 [ConfigName("lang.kitopia.kitopia_settings")]
 public class KitopiaConfig : ConfigBase
 {
-    internal const int CurrentSchemaVersion = 4;
+    internal const int CurrentSchemaVersion = 5;
 
     [JsonIgnore]
     public override int CurrentConfigVersion => CurrentSchemaVersion;
@@ -54,6 +54,18 @@ public class KitopiaConfig : ConfigBase
         const int previewScopeVersion = 2;
         const int selectionTranslationHotkeyVersion = 3;
         const int smallOcrVersion = 4;
+        const int hotkeyFullScreenScopeVersion = 5;
+
+        if (ConfigVersion < hotkeyFullScreenScopeVersion &&
+            (!root.TryGetProperty(nameof(searchHotKey), out var searchHotkey) ||
+             (searchHotkey.ValueKind == JsonValueKind.Object &&
+              !searchHotkey.TryGetProperty(nameof(HotKeyModel.DisableInFullScreen), out _))))
+        {
+            searchHotKey.DisableInFullScreen =
+                !root.TryGetProperty("disableSearchHotKeyInFullScreen", out var disabledInFullScreen) ||
+                disabledInFullScreen.ValueKind is not (JsonValueKind.True or JsonValueKind.False) ||
+                disabledInFullScreen.GetBoolean();
+        }
 
         if (ConfigVersion < smallOcrVersion)
         {
@@ -189,8 +201,6 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("lang.kitopia.hide_search_window_border", "lang.kitopia.hide_search_window_border_description", 0xF690, ConfigFieldType.布尔)]
     public bool hideSearchWindowBorder = false;
 
-    public bool disableSearchHotKeyInFullScreen = true;
-
     [ConfigField("lang.kitopia.vertical_empty_search_results", "lang.kitopia.vertical_empty_search_results_description", 0xF47F, ConfigFieldType.布尔)]
     public bool verticalEmptySearchResults = false;
 
@@ -198,6 +208,7 @@ public class KitopiaConfig : ConfigBase
     public HotKeyModel searchHotKey = new()
     {
         IsEnabled = true,
+        DisableInFullScreen = true,
         MainName = "Kitopia",
         Name = "显示搜索框",
         IsSelectCtrl = false,

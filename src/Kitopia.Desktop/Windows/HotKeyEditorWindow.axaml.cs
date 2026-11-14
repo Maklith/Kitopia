@@ -11,7 +11,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.Win32.Input;
-using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.HotKey;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Utils;
@@ -24,7 +23,6 @@ namespace Kitopia.Desktop.Windows;
 public partial class HotKeyEditorWindow : UrsaWindow
 {
     private readonly HotKeyModel _hotKeyModel;
-    private readonly KitopiaConfig? _searchConfig;
     private readonly ObservableCollection<string> _processTags;
     private readonly ObservableCollection<string> _filteredSuggestions = [];
     private List<string> _runningProcesses = [];
@@ -37,10 +35,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
         ArgumentNullException.ThrowIfNull(hotKeyModel);
         InitializeComponent();
         _hotKeyModel = hotKeyModel;
-        var config = ConfigManger.Config;
-        _searchConfig = config?.searchHotKey.UUID == hotKeyModel.UUID ? config : null;
-        DisableInFullScreen.IsVisible = _searchConfig is not null;
-        DisableInFullScreen.IsChecked = _searchConfig?.disableSearchHotKeyInFullScreen ?? true;
+        DisableInFullScreen.IsChecked = hotKeyModel.DisableInFullScreen;
         Name.Text = Converter.HotKeySignNameToStringCtr.FormatFriendlyName(hotKeyModel.SignName);
         _type = hotKeyModel.Type;
         _selectedKey = hotKeyModel.SelectKey;
@@ -162,18 +157,13 @@ public partial class HotKeyEditorWindow : UrsaWindow
             DragDistancePixels = (ushort)(DragDistance.Value ?? 4),
             ProcessScope = scope,
             ProcessNames = processes,
-            IgnoreTextInput = IgnoreTextInput.IsChecked == true
+            IgnoreTextInput = IgnoreTextInput.IsChecked == true,
+            DisableInFullScreen = DisableInFullScreen.IsChecked == true
         };
         if (!ServiceManager.Services.GetRequiredService<IHotKetImpl>().Modify(candidate))
         {
             ValidationMessage.Text = Lang.Get("lang.kitopia.unable_to_register_the_hotkey_it_may_be_in_use_by_another_application");
             return;
-        }
-        if (_searchConfig is { } config && config.disableSearchHotKeyInFullScreen != (DisableInFullScreen.IsChecked == true))
-        {
-            config.disableSearchHotKeyInFullScreen = DisableInFullScreen.IsChecked == true;
-            ServiceManager.Services.GetRequiredService<IConfigService>().Save(config.Name);
-            config.OnConfigChanged(this, nameof(KitopiaConfig.disableSearchHotKeyInFullScreen), config.disableSearchHotKeyInFullScreen);
         }
         Close();
     }

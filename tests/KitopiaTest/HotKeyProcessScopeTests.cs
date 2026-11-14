@@ -30,7 +30,7 @@ public sealed class HotKeyProcessScopeTests
         var model = new HotKeyModel
         {
             IsEnabled = false, SelectKey = EKey.空格, ProcessScope = HotKeyProcessScope.Exclude,
-            ProcessNames = ["explorer.exe", "code"], IgnoreTextInput = true
+            ProcessNames = ["explorer.exe", "code"], IgnoreTextInput = true, DisableInFullScreen = true
         };
         var json = JsonSerializer.Serialize(model, ConfigManger.DefaultOptions);
         var restored = JsonSerializer.Deserialize<HotKeyModel>(json, ConfigManger.DefaultOptions)!;
@@ -39,6 +39,7 @@ public sealed class HotKeyProcessScopeTests
         Assert.AreEqual(model.ProcessScope, restored.ProcessScope);
         CollectionAssert.AreEqual(model.ProcessNames, restored.ProcessNames);
         Assert.IsTrue(restored.IgnoreTextInput);
+        Assert.IsTrue(restored.DisableInFullScreen);
         Assert.IsFalse(json.Contains("ProcessScopeDescription"));
     }
 
@@ -48,7 +49,34 @@ public sealed class HotKeyProcessScopeTests
         var restored = JsonSerializer.Deserialize<HotKeyModel>("{\"SelectKey\":65,\"IsEnabled\":true}")!;
         Assert.AreEqual(HotKeyProcessScope.All, restored.ProcessScope);
         Assert.AreEqual(MouseHotKeyTrigger.Hold, restored.MouseTrigger);
+        Assert.IsFalse(restored.DisableInFullScreen);
         Assert.IsTrue(restored.CanExecuteInProcess("any-process"));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void FullScreenScope_CopyAndApplySettings_PreservesChoice(bool disabled)
+    {
+        var source = new HotKeyModel { DisableInFullScreen = disabled };
+        var copy = new HotKeyModel(source);
+        Assert.AreEqual(disabled, copy.DisableInFullScreen);
+        var target = new HotKeyModel { DisableInFullScreen = !disabled };
+        target.ApplySettings(source);
+        Assert.AreEqual(disabled, target.DisableInFullScreen);
+        copy.DisableInFullScreen = !disabled;
+        Assert.AreEqual(disabled, source.DisableInFullScreen);
+    }
+
+    [TestMethod]
+    public void Config_FullScreenScope_OnlySearchDefaultsToDisabledInFullScreen()
+    {
+        var config = new KitopiaConfig();
+        Assert.IsTrue(config.searchHotKey.DisableInFullScreen);
+        foreach (var model in new[] { config.explorerSearchHotKey, config.selectionTranslationAutoHotKey,
+                     config.selectionTranslationHotKey, config.mouseHotkey, config.screenShotHotKey,
+                     config.topMostWindowHotKey, new HotKeyModel() })
+            Assert.IsFalse(model.DisableInFullScreen);
     }
 
     [TestMethod]
