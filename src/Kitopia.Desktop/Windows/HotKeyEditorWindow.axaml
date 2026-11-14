@@ -181,6 +181,10 @@
                             <TextBlock Text="{DynamicResource 'lang.kitopia.case_insensitive_exe_is_optional_keys_retain_their_usual_behavior_outside_this_scope'}" FontSize="11"
                                        Foreground="{DynamicResource SemiColorText2}" TextWrapping="Wrap" />
                         </StackPanel>
+                        <CheckBox Name="DisableInFullScreen" IsVisible="False"
+                                  Content="{DynamicResource 'lang.kitopia.disable_search_hotkey_in_full_screen'}"
+                                  ToolTip.Tip="{DynamicResource 'lang.kitopia.disable_search_hotkey_in_full_screen_description'}"
+                                  FontSize="12" />
                         <CheckBox Name="IgnoreTextInput" Content="{DynamicResource 'lang.kitopia.pause_this_hotkey_in_text_inputs'}" FontSize="12" />
                     </StackPanel>
                 </Border>
@@ -189,7 +193,7 @@
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
             <TextBlock Name="ValidationMessage" VerticalAlignment="Center" Foreground="{DynamicResource KitopiaBadgeDangerForeground}"
                        FontSize="12" TextWrapping="Wrap" Margin="0,0,12,0" />
-            <Button Grid.Column="1" Content="{DynamicResource 'lang.kitopia.cancel'}" Click="ButtonCancle_OnClick" IsCancel="True" Height="34" CornerRadius="6" Padding="20,0" />
+            <Button Grid.Column="1" Name="CancelButton" Content="{DynamicResource 'lang.kitopia.cancel'}" Click="ButtonCancle_OnClick" IsCancel="True" Height="34" CornerRadius="6" Padding="20,0" />
             <Button Grid.Column="2" Name="SaveButton" Content="{DynamicResource 'lang.kitopia.save'}" Click="ButtonBase_OnClick"
                     Classes="Primary" Theme="{DynamicResource SolidButton}" Height="34" CornerRadius="6" Padding="20,0" />
         </Grid>

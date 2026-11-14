@@ -56,16 +56,14 @@
             <Setter Property="Margin" Value="2,1" />
         </Style>
 
-        <Style Selector="DataGrid#FileListGrid DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
-            <Setter Property="Fill" Value="{DynamicResource SemiColorFill0}" />
-            <Setter Property="RadiusX" Value="6" />
-            <Setter Property="RadiusY" Value="6" />
+        <Style Selector="DataGrid#FileListGrid DataGridRow:pointerover /template/ Border#BackgroundBorder">
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
+            <Setter Property="CornerRadius" Value="6" />
         </Style>
 
-        <Style Selector="DataGrid#FileListGrid DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
-            <Setter Property="Fill" Value="{DynamicResource SemiColorFill1}" />
-            <Setter Property="RadiusX" Value="6" />
-            <Setter Property="RadiusY" Value="6" />
+        <Style Selector="DataGrid#FileListGrid DataGridRow:selected /template/ Border#BackgroundBorder">
+            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+            <Setter Property="CornerRadius" Value="6" />
         </Style>
 
         <Style Selector="DataGrid#FileListGrid DataGridRow:selected">

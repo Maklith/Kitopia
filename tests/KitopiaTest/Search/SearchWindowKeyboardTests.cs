@@ -47,28 +47,55 @@ public sealed class SearchWindowKeyboardTests
         .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia();
 
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public async Task SearchWindow_BorderSetting_AppliesAtCreationAndDuringUseWithoutChangingInternalBorders(bool initiallyHidden)
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    [DataRow(true, true)]
+    public async Task SearchWindow_BorderSetting_AppliesAtCreationAndDuringUseToResultsAndShortcuts(bool initiallyHidden, bool vertical)
     {
-        await RunAsync((window, _, _) =>
+        await RunAsync((window, model, _) =>
         {
             var config = ConfigManger.Config;
             Assert.AreEqual(initiallyHidden ? WindowDecorations.None : WindowDecorations.BorderOnly, window.WindowDecorations);
+            Assert.AreEqual(initiallyHidden, window.Classes.Contains("borderless"));
+            model.Items.Add(new SearchViewItem { ItemDisplayName = "Result", IconSymbol = 0xF6EC });
+            model.PinnedItems.Add(new SearchViewItem { ItemDisplayName = "Shortcut", IconSymbol = 0xF6EC });
+            model.ShowPinnedItems = true;
+            Dispatcher.UIThread.RunJobs();
+            var results = window.FindControl<ListBox>("dataGrid")!;
+            var shortcuts = window.FindControl<ListBox>("PinnedList")!;
             var header = window.FindControl<Border>("SearchHeader")!;
             var input = window.FindControl<TextBox>("tx")!;
             var headerThickness = header.BorderThickness;
             var inputThickness = input.BorderThickness;
-            foreach (var hidden in new[] { !initiallyHidden, initiallyHidden })
+            var placements = new Dictionary<(ListBox, bool), (Avalonia.Rect, Point?)>();
+            foreach (var hidden in new[] { initiallyHidden, !initiallyHidden, initiallyHidden })
             {
                 config.hideSearchWindowBorder = hidden;
                 config.OnConfigChanged(this, nameof(KitopiaConfig.hideSearchWindowBorder), hidden);
                 Assert.AreEqual(hidden ? WindowDecorations.None : WindowDecorations.BorderOnly, window.WindowDecorations);
                 Assert.AreEqual(headerThickness, header.BorderThickness);
                 Assert.AreEqual(inputThickness, input.BorderThickness);
+                foreach (var list in new[] { results, shortcuts })
+                {
+                    list.SelectedIndex = 0;
+                    foreach (var preview in new[] { false, true })
+                    {
+                        model.IsPreviewMode = preview;
+                        Dispatcher.UIThread.RunJobs();
+                        var item = (ListBoxItem)list.ContainerFromIndex(0)!;
+                        var surface = item.GetVisualChildren().OfType<ContentPresenter>().Single();
+                        Assert.AreEqual(new Thickness(1), surface.BorderThickness, "Transparent outlines must retain layout space.");
+                        var expectedBrush = hidden ? Colors.Transparent : ((ISolidColorBrush)window.FindResource("SemiColorPrimary")!).Color;
+                        Assert.AreEqual(expectedBrush, ((ISolidColorBrush)surface.BorderBrush!).Color);
+                        var placement = (item.Bounds, item.TranslatePoint(default, window));
+                        if (placements.TryGetValue((list, preview), out var original)) Assert.AreEqual(original, placement);
+                        else placements[(list, preview)] = placement;
+                    }
+                }
             }
             return Task.CompletedTask;
-        }, initiallyHidden);
+        }, initiallyHidden, initiallyVerticalEmptyResults: vertical);
     }
 
     [TestMethod]
@@ -178,9 +205,11 @@ public sealed class SearchWindowKeyboardTests
     }
 
     [TestMethod]
-    [DataRow("Light")]
-    [DataRow("Dark")]
-    public async Task Selection_ResultAndShortcut_AlwaysMatchesVisibleHighlight(string themeName)
+    [DataRow("Light", false)]
+    [DataRow("Dark", false)]
+    [DataRow("Light", true)]
+    [DataRow("Dark", true)]
+    public async Task Selection_ResultAndShortcut_AlwaysMatchesVisibleHighlight(string themeName, bool borderless)
     {
         string? screenshot = null;
         await RunAsync((window, model, _) =>
@@ -207,6 +236,7 @@ public sealed class SearchWindowKeyboardTests
             var secondSurface = second.GetVisualChildren().OfType<ContentPresenter>().Single();
             var shortcutSurface = shortcut.GetVisualChildren().OfType<ContentPresenter>().Single();
             var primary = ((ISolidColorBrush)window.FindResource(theme, "SemiColorPrimary")!).Color;
+            var selectedBorder = borderless ? Colors.Transparent : primary;
             var fill = ((ISolidColorBrush)window.FindResource(theme, "SemiColorFill1")!).Color;
 
             Assert.IsTrue(input.IsFocused);
@@ -218,7 +248,7 @@ public sealed class SearchWindowKeyboardTests
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
             Assert.IsTrue(first.IsSelected);
-            Assert.AreEqual(primary, ((ISolidColorBrush)firstSurface.BorderBrush!).Color);
+            Assert.AreEqual(selectedBorder, ((ISolidColorBrush)firstSurface.BorderBrush!).Color);
             Assert.AreEqual(fill, ((ISolidColorBrush)firstSurface.Background!).Color);
             Assert.AreEqual(Colors.Transparent, ((ISolidColorBrush)secondSurface.BorderBrush!).Color);
             Assert.AreEqual(Colors.Transparent, ((ISolidColorBrush)shortcutSurface.BorderBrush!).Color);
@@ -230,7 +260,7 @@ public sealed class SearchWindowKeyboardTests
             Dispatcher.UIThread.RunJobs();
             Assert.IsFalse(second.IsSelected);
             Assert.AreEqual(Colors.Transparent, ((ISolidColorBrush)secondSurface.BorderBrush!).Color);
-            Assert.AreEqual(primary, ((ISolidColorBrush)firstSurface.BorderBrush!).Color);
+            Assert.AreEqual(selectedBorder, ((ISolidColorBrush)firstSurface.BorderBrush!).Color);
             window.MouseMove(default);
 
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
@@ -238,7 +268,7 @@ public sealed class SearchWindowKeyboardTests
             Assert.IsNotNull(frame);
             var directory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts/search-keyboard"));
             Directory.CreateDirectory(directory);
-            screenshot = Path.Combine(directory, $"search-selection-{themeName}.png");
+            screenshot = Path.Combine(directory, $"search-selection-{themeName}-{(borderless ? "borderless" : "bordered")}.png");
             frame.Save(screenshot, PngBitmapEncoderOptions.Default);
 
             window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
@@ -246,23 +276,23 @@ public sealed class SearchWindowKeyboardTests
             Assert.IsTrue(shortcut.IsSelected);
             Assert.AreEqual(Colors.Transparent, ((ISolidColorBrush)firstSurface.BorderBrush!).Color);
             Assert.AreEqual(Colors.Transparent, ((ISolidColorBrush)firstSurface.Background!).Color);
-            Assert.AreEqual(primary, ((ISolidColorBrush)shortcutSurface.BorderBrush!).Color);
+            Assert.AreEqual(selectedBorder, ((ISolidColorBrush)shortcutSurface.BorderBrush!).Color);
 
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
             Assert.IsTrue(first.IsSelected);
             Assert.IsFalse(shortcut.IsSelected);
-            Assert.AreEqual(primary, ((ISolidColorBrush)firstSurface.BorderBrush!).Color);
+            Assert.AreEqual(selectedBorder, ((ISolidColorBrush)firstSurface.BorderBrush!).Color);
             Assert.AreEqual(Colors.Transparent, ((ISolidColorBrush)shortcutSurface.BorderBrush!).Color);
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
             Assert.AreSame(model.Items[1], model.SelectedItem);
             Assert.IsTrue(second.IsSelected);
             Assert.AreEqual(Colors.Transparent, ((ISolidColorBrush)firstSurface.BorderBrush!).Color);
-            Assert.AreEqual(primary, ((ISolidColorBrush)secondSurface.BorderBrush!).Color);
+            Assert.AreEqual(selectedBorder, ((ISolidColorBrush)secondSurface.BorderBrush!).Color);
             results.SelectedIndex = -1;
             Assert.IsFalse(second.IsSelected);
             Assert.AreEqual(Colors.Transparent, ((ISolidColorBrush)secondSurface.BorderBrush!).Color);
             return Task.CompletedTask;
-        });
+        }, initiallyBorderless: borderless);
         TestContext.AddResultFile(screenshot!);
     }
 

@@ -152,6 +152,16 @@ public class HotKeyImpl : IHotKetImpl
 
     private static bool CanExecuteInWindow(HotKeyModel model, HWND window)
     {
+        var config = ConfigManger.Config;
+        if (config is { disableSearchHotKeyInFullScreen: true } && model.UUID == config.searchHotKey.UUID &&
+            !window.IsNull && window != User32.GetDesktopWindow() && window != User32.GetShellWindow())
+        {
+            User32.GetWindowThreadProcessId(window, out var processId);
+            var style = (User32.WindowStyles)User32.GetWindowLong(window, User32.WindowLongFlags.GWL_STYLE);
+            if (processId != Environment.ProcessId &&
+                (!User32.IsZoomed(window) || (style & User32.WindowStyles.WS_CAPTION) == 0) &&
+                WindowToolServiceWindow.IsFullScreenWindow(window)) return false;
+        }
         if (model.UUID == ConfigManger.Config?.explorerSearchHotKey.UUID &&
             !ExplorerFileSelection.IsFileListFocused(window)) return false;
         if (model.ProcessScope != HotKeyProcessScope.All)
@@ -328,8 +338,10 @@ public class HotKeyImpl : IHotKetImpl
             return true;
         }
         if (model.SelectKey is EKey.未设置 or 0) return false;
+        // Search must release the original key events to full-screen apps, which RegisterHotKey cannot do.
         if (model.SelectKey == EKey.任意键 || model.ProcessScope != HotKeyProcessScope.All || model.IgnoreTextInput ||
-            model.UUID == ConfigManger.Config?.explorerSearchHotKey.UUID)
+            model.UUID == ConfigManger.Config?.explorerSearchHotKey.UUID ||
+            model.UUID == ConfigManger.Config?.searchHotKey.UUID)
         {
             id = 0;
             return true;

@@ -34,8 +34,12 @@ public partial class SearchWindow : Window
         var config = ConfigManger.Config;
         if (config is not null)
         {
-            void ApplyWindowBorder() => WindowDecorations = config.hideSearchWindowBorder
-                ? WindowDecorations.None : WindowDecorations.BorderOnly;
+            void ApplyWindowBorder()
+            {
+                WindowDecorations = config.hideSearchWindowBorder
+                    ? WindowDecorations.None : WindowDecorations.BorderOnly;
+                Classes.Set("borderless", config.hideSearchWindowBorder);
+            }
             EventHandler<ConfigChangedArgs> searchSettingsChanged = (_, args) =>
             {
                 if (args.Name == nameof(KitopiaConfig.hideSearchWindowBorder))

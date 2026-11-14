@@ -15,6 +15,23 @@ namespace Kitopia.Desktop.Platform.Windows;
 
 public class WindowToolServiceWindow : IWindowTool
 {
+    public static bool IsFullScreenWindow(HWND window)
+    {
+        if (window.IsNull || !User32.GetWindowRect(window, out var windowRect) ||
+            windowRect.Width <= 0 || windowRect.Height <= 0) return false;
+
+        var monitor = User32.MonitorFromWindow(window, User32.MonitorFlags.MONITOR_DEFAULTTONULL);
+        var monitorInfo = new User32.MONITORINFO();
+        if (monitor.IsNull || !User32.GetMonitorInfo(monitor, ref monitorInfo)) return false;
+
+        var monitorRect = monitorInfo.rcMonitor;
+        const int tolerance = 2;
+        return Math.Abs((long)windowRect.left - monitorRect.left) <= tolerance
+               && Math.Abs((long)windowRect.top - monitorRect.top) <= tolerance
+               && Math.Abs((long)windowRect.right - monitorRect.right) <= tolerance
+               && Math.Abs((long)windowRect.bottom - monitorRect.bottom) <= tolerance;
+    }
+
     private class OverlaySet
     {
         public TopMostBorderWindow Border { get; set; } = null!;

@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,7 +15,10 @@ using Kitopia.Desktop.Features.Services;
 using PluginCore;
 using Serilog;
 using Ursa.Controls;
+#if WINDOWS
+using Kitopia.Desktop.Platform.Windows;
 using Vanara.PInvoke;
+#endif
 
 #endregion
 
@@ -459,11 +461,7 @@ public class ToastService : IToastService
 
     private static bool ShouldSuppressToastForFullScreenOnUiThread()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return false;
-        }
-
+#if WINDOWS
         var foregroundHwnd = User32.GetForegroundWindow();
         if (foregroundHwnd.IsNull)
         {
@@ -471,34 +469,15 @@ public class ToastService : IToastService
         }
 
         User32.GetWindowThreadProcessId(foregroundHwnd, out var foregroundProcessId);
-        if (foregroundProcessId == Process.GetCurrentProcess().Id)
+        if (foregroundProcessId == Environment.ProcessId)
         {
             return false;
         }
 
-        if (!User32.GetWindowRect(foregroundHwnd, out var windowRect))
-        {
-            return false;
-        }
-
-        if (windowRect.Width <= 0 || windowRect.Height <= 0)
-        {
-            return false;
-        }
-
-        var monitor = User32.MonitorFromWindow(foregroundHwnd, User32.MonitorFlags.MONITOR_DEFAULTTONULL);
-        var monitorInfo = new User32.MONITORINFO();
-        if (monitor.IsNull || !User32.GetMonitorInfo(monitor, ref monitorInfo))
-        {
-            return false;
-        }
-
-        var monitorRect = monitorInfo.rcMonitor;
-        const int tolerance = 2;
-        return Math.Abs(windowRect.left - monitorRect.left) <= tolerance
-               && Math.Abs(windowRect.top - monitorRect.top) <= tolerance
-               && Math.Abs(windowRect.right - monitorRect.right) <= tolerance
-               && Math.Abs(windowRect.bottom - monitorRect.bottom) <= tolerance;
+        return WindowToolServiceWindow.IsFullScreenWindow(foregroundHwnd);
+#else
+        return false;
+#endif
     }
 
     private Task GetOrCreateDismissedTaskOnUiThread(Guid toastId)

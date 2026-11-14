@@ -407,6 +407,8 @@ public sealed class SettingPageVisibilityTests
                 Dispatcher.UIThread.RunJobs();
 
                 var rows = page.GetLogicalDescendants().OfType<SettingsExpander>().ToDictionary(r => (string)r.Header!);
+                Assert.IsFalse(rows.ContainsKey(Lang.Get("lang.kitopia.disable_search_hotkey_in_full_screen")),
+                    "The full-screen option belongs in the search shortcut editor, not Settings.");
                 Assert.IsTrue(rows.ContainsKey("Plugin Setting 1"));
                 Assert.IsTrue(rows["Plugin Setting 1"].IsVisible, "Plugin settings must be visible when selecting the plugin category.");
 

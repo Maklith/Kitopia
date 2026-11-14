@@ -189,6 +189,8 @@ public class KitopiaConfig : ConfigBase
     [ConfigField("lang.kitopia.hide_search_window_border", "lang.kitopia.hide_search_window_border_description", 0xF690, ConfigFieldType.布尔)]
     public bool hideSearchWindowBorder = false;
 
+    public bool disableSearchHotKeyInFullScreen = true;
+
     [ConfigField("lang.kitopia.vertical_empty_search_results", "lang.kitopia.vertical_empty_search_results_description", 0xF47F, ConfigFieldType.布尔)]
     public bool verticalEmptySearchResults = false;
 

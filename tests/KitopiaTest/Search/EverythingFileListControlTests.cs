@@ -48,6 +48,75 @@ public sealed class EverythingFileListControlTests
         .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia();
 
     [TestMethod]
+    [DataRow(false, false, false)]
+    [DataRow(false, false, true)]
+    [DataRow(false, true, false)]
+    [DataRow(false, true, true)]
+    [DataRow(true, false, false)]
+    [DataRow(true, false, true)]
+    [DataRow(true, true, false)]
+    [DataRow(true, true, true)]
+    public async Task SearchResults_BorderSetting_EverythingAndDirectoryRowsKeepBackgroundHighlights(
+        bool directorySearch, bool dark, bool initiallyBorderless)
+    {
+        string? screenshot = null;
+        await RunAsync(async (window, model, _) =>
+        {
+            Application.Current!.RequestedThemeVariant = window.RequestedThemeVariant =
+                dark ? ThemeVariant.Dark : ThemeVariant.Light;
+            SearchServicesProxy.EverythingResults =
+            [
+                new() { ItemDisplayName = "Design notes.docx", OnlyKey = @"C:\Projects\Design notes.docx", FileSize = 24576 },
+                new() { ItemDisplayName = "Desktop", OnlyKey = @"C:\Projects\Desktop", IsFolder = true }
+            ];
+            if (directorySearch) window.ShowDirectorySearch(@"C:\Projects", "design", new PixelRect(0, 0, 1000, 800));
+            else model.Search = "@design";
+            await WaitForAsync(() => model.Items.Count == 2);
+            var control = window.FindControl<EverythingFileListControl>("everythingControl")!;
+            var grid = control.FindControl<DataGrid>("FileListGrid")!;
+            control.FocusItem(model.Items[0]);
+            Dispatcher.UIThread.RunJobs();
+            var row = grid.GetVisualDescendants().OfType<DataGridRow>()
+                .Single(item => ReferenceEquals(item.DataContext, model.Items[0]));
+            var background = row.GetVisualDescendants().OfType<Border>()
+                .Single(border => border.Name == "BackgroundBorder");
+            var fill = (Avalonia.Media.ISolidColorBrush)window.FindResource(window.ActualThemeVariant, "SemiColorFill1")!;
+            var rowSurface = row.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "RowBorder");
+            var firstCell = row.GetVisualDescendants().OfType<DataGridCell>().First();
+            firstCell.Focus();
+            Dispatcher.UIThread.RunJobs();
+            var placement = (row.Bounds, row.TranslatePoint(default, window));
+            foreach (var borderless in new[] { initiallyBorderless, !initiallyBorderless, initiallyBorderless })
+            {
+                ConfigManger.Config.hideSearchWindowBorder = borderless;
+                ConfigManger.Config.OnConfigChanged(this, nameof(KitopiaConfig.hideSearchWindowBorder), borderless);
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(new Thickness(1), row.BorderThickness);
+                Assert.AreEqual(new Thickness(1), rowSurface.BorderThickness);
+                Assert.AreEqual(placement, (row.Bounds, row.TranslatePoint(default, window)));
+                Assert.AreEqual(fill.Color, ((Avalonia.Media.ISolidColorBrush)background.Background!).Color);
+                Assert.AreSame(model.Items[0], grid.SelectedItem);
+                if (borderless)
+                {
+                    Assert.AreEqual(Avalonia.Media.Colors.Transparent, ((Avalonia.Media.ISolidColorBrush)rowSurface.BorderBrush!).Color);
+                    foreach (var border in row.GetVisualDescendants().OfType<Border>().Where(border => border.Name == "CellBorder"))
+                        Assert.AreEqual(new Thickness(0), border.BorderThickness, "Result cells must not retain outlines.");
+                    foreach (var focus in row.GetVisualDescendants().OfType<Panel>().Where(panel => panel.Name == "FocusVisual"))
+                        Assert.IsFalse(focus.IsVisible, "Keyboard focus must not add cell outlines.");
+                }
+            }
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            using var frame = window.CaptureRenderedFrame();
+            Assert.IsNotNull(frame);
+            var directory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../artifacts/search-keyboard"));
+            Directory.CreateDirectory(directory);
+            screenshot = Path.Combine(directory, $"search-{(directorySearch ? "directory" : "everything")}-{(dark ? "dark" : "light")}-{(initiallyBorderless ? "borderless" : "bordered")}.png");
+            frame.Save(screenshot, PngBitmapEncoderOptions.Default);
+        }, initiallyBorderless: initiallyBorderless);
+        TestContext.AddResultFile(screenshot!);
+    }
+
+    [TestMethod]
     public void SearchViewItem_FileSizeAndDateModified_Formatting()
     {
         var fileItem = new SearchViewItem
@@ -1198,7 +1267,7 @@ public sealed class EverythingFileListControlTests
     }
 
     private static async Task RunAsync(Func<SearchWindow, SearchWindowViewModel, SearchServicesProxy, Task> test,
-        Func<CancellationToken, bool>? availability = null, bool showWindow = true)
+        Func<CancellationToken, bool>? availability = null, bool showWindow = true, bool initiallyBorderless = false)
     {
         ReactiveUI.Builder.RxAppBuilder.CreateReactiveUIBuilder().WithPlatformServices().BuildApp();
         await using var session = HeadlessUnitTestSession.StartNew(typeof(EverythingFileListControlTests));
@@ -1215,6 +1284,7 @@ public sealed class EverythingFileListControlTests
             {
                 ["KitopiaConfig"] = new KitopiaConfig
                 {
+                    hideSearchWindowBorder = initiallyBorderless,
                     useEverythingForIndexing = false,
                     enableSemanticSearch = false,
                     semanticSearchDebounceMilliseconds = 100,

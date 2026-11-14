@@ -171,6 +171,15 @@
         </ControlTheme>
     </Window.Resources>
     <Window.Styles>
+        <Style Selector="Window.borderless ListBox#dataGrid ListBoxItem, Window.borderless ListBox#PinnedList ListBoxItem, Window.borderless controls1|EverythingFileListControl DataGridRow">
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="Window.borderless controls1|EverythingFileListControl DataGridRow /template/ Border#RowBorder">
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="Window.borderless controls1|EverythingFileListControl DataGridCell /template/ Panel#FocusVisual">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
         <Style Selector="ListBox#dataGrid Image.search-item-icon">
             <Setter Property="Width" Value="48" />
             <Setter Property="Height" Value="48" />

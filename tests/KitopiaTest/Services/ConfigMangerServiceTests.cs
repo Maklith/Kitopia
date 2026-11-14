@@ -18,6 +18,20 @@ public sealed class ConfigMangerServiceTests
     [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
+    public void FullScreenSearchHotkey_LegacyAndConfiguredJson_DefaultsToEnabledAndPersistsSelection(bool disabledInFullScreen)
+    {
+        Assert.IsTrue(new KitopiaConfig().disableSearchHotKeyInFullScreen);
+        var config = JsonSerializer.Deserialize<KitopiaConfig>("{}", ConfigManger.DefaultOptions)!;
+        Assert.IsTrue(config.disableSearchHotKeyInFullScreen);
+        config.disableSearchHotKeyInFullScreen = disabledInFullScreen;
+        var json = JsonSerializer.Serialize(config, ConfigManger.DefaultOptions);
+        var restored = JsonSerializer.Deserialize<KitopiaConfig>(json, ConfigManger.DefaultOptions)!;
+        Assert.AreEqual(disabledInFullScreen, restored.disableSearchHotKeyInFullScreen);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
     public void EverythingSettings_RenamedFields_PreserveLegacyJsonKeys(bool useEverything)
     {
         var json = JsonSerializer.Serialize(new
