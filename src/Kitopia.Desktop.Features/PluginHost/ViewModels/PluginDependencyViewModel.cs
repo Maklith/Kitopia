@@ -45,7 +45,7 @@ public sealed partial class PluginDependencyViewModel : ObservableObject, IDispo
     public string Name => PluginManager.GetPluginLocalInfoByPlgStr(NameSign)?.PluginBaseInfo.Name ?? DisplayName;
     public PluginDownloadProgress? Download => PluginManager.Downloads.GetValueOrDefault(NameSign);
     public bool IsDownloading => Download is not null;
-    public bool IsCompatible => PluginManager.GetPluginLocalInfoByPlgStr(NameSign) is { } installed &&
+    public bool IsCompatible => PluginManager.GetPluginLocalInfoByPlgStr(NameSign) is { IsPlatformCompatible: true } installed &&
         PluginDependencyService.VersionInRange(installed.PluginBaseInfo.Version, VersionRange);
     public bool IsEnabled => IsCompatible && PluginManager.GetEnablePlugins().ContainsKey(NameSign);
     public bool IsAvailable => IsEnabled && (_checkAvailability?.Invoke() ?? true);

@@ -17,6 +17,9 @@ internal sealed class PluginPackage : IDisposable
     {
         _stagingDirectory = stagingDirectory;
         Info = PluginDiscoveryService.ReadPlugin(stagingDirectory);
+        if (!Info.IsPlatformCompatible)
+            throw new InvalidOperationException(Info.LoadFailedReason ??
+                PluginDiscoveryService.CreateUnsupportedPlatformMessage(Info.SupportedPlatforms));
         if (Info.ToPlgString() != expectedSign ||
             !NuGetVersion.TryParse(expectedVersion, out var requestedVersion) ||
             !VersionComparer.VersionRelease.Equals(NuGetVersion.Parse(Info.PluginBaseInfo.Version), requestedVersion))

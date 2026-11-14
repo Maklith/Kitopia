@@ -4,6 +4,10 @@
   "Version": "1.0.0",
   "Description": "FFmpeg LGPL 媒体库和工具",
   "Main": "KitopiaFfmpeg.dll",
+  "SupportedPlatforms": [
+    "win-x64",
+    "win-arm64"
+  ],
   "Dependencies": {
     "Kitopia": "*-*"
   }

@@ -11,6 +11,8 @@ public partial class PluginLocalInfo : ObservableObject
     public PluginBaseInfo PluginBaseInfo { set; get; }
     [JsonIgnore] public string FullPath { set; get; }
     [JsonIgnore] public string Path { set; get; }
+    [JsonIgnore] public IReadOnlyList<string> SupportedPlatforms { set; get; } = [];
+    [JsonIgnore] public bool IsPlatformCompatible { set; get; } = true;
     public bool IsEnabled => ServiceManager.Services is { } services &&
                              services.GetService<ICustomScenarioPluginIntegration>()?
                                  .IsPluginEnabled(PluginBaseInfo.NameSign) == true;

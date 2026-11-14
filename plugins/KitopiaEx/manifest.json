@@ -4,6 +4,14 @@
   "Version": "1.0.0",
   "Description": "官方拓展插件,提供更多功能",
   "Main": "KitopiaEx.dll",
+  "SupportedPlatforms": [
+    "win-x64",
+    "win-arm64",
+    "osx-x64",
+    "osx-arm64",
+    "linux-x64",
+    "linux-arm64"
+  ],
   "Dependencies": {
     "Kitopia": "*-*"
   },

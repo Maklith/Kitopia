@@ -227,14 +227,11 @@ public class MqttManager
                     }
 
                     var authorNameTask = PluginNetworkService.GetAuthorNameAsync(onlinePluginInfo.AuthorId);
-                    var supportSystems = onlinePluginInfo.SupportSystems.Count > 0
-                        ? string.Join(", ", onlinePluginInfo.SupportSystems.Select(system => system.ToLowerInvariant() switch
-                        {
-                            "windows" => "Windows",
-                            "macos" => "macOS",
-                            "linux" => "Linux",
-                            _ => system
-                        }))
+                    var platforms = onlinePluginInfo.AvailablePlatforms.Count > 0
+                        ? onlinePluginInfo.AvailablePlatforms
+                        : onlinePluginInfo.SupportSystems;
+                    var supportSystems = platforms.Count > 0
+                        ? string.Join(", ", platforms.Select(PluginInfoUiHelper.FormatPlatformName).Distinct())
                         : Lang.Get("lang.kitopia.unknown");
                     var authorName = await authorNameTask ?? Lang.Format("lang.kitopia.users.default_name", onlinePluginInfo.AuthorId);
                     var request = new ToastRequest

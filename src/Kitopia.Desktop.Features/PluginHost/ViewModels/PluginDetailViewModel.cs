@@ -54,7 +54,7 @@ public partial class PluginDetailViewModel : ObservableObject, IDialogContext
     [RelayCommand]
     private async Task InstallVersion(VersionDetail? versionDetail)
     {
-        if (versionDetail is null || PluginInfo is null) return;
+        if (versionDetail is null || PluginInfo is null || !versionDetail.CanDownloadOnCurrentPlatform) return;
         var version = versionDetail.Version;
         if (string.IsNullOrWhiteSpace(version)) return;
 

@@ -21,21 +21,30 @@ partial class Build
         await PublishSemanticSearchPlugin();
     }
 
-    Task PublishFfmpegPlugin() => PublishStandalonePlugin(
-        Solution.AllProjects.Single(project => project.Name == "KitopiaFfmpeg"),
-        "kitopiaffmpeg", GetPluginApiKey("kitopiaffmpeg"), runtime: null,
-        prepareOutput: async output =>
+    async Task PublishFfmpegPlugin()
+    {
+        var project = Solution.AllProjects.Single(project => project.Name == "KitopiaFfmpeg");
+        var apiKey = GetPluginApiKey("kitopiaffmpeg");
+        foreach (var runtime in new[] { "win-x64", "win-arm64" })
         {
-            // The market has one artifact per OS, so one Windows package carries both architectures.
-            foreach (var runtime in new[] { "win-x64", "win-arm64" })
-            {
-                await BundleFfmpegAsync(runtime);
-                CopyDirectory(ArtifactsDirectory / "ffmpeg" / runtime / "tools" / "ffmpeg",
-                    output / "tools" / "ffmpeg" / runtime);
-            }
-        });
+            await PublishStandalonePlugin(
+                project,
+                "kitopiaffmpeg",
+                apiKey,
+                runtime: runtime,
+                prepareOutput: async output =>
+                {
+                    await BundleFfmpegAsync(runtime);
+                    CopyDirectory(ArtifactsDirectory / "ffmpeg" / runtime / "tools" / "ffmpeg",
+                        output / "tools" / "ffmpeg");
+                });
+        }
+    }
 
     Task PublishSemanticSearchPlugin() => PublishStandalonePlugin(
         Solution.AllProjects.Single(project => project.Name == "KitopiaSemanticSearch"),
-        "kitopiasemanticsearch", GetPluginApiKey("kitopiasemanticsearch"), runtime: null);
+        "kitopiasemanticsearch",
+        GetPluginApiKey("kitopiasemanticsearch"),
+        runtime: null,
+        uploadTargets: ["win-x64", "win-arm64", "osx-x64", "osx-arm64", "linux-x64", "linux-arm64"]);
 }

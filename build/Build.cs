@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Fallout.Common;
 using Fallout.Common.CI.GitHubActions;
@@ -141,7 +143,7 @@ partial class Build : FalloutBuild
         _ => PluginApiKey
     };
 
-    internal bool ShouldUploadPlugin(string nameSign, string version, string apiKey)
+    internal bool ShouldUploadPlugin(string nameSign, string version, string apiKey, params string[] targetPlatforms)
     {
         using var client = CreatePluginHttpClient();
         if (IsLocalPluginPublish)
@@ -163,9 +165,10 @@ partial class Build : FalloutBuild
             throw new InvalidOperationException($"Web server rejected version check for {nameSign}: {responseBody}");
         if (!json.RootElement.TryGetProperty("data", out var data))
             return true;
-        var latest = data.TryGetProperty("latestReleaseVersion", out var managedVersion) &&
-                     managedVersion.ValueKind is not JsonValueKind.Null &&
-                     !string.IsNullOrWhiteSpace(managedVersion.GetString())
+        var hasManagedVersion = data.TryGetProperty("latestReleaseVersion", out var managedVersion) &&
+                                managedVersion.ValueKind is not JsonValueKind.Null &&
+                                !string.IsNullOrWhiteSpace(managedVersion.GetString());
+        var latest = hasManagedVersion
             ? managedVersion
             : data.TryGetProperty("lastVersion", out var publicVersion) ? publicVersion : default;
         if (latest.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null || string.IsNullOrWhiteSpace(latest.GetString()))
@@ -179,10 +182,57 @@ partial class Build : FalloutBuild
                 $"Plugin {nameSign} project version {version} is older than the published version {remoteVersion}.");
         if (comparison == 0)
         {
-            Log.Information("Skipping {Plugin}: version {Version} is already published", nameSign, version);
-            return false;
+            if (targetPlatforms.Length == 0)
+            {
+                Log.Information("Skipping {Plugin}: version {Version} is already published", nameSign, version);
+                return false;
+            }
+
+            var publishedElement = hasManagedVersion &&
+                                   data.TryGetProperty("latestReleaseAvailablePlatforms", out var managedPlatforms) &&
+                                   managedPlatforms.ValueKind == JsonValueKind.Array
+                ? managedPlatforms
+                : data.TryGetProperty("availablePlatforms", out var publicPlatforms) &&
+                  publicPlatforms.ValueKind == JsonValueKind.Array
+                    ? publicPlatforms
+                    : default;
+            var existingPlatforms = publishedElement.ValueKind == JsonValueKind.Array
+                ? publishedElement.EnumerateArray()
+                    .Select(item => item.GetString())
+                    .Where(item => !string.IsNullOrWhiteSpace(item))
+                    .Select(item => item!)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var missingPlatforms = targetPlatforms
+                .Where(target => !existingPlatforms.Contains(target))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (missingPlatforms.Length == 0)
+            {
+                Log.Information("Skipping {Plugin} {Version}: target platform(s) {Targets} are already published",
+                    nameSign, version, string.Join(", ", targetPlatforms));
+                return false;
+            }
+
+            Log.Information("Publishing {Plugin} {Version}: missing platform(s) {Missing} (published: {Published})",
+                nameSign, version, string.Join(", ", missingPlatforms),
+                existingPlatforms.Count == 0 ? "none" : string.Join(", ", existingPlatforms));
         }
         return true;
+    }
+
+    internal static void StampPublishedManifestPlatforms(AbsolutePath manifestPath, IReadOnlyList<string> supportedPlatforms)
+    {
+        if (supportedPlatforms is not { Count: > 0 } || !File.Exists(manifestPath))
+            return;
+
+        var node = JsonNode.Parse(File.ReadAllText(manifestPath))?.AsObject()
+                   ?? throw new InvalidDataException($"Invalid manifest JSON: {manifestPath}");
+        var array = new JsonArray();
+        foreach (var platform in supportedPlatforms)
+            array.Add(platform);
+        node["SupportedPlatforms"] = array;
+        File.WriteAllText(manifestPath, node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 
     internal void ValidatePluginManifestVersion(AbsolutePath projectPath, string nameSign, string version)
@@ -208,8 +258,13 @@ partial class Build : FalloutBuild
     }
 
     async Task PublishStandalonePlugin(Project project, string nameSign, string apiKey,
-        string runtime = "win-x64", Func<AbsolutePath, Task> prepareOutput = null)
+        string runtime = "win-x64", Func<AbsolutePath, Task> prepareOutput = null,
+        IReadOnlyList<string> uploadTargets = null)
     {
+        var targets = uploadTargets is { Count: > 0 }
+            ? uploadTargets
+            : [string.IsNullOrWhiteSpace(runtime) ? "win-x64" : runtime];
+        var targetSlug = uploadTargets is { Count: > 1 } ? "any" : targets[0];
         var version = project.GetProperty("Version");
         if (string.IsNullOrWhiteSpace(version))
             throw new InvalidOperationException($"{project} must define its own Version.");
@@ -219,7 +274,7 @@ partial class Build : FalloutBuild
         var shouldUpload = true;
         try
         {
-            if (!ShouldUploadPlugin(nameSign, version, apiKey)) return;
+            if (!ShouldUploadPlugin(nameSign, version, apiKey, targets.ToArray())) return;
         }
         catch (Exception exception) when (IsLocalPluginPublish &&
             exception is HttpRequestException { StatusCode: null } or OperationCanceledException)
@@ -229,21 +284,22 @@ partial class Build : FalloutBuild
                 nameSign, version, PluginPublishApiUrl, exception.Message);
         }
 
-        var output = ArtifactsDirectory / "plugins" / nameSign / (runtime ?? "win-universal");
+        var output = ArtifactsDirectory / "plugins" / nameSign / targetSlug;
         output.DeleteDirectory();
-        PublishPlugin(project.Path, runtime, output);
+        PublishPlugin(project.Path, runtime, output, targets);
         if (prepareOutput is not null) await prepareOutput(output);
         RemoveSymbolsAndDocs(output);
 
         var archive = RootDirectory /
-                      $"{nameSign}_{version}_{runtime ?? "win-universal"}.zip";
+                      $"{nameSign}_{version}_{targetSlug}.zip";
         archive.DeleteFile();
         output.ZipTo(archive, compressionLevel: CompressionLevel.SmallestSize);
         if (shouldUpload)
-            UploadPluginArchive(archive, nameSign, version, apiKey);
+            UploadPluginArchive(archive, nameSign, version, apiKey, string.Join(",", targets));
     }
 
-    internal void UploadPluginArchive(AbsolutePath archiveFile, string nameSign, string version, string apiKey)
+    internal void UploadPluginArchive(AbsolutePath archiveFile, string nameSign, string version, string apiKey,
+        string targetPlatforms = "win-x64", bool rollingUpdate = true)
     {
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException(
@@ -253,7 +309,7 @@ partial class Build : FalloutBuild
         client.Timeout = TimeSpan.FromMinutes(15);
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
-            $"{PluginPublishApiUrl}/api/v1/plugin/uploadarchive/1/{Uri.EscapeDataString(nameSign)}/{Uri.EscapeDataString(version)}");
+            $"{PluginPublishApiUrl}/api/v1/plugin/uploadarchive/{Uri.EscapeDataString(targetPlatforms)}/{Uri.EscapeDataString(nameSign)}/{Uri.EscapeDataString(version)}");
         request.Headers.Add("X-API-Key", apiKey);
         request.Headers.ExpectContinue = true;
         using var content = new MultipartFormDataContent();
@@ -261,6 +317,7 @@ partial class Build : FalloutBuild
         using var fileContent = new StreamContent(stream);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
         content.Add(fileContent, "file", archiveFile.Name);
+        content.Add(new StringContent(rollingUpdate ? "true" : "false"), "rollingUpdate");
         request.Content = content;
 
         Log.Information("Uploading {Plugin} {Version}: {SizeMiB:F2} MiB to {ApiUrl}",

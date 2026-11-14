@@ -13,6 +13,7 @@ public sealed class PluginManifest
     public Dictionary<string, string> Dependencies { get; init; } = [];
     public Dictionary<string, string> OptionalDependencies { get; init; } = [];
     public Dictionary<string, string> OptionalDependencyDescriptions { get; init; } = [];
+    public List<string>? SupportedPlatforms { get; init; }
 
     public PluginBaseInfo ToPluginBaseInfo() => new()
     {

@@ -187,7 +187,9 @@ public static class PluginManager
         {
             var info = discovered[index];
             if (old.TryGetValue(info.ToPlgString(), out var current) && current.FullPath == info.FullPath &&
-                current.PluginBaseInfo.Version == info.PluginBaseInfo.Version)
+                current.PluginBaseInfo.Version == info.PluginBaseInfo.Version &&
+                current.IsPlatformCompatible == info.IsPlatformCompatible &&
+                current.SupportedPlatforms.SequenceEqual(info.SupportedPlatforms, StringComparer.Ordinal))
                 discovered[index] = current;
             discovered[index].UnloadFailed = PendingUnloads.TryGetValue(info.ToPlgString(), out var pending) &&
                                              (!pending.Succeeded || pending.Context.IsAlive);
@@ -200,6 +202,12 @@ public static class PluginManager
     {
         var name = info.ToPlgString();
         if (EnablePlugins.ContainsKey(name)) return;
+        if (!info.IsPlatformCompatible)
+        {
+            info.LoadFailed = true;
+            info.LoadFailedReason ??= PluginDiscoveryService.CreateUnsupportedPlatformMessage(info.SupportedPlatforms);
+            throw new InvalidOperationException(info.LoadFailedReason);
+        }
         if (PendingUnloads.TryGetValue(name, out var previous))
         {
             if (!previous.Succeeded || previous.Context.IsAlive)
@@ -235,7 +243,9 @@ public static class PluginManager
         IEnumerable<string> enabled)
     {
         var (valid, errors) = PluginDependencyService.CheckDependencies(
-            available.Select(item => item.PluginBaseInfo), info.PluginBaseInfo.Dependencies, enabled);
+            available.Where(static item => item.IsPlatformCompatible).Select(item => item.PluginBaseInfo),
+            info.PluginBaseInfo.Dependencies,
+            enabled);
         if (!valid) throw new InvalidOperationException($"插件 {info.PluginBaseInfo.Name} 依赖检查失败：" +
             string.Join("；", errors.Select(error => error.Key == "Kitopia"
                 ? $"Kitopia：{error.Value}（当前 {ConfigManger.Version}，要求 {info.PluginBaseInfo.Dependencies[error.Key]}）"
@@ -302,10 +312,12 @@ public static class PluginManager
                 requirements[dependency] = ranges = new Dictionary<string, string>();
             ranges[name] = range;
             if (!candidates.TryGetValue(dependency, out var info) ||
+                !info.IsPlatformCompatible ||
                 ranges.Values.Any(required => !PluginDependencyService.VersionInRange(info.PluginBaseInfo.Version, required)))
             {
                 var staged = packages.FirstOrDefault(package => package.Info.ToPlgString() == dependency);
-                var installed = AllPluginInfos.FirstOrDefault(item => item.ToPlgString() == dependency);
+                var installed = AllPluginInfos.FirstOrDefault(item =>
+                    item.ToPlgString() == dependency && item.IsPlatformCompatible);
                 if (staged is not null && installed is not null &&
                     ranges.Values.All(required => PluginDependencyService.VersionInRange(
                         installed.PluginBaseInfo.Version, required)))
@@ -317,8 +329,7 @@ public static class PluginManager
                 }
                 var versions = await PluginNetworkService.GetVersionDetailsAsync(dependency, null, cancellationToken);
                 var version = PluginDependencyService.SelectDependencyVersion(
-                    versions?.Where(item => item.CanDownload &&
-                        PluginNetworkService.SupportsCurrentPlatform(item.AvailablePlatforms) &&
+                    versions?.Where(item => item.CanDownloadOnCurrentPlatform &&
                         (installed is null || PluginDependencyService.IsVersionNewer(
                             item.Version, installed.PluginBaseInfo.Version)))
                         .Select(item => item.Version) ?? [], ranges.Values.ToArray());
@@ -358,7 +369,11 @@ public static class PluginManager
             RefreshInstalled();
             if (replacement is not null)
                 updateDirectory = GetPluginLocalInfoByPlgStr(name)?.Path ?? KitopiaPaths.GetPluginDirectory(name);
-            var candidates = AllPluginInfos.ToDictionary(info => info.ToPlgString());
+            else if (GetPluginLocalInfoByPlgStr(name) is { IsPlatformCompatible: false } incompatible)
+                throw new InvalidOperationException(incompatible.LoadFailedReason ??
+                    PluginDiscoveryService.CreateUnsupportedPlatformMessage(incompatible.SupportedPlatforms));
+            var candidates = AllPluginInfos.Where(static info => info.IsPlatformCompatible)
+                .ToDictionary(info => info.ToPlgString());
             if (replacement is not null) candidates[name] = replacement.Info;
             if (!candidates.TryGetValue(name, out var root)) throw new InvalidOperationException($"插件 {name} 未安装。");
             HashSet<string> closure;
@@ -377,7 +392,7 @@ public static class PluginManager
             }
             foreach (var package in packages.Where(package => !closure.Contains(package.Info.ToPlgString())).ToArray())
             {
-                if (AllPluginInfos.FirstOrDefault(info => info.ToPlgString() == package.Info.ToPlgString()) is { } installed)
+                if (AllPluginInfos.FirstOrDefault(info => info.IsPlatformCompatible && info.ToPlgString() == package.Info.ToPlgString()) is { } installed)
                     candidates[package.Info.ToPlgString()] = installed;
                 else
                     candidates.Remove(package.Info.ToPlgString());
@@ -494,14 +509,14 @@ public static class PluginManager
     {
         cancellationToken.ThrowIfCancellationRequested();
         RefreshInstalled();
-        if (!reinstall && GetPluginLocalInfoByPlgStr(pluginSign) is { } installed &&
+        if (!reinstall && GetPluginLocalInfoByPlgStr(pluginSign) is { IsPlatformCompatible: true } installed &&
             PluginDependencyService.VersionInRange(installed.PluginBaseInfo.Version, versionRange))
             return await ApplyAsync(pluginSign, null, true, cancellationToken);
 
         var versions = await PluginNetworkService.GetVersionDetailsAsync(pluginSign, null, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         var version = PluginDependencyService.SelectDependencyVersion(versions?
-            .Where(item => item.CanDownload && PluginNetworkService.SupportsCurrentPlatform(item.AvailablePlatforms))
+            .Where(item => item.CanDownloadOnCurrentPlatform)
             .Select(item => item.Version) ?? [], versionRange);
         if (version is null)
             throw new InvalidOperationException(Lang.Format("lang.kitopia.plugins.no_compatible_dependency", pluginSign, versionRange));
@@ -531,7 +546,7 @@ public static class PluginManager
         };
         ReportDownloadProgress(new PluginDownloadProgress(info, targetVersion));
         var online = await PluginNetworkService.GetOnlinePluginInfo(pluginSign, cancellationToken);
-        targetVersion ??= online?.LastVersion;
+        targetVersion ??= await PluginNetworkService.GetLatestVersionAsync(pluginSign, cancellationToken);
         if (string.IsNullOrWhiteSpace(targetVersion)) return false;
         if (online is not null) info = online.ToPluginBaseInfo();
         ReportDownloadProgress(new PluginDownloadProgress(info, targetVersion));
