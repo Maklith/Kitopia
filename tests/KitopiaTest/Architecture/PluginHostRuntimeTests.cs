@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Xml.Linq;
 using NuGet.Versioning;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Plugin;
@@ -306,5 +308,86 @@ public sealed class PluginHostRuntimeTests
         {
             Kitopia.Desktop.Features.Services.Config.ConfigManger.Configs = originalConfigs;
         }
+    }
+
+    [TestMethod]
+    public void BuiltInPluginManifests_RestrictKitopiaVersionRange_AndMatchProjectVersions()
+    {
+        var root = FindRepositoryRoot();
+        var props = XDocument.Load(Path.Combine(root, "KitopiaVersion.props"));
+        var kitopiaVersionText = props.Descendants("KitopiaVersion").Single().Value.Trim();
+        var kitopiaVersion = NuGetVersion.Parse(kitopiaVersionText);
+        var nextMajorVersion = new NuGetVersion(kitopiaVersion.Major + 1, 0, 0).ToNormalizedString();
+
+        var manifestPaths = Directory.EnumerateDirectories(Path.Combine(root, "plugins"))
+            .Select(dir => Path.Combine(dir, "manifest.json"))
+            .Where(File.Exists)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.HasCount(6, manifestPaths);
+
+        var discoveredSigns = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var manifestPath in manifestPaths)
+        {
+            var manifest = JsonSerializer.Deserialize<PluginManifest>(File.ReadAllText(manifestPath))
+                           ?? throw new InvalidDataException($"Failed to parse {manifestPath}");
+            discoveredSigns.Add(manifest.NameSign);
+
+            Assert.IsNotNull(manifest.Dependencies, manifestPath);
+            Assert.IsTrue(manifest.Dependencies.TryGetValue("Kitopia", out var kitopiaRange),
+                $"{manifestPath} must declare Dependencies[\"Kitopia\"].");
+            Assert.IsTrue(VersionRange.TryParse(kitopiaRange, out var parsedRange),
+                $"{manifestPath} declares invalid NuGet range '{kitopiaRange}'.");
+            Assert.IsTrue(parsedRange.HasLowerBound && parsedRange.HasUpperBound,
+                $"{manifestPath} must bound both minimum and maximum Kitopia versions instead of '{kitopiaRange}'.");
+            Assert.IsFalse(parsedRange.IsFloating,
+                $"{manifestPath} must not use a floating wildcard range '{kitopiaRange}'.");
+            Assert.IsTrue(PluginDependencyService.VersionInRange(kitopiaVersion.ToNormalizedString(), kitopiaRange),
+                $"{manifestPath} range '{kitopiaRange}' must accept current KitopiaVersion {kitopiaVersionText}.");
+            Assert.IsFalse(PluginDependencyService.VersionInRange("1.4.4", kitopiaRange),
+                $"{manifestPath} range '{kitopiaRange}' must reject pre-1.5.0 host versions.");
+            Assert.IsFalse(PluginDependencyService.VersionInRange(nextMajorVersion, kitopiaRange),
+                $"{manifestPath} range '{kitopiaRange}' must reject next major version {nextMajorVersion}.");
+
+            var projectPath = Directory.EnumerateFiles(Path.GetDirectoryName(manifestPath)!, "*.csproj").Single();
+            var projectVersion = XDocument.Load(projectPath).Descendants("Version").FirstOrDefault()?.Value.Trim();
+            if (!string.IsNullOrEmpty(projectVersion))
+            {
+                Assert.AreEqual(projectVersion, manifest.Version,
+                    $"{manifestPath} Version must match {projectPath} <Version>.");
+            }
+        }
+
+        CollectionAssert.AreEquivalent(
+            new[]
+            {
+                "kitopiaex",
+                "kitopiaffmpeg",
+                "kitopiasemanticsearch",
+                "kitopiaonnxruntimecpu",
+                "kitopiaonnxruntimecuda",
+                "kitopiaonnxruntimeopenvino"
+            },
+            discoveredSigns.ToArray());
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        foreach (var startPath in new[] { AppContext.BaseDirectory, Directory.GetCurrentDirectory() })
+        {
+            var directory = new DirectoryInfo(startPath);
+            while (directory is not null)
+            {
+                if (File.Exists(Path.Combine(directory.FullName, "Kitopia.sln")))
+                {
+                    return directory.FullName;
+                }
+
+                directory = directory.Parent;
+            }
+        }
+
+        throw new DirectoryNotFoundException("Could not locate Kitopia.sln.");
     }
 }
