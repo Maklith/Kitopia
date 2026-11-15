@@ -2,13 +2,8 @@
 
 using System.Reflection;
 using System.Runtime.Loader;
-using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Text.Unicode;
 using Avalonia;
-using Kitopia.Desktop.Features.JsonConverter;
-using Kitopia.Desktop.Features.Services.Config;
 
 #endregion
 
@@ -28,18 +23,43 @@ public class AssemblyLoadContextH : AssemblyLoadContext
         _pluginPath = pluginPath;
         Unloading += sender =>
         {
-            ConfigManger.DefaultOptions = new JsonSerializerOptions
-            {
-                IncludeFields = true,
-                WriteIndented = true,
-                ReferenceHandler = ReferenceHandler.Preserve,
-                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
-                Converters = { new CustomScenarioInputValueJsonConverter(), new INodeInputJsonConverter() }
-            };
             _assembly = null;
-            foreach (var assembly in sender.Assemblies)
-                AvaloniaPropertyRegistry.Instance.UnregisterByModule(assembly.DefinedTypes);
+            var types = sender.Assemblies.SelectMany(assembly => assembly.DefinedTypes).ToArray();
+            var registry = AvaloniaPropertyRegistry.Instance;
+            // Avalonia 12.1.2's UnregisterByModule leaves property and owner tables behind.
+            // Keep this compatibility cleanup covered by collectible UI fixture tests.
+            var registryType = typeof(AvaloniaPropertyRegistry);
+            var registryGate = registryType.GetField("_unregisteringLocker", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(registry)!;
+            lock (registryGate)
+            {
+                if (!registry.UnregisterByModule(types))
+                    throw new InvalidOperationException("Avalonia plugin property metadata cleanup failed.");
+                var properties = (Dictionary<int, AvaloniaProperty>)registryType
+                    .GetField("_properties", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+                var propertyIds = properties.Where(pair => pair.Value is { } property && GetLoadContext(property.OwnerType.Assembly) == sender)
+                    .Select(pair => pair.Key).ToArray();
+                // FindRegistered indexes a dense ID table using Count. Preserve empty slots,
+                // returning null for unloaded IDs without hiding later host/plugin properties.
+                foreach (var id in propertyIds) properties[id] = null!;
+                foreach (var field in new[] { "_registered", "_attached", "_direct" })
+                {
+                    var owners = (Dictionary<Type, Dictionary<int, AvaloniaProperty>>)registryType
+                        .GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+                    foreach (var type in owners.Keys.Where(type => GetLoadContext(type.Assembly) == sender).ToArray())
+                        owners.Remove(type);
+                    foreach (var owner in owners.Values)
+                        foreach (var id in propertyIds) owner.Remove(id);
+                }
+                foreach (var field in new[] { "_registeredCache", "_attachedCache", "_directCache", "_inheritedCache" })
+                    ((Dictionary<Type, List<AvaloniaProperty>>)registryType
+                        .GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!).Clear();
+            }
 
+            // Replacing JsonSerializerOptions does not release .NET 10's global emitted
+            // member accessors. Reuse the runtime's cache invalidation implementation.
+            typeof(JsonSerializer).Assembly.GetType("System.Text.Json.JsonSerializerOptionsUpdateHandler", throwOnError: true)!
+                .GetMethod("ClearCache", BindingFlags.Public | BindingFlags.Static)!.Invoke(null, [types]);
         };
     }
 
