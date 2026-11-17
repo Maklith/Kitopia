@@ -29,7 +29,16 @@
                         </Image.ContextFlyout>
                     </Image>
                     <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap"
-                                         IsVisible="{Binding HasText}" />
+                                         IsVisible="{Binding HasText}">
+                        <SelectableTextBlock.ContextFlyout>
+                            <MenuFlyout>
+                                <MenuItem Header="{DynamicResource 'lang.kitopia.copy'}"
+                                          InputGesture="Ctrl+C"
+                                          Command="{Binding CopyTextCommand}"
+                                          CommandParameter="{Binding $parent[SelectableTextBlock]}" />
+                            </MenuFlyout>
+                        </SelectableTextBlock.ContextFlyout>
+                    </SelectableTextBlock>
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
                         <TextBlock Text="{Binding TimeText}"
                                    FontSize="11"
@@ -65,7 +74,16 @@
                     </Image>
                     <SelectableTextBlock Text="{Binding Text}" TextWrapping="Wrap"
                                          IsVisible="{Binding HasText}"
-                                         Foreground="White" />
+                                         Foreground="White">
+                        <SelectableTextBlock.ContextFlyout>
+                            <MenuFlyout>
+                                <MenuItem Header="{DynamicResource 'lang.kitopia.copy'}"
+                                          InputGesture="Ctrl+C"
+                                          Command="{Binding CopyTextCommand}"
+                                          CommandParameter="{Binding $parent[SelectableTextBlock]}" />
+                            </MenuFlyout>
+                        </SelectableTextBlock.ContextFlyout>
+                    </SelectableTextBlock>
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
                         <TextBlock Text="{Binding TimeText}"
                                    FontSize="11"

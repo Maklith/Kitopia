@@ -802,6 +802,177 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
     }
 
     [TestMethod]
+    public async Task TextMessage_ContextMenuCopy_CopiesSelectionOrFullMessage()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(DeviceCommunicationPageViewModelResumeTests));
+        await session.Dispatch<bool>(async () =>
+        {
+            using var discovery = new FakeDiscoveryService(new DiscoveredDevice { Id = "peer-1", Name = "Phone" });
+            using var viewModel = new DeviceCommunicationPageViewModel(discovery, new FakeMessageAppService(),
+                new FakeChatAttachmentStore(), new FakeChatPlatformService(), new FakeDeviceCommunicationSettings(),
+                new FakeToastService(), postToUi: action => action());
+            var conversation = viewModel.Conversations.Single();
+            const string incomingText = "Line 1\nLine 2\nLine 3";
+            const string outgoingText = "Win 1\r\nWin 2\r\nWin 3";
+            conversation.Messages.Add(new DeviceChatMessageItem(incomingText, isOutgoing: false, DateTimeOffset.Now));
+            conversation.Messages.Add(new DeviceChatMessageItem(outgoingText, isOutgoing: true, DateTimeOffset.Now));
+            var page = new DeviceCommunicationPage { DataContext = viewModel };
+            var window = new Window { Width = 800, Height = 600, Content = page };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var textBlocks = page.GetVisualDescendants().OfType<SelectableTextBlock>()
+                    .Where(value => value.IsEffectivelyVisible).ToList();
+                var incomingTextBlock = textBlocks.Single(v => v.Text == incomingText);
+                var outgoingTextBlock = textBlocks.Single(v => v.Text == outgoingText);
+
+                // 1. Nothing selected + right-click opens single enabled "复制" menu item and copies full message.
+                var pt1 = incomingTextBlock.TranslatePoint(new Point(5, 5), window)!.Value;
+                window.MouseDown(pt1, MouseButton.Right);
+                window.MouseUp(pt1, MouseButton.Right);
+                Dispatcher.UIThread.RunJobs();
+
+                var incomingFlyout = incomingTextBlock.ContextFlyout as MenuFlyout;
+                Assert.IsNotNull(incomingFlyout);
+                Assert.IsTrue(incomingFlyout.IsOpen);
+                var copyItem1 = incomingFlyout.Items.OfType<MenuItem>().Single();
+                Assert.AreEqual(Lang.Get("lang.kitopia.copy"), copyItem1.Header);
+                Assert.IsTrue(copyItem1.IsEnabled);
+
+                var itemPt1 = copyItem1.TranslatePoint(new Point(10, 10), TopLevel.GetTopLevel(copyItem1)!)!.Value;
+                window.MouseDown(itemPt1, MouseButton.Left);
+                window.MouseUp(itemPt1, MouseButton.Left);
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(incomingText, await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(window.Clipboard!));
+
+                // 2. Right-click on the bubble padding around an outgoing text message also copies full message.
+                await window.Clipboard!.ClearAsync();
+                var outgoingBubble = outgoingTextBlock.GetVisualAncestors().OfType<Border>().First();
+                var paddingPt = outgoingBubble.TranslatePoint(new Point(4, 4), window)!.Value;
+                window.MouseDown(paddingPt, MouseButton.Right);
+                window.MouseUp(paddingPt, MouseButton.Right);
+                Dispatcher.UIThread.RunJobs();
+
+                var outgoingFlyout = outgoingTextBlock.ContextFlyout as MenuFlyout;
+                Assert.IsNotNull(outgoingFlyout);
+                Assert.IsTrue(outgoingFlyout.IsOpen);
+                var copyItem2 = outgoingFlyout.Items.OfType<MenuItem>().Single();
+                Assert.IsTrue(copyItem2.IsEnabled);
+                var itemPt2 = copyItem2.TranslatePoint(new Point(10, 10), TopLevel.GetTopLevel(copyItem2)!)!.Value;
+                window.MouseDown(itemPt2, MouseButton.Left);
+                window.MouseUp(itemPt2, MouseButton.Left);
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(outgoingText, await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(window.Clipboard!));
+
+                // 3. Mouse drag-selection across line breaks + right-click inside selection copies only selected text.
+                await window.Clipboard!.ClearAsync();
+                var dragStart = outgoingTextBlock.TranslatePoint(new Point(2, 5), window)!.Value;
+                var dragEnd = outgoingTextBlock.TranslatePoint(
+                    new Point(Math.Max(20, outgoingTextBlock.Bounds.Width - 2), Math.Max(10, outgoingTextBlock.Bounds.Height - 5)),
+                    window)!.Value;
+                window.MouseDown(dragStart, MouseButton.Left);
+                window.MouseMove(dragEnd, RawInputModifiers.LeftMouseButton);
+                window.MouseUp(dragEnd, MouseButton.Left);
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(outgoingText, outgoingTextBlock.SelectedText);
+
+                outgoingTextBlock.SelectionStart = 4;
+                outgoingTextBlock.SelectionEnd = 12;
+                Dispatcher.UIThread.RunJobs();
+                var expectedPartial = outgoingTextBlock.SelectedText;
+                Assert.AreEqual("1\r\nWin 2", expectedPartial);
+
+                var midPt = outgoingTextBlock.TranslatePoint(new Point(10, outgoingTextBlock.Bounds.Height / 2), window)!.Value;
+                window.MouseDown(midPt, MouseButton.Right);
+                window.MouseUp(midPt, MouseButton.Right);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.IsTrue(outgoingFlyout.IsOpen);
+                var itemPt3 = copyItem2.TranslatePoint(new Point(10, 10), TopLevel.GetTopLevel(copyItem2)!)!.Value;
+                window.MouseDown(itemPt3, MouseButton.Left);
+                window.MouseUp(itemPt3, MouseButton.Left);
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual(expectedPartial, await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(window.Clipboard!));
+
+                // 4. Image-only bubble does not open the text copy flyout on bubble padding.
+                using var source = new OpenCvSharp.Mat(32, 32, OpenCvSharp.MatType.CV_8UC3, OpenCvSharp.Scalar.Black);
+                OpenCvSharp.Cv2.ImEncode(".png", source, out var imageBytes);
+                var imageMessage = DeviceChatMessageItem.CreateImage(imageBytes, isOutgoing: false, DateTimeOffset.Now);
+                conversation.Messages.Add(imageMessage);
+                Dispatcher.UIThread.RunJobs();
+                var imageControl = page.GetVisualDescendants().OfType<Image>()
+                    .Single(value => value.IsEffectivelyVisible && ReferenceEquals(value.DataContext, imageMessage));
+                var imageBubble = imageControl.GetVisualAncestors().OfType<Border>().First();
+                var imagePaddingPt = imageBubble.TranslatePoint(new Point(2, 2), window)!.Value;
+                window.MouseDown(imagePaddingPt, MouseButton.Right);
+                window.MouseUp(imagePaddingPt, MouseButton.Right);
+                Dispatcher.UIThread.RunJobs();
+                Assert.IsFalse(((MenuFlyout)imageControl.ContextFlyout!).IsOpen);
+                imageMessage.ImagePreview?.Dispose();
+
+                return true;
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
+    public async Task TextMessage_WithClipboardService_RoutesContextCopyAndCtrlC()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(DeviceCommunicationPageViewModelResumeTests));
+        await session.Dispatch<bool>(async () =>
+        {
+            var clipboard = new FakeChatClipboardService();
+            using var discovery = new FakeDiscoveryService(new DiscoveredDevice { Id = "peer-1", Name = "Phone" });
+            using var viewModel = new DeviceCommunicationPageViewModel(discovery, new FakeMessageAppService(),
+                new FakeChatAttachmentStore(), new FakeChatPlatformService(), new FakeDeviceCommunicationSettings(),
+                new FakeToastService(), clipboard, postToUi: action => action());
+            const string text = "First\r\nSecond";
+            viewModel.Conversations.Single().Messages.Add(new DeviceChatMessageItem(text, isOutgoing: false, DateTimeOffset.Now));
+            var page = new DeviceCommunicationPage { DataContext = viewModel };
+            var window = new Window { Width = 800, Height = 600, Content = page };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                var textBlock = page.GetVisualDescendants().OfType<SelectableTextBlock>()
+                    .Single(value => value.IsEffectivelyVisible && value.Text == text);
+
+                // Unselected context menu copy uses IChatClipboardService.
+                var flyout = (MenuFlyout)textBlock.ContextFlyout!;
+                flyout.ShowAt(textBlock);
+                Dispatcher.UIThread.RunJobs();
+                var copyItem = flyout.Items.OfType<MenuItem>().Single();
+                Assert.IsTrue(copyItem.IsEnabled);
+                copyItem.Command!.Execute(copyItem.CommandParameter);
+                Dispatcher.UIThread.RunJobs();
+                flyout.Hide();
+                Assert.AreEqual(text, clipboard.LastText);
+
+                // Selected Ctrl+C also routes through IChatClipboardService.
+                clipboard.LastText = null;
+                textBlock.Focus();
+                textBlock.SelectionStart = 0;
+                textBlock.SelectionEnd = 5;
+                Dispatcher.UIThread.RunJobs();
+                window.KeyPress(Key.C, RawInputModifiers.Control, PhysicalKey.C, "c");
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual("First", clipboard.LastText);
+
+                return true;
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, CancellationToken.None);
+    }
+
+    [TestMethod]
     [DataRow(280, "zh-CN", false)]
     [DataRow(360, "en-US", true)]
     [DataRow(1200, "zh-CN", false)]
@@ -1117,5 +1288,22 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
             NotificationShown.TrySetResult((header, text));
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeChatClipboardService : IChatClipboardService
+    {
+        public string? LastText { get; set; }
+
+        public ValueTask<ChatClipboardContent> ReadAsync(CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(new ChatClipboardContent(LastText, null, []));
+
+        public ValueTask<bool> SetTextAsync(string text, CancellationToken cancellationToken = default)
+        {
+            LastText = text;
+            return ValueTask.FromResult(true);
+        }
+
+        public ValueTask<bool> SetImageAsync(ReadOnlyMemory<byte> imagePng, CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(false);
     }
 }

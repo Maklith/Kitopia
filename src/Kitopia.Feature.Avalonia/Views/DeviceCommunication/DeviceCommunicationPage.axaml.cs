@@ -1,17 +1,19 @@
-using Kitopia.Feature.Localization;
 using System;
 using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 using Kitopia.Feature.Avalonia.DeviceCommunication.ViewModels;
+using Kitopia.Feature.Localization;
 
 namespace Kitopia.Feature.Avalonia.DeviceCommunication.Views;
 
@@ -27,6 +29,8 @@ public partial class DeviceCommunicationPage : UserControl
     private TextBlock? _imagePreviewTitle;
     private Border? _fileDropOverlay;
     private readonly RelayCommand<DeviceChatMessageItem> _previewImageCommand;
+    private readonly AsyncRelayCommand<SelectableTextBlock> _copyTextCommand;
+    private (WeakReference<SelectableTextBlock> Target, string SelectedText)? _pendingContextSelection;
     private double _imagePreviewWidth;
     private double _imagePreviewHeight;
     private double _imagePreviewScale = 1d;
@@ -42,6 +46,7 @@ public partial class DeviceCommunicationPage : UserControl
     public DeviceCommunicationPage()
     {
         _previewImageCommand = new RelayCommand<DeviceChatMessageItem>(ShowImagePreview);
+        _copyTextCommand = new AsyncRelayCommand<SelectableTextBlock>(CopyMessageTextAsync, CanCopyMessageText);
         InitializeComponent();
         _conversationScrollViewer = this.FindControl<ScrollViewer>("ConversationScrollViewer");
         _conversationItemsControl = this.FindControl<ItemsControl>("ConversationItemsControl");
@@ -54,8 +59,12 @@ public partial class DeviceCommunicationPage : UserControl
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
         SizeChanged += OnPageSizeChanged;
+        AddHandler(InputElement.PointerPressedEvent, OnMessagePointerPressedTunnel, RoutingStrategies.Tunnel);
         AddHandler(InputElement.PointerPressedEvent, OnPreviewImagePointerPressed);
         AddHandler(InputElement.DoubleTappedEvent, OnFileCardDoubleTapped);
+        AddHandler(Control.ContextRequestedEvent, OnMessageContextRequestedTunnel, RoutingStrategies.Tunnel);
+        AddHandler(Control.ContextRequestedEvent, OnMessageContextRequestedBubble);
+        AddHandler(SelectableTextBlock.CopyingToClipboardEvent, OnSelectableTextBlockCopyingToClipboard);
     }
 
     private const double CompactWidthThreshold = 700d;
@@ -139,7 +148,9 @@ public partial class DeviceCommunicationPage : UserControl
 
         _boundMessages = messages;
         foreach (var message in _boundViewModel.CurrentMessages.OfType<DeviceChatMessageItem>())
-            message.PreviewImageCommand = _previewImageCommand;
+        {
+            AttachMessageCommands(message);
+        }
         _boundMessages.CollectionChanged += OnCurrentMessagesCollectionChanged;
     }
 
@@ -154,7 +165,9 @@ public partial class DeviceCommunicationPage : UserControl
         if (_boundMessages is System.Collections.Generic.IEnumerable<object> messages)
         {
             foreach (var message in messages.OfType<DeviceChatMessageItem>())
-                if (ReferenceEquals(message.PreviewImageCommand, _previewImageCommand)) message.PreviewImageCommand = null;
+            {
+                DetachMessageCommands(message);
+            }
         }
         _boundMessages = null;
     }
@@ -164,14 +177,37 @@ public partial class DeviceCommunicationPage : UserControl
         if (e.OldItems is { } oldItems)
         {
             foreach (var message in oldItems.OfType<DeviceChatMessageItem>())
-                if (ReferenceEquals(message.PreviewImageCommand, _previewImageCommand)) message.PreviewImageCommand = null;
+            {
+                DetachMessageCommands(message);
+            }
         }
         if (e.NewItems is { } items)
         {
             foreach (var message in items.OfType<DeviceChatMessageItem>())
-                message.PreviewImageCommand = _previewImageCommand;
+            {
+                AttachMessageCommands(message);
+            }
         }
         ScrollToLatest();
+    }
+
+    private void AttachMessageCommands(DeviceChatMessageItem message)
+    {
+        message.PreviewImageCommand = _previewImageCommand;
+        message.CopyTextCommand = _copyTextCommand;
+    }
+
+    private void DetachMessageCommands(DeviceChatMessageItem message)
+    {
+        if (ReferenceEquals(message.PreviewImageCommand, _previewImageCommand))
+        {
+            message.PreviewImageCommand = null;
+        }
+
+        if (ReferenceEquals(message.CopyTextCommand, _copyTextCommand))
+        {
+            message.CopyTextCommand = null;
+        }
     }
 
     private void SetConversationItemsSource(System.Collections.IEnumerable? source)
@@ -354,6 +390,152 @@ public partial class DeviceCommunicationPage : UserControl
         if (_boundViewModel?.OpenFileCommand is null) return;
         if (e.Source is not Control { DataContext: FileChatMessageItem item } || !item.CanUseLocalFile) return;
         _boundViewModel.OpenFileCommand.Execute(item);
+    }
+
+    private void OnMessagePointerPressedTunnel(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
+        {
+            _pendingContextSelection = null;
+        }
+    }
+
+    private void OnMessageContextRequestedTunnel(object? sender, ContextRequestedEventArgs e)
+    {
+        var textBlock = FindAncestorMessageTextBlock(e.Source as Visual);
+        _pendingContextSelection = textBlock is not null && !string.IsNullOrEmpty(textBlock.SelectedText)
+            ? (new WeakReference<SelectableTextBlock>(textBlock), textBlock.SelectedText)
+            : null;
+    }
+
+    private void OnMessageContextRequestedBubble(object? sender, ContextRequestedEventArgs e)
+    {
+        if (e.Handled || e.Source is not Visual source)
+        {
+            return;
+        }
+
+        for (Visual? current = source; current is not null && !ReferenceEquals(current, this); current = current.GetVisualParent())
+        {
+            if (current is Image or SelectableTextBlock)
+            {
+                return;
+            }
+
+            if (current is Border { DataContext: DeviceChatMessageItem { HasText: true } } bubble)
+            {
+                var textBlock = bubble.GetVisualDescendants()
+                    .OfType<SelectableTextBlock>()
+                    .FirstOrDefault(candidate => candidate.IsVisible);
+                if (textBlock?.ContextFlyout is MenuFlyout flyout)
+                {
+                    _pendingContextSelection = !string.IsNullOrEmpty(textBlock.SelectedText)
+                        ? (new WeakReference<SelectableTextBlock>(textBlock), textBlock.SelectedText)
+                        : null;
+                    flyout.ShowAt(textBlock, showAtPointer: true);
+                    e.Handled = true;
+                }
+
+                return;
+            }
+        }
+    }
+
+    private void OnSelectableTextBlockCopyingToClipboard(object? sender, RoutedEventArgs e)
+    {
+        if (_boundViewModel?.HasClipboardService != true ||
+            e.Source is not SelectableTextBlock textBlock ||
+            string.IsNullOrEmpty(textBlock.SelectedText))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        _ = CopyTextToClipboardAsync(textBlock.SelectedText);
+    }
+
+    private SelectableTextBlock? FindAncestorMessageTextBlock(Visual? source)
+    {
+        for (Visual? current = source; current is not null && !ReferenceEquals(current, this); current = current.GetVisualParent())
+        {
+            if (current is SelectableTextBlock { DataContext: DeviceChatMessageItem } textBlock)
+            {
+                return textBlock;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool CanCopyMessageText(SelectableTextBlock? textBlock)
+    {
+        if (textBlock is null)
+        {
+            return false;
+        }
+
+        return textBlock.DataContext is DeviceChatMessageItem item
+            ? item.HasText
+            : !string.IsNullOrEmpty(textBlock.Text);
+    }
+
+    private async Task CopyMessageTextAsync(SelectableTextBlock? textBlock)
+    {
+        if (textBlock is null)
+        {
+            return;
+        }
+
+        string? textToCopy = null;
+        if (!string.IsNullOrEmpty(textBlock.SelectedText))
+        {
+            textToCopy = textBlock.SelectedText;
+        }
+        else if (_pendingContextSelection is { } pending &&
+                 pending.Target.TryGetTarget(out var target) &&
+                 ReferenceEquals(target, textBlock))
+        {
+            textToCopy = pending.SelectedText;
+        }
+
+        _pendingContextSelection = null;
+
+        if (string.IsNullOrEmpty(textToCopy))
+        {
+            textToCopy = textBlock.DataContext is DeviceChatMessageItem item
+                ? item.Text
+                : textBlock.Text;
+        }
+
+        await CopyTextToClipboardAsync(textToCopy);
+    }
+
+    private async Task CopyTextToClipboardAsync(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        if (_boundViewModel is not null && await _boundViewModel.CopyTextAsync(text))
+        {
+            return;
+        }
+
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await clipboard.SetTextAsync(text);
+        }
+        catch (Exception)
+        {
+            // Clipboard access can fail transiently when another process holds the clipboard.
+        }
     }
 
     private void OnPreviewImagePointerPressed(object? sender, PointerPressedEventArgs e)

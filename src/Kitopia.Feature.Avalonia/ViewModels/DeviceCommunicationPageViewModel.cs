@@ -624,6 +624,26 @@ public partial class DeviceCommunicationPageViewModel : ObservableObject, IDispo
         }
     }
 
+    internal bool HasClipboardService => _clipboardService is not null;
+
+    internal async Task<bool> CopyTextAsync(string? text)
+    {
+        if (string.IsNullOrEmpty(text) || _clipboardService is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            return await _clipboardService.SetTextAsync(text);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning(ex, "Copy text to clipboard failed.");
+            return false;
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanCopyImage))]
     private async Task CopyImageAsync(DeviceChatMessageItem? messageItem) {
         if (messageItem?.ImageBytes is not { Length: > 0 } imageBytes) {
@@ -1366,6 +1386,7 @@ public partial class DeviceChatMessageItem : ObservableObject {
     [ObservableProperty] private Bitmap? _imagePreview;
     [ObservableProperty] private byte[]? _imageBytes;
     [ObservableProperty] private System.Windows.Input.ICommand? _previewImageCommand;
+    [ObservableProperty] private System.Windows.Input.ICommand? _copyTextCommand;
 
     public System.Windows.Input.ICommand? CopyImageCommand { get; set; }
 

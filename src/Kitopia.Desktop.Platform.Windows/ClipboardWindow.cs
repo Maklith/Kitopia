@@ -92,28 +92,35 @@ public class ClipboardWindow : IClipboardService
 
     public bool SetText(string text)
     {
-        try
+        if (text is null)
         {
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime appLifetime)
+            return false;
+        }
+
+        var succeeded = false;
+        var tcs = new TaskCompletionSource<bool>();
+        var thread = new Thread(() =>
+        {
+            try
             {
-                return Dispatcher.UIThread.Invoke(() =>
-                {
-                    appLifetime.MainWindow?.Clipboard?.SetTextAsync(text)
-                        .WaitAsync(TimeSpan.FromSeconds(1))
-                        .GetAwaiter()
-                        .GetResult();
-                    return true;
-                });
-
+                Clipboard.SetText(text);
+                succeeded = true;
             }
-
-            return false;
-        }
-        catch (Exception e)
-        {
-            Logger.Error(e, "设置剪贴板文本时发生错误");
-            return false;
-        }
+            catch (Exception e)
+            {
+                Logger.Error(e, "设置剪贴板文本时发生错误");
+                succeeded = false;
+            }
+            finally
+            {
+                tcs.SetResult(true);
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.IsBackground = false;
+        thread.Start();
+        tcs.Task.Wait();
+        return succeeded;
     }
 
     public bool HasFiles()
