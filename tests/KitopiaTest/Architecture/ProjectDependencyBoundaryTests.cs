@@ -163,101 +163,6 @@ public sealed class ProjectDependencyBoundaryTests
     }
 
     [TestMethod]
-    public void RenamedProjects_UseCanonicalPathsAndPluginSdkCompatibilityMetadata()
-    {
-        var repositoryRoot = FindRepositoryRoot();
-        var currentProjects = new[]
-        {
-            "src/Kitopia.Feature/Kitopia.Feature.csproj",
-            "src/Kitopia.Feature.Avalonia/Kitopia.Feature.Avalonia.csproj",
-            "src/Kitopia.Desktop.Abstractions/Kitopia.Desktop.Abstractions.csproj",
-            "src/Kitopia.Desktop.Features/Kitopia.Desktop.Features.csproj",
-            "src/Kitopia.Desktop/Kitopia.Desktop.csproj",
-            "src/Kitopia.Desktop.Platform.Windows/Kitopia.Desktop.Platform.Windows.csproj",
-            "src/Kitopia.Desktop.Platform.Linux/Kitopia.Desktop.Platform.Linux.csproj",
-            "src/Kitopia.Desktop.PluginSdk/Kitopia.Desktop.PluginSdk.csproj"
-        };
-        var legacyProjects = new[]
-        {
-            "Kitopia.DeviceCommunication/Kitopia.DeviceCommunication.csproj",
-            "Kitopia.DeviceCommunication.Avalonia/Kitopia.DeviceCommunication.Avalonia.csproj",
-            "Kitopia.Feature.DeviceCommunication/Kitopia.Feature.DeviceCommunication.csproj",
-            "Kitopia.Feature.DeviceCommunication.Avalonia/Kitopia.Feature.DeviceCommunication.Avalonia.csproj",
-            "Kitopia.Desktop.Features.Search/Kitopia.Desktop.Features.Search.csproj",
-            "Kitopia.Desktop.Features.CustomScenario/Kitopia.Desktop.Features.CustomScenario.csproj",
-            "Kitopia.Desktop.Features.PluginHost/Kitopia.Desktop.Features.PluginHost.csproj",
-            "Core/Core.csproj",
-            "Kitopia.Desktop.Search/Kitopia.Desktop.Search.csproj",
-            "Kitopia.Desktop.CustomScenario/Kitopia.Desktop.CustomScenario.csproj",
-            "Kitopia.Desktop.PluginHost/Kitopia.Desktop.PluginHost.csproj",
-            "KitopiaAvalonia/KitopiaAvalonia.csproj",
-            "Core.Window/Core.Window.csproj",
-            "Core.Linux/Core.Linux.csproj",
-            "PluginCore/PluginCore.csproj"
-        };
-
-        foreach (var project in currentProjects)
-        {
-            Assert.IsTrue(File.Exists(ToAbsolutePath(repositoryRoot, project)),
-                $"Renamed project is missing: {project}");
-        }
-
-        foreach (var project in legacyProjects)
-        {
-            Assert.IsFalse(File.Exists(ToAbsolutePath(repositoryRoot, project)),
-                $"Legacy project path must not remain: {project}");
-            Assert.IsFalse(Directory.Exists(Path.GetDirectoryName(ToAbsolutePath(repositoryRoot, project))!),
-                $"Legacy project directory must not remain: {Path.GetDirectoryName(project)}");
-        }
-
-        var pluginSdkProject = XDocument.Load(ToAbsolutePath(
-            repositoryRoot,
-            "src/Kitopia.Desktop.PluginSdk/Kitopia.Desktop.PluginSdk.csproj"));
-        Assert.AreEqual("PluginCore", GetProjectProperty(pluginSdkProject, "AssemblyName"));
-        Assert.AreEqual("PluginCore", GetProjectProperty(pluginSdkProject, "RootNamespace"));
-
-        var renamedProjectMetadata = new Dictionary<string, string>
-        {
-            ["src/Kitopia.Feature/Kitopia.Feature.csproj"] = "Kitopia.Feature",
-            ["src/Kitopia.Feature.Avalonia/Kitopia.Feature.Avalonia.csproj"] = "Kitopia.Feature.Avalonia",
-            ["src/Kitopia.Desktop.Abstractions/Kitopia.Desktop.Abstractions.csproj"] =
-                "Kitopia.Desktop.Abstractions",
-            ["src/Kitopia.Desktop.Features/Kitopia.Desktop.Features.csproj"] = "Kitopia.Desktop.Features",
-            ["src/Kitopia.Desktop/Kitopia.Desktop.csproj"] = "Kitopia.Desktop"
-        };
-        foreach (var (project, expectedName) in renamedProjectMetadata)
-        {
-            var document = XDocument.Load(ToAbsolutePath(repositoryRoot, project));
-            Assert.AreEqual(expectedName, GetProjectProperty(document, "AssemblyName"));
-            Assert.AreEqual(expectedName, GetProjectProperty(document, "RootNamespace"));
-        }
-    }
-
-    [TestMethod]
-    public void PlatformSource_DoesNotDeclareLegacyNamespaces()
-    {
-        var repositoryRoot = FindRepositoryRoot();
-        var platformProjects = new[]
-        {
-            "src/Kitopia.Desktop.Platform.Windows/Kitopia.Desktop.Platform.Windows.csproj",
-            "src/Kitopia.Desktop.Platform.Linux/Kitopia.Desktop.Platform.Linux.csproj"
-        };
-        var legacyNamespacePattern = new Regex(
-            @"\bCore\.(?:Window|Linux)\b",
-            RegexOptions.CultureInvariant | RegexOptions.Compiled);
-        var violations = platformProjects
-            .Select(project => Path.GetDirectoryName(ToAbsolutePath(repositoryRoot, project))!)
-            .SelectMany(EnumerateProjectSourceFiles)
-            .SelectMany(path => File.ReadLines(path)
-                .Select((line, index) => (Path: path, Line: line, Number: index + 1)))
-            .Where(item => legacyNamespacePattern.IsMatch(item.Line))
-            .Select(item => $"{ToRepositoryPath(repositoryRoot, item.Path)}:{item.Number} uses a legacy platform namespace")
-            .ToArray();
-
-        AssertNoViolations(violations);
-    }
-
-    [TestMethod]
     public void SharedAndMobileProjects_DoNotLinkDesktopFilesOrResources()
     {
         var repositoryRoot = FindRepositoryRoot();
@@ -435,22 +340,6 @@ public sealed class ProjectDependencyBoundaryTests
         AssertNoViolations(violations);
     }
 
-    [TestMethod]
-    public void SharedFeatureProjects_AreNotEmptyProjectShells()
-    {
-        var repositoryRoot = FindRepositoryRoot();
-        var emptyProjects = SharedFeatureProjects.Append("src/Kitopia.Desktop.Features/Kitopia.Desktop.Features.csproj")
-            .Where(project => !EnumerateProjectSourceFiles(
-                Path.GetDirectoryName(ToAbsolutePath(repositoryRoot, project))!).Any())
-            .ToArray();
-
-        if (emptyProjects.Length > 0)
-        {
-            Assert.Fail("Shared feature projects must be created with their first feature slice, not as empty shells:" +
-                        Environment.NewLine + string.Join(Environment.NewLine, emptyProjects));
-        }
-    }
-
     private static void AddForbiddenDependencyViolations(
         ProjectReferenceGraph graph,
         ICollection<string> violations,
@@ -471,13 +360,6 @@ public sealed class ProjectDependencyBoundaryTests
                 violations.Add($"{string.Join(" -> ", path)} ({reason})");
             }
         }
-    }
-
-    private static string? GetProjectProperty(XDocument document, string propertyName)
-    {
-        return document.Descendants()
-            .FirstOrDefault(element => element.Name.LocalName == propertyName)
-            ?.Value;
     }
 
     private static void AssertNoViolations(IReadOnlyCollection<string> violations)

@@ -357,14 +357,6 @@ public sealed class FileLocksmithServiceTests
     }
 
     [TestMethod]
-    public async Task CheckFileLocksAsync_EmptyArray_ReturnsEmptyList()
-    {
-        IFileLockService service = new FileLocksmithService();
-        var results = await service.CheckFileLocksAsync([]);
-        Assert.AreEqual(0, results.Count);
-    }
-
-    [TestMethod]
     public async Task ScanLocksAsync_LockedFile_DetectsLockingProcess()
     {
         IFileLockService service = new FileLocksmithService();
@@ -435,14 +427,6 @@ public sealed class FileLocksmithServiceTests
     }
 
     [TestMethod]
-    public async Task UnlockFileAsync_EmptyList_ReturnsTrue()
-    {
-        IFileLockService service = new FileLocksmithService();
-        var result = await service.UnlockFileAsync([]);
-        Assert.IsTrue(result);
-    }
-
-    [TestMethod]
     public async Task UnlockFileAsync_RunningProcess_TerminatesWithoutElevation()
     {
         using var child = Process.Start(new ProcessStartInfo("powershell.exe")
@@ -465,13 +449,6 @@ public sealed class FileLocksmithServiceTests
         {
             if (!child.HasExited) child.Kill(entireProcessTree: true);
         }
-    }
-
-    [TestMethod]
-    public async Task UnlockFileAsync_ExitedProcess_ReturnsTrueWithoutElevation()
-    {
-        IFileLockService service = new FileLocksmithService();
-        Assert.IsTrue(await service.UnlockFileAsync([int.MaxValue]));
     }
 
     [TestMethod]

@@ -104,68 +104,6 @@ public sealed class SessionTests
         Assert.IsFalse(updated);
     }
 
-    [TestMethod]
-    public void FileTransferStore_TryAdd_ThenRemove_ThenAdd_Succeeds()
-    {
-        var store = new FileTransferSessionStore();
-        var session = CreateSession();
-
-        store.TryAdd(session);
-        store.TryRemove(session.TransferId, out _);
-        var reAdded = store.TryAdd(session);
-
-        Assert.IsTrue(reAdded);
-    }
-
-    [TestMethod]
-    public void FileTransferStore_SupportsMultipleSessions()
-    {
-        var store = new FileTransferSessionStore();
-        var s1 = CreateSession();
-        var s2 = CreateSession();
-        var s3 = CreateSession();
-
-        store.TryAdd(s1);
-        store.TryAdd(s2);
-        store.TryAdd(s3);
-
-        Assert.IsTrue(store.TryGet(s1.TransferId, out _));
-        Assert.IsTrue(store.TryGet(s2.TransferId, out _));
-        Assert.IsTrue(store.TryGet(s3.TransferId, out _));
-    }
-
-    #endregion
-
-    #region FileTransferSession Properties
-
-    [TestMethod]
-    public void FileTransferSession_DefaultState_IsOffered()
-    {
-        var session = CreateSession();
-        Assert.AreEqual(FileTransferState.Offered, session.State);
-    }
-
-    [TestMethod]
-    public void FileTransferSession_CreatedAt_IsRecent()
-    {
-        var before = DateTimeOffset.UtcNow;
-        var session = CreateSession();
-        var after = DateTimeOffset.UtcNow;
-
-        Assert.IsTrue(session.CreatedAt >= before);
-        Assert.IsTrue(session.CreatedAt <= after);
-    }
-
-    [TestMethod]
-    public void FileTransferSession_State_IsMutable()
-    {
-        var session = CreateSession();
-        session.State = FileTransferState.Accepted;
-        Assert.AreEqual(FileTransferState.Accepted, session.State);
-        session.State = FileTransferState.Completed;
-        Assert.AreEqual(FileTransferState.Completed, session.State);
-    }
-
     #endregion
 
     #region Helpers

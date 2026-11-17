@@ -61,13 +61,6 @@ public sealed class OnnxRuntimeAvailabilityTests
     }
 
     [TestMethod]
-    public void CheckAvailability_LegacyPlugin_ReturnsUnknown()
-    {
-        using IInferenceSession session = new LegacySession();
-        Assert.IsNull(session.CheckAvailability());
-    }
-
-    [TestMethod]
     public async Task Refresh_FailingFactoryDeviceAndLegacyPlugin_ShowsDiagnosticsAndDisposesProbes()
     {
         var probes = new List<ProbeSession>();

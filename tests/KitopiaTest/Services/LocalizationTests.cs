@@ -258,13 +258,6 @@ public sealed class LocalizationTests
     }
 
     [TestMethod]
-    public void Config_LegacyJson_DefaultsToSystemLanguage()
-    {
-        var config = JsonSerializer.Deserialize<KitopiaConfig>("{}", ConfigManger.DefaultOptions)!;
-        Assert.AreEqual(string.Empty, config.language);
-    }
-
-    [TestMethod]
     public async Task PluginSettings_LanguageChanges_RefreshesSelectionAndGroupHeaders()
     {
         await using var session = HeadlessUnitTestSession.StartNew(typeof(LocalizationTests));

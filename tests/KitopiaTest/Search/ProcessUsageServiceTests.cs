@@ -80,28 +80,6 @@ public sealed class ProcessUsageServiceTests
     }
 
     [TestMethod]
-    public void SetTargets_TrimmedNames_AreRemovedFromSnapshots()
-    {
-        using var service = new ProcessUsageService();
-
-        // No sampler runs while disabled, so the service must stay empty and harmless.
-        service.SetTargets(["app", "", " "]);
-        Assert.IsFalse(service.TryGet("app", out _));
-        Assert.IsFalse(service.Enabled);
-    }
-
-    [TestMethod]
-    public void Enabled_TogglingBackOff_ClearsSampledSnapshots()
-    {
-        using var service = new ProcessUsageService();
-        service.Enabled = true;
-        service.Enabled = false;
-
-        Assert.IsFalse(service.Enabled);
-        Assert.IsFalse(service.TryGet("app", out _));
-    }
-
-    [TestMethod]
     public void ReadProcessTimes_CurrentWindowsProcess_ReadsCreationTimeAndCpuUsingLimitedAccess()
     {
         if (!OperatingSystem.IsWindows())

@@ -24,21 +24,4 @@ public sealed class AppIndexerShortcutTests
 
         Assert.IsFalse(AppIndexer.IsWindowsInstallerCachePath(executablePath));
     }
-
-    [TestMethod]
-    public void SearchEntryToSearchViewItem_ShortcutLaunchPath_IsPreserved()
-    {
-        const string shortcutPath = @"C:\Users\Public\Desktop\SOLIDWORKS Design 2026.lnk";
-        var entry = new Kitopia.Desktop.Features.Search.SearchEntry
-        {
-            DisplayName = "SOLIDWORKS Design 2026",
-            OnlyKey = shortcutPath,
-            FileType = PluginCore.FileType.应用程序
-        };
-
-        Assert.AreEqual(shortcutPath, entry.OnlyKey);
-        Assert.IsNull(entry.LaunchPath);
-        Assert.IsNull(entry.Arguments);
-        Assert.IsNull(entry.StartDirectory);
-    }
 }

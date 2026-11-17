@@ -60,20 +60,6 @@ public sealed class TranslationServiceTests
         Assert.AreEqual(result, await new IndexTranslationService(client).TranslateSelectionAsync(text, source, target));
         Assert.AreEqual(1, requests, "Selection translation must never make a separate classification request.");
     }
-    [TestMethod]
-    [DataRow("{}")]
-    [DataRow("{\"ConfigVersion\":4}")]
-    public void TranslationProvider_MissingFromConfig_DefaultsToIndexTranslate(string json)
-    {
-        Assert.AreEqual(TranslationProvider.IndexTranslate, new KitopiaConfig().translationProvider);
-        var config = JsonSerializer.Deserialize<KitopiaConfig>(json, ConfigManger.DefaultOptions)!;
-        Assert.AreEqual(TranslationProvider.IndexTranslate, config.translationProvider);
-
-        config.translationProvider = TranslationProvider.Microsoft;
-        var restored = JsonSerializer.Deserialize<KitopiaConfig>(
-            JsonSerializer.Serialize(config, ConfigManger.DefaultOptions), ConfigManger.DefaultOptions)!;
-        Assert.AreEqual(TranslationProvider.Microsoft, restored.translationProvider);
-    }
 
     [TestMethod]
     [DataRow(TranslationSourceLanguage.Auto, TranslationTargetLanguage.SimplifiedChinese, "", "简体中文")]

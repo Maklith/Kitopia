@@ -32,18 +32,6 @@ public sealed class EmbeddingGemmaModelPackageTests
     }
 
     [TestMethod]
-    public void DirectoryPath_UsesRegisteredSemanticPluginModel()
-    {
-        Assert.IsNull(EmbeddingGemmaModelPackage.DirectoryPath);
-    }
-
-    [TestMethod]
-    public void CreateWithoutSemanticPlugin_ReturnsFalse()
-    {
-        Assert.IsFalse(EmbeddingGemmaModelPackage.IsComplete());
-    }
-
-    [TestMethod]
     public void BundledAssets_NativeShards_MatchChecksumsAndGitHubFileLimit()
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);

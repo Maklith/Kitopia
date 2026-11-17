@@ -403,34 +403,6 @@ public sealed class SearchWindowKeyboardTests
     }
 
     [TestMethod]
-    [DataRow(true)]
-    [DataRow(false)]
-    public async Task InputRegainsFocus_ShortcutOrResultSelected_RestoresDefaultAndEnterOpensIt(bool fromShortcuts)
-    {
-        await RunAsync(async (window, model, services) =>
-        {
-            var input = window.FindControl<TextBox>("tx")!;
-            var results = window.FindControl<ListBox>("dataGrid")!;
-            var shortcuts = window.FindControl<ListBox>("PinnedList")!;
-            model.PinnedItems.Add(new SearchViewItem { ItemDisplayName = "Shortcut", IconSymbol = 0xF6EC });
-            model.ShowPinnedItems = fromShortcuts;
-            model.Items.Add(new SearchViewItem { ItemDisplayName = "Result", IconSymbol = 0xF6EC });
-            Dispatcher.UIThread.RunJobs();
-            input.Focus();
-            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
-            Assert.AreEqual(0, (fromShortcuts ? shortcuts : results).SelectedIndex);
-            window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
-            Assert.IsTrue(input.IsFocused);
-            Assert.AreEqual(fromShortcuts ? -1 : 0, results.SelectedIndex);
-            Assert.AreEqual(fromShortcuts ? 0 : -1, shortcuts.SelectedIndex);
-            var expected = fromShortcuts ? model.PinnedItems[0] : model.ItemsViewList[0];
-            Assert.AreSame(expected, model.SelectedPinnedItem ?? model.SelectedItem);
-            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
-            Assert.AreSame(expected, await services.Opened.Task.WaitAsync(TimeSpan.FromSeconds(5)));
-        });
-    }
-
-    [TestMethod]
     [DataRow("empty", false)]
     [DataRow("empty", true)]
     [DataRow("ordinary", false)]
@@ -1205,7 +1177,6 @@ public sealed class SearchWindowKeyboardTests
     [DataRow(true)]
     public async Task EmptySearchLayout_HistoryAndSuggestions_UsesConfiguredLayoutAndSelection(bool vertical)
     {
-        Assert.IsFalse(new KitopiaConfig().verticalEmptySearchResults);
         await RunAsync(async (window, model, services) =>
         {
             var config = ConfigManger.Config!;

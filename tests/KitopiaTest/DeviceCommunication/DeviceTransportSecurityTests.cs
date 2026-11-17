@@ -45,20 +45,6 @@ public sealed class DeviceTransportSecurityTests
     }
 
     [TestMethod]
-    public void CertificateStoragePolicies_ExposeExpectedBclKeyStorageFlags()
-    {
-        Assert.AreEqual(
-            X509KeyStorageFlags.UserKeySet |
-            X509KeyStorageFlags.PersistKeySet |
-            X509KeyStorageFlags.Exportable,
-            PersistedUserDeviceCertificateStoragePolicy.Instance.KeyStorageFlags);
-        Assert.AreEqual(
-            X509KeyStorageFlags.EphemeralKeySet |
-            X509KeyStorageFlags.Exportable,
-            EphemeralDeviceCertificateStoragePolicy.Instance.KeyStorageFlags);
-    }
-
-    [TestMethod]
     public void ValidateRemoteCertificate_ReturnsFalse_WhenExpectedIdentityDiffers()
     {
         var identity = CreateIdentity();

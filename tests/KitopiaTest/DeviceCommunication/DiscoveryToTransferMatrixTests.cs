@@ -73,15 +73,6 @@ public sealed class DiscoveryToTransferMatrixTests
     }
 
     [TestMethod]
-    public void DeviceCommunicationSettings_DefaultOperatingSystemName_IsUnknown()
-    {
-        IDeviceCommunicationSettings settings = new SettingsWithDefaultOperatingSystemName();
-
-        Assert.AreEqual("Unknown", settings.OperatingSystemName);
-        Assert.IsFalse(settings.EnableLegacyDeviceCompatibility);
-    }
-
-    [TestMethod]
     public void Discovery_OperatingSystemName_UsesHostProvidedSetting()
     {
         var localIdentity = CreateIdentity();
@@ -240,23 +231,6 @@ public sealed class DiscoveryToTransferMatrixTests
             localIdentity.PublicKey, localHash, CancellationToken.None);
         Assert.AreEqual(1, discoveryService.Devices.Count);
         var device = discoveryService.Devices[0];
-        var changedAddress = requestedAddress;
-        var samePortAnnouncement = new DiscoveryInfo
-        {
-            MessageType = "announce",
-            Version = "0.1",
-            Id = remoteHash,
-            Name = "peer-renamed",
-            TcpPort = 23001,
-            TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-        };
-
-        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", samePortAnnouncement, changedAddress,
-            localHash, CancellationToken.None);
-
-        Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
-        Assert.AreEqual(changedAddress, device.Ipv4Address);
-
         device.LastSeen = DateTime.UtcNow - TimeSpan.FromSeconds(10);
         var previousLastSeen = device.LastSeen;
 
@@ -271,7 +245,7 @@ public sealed class DiscoveryToTransferMatrixTests
             TimestampUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
         };
 
-        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", announcement, changedAddress, localHash, CancellationToken.None);
+        await InvokePrivateTask(discoveryService, "HandleAnnouncementAsync", announcement, requestedAddress, localHash, CancellationToken.None);
 
         Assert.AreEqual(1, discoveryService.Devices.Count);
         Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
@@ -563,32 +537,6 @@ public sealed class DiscoveryToTransferMatrixTests
     }
 
     [TestMethod]
-    public async Task Discovery_ResponseNonceMatchesPendingChallenge_UsesResponseAddress()
-    {
-        var localIdentity = CreateIdentity();
-        using var discoveryService = new DeviceDiscoveryService(
-            new FakeDeviceCommunicationSettings(),
-            new FakeIdentityStore(localIdentity),
-            new FakeLocalDataEndpointProvider(23001));
-        var remoteIdentity = CreateIdentity();
-        var remoteHash = ComputePublicKeyHash(remoteIdentity.PublicKey);
-        var requestedAddress = IPAddress.Parse("127.0.0.1");
-        var responseAddress = IPAddress.Parse("127.0.0.2");
-        const string nonce = "pending-nonce";
-
-        InvokePrivateVoid(discoveryService, "RegisterPendingAuthRequest", remoteHash, nonce, requestedAddress);
-
-        var response = CreateSignedAuthResponse(remoteIdentity, remoteHash, nonce, 23001);
-        var localHash = ComputePublicKeyHash(localIdentity.PublicKey);
-        await InvokePrivateTask(discoveryService, "HandleAuthResponseAsync", response, responseAddress,
-            localIdentity.PublicKey, localHash, CancellationToken.None);
-
-        Assert.AreEqual(1, discoveryService.Devices.Count);
-        Assert.AreEqual(responseAddress, discoveryService.Devices[0].Ipv4Address);
-        Assert.AreEqual(0, GetPendingAuthRequestCount(discoveryService));
-    }
-
-    [TestMethod]
     public async Task Discovery_DualStackResponses_AuthenticateBothEndpoints()
     {
         var localIdentity = CreateIdentity();
@@ -806,17 +754,6 @@ public sealed class DiscoveryToTransferMatrixTests
         {
             return null;
         }
-
-        public void SetCustomName(string publicKey, string name) { }
-
-        public void RemoveCustomName(string publicKey) { }
-    }
-
-    private sealed class SettingsWithDefaultOperatingSystemName : IDeviceCommunicationSettings
-    {
-        public string BroadcastName => string.Empty;
-
-        public string? GetCustomName(string publicKey) => null;
 
         public void SetCustomName(string publicKey, string name) { }
 

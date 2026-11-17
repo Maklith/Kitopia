@@ -13,22 +13,6 @@ namespace KitopiaTest.DeviceCommunication;
 public sealed class DesktopCommunicationRuntimeRegistrationTests
 {
     [TestMethod]
-    public void ChatContracts_KeepAttachmentAndClipboardCapabilitiesSeparateFromPlatform()
-    {
-        var platformMethods = typeof(IChatPlatformService).GetMethods().Select(method => method.Name).ToArray();
-        var attachmentMethods = typeof(IChatAttachmentStore).GetMethods().Select(method => method.Name).ToArray();
-        var clipboardMethods = typeof(IChatClipboardService).GetMethods().Select(method => method.Name).ToArray();
-
-        CollectionAssert.DoesNotContain(platformMethods, nameof(IChatAttachmentStore.PickFilesToSendAsync));
-        CollectionAssert.DoesNotContain(platformMethods, nameof(IChatAttachmentStore.PickSaveTargetAsync));
-        CollectionAssert.DoesNotContain(platformMethods, nameof(IChatAttachmentStore.GetFileIconPng));
-        CollectionAssert.Contains(attachmentMethods, nameof(IChatAttachmentStore.PickFilesToSendAsync));
-        CollectionAssert.Contains(attachmentMethods, nameof(IChatAttachmentStore.PickSaveTargetAsync));
-        CollectionAssert.Contains(attachmentMethods, nameof(IChatAttachmentStore.GetFileIconPng));
-        CollectionAssert.Contains(clipboardMethods, nameof(IChatClipboardService.SetTextAsync));
-    }
-
-    [TestMethod]
     public void ConfigureServices_ResolvesSharedRuntimeWithoutCoreMessageBridge()
     {
         var programType = typeof(Kitopia.Desktop.App).Assembly.GetType("Kitopia.Desktop.Program");

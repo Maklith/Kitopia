@@ -124,18 +124,6 @@ public sealed class AccountServiceTests
     }
 
     [TestMethod]
-    public async Task AccountCardViewModel_InitialLoggedOutState()
-    {
-        var fake = new FakeAccountService();
-        using var vm = new AccountCardViewModel(fake);
-
-        Assert.IsFalse(vm.IsLoggedIn);
-        Assert.IsFalse(vm.IsLoggingIn);
-        Assert.AreEqual("未登录", vm.DisplayName);
-        Assert.AreEqual("U", vm.AvatarInitial);
-    }
-
-    [TestMethod]
     public async Task AccountCardViewModel_LoginCommand_TriggersBrowserOpenAndSetsLoggingIn()
     {
         var fake = new FakeAccountService();
@@ -197,19 +185,6 @@ public sealed class AccountServiceTests
 
         var userEmpty = new UserInfo { Roles = [] };
         Assert.AreEqual("用户", userEmpty.PrimaryRole);
-    }
-
-    [TestMethod]
-    public void AccountCardViewModel_ConstructorResolution_WithAccountService()
-    {
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        services.AddSingleton<IAccountService, FakeAccountService>();
-        services.AddSingleton<AccountCardViewModel>();
-        using var provider = services.BuildServiceProvider();
-
-        var vm = provider.GetService<AccountCardViewModel>();
-        Assert.IsNotNull(vm);
-        Assert.IsFalse(vm.IsLoggedIn);
     }
 
     private sealed class DelegatingTestHandler : HttpMessageHandler

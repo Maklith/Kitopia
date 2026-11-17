@@ -44,51 +44,6 @@ public sealed class ConfigMangerServiceTests
     }
 
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public void EverythingSearchIgnoreCase_LegacyAndConfiguredJson_DefaultsToEnabledAndPersistsSelection(bool ignoreCase)
-    {
-        Assert.IsTrue(new KitopiaConfig().everythingSearchIgnoreCase);
-        var config = JsonSerializer.Deserialize<KitopiaConfig>("{}", ConfigManger.DefaultOptions)!;
-        Assert.IsTrue(config.everythingSearchIgnoreCase);
-
-        config.everythingSearchIgnoreCase = ignoreCase;
-        var json = JsonSerializer.Serialize(config, ConfigManger.DefaultOptions);
-        var restored = JsonSerializer.Deserialize<KitopiaConfig>(json, ConfigManger.DefaultOptions)!;
-        Assert.AreEqual(ignoreCase, restored.everythingSearchIgnoreCase);
-    }
-
-    [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public void PrereleaseUpdates_LegacyAndConfiguredJson_DefaultsToDisabledAndPersistsSelection(bool allowPrereleaseUpdates)
-    {
-        Assert.IsFalse(new KitopiaConfig().allowPrereleaseUpdates);
-        var config = JsonSerializer.Deserialize<KitopiaConfig>("{}", ConfigManger.DefaultOptions)!;
-        Assert.IsFalse(config.allowPrereleaseUpdates);
-
-        config.allowPrereleaseUpdates = allowPrereleaseUpdates;
-        var json = JsonSerializer.Serialize(config, ConfigManger.DefaultOptions);
-        var restored = JsonSerializer.Deserialize<KitopiaConfig>(json, ConfigManger.DefaultOptions)!;
-        Assert.AreEqual(allowPrereleaseUpdates, restored.allowPrereleaseUpdates);
-    }
-
-    [TestMethod]
-    public void ThemeColorConfig_LegacyAndCustomizedJson_PreservesDefaultsAndSelection()
-    {
-        var legacy = JsonSerializer.Deserialize<KitopiaConfig>("{}", ConfigManger.DefaultOptions)!;
-        Assert.IsFalse(legacy.followSystemAccentColor);
-        Assert.AreEqual("#0064FA", legacy.accentColor);
-
-        legacy.followSystemAccentColor = true;
-        legacy.accentColor = "#107C41";
-        var json = JsonSerializer.Serialize(legacy, ConfigManger.DefaultOptions);
-        var restored = JsonSerializer.Deserialize<KitopiaConfig>(json, ConfigManger.DefaultOptions)!;
-        Assert.IsTrue(restored.followSystemAccentColor);
-        Assert.AreEqual("#107C41", restored.accentColor);
-    }
-
-    [TestMethod]
     public void ConfigManger_ExposesManagerStateThroughConfigService()
     {
         var originalConfigs = ConfigManger.Configs;

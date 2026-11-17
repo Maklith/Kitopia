@@ -240,28 +240,7 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
     }
 
     [TestMethod]
-    public void RefreshCurrentConversationView_NotifiesMessageBindings()
-    {
-        using var viewModel = new DeviceCommunicationPageViewModel(
-            new FakeDiscoveryService(),
-            new FakeMessageAppService(),
-            new FakeChatAttachmentStore(),
-            new FakeChatPlatformService(),
-            new FakeDeviceCommunicationSettings(),
-            new FakeToastService(),
-            postToUi: action => action());
-        viewModel.SelectedConversation = new DeviceConversationItem("peer-1");
-        var properties = new List<string?>();
-        viewModel.PropertyChanged += (_, args) => properties.Add(args.PropertyName);
-
-        viewModel.RefreshCurrentConversationView();
-
-        CollectionAssert.Contains(properties, nameof(DeviceCommunicationPageViewModel.CurrentMessages));
-        CollectionAssert.Contains(properties, nameof(DeviceCommunicationPageViewModel.MessageListVersion));
-    }
-
-    [TestMethod]
-    public void RefreshCurrentConversationView_RequestsMessageVisualRebuild()
+    public void RefreshCurrentConversationView_NotifiesMessageBindingsAndRequestsVisualRebuild()
     {
         using var viewModel = new DeviceCommunicationPageViewModel(
             new FakeDiscoveryService(),
@@ -279,6 +258,8 @@ public sealed class DeviceCommunicationPageViewModelResumeTests
         viewModel.RefreshCurrentConversationView();
 
         Assert.AreEqual(initialVersion + 1, viewModel.MessageViewRefreshVersion);
+        CollectionAssert.Contains(properties, nameof(DeviceCommunicationPageViewModel.CurrentMessages));
+        CollectionAssert.Contains(properties, nameof(DeviceCommunicationPageViewModel.MessageListVersion));
         CollectionAssert.Contains(properties, nameof(DeviceCommunicationPageViewModel.MessageViewRefreshVersion));
     }
 

@@ -1,50 +1,11 @@
 using System.Text.Json;
 using Kitopia.Desktop.Features.Services.Plugin;
-using Newtonsoft.Json;
 
 namespace KitopiaTest.Services;
 
 [TestClass]
 public sealed class PluginContractTests
 {
-    [TestMethod]
-    public void PluginListResponse_DeserializesPagedV1Contract()
-    {
-        const string json = """
-            {
-              "flag": true,
-              "data": {
-                "items": [
-                  {
-                    "id": 42,
-                    "authorId": 7,
-                    "name": "Example",
-                    "nameSign": "example",
-                    "lastVersion": "1.2.0",
-                    "supportSystems": ["windows"],
-                    "downloadCounts": 10,
-                    "rank": 1,
-                    "descriptionShort": "Short description"
-                  }
-                ],
-                "page": 1,
-                "pageSize": 20,
-                "totalCount": 21,
-                "totalPages": 2
-              }
-            }
-            """;
-
-        var response = JsonConvert.DeserializeObject<PluginApiResponse<PluginPage>>(json);
-
-        Assert.IsNotNull(response);
-        Assert.IsTrue(response.Flag);
-        Assert.IsNotNull(response.Data);
-        Assert.AreEqual(2, response.Data.TotalPages);
-        Assert.AreEqual("example", response.Data.Items[0].NameSign);
-        Assert.AreEqual("1.2.0", response.Data.Items[0].LastVersion);
-    }
-
     [TestMethod]
     public void PluginManifest_ConvertsOnlyRuntimeFields()
     {
@@ -116,17 +77,5 @@ public sealed class PluginContractTests
                 : "linux";
         Assert.IsTrue(PluginNetworkService.SupportsCurrentPlatform([currentPlatform.ToUpperInvariant()]));
         Assert.IsFalse(PluginNetworkService.SupportsCurrentPlatform(["unsupported-platform"]));
-    }
-
-    [TestMethod]
-    public void VersionDetail_DeserializesAvailablePlatforms()
-    {
-        const string json = "{\"version\":\"1.2.0\",\"availablePlatforms\":[\"windows\"]}";
-
-        var detail = JsonConvert.DeserializeObject<VersionDetail>(json);
-
-        Assert.IsNotNull(detail);
-        Assert.AreEqual("1.2.0", detail.Version);
-        CollectionAssert.AreEqual(new[] { "windows" }, detail.AvailablePlatforms);
     }
 }

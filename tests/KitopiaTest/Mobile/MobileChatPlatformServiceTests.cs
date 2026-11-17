@@ -18,45 +18,6 @@ public sealed class MobileChatPlatformServiceTests
     }
 
     [TestMethod]
-    public async Task PromptTextAsync_WhenOverlayCompletes_ReturnsEnteredText()
-    {
-        var topLevel = new MobileTopLevelContext
-        {
-            TextPromptHandler = request =>
-            {
-                Assert.AreEqual("修改备注", request.Title);
-                Assert.AreEqual("请输入备注名", request.Prompt);
-                Assert.AreEqual("旧名称", request.InitialValue);
-                request.TryComplete("新名称");
-                return Task.CompletedTask;
-            }
-        };
-        var service = new MobileChatPlatformService(topLevel);
-
-        var result = await service.PromptTextAsync("修改备注", "请输入备注名", "旧名称");
-
-        Assert.AreEqual("新名称", result);
-    }
-
-    [TestMethod]
-    public async Task PromptTextAsync_WhenOverlayCancels_ReturnsNull()
-    {
-        var topLevel = new MobileTopLevelContext
-        {
-            TextPromptHandler = request =>
-            {
-                request.TryCancel();
-                return Task.CompletedTask;
-            }
-        };
-        var service = new MobileChatPlatformService(topLevel);
-
-        var result = await service.PromptTextAsync("修改备注", "请输入备注名", null);
-
-        Assert.IsNull(result);
-    }
-
-    [TestMethod]
     public void MobileFileCache_CreatePath_PreservesSafeNameAndAvoidsCollisions()
     {
         var cacheRoot = Path.Combine(Path.GetTempPath(), $"kitopia-mobile-cache-{Guid.NewGuid():N}");

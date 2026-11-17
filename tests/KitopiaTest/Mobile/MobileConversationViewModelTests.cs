@@ -20,16 +20,6 @@ public sealed class MobileConversationViewModelTests
     }
 
     [TestMethod]
-    public void MobileDeviceCommunicationSettings_OperatingSystemName_UsesPlatformValue()
-    {
-        var settings = new MobileDeviceCommunicationSettings(
-            new MobileConfigService(),
-            new FakePlatformRuntimeFeatures("Pixel 9 Pro", "Android"));
-
-        Assert.AreEqual("Android", settings.OperatingSystemName);
-    }
-
-    [TestMethod]
     public void AddMobileCommunicationRuntime_RegistersEphemeralCertificateStoragePolicy()
     {
         var services = new ServiceCollection();

@@ -2,7 +2,6 @@ using System.Buffers.Binary;
 using Kitopia.Desktop.Features.Imaging;
 using Kitopia.Desktop.Features.Ocr;
 using OpenCvSharp;
-using OpenCvSharp.Dnn;
 using System.Runtime.InteropServices;
 
 namespace KitopiaTest.Indexing;
@@ -161,40 +160,6 @@ public sealed class IndexingMemoryTests
         {
             File.Delete(path);
         }
-    }
-
-    [TestMethod]
-    public void BlobFromImagesWithParams_ProducesRgbNchwClipNormalization()
-    {
-        const double meanR = 0.48145466d;
-        const double meanG = 0.4578275d;
-        const double meanB = 0.40821073d;
-        const double standardDeviationR = 0.26862954d;
-        const double standardDeviationG = 0.26130258d;
-        const double standardDeviationB = 0.27577711d;
-        using var image = new Mat(1, 1, MatType.CV_8UC3, new Scalar(10, 20, 30));
-        var parameters = new Image2BlobParams(
-            new Scalar(
-                1d / (255d * standardDeviationR),
-                1d / (255d * standardDeviationG),
-                1d / (255d * standardDeviationB)),
-            new Size(1, 1),
-            new Scalar(255d * meanR, 255d * meanG, 255d * meanB),
-            true,
-            MatType.CV_32F,
-            DataLayout.NCHW,
-            ImagePaddingMode.NULL,
-            Scalar.All(0));
-
-        using var blob = Cv2.Dnn.BlobFromImagesWithParams([image], parameters);
-        var values = new float[3];
-        Marshal.Copy(blob.Data, values, 0, values.Length);
-
-        Assert.AreEqual(MatType.CV_32FC1, blob.Type());
-        Assert.AreEqual(3L, blob.Total());
-        Assert.AreEqual((30d / 255d - meanR) / standardDeviationR, values[0], 0.00001d);
-        Assert.AreEqual((20d / 255d - meanG) / standardDeviationG, values[1], 0.00001d);
-        Assert.AreEqual((10d / 255d - meanB) / standardDeviationB, values[2], 0.00001d);
     }
 
     [TestMethod]

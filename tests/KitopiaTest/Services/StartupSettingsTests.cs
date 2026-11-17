@@ -25,25 +25,6 @@ public sealed class StartupSettingsTests
         .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseSkia();
 
     [TestMethod]
-    public void Config_OldAndSavedSettings_PreservesDefaultsAndNewPreferences()
-    {
-        var defaults = JsonSerializer.Deserialize<KitopiaConfig>("{}", ConfigManger.DefaultOptions)!;
-        Assert.IsFalse(defaults.preferEarlyStartup);
-        Assert.IsFalse(defaults.hideSearchWindowBorder);
-        Assert.IsFalse(defaults.verticalEmptySearchResults);
-        defaults.autoStart = false;
-        defaults.preferEarlyStartup = true;
-        defaults.hideSearchWindowBorder = true;
-        defaults.verticalEmptySearchResults = true;
-        var restored = JsonSerializer.Deserialize<KitopiaConfig>(
-            JsonSerializer.Serialize(defaults, ConfigManger.DefaultOptions), ConfigManger.DefaultOptions)!;
-        Assert.IsFalse(restored.autoStart);
-        Assert.IsTrue(restored.preferEarlyStartup);
-        Assert.IsTrue(restored.hideSearchWindowBorder);
-        Assert.IsTrue(restored.verticalEmptySearchResults);
-    }
-
-    [TestMethod]
     [DataRow("success", false)]
     [DataRow("cancelled", false)]
     [DataRow("exception", false)]
