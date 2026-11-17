@@ -29,6 +29,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
     private HotKeyType _type;
     private EKey? _selectedKey;
     private ushort? _selectedMouseButton;
+    private volatile bool _isClosed;
 
     public HotKeyEditorWindow(HotKeyModel hotKeyModel)
     {
@@ -83,12 +84,18 @@ public partial class HotKeyEditorWindow : UrsaWindow
 
         LoadRunningProcesses();
         IgnoreTextInput.IsChecked = hotKeyModel.IgnoreTextInput;
+        AllowInFullScreen.IsChecked = hotKeyModel.AllowInFullScreen;
+        UpdateCaptureHint();
         Opened += (_, _) =>
         {
             Lang.Current.PropertyChanged += OnLanguageChanged;
             MouseCaptureArea.Focus();
         };
-        Closed += (_, _) => Lang.Current.PropertyChanged -= OnLanguageChanged;
+        Closed += (_, _) =>
+        {
+            _isClosed = true;
+            Lang.Current.PropertyChanged -= OnLanguageChanged;
+        };
     }
 
     private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e)
@@ -98,6 +105,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
         {
             Name.Text = Converter.HotKeySignNameToStringCtr.FormatFriendlyName(_hotKeyModel.SignName);
             KeyName.Content = _type == HotKeyType.Keyboard ? Lang.Get(_selectedKey ?? EKey.未设置) : HotKeyDisplay.MouseButtonName(_selectedMouseButton);
+            UpdateCaptureHint();
             ValidationMessage.Text = string.Empty;
         });
     }
@@ -156,7 +164,8 @@ public partial class HotKeyEditorWindow : UrsaWindow
             DragDistancePixels = (ushort)(DragDistance.Value ?? 4),
             ProcessScope = scope,
             ProcessNames = processes,
-            IgnoreTextInput = IgnoreTextInput.IsChecked == true
+            IgnoreTextInput = IgnoreTextInput.IsChecked == true,
+            AllowInFullScreen = AllowInFullScreen.IsChecked == true
         };
         if (!ServiceManager.Services.GetRequiredService<IHotKetImpl>().Modify(candidate))
         {
@@ -177,11 +186,13 @@ public partial class HotKeyEditorWindow : UrsaWindow
                 _selectedKey = EKey.未设置;
                 KeyName.Content = Lang.Get(EKey.未设置);
             }
+            UpdateCaptureHint();
             return;
         }
         _selectedKey = EKey.任意键;
         Ctrl.IsVisible = Alt.IsVisible = Shift.IsVisible = Win.IsVisible = false;
         KeyName.Content = Lang.Get(EKey.任意键);
+        UpdateCaptureHint();
     }
 
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -208,6 +219,7 @@ public partial class HotKeyEditorWindow : UrsaWindow
         _type = HotKeyType.Keyboard;
         HoldSettings.IsVisible = DragSettings.IsVisible = false;
         KeyName.Content = Lang.Get(_selectedKey ?? EKey.未设置);
+        UpdateCaptureHint();
         MouseCaptureArea.Focus();
     }
 
@@ -218,7 +230,19 @@ public partial class HotKeyEditorWindow : UrsaWindow
         DragSettings.IsVisible = MouseTrigger.SelectedIndex == 1;
         Ctrl.IsVisible = Alt.IsVisible = Shift.IsVisible = Win.IsVisible = false;
         KeyName.Content = HotKeyDisplay.MouseButtonName(_selectedMouseButton);
+        UpdateCaptureHint();
         MouseCaptureArea.Focus();
+    }
+
+    private void UpdateCaptureHint()
+    {
+        if (CaptureHint is null) return;
+        var key = _type == HotKeyType.Mouse
+            ? "lang.kitopia.hotkeys.capture_mouse_hint"
+            : AnyKey?.IsChecked == true
+                ? "lang.kitopia.hotkeys.capture_any_key_hint"
+                : "lang.kitopia.hotkeys.capture_keyboard_hint";
+        CaptureHint.Text = Lang.Get(key);
     }
 
     private void ProcessScope_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -267,8 +291,10 @@ public partial class HotKeyEditorWindow : UrsaWindow
                     }
                 }
                 var result = names.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+                if (_isClosed) return;
                 Dispatcher.UIThread.Post(() =>
                 {
+                    if (_isClosed) return;
                     _runningProcesses = result;
                     if (!string.IsNullOrWhiteSpace(ProcessNames.Text))
                     {
@@ -278,7 +304,12 @@ public partial class HotKeyEditorWindow : UrsaWindow
             }
             catch
             {
-                Dispatcher.UIThread.Post(() => _runningProcesses = []);
+                if (_isClosed) return;
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (_isClosed) return;
+                    _runningProcesses = [];
+                });
             }
         });
     }

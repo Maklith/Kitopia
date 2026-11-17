@@ -4,7 +4,7 @@
               xmlns:u="https://irihi.tech/ursa"
               x:Class="Kitopia.Desktop.Windows.HotKeyEditorWindow"
               KeyDown="HotKeyEditorWindow_OnKeyDown"
-              Width="720" Height="550" MinWidth="560" MinHeight="500"
+              Width="720" Height="580" MinWidth="560" MinHeight="520"
               Title="{DynamicResource 'lang.kitopia.edit_hotkey'}" WindowStartupLocation="CenterOwner"
               Background="{DynamicResource HotKeyCanvasBrush}">
     <u:UrsaWindow.Resources>
@@ -57,13 +57,21 @@
                                     <controls:HotKeyShowItme Name="Alt" IsVisible="False" Content="Alt" Height="38" FontSize="15" />
                                     <controls:HotKeyShowItme Name="KeyName" Height="38" FontSize="15" />
                                 </StackPanel>
-                                <TextBlock Text="{DynamicResource 'lang.kitopia.click_here_and_press_a_key_or_mouse_button'}" FontSize="12" TextAlignment="Center"
+                                <TextBlock Name="CaptureHint" Text="{DynamicResource 'lang.kitopia.hotkeys.capture_keyboard_hint'}" FontSize="12" TextAlignment="Center"
                                            Foreground="{DynamicResource SemiColorText2}" />
                             </StackPanel>
                         </Border>
-                        <CheckBox Name="AnyKey" IsVisible="{Binding #KeyBoard.IsChecked}"
-                                  Content="{DynamicResource 'lang.kitopia.keys.any_character'}"
-                                  IsCheckedChanged="AnyKey_OnIsCheckedChanged" />
+                        <Grid IsVisible="{Binding #KeyBoard.IsChecked}" ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.keys.any_character'}" FontSize="12.5" FontWeight="Medium" />
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.hotkeys.any_character_description'}" FontSize="11"
+                                           Foreground="{DynamicResource SemiColorText2}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" Name="AnyKey"
+                                          IsCheckedChanged="AnyKey_OnIsCheckedChanged"
+                                          OnContent="{x:Null}" OffContent="{x:Null}"
+                                          VerticalAlignment="Center" />
+                        </Grid>
                         <Grid IsVisible="{Binding #Mouse.IsChecked}" ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <TextBlock Text="{DynamicResource 'lang.kitopia.hotkeys.mouse_trigger'}" VerticalAlignment="Center" FontSize="12" />
                             <ComboBox Grid.Column="1" Name="MouseTrigger" Width="180" SelectionChanged="MouseTrigger_OnSelectionChanged">
@@ -181,7 +189,28 @@
                             <TextBlock Text="{DynamicResource 'lang.kitopia.case_insensitive_exe_is_optional_keys_retain_their_usual_behavior_outside_this_scope'}" FontSize="11"
                                        Foreground="{DynamicResource SemiColorText2}" TextWrapping="Wrap" />
                         </StackPanel>
-                        <CheckBox Name="IgnoreTextInput" Content="{DynamicResource 'lang.kitopia.pause_this_hotkey_in_text_inputs'}" FontSize="12" />
+                        <Border Height="1" Background="{DynamicResource KitopiaCardBorderBrush}" Margin="0,2" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.pause_this_hotkey_in_text_inputs'}" FontSize="12.5" FontWeight="Medium" />
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.hotkeys.pause_in_text_inputs_description'}" FontSize="11"
+                                           Foreground="{DynamicResource SemiColorText2}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" Name="IgnoreTextInput"
+                                          OnContent="{x:Null}" OffContent="{x:Null}"
+                                          VerticalAlignment="Center" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource KitopiaCardBorderBrush}" Margin="0,2" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.hotkeys.allow_in_fullscreen'}" FontSize="12.5" FontWeight="Medium" />
+                                <TextBlock Text="{DynamicResource 'lang.kitopia.hotkeys.allow_in_fullscreen_description'}" FontSize="11"
+                                           Foreground="{DynamicResource SemiColorText2}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" Name="AllowInFullScreen"
+                                          OnContent="{x:Null}" OffContent="{x:Null}"
+                                          VerticalAlignment="Center" />
+                        </Grid>
                     </StackPanel>
                 </Border>
             </StackPanel>

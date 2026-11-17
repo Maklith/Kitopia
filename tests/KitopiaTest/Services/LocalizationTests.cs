@@ -371,7 +371,8 @@ public sealed class LocalizationTests
                 Dispatcher.UIThread.RunJobs();
                 Assert.AreEqual("Space", preview.KeyName);
                 Assert.AreEqual("Only in explorer.exe", preview.ScopeDescription);
-                Assert.AreEqual("All processes", displays.Single(display => ReferenceEquals(display.HotKeyModel, config.searchHotKey)).ScopeDescription);
+                Assert.AreEqual("All processes · Paused in fullscreen", displays.Single(display => ReferenceEquals(display.HotKeyModel, config.searchHotKey)).ScopeDescription);
+                Assert.AreEqual("All processes", displays.Single(display => ReferenceEquals(display.HotKeyModel, config.topMostWindowHotKey)).ScopeDescription);
                 Assert.IsTrue(window.GetLogicalDescendants().OfType<TextBlock>().Any(label => label.Text == "File preview"));
                 Assert.IsTrue(window.GetLogicalDescendants().OfType<TextBlock>().Any(label => label.Text == "Press Space to preview selected files"));
                 Assert.AreEqual("Space", Lang.Get(EKey.空格));
@@ -394,6 +395,14 @@ public sealed class LocalizationTests
                 Dispatcher.UIThread.RunJobs();
                 Assert.AreEqual("空格", preview.KeyName);
                 Assert.AreEqual("仅在 explorer.exe 生效", preview.ScopeDescription);
+
+                Assert.AreEqual("所有进程 · 全屏暂停", displays.Single(display => ReferenceEquals(display.HotKeyModel, config.searchHotKey)).ScopeDescription);
+                Lang.Current.UseLanguage("en-US");
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual("All processes · Paused in fullscreen", displays.Single(display => ReferenceEquals(display.HotKeyModel, config.searchHotKey)).ScopeDescription);
+                config.searchHotKey.AllowInFullScreen = true;
+                Dispatcher.UIThread.RunJobs();
+                Assert.AreEqual("All processes", displays.Single(display => ReferenceEquals(display.HotKeyModel, config.searchHotKey)).ScopeDescription);
             }
             finally
             {

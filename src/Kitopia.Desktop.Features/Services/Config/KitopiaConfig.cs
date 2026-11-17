@@ -35,7 +35,7 @@ public enum ThemeEnum
 [ConfigName("lang.kitopia.kitopia_settings")]
 public class KitopiaConfig : ConfigBase
 {
-    internal const int CurrentSchemaVersion = 4;
+    internal const int CurrentSchemaVersion = 5;
 
     [JsonIgnore]
     public override int CurrentConfigVersion => CurrentSchemaVersion;
@@ -54,6 +54,7 @@ public class KitopiaConfig : ConfigBase
         const int previewScopeVersion = 2;
         const int selectionTranslationHotkeyVersion = 3;
         const int smallOcrVersion = 4;
+        const int fullScreenDefaultVersion = 5;
 
         if (ConfigVersion < smallOcrVersion)
         {
@@ -95,7 +96,20 @@ public class KitopiaConfig : ConfigBase
                     selectionTranslationAutoHotKey.ProcessScope = HotKeyProcessScope.Exclude;
             }
         }
+
+        if (ConfigVersion < fullScreenDefaultVersion)
+        {
+            if (!HasExplicitHotKeyProperty(root, nameof(searchHotKey), nameof(HotKeyModel.AllowInFullScreen)))
+                searchHotKey.AllowInFullScreen = false;
+            if (!HasExplicitHotKeyProperty(root, nameof(selectionTranslationAutoHotKey), nameof(HotKeyModel.AllowInFullScreen)))
+                selectionTranslationAutoHotKey.AllowInFullScreen = false;
+        }
     }
+
+    private static bool HasExplicitHotKeyProperty(JsonElement root, string hotKeyField, string propertyName) =>
+        root.TryGetProperty(hotKeyField, out var hotKeyElement)
+        && hotKeyElement.ValueKind == JsonValueKind.Object
+        && hotKeyElement.TryGetProperty(propertyName, out _);
 
     private void MigrateLegacyCollections(JsonElement root)
     {
@@ -202,7 +216,8 @@ public class KitopiaConfig : ConfigBase
         IsSelectAlt = true,
         IsSelectWin = false,
         IsSelectShift = false,
-        SelectKey = EKey.空格
+        SelectKey = EKey.空格,
+        AllowInFullScreen = false
     };
 
     [ConfigField("lang.kitopia.explorer_search", "lang.kitopia.explorer_search_description", 0xF691,
@@ -337,7 +352,8 @@ public class KitopiaConfig : ConfigBase
         Type = HotKeyType.Mouse,
         MouseButton = 1,
         MouseTrigger = MouseHotKeyTrigger.DragRelease,
-        DragDistancePixels = 4
+        DragDistancePixels = 4,
+        AllowInFullScreen = false
     };
 
     [ConfigField("lang.kitopia.selection_translation_hotkey", "lang.kitopia.selection_translation_hotkey_description", 0xF4B9,

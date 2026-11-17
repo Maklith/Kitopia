@@ -809,8 +809,11 @@ public sealed class MouseHotKeyTests
         {
             ServiceManager.Services = services;
             window.Show();
-            var anyKey = window.FindControl<CheckBox>("AnyKey")!;
+            var anyKey = window.FindControl<ToggleSwitch>("AnyKey")!;
+            var captureHint = window.FindControl<TextBlock>("CaptureHint")!;
+            Assert.AreEqual(Kitopia.Feature.Localization.Lang.Get("lang.kitopia.hotkeys.capture_keyboard_hint"), captureHint.Text);
             anyKey.IsChecked = true;
+            Assert.AreEqual(Kitopia.Feature.Localization.Lang.Get("lang.kitopia.hotkeys.capture_any_key_hint"), captureHint.Text);
             window.FindControl<Button>("SaveButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.IsNotNull(recorder.Modified);
             Assert.AreEqual(EKey.任意键, recorder.Modified.SelectKey);
@@ -826,14 +829,22 @@ public sealed class MouseHotKeyTests
         try
         {
             window.Show();
-            window.FindControl<CheckBox>("AnyKey")!.IsChecked = false;
+            var anyKey = window.FindControl<ToggleSwitch>("AnyKey")!;
+            var captureHint = window.FindControl<TextBlock>("CaptureHint")!;
+            Assert.AreEqual(Kitopia.Feature.Localization.Lang.Get("lang.kitopia.hotkeys.capture_any_key_hint"), captureHint.Text);
+            anyKey.IsChecked = false;
+            Assert.AreEqual(Kitopia.Feature.Localization.Lang.Get("lang.kitopia.hotkeys.capture_keyboard_hint"), captureHint.Text);
             Assert.AreEqual(Kitopia.Feature.Localization.Lang.Get(EKey.未设置),
                 window.FindControl<HotKeyShowItme>("KeyName")!.Content);
             window.FindControl<Border>("MouseCaptureArea")!.Focus();
             window.KeyPress(Key.K, RawInputModifiers.None, PhysicalKey.K, "k");
-            Assert.IsFalse(window.FindControl<CheckBox>("AnyKey")!.IsChecked);
+            Assert.IsFalse(anyKey.IsChecked == true);
             Assert.AreEqual(Kitopia.Feature.Localization.Lang.Get(EKey.K),
                 window.FindControl<HotKeyShowItme>("KeyName")!.Content);
+            var mouseOption = window.FindControl<RadioButton>("Mouse")!;
+            mouseOption.IsChecked = true;
+            mouseOption.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.AreEqual(Kitopia.Feature.Localization.Lang.Get("lang.kitopia.hotkeys.capture_mouse_hint"), captureHint.Text);
         }
         finally { window.Close(); }
         return Task.CompletedTask;
@@ -1092,6 +1103,111 @@ public sealed class MouseHotKeyTests
             WeakReferenceMessenger.Default.UnregisterAll(viewModel);
             ServiceManager.Services = previousServices;
         }
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    public Task Register_DisallowedInFullScreen_UsesSharedHookAndPreservesSetting() => RunAsync(service =>
+    {
+        var model = new HotKeyModel
+        {
+            Type = HotKeyType.Keyboard,
+            IsEnabled = true,
+            SelectKey = EKey.K,
+            ProcessScope = HotKeyProcessScope.All,
+            IgnoreTextInput = false,
+            AllowInFullScreen = false
+        };
+        Assert.IsTrue(service.Register(model, _ => { }));
+        Assert.AreEqual(0, GetHotkey(model.UUID).Id);
+        Assert.IsFalse(service.GetByUuid(model.UUID)!.AllowInFullScreen);
+
+        var disabledCandidate = new HotKeyModel(model) { IsEnabled = false, AllowInFullScreen = true };
+        Assert.IsTrue(service.Modify(disabledCandidate));
+        Assert.IsTrue(service.GetByUuid(model.UUID)!.AllowInFullScreen);
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    [DataRow(0, 0, 1920, 1080, 0, 0, 1920, 1080, true)]
+    [DataRow(1920, 0, 3840, 1080, 1922, 1, 3839, 1079, true)]
+    [DataRow(-8, -8, 1928, 1048, 0, 0, 1920, 1080, false)]
+    [DataRow(-8, -8, 1928, 1088, 0, 0, 1920, 1080, false)]
+    [DataRow(0, 0, 0, 0, 0, 0, 1920, 1080, false)]
+    public void FullScreenDetector_EvaluatesMonitorBoundsAndShellWindows(
+        int winLeft, int winTop, int winRight, int winBottom,
+        int monLeft, int monTop, int monRight, int monBottom,
+        bool expected)
+    {
+        var windowRect = new RECT(winLeft, winTop, winRight, winBottom);
+        var monitorRect = new RECT(monLeft, monTop, monRight, monBottom);
+        Assert.AreEqual(expected, WindowFullScreenDetector.IsWindowRectFullScreen(windowRect, monitorRect));
+        Assert.IsTrue(WindowFullScreenDetector.IsDesktopShellClassName("Progman"));
+        Assert.IsTrue(WindowFullScreenDetector.IsDesktopShellClassName("WorkerW"));
+        Assert.IsFalse(WindowFullScreenDetector.IsDesktopShellClassName("CabinetWClass"));
+        Assert.IsFalse(WindowFullScreenDetector.IsFullScreenWindow(HWND.NULL));
+        Assert.IsFalse(WindowFullScreenDetector.IsFullScreenWindow(User32.GetShellWindow()));
+        Assert.IsFalse(WindowFullScreenDetector.IsFullScreenWindow(User32.GetDesktopWindow()));
+    }
+
+    [TestMethod]
+    public Task Editor_AllowInFullScreen_TogglesAndSavesPerHotkeyWithoutMutatingOtherHotkeys() => RunAsync(_ =>
+    {
+        var recorder = new RecordingHotkeys();
+        var originalServices = ServiceManager.Services;
+        using var services = new ServiceCollection().AddSingleton<IHotKetImpl>(recorder).BuildServiceProvider();
+        var model = new HotKeyModel { IsEnabled = false, SelectKey = EKey.K, AllowInFullScreen = true };
+        var siblingModel = new HotKeyModel { IsEnabled = true, SelectKey = EKey.Q, AllowInFullScreen = true };
+        var window = new HotKeyEditorWindow(model);
+        try
+        {
+            ServiceManager.Services = services;
+            window.Show();
+            var toggle = window.FindControl<ToggleSwitch>("AllowInFullScreen")!;
+            var ignoreTextToggle = window.FindControl<ToggleSwitch>("IgnoreTextInput")!;
+            Assert.IsTrue(toggle.IsChecked == true);
+            Assert.IsFalse(ignoreTextToggle.IsChecked == true);
+            toggle.IsChecked = false;
+            ignoreTextToggle.IsChecked = true;
+            window.FindControl<Button>("SaveButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.IsNotNull(recorder.Modified);
+            Assert.IsFalse(recorder.Modified.AllowInFullScreen);
+            Assert.IsTrue(recorder.Modified.IgnoreTextInput);
+            Assert.IsTrue(model.AllowInFullScreen, "Original model must remain unchanged when Modify does not commit it.");
+            Assert.IsTrue(siblingModel.AllowInFullScreen);
+        }
+        finally
+        {
+            window.Close();
+            ServiceManager.Services = originalServices;
+        }
+
+        var pausedWindow = new HotKeyEditorWindow(new HotKeyModel { SelectKey = EKey.K, AllowInFullScreen = false });
+        try
+        {
+            pausedWindow.Show();
+            Assert.IsFalse(pausedWindow.FindControl<ToggleSwitch>("AllowInFullScreen")!.IsChecked == true);
+        }
+        finally
+        {
+            pausedWindow.Close();
+        }
+        return Task.CompletedTask;
+    });
+
+    [TestMethod]
+    public Task CompactControl_PausedInFullScreen_DisplaysSuffixInScopeDescription() => RunAsync(_ =>
+    {
+        var model = new HotKeyModel
+        {
+            IsEnabled = true,
+            SelectKey = EKey.K,
+            AllowInFullScreen = false
+        };
+        var control = new HotKeyShow { HotKeyModel = model };
+        StringAssert.Contains(control.ScopeDescription, Kitopia.Feature.Localization.Lang.Get("lang.kitopia.hotkeys.fullscreen_paused_suffix").TrimStart(' ', '·'));
+        model.AllowInFullScreen = true;
+        Assert.AreEqual(Kitopia.Feature.Localization.Lang.Get("lang.kitopia.all_processes"), control.ScopeDescription);
         return Task.CompletedTask;
     });
 

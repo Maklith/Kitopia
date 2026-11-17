@@ -154,6 +154,7 @@ public class HotKeyImpl : IHotKetImpl
     {
         if (model.UUID == ConfigManger.Config?.explorerSearchHotKey.UUID &&
             !ExplorerFileSelection.IsFileListFocused(window)) return false;
+        if (!model.AllowInFullScreen && WindowFullScreenDetector.IsFullScreenWindow(window)) return false;
         if (model.ProcessScope != HotKeyProcessScope.All)
         {
             User32.GetWindowThreadProcessId(window, out var processId);
@@ -329,7 +330,7 @@ public class HotKeyImpl : IHotKetImpl
         }
         if (model.SelectKey is EKey.未设置 or 0) return false;
         if (model.SelectKey == EKey.任意键 || model.ProcessScope != HotKeyProcessScope.All || model.IgnoreTextInput ||
-            model.UUID == ConfigManger.Config?.explorerSearchHotKey.UUID)
+            !model.AllowInFullScreen || model.UUID == ConfigManger.Config?.explorerSearchHotKey.UUID)
         {
             id = 0;
             return true;

@@ -280,6 +280,42 @@ public sealed class ConfigMangerServiceTests
         Assert.AreEqual(HotKeyProcessScope.Exclude, config.mouseHotkey.ProcessScope);
         CollectionAssert.AreEqual(new[] { "notepad.exe" }, config.mouseHotkey.ProcessNames);
     }
+
+    [TestMethod]
+    public void MigrateConfig_FullScreenDefaults_DisablesSearchAndAutoTranslationUnlessExplicit()
+    {
+        var defaults = new KitopiaConfig();
+        Assert.IsFalse(defaults.searchHotKey.AllowInFullScreen);
+        Assert.IsFalse(defaults.selectionTranslationAutoHotKey.AllowInFullScreen);
+        Assert.IsTrue(defaults.screenShotHotKey.AllowInFullScreen);
+        Assert.IsTrue(defaults.topMostWindowHotKey.AllowInFullScreen);
+
+        const string legacyJson = """
+            {"ConfigVersion":4,
+             "searchHotKey":{"IsEnabled":true,"IsSelectAlt":true,"SelectKey":32},
+             "selectionTranslationAutoHotKey":{"IsEnabled":true,"Type":1,"MouseButton":1,"MouseTrigger":1},
+             "screenShotHotKey":{"IsEnabled":true,"IsSelectCtrl":true,"IsSelectAlt":true,"SelectKey":81}}
+            """;
+        using var legacyDoc = JsonDocument.Parse(legacyJson);
+        var migrated = legacyDoc.RootElement.Deserialize<KitopiaConfig>(ConfigManger.DefaultOptions)!;
+        ConfigManger.MigrateConfig(legacyDoc.RootElement, migrated);
+        Assert.IsFalse(migrated.searchHotKey.AllowInFullScreen);
+        Assert.IsFalse(migrated.selectionTranslationAutoHotKey.AllowInFullScreen);
+        Assert.IsTrue(migrated.screenShotHotKey.AllowInFullScreen);
+        Assert.AreEqual(defaults.CurrentConfigVersion, migrated.ConfigVersion);
+
+        const string explicitJson = """
+            {"ConfigVersion":4,
+             "searchHotKey":{"IsEnabled":true,"IsSelectAlt":true,"SelectKey":32,"AllowInFullScreen":true},
+             "selectionTranslationAutoHotKey":{"IsEnabled":true,"Type":1,"MouseButton":1,"MouseTrigger":1,"AllowInFullScreen":true}}
+            """;
+        using var explicitDoc = JsonDocument.Parse(explicitJson);
+        var preserved = explicitDoc.RootElement.Deserialize<KitopiaConfig>(ConfigManger.DefaultOptions)!;
+        ConfigManger.MigrateConfig(explicitDoc.RootElement, preserved);
+        Assert.IsTrue(preserved.searchHotKey.AllowInFullScreen);
+        Assert.IsTrue(preserved.selectionTranslationAutoHotKey.AllowInFullScreen);
+        Assert.AreEqual(defaults.CurrentConfigVersion, preserved.ConfigVersion);
+    }
     [TestMethod]
     public void LoadConfig_CallbackThrows_PreservesFileAndRemovesRegistration()
     {

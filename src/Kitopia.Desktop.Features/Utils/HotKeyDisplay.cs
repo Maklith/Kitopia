@@ -30,6 +30,7 @@ public static class HotKeyDisplay
             scope += model.MouseTrigger == MouseHotKeyTrigger.DragRelease
                 ? Lang.Format("lang.kitopia.hotkeys.drag_distance", model.DragDistancePixels)
                 : Lang.Format("lang.kitopia.hotkeys.hold_duration", model.PressTimeMillis);
+        if (!model.AllowInFullScreen) scope += Lang.Get("lang.kitopia.hotkeys.fullscreen_paused_suffix");
         if (!model.IsEnabled) scope += Lang.Get("lang.kitopia.disabled_suffix");
         return scope;
     }

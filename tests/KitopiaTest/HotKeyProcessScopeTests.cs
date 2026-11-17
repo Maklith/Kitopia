@@ -30,7 +30,7 @@ public sealed class HotKeyProcessScopeTests
         var model = new HotKeyModel
         {
             IsEnabled = false, SelectKey = EKey.空格, ProcessScope = HotKeyProcessScope.Exclude,
-            ProcessNames = ["explorer.exe", "code"], IgnoreTextInput = true
+            ProcessNames = ["explorer.exe", "code"], IgnoreTextInput = true, AllowInFullScreen = false
         };
         var json = JsonSerializer.Serialize(model, ConfigManger.DefaultOptions);
         var restored = JsonSerializer.Deserialize<HotKeyModel>(json, ConfigManger.DefaultOptions)!;
@@ -39,7 +39,11 @@ public sealed class HotKeyProcessScopeTests
         Assert.AreEqual(model.ProcessScope, restored.ProcessScope);
         CollectionAssert.AreEqual(model.ProcessNames, restored.ProcessNames);
         Assert.IsTrue(restored.IgnoreTextInput);
+        Assert.IsFalse(restored.AllowInFullScreen);
         Assert.IsFalse(json.Contains("ProcessScopeDescription"));
+        Assert.IsFalse(json.Contains(nameof(HotKeyModel.ScopeSummary)));
+        var copied = new HotKeyModel(model);
+        Assert.IsFalse(copied.AllowInFullScreen);
     }
 
     [TestMethod]
@@ -48,6 +52,7 @@ public sealed class HotKeyProcessScopeTests
         var restored = JsonSerializer.Deserialize<HotKeyModel>("{\"SelectKey\":65,\"IsEnabled\":true}")!;
         Assert.AreEqual(HotKeyProcessScope.All, restored.ProcessScope);
         Assert.AreEqual(MouseHotKeyTrigger.Hold, restored.MouseTrigger);
+        Assert.IsTrue(restored.AllowInFullScreen);
         Assert.IsTrue(restored.CanExecuteInProcess("any-process"));
     }
 

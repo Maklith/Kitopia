@@ -20,7 +20,7 @@ The desktop feature catalog is in `src/Kitopia.Desktop.Features/Services/Plugin/
 ### Defaults and Support Scope
 
 - Default hotkeys are defined in `src/Kitopia.Desktop.Features/Services/Config/KitopiaConfig.cs`: search `Alt + Space`, screenshot `Ctrl + Alt + Q`, selected file preview `Space` in `explorer.exe`, selection translation `Ctrl + Alt + Y`, and window topmost `Ctrl + Alt + T`.
-- Automatic selection translation uses a mouse drag-release trigger. Hotkey models support keyboard/mouse triggers and process scopes.
+- Automatic selection translation uses a mouse drag-release trigger. Hotkey models support keyboard/mouse triggers, process scopes, and per-hotkey fullscreen triggering (`HotKeyModel.AllowInFullScreen`, default `true` for generic models; `searchHotKey` and `selectionTranslationAutoHotKey` default to `false` starting in `KitopiaConfig` schema v5). When disabled for a hotkey, `HotKeyImpl` routes keyboard shortcuts through the shared hook (`id == 0`) so keys pass through unchanged while another fullscreen application is in the foreground, reusing `WindowFullScreenDetector` (shared with `ToastService` fullscreen suppression).
 - The former mouse quick entry now presents file previews; do not describe it as a general mouse gesture system without checking the implementation.
 - Windows is the primary desktop target. Linux has platform adapters but does not have every Windows feature.
 - Desktop settings provide `hideSearchWindowBorder` (default off): `SearchWindow` applies `WindowDecorations.None` immediately and on creation, leaving internal controls and styles unchanged.

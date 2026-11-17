@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,12 +10,14 @@ using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using Kitopia.Feature.Localization;
 using Kitopia.Desktop.Features.Services;
+#if WINDOWS
+using Kitopia.Desktop.Platform.Windows;
+#endif
+using Kitopia.Feature.Localization;
 using PluginCore;
 using Serilog;
 using Ursa.Controls;
-using Vanara.PInvoke;
 
 #endregion
 
@@ -459,46 +460,11 @@ public class ToastService : IToastService
 
     private static bool ShouldSuppressToastForFullScreenOnUiThread()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return false;
-        }
-
-        var foregroundHwnd = User32.GetForegroundWindow();
-        if (foregroundHwnd.IsNull)
-        {
-            return false;
-        }
-
-        User32.GetWindowThreadProcessId(foregroundHwnd, out var foregroundProcessId);
-        if (foregroundProcessId == Process.GetCurrentProcess().Id)
-        {
-            return false;
-        }
-
-        if (!User32.GetWindowRect(foregroundHwnd, out var windowRect))
-        {
-            return false;
-        }
-
-        if (windowRect.Width <= 0 || windowRect.Height <= 0)
-        {
-            return false;
-        }
-
-        var monitor = User32.MonitorFromWindow(foregroundHwnd, User32.MonitorFlags.MONITOR_DEFAULTTONULL);
-        var monitorInfo = new User32.MONITORINFO();
-        if (monitor.IsNull || !User32.GetMonitorInfo(monitor, ref monitorInfo))
-        {
-            return false;
-        }
-
-        var monitorRect = monitorInfo.rcMonitor;
-        const int tolerance = 2;
-        return Math.Abs(windowRect.left - monitorRect.left) <= tolerance
-               && Math.Abs(windowRect.top - monitorRect.top) <= tolerance
-               && Math.Abs(windowRect.right - monitorRect.right) <= tolerance
-               && Math.Abs(windowRect.bottom - monitorRect.bottom) <= tolerance;
+#if WINDOWS
+        return OperatingSystem.IsWindows() && WindowFullScreenDetector.IsForegroundFullScreen();
+#else
+        return false;
+#endif
     }
 
     private Task GetOrCreateDismissedTaskOnUiThread(Guid toastId)
