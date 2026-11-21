@@ -4,6 +4,7 @@ using Avalonia.Controls.Notifications;
 using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
+using Kitopia.Desktop.Features.Translation;
 using Kitopia.Desktop.Features.Utils;
 using Kitopia.Desktop.Abstractions.Shell;
 using Kitopia.Feature.DeviceCommunication;
@@ -210,64 +211,12 @@ public partial class ApplicationService : IApplicationService {
     internal static TranslationTargetLanguage GetTranslationTargetLanguage(
         string? configuredLanguage = null,
         CultureInfo? fallbackCulture = null)
-    {
-        var lang = configuredLanguage;
-        if (string.IsNullOrWhiteSpace(lang))
-        {
-            lang = ConfigManger.Config?.language;
-        }
-
-        CultureInfo culture;
-        if (!string.IsNullOrWhiteSpace(lang))
-        {
-            try
-            {
-                culture = CultureInfo.GetCultureInfo(lang);
-            }
-            catch (CultureNotFoundException)
-            {
-                culture = fallbackCulture ?? Lang.Current.Culture;
-            }
-        }
-        else
-        {
-            culture = fallbackCulture ?? Lang.Current.Culture;
-        }
-
-        return MapCultureToTargetLanguage(culture);
-    }
+        => TranslationLanguageResolver.ResolveTargetLanguageOrDefault(configuredLanguage, fallbackCulture);
 
     internal static TranslationTargetLanguage GetTranslationTargetLanguage(CultureInfo culture)
-        => MapCultureToTargetLanguage(culture);
-
-    private static TranslationTargetLanguage MapCultureToTargetLanguage(CultureInfo culture)
-    {
-        var name = culture.Name;
-        if (name.StartsWith("zh", StringComparison.OrdinalIgnoreCase))
-        {
-            if (name.Contains("TW", StringComparison.OrdinalIgnoreCase) ||
-                name.Contains("HK", StringComparison.OrdinalIgnoreCase) ||
-                name.Contains("MO", StringComparison.OrdinalIgnoreCase) ||
-                name.Contains("Hant", StringComparison.OrdinalIgnoreCase) ||
-                name.Contains("CHT", StringComparison.OrdinalIgnoreCase))
-            {
-                return TranslationTargetLanguage.TraditionalChinese;
-            }
-            return TranslationTargetLanguage.SimplifiedChinese;
-        }
-
-        if (culture.TwoLetterISOLanguageName.Equals("ja", StringComparison.OrdinalIgnoreCase))
-        {
-            return TranslationTargetLanguage.Japanese;
-        }
-
-        if (culture.TwoLetterISOLanguageName.Equals("en", StringComparison.OrdinalIgnoreCase))
-        {
-            return TranslationTargetLanguage.English;
-        }
-
-        return TranslationTargetLanguage.SimplifiedChinese;
-    }
+        => TranslationLanguageResolver.TryMapCulture(culture, out var language)
+            ? language
+            : TranslationTargetLanguage.SimplifiedChinese;
 
     private static string ResolveExecutablePath() {
         return string.IsNullOrWhiteSpace(Environment.ProcessPath)

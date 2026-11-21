@@ -251,12 +251,17 @@ public sealed class MouseHotKeyTests
     [DataRow(true)]
     public Task SelectionTranslation_HiddenWindow_SameSelectionReopens(bool escape) => RunAsync(async hotkeys =>
     {
-        var config = new KitopiaConfig();
+        var config = new KitopiaConfig { language = "zh-CN" };
         ConfigManger.Configs["KitopiaConfig"] = config;
         using var hook = new SimpleGlobalHook();
-        var backend = new SelectionTranslationBackend();
+        var foreground = (nint)User32.GetForegroundWindow();
+        if (foreground == 0) foreground = 0x1234;
+        var backend = new SelectionTranslationBackend { SourceWindow = foreground };
         var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!), new WindowToolServiceWindow());
-        var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window);
+        var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window)
+        {
+            GetForegroundWindow = () => foreground
+        };
         service.Start();
         try
         {
@@ -288,13 +293,18 @@ public sealed class MouseHotKeyTests
     [TestMethod]
     public Task SelectionTranslation_DictionaryResponse_DisplaysDetailsAfterRetryAndLanguageChange() => RunAsync(async hotkeys =>
     {
-        var config = new KitopiaConfig();
+        var config = new KitopiaConfig { language = "zh-CN" };
         ConfigManger.Configs["KitopiaConfig"] = config;
         using var hook = new SimpleGlobalHook();
         const string dictionary = "serendipity\n/ˌserənˈdɪpəti/\n名词：机缘巧合\n例句：It was pure serendipity.\n这纯属机缘巧合。";
-        var backend = new SelectionTranslationBackend { Translate = _ => Task.FromResult(dictionary) };
+        var foreground = (nint)User32.GetForegroundWindow();
+        if (foreground == 0) foreground = 0x1234;
+        var backend = new SelectionTranslationBackend { SourceWindow = foreground, Translate = _ => Task.FromResult(dictionary) };
         var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!), new WindowToolServiceWindow());
-        var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window);
+        var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window)
+        {
+            GetForegroundWindow = () => foreground
+        };
         service.Start();
         try
         {
@@ -378,12 +388,17 @@ public sealed class MouseHotKeyTests
     [TestMethod]
     public Task SelectionTranslation_VisibleCompletedSelection_DoesNotTranslateAgain() => RunAsync(async hotkeys =>
     {
-        var config = new KitopiaConfig();
+        var config = new KitopiaConfig { language = "zh-CN" };
         ConfigManger.Configs["KitopiaConfig"] = config;
         using var hook = new SimpleGlobalHook();
-        var backend = new SelectionTranslationBackend();
+        var foreground = (nint)User32.GetForegroundWindow();
+        if (foreground == 0) foreground = 0x1234;
+        var backend = new SelectionTranslationBackend { SourceWindow = foreground };
         var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!), new WindowToolServiceWindow());
-        var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window);
+        var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window)
+        {
+            GetForegroundWindow = () => foreground
+        };
         service.Start();
         try
         {
@@ -412,13 +427,16 @@ public sealed class MouseHotKeyTests
     [DataRow(true)]
     public Task SelectionTranslation_PendingTranslation_RepeatedTriggerStillCompletes(bool pinned) => RunAsync(async hotkeys =>
     {
-        var config = new KitopiaConfig();
+        var config = new KitopiaConfig { language = "zh-CN" };
         ConfigManger.Configs["KitopiaConfig"] = config;
         using var hook = new SimpleGlobalHook();
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var completed = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var foreground = (nint)User32.GetForegroundWindow();
+        if (foreground == 0) foreground = 0x1234;
         var backend = new SelectionTranslationBackend
         {
+            SourceWindow = foreground,
             Translate = token =>
             {
                 started.TrySetResult();
@@ -426,7 +444,10 @@ public sealed class MouseHotKeyTests
             }
         };
         var window = new SelectionTranslationWindow(new SelectionTranslationWindowViewModel(null!), new WindowToolServiceWindow());
-        var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window);
+        var service = new SelectionTranslationService(hook, hotkeys, backend, backend, window)
+        {
+            GetForegroundWindow = () => foreground
+        };
         service.Start();
         try
         {
@@ -1274,6 +1295,7 @@ public sealed class MouseHotKeyTests
     private sealed class SelectionTranslationBackend : ITextSelectionService, ISelectionTextTranslator
     {
         public Func<CancellationToken, Task<string>> Translate { get; init; } = _ => Task.FromResult("translated text");
+        public nint SourceWindow { get; set; }
         public int TranslationCount { get; private set; }
         public bool ClipboardFallbackAllowed { get; private set; }
 
@@ -1282,8 +1304,9 @@ public sealed class MouseHotKeyTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             ClipboardFallbackAllowed |= allowClipboardFallback;
+            var sourceWindow = SourceWindow != 0 ? SourceWindow : (nint)User32.GetForegroundWindow();
             return Task.FromResult<TextSelectionSnapshot?>(new TextSelectionSnapshot(
-                "selected text", (nint)User32.GetForegroundWindow(), "selection-test", null));
+                "selected text", sourceWindow, "selection-test", null));
         }
 
         public Task<string> TranslateSelectionAsync(string text,

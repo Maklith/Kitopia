@@ -50,7 +50,7 @@ public static class ScreenCaptureInfoEx {
         };
     }
 
-    private static bool TryGetExtendedFrameBounds(HWND hwnd, out RECT rect) {
+    public static bool TryGetExtendedFrameBounds(HWND hwnd, out RECT rect) {
         return DwmGetWindowAttribute(hwnd.DangerousGetHandle(), DwmwaExtendedFrameBounds, out rect, Marshal.SizeOf<RECT>()) == 0;
     }
 

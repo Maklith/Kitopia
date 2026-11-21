@@ -114,23 +114,47 @@ public sealed class WindowsTextSelectionService : ITextSelectionService
         return null;
     }
 
-    private static TextSelectionBounds? GetBounds(IEnumerable<TextPatternRange> ranges)
+    private static TextSelectionBounds? GetBounds(IEnumerable<TextPatternRange> ranges) =>
+        ComputeUnionBounds(ranges.SelectMany(range => range.GetBoundingRectangles()));
+
+    internal static TextSelectionBounds? ComputeUnionBounds(IEnumerable<Rect> rectangles)
     {
-        foreach (var range in ranges)
+        var hasRect = false;
+        var minLeft = double.PositiveInfinity;
+        var minTop = double.PositiveInfinity;
+        var maxRight = double.NegativeInfinity;
+        var maxBottom = double.NegativeInfinity;
+
+        foreach (var rectangle in rectangles)
         {
-            var rectangles = range.GetBoundingRectangles();
-            foreach (var rectangle in rectangles)
-            {
-                var x = (int)Math.Round(rectangle.X);
-                var y = (int)Math.Round(rectangle.Y);
-                var width = (int)Math.Round(rectangle.Width);
-                var height = (int)Math.Round(rectangle.Height);
-                if (width > 0 && height > 0)
-                    return new TextSelectionBounds(x, y, width, height);
-            }
+            if (rectangle.IsEmpty ||
+                !double.IsFinite(rectangle.X) ||
+                !double.IsFinite(rectangle.Y) ||
+                !double.IsFinite(rectangle.Width) ||
+                !double.IsFinite(rectangle.Height) ||
+                rectangle.Width <= 0 ||
+                rectangle.Height <= 0)
+                continue;
+
+            hasRect = true;
+            minLeft = Math.Min(minLeft, rectangle.Left);
+            minTop = Math.Min(minTop, rectangle.Top);
+            maxRight = Math.Max(maxRight, rectangle.Right);
+            maxBottom = Math.Max(maxBottom, rectangle.Bottom);
         }
 
-        return null;
+        if (!hasRect)
+            return null;
+
+        var left = (int)Math.Round(minLeft);
+        var top = (int)Math.Round(minTop);
+        var right = (int)Math.Round(maxRight);
+        var bottom = (int)Math.Round(maxBottom);
+        var width = right - left;
+        var height = bottom - top;
+        return width > 0 && height > 0
+            ? new TextSelectionBounds(left, top, width, height)
+            : null;
     }
 
     private static async Task<TextSelectionSnapshot?> TryReadClipboardSelectionAsync(

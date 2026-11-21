@@ -10,6 +10,7 @@ using Kitopia.Desktop.Features.Services;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Translation;
+using Kitopia.Desktop.Platform.Windows.ScreenCapture;
 using Kitopia.Desktop.Windows;
 using Kitopia.Feature.Localization;
 using PluginCore;
@@ -34,9 +35,14 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
     private readonly SelectionTranslationWindow _window;
     private readonly SemaphoreSlim _selectionReadGate = new(1, 1);
     private CancellationTokenSource? _requestCancellation;
+    private CancellationTokenSource? _pendingAutomaticCancellation;
+    private MousePressState? _lastMousePress;
     private TextSelectionSnapshot? _currentSelection;
     private int _requestVersion;
     private bool _started;
+    private bool _pressedInsideWindow;
+
+    internal Func<nint> GetForegroundWindow { get; set; } = () => (nint)User32.GetForegroundWindow();
 
     public SelectionTranslationService(
         SimpleGlobalHook inputHook,
@@ -61,6 +67,8 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
         if (_started) return;
         _started = true;
         _inputHook.MousePressed += OnMousePressed;
+        _inputHook.KeyPressed += OnKeyPressed;
+        _inputHook.MouseWheel += OnMouseWheel;
     }
 
     public void Refresh()
@@ -94,14 +102,32 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
         if (!_started) return;
         _started = false;
         _inputHook.MousePressed -= OnMousePressed;
+        _inputHook.KeyPressed -= OnKeyPressed;
+        _inputHook.MouseWheel -= OnMouseWheel;
         CancelCurrentRequest();
         Dispatcher.UIThread.Post(CloseWindow);
     }
 
+    private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
+    {
+        CancelPendingAutomaticTrigger();
+    }
+
+    private void OnMouseWheel(object? sender, MouseWheelHookEventArgs e)
+    {
+        CancelPendingAutomaticTrigger();
+    }
+
     private void OnMousePressed(object? sender, MouseHookEventArgs e)
     {
+        CancelPendingAutomaticTrigger();
         if ((ushort)e.Data.Button != 1) return;
         if (!User32.GetCursorPos(out var point)) return;
+
+        var foreground = GetForegroundWindow();
+        var windowBounds = TryGetWindowBounds(foreground, out var rect) ? rect : (PixelRect?)null;
+        Volatile.Write(ref _lastMousePress,
+            new MousePressState(foreground, windowBounds, new PixelPoint(point.X, point.Y)));
 
         try
         {
@@ -109,9 +135,10 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
             {
                 try
                 {
-                    if (!_window.IsVisible || _window.ViewModel.IsPinned ||
-                        IsInsideWindow(point.X, point.Y)) return;
-                    CloseWindow();
+                    var insideWindow = _window.IsVisible && IsInsideWindow(point.X, point.Y);
+                    _pressedInsideWindow = insideWindow;
+                    if (!insideWindow && _window.IsVisible && !_window.ViewModel.IsPinned)
+                        CloseWindow();
                 }
                 catch (Exception exception)
                 {
@@ -127,32 +154,71 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
 
     private async Task TranslateFromSelectionAsync(bool manual, PixelPoint? releasePosition = null)
     {
-        if (!manual && await Dispatcher.UIThread.InvokeAsync(() => _window.IsVisible && _window.ViewModel.IsPinned))
+        nint ownWindowHandle = 0;
+        if (!manual)
         {
-            Logger.Debug("自动划词翻译跳过：窗口已固定");
-            return;
+            var preCheck = await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var pressedInside = _pressedInsideWindow;
+                _pressedInsideWindow = false;
+                var handle = _window.TryGetPlatformHandle()?.Handle ?? 0;
+                var skip = _window.IsVisible &&
+                           (_window.ViewModel.IsPinned ||
+                            pressedInside ||
+                            (releasePosition is { } rp && IsInsideWindow(rp.X, rp.Y)));
+                return (Skip: skip, Handle: handle);
+            });
+            if (preCheck.Skip)
+            {
+                Logger.Debug("自动划词翻译跳过：窗口已固定或触发点位于翻译窗口内");
+                return;
+            }
+            ownWindowHandle = preCheck.Handle;
         }
 
-        var (version, token) = BeginRequest();
+        PixelRect? sourceWindowBounds = null;
+        TextSelectionBounds? selectionBounds = null;
+        PixelPoint? pressPosition = null;
+        var (version, cancellation, token) = BeginRequest(trackPendingAutomatic: !manual);
         try
         {
-            var foreground = (nint)User32.GetForegroundWindow();
+            var foreground = GetForegroundWindow();
             if (foreground == 0)
             {
                 Logger.Debug("划词翻译跳过：没有前台窗口，手动：{Manual}，请求：{RequestVersion}", manual, version);
                 return;
             }
+            if (!manual && ownWindowHandle != 0 && foreground == ownWindowHandle)
+            {
+                Logger.Debug("自动划词翻译跳过：前台窗口为划词翻译窗口，请求：{RequestVersion}", version);
+                return;
+            }
+
+            var press = !manual ? Volatile.Read(ref _lastMousePress) : null;
+            if (!manual && HasWindowMovedOrResized(press, foreground))
+            {
+                Logger.Debug("自动划词翻译跳过：拖拽期间前台窗口发生移动或缩放，请求：{RequestVersion}", version);
+                return;
+            }
+
             if (releasePosition is null && User32.GetCursorPos(out var point))
                 releasePosition = new PixelPoint(point.X, point.Y);
 
             if (!manual)
-                await Task.Delay(AutomaticDelayMilliseconds, token).ConfigureAwait(false);
-
-            if ((nint)User32.GetForegroundWindow() != foreground)
             {
-                Logger.Debug("划词翻译跳过：等待选区期间前台窗口变化，手动：{Manual}，请求：{RequestVersion}", manual, version);
-                return;
+                await Task.Delay(AutomaticDelayMilliseconds, token).ConfigureAwait(false);
+                if (GetForegroundWindow() != foreground)
+                {
+                    Logger.Debug("划词翻译跳过：等待选区期间前台窗口变化，手动：{Manual}，请求：{RequestVersion}", manual, version);
+                    return;
+                }
+                if (HasWindowMovedOrResized(press, foreground))
+                {
+                    Logger.Debug("自动划词翻译跳过：等待期间前台窗口发生移动或缩放，请求：{RequestVersion}", version);
+                    return;
+                }
             }
+
             TextSelectionSnapshot? snapshot;
             await _selectionReadGate.WaitAsync(token).ConfigureAwait(false);
             try
@@ -167,17 +233,32 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
                 _selectionReadGate.Release();
             }
             token.ThrowIfCancellationRequested();
-            if ((nint)User32.GetForegroundWindow() != foreground)
+            if (GetForegroundWindow() != foreground)
             {
                 Logger.Debug("划词翻译跳过：读取选区期间前台窗口变化，手动：{Manual}，请求：{RequestVersion}", manual, version);
                 return;
             }
+            if (!manual && HasWindowMovedOrResized(press, foreground))
+            {
+                Logger.Debug("自动划词翻译跳过：读取选区期间前台窗口发生移动或缩放，请求：{RequestVersion}", version);
+                return;
+            }
+
+            sourceWindowBounds = TryGetWindowBounds(foreground, out var boundsRect)
+                ? boundsRect
+                : null;
+            pressPosition = !manual && press is { } p && p.Window == foreground
+                ? p.Position
+                : null;
+            selectionBounds = snapshot?.Bounds;
+
             if (snapshot is null || snapshot.SourceWindow != foreground || string.IsNullOrWhiteSpace(snapshot.Text))
             {
                 Logger.Debug("划词翻译跳过：未读取到当前窗口的有效选区，手动：{Manual}，请求：{RequestVersion}，选区窗口：{SelectionWindow}，前台窗口：{ForegroundWindow}",
                     manual, version, snapshot is null ? "null" : FormatWindow(snapshot.SourceWindow), FormatWindow(foreground));
                 if (manual)
-                    ShowError(version, Lang.Get("lang.kitopia.selection_translation_no_selection"), releasePosition);
+                    ShowError(version, Lang.Get("lang.kitopia.selection_translation_no_selection"),
+                        releasePosition, sourceWindowBounds, null, pressPosition);
                 return;
             }
             if (!manual && (!ConfigManger.Config.selectionTranslationAutoHotKey.IsEnabled ||
@@ -189,7 +270,16 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
             }
             if (snapshot.Text.Length > MaximumTextLength)
             {
-                ShowError(version, Lang.Get("lang.kitopia.selection_translation_text_too_long"), releasePosition);
+                if (manual)
+                {
+                    ShowError(version, Lang.Get("lang.kitopia.selection_translation_text_too_long"),
+                        releasePosition, sourceWindowBounds, selectionBounds, pressPosition);
+                }
+                else
+                {
+                    Logger.Debug("自动划词翻译跳过：文本长度超出限制（{TextLength}），请求：{RequestVersion}",
+                        snapshot.Text.Length, version);
+                }
                 return;
             }
             var windowState = await Dispatcher.UIThread.InvokeAsync(() =>
@@ -217,14 +307,36 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
                 targetLanguage = windowState.TargetLanguage;
             }
 
+            if (!manual)
+            {
+                var decision = SelectionTranslationTriggerFilter.Evaluate(
+                    snapshot.Text,
+                    MaximumTextLength,
+                    sourceLanguage,
+                    targetLanguage,
+                    ConfigManger.Config.language,
+                    Lang.Current.Culture);
+                if (!decision.ShouldTrigger)
+                {
+                    Logger.Debug("自动划词翻译跳过：{Reason}，文本长度：{TextLength}，请求：{RequestVersion}",
+                        decision.Reason, snapshot.Text.Length, version);
+                    return;
+                }
+            }
+
+            Interlocked.CompareExchange(ref _pendingAutomaticCancellation, null, cancellation);
+            token.ThrowIfCancellationRequested();
+
             Dispatcher.UIThread.Post(() =>
             {
                 if (version != Volatile.Read(ref _requestVersion)) return;
+                var (anchor, screenAnchor) = ResolveWindowAnchors(
+                    releasePosition, selectionBounds, sourceWindowBounds, pressPosition);
                 _currentSelection = snapshot;
                 _window.ViewModel.CanExcludeCurrentProcess =
                     !string.IsNullOrWhiteSpace(snapshot.ProcessName);
                 _window.ViewModel.BeginTranslation(snapshot.Text, sourceLanguage, targetLanguage);
-                _window.ShowAt(releasePosition);
+                _window.ShowAt(anchor, screenAnchor);
                 Logger.Debug("划词翻译显示窗口，进程：{ProcessName}，文本长度：{TextLength}，手动：{Manual}，请求：{RequestVersion}，位置：{Position}，尺寸：{Bounds}",
                     snapshot.ProcessName, snapshot.Text.Length, manual, version, _window.Position, _window.Bounds);
             });
@@ -245,7 +357,12 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
         catch (Exception exception)
         {
             Logger.Warning(exception, "划词翻译失败");
-            ShowError(version, Lang.Get("lang.kitopia.selection_translation_failed"), releasePosition);
+            ShowError(version, Lang.Get("lang.kitopia.selection_translation_failed"),
+                releasePosition, sourceWindowBounds, selectionBounds, pressPosition);
+        }
+        finally
+        {
+            Interlocked.CompareExchange(ref _pendingAutomaticCancellation, null, cancellation);
         }
     }
 
@@ -312,7 +429,7 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
 
         var sourceLanguage = _window.ViewModel.SourceLanguage;
         var targetLanguage = _window.ViewModel.TargetLanguage;
-        var (version, token) = BeginRequest();
+        var (version, _, token) = BeginRequest();
         Dispatcher.UIThread.Post(() =>
         {
             if (version == Volatile.Read(ref _requestVersion))
@@ -339,21 +456,38 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
         }
     }
 
-    private (int Version, CancellationToken Token) BeginRequest()
+    private (int Version, CancellationTokenSource Cancellation, CancellationToken Token) BeginRequest(
+        bool trackPendingAutomatic = false)
     {
         var cancellation = new CancellationTokenSource();
+        var token = cancellation.Token;
+        Interlocked.Exchange(ref _pendingAutomaticCancellation, trackPendingAutomatic ? cancellation : null);
         var previous = Interlocked.Exchange(ref _requestCancellation, cancellation);
         previous?.Cancel();
         previous?.Dispose();
-        return (Interlocked.Increment(ref _requestVersion), cancellation.Token);
+        return (Interlocked.Increment(ref _requestVersion), cancellation, token);
     }
 
     private void CancelCurrentRequest()
     {
+        Interlocked.Exchange(ref _pendingAutomaticCancellation, null);
         var cancellation = Interlocked.Exchange(ref _requestCancellation, null);
         cancellation?.Cancel();
         cancellation?.Dispose();
         Interlocked.Increment(ref _requestVersion);
+    }
+
+    private void CancelPendingAutomaticTrigger()
+    {
+        var pending = Interlocked.Exchange(ref _pendingAutomaticCancellation, null);
+        if (pending is null) return;
+        try
+        {
+            pending.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     private bool IsSameSelection(TextSelectionSnapshot snapshot) =>
@@ -363,8 +497,9 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
 
     private bool IsInsideWindow(int x, int y)
     {
-        var screen = _window.Screens.ScreenFromWindow(_window);
-        var scaling = screen?.Scaling ?? 1;
+        var scaling = _window.RenderScaling > 0
+            ? _window.RenderScaling
+            : (_window.Screens.ScreenFromWindow(_window)?.Scaling ?? 1);
         var bounds = _window.Bounds;
         var left = _window.Position.X;
         var top = _window.Position.Y;
@@ -373,13 +508,83 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
         return x >= left && x <= right && y >= top && y <= bottom;
     }
 
-    private void ShowError(int version, string message, PixelPoint? releasePosition = null)
+    private (PixelPoint? Anchor, PixelPoint? ScreenAnchor) ResolveWindowAnchors(
+        PixelPoint? releasePosition,
+        TextSelectionBounds? selectionBounds,
+        PixelRect? sourceWindowBounds,
+        PixelPoint? pressPosition)
+    {
+        var screens = _window.Screens.All;
+        if (screens.Count == 0)
+            return (releasePosition, releasePosition);
+
+        var screenRects = new PixelRect[screens.Count];
+        for (var index = 0; index < screens.Count; index++)
+            screenRects[index] = screens[index].Bounds;
+
+        var resolved = SelectionTranslationWindow.ResolvePlacementTarget(
+            screenRects,
+            releasePosition,
+            selectionBounds,
+            sourceWindowBounds,
+            pressPosition);
+        if (resolved is not { } target)
+            return (releasePosition, releasePosition);
+
+        var screenAnchor = SelectionTranslationWindow.ClampPointInside(
+            target.Anchor,
+            screenRects[target.ScreenIndex]);
+        return (target.Anchor, screenAnchor);
+    }
+
+    private static bool HasWindowMovedOrResized(MousePressState? press, nint foreground)
+    {
+        if (press is null || press.Window != foreground || press.WindowBounds is not { } previousBounds)
+            return false;
+
+        return TryGetWindowBounds(foreground, out var currentBounds) && currentBounds != previousBounds;
+    }
+
+    private static bool TryGetWindowBounds(nint hwnd, out PixelRect bounds)
+    {
+        bounds = default;
+        if (hwnd == 0) return false;
+
+        var handle = new HWND(hwnd);
+        if (ScreenCaptureInfoEx.TryGetExtendedFrameBounds(handle, out var extended) &&
+            extended.Width > 0 && extended.Height > 0)
+        {
+            bounds = new PixelRect(extended.Left, extended.Top, extended.Width, extended.Height);
+            return true;
+        }
+
+        if (User32.GetWindowRect(handle, out var rect) && rect.Width > 0 && rect.Height > 0)
+        {
+            bounds = new PixelRect(rect.Left, rect.Top, rect.Width, rect.Height);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void ShowError(
+        int version,
+        string message,
+        PixelPoint? releasePosition = null,
+        PixelRect? sourceWindowBounds = null,
+        TextSelectionBounds? selectionBounds = null,
+        PixelPoint? pressPosition = null)
     {
         Dispatcher.UIThread.Post(() =>
         {
             if (version != Volatile.Read(ref _requestVersion)) return;
             _window.ViewModel.SetError(message);
-            if (!_window.IsVisible) _window.ShowAt(releasePosition);
+            if (!_window.IsVisible)
+            {
+                var (anchor, screenAnchor) = ResolveWindowAnchors(
+                    releasePosition, selectionBounds, sourceWindowBounds, pressPosition);
+                _window.ShowAt(anchor, screenAnchor);
+            }
         });
     }
 
@@ -391,10 +596,13 @@ public sealed class SelectionTranslationService : ISelectionTranslationService
             return;
         }
 
+        _pressedInsideWindow = false;
         CancelCurrentRequest();
         _window.ViewModel.CanExcludeCurrentProcess = false;
         _window.Hide();
     }
+
+    private sealed record MousePressState(nint Window, PixelRect? WindowBounds, PixelPoint Position);
 
     internal static string FormatWindow(nint hwnd)
     {
