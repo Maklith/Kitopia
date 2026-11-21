@@ -7,8 +7,6 @@ namespace Kitopia.Desktop.Platform.Linux;
 
 public class AppToolLinuxService : IAppToolService
 {
-    private static readonly PinyinProcessor PinyinProcessor = new();
-
     public void IndexItem(ISearchEntryIndex index, string filePath,
         bool isStarred = false)
     {
@@ -70,6 +68,6 @@ public class AppToolLinuxService : IAppToolService
 
     public PinyinItem GetPinyin(string input)
     {
-        return PinyinProcessor.GetPinyin(input);
+        return IndexService.SharedPinyinProcessor.GetPinyin(input);
     }
 }

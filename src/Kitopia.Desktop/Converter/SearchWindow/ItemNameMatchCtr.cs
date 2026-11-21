@@ -17,20 +17,26 @@ public class ItemNameMatchCtr : IMultiValueConverter
         if (searchViewItem is not SearchViewItem str) return new InlineCollection();
 
         InlineCollection list = new();
-        if (str.PinyinItem == null|| str.PinyinItem.Length!= str.ItemDisplayName?.Length)
+        if (str.PinyinItem == null || str.PinyinItem.Length == 0 || str.PinyinItem.Length != str.ItemDisplayName?.Length)
         {
             list.Add(new Run(Lang.Get(str.ItemDisplayName)));
             return list;
         }
 
 
-        for (var i = 0; i < str.PinyinItem.Length; i++)
+        var spanStart = 0;
+        var currentMatched = str.PinyinItem[0];
+        for (var i = 1; i <= str.PinyinItem.Length; i++)
         {
-            var inline = new Run(str.ItemDisplayName[i].ToString());
-            if (str.PinyinItem[i])
-                inline.Foreground = Brushes.OrangeRed;
-
+            if (i < str.PinyinItem.Length && str.PinyinItem[i] == currentMatched) continue;
+            var inline = new Run(str.ItemDisplayName[spanStart..i]);
+            if (currentMatched) inline.Foreground = Brushes.OrangeRed;
             list.Add(inline);
+            if (i < str.PinyinItem.Length)
+            {
+                spanStart = i;
+                currentMatched = str.PinyinItem[i];
+            }
         }
 
         return list;

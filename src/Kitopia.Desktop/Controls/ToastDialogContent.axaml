@@ -43,6 +43,14 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
+        <Style Selector="Button.toast-dialog-action /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
         <Style Selector="Button.toast-dialog-action:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
@@ -127,6 +135,13 @@
                         Click="CloseButton_OnClick"
                         ToolTip.Tip="{DynamicResource 'lang.kitopia.close'}">
                     <Button.Styles>
+                        <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter">
+                            <Setter Property="Transitions">
+                                <Transitions>
+                                    <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                                </Transitions>
+                            </Setter>
+                        </Style>
                         <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                             <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
                         </Style>

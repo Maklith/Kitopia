@@ -289,7 +289,7 @@ internal partial class IconTools
                     if (File.Exists(path))
                     {
                         if (Icons.TryGet(path, out var icon2))
-                            Dispatcher.UIThread.InvokeAsync(() => t.Icon = icon2);
+                            SetIconOnUiThread(t, icon2);
                         else ResiliencePipeline.ExecuteAsync(async e =>
                         {
                             await Task.Run(() =>
@@ -404,7 +404,7 @@ internal partial class IconTools
         if (File.Exists(path))
         {
             if (Icons.TryGet(path, out var icon2))
-                Dispatcher.UIThread.InvokeAsync(() => t.Icon = icon2);
+                SetIconOnUiThread(t, icon2);
             else ResiliencePipeline.ExecuteAsync(async e =>
             {
                 await Task.Run(() =>
@@ -425,33 +425,20 @@ internal partial class IconTools
     {
         //log.Debug(1);
 
-        string cacheKey;
-        switch (path.ToLower().Split(".").Last())
-        {
-            case "docx":
-            case "doc":
-            case "xls":
-            case "xlsx":
-            case "pdf":
-            case "ppt":
-            case "pptx":
-            {
-                cacheKey = path.Split(".").Last();
-                break;
-            }
-            case "msc":
-            {
-                cacheKey = path.Split(Path.DirectorySeparatorChar).Last();
-                break;
-            }
-            default:
-            {
-                cacheKey = path;
-                break;
-            }
-        }
+        var extension = Path.GetExtension(path);
+        var cacheKey = extension.Equals(".docx", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".doc", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".xls", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".ppt", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".pptx", StringComparison.OrdinalIgnoreCase)
+            ? extension[1..].ToLowerInvariant()
+            : extension.Equals(".msc", StringComparison.OrdinalIgnoreCase)
+                ? Path.GetFileName(path)
+                : path;
 
-        if (cacheKey.EndsWith("mmc.exe"))
+        if (cacheKey.EndsWith("mmc.exe", StringComparison.OrdinalIgnoreCase))
         {
             cacheKey = item.Arguments?.Replace("\"", null) ?? cacheKey;
             path = cacheKey;
@@ -459,7 +446,7 @@ internal partial class IconTools
 
         //缓存
         if (Icons.TryGet(cacheKey, out var icon2))
-            Dispatcher.UIThread.InvokeAsync(() => item.Icon = icon2);
+            SetIconOnUiThread(item, icon2);
         else ResiliencePipeline.ExecuteAsync(async e =>
         {
             await Task.Run(() =>
@@ -479,7 +466,7 @@ internal partial class IconTools
     private static void GetIconByPath(string path, SearchViewItem item)
     {
         if (Icons.TryGet(path, out var fromPath))
-            Dispatcher.UIThread.InvokeAsync(() => item.Icon = fromPath);
+            SetIconOnUiThread(item, fromPath);
         else ResiliencePipeline.ExecuteAsync(async e =>
         {
             await Task.Run(() =>
@@ -503,6 +490,28 @@ internal partial class IconTools
                 }
             }, e);
         });
+    }
+
+    private static void SetIconOnUiThread(SearchViewItem item, Bitmap icon)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            item.Icon = icon;
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() => item.Icon = icon);
+    }
+
+    private static void SetIconOnUiThread(Kitopia.Desktop.Features.CustomScenario.CustomScenario item, Bitmap icon)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            item.Icon = icon;
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() => item.Icon = icon);
     }
 
     [GeneratedRegex(@"(.+),(-?\d+)(?:#.*)?")]

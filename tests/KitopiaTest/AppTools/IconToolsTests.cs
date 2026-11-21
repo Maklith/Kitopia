@@ -65,6 +65,7 @@ public sealed class IconToolsTests
 
                 var cachedItem = new SearchViewItem { ItemDisplayName = folderName, OnlyKey = path, FileType = FileType.文件夹 };
                 service.LoadIcon(cachedItem);
+                Assert.AreSame(item.Icon, cachedItem.Icon);
                 Dispatcher.UIThread.RunJobs();
                 Assert.AreSame(item.Icon, cachedItem.Icon);
             }, CancellationToken.None);

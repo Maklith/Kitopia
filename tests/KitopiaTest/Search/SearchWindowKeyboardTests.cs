@@ -1404,6 +1404,118 @@ public sealed class SearchWindowKeyboardTests
         foreach (var screenshot in screenshots) TestContext.AddResultFile(screenshot);
     }
 
+    [TestMethod]
+    public async Task SearchWindow_NonEverythingSearch_RetainsItemsUntilBackgroundResultsArrive_AndBatchesHighlightRuns()
+    {
+        await RunAsync(async (window, model, _) =>
+        {
+            var index = (SearchServicesProxy)ServiceManager.Services!.GetRequiredService<IIndexService>();
+            index.Results =
+            [
+                new SearchIndexResult(new SearchEntry { DisplayName = "AlphaTool", OnlyKey = "C:/alpha.exe", FileType = FileType.应用程序 }, 10, [true, false, false, false, false, true, false, false, false])
+            ];
+            model.Search = "a";
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (model.Items.Count == 0 && sw.ElapsedMilliseconds < 2000)
+            {
+                await Task.Delay(20);
+                Dispatcher.UIThread.RunJobs();
+            }
+            Assert.AreEqual(1, model.Items.Count);
+
+            index.Results =
+            [
+                new SearchIndexResult(new SearchEntry { DisplayName = "BetaApp", OnlyKey = "C:/beta.exe", FileType = FileType.应用程序 }, 10, [true, true, false, false, false, false, false])
+            ];
+            model.Search = "be";
+            Assert.AreEqual(1, model.Items.Count);
+
+            sw.Restart();
+            while ((model.Items.Count != 1 || model.Items[0].OnlyKey != "C:/beta.exe") && sw.ElapsedMilliseconds < 2000)
+            {
+                await Task.Delay(20);
+                Dispatcher.UIThread.RunJobs();
+            }
+            Assert.AreEqual("C:/beta.exe", model.Items[0].OnlyKey);
+
+            var converter = new Kitopia.Desktop.Converter.SearchWindow.ItemNameMatchCtr();
+            var batched = (InlineCollection)converter.Convert([model.Items[0].ItemDisplayName, model.Items[0]], typeof(InlineCollection), null, System.Globalization.CultureInfo.InvariantCulture)!;
+            Assert.AreEqual(2, batched.Count);
+            Assert.AreEqual("Be", ((Run)batched[0]).Text);
+            Assert.AreEqual("taApp", ((Run)batched[1]).Text);
+
+            var emptyItem = new SearchViewItem { ItemDisplayName = string.Empty, PinyinItem = [] };
+            var emptyRuns = (InlineCollection)converter.Convert([string.Empty, emptyItem], typeof(InlineCollection), null, System.Globalization.CultureInfo.InvariantCulture)!;
+            Assert.AreEqual(1, emptyRuns.Count);
+        });
+    }
+
+    [TestMethod]
+    public async Task SearchWindow_LoadLastImmediately_AndSearchFilters_HaveNoPointlessTransitions()
+    {
+        await RunAsync((window, model, _) =>
+        {
+            var index = (SearchServicesProxy)ServiceManager.Services!.GetRequiredService<IIndexService>();
+            index.Results =
+            [
+                new SearchIndexResult(new SearchEntry { DisplayName = "PinnedOne", OnlyKey = "C:/pinned1.exe", FileType = FileType.应用程序 }, 0, null),
+                new SearchIndexResult(new SearchEntry { DisplayName = "RecentOne", OnlyKey = "C:/recent1.exe", FileType = FileType.应用程序 }, 0, null)
+            ];
+            ConfigManger.Config!.alwayShows = ["C:/pinned1.exe"];
+            ConfigManger.Config.lastOpens["C:/recent1.exe"] = new HistoryItem { AccessTimes = [DateTime.Now] };
+
+            model.DirectorySearchPath = @"C:\Temp";
+            model.Search = "abc";
+            window.Hide();
+            window.Show();
+            // Directory-search reset must populate history synchronously inside Show() before Dispatcher jobs run.
+            Assert.AreEqual(2, model.PinnedItems.Count);
+            Assert.AreEqual("C:/pinned1.exe", model.PinnedItems[0].OnlyKey);
+            Assert.AreEqual("C:/recent1.exe", model.PinnedItems[1].OnlyKey);
+            Assert.AreEqual(0, model.Items.Count);
+            Dispatcher.UIThread.RunJobs();
+
+            var everythingGrid = window.GetVisualDescendants().OfType<EverythingFileListControl>().Single();
+            var semanticIndicator = window.FindControl<Border>("SemanticSearchIndicator")!;
+            Assert.IsFalse(semanticIndicator.Classes.Contains("kitopia-enter-slide-left"));
+            Assert.IsTrue(everythingGrid.Transitions is null || everythingGrid.Transitions.Count == 0);
+            Assert.IsFalse(window.Styles.OfType<Style>().Any(style => style.Animations.Count > 0),
+                "SearchWindow styles must not attach entrance or pane animations.");
+            return Task.CompletedTask;
+        });
+    }
+
+    [TestMethod]
+    public async Task SearchWindowService_ShowOrHiddenSearchWindow_HidesOpenWindowWhenTriggeredAgain()
+    {
+        await RunAsync((window, _, itemTool) =>
+        {
+            using var toggleServices = new ServiceCollection()
+                .AddSingleton(window)
+                .AddSingleton(ServiceManager.Services!.GetRequiredService<IWindowTool>())
+                .AddSingleton(ServiceManager.Services!.GetRequiredService<IAppToolService>())
+                .AddSingleton(ServiceManager.Services!.GetRequiredService<IIndexService>())
+                .AddSingleton(ServiceManager.Services!.GetRequiredService<ISearchItemTool>())
+                .AddSingleton(DispatchProxy.Create<IIndexMaintenanceService, SearchServicesProxy>())
+                .BuildServiceProvider();
+            ServiceManager.Services = toggleServices;
+            var service = new SearchWindowService();
+
+            window.Hide();
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsFalse(window.IsVisible);
+
+            service.ShowOrHiddenSearchWindow();
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsTrue(window.IsVisible);
+
+            service.ShowOrHiddenSearchWindow();
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsFalse(window.IsVisible);
+            return Task.CompletedTask;
+        });
+    }
+
     private static async Task RunAsync(Func<SearchWindow, SearchWindowViewModel, SearchServicesProxy, Task> test,
         bool initiallyBorderless = false, bool initiallyVerticalEmptyResults = false)
     {
@@ -1503,7 +1615,7 @@ public sealed class SearchWindowKeyboardTests
             return targetMethod.Name switch
             {
                 nameof(IWindowTool.MoveWindowToMouseScreenCenter) or nameof(IWindowTool.SetForegroundWindow)
-                    or nameof(IAppToolService.LoadIcon) => null,
+                    or nameof(IAppToolService.LoadIcon) or nameof(IIndexMaintenanceService.RefreshWindowOpenEntries) => null,
                 nameof(IIndexService.SearchPinyin) => Results,
                 nameof(IIndexService.SearchAsync) => Task.FromResult(Results),
                 nameof(ISearchItemTool.OpenFile) => Opened.TrySetResult((SearchViewItem)args![0]!),

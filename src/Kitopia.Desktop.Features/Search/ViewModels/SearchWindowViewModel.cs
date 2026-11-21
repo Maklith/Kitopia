@@ -321,6 +321,13 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         ServiceManager.Services.GetRequiredService<IIndexMaintenanceService>().RefreshWindowOpenEntries();
 
 
+    public void LoadLastImmediately()
+    {
+        var requestId = Interlocked.Increment(ref _loadLastRequestId);
+        Volatile.Write(ref _loadLastAppliedId, requestId);
+        LoadLastCore();
+    }
+
     public void LoadLast()
     {
         Interlocked.Increment(ref _loadLastRequestId);
@@ -356,10 +363,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     {
         if (!string.IsNullOrEmpty(Search) || IsDirectorySearch) return;
         OnPropertyChanged(nameof(IsVerticalEmptySearch));
-        
-        
-        Logger.Debug("加载历史记录");
 
+        Logger.Debug("加载历史记录");
 
         Items.Clear();
         PinnedItems.Clear();
@@ -375,7 +380,8 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         _isEverythingLoading = false;
 
         var limit = 0;
-        //Items.RaiseListChangedEvents = false;
+        var verticalItems = IsVerticalEmptySearch ? new List<SearchViewItem>() : null;
+        var seenKeys = new HashSet<string>(StringComparer.Ordinal);
         if (ConfigManger.Config.alwayShows.Any())
         {
             Logger.Debug("加载常驻");
@@ -383,19 +389,16 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 if (Index.TryGetValue(configAlwayShow, out var searchEntry))
                 {
                     var item = searchEntry.ToSearchViewItem();
-
                     Logger.Debug("加载常驻:" + item.OnlyKey);
 
-
                     item.IsPined = true;
-                    if (IsVerticalEmptySearch) Items.Add(item);
+                    seenKeys.Add(item.OnlyKey);
+                    if (verticalItems is not null) verticalItems.Add(item);
                     else PinnedItems.Add(item);
-
 
                     limit++;
                 }
         }
-
 
         if (ConfigManger.Config.lastOpens.Any())
         {
@@ -415,8 +418,6 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 if (limit >= ConfigManger.Config.maxHistory)
                 {
                     Logger.Debug("超过历史记录限制,当前" + limit);
-
-
                     break;
                 }
 
@@ -425,20 +426,21 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                     var item = entry.ToSearchViewItem();
                     Logger.Debug("加载历史:" + item.OnlyKey);
 
-
-                    if (!Items.Any((e) => e.OnlyKey.Equals(item.OnlyKey)))
+                    if (seenKeys.Add(item.OnlyKey))
                     {
-                        if (PinnedItems.All(e => e.OnlyKey != item.OnlyKey))
-                        {
-                            if (IsVerticalEmptySearch) Items.Add(item);
-                            else PinnedItems.Add(item);
-                            limit++;
-                        }
-
+                        if (verticalItems is not null) verticalItems.Add(item);
+                        else PinnedItems.Add(item);
+                        limit++;
                     }
                 }
             }
         }
+
+        if (verticalItems is { Count: > 0 })
+        {
+            Items.AddRange(verticalItems);
+        }
+
         ProcessInputData(null, InputDataAnalyzeTimeFlags.InputEmpty);
         ShowPinnedItems = PinnedItems.Count > 0;
         FileTypes.Clear();
@@ -467,8 +469,7 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         }
         _lastSearchItems.Clear();
         List<InputData> inputDatas = new List<InputData>();
-        
-        InputDatas.Clear();
+
         foreach (var (_, funcs) in PluginOverall.SearchWindowInputDataIdentifies)
         foreach (var func in funcs)
         {
@@ -482,8 +483,19 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
                 InputType = InputType.文本,
                 Data = value
             });
-        
-        foreach (var inputData in inputDatas) InputDatas.Add(inputData);
+
+        if (InputDatas.Count == 1
+            && InputDatas[0].InputType == InputType.文本
+            && inputDatas.Count == 1
+            && inputDatas[0].InputType == InputType.文本)
+        {
+            InputDatas[0].Data = inputDatas[0].Data;
+        }
+        else
+        {
+            InputDatas.Clear();
+            foreach (var inputData in inputDatas) InputDatas.Add(inputData);
+        }
         ShowInputData = InputDatas.Count > 0;
         
         foreach (var (_, funcs) in PluginOverall.SearchWindowInputDataAnalyzers)
@@ -532,21 +544,31 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
         Logger.Debug("搜索变更:" + value);
 
-        Items.Clear();
-        PinnedItems.Clear();
-        _resultContexts.Clear();
-        PreviewModeOverride = null;
-        IsPreviewMode = false;
-        SelectedItem = null;
-
         value ??= string.Empty;
-        if (!IsDirectorySearch) ProcessInputData(value, InputDataAnalyzeTimeFlags.InputChanged);
-        else InputDatas.Clear();
-
         var originalValue = value;
         value = value.ToLowerInvariant();
         var everythingPrefix = ConfigManger.Config.everythingSearchPrefix;
-        if (IsDirectorySearch || (!string.IsNullOrEmpty(everythingPrefix) && originalValue.StartsWith(everythingPrefix)))
+        var isEverything = IsDirectorySearch
+            || (!string.IsNullOrEmpty(everythingPrefix) && originalValue.StartsWith(everythingPrefix));
+
+        if (isEverything)
+        {
+            Items.Clear();
+            PinnedItems.Clear();
+            _resultContexts.Clear();
+            PreviewModeOverride = null;
+            IsPreviewMode = false;
+            SelectedItem = null;
+        }
+        else if (PinnedItems.Count > 0)
+        {
+            PinnedItems.Clear();
+        }
+
+        if (!IsDirectorySearch) ProcessInputData(originalValue, InputDataAnalyzeTimeFlags.InputChanged);
+        else InputDatas.Clear();
+
+        if (isEverything)
         {
             IsEverythingMode = true;
             var cancellation = new CancellationTokenSource();
@@ -741,7 +763,20 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (Volatile.Read(ref _searchVersion) != version || cancellationToken.IsCancellationRequested) return;
-            Items.AddRange(pinyinItems);
+            _resultContexts.Clear();
+            PreviewModeOverride = null;
+            SelectedItem = null;
+            var analyzerItems = _lastSearchItems.Where(item => !item.ShowAsMiniApp || IsVerticalEmptySearch).ToList();
+            Items.Clear();
+            if (analyzerItems.Count > 0)
+            {
+                analyzerItems.AddRange(pinyinItems);
+                Items.AddRange(analyzerItems);
+            }
+            else if (pinyinItems.Count > 0)
+            {
+                Items.AddRange(pinyinItems);
+            }
             RefreshFileTypes();
             UpdateDisplayMode();
         });
@@ -796,26 +831,49 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
     {
         const int limit = 100;
         var resultItems = new List<SearchViewItem>(Math.Min(results.Count, limit));
+        var config = ConfigManger.Config;
+        HashSet<string>? starredKeys = null;
+        if (config.managedIndexFiles.Count > 0 || config.managedIndexDirectories.Count > 0)
+        {
+            starredKeys = new HashSet<string>(
+                config.managedIndexFiles.Count + config.managedIndexDirectories.Count,
+                StringComparer.OrdinalIgnoreCase);
+            foreach (var path in config.managedIndexFiles) starredKeys.Add(path);
+            foreach (var path in config.managedIndexDirectories) starredKeys.Add(path);
+        }
 
-        foreach (var result in SearchResultRanker.Rank(results, ConfigManger.Config.lastOpens, DateTime.Now))
+        HashSet<string>? pinnedKeys = config.alwayShows.Count > 0
+            ? new HashSet<string>(config.alwayShows, StringComparer.Ordinal)
+            : null;
+
+        foreach (var result in SearchResultRanker.Rank(results, config.lastOpens, DateTime.Now))
         {
             resultItems.Add(existingItems is not null && existingItems.TryGetValue(result.Source.OnlyKey, out var item)
                 ? item
-                : ToSearchViewItem(result));
+                : ToSearchViewItem(result, starredKeys, pinnedKeys));
             if (resultItems.Count >= limit) return resultItems;
         }
 
         return resultItems;
     }
 
-    private static SearchViewItem ToSearchViewItem(SearchIndexResult result)
+    private static SearchViewItem ToSearchViewItem(
+        SearchIndexResult result,
+        HashSet<string>? starredKeys,
+        HashSet<string>? pinnedKeys)
     {
         var item = result.Source.ToSearchViewItem();
         item.PinyinItem = result.CharMatchResults;
-        item.IsStared = ConfigManger.Config.managedIndexFiles.Contains(item.OnlyKey, StringComparer.OrdinalIgnoreCase)
-                        || ConfigManger.Config.managedIndexDirectories.Contains(item.OnlyKey, StringComparer.OrdinalIgnoreCase);
-        if (ConfigManger.Config.alwayShows.Contains(item.OnlyKey)) item.IsPined = true;
-        item.Notify();
+        if (starredKeys is not null && starredKeys.Contains(item.OnlyKey))
+        {
+            item.IsStared = true;
+        }
+
+        if (pinnedKeys is not null && pinnedKeys.Contains(item.OnlyKey))
+        {
+            item.IsPined = true;
+        }
+
         return item;
     }
 
@@ -904,13 +962,24 @@ public partial class SearchWindowViewModel : ObservableRecipient, ISearchFeature
 
     private void RefreshFileTypes()
     {
-        FileTypes.Clear();
         if (!IsEverythingMode)
         {
-            foreach (var fileType in Items.Select(item => item.FileType).Distinct())
+            var nextTypes = Items.Select(item => item.FileType).Distinct().ToList();
+            var unchanged = FileTypes.Count == nextTypes.Count
+                && FileTypes.All(filter => !filter.IsChecked)
+                && !FileTypes.Where((filter, index) => filter.FileType != nextTypes[index]).Any();
+            if (!unchanged)
             {
-                FileTypes.Add(new FileTypeFilter { FileType = fileType, IsChecked = false });
+                FileTypes.Clear();
+                foreach (var fileType in nextTypes)
+                {
+                    FileTypes.Add(new FileTypeFilter { FileType = fileType, IsChecked = false });
+                }
             }
+        }
+        else
+        {
+            FileTypes.Clear();
         }
 
         ShowFileTypeFilter = FileTypes.Count > 0;

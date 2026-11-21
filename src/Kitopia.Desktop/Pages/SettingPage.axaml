@@ -9,6 +9,19 @@
              x:Class="Kitopia.Desktop.Pages.SettingPage">
     <UserControl.Resources>
     </UserControl.Resources>
+    <UserControl.Styles>
+        <Style Selector="StackPanel#CategoryTabsPanel Button">
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="StackPanel#CategoryTabsPanel Button:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.96)" />
+        </Style>
+    </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="{DynamicResource SemiThicknessExtraLoose}" RowSpacing="12">
         <!-- 1. Header: Preferences & Configuration + Title + Subtitle + Search Filter -->
@@ -52,6 +65,7 @@
 
                 <!-- Empty Search Result State -->
                 <StackPanel Name="EmptyResultPanel" IsVisible="False"
+                            Classes="kitopia-enter-fade"
                             HorizontalAlignment="Center" VerticalAlignment="Center"
                             Margin="0,48,0,0" Spacing="12">
                     <controls:FontIcon Glyph="&#xe721;" FontSize="36"

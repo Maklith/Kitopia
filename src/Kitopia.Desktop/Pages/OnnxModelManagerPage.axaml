@@ -49,6 +49,25 @@
             <Setter Property="Background" Value="{DynamicResource KitopiaBadgeNeutralBackground}" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button#RecheckRuntimesButton controls|FontIcon">
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button#RecheckRuntimesButton:pointerover controls|FontIcon">
+            <Setter Property="RenderTransform" Value="rotate(45deg)" />
+        </Style>
+        <Style Selector="Button#RecheckRuntimesButton:pressed controls|FontIcon">
+            <Setter Property="RenderTransform" Value="rotate(180deg)" />
         </Style>
         <Style Selector="Border.runtimeBadge TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeNeutralForeground}" />

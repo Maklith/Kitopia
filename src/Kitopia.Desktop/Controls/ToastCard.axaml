@@ -9,10 +9,31 @@
              Classes.warning="{Binding IsWarning}"
              Classes.error="{Binding IsError}">
     <UserControl.Styles>
+        <Style Selector="Border#ToastCardBorder:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource KitopiaCardHoverBorderBrush}" />
+            <Setter Property="BoxShadow" Value="{DynamicResource KitopiaCardHoverBoxShadow}" />
+        </Style>
         <Style Selector="Button.toast-action">
             <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
             <Setter Property="Foreground" Value="{DynamicResource SemiColorText0}" />
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.toast-action /template/ ContentPresenter">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.toast-action:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.96)" />
         </Style>
         <Style Selector="Button.toast-action.primary">
             <Setter Property="Background" Value="{DynamicResource SemiColorPrimary}" />
@@ -42,12 +63,18 @@
 
     <Border x:Name="ToastCardBorder"
             Background="{DynamicResource KitopiaToastBackgroundBrush}"
-            BorderBrush="{DynamicResource SemiColorBorder}"
+            BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
             BorderThickness="1"
-            CornerRadius="8"
+            CornerRadius="12"
             BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
             Padding="14,12"
             PointerPressed="OnCardPointerPressed">
+        <Border.Transitions>
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.16" Easing="CubicEaseOut" />
+            </Transitions>
+        </Border.Transitions>
         <Grid RowDefinitions="Auto,Auto,Auto,Auto"
               ColumnDefinitions="Auto,*,Auto"
               RowSpacing="6"
@@ -83,6 +110,13 @@
                     VerticalAlignment="Center"
                     ToolTip.Tip="{DynamicResource 'lang.kitopia.close'}">
                 <Button.Styles>
+                    <Style Selector="Button /template/ ContentPresenter">
+                        <Setter Property="Transitions">
+                            <Transitions>
+                                <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                            </Transitions>
+                        </Setter>
+                    </Style>
                     <Style Selector="Button:pointerover /template/ ContentPresenter">
                         <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
                     </Style>

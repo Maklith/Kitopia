@@ -29,9 +29,14 @@ internal sealed class IndexVectorStore
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
     private static string FilePathCollation => OperatingSystem.IsWindows() ? " COLLATE NOCASE" : string.Empty;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly SemaphoreSlim _fileSourceSyncGate = new(1, 1);
     private readonly string _connectionString;
     private bool _initialized;
     private long _fileSourceGeneration;
+    private long _fileSourceResetGeneration;
+    private long _managedFileSourceVersion;
+
+    internal long ManagedFileSourceVersion => Volatile.Read(ref _managedFileSourceVersion);
 
     public IndexVectorStore(string? databasePath = null)
     {
@@ -54,13 +59,22 @@ internal sealed class IndexVectorStore
         ArgumentNullException.ThrowIfNull(protectedKeys);
         ValidateFileSource(source);
 
-        await _gate.WaitAsync(cancellationToken);
+        await _fileSourceSyncGate.WaitAsync(cancellationToken);
         try
         {
-            await using var connection = await OpenAsync(cancellationToken);
-            var generation = Math.Max(DateTime.UtcNow.Ticks, _fileSourceGeneration + 1);
-            _fileSourceGeneration = generation;
-            await ClearFileSourceStagingAsync(connection, source, cancellationToken);
+            long startResetGeneration;
+            await _gate.WaitAsync(cancellationToken);
+            try
+            {
+                startResetGeneration = Volatile.Read(ref _fileSourceResetGeneration);
+                await using var connection = await OpenAsync(cancellationToken, loadVector: false);
+                await ClearFileSourceStagingAsync(connection, source, cancellationToken);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+
             var batch = new List<string>(FileSourceBatchSize);
             var batchKeys = new HashSet<string>(FilePathComparer);
             foreach (var path in paths)
@@ -92,26 +106,63 @@ internal sealed class IndexVectorStore
                     continue;
                 }
 
-                await InsertFileSourceStagingBatchAsync(connection, source, batch, cancellationToken);
+                await _gate.WaitAsync(cancellationToken);
+                try
+                {
+                    if (Volatile.Read(ref _fileSourceResetGeneration) != startResetGeneration)
+                    {
+                        return false;
+                    }
+
+                    await using var connection = await OpenAsync(cancellationToken, loadVector: false);
+                    await InsertFileSourceStagingBatchAsync(connection, source, batch, cancellationToken);
+                }
+                finally
+                {
+                    _gate.Release();
+                }
+
                 batch.Clear();
                 batchKeys.Clear();
             }
 
-            if (batch.Count > 0)
+            await _gate.WaitAsync(cancellationToken);
+            try
             {
-                await InsertFileSourceStagingBatchAsync(connection, source, batch, cancellationToken);
-            }
+                if (Volatile.Read(ref _fileSourceResetGeneration) != startResetGeneration)
+                {
+                    return false;
+                }
 
-            return await CompleteFileSourceScanAsync(
-                connection,
-                source,
-                generation,
-                protectedKeys,
-                cancellationToken);
+                await using var connection = await OpenAsync(cancellationToken, loadVector: true);
+                if (batch.Count > 0)
+                {
+                    await InsertFileSourceStagingBatchAsync(connection, source, batch, cancellationToken);
+                }
+
+                var generation = Math.Max(DateTime.UtcNow.Ticks, _fileSourceGeneration + 1);
+                _fileSourceGeneration = generation;
+                var changed = await CompleteFileSourceScanAsync(
+                    connection,
+                    source,
+                    generation,
+                    protectedKeys,
+                    cancellationToken);
+                if (changed)
+                {
+                    Interlocked.Increment(ref _managedFileSourceVersion);
+                }
+
+                return changed;
+            }
+            finally
+            {
+                _gate.Release();
+            }
         }
         finally
         {
-            _gate.Release();
+            _fileSourceSyncGate.Release();
         }
     }
 
@@ -162,6 +213,53 @@ internal sealed class IndexVectorStore
         }
     }
 
+    internal List<string> ReadManagedFilePathsSnapshot(CancellationToken cancellationToken)
+    {
+        _gate.Wait(cancellationToken);
+        try
+        {
+            using var connection = OpenAsync(cancellationToken, loadVector: false).GetAwaiter().GetResult();
+            long activeSourceCount;
+            using (var countCommand = connection.CreateCommand())
+            {
+                countCommand.CommandText = $"SELECT COUNT(*) FROM {FileSourceScanTable};";
+                activeSourceCount = Convert.ToInt64(countCommand.ExecuteScalar());
+            }
+
+            if (activeSourceCount == 0)
+            {
+                return [];
+            }
+
+            using var command = connection.CreateCommand();
+            command.CommandText = $"""
+                SELECT file.path
+                FROM {FileSourceTable} AS file
+                INNER JOIN {FileSourceScanTable} AS scan
+                    ON scan.source = file.source
+                   AND scan.generation = file.scan_generation;
+                """;
+            var paths = new List<string>();
+            var seen = activeSourceCount > 1 ? new HashSet<string>(FilePathComparer) : null;
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var path = reader.GetString(0);
+                if (seen is null || seen.Add(path))
+                {
+                    paths.Add(path);
+                }
+            }
+
+            return paths;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private async Task<List<string>> ReadManagedFilePathBatchAsync(
         string? lastPath,
         CancellationToken cancellationToken)
@@ -169,7 +267,7 @@ internal sealed class IndexVectorStore
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            await using var connection = await OpenAsync(cancellationToken);
+            await using var connection = await OpenAsync(cancellationToken, loadVector: false);
             await using var command = connection.CreateCommand();
             command.CommandText = $"""
                 SELECT file.path
@@ -205,7 +303,7 @@ internal sealed class IndexVectorStore
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            await using var connection = await OpenAsync(cancellationToken);
+            await using var connection = await OpenAsync(cancellationToken, loadVector: false);
             await using var command = connection.CreateCommand();
             command.CommandText = $"""
                 SELECT 1
@@ -230,7 +328,7 @@ internal sealed class IndexVectorStore
         _gate.Wait();
         try
         {
-            using var connection = OpenAsync(CancellationToken.None).GetAwaiter().GetResult();
+            using var connection = OpenAsync(CancellationToken.None, loadVector: false).GetAwaiter().GetResult();
             using var command = connection.CreateCommand();
             command.CommandText = $"""
                 SELECT 1
@@ -345,7 +443,7 @@ internal sealed class IndexVectorStore
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            await using var connection = await OpenAsync(cancellationToken);
+            await using var connection = await OpenAsync(cancellationToken, loadVector: false);
             await using var command = connection.CreateCommand();
             command.CommandText = $"""
                 SELECT length, last_write_utc_ticks, content_hash, ocr_completed, ocr_model_id
@@ -380,7 +478,7 @@ internal sealed class IndexVectorStore
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            await using var connection = await OpenAsync(cancellationToken);
+            await using var connection = await OpenAsync(cancellationToken, loadVector: false);
             await using var command = connection.CreateCommand();
             command.CommandText = $"""
                 INSERT INTO {FileStateTable}(
@@ -847,6 +945,7 @@ internal sealed class IndexVectorStore
                 WHERE path{FilePathCollation} IN (SELECT path FROM index_ignored_paths);
                 """, cancellationToken);
             transaction.Commit();
+            Interlocked.Increment(ref _managedFileSourceVersion);
         }
         finally
         {
@@ -871,6 +970,8 @@ internal sealed class IndexVectorStore
                 DELETE FROM {FileSourceTable};
                 """, cancellationToken);
             _fileSourceGeneration = 0;
+            Interlocked.Increment(ref _fileSourceResetGeneration);
+            Interlocked.Increment(ref _managedFileSourceVersion);
         }
         finally
         {
@@ -1025,15 +1126,18 @@ internal sealed class IndexVectorStore
         transaction.Commit();
     }
 
-    private async Task<SqliteConnection> OpenAsync(CancellationToken cancellationToken)
+    private async Task<SqliteConnection> OpenAsync(CancellationToken cancellationToken, bool loadVector = true)
     {
         var connection = new SqliteConnection(_connectionString);
         try
         {
             await connection.OpenAsync(cancellationToken);
-            connection.EnableExtensions(true);
-            connection.LoadVector();
-            connection.EnableExtensions(false);
+            if (loadVector || !_initialized)
+            {
+                connection.EnableExtensions(true);
+                connection.LoadVector();
+                connection.EnableExtensions(false);
+            }
             if (!_initialized)
             {
                 await ExecuteAsync(connection, "PRAGMA journal_mode = WAL;", cancellationToken);

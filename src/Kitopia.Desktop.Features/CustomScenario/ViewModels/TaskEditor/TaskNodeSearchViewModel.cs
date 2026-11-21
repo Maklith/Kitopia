@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Pinyin.NET;
+using Kitopia.Desktop.Features.Indexing;
 using Kitopia.Feature.Localization;
 
 namespace Kitopia.Desktop.Features.CustomScenario.ViewModels.TaskEditor;
@@ -25,7 +25,7 @@ public partial class TaskNodeSearchViewModel : ObservableObject
     private readonly TaskEditorViewModel _editorViewModel;
     private readonly Point _location;
     private readonly List<ScenarioMethodNode> _allCompatibleNodes = new();
-    private PinyinSearcher<ScenarioMethodNode>? _pinyinSearcher;
+    private IndexService.PinyinSearchItem<ScenarioMethodNode>[]? _pinyinSearchItems;
     private string? _searchLanguage;
 
     [ObservableProperty]
@@ -113,12 +113,12 @@ public partial class TaskNodeSearchViewModel : ObservableObject
         }
         else
         {
-            if (_pinyinSearcher is null || _searchLanguage != Lang.Current.Language)
+            if (_pinyinSearchItems is null || _searchLanguage != Lang.Current.Language)
             {
-                _pinyinSearcher = new PinyinSearcher<ScenarioMethodNode>(_allCompatibleNodes, node => Lang.Get(node.Title));
+                _pinyinSearchItems = IndexService.CreatePinyinSearchItems(_allCompatibleNodes, node => Lang.Get(node.Title));
                 _searchLanguage = Lang.Current.Language;
             }
-            results = _pinyinSearcher.Search(SearchText).Select(x => x.Source).ToList();
+            results = IndexService.SearchPinyinItems(_pinyinSearchItems, SearchText);
         }
 
         var wrapperList = new List<NodeSearchItemViewModel>();

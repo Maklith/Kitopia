@@ -41,15 +41,33 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource SemiColorText1}" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.tool /template/ ContentPresenter">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                    <BrushTransition Property="Foreground" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="Button.tool:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource KitopiaPrimaryLightBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource KitopiaPrimaryBrush}" />
         </Style>
+        <Style Selector="Button.tool:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.92)" />
+        </Style>
     </Window.Styles>
-    <Border Margin="12" CornerRadius="12" Background="{DynamicResource PreviewCanvasBrush}"
+    <Border Margin="12" CornerRadius="12" Classes="kitopia-enter-scale"
+            Background="{DynamicResource PreviewCanvasBrush}"
             BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1"
-            BoxShadow="{DynamicResource PreviewShadow}">
+            BoxShadow="{DynamicResource KitopiaModalBoxShadow}">
         <Grid RowDefinitions="Auto,*,Auto">
             <Grid Margin="16,12" ColumnDefinitions="*,Auto" ColumnSpacing="20">
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Background="Transparent"

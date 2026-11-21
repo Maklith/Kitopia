@@ -212,7 +212,7 @@
         <Panel.Background>
             <DynamicResource ResourceKey="KitopiaWindowBackground" />
         </Panel.Background>
-        <Grid RowDefinitions="Auto,*,Auto" VerticalAlignment="Stretch">
+        <Grid Name="SearchWindowRoot" RowDefinitions="Auto,*,Auto" VerticalAlignment="Stretch">
             <Border Name="SearchHeader"
                     BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="0,0,0,1">
                 <StackPanel Spacing="8">
@@ -662,10 +662,10 @@
                     </GridSplitter.Template>
                 </GridSplitter>
 
-                <Border Grid.Column="2" IsVisible="{Binding IsPreviewMode}"
+                <Border Name="PreviewPaneBorder" Grid.Column="2" IsVisible="{Binding IsPreviewMode}"
                         MinHeight="0" ClipToBounds="True" Margin="2,4,8,6"
                         Background="{DynamicResource SemiColorBackground0}"
-                        CornerRadius="8"
+                        CornerRadius="12"
                         BorderBrush="{DynamicResource SemiColorBorder}"
                         BorderThickness="1"
                         Padding="8">

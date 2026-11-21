@@ -16,16 +16,33 @@
                         Command="{Binding CloseCommand}" Width="28" Height="28" Padding="0"
                         CornerRadius="6" FontSize="14" Foreground="{DynamicResource SemiColorText2}"
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Cursor="Hand" ToolTip.Tip="{DynamicResource 'lang.kitopia.close'}" Content="✕" />
+                        Cursor="Hand" ToolTip.Tip="{DynamicResource 'lang.kitopia.close'}" Content="✕">
+                    <Button.Styles>
+                        <Style Selector="Button /template/ ContentPresenter">
+                            <Setter Property="Transitions">
+                                <Transitions>
+                                    <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                                </Transitions>
+                            </Setter>
+                        </Style>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
+                        </Style>
+                        <Style Selector="Button:pressed /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{DynamicResource SemiColorFill2}" />
+                        </Style>
+                    </Button.Styles>
+                </Button>
             </Grid>
 
             <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="16" Margin="24,4,24,20">
+                <StackPanel Spacing="16" Margin="24,4,24,20" Classes="kitopia-enter-up">
                     <Border CornerRadius="12" Background="{DynamicResource SemiColorBackground0}"
-                            BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1"
+                            BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1"
+                            BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
                             Padding="24">
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="20">
-                            <Border Grid.Column="0" Width="72" Height="72" CornerRadius="16"
+                            <Border Grid.Column="0" Width="72" Height="72" CornerRadius="12"
                                     Background="{DynamicResource KitopiaAvatarBackground}" VerticalAlignment="Top">
                                 <TextBlock Text="S" FontSize="30" FontWeight="Bold"
                                            Foreground="{DynamicResource KitopiaAvatarForeground}"
@@ -70,7 +87,7 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="x:String">
-                                            <Border Background="{DynamicResource KitopiaBadgeTagBackground}" CornerRadius="5" Padding="7,2">
+                                            <Border Background="{DynamicResource KitopiaBadgeTagBackground}" CornerRadius="4" Padding="7,2">
                                                 <TextBlock Text="#{Binding}" FontSize="11" Foreground="{DynamicResource KitopiaBadgeTagForeground}" />
                                             </Border>
                                         </DataTemplate>
@@ -115,7 +132,8 @@
                     <TextBlock Text="{Binding Error}" TextWrapping="Wrap" Foreground="{DynamicResource SemiColorDanger}"
                                IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                     <Border CornerRadius="12" Background="{DynamicResource SemiColorBackground0}"
-                            BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" Padding="24">
+                            BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1"
+                            BoxShadow="{DynamicResource KitopiaCardBoxShadow}" Padding="24">
                         <StackPanel Spacing="10">
                             <TextBlock Text="{DynamicResource 'lang.kitopia.about_this_scenario'}" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource SemiColorText2}" />
                             <TextBlock Text="{DynamicResource 'lang.kitopia.details'}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource SemiColorText0}" />
@@ -124,9 +142,11 @@
                         </StackPanel>
                     </Border>
 
-                    <Border IsVisible="{Binding HasEditingRelease}" CornerRadius="8"
+                    <Border IsVisible="{Binding HasEditingRelease}" CornerRadius="12"
+                            Classes="kitopia-enter-up"
                             Background="{DynamicResource SemiColorBackground0}"
-                            BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" Padding="16">
+                            BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1"
+                            BoxShadow="{DynamicResource KitopiaCardBoxShadow}" Padding="16">
                         <StackPanel Spacing="8">
                             <TextBlock Text="{Binding EditingReleaseHeader}" FontWeight="SemiBold" Foreground="{DynamicResource SemiColorText0}" />
                             <TextBox Text="{Binding EditingDetail}" AcceptsReturn="True" TextWrapping="Wrap"
@@ -139,7 +159,8 @@
                     </Border>
 
                     <Border CornerRadius="12" Background="{DynamicResource SemiColorBackground0}"
-                            BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" Padding="24">
+                            BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1"
+                            BoxShadow="{DynamicResource KitopiaCardBoxShadow}" Padding="24">
                         <StackPanel Spacing="16">
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel>
@@ -158,19 +179,19 @@
                                             <Panel Grid.Column="0">
                                                 <Border Width="2" Background="{DynamicResource SemiColorBorder}"
                                                         HorizontalAlignment="Center" VerticalAlignment="Stretch" Margin="0,14,0,0" />
-                                                <Border Width="12" Height="12" CornerRadius="6" BorderBrush="White" BorderThickness="2"
+                                                <Border Width="12" Height="12" CornerRadius="6" BorderBrush="{DynamicResource SemiColorBackground0}" BorderThickness="2"
                                                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0"
                                                         Background="{DynamicResource SemiColorText2}" IsVisible="{Binding IsDraft}" />
-                                                <Border Width="12" Height="12" CornerRadius="6" BorderBrush="White" BorderThickness="2"
+                                                <Border Width="12" Height="12" CornerRadius="6" BorderBrush="{DynamicResource SemiColorBackground0}" BorderThickness="2"
                                                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0"
                                                         Background="{DynamicResource SemiColorText2}" IsVisible="{Binding IsWithdrawn}" />
-                                                <Border Width="12" Height="12" CornerRadius="6" BorderBrush="White" BorderThickness="2"
+                                                <Border Width="12" Height="12" CornerRadius="6" BorderBrush="{DynamicResource SemiColorBackground0}" BorderThickness="2"
                                                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0"
                                                         Background="{DynamicResource SemiColorSuccess}" IsVisible="{Binding IsPublished}" />
-                                                <Border Width="12" Height="12" CornerRadius="6" BorderBrush="White" BorderThickness="2"
+                                                <Border Width="12" Height="12" CornerRadius="6" BorderBrush="{DynamicResource SemiColorBackground0}" BorderThickness="2"
                                                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0"
                                                         Background="{DynamicResource SemiColorWarning}" IsVisible="{Binding IsPendingReview}" />
-                                                <Border Width="12" Height="12" CornerRadius="6" BorderBrush="White" BorderThickness="2"
+                                                <Border Width="12" Height="12" CornerRadius="6" BorderBrush="{DynamicResource SemiColorBackground0}" BorderThickness="2"
                                                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0"
                                                         Background="{DynamicResource SemiColorDanger}" IsVisible="{Binding IsRejected}" />
                                             </Panel>
@@ -200,7 +221,7 @@
                                                             Command="{Binding Path=$parent[UserControl].((scenario:ScenarioDetailViewModel)DataContext).EditReleaseDetailCommand}" CommandParameter="{Binding .}" />
                                                     <Button Content="{DynamicResource 'lang.kitopia.cancel_review'}" CornerRadius="6" IsVisible="{Binding CanCancelReview}"
                                                             Command="{Binding Path=$parent[UserControl].((scenario:ScenarioDetailViewModel)DataContext).CancelReleaseReviewCommand}" CommandParameter="{Binding .}" />
-                                                    <Button Content="{DynamicResource 'lang.kitopia.withdraw_this_version'}" Theme="{DynamicResource KitopiaDangerSubtleButton}" CornerRadius="6" IsVisible="{Binding CanWithdraw}"
+                                                    <Button Content="{DynamicResource 'lang.kitopia.withdraw_this_version'}" Theme="{DynamicResource KitopiaDangerOutlineButton}" IsVisible="{Binding CanWithdraw}"
                                                             Command="{Binding Path=$parent[UserControl].((scenario:ScenarioDetailViewModel)DataContext).WithdrawReleaseCommand}" CommandParameter="{Binding .}" />
                                                 </StackPanel>
                                                 <Expander Header="{Binding ReviewHistoryText}" IsVisible="{Binding HasReviewHistory}" Margin="0,3,0,0">

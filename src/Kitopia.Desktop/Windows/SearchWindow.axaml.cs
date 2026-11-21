@@ -181,11 +181,22 @@ public partial class SearchWindow : Window
     public override void Show()
     {
         _directorySearchArea = null;
-        if (DataContext is SearchWindowViewModel { IsDirectorySearch: true } model)
+        if (DataContext is SearchWindowViewModel model)
         {
-            model.DirectorySearchPath = null;
-            if (model.Search.Length == 0) model.ToSearch(string.Empty);
-            else model.Search = string.Empty;
+            if (model.IsDirectorySearch)
+            {
+                model.DirectorySearchPath = null;
+                model.Search = string.Empty;
+                model.LoadLastImmediately();
+            }
+            else if (string.IsNullOrEmpty(model.Search))
+            {
+                model.LoadLastImmediately();
+            }
+            else
+            {
+                model.UpdateSelection(resetToDefault: true);
+            }
         }
         _placementScreen = null;
         var windowTool = ServiceManager.Services.GetRequiredService<IWindowTool>();
@@ -202,9 +213,6 @@ public partial class SearchWindow : Window
         windowTool.SetForegroundWindow(TryGetPlatformHandle()!.Handle);
         tx.Focus();
         tx.SelectAll();
-        ((SearchWindowViewModel?)DataContext)?.UpdateSelection(resetToDefault: true);
-        ((SearchWindowViewModel?)DataContext)?.LoadLast();
-        ((SearchWindowViewModel?)DataContext)?.SetProcessUsageEnabled(IsVisible);
     }
 
     public void ShowDirectorySearch(string directory, string text, PixelRect explorerBounds)
@@ -500,9 +508,10 @@ public partial class SearchWindow : Window
 
     private void ToggleButton_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
     {
-        Task.Run(() =>
+        var viewModel = DataContext as SearchWindowViewModel;
+        if (viewModel is not null)
         {
-            Dispatcher.UIThread.InvokeAsync(() => { ((SearchWindowViewModel)DataContext).UpdateFilter(); });
-        });
+            Dispatcher.UIThread.Post(viewModel.UpdateFilter);
+        }
     }
 }

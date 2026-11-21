@@ -4,31 +4,31 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="Kitopia.Desktop.Controls.DialogOvercover"
+             Classes="kitopia-enter-fade"
              Foreground="{DynamicResource SemiColorText0}"
              AttachedToVisualTree="Visual_OnAttachedToVisualTree"
-             
-             
-             
              PointerPressed="InputElement_OnPointerPressed">
 
     <UserControl.Background>
-        <SolidColorBrush Opacity="0.5" Color="{DynamicResource SemiGrey2Color}" />
+        <SolidColorBrush Color="#66000000" />
     </UserControl.Background>
 
     <!-- Even in WinUI, shadow is always black regardless of light/dark mode -->
 
     <!-- if this border isn't here, dialog space displays outside of corner radius at top
                                  if we put ClipToBounds=True on BackgroundElement above, it clips the shadow -->
-    <Border ClipToBounds="True" HorizontalAlignment="Center" Name="BackgroundElement"
-            BorderBrush="{DynamicResource SemiColorBorder}"
+    <Border HorizontalAlignment="Center" Name="BackgroundElement"
+            Classes="kitopia-enter-scale"
+            BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
             BorderThickness="1"
-            CornerRadius="8"
-            BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
+            CornerRadius="16"
+            BoxShadow="{DynamicResource KitopiaModalBoxShadow}"
             Background="{DynamicResource KitopiaCardBackgroundBrush}"
             VerticalAlignment="Center" Margin="10"
             PointerMoved="InputElement_OnPointerMoved" PointerPressed="InputElement_OnPointerPressed"
             PointerReleased="InputElement_OnPointerReleased">
-        <Panel>
+        <Border CornerRadius="16" ClipToBounds="True">
+            <Panel>
             <Grid Name="DialogSpace" ClipToBounds="True"
                   RowDefinitions="Auto,*,Auto">
                 <Panel Background="Transparent">
@@ -113,6 +113,7 @@
                 </Border>
             </Grid>
         </Panel>
+        </Border>
 
     </Border>
 

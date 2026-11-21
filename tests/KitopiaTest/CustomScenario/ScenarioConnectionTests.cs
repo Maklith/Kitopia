@@ -104,6 +104,54 @@ public sealed class ScenarioConnectionTests
     }
 
     [TestMethod]
+    public void NodeSearch_SearchText_FiltersByPinyinAndAscii()
+    {
+        var previousRoot = ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup;
+        var root = new ScenarioMethodCategoryGroup();
+        var sourceOutput = CreateConnector(typeof(string), ConnectorType.Output);
+
+        ScenarioMethodNode CreateNode(string title, Type inputType)
+        {
+            var connector = CreateConnector(inputType, ConnectorType.Input);
+            var node = (ScenarioMethodNode)connector.Source;
+            node.Title = title;
+            return node;
+        }
+
+        var openBrowser = CreateNode("打开浏览器", typeof(string));
+        var closeWindow = CreateNode("关闭窗口", typeof(string));
+        var httpRequest = CreateNode("HttpRequest", typeof(string));
+        var incompatible = CreateNode("不可兼容节点", typeof(int));
+
+        root.Methods.Add("open", openBrowser);
+        root.Methods.Add("close", closeWindow);
+        root.Methods.Add("http", httpRequest);
+        root.Methods.Add("int", incompatible);
+        ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup = root;
+        try
+        {
+            var search = new TaskNodeSearchViewModel(sourceOutput, new TaskEditorViewModel(), new Point());
+            Assert.HasCount(3, search.FilteredNodes);
+
+            search.SearchText = "dkllq";
+            Assert.AreEqual("打开浏览器", search.FilteredNodes.Single().Title);
+
+            search.SearchText = "dk llq";
+            Assert.AreEqual("打开浏览器", search.FilteredNodes.Single().Title);
+
+            search.SearchText = "http";
+            Assert.AreEqual("HttpRequest", search.FilteredNodes.Single().Title);
+
+            search.SearchText = string.Empty;
+            Assert.HasCount(3, search.FilteredNodes);
+        }
+        finally
+        {
+            ScenarioMethodCategoryGroup.RootScenarioMethodCategoryGroup = previousRoot;
+        }
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public void Connect_DataInputAlreadyConnected_ReplacesSourceAndPreservesFanOut(bool fromInput)

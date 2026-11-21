@@ -8,11 +8,25 @@
              x:DataType="vm:AccountCardViewModel"
              x:Class="Kitopia.Desktop.Controls.AccountCardControl">
 
-    <Border Background="{DynamicResource KSemiColorBackground4}"
+    <Border Name="AccountCardBorder"
+            Background="{DynamicResource KSemiColorBackground4}"
             BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
             BorderThickness="1"
+            BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
             CornerRadius="12"
             Padding="14,10">
+        <Border.Transitions>
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.16" Easing="CubicEaseOut" />
+            </Transitions>
+        </Border.Transitions>
+        <Border.Styles>
+            <Style Selector="Border#AccountCardBorder:pointerover">
+                <Setter Property="BorderBrush" Value="{DynamicResource KitopiaCardHoverBorderBrush}" />
+                <Setter Property="BoxShadow" Value="{DynamicResource KitopiaCardHoverBoxShadow}" />
+            </Style>
+        </Border.Styles>
         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalAlignment="Center">
             <!-- Left: Avatar -->
             <Border Grid.Column="0"

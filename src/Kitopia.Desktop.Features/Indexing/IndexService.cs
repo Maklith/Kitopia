@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
@@ -17,8 +18,13 @@ namespace Kitopia.Desktop.Features.Indexing;
 public sealed class IndexService : IIndexService, IDisposable
 {
     private const int PinyinResultLimit = 100;
-    private const int ManagedFileSearchBatchSize = 256;
+    private const int ParallelManagedSearchThreshold = 1024;
     private const int ImageInferenceBatchSize = 8;
+    private const int CjkRangeStart = '\u4E00';
+    private const int CjkRangeLength = '\u9FA5' - '\u4E00' + 1;
+    private const uint AsciiLettersMask = 0x03FFFFFFu;
+    private const uint HasDigitFlag = 1u << 30;
+    private const uint ComplexCharsFlag = 1u << 31;
     private static readonly ILogger Logger = LogManager.Logger.ForContext<IndexService>();
     private static readonly StringComparer EntryKeyComparer =
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
@@ -28,10 +34,24 @@ public sealed class IndexService : IIndexService, IDisposable
     // Everything to produce a second entry when it changes the casing of a returned path.
     private readonly Dictionary<string, IndexedEntry> _entries = new(EntryKeyComparer);
     private readonly object _entriesLock = new();
+    private long _entriesVersion;
+    private long _explicitKeysVersion = -1;
+    private HashSet<string>? _explicitKeysSnapshot;
     private readonly IndexVectorStore _store = new();
+    private static readonly Lazy<PinyinProcessor> ManagedPinyinProcessor = new(() => new PinyinProcessor());
+    private static readonly CjkPinyinData?[] CjkPinyinTable = new CjkPinyinData?[CjkRangeLength];
+    private static readonly CjkPinyinData EmptyCjkPinyinData = new([], 0, 0);
+    private IndexVectorStore? _managedFilesStore;
+    private long _managedFilesVersion = -1;
+    private CandidateSnapshot? _managedFilesSnapshot;
+    private Task<CandidateSnapshot>? _managedFilesLoadTask;
+    private IndexVectorStore? _managedFilesLoadStore;
+    private long _managedFilesLoadVersion = -1;
+    private readonly CancellationTokenSource _disposeCancellation = new();
+    private int _disposed;
     private readonly SemaphoreSlim _rebuildGate = new(1, 1);
     private readonly SemaphoreSlim _pinyinBuildGate = new(1, 1);
-    private PinyinSearcher<KeyValuePair<string, string>>? _pinyinSearcher;
+    private CandidateSnapshot? _explicitPinyinSnapshot;
     private int _pinyinRebuildVersion;
     private int _pinyinRebuildQueued;
     private int _statusPublishQueued;
@@ -44,6 +64,8 @@ public sealed class IndexService : IIndexService, IDisposable
     private TaskCompletionSource<bool>? _resumeSignal;
     private bool _isPaused;
     private bool _isForegroundPaused;
+
+    public static PinyinProcessor SharedPinyinProcessor => ManagedPinyinProcessor.Value;
 
     public event EventHandler<IndexStatusSnapshot>? StatusChanged;
 
@@ -138,6 +160,7 @@ public sealed class IndexService : IIndexService, IDisposable
             }
 
             _entries[entry.OnlyKey] = new IndexedEntry(entry, source);
+            _entriesVersion++;
             changed = true;
         }
 
@@ -157,6 +180,7 @@ public sealed class IndexService : IIndexService, IDisposable
             if (_entries.Remove(onlyKey, out var existing))
             {
                 removedEntry = existing;
+                _entriesVersion++;
             }
         }
 
@@ -247,7 +271,10 @@ public sealed class IndexService : IIndexService, IDisposable
         {
             foreach (var key in keys)
             {
-                _entries.Remove(key);
+                if (_entries.Remove(key))
+                {
+                    _entriesVersion++;
+                }
             }
         }
 
@@ -298,6 +325,11 @@ public sealed class IndexService : IIndexService, IDisposable
                 _entries[key] = new IndexedEntry(entry, source);
                 changed = true;
             }
+
+            if (changed)
+            {
+                _entriesVersion++;
+            }
         }
 
         if (removed.Count > 0)
@@ -334,8 +366,19 @@ public sealed class IndexService : IIndexService, IDisposable
             cancellationToken);
         if (changed)
         {
-            Interlocked.Increment(ref _pinyinRebuildVersion);
             PublishStatus();
+        }
+
+        if (changed || !HasCurrentManagedFilesSnapshot())
+        {
+            try
+            {
+                await GetManagedFilesSnapshotAsync(cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                Logger.Debug(exception, "Could not warm managed-file pinyin snapshot after sync.");
+            }
         }
 
         return changed;
@@ -391,13 +434,36 @@ public sealed class IndexService : IIndexService, IDisposable
             await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                // Managed files are searched from SQLite in bounded pages. Keeping them in this
-                // cache creates one PinyinToken graph per file and duplicates it during rebuilds.
-                var searcher = new PinyinSearcher<KeyValuePair<string, string>>(EnumeratePinyinEntries(), entry => entry.Value);
+                // Managed files are loaded separately from index.db so frequent application/window
+                // refreshes do not rescan or duplicate managed file metadata.
+                List<SearchEntry> entries;
+                lock (_entriesLock)
+                {
+                    entries = new List<SearchEntry>(_entries.Count);
+                    foreach (var indexed in _entries.Values)
+                    {
+                        entries.Add(indexed.Entry);
+                    }
+                }
+
+                var candidates = new SearchCandidate[entries.Count];
+                var paths = new string[entries.Count];
+                var explicitEntries = new SearchEntry[entries.Count];
+                for (var index = 0; index < entries.Count; index++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var entry = entries[index];
+                    candidates[index] = BuildSearchCandidate(entry.DisplayName);
+                    paths[index] = entry.OnlyKey;
+                    explicitEntries[index] = entry;
+                }
+
                 cancellationToken.ThrowIfCancellationRequested();
                 if (Volatile.Read(ref _pinyinRebuildVersion) == version)
                 {
-                    _pinyinSearcher = searcher;
+                    Volatile.Write(
+                        ref _explicitPinyinSnapshot,
+                        new CandidateSnapshot(candidates, paths, explicitEntries));
                 }
             }, cancellationToken);
         }
@@ -405,25 +471,6 @@ public sealed class IndexService : IIndexService, IDisposable
         {
             _pinyinBuildGate.Release();
         }
-    }
-
-    private IEnumerable<KeyValuePair<string, string>> EnumeratePinyinEntries()
-    {
-        List<KeyValuePair<string, string>> entries;
-        lock (_entriesLock)
-        {
-            entries = new List<KeyValuePair<string, string>>(_entries.Count);
-            foreach (var indexed in _entries.Values)
-            {
-                entries.Add(new KeyValuePair<string, string>(indexed.Entry.OnlyKey, indexed.Entry.DisplayName));
-            }
-        }
-
-        foreach (var entry in entries)
-        {
-            yield return entry;
-        }
-
     }
 
     public IReadOnlyList<KeyValuePair<string, SearchEntry>> GetEntriesSnapshot()
@@ -504,48 +551,51 @@ public sealed class IndexService : IIndexService, IDisposable
         var candidateLimit = maximumResults > int.MaxValue / 4
             ? int.MaxValue
             : maximumResults * 4;
-        var matches = new Dictionary<string, PinyinMatch>(EntryKeyComparer);
-        var explicitKeys = new HashSet<string>(EntryKeyComparer);
-        lock (_entriesLock)
+        var keywords = query.ToLowerInvariant()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (keywords.Length == 0)
         {
-            foreach (var key in _entries.Keys)
-            {
-                explicitKeys.Add(key);
-            }
+            return [];
         }
 
-        AddExplicitPinyinMatches(
-            matches,
-            _pinyinSearcher?.Search(query, candidateLimit, cancellationToken),
-            candidateLimit,
-            explicitKeys);
+        var queryContext = CreateQueryContext(keywords);
+        var merged = new PriorityQueue<MergedCandidateMatch, MergedCandidateMatch>(Math.Min(candidateLimit, 64));
+        var explicitKeys = GetExplicitKeysSnapshot();
 
-        var batch = new List<KeyValuePair<string, string>>(ManagedFileSearchBatchSize);
+        var explicitSnapshot = Volatile.Read(ref _explicitPinyinSnapshot);
+        if (explicitSnapshot is { Count: > 0 })
+        {
+            SearchCandidates(
+                explicitSnapshot,
+                queryContext,
+                explicitKeys,
+                ignoredPaths,
+                isExplicit: true,
+                merged,
+                candidateLimit,
+                double.NegativeInfinity,
+                cancellationToken);
+        }
+
+        var initialMinWeight = merged.Count >= candidateLimit && merged.TryPeek(out var worstExplicit, out _)
+            ? worstExplicit.Weight
+            : double.NegativeInfinity;
+
         try
         {
-            foreach (var path in _store.EnumerateManagedFilePaths(cancellationToken))
+            var managedSnapshot = GetManagedFilesSnapshot(cancellationToken);
+            if (managedSnapshot.Count > 0)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (IsIgnoredPath(path, ignoredPaths)
-                    || explicitKeys.Contains(path)
-                    || !TryGetManagedFileDisplayName(path, out var displayName))
-                {
-                    continue;
-                }
-
-                batch.Add(new KeyValuePair<string, string>(path, displayName));
-                if (batch.Count < ManagedFileSearchBatchSize)
-                {
-                    continue;
-                }
-
-                SearchManagedFileBatch(query, batch, matches, candidateLimit, cancellationToken);
-                batch.Clear();
-            }
-
-            if (batch.Count > 0)
-            {
-                SearchManagedFileBatch(query, batch, matches, candidateLimit, cancellationToken);
+                SearchCandidates(
+                    managedSnapshot,
+                    queryContext,
+                    explicitKeys,
+                    ignoredPaths,
+                    isExplicit: false,
+                    merged,
+                    candidateLimit,
+                    initialMinWeight,
+                    cancellationToken);
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -555,26 +605,49 @@ public sealed class IndexService : IIndexService, IDisposable
             Logger.Debug(exception, "Managed-file pinyin search could not read index.db.");
         }
 
-        var results = new List<SearchIndexResult>(maximumResults);
-        foreach (var match in matches.Values
-            .OrderByDescending(match => match.Weight)
-            .ThenBy(match => match.Key.Length)
-            .ThenBy(match => match.Key, EntryKeyComparer))
+        if (merged.Count == 0)
         {
-            SearchEntry entry;
-            if (match.Entry is { } explicitEntry)
-            {
-                entry = explicitEntry;
-            }
-            else if (!TryGetManagedFileEntry(match.Key, out entry))
+            return [];
+        }
+
+        var ranked = new MergedCandidateMatch[merged.Count];
+        var rankedCount = 0;
+        foreach (var (element, _) in merged.UnorderedItems)
+        {
+            ranked[rankedCount++] = element;
+        }
+
+        Array.Sort(ranked, static (left, right) => right.CompareTo(left));
+
+        var results = new List<SearchIndexResult>(Math.Min(maximumResults, rankedCount));
+        var seenKeys = new HashSet<string>(Math.Min(maximumResults, rankedCount), EntryKeyComparer);
+        for (var i = 0; i < rankedCount; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ref readonly var match = ref ranked[i];
+            if (!seenKeys.Add(match.Path))
             {
                 continue;
             }
 
+            SearchEntry entry;
+            if (match.Snapshot.ExplicitEntries is { } explicitEntries)
+            {
+                entry = explicitEntries[match.CandidateIndex];
+            }
+            else if (!TryGetManagedFileEntry(match.Path, out entry))
+            {
+                continue;
+            }
+
+            var charMatchResults = CreateCharMatches(
+                entry.DisplayName,
+                in queryContext,
+                match.Snapshot.Candidates[match.CandidateIndex].HasComplexChars);
             results.Add(new SearchIndexResult(
                 entry,
                 1d / (60 + results.Count + 1),
-                match.CharMatchResults));
+                charMatchResults));
             if (results.Count == maximumResults)
             {
                 break;
@@ -584,103 +657,949 @@ public sealed class IndexService : IIndexService, IDisposable
         return results;
     }
 
-    private void SearchManagedFileBatch(
-        string query,
-        IReadOnlyList<KeyValuePair<string, string>> batch,
-        Dictionary<string, PinyinMatch> matches,
-        int maximumResults,
+    private HashSet<string> GetExplicitKeysSnapshot()
+    {
+        lock (_entriesLock)
+        {
+            if (_explicitKeysSnapshot is not null && _explicitKeysVersion == _entriesVersion)
+            {
+                return _explicitKeysSnapshot;
+            }
+
+            var keys = new HashSet<string>(_entries.Keys, EntryKeyComparer);
+            _explicitKeysSnapshot = keys;
+            _explicitKeysVersion = _entriesVersion;
+            return keys;
+        }
+    }
+
+    private static void SearchCandidates(
+        CandidateSnapshot snapshot,
+        QueryContext query,
+        IReadOnlySet<string> explicitKeys,
+        IReadOnlyList<string> ignoredPaths,
+        bool isExplicit,
+        PriorityQueue<MergedCandidateMatch, MergedCandidateMatch> merged,
+        int candidateLimit,
+        double initialMinWeight,
         CancellationToken cancellationToken)
     {
-        var searcher = new PinyinSearcher<KeyValuePair<string, string>>(batch, entry => entry.Value);
-        foreach (var result in searcher.Search(query, maximumResults, cancellationToken))
+        if (snapshot.Count <= ParallelManagedSearchThreshold)
         {
-            var candidate = new PinyinMatch(
-                result.Source.Key,
-                null,
-                result.Weight,
-                result.CharMatchResults);
-            AddPinyinMatch(matches, candidate, maximumResults);
-        }
-    }
-
-    private void AddExplicitPinyinMatches(
-        Dictionary<string, PinyinMatch> matches,
-        IReadOnlyList<SearchResults<KeyValuePair<string, string>>>? results,
-        int maximumResults,
-        IReadOnlySet<string> explicitKeys)
-    {
-        if (results is null)
-        {
+            var localMatches = new PriorityQueue<SearchCandidateMatch, SearchCandidateMatch>(
+                Math.Min(candidateLimit, 64));
+            ScanCandidateRange(
+                snapshot,
+                0,
+                snapshot.Count,
+                in query,
+                explicitKeys,
+                ignoredPaths,
+                isExplicit,
+                candidateLimit,
+                initialMinWeight,
+                localMatches,
+                cancellationToken);
+            MergeCandidateMatches(snapshot, localMatches, merged, candidateLimit);
             return;
         }
 
-        foreach (var result in results)
+        var partitions = new List<PriorityQueue<SearchCandidateMatch, SearchCandidateMatch>>();
+        Parallel.ForEach(
+            Partitioner.Create(0, snapshot.Count),
+            new ParallelOptions { CancellationToken = cancellationToken },
+            () => new PriorityQueue<SearchCandidateMatch, SearchCandidateMatch>(Math.Min(candidateLimit, 64)),
+            (range, _, localMatches) =>
+            {
+                ScanCandidateRange(
+                    snapshot,
+                    range.Item1,
+                    range.Item2,
+                    in query,
+                    explicitKeys,
+                    ignoredPaths,
+                    isExplicit,
+                    candidateLimit,
+                    initialMinWeight,
+                    localMatches,
+                    cancellationToken);
+                return localMatches;
+            },
+            localMatches =>
+            {
+                if (localMatches.Count == 0)
+                {
+                    return;
+                }
+
+                lock (partitions)
+                {
+                    partitions.Add(localMatches);
+                }
+            });
+
+        foreach (var partition in partitions)
         {
-            if (!explicitKeys.Contains(result.Source.Key))
+            MergeCandidateMatches(snapshot, partition, merged, candidateLimit);
+        }
+    }
+
+    private static void ScanCandidateRange(
+        CandidateSnapshot snapshot,
+        int startInclusive,
+        int endExclusive,
+        in QueryContext query,
+        IReadOnlySet<string> explicitKeys,
+        IReadOnlyList<string> ignoredPaths,
+        bool isExplicit,
+        int candidateLimit,
+        double initialMinWeight,
+        PriorityQueue<SearchCandidateMatch, SearchCandidateMatch> localMatches,
+        CancellationToken cancellationToken)
+    {
+        var candidates = snapshot.Candidates;
+        var paths = snapshot.Paths;
+        for (var index = startInclusive; index < endExclusive; index++)
+        {
+            if (((index - startInclusive) & 63) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            ref readonly var candidate = ref candidates[index];
+            if (!MatchesPrefilter(in candidate, in query))
             {
                 continue;
             }
 
-            if (!TryGetValue(result.Source.Key, out var entry))
+            var localMinWeight = localMatches.Count >= candidateLimit && localMatches.TryPeek(out var worstMatch, out _)
+                ? worstMatch.Weight
+                : double.NegativeInfinity;
+            var minWeight = Math.Max(initialMinWeight, localMinWeight);
+            if (!TryMatchPinyin(
+                    candidate.DisplayName,
+                    in query,
+                    candidate.HasComplexChars,
+                    null,
+                    minWeight,
+                    out var weight))
             {
                 continue;
             }
 
-            AddPinyinMatch(
-                matches,
-                new PinyinMatch(
-                    result.Source.Key,
-                    entry,
-                    result.Weight,
-                    result.CharMatchResults),
-                maximumResults);
+            var path = paths[index];
+            if ((isExplicit ? !explicitKeys.Contains(path) : explicitKeys.Contains(path))
+                || IsIgnoredPath(path, ignoredPaths))
+            {
+                continue;
+            }
+
+            var match = new SearchCandidateMatch(index, weight, path);
+            if (localMatches.Count < candidateLimit)
+            {
+                localMatches.Enqueue(match, match);
+            }
+            else if (localMatches.TryPeek(out var worst, out _) && match.CompareTo(worst) > 0)
+            {
+                localMatches.EnqueueDequeue(match, match);
+            }
         }
     }
 
-    private static void AddPinyinMatch(
-        Dictionary<string, PinyinMatch> matches,
-        PinyinMatch candidate,
-        int maximumResults)
+    private static void MergeCandidateMatches(
+        CandidateSnapshot snapshot,
+        PriorityQueue<SearchCandidateMatch, SearchCandidateMatch> partition,
+        PriorityQueue<MergedCandidateMatch, MergedCandidateMatch> merged,
+        int candidateLimit)
     {
-        if (matches.TryGetValue(candidate.Key, out var current)
-            && current.Weight >= candidate.Weight)
+        foreach (var (element, _) in partition.UnorderedItems)
         {
-            return;
-        }
-
-        matches[candidate.Key] = candidate;
-        if (matches.Count <= maximumResults)
-        {
-            return;
-        }
-
-        PinyinMatch? worst = null;
-        foreach (var match in matches.Values)
-        {
-            if (worst is null || IsWorsePinyinMatch(match, worst))
+            var match = new MergedCandidateMatch(snapshot, element.CandidateIndex, element.Weight, element.Path);
+            if (merged.Count < candidateLimit)
             {
-                worst = match;
+                merged.Enqueue(match, match);
+            }
+            else if (merged.TryPeek(out var worst, out _) && match.CompareTo(worst) > 0)
+            {
+                merged.EnqueueDequeue(match, match);
+            }
+        }
+    }
+
+    private bool HasCurrentManagedFilesSnapshot()
+    {
+        var store = _store;
+        var version = store.ManagedFileSourceVersion;
+        lock (_entriesLock)
+        {
+            return _managedFilesSnapshot is not null
+                   && ReferenceEquals(_managedFilesStore, store)
+                   && _managedFilesVersion == version;
+        }
+    }
+
+    private bool TryGetOrStartManagedFilesSnapshot(
+        out CandidateSnapshot? snapshot,
+        out Task<CandidateSnapshot>? loadTask)
+    {
+        var store = _store;
+        var version = store.ManagedFileSourceVersion;
+        lock (_entriesLock)
+        {
+            if (_managedFilesSnapshot is not null
+                && ReferenceEquals(_managedFilesStore, store)
+                && _managedFilesVersion == version)
+            {
+                snapshot = _managedFilesSnapshot;
+                loadTask = null;
+                return true;
+            }
+
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                snapshot = null;
+                loadTask = null;
+                return false;
+            }
+
+            snapshot = null;
+            loadTask = GetOrStartManagedFilesLoadTaskLocked(store, version);
+            return false;
+        }
+    }
+
+    private Task<CandidateSnapshot> GetOrStartManagedFilesLoadTaskLocked(IndexVectorStore store, long version)
+    {
+        if (_managedFilesLoadTask is not null
+            && ReferenceEquals(_managedFilesLoadStore, store)
+            && _managedFilesLoadVersion == version)
+        {
+            return _managedFilesLoadTask;
+        }
+
+        _managedFilesLoadStore = store;
+        _managedFilesLoadVersion = version;
+        var disposeToken = _disposeCancellation.Token;
+        _managedFilesLoadTask = Task.Run(
+            () => BuildManagedFilesSnapshot(store, version, disposeToken),
+            CancellationToken.None);
+        return _managedFilesLoadTask;
+    }
+
+    private CandidateSnapshot GetManagedFilesSnapshot(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (TryGetOrStartManagedFilesSnapshot(out var snapshot, out var loadTask))
+        {
+            return snapshot!;
+        }
+
+        return loadTask is null
+            ? CandidateSnapshot.Empty
+            : loadTask.WaitAsync(cancellationToken).GetAwaiter().GetResult();
+    }
+
+    private async Task GetManagedFilesSnapshotAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (TryGetOrStartManagedFilesSnapshot(out _, out var loadTask) || loadTask is null)
+        {
+            return;
+        }
+
+        await loadTask.WaitAsync(cancellationToken);
+    }
+
+    private CandidateSnapshot BuildManagedFilesSnapshot(
+        IndexVectorStore store,
+        long version,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var paths = store.ReadManagedFilePathsSnapshot(cancellationToken);
+            var count = paths.Count;
+            if (count == 0)
+            {
+                lock (_entriesLock)
+                {
+                    if (ReferenceEquals(_store, store) && store.ManagedFileSourceVersion == version)
+                    {
+                        _managedFilesStore = store;
+                        _managedFilesVersion = version;
+                        _managedFilesSnapshot = CandidateSnapshot.Empty;
+                    }
+                }
+
+                return CandidateSnapshot.Empty;
+            }
+
+            var candidates = new SearchCandidate[count];
+            var candidatePaths = new string[count];
+            var validCount = 0;
+            for (var index = 0; index < count; index++)
+            {
+                if ((index & 255) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
+                var path = paths[index];
+                if (TryGetManagedFileDisplayName(path, out var displayName))
+                {
+                    candidates[validCount] = BuildSearchCandidate(displayName);
+                    candidatePaths[validCount] = path;
+                    validCount++;
+                }
+            }
+
+            if (validCount != count)
+            {
+                Array.Resize(ref candidates, validCount);
+                Array.Resize(ref candidatePaths, validCount);
+            }
+
+            var snapshot = validCount == 0
+                ? CandidateSnapshot.Empty
+                : new CandidateSnapshot(candidates, candidatePaths);
+            lock (_entriesLock)
+            {
+                if (ReferenceEquals(_store, store) && store.ManagedFileSourceVersion == version)
+                {
+                    _managedFilesStore = store;
+                    _managedFilesVersion = version;
+                    _managedFilesSnapshot = snapshot;
+                }
+            }
+
+            return snapshot;
+        }
+        finally
+        {
+            lock (_entriesLock)
+            {
+                if (ReferenceEquals(_managedFilesLoadStore, store) && _managedFilesLoadVersion == version)
+                {
+                    _managedFilesLoadTask = null;
+                }
+            }
+        }
+    }
+
+    internal readonly record struct PinyinSearchItem<T>(T Source, SearchCandidate Candidate);
+
+    internal static PinyinSearchItem<T>[] CreatePinyinSearchItems<T>(
+        IReadOnlyList<T> items,
+        Func<T, string> textSelector)
+    {
+        var searchItems = new PinyinSearchItem<T>[items.Count];
+        var count = 0;
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            var text = textSelector(item);
+            if (string.IsNullOrEmpty(text))
+            {
+                continue;
+            }
+
+            searchItems[count++] = new PinyinSearchItem<T>(item, BuildSearchCandidate(text));
+        }
+
+        if (count != searchItems.Length)
+        {
+            Array.Resize(ref searchItems, count);
+        }
+
+        return searchItems;
+    }
+
+    internal static List<T> SearchPinyinItems<T>(
+        PinyinSearchItem<T>[] items,
+        string query)
+    {
+        if (items.Length == 0 || string.IsNullOrWhiteSpace(query))
+        {
+            return [];
+        }
+
+        var keywords = query.ToLowerInvariant()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (keywords.Length == 0)
+        {
+            return [];
+        }
+
+        var queryContext = CreateQueryContext(keywords);
+        var matches = new List<(T Source, double Weight, int Length)>();
+        for (var i = 0; i < items.Length; i++)
+        {
+            var candidate = items[i].Candidate;
+            if (!MatchesPrefilter(in candidate, in queryContext)
+                || !TryMatchPinyin(
+                    candidate.DisplayName,
+                    in queryContext,
+                    candidate.HasComplexChars,
+                    null,
+                    double.NegativeInfinity,
+                    out var weight))
+            {
+                continue;
+            }
+
+            matches.Add((items[i].Source, weight, candidate.DisplayName.Length));
+        }
+
+        matches.Sort(static (left, right) =>
+        {
+            var weightComparison = right.Weight.CompareTo(left.Weight);
+            return weightComparison != 0
+                ? weightComparison
+                : left.Length.CompareTo(right.Length);
+        });
+
+        var results = new List<T>(matches.Count);
+        for (var i = 0; i < matches.Count; i++)
+        {
+            results.Add(matches[i].Source);
+        }
+
+        return results;
+    }
+
+    private static SearchCandidate BuildSearchCandidate(string displayName)
+    {
+        uint letterMask = 0;
+        uint startLetterMask = 0;
+        foreach (var ch in displayName)
+        {
+            if (ch is >= 'a' and <= 'z')
+            {
+                var bit = 1u << (ch - 'a');
+                letterMask |= bit;
+                startLetterMask |= bit;
+            }
+            else if (ch is >= 'A' and <= 'Z')
+            {
+                var bit = 1u << (ch - 'A');
+                letterMask |= bit;
+                startLetterMask |= bit;
+            }
+            else if (ch is >= '0' and <= '9')
+            {
+                letterMask |= HasDigitFlag;
+            }
+            else if (IsChineseChar(ch))
+            {
+                var pinyin = GetCjkPinyinData(ch);
+                letterMask |= ComplexCharsFlag | pinyin.FullMask;
+                startLetterMask |= pinyin.FirstMask;
+            }
+            else if (ch > 127)
+            {
+                letterMask |= AsciiLettersMask | ComplexCharsFlag;
+                startLetterMask |= AsciiLettersMask;
             }
         }
 
-        matches.Remove(worst!.Key);
+        return new SearchCandidate(displayName, letterMask, startLetterMask);
     }
 
-    private static bool IsWorsePinyinMatch(PinyinMatch candidate, PinyinMatch currentWorst)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static CjkPinyinData GetCjkPinyinData(char ch)
     {
-        var comparison = candidate.Weight.CompareTo(currentWorst.Weight);
-        if (comparison != 0)
+        var index = (uint)(ch - CjkRangeStart);
+        if (index >= (uint)CjkPinyinTable.Length)
         {
-            return comparison < 0;
+            return EmptyCjkPinyinData;
         }
 
-        comparison = candidate.Key.Length.CompareTo(currentWorst.Key.Length);
-        if (comparison != 0)
+        var cached = Volatile.Read(ref CjkPinyinTable[index]);
+        if (cached is not null)
         {
-            return comparison > 0;
+            return cached;
         }
 
-        return EntryKeyComparer.Compare(candidate.Key, currentWorst.Key) > 0;
+        var loaded = LoadCjkPinyinData(ch);
+        Volatile.Write(ref CjkPinyinTable[index], loaded);
+        return loaded;
+    }
+
+    private static CjkPinyinData LoadCjkPinyinData(char ch)
+    {
+        var pinyin = ManagedPinyinProcessor.Value.GetPinyin(ch.ToString());
+        if (pinyin.Keys is null || pinyin.Keys.Count == 0)
+        {
+            return EmptyCjkPinyinData;
+        }
+
+        uint fullMask = 0;
+        uint firstMask = 0;
+        List<string>? syllables = null;
+        foreach (var entry in pinyin.Keys)
+        {
+            foreach (var syllable in entry)
+            {
+                if (string.IsNullOrEmpty(syllable))
+                {
+                    continue;
+                }
+
+                var hasAsciiPinyin = false;
+                var first = syllable[0];
+                if (first is >= 'a' and <= 'z')
+                {
+                    firstMask |= 1u << (first - 'a');
+                }
+                else if (first is >= 'A' and <= 'Z')
+                {
+                    firstMask |= 1u << (first - 'A');
+                }
+
+                foreach (var letter in syllable)
+                {
+                    if (letter is >= 'a' and <= 'z')
+                    {
+                        fullMask |= 1u << (letter - 'a');
+                        hasAsciiPinyin = true;
+                    }
+                    else if (letter is >= 'A' and <= 'Z')
+                    {
+                        fullMask |= 1u << (letter - 'A');
+                        hasAsciiPinyin = true;
+                    }
+                    else if (letter is >= '0' and <= '9')
+                    {
+                        fullMask |= HasDigitFlag;
+                    }
+                }
+
+                if (hasAsciiPinyin)
+                {
+                    syllables ??= new List<string>(entry.Count);
+                    syllables.Add(syllable);
+                }
+            }
+        }
+
+        return syllables is null
+            ? EmptyCjkPinyinData
+            : new CjkPinyinData(syllables.ToArray(), fullMask, firstMask);
+    }
+
+    private static QueryContext CreateQueryContext(string[] keywords)
+    {
+        uint letterMask = 0;
+        uint startMask = 0;
+        var hasNonLowerAscii = false;
+        var count = keywords.Length;
+        var remainingChars = new int[count];
+        var remainingDeductions = new double[count];
+
+        for (var i = 0; i < count; i++)
+        {
+            var keyword = keywords[i];
+            var first = keyword[0];
+            if (first is >= 'a' and <= 'z')
+            {
+                startMask |= 1u << (first - 'a');
+            }
+
+            foreach (var ch in keyword)
+            {
+                if (ch is >= 'a' and <= 'z')
+                {
+                    letterMask |= 1u << (ch - 'a');
+                }
+                else
+                {
+                    hasNonLowerAscii = true;
+                    if (ch is >= '0' and <= '9')
+                    {
+                        letterMask |= HasDigitFlag;
+                    }
+                    else if (ch > 127)
+                    {
+                        letterMask |= ComplexCharsFlag;
+                    }
+                }
+            }
+        }
+
+        var suffixChars = 0;
+        double suffixDeductions = 0;
+        for (var i = count - 1; i >= 0; i--)
+        {
+            var length = keywords[i].Length;
+            suffixChars += length;
+            suffixDeductions += length * (double)(count - i);
+            remainingChars[i] = suffixChars;
+            remainingDeductions[i] = suffixDeductions;
+        }
+
+        var isSingleLowerAsciiChar = count == 1
+                                     && keywords[0].Length == 1
+                                     && keywords[0][0] is >= 'a' and <= 'z';
+        return new QueryContext(
+            keywords,
+            letterMask,
+            startMask,
+            hasNonLowerAscii,
+            isSingleLowerAsciiChar,
+            remainingChars,
+            remainingDeductions);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool MatchesPrefilter(in SearchCandidate candidate, in QueryContext query)
+    {
+        if ((candidate.LetterMaskAndFlags & query.LetterMask) != query.LetterMask
+            || (candidate.StartLetterMask & query.StartMask) != query.StartMask)
+        {
+            return false;
+        }
+
+        if (!candidate.HasComplexChars)
+        {
+            return query.IsSingleLowerAsciiChar
+                   || MatchesKeywordsInOrderIgnoreCase(candidate.DisplayName, query.Keywords);
+        }
+
+        if (!query.HasNonLowerAscii)
+        {
+            return true;
+        }
+
+        var searchIndex = 0;
+        foreach (var keyword in query.Keywords)
+        {
+            foreach (var ch in keyword)
+            {
+                if (ch is >= 'a' and <= 'z')
+                {
+                    continue;
+                }
+
+                var foundIndex = IndexOfIgnoreCase(candidate.DisplayName, ch, searchIndex);
+                if (foundIndex < 0)
+                {
+                    return false;
+                }
+
+                searchIndex = foundIndex + 1;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool[]? CreateCharMatches(string displayName, in QueryContext query, bool hasComplexChars)
+    {
+        if (displayName.Length == 0 || query.Keywords.Length == 0)
+        {
+            return null;
+        }
+
+        var highlights = new bool[displayName.Length];
+        return TryMatchPinyin(displayName, in query, hasComplexChars, highlights, double.NegativeInfinity, out _)
+            ? highlights
+            : null;
+    }
+
+    private static bool TryMatchPinyin(
+        string text,
+        in QueryContext query,
+        bool hasComplexChars,
+        bool[]? charMatchResults,
+        double minWeight,
+        out double weight)
+    {
+        weight = 0;
+        var globalCharIndex = 0;
+        var keywords = query.Keywords;
+
+        for (var keywordIndex = 0; keywordIndex < keywords.Length; keywordIndex++)
+        {
+            var keyword = keywords[keywordIndex];
+            var remainingKeywords = keywords.Length - keywordIndex;
+            var maxStartExclusive = hasComplexChars
+                ? text.Length - remainingKeywords + 1
+                : text.Length - query.RemainingAsciiChars[keywordIndex] + 1;
+            var remainingDeduction = hasComplexChars
+                ? remainingKeywords * (remainingKeywords + 1) * 0.5d
+                : query.RemainingAsciiWeightDeductions[keywordIndex];
+            var deadJumpStart = int.MaxValue;
+            var deadJumpEnd = -1;
+            var matched = false;
+            for (var startPos = globalCharIndex; startPos < maxStartExclusive; startPos++)
+            {
+                if (minWeight > double.NegativeInfinity
+                    && weight + remainingKeywords * (1000d - startPos) - remainingDeduction < minWeight)
+                {
+                    break;
+                }
+
+                if (IsPinyinMatchSequence(
+                        text,
+                        startPos,
+                        keyword,
+                        charMatchResults,
+                        ref deadJumpStart,
+                        ref deadJumpEnd,
+                        out var scanEndPos))
+                {
+                    weight += 1000 - scanEndPos;
+                    globalCharIndex = scanEndPos;
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (!matched)
+            {
+                if (charMatchResults is not null)
+                {
+                    Array.Clear(charMatchResults);
+                }
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsPinyinMatchSequence(
+        string text,
+        int startPos,
+        string keyword,
+        bool[]? charMatchResults,
+        ref int deadJumpStart,
+        ref int deadJumpEnd,
+        out int scanEndPos)
+    {
+        scanEndPos = startPos;
+        var kIdx = 0;
+        var sIdx = startPos;
+        var gapStart = -1;
+        var firstK0Jump = -1;
+        var lastK0Pos = -1;
+
+        while (kIdx < keyword.Length && sIdx < text.Length)
+        {
+            var currentChar = text[sIdx];
+            if (IsPinyinSearcherSplitChar(currentChar))
+            {
+                if (keyword[kIdx] != currentChar)
+                {
+                    if (gapStart < 0)
+                    {
+                        gapStart = sIdx;
+                    }
+
+                    sIdx++;
+                    if (kIdx == 0 && firstK0Jump >= 0)
+                    {
+                        lastK0Pos = sIdx;
+                    }
+
+                    continue;
+                }
+            }
+
+            if (IsChineseChar(currentChar))
+            {
+                var bestMatchLen = 0;
+                var fullPinyins = GetCjkPinyinData(currentChar).Full;
+                if (fullPinyins is { Length: > 0 })
+                {
+                    for (var i = 0; i < fullPinyins.Length; i++)
+                    {
+                        var syllable = fullPinyins[i];
+                        var len = 0;
+                        var maxLen = Math.Min(keyword.Length - kIdx, syllable.Length);
+                        while (len < maxLen && keyword[kIdx + len] == syllable[len])
+                        {
+                            len++;
+                        }
+
+                        if (len > bestMatchLen)
+                        {
+                            bestMatchLen = len;
+                        }
+                    }
+                }
+
+                if (bestMatchLen > 0)
+                {
+                    MarkMatchedIndex(charMatchResults, ref gapStart, sIdx);
+                    kIdx += bestMatchLen;
+                    sIdx++;
+                    continue;
+                }
+
+                if (ToLowerAsciiOrInvariant(currentChar) == keyword[kIdx])
+                {
+                    MarkMatchedIndex(charMatchResults, ref gapStart, sIdx);
+                    kIdx++;
+                    sIdx++;
+                    continue;
+                }
+
+                break;
+            }
+
+            if (ToLowerAsciiOrInvariant(currentChar) == keyword[kIdx])
+            {
+                MarkMatchedIndex(charMatchResults, ref gapStart, sIdx);
+                kIdx++;
+                sIdx++;
+                continue;
+            }
+
+            var tokenEnd = FindNonCjkTokenEnd(text, sIdx);
+            if (tokenEnd <= sIdx)
+            {
+                break;
+            }
+
+            if (kIdx == 0)
+            {
+                if (tokenEnd >= deadJumpStart && tokenEnd <= deadJumpEnd)
+                {
+                    lastK0Pos = deadJumpEnd;
+                    break;
+                }
+
+                if (firstK0Jump < 0)
+                {
+                    firstK0Jump = tokenEnd;
+                }
+
+                lastK0Pos = tokenEnd;
+            }
+
+            gapStart = -1;
+            sIdx = tokenEnd;
+        }
+
+        if (kIdx >= keyword.Length)
+        {
+            scanEndPos = sIdx;
+            return true;
+        }
+
+        if (firstK0Jump >= 0)
+        {
+            deadJumpStart = firstK0Jump;
+            deadJumpEnd = lastK0Pos;
+        }
+
+        if (charMatchResults is not null && sIdx > startPos)
+        {
+            Array.Clear(charMatchResults, startPos, sIdx - startPos);
+        }
+
+        return false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void MarkMatchedIndex(bool[]? charMatchResults, ref int gapStart, int index)
+    {
+        if (charMatchResults is not null)
+        {
+            if (gapStart >= 0)
+            {
+                for (var gapIndex = gapStart; gapIndex < index; gapIndex++)
+                {
+                    charMatchResults[gapIndex] = true;
+                }
+            }
+
+            charMatchResults[index] = true;
+        }
+
+        gapStart = -1;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsChineseChar(char ch) => ch is >= '\u4E00' and <= '\u9FA5';
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static char ToLowerAsciiOrInvariant(char ch) =>
+        ch is >= 'A' and <= 'Z' ? (char)(ch + 32) : (ch > 127 ? char.ToLowerInvariant(ch) : ch);
+
+    private static int FindNonCjkTokenEnd(string text, int start)
+    {
+        if (IsPinyinProcessorSplitChar(text[start]))
+        {
+            return start + 1;
+        }
+
+        var end = start + 1;
+        while (end < text.Length)
+        {
+            var ch = text[end];
+            if (IsChineseChar(ch) || IsPinyinProcessorSplitChar(ch) || ch is >= 'A' and <= 'Z')
+            {
+                break;
+            }
+
+            end++;
+        }
+
+        return end;
+    }
+
+    private static bool IsPinyinSearcherSplitChar(char ch) => ch == '`' || IsPinyinProcessorSplitChar(ch);
+
+    private static bool IsPinyinProcessorSplitChar(char ch) => ch switch
+    {
+        ' ' or '_' or '-' or '.' or ',' or '!' or '@' or '#' or '$' or '%' or '^' or '&' or '*' or '(' or ')' or
+        '+' or '=' or '[' or ']' or '{' or '}' or '\\' or '|' or ';' or ':' or '"' or '\'' or '<' or '>' or '?' or
+        '/' or '~' => true,
+        _ => false
+    };
+
+    private static bool MatchesKeywordsInOrderIgnoreCase(string displayName, string[] keywords)
+    {
+        var index = 0;
+        foreach (var keyword in keywords)
+        {
+            foreach (var ch in keyword)
+            {
+                if (ch > 127)
+                {
+                    return false;
+                }
+
+                var found = IndexOfIgnoreCase(displayName, ch, index);
+                if (found < 0)
+                {
+                    return false;
+                }
+
+                index = found + 1;
+            }
+        }
+
+        return true;
+    }
+
+    private static int IndexOfIgnoreCase(string text, char lowerChar, int startIndex)
+    {
+        var upperAscii = lowerChar is >= 'a' and <= 'z' ? (char)(lowerChar - 32) : lowerChar;
+        for (var i = startIndex; i < text.Length; i++)
+        {
+            var current = text[i];
+            if (current == lowerChar || current == upperAscii || (current > 127 && char.ToLowerInvariant(current) == lowerChar))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     public Task IndexIncrementalAsync(IndexRebuildScope scope, CancellationToken cancellationToken = default) =>
@@ -1245,6 +2164,31 @@ public sealed class IndexService : IIndexService, IDisposable
 
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        _disposeCancellation.Cancel();
+        Task? loadTask;
+        lock (_entriesLock)
+        {
+            loadTask = _managedFilesLoadTask;
+        }
+
+        if (loadTask is not null)
+        {
+            try
+            {
+                loadTask.Wait(TimeSpan.FromSeconds(5));
+            }
+            catch (Exception)
+            {
+                // Disposal waits for in-flight snapshot reads to close sqlite handles before cleanup.
+            }
+        }
+
+        _disposeCancellation.Dispose();
         if (_embeddingService is { IsValueCreated: true } initialized)
             initialized.Value?.Dispose();
         _rebuildGate.Dispose();
@@ -1817,12 +2761,12 @@ public sealed class IndexService : IIndexService, IDisposable
             return [];
         }
 
-        var ignoredPaths = new List<string>();
-        if (kitopiaConfig.ignoreItems is null)
+        if (kitopiaConfig.ignoreItems is null || kitopiaConfig.ignoreItems.Count == 0)
         {
-            return ignoredPaths;
+            return [];
         }
 
+        var ignoredPaths = new List<string>();
         foreach (var item in kitopiaConfig.ignoreItems)
         {
             if (string.IsNullOrWhiteSpace(item)
@@ -1843,12 +2787,20 @@ public sealed class IndexService : IIndexService, IDisposable
 
     internal static bool IsIgnoredPath(string path, IReadOnlyList<string> ignoredPaths)
     {
-        if (!TryNormalizePath(path, out var normalizedPath))
+        if (ignoredPaths.Count == 0 || !TryNormalizePath(path, out var normalizedPath))
         {
             return false;
         }
 
-        return ignoredPaths.Any(ignoredPath => IsSameOrDescendantPath(normalizedPath, ignoredPath));
+        for (var index = 0; index < ignoredPaths.Count; index++)
+        {
+            if (IsSameOrDescendantPath(normalizedPath, ignoredPaths[index]))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal static bool TryNormalizePath(string path, out string normalizedPath)
@@ -1877,19 +2829,19 @@ public sealed class IndexService : IIndexService, IDisposable
             return true;
         }
 
-        if (root.Length == 0)
+        if (root.Length == 0 || path.Length <= root.Length || !path.StartsWith(root, PathComparison))
         {
             return false;
         }
 
-        if (root[^1] == Path.DirectorySeparatorChar
-            || root[^1] == Path.AltDirectorySeparatorChar)
+        var lastRootChar = root[^1];
+        if (lastRootChar == Path.DirectorySeparatorChar || lastRootChar == Path.AltDirectorySeparatorChar)
         {
-            return path.StartsWith(root, PathComparison);
+            return true;
         }
 
-        return path.StartsWith(root + Path.DirectorySeparatorChar, PathComparison)
-               || path.StartsWith(root + Path.AltDirectorySeparatorChar, PathComparison);
+        var separator = path[root.Length];
+        return separator == Path.DirectorySeparatorChar || separator == Path.AltDirectorySeparatorChar;
     }
 
     private static bool TryCreateFileEntry(string path, out SearchEntry entry)
@@ -1937,7 +2889,7 @@ public sealed class IndexService : IIndexService, IDisposable
 
     private static bool TryGetManagedFileEntry(string path, out SearchEntry entry)
     {
-        if (TryGetFileFingerprint(path) is null)
+        if (!File.Exists(path))
         {
             entry = default;
             return false;
@@ -2024,9 +2976,86 @@ public sealed class IndexService : IIndexService, IDisposable
         public string ToImageFingerprint() => $"{Length}:{LastWriteUtcTicks}";
     }
     private sealed record RankedVectorMatch(string Key, double Score, int Rank);
-    private sealed record PinyinMatch(
-        string Key,
-        SearchEntry? Entry,
+    private sealed class CjkPinyinData(string[] full, uint fullMask, uint firstMask)
+    {
+        public string[] Full { get; } = full;
+        public uint FullMask { get; } = fullMask;
+        public uint FirstMask { get; } = firstMask;
+    }
+
+    internal readonly record struct SearchCandidate(
+        string DisplayName,
+        uint LetterMaskAndFlags,
+        uint StartLetterMask)
+    {
+        public bool HasComplexChars => (LetterMaskAndFlags & ComplexCharsFlag) != 0;
+    }
+
+    private sealed class CandidateSnapshot(
+        SearchCandidate[] candidates,
+        string[] paths,
+        SearchEntry[]? explicitEntries = null)
+    {
+        public static readonly CandidateSnapshot Empty = new([], []);
+
+        public SearchCandidate[] Candidates { get; } = candidates;
+        public string[] Paths { get; } = paths;
+        public SearchEntry[]? ExplicitEntries { get; } = explicitEntries;
+        public int Count => Candidates.Length;
+    }
+
+    private readonly record struct QueryContext(
+        string[] Keywords,
+        uint LetterMask,
+        uint StartMask,
+        bool HasNonLowerAscii,
+        bool IsSingleLowerAsciiChar,
+        int[] RemainingAsciiChars,
+        double[] RemainingAsciiWeightDeductions);
+
+    private readonly record struct SearchCandidateMatch(int CandidateIndex, double Weight, string Path)
+        : IComparable<SearchCandidateMatch>
+    {
+        public int CompareTo(SearchCandidateMatch other)
+        {
+            var comparison = Weight.CompareTo(other.Weight);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+
+            comparison = other.Path.Length.CompareTo(Path.Length);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+
+            return EntryKeyComparer.Compare(other.Path, Path);
+        }
+    }
+
+    private readonly record struct MergedCandidateMatch(
+        CandidateSnapshot Snapshot,
+        int CandidateIndex,
         double Weight,
-        bool[]? CharMatchResults);
+        string Path)
+        : IComparable<MergedCandidateMatch>
+    {
+        public int CompareTo(MergedCandidateMatch other)
+        {
+            var comparison = Weight.CompareTo(other.Weight);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+
+            comparison = other.Path.Length.CompareTo(Path.Length);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+
+            return EntryKeyComparer.Compare(other.Path, Path);
+        }
+    }
 }

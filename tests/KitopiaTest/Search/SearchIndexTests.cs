@@ -173,6 +173,48 @@ public sealed class SearchIndexTests
         CollectionAssert.AreEqual(new[] { closeRecent, first, distantRecent }, ranked);
     }
 
+    [TestMethod]
+    public void PathIdentifier_NonRootedSearchText_SkipsRelativeDiskProbes()
+    {
+        var tempFile = Path.Combine(Environment.CurrentDirectory, $"kitopia-rel-{Guid.NewGuid():N}.txt");
+        File.WriteAllText(tempFile, "rel");
+        try
+        {
+            var identifier = new Kitopia.Desktop.Features.Search.InputProcessing.PathIdentifier();
+            var relativeName = Path.GetFileName(tempFile);
+            Assert.IsEmpty(identifier.IdentifyInputData(PluginCore.SearchWindow.InputDataAnalyzer.InputDataAnalyzeTimeFlags.InputChanged, relativeName).ToArray());
+
+            var fullMatches = identifier.IdentifyInputData(PluginCore.SearchWindow.InputDataAnalyzer.InputDataAnalyzeTimeFlags.InputChanged, tempFile).ToArray();
+            Assert.IsTrue(fullMatches.Any(item => item.InputType == PluginCore.SearchWindow.InputData.InputType.文件 && Equals(item.Data, tempFile)));
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
+
+    [TestMethod]
+    public void MathIdentifier_ValidAndNonMathInputs_ClassifiesAccurately()
+    {
+        var identifier = new Kitopia.Desktop.Features.Search.InputProcessing.MathIdentifier();
+        const PluginCore.SearchWindow.InputDataAnalyzer.InputDataAnalyzeTimeFlags flags =
+            PluginCore.SearchWindow.InputDataAnalyzer.InputDataAnalyzeTimeFlags.InputChanged;
+
+        foreach (var valid in new[] { "1+2*3", "(10-2)/4", "2^10" })
+        {
+            var items = identifier.IdentifyInputData(flags, valid).ToArray();
+            Assert.HasCount(1, items, $"Expected math match for '{valid}'.");
+            Assert.AreEqual(PluginCore.SearchWindow.InputData.InputType.数学表达式, items[0].InputType);
+            Assert.AreEqual(valid, items[0].Data);
+        }
+
+        foreach (var invalid in new[] { null, string.Empty, "hello", "ceshi-tool", "a+b", "数学1+2", "12345" })
+        {
+            Assert.IsEmpty(identifier.IdentifyInputData(flags, invalid).ToArray(),
+                $"Expected no math match for '{invalid ?? "<null>"}'.");
+        }
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         var deadline = DateTime.UtcNow.AddSeconds(5);

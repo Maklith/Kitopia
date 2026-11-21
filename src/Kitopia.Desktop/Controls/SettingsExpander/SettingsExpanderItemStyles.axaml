@@ -46,9 +46,9 @@
                         Name="Root">
                     <Border.Transitions>
                         <Transitions>
-                            <BrushTransition Duration="00:00:00.083"
+                            <BrushTransition Duration="00:00:00.14" Easing="CubicEaseOut"
                                              Property="Background" />
-                            <BrushTransition Duration="00:00:00.083"
+                            <BrushTransition Duration="00:00:00.14" Easing="CubicEaseOut"
                                              Property="BorderBrush" />
                         </Transitions>
                     </Border.Transitions>
@@ -103,7 +103,13 @@
                                  Height="{DynamicResource SettingsExpanderItemActionIconSize}"
                                  Name="ActionIconHost"
                                  IsVisible="False"
+                                 RenderTransform="none"
                                  Grid.Column="2">
+                            <Viewbox.Transitions>
+                                <Transitions>
+                                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut" />
+                                </Transitions>
+                            </Viewbox.Transitions>
                             <ContentPresenter Name="ExpandChevronActionIconContainer"
                                               Content="{Binding TemplateSettings.ActionIcon, RelativeSource={RelativeSource TemplatedParent}}" />
                         </Viewbox>
@@ -152,6 +158,9 @@
             <Style Selector="^:pointerover /template/ Border#Root">
                 <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource SemiColorBorder}" />
+            </Style>
+            <Style Selector="^:pointerover /template/ Viewbox#ActionIconHost">
+                <Setter Property="RenderTransform" Value="translateX(2px)" />
             </Style>
             <Style Selector="^:pressed /template/ Border#Root">
                 <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />

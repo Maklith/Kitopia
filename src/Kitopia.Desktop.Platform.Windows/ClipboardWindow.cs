@@ -15,12 +15,14 @@ using Application = Avalonia.Application;
 using Clipboard = System.Windows.Clipboard;
 using PixelFormats = System.Windows.Media.PixelFormats;
 using Size = OpenCvSharp.Size;
+using User32 = Vanara.PInvoke.User32;
 
 namespace Kitopia.Desktop.Platform.Windows;
 
 public class ClipboardWindow : IClipboardService
 {
     private static readonly ILogger Logger = LogManager.Logger.ForContext<ClipboardWindow>();
+    private long _cachedImageState = -1;
 
 
     private static readonly ResiliencePipeline ResiliencePipeline = new ResiliencePipelineBuilder()
@@ -187,6 +189,13 @@ public class ClipboardWindow : IClipboardService
 
     public bool HasImage()
     {
+        var sequence = User32.GetClipboardSequenceNumber();
+        var cached = Volatile.Read(ref _cachedImageState);
+        if (sequence != 0 && cached >= 0 && (uint)(cached >> 1) == sequence)
+        {
+            return (cached & 1) != 0;
+        }
+
         bool result = false;
         var tcs = new TaskCompletionSource<bool>();
         var thread = new Thread(() =>
@@ -207,6 +216,10 @@ public class ClipboardWindow : IClipboardService
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         tcs.Task.Wait();
+        if (sequence != 0)
+        {
+            Volatile.Write(ref _cachedImageState, ((long)sequence << 1) | (result ? 1L : 0L));
+        }
         return result;
     }
 

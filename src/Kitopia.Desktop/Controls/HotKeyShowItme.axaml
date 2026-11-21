@@ -31,9 +31,10 @@
                         VerticalAlignment="{TemplateBinding VerticalAlignment}">
                     <Border.Transitions>
                         <Transitions>
-                            <BrushTransition Property="Background" Duration="0:0:0.12" />
-                            <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
-                            <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.12" />
+                            <BrushTransition Property="Background" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                            <BrushTransition Property="BorderBrush" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                            <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
                         </Transitions>
                     </Border.Transitions>
                     <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -61,6 +62,12 @@
                 </Border>
             </ControlTemplate>
         </Setter>
+    </Style>
+
+    <Style Selector="controls|HotKeyShowItme:pointerover /template/ Border#Root">
+        <Setter Property="Background" Value="{DynamicResource KitopiaKeycapHoverBackground}" />
+        <Setter Property="BoxShadow" Value="{DynamicResource KitopiaKeycapHoverBoxShadow}" />
+        <Setter Property="RenderTransform" Value="translateY(-1px)" />
     </Style>
 
     <Style Selector="controls|HotKeyShowItme:disabled">

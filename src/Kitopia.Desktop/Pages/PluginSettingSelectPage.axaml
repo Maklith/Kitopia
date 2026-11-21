@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-
              xmlns:plugin="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages.plugin;assembly=Kitopia.Desktop.Features"
              xmlns:controls="clr-namespace:Kitopia.Desktop.Controls"
              xmlns:lang="clr-namespace:Kitopia.Feature.Avalonia.Localization;assembly=Kitopia.Feature.Avalonia"
@@ -42,29 +41,48 @@
                                               BorderThickness="0"
                                               Content="{TemplateBinding Content}"
                                               ContentTemplate="{TemplateBinding ContentTemplate}"
-                                              CornerRadius="10" />
+                                              CornerRadius="12" />
                         </ControlTemplate>
                     </Setter>
                 </ControlTheme>
             </ListBox.ItemContainerTheme>
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Border CornerRadius="10"
+                    <Border Name="SettingCardBorder"
+                            CornerRadius="12"
                             Background="{DynamicResource KitopiaCardBackgroundBrush}"
                             BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
                             BorderThickness="1"
                             BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
+                            RenderTransform="none"
                             Padding="20,16">
                         <Border.Transitions>
                             <Transitions>
-                                <BrushTransition Property="BorderBrush" Duration="0:0:0.2" />
-                                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                                <BrushTransition Property="Background" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                                <BrushTransition Property="BorderBrush" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut" />
                             </Transitions>
                         </Border.Transitions>
                         <Border.Styles>
-                            <Style Selector="Border:pointerover">
-                                <Setter Property="BorderBrush" Value="{DynamicResource KitopiaPrimaryBrush}" />
+                            <Style Selector="Border#SettingCardBorder:pointerover">
+                                <Setter Property="Background" Value="{DynamicResource KitopiaCardHoverBackgroundBrush}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource KitopiaCardHoverBorderBrush}" />
                                 <Setter Property="BoxShadow" Value="{DynamicResource KitopiaCardHoverBoxShadow}" />
+                                <Setter Property="RenderTransform" Value="translateY(-1px)" />
+                            </Style>
+                            <Style Selector="Border#SettingCardBorder controls|FontIcon.nav-chevron">
+                                <Setter Property="RenderTransform" Value="none" />
+                                <Setter Property="Transitions">
+                                    <Transitions>
+                                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                                        <BrushTransition Property="Foreground" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                                    </Transitions>
+                                </Setter>
+                            </Style>
+                            <Style Selector="Border#SettingCardBorder:pointerover controls|FontIcon.nav-chevron">
+                                <Setter Property="RenderTransform" Value="translateX(3px)" />
+                                <Setter Property="Foreground" Value="{DynamicResource KitopiaPrimaryBrush}" />
                             </Style>
                         </Border.Styles>
                         <Button HorizontalAlignment="Stretch" x:Name="Button"
@@ -78,7 +96,7 @@
                                            FontSize="16" FontWeight="SemiBold"
                                            Foreground="{DynamicResource SemiColorText0}"
                                            VerticalAlignment="Center" />
-                                <controls:FontIcon Grid.Column="1" Glyph="&#xf2b2;" FontSize="18"
+                                <controls:FontIcon Grid.Column="1" Classes="nav-chevron" Glyph="&#xf2b2;" FontSize="18"
                                                    Foreground="{DynamicResource SemiColorText2}"
                                                    VerticalAlignment="Center" />
                             </Grid>

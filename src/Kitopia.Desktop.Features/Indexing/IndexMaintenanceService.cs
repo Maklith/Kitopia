@@ -264,36 +264,39 @@ public sealed class IndexMaintenanceService : IIndexMaintenanceService
     private void RefreshWindowOpenEntries(bool rebuildPinyin)
     {
         var changed = false;
-        foreach (var (_, analyzers) in PluginOverall.SearchWindowInputDataAnalyzers)
-        foreach (var analyzerTuple in analyzers)
+        lock (_analyzerIndexedKeys)
         {
-            if ((analyzerTuple.Item1() & InputDataAnalyzeTimeFlags.WindowOpenUpdateIndex) == 0)
+            foreach (var (_, analyzers) in PluginOverall.SearchWindowInputDataAnalyzers)
+            foreach (var analyzerTuple in analyzers)
             {
-                continue;
-            }
-
-            var entries = new List<SearchEntry>();
-            foreach (var item in analyzerTuple.Item2([]))
-            {
-                if (string.IsNullOrWhiteSpace(item.OnlyKey) || string.IsNullOrWhiteSpace(item.ItemDisplayName))
+                if ((analyzerTuple.Item1() & InputDataAnalyzeTimeFlags.WindowOpenUpdateIndex) == 0)
                 {
                     continue;
                 }
 
-                entries.Add(new SearchEntry
+                var entries = new List<SearchEntry>();
+                foreach (var item in analyzerTuple.Item2([]))
                 {
-                    DisplayName = item.ItemDisplayName,
-                    OnlyKey = item.OnlyKey,
-                    FileType = item.FileType,
-                    IconSymbol = item.IconSymbol,
-                    Arguments = item.Arguments,
-                    LaunchPath = item.LaunchPath,
-                    IconPath = item.IconPath,
-                    StartDirectory = item.StartDirectory
-                });
-            }
+                    if (string.IsNullOrWhiteSpace(item.OnlyKey) || string.IsNullOrWhiteSpace(item.ItemDisplayName))
+                    {
+                        continue;
+                    }
 
-            changed |= SynchronizeAnalyzerEntries(analyzerTuple, entries);
+                    entries.Add(new SearchEntry
+                    {
+                        DisplayName = item.ItemDisplayName,
+                        OnlyKey = item.OnlyKey,
+                        FileType = item.FileType,
+                        IconSymbol = item.IconSymbol,
+                        Arguments = item.Arguments,
+                        LaunchPath = item.LaunchPath,
+                        IconPath = item.IconPath,
+                        StartDirectory = item.StartDirectory
+                    });
+                }
+
+                changed |= SynchronizeAnalyzerEntries(analyzerTuple, entries);
+            }
         }
 
         if (changed && rebuildPinyin)

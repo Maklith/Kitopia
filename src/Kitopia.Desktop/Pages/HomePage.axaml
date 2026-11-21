@@ -39,8 +39,19 @@
         <Style Selector="Button.CardButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
         </Style>
-        <Style Selector="Button.CardButton:pressed Border">
+        <Style Selector="Button.CardButton:pressed Border.interactive">
             <Setter Property="RenderTransform" Value="scale(0.985)" />
+        </Style>
+        <Style Selector="Border.feature-icon">
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.CardButton:pointerover Border.feature-icon">
+            <Setter Property="RenderTransform" Value="scale(1.06)" />
         </Style>
     </UserControl.Styles>
 
@@ -75,11 +86,12 @@
                                                 Margin="0,0,12,12"
                                                 Command="{Binding $parent[UserControl].((pages:HomePageViewModel)DataContext).ExecuteFeatureCommand}"
                                                 CommandParameter="{Binding .}">
-                                            <Border Theme="{DynamicResource KitopiaPluginCard}" Padding="14">
+                                            <Border Classes="interactive" Theme="{DynamicResource KitopiaPluginCard}" Padding="14">
                                                 <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="8">
                                                     <!-- Top: Icon container + Source tag -->
                                                     <Grid ColumnDefinitions="Auto,*">
-                                                        <Border Width="34" Height="34"
+                                                        <Border Classes="feature-icon"
+                                                                Width="34" Height="34"
                                                                 CornerRadius="8"
                                                                 Background="{DynamicResource KitopiaAvatarBackground}"
                                                                 VerticalAlignment="Center">

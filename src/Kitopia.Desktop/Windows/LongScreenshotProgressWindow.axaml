@@ -12,11 +12,12 @@
         Background="Transparent"
         Classes="acrylic">
     
-    <Border CornerRadius="8"
+    <Border CornerRadius="12"
+            Classes="kitopia-enter-scale"
             Background="{DynamicResource KitopiaCardBackgroundBrush}"
             BorderBrush="{DynamicResource SemiColorBorder}"
             BorderThickness="1"
-            BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
+            BoxShadow="{DynamicResource KitopiaModalBoxShadow}"
             Padding="12">
         <Grid RowDefinitions="*,Auto">
             <Image StretchDirection="Both" Name="PreviewImage" Grid.Row="0" Margin="0,0,0,12" Stretch="Uniform"/>

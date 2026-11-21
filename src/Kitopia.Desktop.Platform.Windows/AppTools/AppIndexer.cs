@@ -27,7 +27,7 @@ public static class AppIndexer
 {
     private static readonly ILogger Logger = LogManager.Logger.ForContext(typeof(AppIndexer));
     private static readonly List<string> ErrorLnkList = new();
-    public static readonly PinyinProcessor PinyinProcessor = new();
+    public static PinyinProcessor PinyinProcessor => IndexService.SharedPinyinProcessor;
 
     internal static void AutoStartEverything(IIndexService index, Action action)
     {

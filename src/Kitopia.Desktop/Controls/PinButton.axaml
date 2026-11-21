@@ -37,7 +37,6 @@
         </Setter>
         <Setter Property="RenderTransform" Value="rotate(-45deg)" />
         <Setter Property="Glyph" Value="&#xF602;" />
-
     </Style>
 
 

@@ -30,9 +30,8 @@ public partial class PathToImageConverter : IMultiValueConverter
         {
             if (searchViewItem is { Icon: null })
             {
-                ServiceManager.Services.GetService<IAppToolService>().LoadIcon(searchViewItem);
-                return null;
-                //.WriteLine("完成获取2 "+DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond );
+                ServiceManager.Services.GetService<IAppToolService>()?.LoadIcon(searchViewItem);
+                return searchViewItem.Icon;
             }
 
             switch (searchViewItem.FileType)
@@ -76,9 +75,8 @@ public partial class PathToImageConverter : IMultiValueConverter
             var customScenario = taskEditorViewModel.Scenario;
             if (customScenario is { Icon: null })
             {
-                ServiceManager.Services.GetService<IAppToolService>().LoadIcon(customScenario);
-                return null;
-                //.WriteLine("完成获取2 "+DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond );
+                ServiceManager.Services.GetService<IAppToolService>()?.LoadIcon(customScenario);
+                return customScenario.Icon;
             }
 
             try
@@ -96,9 +94,8 @@ public partial class PathToImageConverter : IMultiValueConverter
         {
             if (customScenario1 is { Icon: null })
             {
-                ServiceManager.Services.GetService<IAppToolService>().LoadIcon(customScenario1);
-                return null;
-                //.WriteLine("完成获取2 "+DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond );
+                ServiceManager.Services.GetService<IAppToolService>()?.LoadIcon(customScenario1);
+                return customScenario1.Icon;
             }
 
             try

@@ -33,7 +33,8 @@
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="16">
                 <Border Padding="16" CornerRadius="12" Background="{DynamicResource KitopiaCardBackgroundBrush}"
-                        BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1">
+                        BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1"
+                        BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
                     <StackPanel Spacing="12">
                         <StackPanel Orientation="Horizontal" Spacing="24">
                             <RadioButton Name="KeyBoard" GroupName="InputType" Content="{DynamicResource 'lang.kitopia.keyboard_hotkey'}" Click="KeyBoard_OnClick" />
@@ -79,14 +80,14 @@
                                 <ComboBoxItem Content="{DynamicResource 'lang.kitopia.hotkeys.drag_release'}" />
                             </ComboBox>
                         </Grid>
-                        <Grid Name="HoldSettings" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <Grid Name="HoldSettings" Classes="kitopia-enter-fade" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                             <TextBlock Text="{DynamicResource 'lang.kitopia.hold_duration'}" VerticalAlignment="Center" FontSize="12" />
                             <Slider Grid.Column="1" Name="Slider" Minimum="100" Maximum="5000" Value="1000"
                                     TickFrequency="100" IsSnapToTickEnabled="True" />
                             <TextBlock Grid.Column="2" Text="{Binding #Slider.Value, StringFormat='{}{0:0} ms'}"
                                        MinWidth="58" VerticalAlignment="Center" FontSize="12" />
                         </Grid>
-                        <Grid Name="DragSettings" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="False">
+                        <Grid Name="DragSettings" Classes="kitopia-enter-fade" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="False">
                             <TextBlock Text="{DynamicResource 'lang.kitopia.hotkeys.minimum_drag_distance'}" VerticalAlignment="Center" FontSize="12" />
                             <NumericUpDown Grid.Column="1" Name="DragDistance" Minimum="1" Maximum="100" Value="4"
                                            Increment="1" FormatString="0 'px'" Width="180" />
@@ -94,7 +95,8 @@
                     </StackPanel>
                 </Border>
                 <Border Padding="16" CornerRadius="12" Background="{DynamicResource KitopiaCardBackgroundBrush}"
-                        BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1">
+                        BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1"
+                        BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
                     <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                             <StackPanel Spacing="4">
@@ -107,7 +109,7 @@
                                 <ComboBoxItem Content="{DynamicResource 'lang.kitopia.exclude_selected_processes'}" />
                             </ComboBox>
                         </Grid>
-                        <StackPanel Name="ProcessListSection" Spacing="10">
+                        <StackPanel Name="ProcessListSection" Classes="kitopia-enter-up" Spacing="10">
                             <!-- 已添加的进程标签展示区 -->
                             <Border MinHeight="42" Padding="8,8,8,2" CornerRadius="8"
                                     Background="{DynamicResource SemiColorFill0}"

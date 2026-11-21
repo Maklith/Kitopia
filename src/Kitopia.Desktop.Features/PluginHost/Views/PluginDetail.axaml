@@ -50,6 +50,13 @@
                         ToolTip.Tip="{DynamicResource 'lang.kitopia.close'}"
                         Content="✕">
                     <Button.Styles>
+                        <Style Selector="Button /template/ ContentPresenter">
+                            <Setter Property="Transitions">
+                                <Transitions>
+                                    <BrushTransition Property="Background" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                                </Transitions>
+                            </Setter>
+                        </Style>
                         <Style Selector="Button:pointerover /template/ ContentPresenter">
                             <Setter Property="Background" Value="{DynamicResource SemiColorFill1}" />
                         </Style>
@@ -64,24 +71,24 @@
             <ScrollViewer Grid.Row="1"
                           HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="16" Margin="24,4,24,20">
+                <StackPanel Spacing="16" Margin="24,4,24,20" Classes="kitopia-enter-up">
                     <!-- ============================================== -->
                     <!-- CARD 1: Basic Info & Author & Stats (Top Card) -->
                     <!-- ============================================== -->
                     <Border CornerRadius="12"
                             Background="{DynamicResource SemiColorBackground0}"
-                            BorderBrush="{DynamicResource SemiColorBorder}"
+                            BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
                             BorderThickness="1"
                             Padding="24"
-                            BoxShadow="0 1 3 0 #0F000000">
+                            BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="20">
                             <!-- Left: Large 72x72 Plugin Avatar / Initial -->
                             <Border Grid.Column="0" Width="72" Height="72"
-                                    CornerRadius="16" ClipToBounds="True"
-                                    Background="#E0F2FE" VerticalAlignment="Top">
+                                    CornerRadius="12" ClipToBounds="True"
+                                    Background="{DynamicResource KitopiaAvatarBackground}" VerticalAlignment="Top">
                                 <Panel>
                                     <TextBlock Text="{Binding PluginInfo.PluginInitial}"
-                                               Foreground="#1D4ED8"
+                                               Foreground="{DynamicResource KitopiaAvatarForeground}"
                                                FontWeight="Bold"
                                                FontSize="28"
                                                HorizontalAlignment="Center"
@@ -102,10 +109,10 @@
                                                Foreground="{DynamicResource SemiColorText0}"
                                                VerticalAlignment="Center" />
                                     <Border CornerRadius="999" Padding="10,3"
-                                            Background="#ECFDF5" VerticalAlignment="Center">
+                                            Background="{DynamicResource KitopiaBadgeSuccessBackground}" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding PluginInfo.PublicationStatusText}"
                                                    FontSize="12" FontWeight="Medium"
-                                                   Foreground="#047857" />
+                                                   Foreground="{DynamicResource KitopiaBadgeSuccessForeground}" />
                                     </Border>
                                     <dependency:PluginOptionalDependenciesButton DataContext="{Binding PluginInfo}" />
                                 </StackPanel>
@@ -123,17 +130,24 @@
                                         HorizontalAlignment="Left"
                                         Margin="0,2,0,0">
                                     <Button.Styles>
+                                        <Style Selector="TextBlock.DetailAuthorName">
+                                            <Setter Property="Transitions">
+                                                <Transitions>
+                                                    <BrushTransition Property="Foreground" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                                                </Transitions>
+                                            </Setter>
+                                        </Style>
                                         <Style Selector="Button:pointerover TextBlock.DetailAuthorName">
-                                            <Setter Property="Foreground" Value="#2563EB" />
+                                            <Setter Property="Foreground" Value="{DynamicResource KitopiaPrimaryBrush}" />
                                         </Style>
                                     </Button.Styles>
                                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                         <Border Width="30" Height="30"
                                                 CornerRadius="15" ClipToBounds="True"
-                                                Background="#E0F2FE">
+                                                Background="{DynamicResource KitopiaAvatarBackground}">
                                             <Panel>
                                                 <TextBlock Text="{Binding PluginInfo.AuthorInitial}"
-                                                           Foreground="#1D4ED8"
+                                                           Foreground="{DynamicResource KitopiaAvatarForeground}"
                                                            FontSize="12" FontWeight="SemiBold"
                                                            HorizontalAlignment="Center"
                                                            VerticalAlignment="Center" />
@@ -173,11 +187,11 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="x:String">
-                                            <Border Background="{DynamicResource SemiColorBackground2}"
-                                                    CornerRadius="6" Padding="8,3">
+                                            <Border Background="{DynamicResource KitopiaBadgeNeutralBackground}"
+                                                    CornerRadius="4" Padding="8,3">
                                                 <TextBlock Text="{Binding .}"
                                                            FontSize="11"
-                                                           Foreground="{DynamicResource SemiColorText2}" />
+                                                           Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -258,10 +272,10 @@
                     <!-- ============================================== -->
                     <Border CornerRadius="12"
                             Background="{DynamicResource SemiColorBackground0}"
-                            BorderBrush="{DynamicResource SemiColorBorder}"
+                            BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
                             BorderThickness="1"
                             Padding="24"
-                            BoxShadow="0 1 3 0 #0F000000">
+                            BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
                         <StackPanel Spacing="10">
                             <TextBlock Text="{DynamicResource 'lang.kitopia.about_this_plugin'}"
                                        FontSize="12" FontWeight="Medium"
@@ -281,10 +295,10 @@
                     <!-- ============================================== -->
                     <Border CornerRadius="12"
                             Background="{DynamicResource SemiColorBackground0}"
-                            BorderBrush="{DynamicResource SemiColorBorder}"
+                            BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
                             BorderThickness="1"
                             Padding="24"
-                            BoxShadow="0 1 3 0 #0F000000">
+                            BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
                         <StackPanel Spacing="16">
                             <!-- Timeline Header -->
                             <Grid ColumnDefinitions="*,Auto">
@@ -315,27 +329,27 @@
                                                         VerticalAlignment="Stretch" Margin="0,14,0,0" />
                                                 <Border Width="12" Height="12" CornerRadius="6"
                                                         Background="{DynamicResource SemiColorText2}"
-                                                        BorderBrush="White" BorderThickness="2"
+                                                        BorderBrush="{DynamicResource SemiColorBackground0}" BorderThickness="2"
                                                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0"
                                                         BoxShadow="0 1 3 0 #20000000" IsVisible="{Binding IsDraft}" />
                                                 <Border Width="12" Height="12" CornerRadius="6"
                                                         Background="{DynamicResource SemiColorText2}"
-                                                        BorderBrush="White" BorderThickness="2"
+                                                        BorderBrush="{DynamicResource SemiColorBackground0}" BorderThickness="2"
                                                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0"
                                                         BoxShadow="0 1 3 0 #20000000" IsVisible="{Binding IsWithdrawn}" />
                                                 <Border Width="12" Height="12" CornerRadius="6"
                                                         Background="{DynamicResource SemiColorSuccess}"
-                                                        BorderBrush="White" BorderThickness="2"
+                                                        BorderBrush="{DynamicResource SemiColorBackground0}" BorderThickness="2"
                                                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0"
                                                         BoxShadow="0 1 3 0 #20000000" IsVisible="{Binding IsPublished}" />
                                                 <Border Width="12" Height="12" CornerRadius="6"
                                                         Background="{DynamicResource SemiColorWarning}"
-                                                        BorderBrush="White" BorderThickness="2"
+                                                        BorderBrush="{DynamicResource SemiColorBackground0}" BorderThickness="2"
                                                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0"
                                                         BoxShadow="0 1 3 0 #20000000" IsVisible="{Binding IsPendingReview}" />
                                                 <Border Width="12" Height="12" CornerRadius="6"
                                                         Background="{DynamicResource SemiColorDanger}"
-                                                        BorderBrush="White" BorderThickness="2"
+                                                        BorderBrush="{DynamicResource SemiColorBackground0}" BorderThickness="2"
                                                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,4,0,0"
                                                         BoxShadow="0 1 3 0 #20000000" IsVisible="{Binding IsRejected}" />
                                             </Panel>
@@ -380,11 +394,11 @@
                                                                        Foreground="{DynamicResource KitopiaBadgeDangerForeground}" />
                                                         </Border>
                                                         <Border CornerRadius="999" Padding="8,2"
-                                                                Background="#EFF6FF" VerticalAlignment="Center"
+                                                                Background="{DynamicResource KitopiaBadgeCurrentBackground}" VerticalAlignment="Center"
                                                                 IsVisible="{Binding IsCurrent}">
                                                             <TextBlock Text="{DynamicResource 'lang.kitopia.current_version'}"
                                                                        FontSize="11" FontWeight="Medium"
-                                                                       Foreground="#2563EB" />
+                                                                       Foreground="{DynamicResource KitopiaBadgeCurrentForeground}" />
                                                         </Border>
                                                     </StackPanel>
 
@@ -397,11 +411,11 @@
                                                         </ItemsControl.ItemsPanel>
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate x:DataType="x:String">
-                                                                <Border Background="{DynamicResource SemiColorBackground2}"
-                                                                        CornerRadius="6" Padding="6,2">
+                                                                <Border Background="{DynamicResource KitopiaBadgeNeutralBackground}"
+                                                                        CornerRadius="4" Padding="6,2">
                                                                     <TextBlock Text="{Binding .}"
                                                                                FontSize="11"
-                                                                               Foreground="{DynamicResource SemiColorText2}" />
+                                                                               Foreground="{DynamicResource KitopiaBadgeNeutralForeground}" />
                                                                 </Border>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>

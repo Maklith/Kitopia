@@ -4,7 +4,7 @@
              xmlns:vm="clr-namespace:Kitopia.Desktop.Features.ViewModel.Pages.plugin"
              x:Class="Kitopia.Desktop.Features.UI.UiControls.Plugin.PluginDependencyView"
              x:DataType="vm:PluginDependencyViewModel">
-    <Border BorderBrush="{DynamicResource SemiColorBorder}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,4">
+    <Border BorderBrush="{DynamicResource KitopiaCardBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,4">
         <StackPanel Spacing="8">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                 <StackPanel Spacing="4">
@@ -15,8 +15,8 @@
             </Grid>
             <TextBlock Text="{lang:Lang Value={Binding Description}}" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SemiColorText1}" />
             <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="{lang:Lang Value={Binding ActionKey}}" Command="{Binding InstallCommand}" IsVisible="{Binding !IsAvailable}" />
-                <Button Content="{DynamicResource lang.kitopia.cancel}" Command="{Binding InstallCancelCommand}" IsVisible="{Binding IsInstalling}" />
+                <Button Content="{lang:Lang Value={Binding ActionKey}}" CornerRadius="6" Command="{Binding InstallCommand}" IsVisible="{Binding !IsAvailable}" />
+                <Button Content="{DynamicResource lang.kitopia.cancel}" CornerRadius="6" Command="{Binding InstallCancelCommand}" IsVisible="{Binding IsInstalling}" />
             </StackPanel>
             <StackPanel Spacing="4" IsVisible="{Binding IsDownloading}">
                 <TextBlock Text="{Binding Download.StatusText}" FontSize="12" />

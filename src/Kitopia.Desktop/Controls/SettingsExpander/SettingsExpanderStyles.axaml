@@ -47,10 +47,12 @@
                         BackgroundSizing="{TemplateBinding BackgroundSizing}">
                     <Border.Transitions>
                         <Transitions>
-                            <BrushTransition Duration="00:00:00.083"
+                            <BrushTransition Duration="00:00:00.15" Easing="CubicEaseOut"
                                              Property="Background" />
-                            <BrushTransition Duration="00:00:00.083"
+                            <BrushTransition Duration="00:00:00.15" Easing="CubicEaseOut"
                                              Property="BorderBrush" />
+                            <BoxShadowsTransition Duration="00:00:00.15" Easing="CubicEaseOut"
+                                                  Property="BoxShadow" />
                         </Transitions>
                     </Border.Transitions>
                     <Grid ColumnDefinitions="*,Auto">
@@ -63,7 +65,13 @@
                                            Margin="{DynamicResource SettingsExpanderExpandCollapseChevronMargin}"
                                            Grid.Column="1"
                                            Glyph="&#xf2a4;"
-                                           IsVisible="False" />
+                                           IsVisible="False">
+                            <controls:FontIcon.Transitions>
+                                <Transitions>
+                                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                                </Transitions>
+                            </controls:FontIcon.Transitions>
+                        </controls:FontIcon>
                     </Grid>
                 </Border>
             </ControlTemplate>
@@ -142,6 +150,18 @@
 
         <Style Selector="^:expanded /template/ Border#ExpanderContent">
             <Setter Property="IsVisible" Value="True" />
+            <Style.Animations>
+                <Animation Duration="0:0:0.18" Easing="CubicEaseOut" FillMode="None">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="0" />
+                        <Setter Property="TranslateTransform.Y" Value="-6" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="1" />
+                        <Setter Property="TranslateTransform.Y" Value="0" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
         </Style>
     </ControlTheme>
 

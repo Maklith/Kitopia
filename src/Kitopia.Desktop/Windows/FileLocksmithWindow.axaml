@@ -35,7 +35,7 @@
             <Setter Property="FontSize" Value="13"/>
         </Style>
         <Style Selector="TextBlock.locked-text">
-            <Setter Property="Foreground" Value="#C42B1C"/>
+            <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeDangerForeground}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style Selector="TextBlock.bold-title">
@@ -48,20 +48,27 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style Selector="Border.badge-danger">
-            <Setter Property="Background" Value="#FFF1F0"/>
+            <Setter Property="Background" Value="{DynamicResource KitopiaBadgeDangerBackground}"/>
         </Style>
         <Style Selector="Border.badge-warning">
-            <Setter Property="Background" Value="#FFF7E6"/>
+            <Setter Property="Background" Value="{DynamicResource KitopiaBadgeWarningBackground}"/>
         </Style>
         <Style Selector="Border.badge-neutral">
-            <Setter Property="Background" Value="{DynamicResource SemiColorBackground3}"/>
+            <Setter Property="Background" Value="{DynamicResource KitopiaBadgeNeutralBackground}"/>
         </Style>
         <Style Selector="TextBlock.warning-text">
-            <Setter Property="Foreground" Value="#D46B08"/>
+            <Setter Property="Foreground" Value="{DynamicResource KitopiaBadgeWarningForeground}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style Selector="TreeViewItem" x:DataType="vm:FileLockTreeNodeViewModel">
             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+        </Style>
+        <Style Selector="TreeViewItem /template/ Border#PART_LayoutRoot">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
         </Style>
     </Window.Styles>
 
@@ -69,8 +76,9 @@
         <!-- Top Toolbar Card (Layer 1) -->
         <Border Grid.Row="0"
                 Background="{DynamicResource SemiColorBackground1}"
-                BorderBrush="{DynamicResource SemiColorBorder}"
+                BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
                 BorderThickness="1"
+                BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
                 CornerRadius="12"
                 Padding="16,12"
                 Margin="0,0,0,12">
@@ -188,8 +196,9 @@
         <!-- Main Content Card (Layer 1) -->
         <Border Grid.Row="1"
                 Background="{DynamicResource SemiColorBackground1}"
-                BorderBrush="{DynamicResource SemiColorBorder}"
+                BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
                 BorderThickness="1"
+                BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
                 CornerRadius="12"
                 ClipToBounds="True">
             <Grid>
@@ -197,6 +206,7 @@
                 <TreeView ItemsSource="{Binding TreeNodes}"
                           SelectedItem="{Binding SelectedNode}"
                           IsVisible="{Binding IsTreeView}"
+                          Classes="kitopia-enter-fade"
                           BorderThickness="0"
                           Background="Transparent"
                           Padding="8">
@@ -356,6 +366,7 @@
                 <DataGrid ItemsSource="{Binding FilteredRecords}"
                           SelectedItem="{Binding SelectedRecord}"
                           IsVisible="{Binding !IsTreeView}"
+                          Classes="kitopia-enter-fade"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
                           GridLinesVisibility="Horizontal"

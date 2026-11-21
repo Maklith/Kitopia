@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using Kitopia.Desktop.Features.Services.Interfaces;
 using Kitopia.Desktop.Features.Indexing;
@@ -34,10 +35,16 @@ public class SearchWindowService : ISearchWindowService
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             var searchWindow = ServiceManager.Services.GetService<SearchWindow>();
+            if (searchWindow is null) return;
+            if (searchWindow.IsVisible)
             {
-                ServiceManager.Services.GetRequiredService<IIndexMaintenanceService>().RefreshWindowOpenEntries();
-                searchWindow!.Show();
+                searchWindow.Hide();
+                return;
             }
+
+            searchWindow.Show();
+            var maintenance = ServiceManager.Services.GetRequiredService<IIndexMaintenanceService>();
+            _ = Task.Run(() => maintenance.RefreshWindowOpenEntries());
         });
     }
 }

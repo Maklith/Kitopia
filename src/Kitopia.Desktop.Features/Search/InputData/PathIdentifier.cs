@@ -36,6 +36,7 @@ public class PathIdentifier : IInputDataIdentifier
         if (string.IsNullOrWhiteSpace(text)) yield break;
         if (text.StartsWith("\"")) text = text.Remove(0, 1);
         if (text.EndsWith("\"")) text = text.Remove(text.Length - 1, 1);
+        if (!Path.IsPathRooted(text)) yield break;
         if (Path.HasExtension(text) && File.Exists(text))
         {
             var fileInfo = new FileInfo(text);

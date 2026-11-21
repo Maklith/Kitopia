@@ -27,15 +27,17 @@
 
     <!-- if this border isn't here, dialog space displays outside of corner radius at top
                                  if we put ClipToBounds=True on BackgroundElement above, it clips the shadow -->
-    <Border ClipToBounds="True" HorizontalAlignment="Center" Name="BackgroundElement"
+    <Border HorizontalAlignment="Center" Name="BackgroundElement"
+            Classes="kitopia-enter-scale"
             Background="{DynamicResource KitopiaCardBackgroundBrush}"
-            BorderBrush="{DynamicResource SemiColorBorder}"
+            BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
             BorderThickness="1"
-            CornerRadius="8"
-            BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
+            CornerRadius="16"
+            BoxShadow="{DynamicResource KitopiaModalBoxShadow}"
             VerticalAlignment="Center" Margin="10">
-        <Grid Name="DialogSpace" ClipToBounds="True"
-              RowDefinitions="Auto,*,Auto">
+        <Border CornerRadius="16" ClipToBounds="True">
+            <Grid Name="DialogSpace" ClipToBounds="True"
+                  RowDefinitions="Auto,*,Auto">
             <Panel Background="Transparent"
                    PointerMoved="InputElement_OnPointerMoved" PointerPressed="InputElement_OnPointerPressed"
                    PointerReleased="InputElement_OnPointerReleased">
@@ -119,6 +121,7 @@
                 </Grid>
             </Border>
         </Grid>
+        </Border>
     </Border>
 
 

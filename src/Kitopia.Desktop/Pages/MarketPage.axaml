@@ -36,7 +36,7 @@
                     Background="{DynamicResource KitopiaCardBackgroundBrush}"
                     BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="12"
                     Padding="10,8"
                     BoxShadow="{DynamicResource KitopiaCardBoxShadow}">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -73,7 +73,7 @@
             </Border>
 
             <!-- 3. Plugin Cards List / Empty State / Loading -->
-            <Panel Grid.Row="3" IsVisible="{Binding IsPluginMarket}">
+            <Panel Grid.Row="3" IsVisible="{Binding IsPluginMarket}" Classes="kitopia-enter-up">
                 <!-- Loading State -->
                 <ProgressBar IsIndeterminate="True"
                              HorizontalAlignment="Center"
@@ -82,10 +82,12 @@
 
                 <!-- Empty State -->
                 <Border IsVisible="{Binding HasNoPlugins}"
+                        Classes="kitopia-enter-fade"
                         Background="{DynamicResource KitopiaCardBackgroundBrush}"
-                        BorderBrush="{DynamicResource SemiColorBorder}"
+                        BorderBrush="{DynamicResource KitopiaCardBorderBrush}"
                         BorderThickness="1"
-                        CornerRadius="8"
+                        BoxShadow="{DynamicResource KitopiaCardBoxShadow}"
+                        CornerRadius="12"
                         Padding="48"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Center">
@@ -112,6 +114,7 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="plugin:PluginInfoUiHelper">
                                 <Border Width="390" MinHeight="198"
+                                        Classes="interactive"
                                         Theme="{DynamicResource KitopiaPluginCard}" Margin="6"
                                         Cursor="Hand" PointerPressed="PluginCard_OnPointerPressed">
                                     <Grid RowDefinitions="Auto,*,Auto,Auto">
@@ -348,7 +351,7 @@
                 </ScrollViewer>
             </Panel>
 
-            <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="12" IsVisible="{Binding IsScenarioMarket}">
+            <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="12" IsVisible="{Binding IsScenarioMarket}" Classes="kitopia-enter-up">
                 <StackPanel Orientation="Horizontal" Spacing="12">
                     <Button Content="{DynamicResource 'lang.kitopia.manage_my_scenarios'}" Command="{Binding ManageScenariosCommand}" CornerRadius="6" />
                     <TextBlock Text="{Binding LoadError}" Foreground="{DynamicResource SemiColorDanger}"
@@ -364,7 +367,7 @@
                             <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="scenario:ScenarioMarketItem">
-                                    <Border Width="390" MinHeight="230" Theme="{DynamicResource KitopiaPluginCard}" Margin="6"
+                                    <Border Width="390" MinHeight="230" Classes="interactive" Theme="{DynamicResource KitopiaPluginCard}" Margin="6"
                                             Cursor="Hand" PointerPressed="ScenarioCard_OnPointerPressed">
                                         <Grid RowDefinitions="Auto,*,Auto,Auto,Auto">
                                             <Grid Grid.Row="0" ColumnDefinitions="40,*,Auto" VerticalAlignment="Top">
