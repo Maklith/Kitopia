@@ -1,7 +1,11 @@
 using System.Reflection;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Kitopia.Desktop.Abstractions.TextSelection;
 using Kitopia.Desktop.Features.Services.Config;
 using Kitopia.Desktop.Features.Services.HotKey;
@@ -17,6 +21,7 @@ using SharpHook.Data;
 #if WINDOWS
 using Kitopia.Desktop.Platform.Windows;
 using Vanara.PInvoke;
+using MouseButton = Avalonia.Input.MouseButton;
 using HookMouseButton = SharpHook.Data.MouseButton;
 using WindowsRect = System.Windows.Rect;
 #endif
@@ -146,6 +151,168 @@ public sealed class SelectionTranslationPlacementTests
     }
 
 #if WINDOWS
+    [TestMethod]
+    public Task Window_TitleBarAndCardBlankArea_AllowDragWithoutHijackingInteractiveControls() => RunWindowsAsync(
+        (_, _, _, window, _) =>
+        {
+            window.ViewModel.BeginTranslation(
+                "Hello world",
+                TranslationSourceLanguage.Auto,
+                TranslationTargetLanguage.SimplifiedChinese);
+            window.ShowAt(new PixelPoint(120, 120));
+            Dispatcher.UIThread.RunJobs();
+
+            var anchorField = typeof(SelectionTranslationWindow)
+                .GetField("_anchor", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var screenAnchorField = typeof(SelectionTranslationWindow)
+                .GetField("_screenAnchor", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            Assert.IsNotNull(anchorField.GetValue(window));
+
+            // Pressing inside SelectableTextBlock must keep selection interactive and preserve anchor.
+            var sourceTextBlock = window.GetVisualDescendants().OfType<SelectableTextBlock>().First();
+            var sourcePos = sourceTextBlock.TranslatePoint(new Point(8, 6), window)!.Value;
+            window.MouseDown(sourcePos, MouseButton.Left);
+            window.MouseUp(sourcePos, MouseButton.Left);
+            Assert.IsNotNull(anchorField.GetValue(window));
+
+            // Pressing blank space in the title bar must initiate drag and clear anchor.
+            var card = window.FindControl<Border>("TranslationCard")!;
+            var headerGrid = ((Grid)card.Child!).Children.OfType<Grid>().First();
+            var blankTitlePoint = headerGrid.TranslatePoint(
+                new Point(headerGrid.Bounds.Width * 0.5, headerGrid.Bounds.Height * 0.5),
+                window)!.Value;
+            window.MouseDown(blankTitlePoint, MouseButton.Left);
+            window.MouseUp(blankTitlePoint, MouseButton.Left);
+            Assert.IsNull(anchorField.GetValue(window));
+            Assert.IsNull(screenAnchorField.GetValue(window));
+
+            // Repositioning as if dragged and then receiving translated content must not snap back.
+            var draggedPosition = new PixelPoint(320, 260);
+            window.Position = draggedPosition;
+            window.ViewModel.SetTranslatedText(string.Join('\n', Enumerable.Repeat("翻译结果", 12)));
+            Dispatcher.UIThread.RunJobs();
+            Assert.AreEqual(draggedPosition, window.Position);
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
+    public Task Window_ShortAndTwoLineSourceText_DisplaysFullTextWithoutClippingOrScrolling() => RunWindowsAsync(
+        (_, _, _, window, _) =>
+        {
+            var cases = new[]
+            {
+                ("Hello world", "你好，世界"),
+                (string.Join('\n', Enumerable.Repeat("Long source paragraph for reuse check.", 15)), string.Join('\n', Enumerable.Repeat("长译文复用测试。", 20))),
+                ("This is a slightly longer English sentence that wraps onto two lines cleanly.", "这是一句简短中文。"),
+                ("Two lines of source text here that should never be clipped to one and a half lines.", string.Join('\n', Enumerable.Repeat("多行译文内容", 6))),
+                ("First line\nSecond line", "译文")
+            };
+
+            foreach (var (source, translated) in cases)
+            {
+                window.ViewModel.BeginTranslation(
+                    source,
+                    TranslationSourceLanguage.Auto,
+                    TranslationTargetLanguage.SimplifiedChinese);
+                window.ShowAt(new PixelPoint(120, 120));
+                Dispatcher.UIThread.RunJobs();
+
+                window.ViewModel.SetTranslatedText(translated);
+                Dispatcher.UIThread.RunJobs();
+
+                var viewers = window.GetVisualDescendants().OfType<ScrollViewer>()
+                    .Where(viewer => viewer.Content is SelectableTextBlock text && text.Classes.Contains("body"))
+                    .ToArray();
+                Assert.HasCount(2, viewers);
+
+                var sourceViewer = viewers[0];
+                var sourceTextBlock = (SelectableTextBlock)sourceViewer.Content!;
+                Assert.IsTrue(sourceTextBlock.IsEffectivelyVisible, $"Source text is not visible: '{source}'");
+                Assert.AreEqual(source, sourceTextBlock.Text);
+                Assert.IsTrue(sourceTextBlock.Bounds.Width > 0 && sourceTextBlock.Bounds.Height > 0,
+                    $"Source text has no rendered bounds: '{source}', bounds={sourceTextBlock.Bounds}");
+                if (!source.Contains("Long source paragraph", StringComparison.Ordinal))
+                {
+                    Assert.IsTrue(sourceViewer.Viewport.Height + 0.5 >= sourceViewer.Extent.Height,
+                        $"Source ScrollViewer clipped '{source}': Viewport={sourceViewer.Viewport.Height}, Extent={sourceViewer.Extent.Height}");
+                    Assert.IsTrue(sourceViewer.Bounds.Height + 0.5 >= sourceTextBlock.Bounds.Height,
+                        $"Source ScrollViewer bounds smaller than text '{source}': Viewer={sourceViewer.Bounds.Height}, Text={sourceTextBlock.Bounds.Height}");
+                }
+
+                var translationViewer = viewers[1];
+                var translationTextBlock = (SelectableTextBlock)translationViewer.Content!;
+                Assert.IsTrue(translationTextBlock.IsEffectivelyVisible, $"Translation text is not visible: '{translated}'");
+                Assert.AreEqual(translated, translationTextBlock.Text);
+                Assert.IsTrue(translationTextBlock.Bounds.Width > 0 && translationTextBlock.Bounds.Height > 0,
+                    $"Translation text has no rendered bounds: '{translated}', bounds={translationTextBlock.Bounds}");
+                if (!translated.Contains("长译文复用测试", StringComparison.Ordinal))
+                {
+                    Assert.IsTrue(translationViewer.Viewport.Height + 0.5 >= translationViewer.Extent.Height,
+                        $"Translation ScrollViewer clipped '{translated}': Viewport={translationViewer.Viewport.Height}, Extent={translationViewer.Extent.Height}");
+                }
+
+                window.Hide();
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            return Task.CompletedTask;
+        });
+
+    [TestMethod]
+    [DataRow(380d)]
+    [DataRow(416d)]
+    public Task Window_SmallScreenLongText_KeepsActionsVisibleAndBothViewersScrollable(double availableDipHeight) => RunWindowsAsync(
+        (_, _, _, window, _) =>
+        {
+            var screen = window.Screens.Primary!;
+            var scalingProperty = typeof(Screen).GetProperty(nameof(Screen.Scaling))!;
+            var workingAreaProperty = typeof(Screen).GetProperty(nameof(Screen.WorkingArea))!;
+            var originalScaling = screen.Scaling;
+            var originalWorkingArea = screen.WorkingArea;
+            try
+            {
+                const double scaling = 2.0;
+                scalingProperty.SetValue(screen, scaling);
+                workingAreaProperty.SetValue(screen, new PixelRect(0, 0, 1366, (int)(availableDipHeight * scaling)));
+
+                var longText = string.Join('\n', Enumerable.Repeat(
+                    "A long paragraph with enough text to wrap across multiple lines on small screens.", 30));
+                window.ViewModel.BeginTranslation(
+                    longText,
+                    TranslationSourceLanguage.Auto,
+                    TranslationTargetLanguage.SimplifiedChinese);
+                window.ViewModel.SetTranslatedText(longText);
+                window.ShowAt(new PixelPoint(100, 100));
+                Dispatcher.UIThread.RunJobs();
+
+                var copy = window.GetVisualDescendants().OfType<Button>()
+                    .Single(button => button.Command == window.ViewModel.CopyTranslationCommand);
+                var actionBar = (Control)copy.Parent!;
+                var actionPosition = actionBar.TranslatePoint(default, window)!.Value;
+                Assert.IsTrue(actionPosition.Y + actionBar.Bounds.Height <= window.ClientSize.Height - 10,
+                    $"Bottom action bar clipped at maxHeight={availableDipHeight}: bottom={actionPosition.Y + actionBar.Bounds.Height}, clientHeight={window.ClientSize.Height}");
+
+                var viewers = window.GetVisualDescendants().OfType<ScrollViewer>()
+                    .Where(viewer => viewer.Content is SelectableTextBlock text && text.Classes.Contains("body"))
+                    .ToArray();
+                Assert.HasCount(2, viewers);
+                foreach (var viewer in viewers)
+                {
+                    Assert.IsTrue(viewer.Viewport.Height > 0,
+                        $"Viewer viewport collapsed at maxHeight={availableDipHeight}: {viewer.Viewport.Height}");
+                    Assert.IsTrue(viewer.Extent.Height > viewer.Viewport.Height,
+                        $"Viewer should remain scrollable at maxHeight={availableDipHeight}");
+                }
+            }
+            finally
+            {
+                scalingProperty.SetValue(screen, originalScaling);
+                workingAreaProperty.SetValue(screen, originalWorkingArea);
+            }
+
+            return Task.CompletedTask;
+        });
+
     [TestMethod]
     public void ComputeUnionBounds_MultiLineAndEmptyRectangles_ReturnsUnionBounds()
     {

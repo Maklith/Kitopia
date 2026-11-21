@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Kitopia.Desktop.Abstractions.TextSelection;
 using Kitopia.Desktop.ViewModels;
 using PluginCore;
@@ -19,6 +21,8 @@ public partial class SelectionTranslationWindow : Window
     private const double DefaultMaxWidth = 620;
     private const double DefaultMaxHeight = 620;
     private const double DefaultFallbackHeight = 240;
+    private const double DefaultSourceMaxHeight = 150;
+    private const double NonScrollableChromeDip = 290;
     private const int SelectionWindowBoundsTolerance = 16;
 
     private readonly IWindowTool _windowTool;
@@ -81,6 +85,8 @@ public partial class SelectionTranslationWindow : Window
 
     private void PositionWindow()
     {
+        if (IsVisible && _anchor is null && _screenAnchor is null) return;
+
         var anchor = _anchor ?? _screenAnchor ?? Position;
         var screen = FindScreen(_screenAnchor ?? anchor);
         if (screen is null) return;
@@ -96,6 +102,11 @@ public partial class SelectionTranslationWindow : Window
         if (MaxWidth != maxWidth) MaxWidth = maxWidth;
         if (MinWidth != minWidth) MinWidth = minWidth;
         if (MaxHeight != maxHeight) MaxHeight = maxHeight;
+        var sourceMaxHeight = maxHeight < 480
+            ? Math.Clamp(Math.Max(0, maxHeight - NonScrollableChromeDip) * 0.4, 24, DefaultSourceMaxHeight)
+            : DefaultSourceMaxHeight;
+        if (Math.Abs(SourceScrollViewer.MaxHeight - sourceMaxHeight) > 0.1)
+            SourceScrollViewer.MaxHeight = sourceMaxHeight;
 
         var dipWidth = Bounds.Width > 0
             ? Bounds.Width
@@ -315,12 +326,29 @@ public partial class SelectionTranslationWindow : Window
 
     private void TitleBar_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (e.Handled || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            return;
+
+        if (IsInteractiveSource(e.Source as Visual))
+            return;
+
+        _anchor = null;
+        _screenAnchor = null;
+        BeginMoveDrag(e);
+    }
+
+    private bool IsInteractiveSource(Visual? source)
+    {
+        for (var current = source;
+             current is not null && !ReferenceEquals(current, TranslationCard);
+             current = current.GetVisualParent())
         {
-            _anchor = null;
-            _screenAnchor = null;
-            BeginMoveDrag(e);
+            if (current is Button or ComboBox or SelectableTextBlock or TextBox or ScrollBar or Thumb or MenuItem
+                or ScrollViewer)
+                return true;
         }
+
+        return false;
     }
 
     private void PinButton_OnClick(object? sender, RoutedEventArgs e)
